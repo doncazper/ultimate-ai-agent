@@ -153,6 +153,9 @@ Unattended `--yes` and the deprecated `--approval-token` and
 token paths are not read or written, and token structure, preview hashes,
 expiry, or replay fields cannot create approval authority. The operator must
 review the current preview and type the exact interactive confirmation.
+Their denial receipts record approval authority `none` and decision source
+`pre-authority-input-guard`, rather than claiming that the local approval stack
+made a decision it never evaluated.
 
 Approved bootstrap and OpenWebUI image-pull decisions are additionally routed
 through the local PolicyEngine plus LocalApprovalAuthority adapter. The adapter

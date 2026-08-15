@@ -211,6 +211,9 @@ path is read or written, and no structurally valid, hash-matching, stale,
 replayed, forged, malformed, or arbitrary token can mint a
 LocalApprovalAuthority grant. The operator must rerun without those options and
 type the exact interactive confirmation after reviewing the current preview.
+The denial receipt records approval authority `none` and decision source
+`pre-authority-input-guard` because it is emitted before either approval
+component is constructed.
 
 Approved bootstrap and scoped OpenWebUI image-pull actions are routed through a
 local PolicyEngine plus LocalApprovalAuthority adapter. The adapter records a

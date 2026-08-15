@@ -84,7 +84,9 @@ Docker is resolved, record `INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED`,
 and cannot mint or validate a LocalApprovalAuthority grant. Structurally
 valid, hash-matching, stale, replayed, forged, malformed, symlinked, and
 arbitrary token paths are all non-authorizing because the token is never an
-approval source.
+approval source. These pre-authority denials record approval authority `none`
+and decision source `pre-authority-input-guard`; they do not attribute the
+rejection to PolicyEngine or LocalApprovalAuthority.
 
 Approved image-pull decisions are routed through the local PolicyEngine plus
 LocalApprovalAuthority adapter, which records a chmod `0600` redacted approval
@@ -116,7 +118,7 @@ Each receipt records safe summary fields only:
 - image ref
 - preview hash
 - approval mode
-- approval authority decision ref
+- approval authority, decision source, and decision ref
 - safe receipt summary and hashed receipt scope ref
 - exact command label
 - status

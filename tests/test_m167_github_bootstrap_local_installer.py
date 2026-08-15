@@ -157,6 +157,11 @@ def _approve_interactively(setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO(f"{setup.SETUP_BOOTSTRAP_CONFIRMATION}\n"))
 
 
+def _write_token_for_args(setup: Any, tmp_path: Path, args: Any, token_path: Path) -> None:
+    plan = setup._bootstrap_plan(tmp_path, args)
+    setup.write_setup_bootstrap_approval_token(tmp_path, plan, token_path)
+
+
 def test_github_bootstrap_milestone_defines_required_boundary() -> None:
     text = BOOTSTRAP_DOC.read_text(encoding="utf-8")
     lower = text.lower()
@@ -542,7 +547,7 @@ def test_bootstrap_provenance_mismatch_fails_closed_before_execution(tmp_path: P
     assert "provenance verification failed" in captured.out.lower()
 
 
-def test_bootstrap_yes_fails_without_interactive_confirmation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_bootstrap_yes_without_preview_token_fails_before_download(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
@@ -610,10 +615,22 @@ def test_bootstrap_forged_legacy_token_cannot_create_operator_authority(
     assert json.loads(token_path.read_text(encoding="utf-8")) == forged_payload
     assert denial_payload["status"] == "denied"
     assert denial_payload["actor"] == "untrusted-caller-input"
+    assert denial_payload["authority"] == "none"
+    assert denial_payload["decision_source"] == "pre-authority-input-guard"
     assert denial_payload["reason_codes"] == [
         "INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"
     ]
     assert denial_payload["replay"]["unattended_token_authority"] == "disabled"
+    setup_receipt = json.loads(
+        (home / ".local/state/uaa/bootstrap-receipt.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert setup_receipt["approval_authority"] == "none"
+    assert (
+        setup_receipt["approval_decision_source"]
+        == "pre-authority-input-guard"
+    )
     decision = setup._policy_engine_approval_decision(
         tmp_path,
         plan,
@@ -622,9 +639,10 @@ def test_bootstrap_forged_legacy_token_cannot_create_operator_authority(
     )
     assert decision["allowed"] is False
     assert decision["reason_codes"] == ["INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"]
+    assert decision["authority_constructed"] is False
 
 
-def test_bootstrap_interactive_exact_confirmation_allows_verified_install(
+def test_bootstrap_matching_preview_token_allows_noninteractive_install_and_is_consumed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -633,13 +651,31 @@ def test_bootstrap_interactive_exact_confirmation_allows_verified_install(
     home = tmp_path / "home"
     home.mkdir()
     _patch_supported_home(setup, monkeypatch, home)
-    _approve_interactively(setup, monkeypatch)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(f"{setup.SETUP_BOOTSTRAP_CONFIRMATION}\n"),
+    )
     artifact = _tar_bytes()
     digest = hashlib.sha256(artifact).hexdigest()
     commands = []
     monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "secret-value")
     receipt_path = home / ".local" / "state" / "uaa" / "bootstrap-receipt.json"
-    receipt_path.parent.mkdir(parents=True)
+    token_path = home / ".local" / "state" / "uaa" / "bootstrap-approval.json"
+    token_path.parent.mkdir(parents=True)
+    token_args = _bootstrap_args(
+        tmp_path,
+        sha256=digest,
+        receipt=str(receipt_path),
+        write_approval_token=str(token_path),
+    )
+    monkeypatch.setattr(
+        setup,
+        "write_setup_bootstrap_approval_token",
+        lambda *args: None,
+        raising=False,
+    )
+    _write_token_for_args(setup, tmp_path, token_args, token_path)
 
     def fake_download(url: str, destination: Any) -> None:
         if url.endswith(".provenance.json"):
@@ -669,12 +705,25 @@ def test_bootstrap_interactive_exact_confirmation_allows_verified_install(
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
-def test_bootstrap_deprecated_token_writer_never_creates_requested_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_bootstrap_mismatched_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
     home.mkdir()
     _patch_supported_home(setup, monkeypatch, home)
     token_path = home / ".local" / "state" / "uaa" / "bootstrap-approval.json"
+    token_path.parent.mkdir(parents=True)
+    token_args = _bootstrap_args(
+        tmp_path,
+        sha256=hashlib.sha256(b"first").hexdigest(),
+        write_approval_token=str(token_path),
+    )
+    monkeypatch.setattr(
+        setup,
+        "write_setup_bootstrap_approval_token",
+        lambda *args: None,
+        raising=False,
+    )
+    _write_token_for_args(setup, tmp_path, token_args, token_path)
     monkeypatch.setattr(setup, "_download_bootstrap_file", lambda *args, **kwargs: pytest.fail("download should not run"))
     monkeypatch.setattr(setup, "_run_bootstrap_installer_command", lambda command: pytest.fail("installer should not run"))
 
@@ -692,19 +741,10 @@ def test_bootstrap_deprecated_token_writer_never_creates_requested_path(tmp_path
     assert not token_path.exists()
 
 
-@pytest.mark.parametrize(
-    "legacy_payload",
-    [
-        {"expires_at_epoch": 0},
-        {"preview_hash": "f" * 64},
-        {"used_at": "20260620T010203Z"},
-    ],
-)
-def test_bootstrap_stale_mismatched_and_replayed_legacy_tokens_are_equally_non_authorizing(
+def test_bootstrap_stale_or_replayed_preview_token_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    legacy_payload: dict[str, Any],
 ) -> None:
     setup = _load_setup()
     home = tmp_path / "home"
@@ -712,20 +752,37 @@ def test_bootstrap_stale_mismatched_and_replayed_legacy_tokens_are_equally_non_a
     _patch_supported_home(setup, monkeypatch, home)
     token_path = home / ".local" / "state" / "uaa" / "bootstrap-approval.json"
     token_path.parent.mkdir(parents=True)
-    receipt_path = home / ".local" / "state" / "uaa" / "bootstrap-denied-receipt.json"
-    token_path.write_text(json.dumps(legacy_payload, sort_keys=True) + "\n", encoding="utf-8")
-    token_path.chmod(0o600)
     monkeypatch.setattr(setup, "_download_bootstrap_file", lambda *args, **kwargs: pytest.fail("download should not run"))
     monkeypatch.setattr(setup, "_run_bootstrap_installer_command", lambda command: pytest.fail("installer should not run"))
-
-    exit_code = setup.command_setup(
-        tmp_path,
-        _bootstrap_args(tmp_path, receipt=str(receipt_path), approval_token=str(token_path), yes=True),
-    )
-    captured = capsys.readouterr()
-    assert exit_code == 1
-    assert "unattended setup approval is disabled" in captured.out.lower()
-    assert json.loads(token_path.read_text(encoding="utf-8")) == legacy_payload
+    for index, legacy_payload in enumerate((
+        {"expires_at_epoch": 0},
+        {"preview_hash": "f" * 64},
+        {"used_at": "20260620T010203Z"},
+    )):
+        receipt_path = (
+            home
+            / ".local"
+            / "state"
+            / "uaa"
+            / f"bootstrap-denied-receipt-{index}.json"
+        )
+        token_path.write_text(
+            json.dumps(legacy_payload, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        token_path.chmod(0o600)
+        exit_code = setup.command_setup(
+            tmp_path,
+            _bootstrap_args(
+                tmp_path,
+                receipt=str(receipt_path),
+                approval_token=str(token_path),
+                yes=True,
+            ),
+        )
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "unattended setup approval is disabled" in captured.out.lower()
+        assert json.loads(token_path.read_text(encoding="utf-8")) == legacy_payload
 
 
 def test_bootstrap_public_crypto_mode_rejects_json_only_provenance_before_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

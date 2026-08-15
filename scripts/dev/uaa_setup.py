@@ -62,6 +62,9 @@ SETUP_INSTALL_CONFIRMATION = "install openwebui"
 SETUP_BOOTSTRAP_CONFIRMATION = "install uaa openwebui bootstrap"
 SETUP_APPROVAL_RECEIPT_SCHEMA = "uaa.setup_approval_receipt.v1"
 SETUP_APPROVAL_AUTHORITY_LABEL = "PolicyEngine+LocalApprovalAuthority"
+SETUP_NO_APPROVAL_AUTHORITY_LABEL = "none"
+SETUP_PREAUTHORITY_DECISION_SOURCE = "pre-authority-input-guard"
+SETUP_POLICY_DECISION_SOURCE = "PolicyEngine"
 BOOTSTRAP_REPO_URL = "https://github.com/doncazper/ultimate-ai-agent"
 BOOTSTRAP_RELEASE_BASE_URL = f"{BOOTSTRAP_REPO_URL}/releases/download"
 BOOTSTRAP_TRUST_ROOT_REF = "docs/production/UAA_BOOTSTRAP_TRUST_ROOT.md"
@@ -774,7 +777,12 @@ def write_setup_bootstrap_receipt(
         "receipt": _safe_path_summary(target),
         "preview_hash": plan["preview_hash"],
         "approval_mode": plan.get("approval_mode", "not-approved"),
-        "approval_authority": plan.get("approval_authority", SETUP_APPROVAL_AUTHORITY_LABEL),
+        "approval_authority": plan.get(
+            "approval_authority", SETUP_NO_APPROVAL_AUTHORITY_LABEL
+        ),
+        "approval_decision_source": plan.get(
+            "approval_decision_source", SETUP_PREAUTHORITY_DECISION_SOURCE
+        ),
         "approval_decision_ref": plan.get("approval_decision_ref"),
         "path_mutation_status": "delegated-to-verified-local-installer",
         "installed_assets": [BOOTSTRAP_INSTALLER_NAME] if status == "installed" else [],
@@ -874,7 +882,6 @@ def _authorize_setup_action(root: Path, plan: dict[str, Any], *, action_ref: str
         reason_codes=decision["reason_codes"],
         policy_decision=decision,
     )
-    plan["approval_authority"] = SETUP_APPROVAL_AUTHORITY_LABEL
     plan["approval_decision_ref"] = decision["decision_ref"]
     plan["approval_receipt"] = _display_path(root, receipt_path)
     if not decision["allowed"]:
@@ -896,6 +903,8 @@ def _policy_engine_approval_decision(
             "safe_message": "Exact interactive operator confirmation is required.",
             "capability_id": _setup_capability_id(action_ref),
             "task_id": _setup_task_id(action_ref, plan),
+            "authority_constructed": False,
+            "decision_source": SETUP_PREAUTHORITY_DECISION_SOURCE,
         }
     try:
         _ensure_src_on_path()
@@ -911,6 +920,8 @@ def _policy_engine_approval_decision(
             "safe_message": f"Approval authority import failed safely: {exc.__class__.__name__}",
             "capability_id": _setup_capability_id(action_ref),
             "task_id": _setup_task_id(action_ref, plan),
+            "authority_constructed": False,
+            "decision_source": "approval-authority-import-guard",
         }
 
     capability_id = _setup_capability_id(action_ref)
@@ -995,6 +1006,8 @@ def _policy_engine_approval_decision(
         "safe_message": decision.safe_message,
         "capability_id": capability_id,
         "task_id": task_id,
+        "authority_constructed": True,
+        "decision_source": SETUP_POLICY_DECISION_SOURCE,
     }
 
 
@@ -1009,12 +1022,25 @@ def _record_setup_approval_decision(
     policy_decision: dict[str, Any] | None = None,
 ) -> Path:
     decision_ref = (policy_decision or {}).get("decision_ref") or _setup_approval_decision_ref(action_ref, plan)
-    plan["approval_authority"] = SETUP_APPROVAL_AUTHORITY_LABEL
+    authority_constructed = bool(
+        (policy_decision or {}).get("authority_constructed", False)
+    )
+    authority_label = (
+        SETUP_APPROVAL_AUTHORITY_LABEL
+        if authority_constructed
+        else SETUP_NO_APPROVAL_AUTHORITY_LABEL
+    )
+    decision_source = (policy_decision or {}).get(
+        "decision_source", SETUP_PREAUTHORITY_DECISION_SOURCE
+    )
+    plan["approval_authority"] = authority_label
+    plan["approval_decision_source"] = decision_source
     plan["approval_decision_ref"] = decision_ref
     receipt_path = root / SETUP_APPROVAL_RECEIPT_DIR / f"{action_ref}-{plan['preview_hash'][:16]}-{_utc_timestamp()}.json"
     payload = {
         "schema": SETUP_APPROVAL_RECEIPT_SCHEMA,
-        "authority": SETUP_APPROVAL_AUTHORITY_LABEL,
+        "authority": authority_label,
+        "decision_source": decision_source,
         "decision_ref": decision_ref,
         "status": status,
         "reason_codes": list(dict.fromkeys(reason_codes)),
@@ -1734,7 +1760,12 @@ def write_setup_install_receipt(
         "image_ref": plan["image_ref"],
         "preview_hash": plan["preview_hash"],
         "approval_mode": plan.get("approval_mode", "not-approved"),
-        "approval_authority": plan.get("approval_authority", SETUP_APPROVAL_AUTHORITY_LABEL),
+        "approval_authority": plan.get(
+            "approval_authority", SETUP_NO_APPROVAL_AUTHORITY_LABEL
+        ),
+        "approval_decision_source": plan.get(
+            "approval_decision_source", SETUP_PREAUTHORITY_DECISION_SOURCE
+        ),
         "approval_decision_ref": plan.get("approval_decision_ref"),
         "exact_commands": [_shell_preview(command) for command in plan["commands"]],
         "side_effects_allowed": plan["side_effects_allowed"],

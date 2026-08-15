@@ -96,7 +96,9 @@ The receipt destination is bound into the preview hash. Unattended approval is
 disabled: bare `--yes` and the deprecated `--approval-token` and
 `--write-approval-token` inputs fail closed before Docker is resolved, and no
 token path is read or written. Rerun without those options and type the exact
-interactive confirmation.
+interactive confirmation. Denial receipts label approval authority as `none`
+and the decision source as `pre-authority-input-guard` because the approval
+stack is never constructed for unattended input.
 
 It does not install Python, Node/npm dependencies, Homebrew packages,
 llama.cpp, models, providers, plugins, browser tooling, credentials, or system

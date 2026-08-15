@@ -292,7 +292,7 @@ def test_setup_install_refusal_writes_redacted_receipt(tmp_path: Path, monkeypat
     assert "secret-value" not in receipt_path.read_text(encoding="utf-8")
 
 
-def test_setup_install_yes_fails_closed_without_interactive_confirmation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_setup_install_yes_without_preview_token_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     setup = load_setup()
     monkeypatch.setattr(setup, "_utc_timestamp", lambda: "20260620T010203Z")
 
@@ -371,10 +371,24 @@ def test_setup_install_forged_legacy_token_cannot_create_operator_authority(
     assert token_after == forged_payload
     assert denial_payload["status"] == "denied"
     assert denial_payload["actor"] == "untrusted-caller-input"
+    assert denial_payload["authority"] == "none"
+    assert denial_payload["decision_source"] == "pre-authority-input-guard"
     assert denial_payload["reason_codes"] == [
         "INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"
     ]
     assert denial_payload["replay"]["unattended_token_authority"] == "disabled"
+    setup_receipt = json.loads(
+        (
+            tmp_path
+            / setup.SETUP_INSTALL_RECEIPT_DIR
+            / "openwebui-20260815T010203Z.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert setup_receipt["approval_authority"] == "none"
+    assert (
+        setup_receipt["approval_decision_source"]
+        == "pre-authority-input-guard"
+    )
     decision = setup._policy_engine_approval_decision(
         tmp_path,
         plan,
@@ -383,6 +397,7 @@ def test_setup_install_forged_legacy_token_cannot_create_operator_authority(
     )
     assert decision["allowed"] is False
     assert decision["reason_codes"] == ["INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED"]
+    assert decision["authority_constructed"] is False
 
 
 def test_setup_install_approved_pulls_openwebui_image_and_writes_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -490,7 +505,7 @@ def test_setup_install_custom_receipt_is_preview_bound_and_redacted(
     assert stat.S_IMODE(receipt_path.stat().st_mode) == 0o600
 
 
-def test_setup_install_custom_receipt_legacy_token_path_is_not_read(
+def test_setup_install_custom_receipt_mismatch_fails_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -598,7 +613,7 @@ def test_setup_install_custom_receipt_write_rejects_substituted_symlink(
     assert outside.read_text(encoding="utf-8") == "keep"
 
 
-def test_setup_install_deprecated_token_writer_never_creates_requested_path(
+def test_setup_install_custom_receipt_rejects_approval_token_alias(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -791,19 +806,10 @@ def test_setup_install_custom_receipt_is_reserved_before_docker(
     assert stat.S_IMODE(private_receipt.stat().st_mode) == 0o600
 
 
-@pytest.mark.parametrize(
-    "legacy_payload",
-    [
-        {"expires_at_epoch": 0},
-        {"preview_hash": "f" * 64},
-        {"used_at": "20260620T010203Z"},
-    ],
-)
-def test_setup_install_stale_mismatched_and_replayed_legacy_tokens_are_equally_non_authorizing(
+def test_setup_install_preview_token_stale_mismatch_and_replay_fail_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    legacy_payload: dict[str, Any],
 ) -> None:
     setup = load_setup()
     home = tmp_path / "home"
@@ -813,16 +819,28 @@ def test_setup_install_stale_mismatched_and_replayed_legacy_tokens_are_equally_n
     monkeypatch.setattr(setup, "_bootstrap_user_home", lambda: home)
     monkeypatch.setattr(setup, "_resolve_command", lambda command: pytest.fail("Docker should not be resolved"))
 
-    token_path.write_text(json.dumps(legacy_payload, sort_keys=True) + "\n", encoding="utf-8")
-    token_path.chmod(0o600)
-    exit_code = setup.command_setup(
-        tmp_path,
-        _setup_args(setup_action="install", target="openwebui", yes=True, approval_token=str(token_path)),
-    )
-    captured = capsys.readouterr()
-    assert exit_code == 1
-    assert "unattended setup approval is disabled" in captured.out.lower()
-    assert json.loads(token_path.read_text(encoding="utf-8")) == legacy_payload
+    for legacy_payload in (
+        {"expires_at_epoch": 0},
+        {"preview_hash": "f" * 64},
+        {"used_at": "20260620T010203Z"},
+    ):
+        token_path.write_text(
+            json.dumps(legacy_payload, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        token_path.chmod(0o600)
+        exit_code = setup.command_setup(
+            tmp_path,
+            _setup_args(
+                setup_action="install",
+                target="openwebui",
+                yes=True,
+                approval_token=str(token_path),
+            ),
+        )
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "unattended setup approval is disabled" in captured.out.lower()
+        assert json.loads(token_path.read_text(encoding="utf-8")) == legacy_payload
 
 
 def test_setup_install_docker_not_ready_does_not_pull(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -1327,7 +1345,7 @@ def test_launcher_parser_exposes_setup_command() -> None:
     assert args.plan is True
 
 
-def test_launcher_parser_keeps_deprecated_setup_inputs_for_truthful_denial() -> None:
+def test_launcher_parser_exposes_setup_install_command() -> None:
     launcher = load_launcher()
 
     args = launcher.parse_args(
