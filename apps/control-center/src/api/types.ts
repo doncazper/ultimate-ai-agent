@@ -15163,7 +15163,6 @@ export interface AuthorityLeaseIssueRequest {
   duration_minutes?: number;
   safe_summary: string;
   approval_ref?: string | null;
-  approval_grants?: Record<string, unknown>[];
 }
 
 export interface AuthorityLeaseApprovalRequirement {

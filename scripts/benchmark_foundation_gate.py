@@ -376,11 +376,9 @@ def _issue_release_latency_file_preview_authority(state_dir: Path) -> None:
         AuthorityLeaseIssueRequest,
         AuthorityLeaseStore,
         TrustMode,
-        build_authority_lease_approval_requirement_for_request,
     )
     from ultimate_ai_agent.core.authority.approval_validation import (
-        build_authority_lease_test_grant,
-        validate_authority_lease_approval,
+        issue_authority_lease_from_backend_state,
     )
 
     request = AuthorityLeaseIssueRequest(
@@ -398,25 +396,10 @@ def _issue_release_latency_file_preview_authority(state_dir: Path) -> None:
         ),
     )
     idempotency_ref = "idempotency-ref:release-latency-file-preview"
-    requirement = build_authority_lease_approval_requirement_for_request(
+    issue_authority_lease_from_backend_state(
+        AuthorityLeaseStore(state_dir),
         request,
         idempotency_ref=idempotency_ref,
-    )
-    if requirement.approval_required:
-        grant = build_authority_lease_test_grant(
-            requirement,
-            approval_ref="approval-ref:release-latency-file-preview",
-        )
-        request = request.model_copy(
-            update={
-                "approval_ref": grant.approval_ref,
-                "approval_grants": [grant.model_dump(mode="json")],
-            }
-        )
-    AuthorityLeaseStore(state_dir).issue_lease(
-        request,
-        idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
     )
 
 

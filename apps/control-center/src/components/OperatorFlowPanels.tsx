@@ -2242,6 +2242,14 @@ export function SettingsOperatorPanel({
                 {authorityMutation.receipt.approval_scope_ref ? (
                   <span>{authorityMutation.receipt.approval_scope_ref}</span>
                 ) : null}
+                {authorityMutation.receipt.approval_reason_codes.map(
+                  (reasonCode) => (
+                    <span key={reasonCode}>{reasonCode}</span>
+                  ),
+                )}
+                {authorityMutation.receipt.blocked_reason_refs.map((reasonRef) => (
+                  <span key={reasonRef}>{reasonRef}</span>
+                ))}
                 <span>{authorityMutation.receipt.receipt_ref}</span>
                 <span>{authorityMutation.receipt.lease_ref}</span>
                 {authorityMutation.receipt.unsupported_adapter_refs.map((ref) => (

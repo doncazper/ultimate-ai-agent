@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStatus,
     AuthorityLeaseStore,
     authority_lease_kill_switch_engaged,
+    build_authority_lease_approval_requirement_for_request,
 )
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
     AuthorityDispatchRequest,
@@ -34,8 +35,7 @@ from ultimate_ai_agent.core.costs.budgets import CostBudget
 from ultimate_ai_agent.core.costs.enums import BudgetScope
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
 from ultimate_ai_agent.core.authority.approval_validation import (
-    build_authority_lease_operator_approval_grant,
-    validate_authority_lease_approval,
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -173,24 +173,19 @@ def issue_exact_matrix_session_lease(
         "idempotency-ref:matrix-session-lease-issue",
         {"request_fingerprint_ref": command.request_fingerprint_ref},
     )
-    requirement, grant = build_authority_lease_operator_approval_grant(
+    requirement = build_authority_lease_approval_requirement_for_request(
         request,
         idempotency_ref=issue_idempotency_ref,
-        approved_by_actor_id="operator-ref:local-user",
     )
-    if requirement.approval_required:
-        if not confirmed or grant is None:
-            raise ValueError("MATRIX_SESSION_LEASE_CONFIRMATION_REQUIRED")
-        request = request.model_copy(
-            update={
-                "approval_ref": grant.approval_ref,
-                "approval_grants": [grant.model_dump(mode="json")],
-            }
+    if requirement.approval_required and not confirmed:
+        raise ValueError("MATRIX_SESSION_LEASE_CONFIRMATION_REQUIRED")
+    _requirement, _grant, lease, receipt = (
+        issue_authority_lease_with_backend_approval(
+            store,
+            request,
+            idempotency_ref=issue_idempotency_ref,
+            approved_by_actor_id="operator-ref:local-user",
         )
-    lease, receipt = store.issue_lease(
-        request,
-        idempotency_ref=issue_idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
     )
     if lease is None or receipt.status not in {"issued", "replayed"}:
         raise ValueError("MATRIX_SESSION_EXACT_LEASE_ISSUANCE_DENIED")

@@ -310,14 +310,6 @@ def build_parser(runtime_symbols: Mapping[str, Any]) -> argparse.ArgumentParser:
         help="Safe operator actor ref used when --approve captures the exact grant.",
     )
     select_authority.add_argument(
-        "--approval-grant-json",
-        action="append",
-        help=(
-            "Redacted ApprovalGrant JSON used only for exact local validation; "
-            "not persisted in authority receipts."
-        ),
-    )
-    select_authority.add_argument(
         "--summary",
         required=True,
         help="Safe bounded operator summary.",

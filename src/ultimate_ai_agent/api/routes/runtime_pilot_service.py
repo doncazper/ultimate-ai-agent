@@ -24,8 +24,10 @@ from ultimate_ai_agent.core.authority import (
     AuthorityMissionPlanRequest,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
-    build_authority_lease_operator_approval_grant,
-    validate_authority_lease_approval,
+    AuthorityLeaseApprovalConflictError,
+    AuthorityLeaseApprovalStateError,
+    issue_authority_lease_from_backend_state,
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.authority.dispatcher import (
     AuthorityDispatchCorruptionError,
@@ -2338,11 +2340,32 @@ def post_api_runtime_authority_lease(
     ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    store = _authority_store()
     try:
-        lease, receipt = _authority_store().issue_lease(
+        lease, receipt = issue_authority_lease_from_backend_state(
+            store,
             request,
             idempotency_ref=idempotency_ref,
-            approval_validator=validate_authority_lease_approval,
+        )
+    except AuthorityLeaseApprovalStateError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="APPROVAL_BACKEND_STATE_INVALID",
+                category=ErrorCategory.security_blocked,
+                safe_message=(
+                    "Backend-owned approval state is unavailable; no authority "
+                    "lease was issued."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=["safe_refs_only", "raw_local_paths_omitted"],
         )
     except AuthorityLeaseConflictError:
         return ResultEnvelope(
@@ -2396,27 +2419,56 @@ def post_api_runtime_authority_lease_approve_and_issue(
     lease_request = request.lease_issue_request.model_copy(
         update={"operator_ref": AUTHORITY_LEASE_LOCAL_OPERATOR_REF}
     )
-    approval_requirement, approval_grant = (
-        build_authority_lease_operator_approval_grant(
-            lease_request,
-            idempotency_ref=idempotency_ref,
-            approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
-        )
-    )
-    if approval_grant is not None:
-        lease_request = lease_request.model_copy(
-            update={
-                "approval_ref": approval_grant.approval_ref,
-                "approval_grants": [approval_grant.model_dump(mode="json")],
-            }
-        )
+    store = _authority_store()
     try:
-        lease, receipt = _authority_store().issue_lease(
-            lease_request,
-            idempotency_ref=idempotency_ref,
-            approval_validator=validate_authority_lease_approval,
+        approval_requirement, approval_grant, lease, receipt = (
+            issue_authority_lease_with_backend_approval(
+                store,
+                lease_request,
+                idempotency_ref=idempotency_ref,
+                approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
+            )
         )
-    except AuthorityLeaseConflictError:
+    except AuthorityLeaseApprovalStateError as exc:
+        approval_captured = exc.approval_captured
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_approve_and_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="APPROVAL_BACKEND_STATE_INVALID",
+                category=ErrorCategory.security_blocked,
+                safe_message=(
+                    "The backend-owned approval was captured, but authority "
+                    "lease persistence was not confirmed; no success is reported."
+                    if approval_captured
+                    else "Backend-owned approval state is unavailable; no approval "
+                    "or authority lease was issued."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            data=(
+                {
+                    "lease": None,
+                    "approval_captured": True,
+                    "approval_ref": exc.approval_ref,
+                    "approval_scope_ref": exc.approval_scope_ref,
+                    "approval_grant_payload_persisted": False,
+                    "backend_approval_state_persisted": True,
+                    "lease_persistence_confirmed": False,
+                    "execution_performed": False,
+                    "unknown_authority_default": "deny",
+                }
+                if approval_captured
+                else None
+            ),
+            redactions_applied=["safe_refs_only", "raw_local_paths_omitted"],
+        )
+    except (AuthorityLeaseApprovalConflictError, AuthorityLeaseConflictError):
         return ResultEnvelope(
             success=False,
             operation="api_runtime_authority_lease_approve_and_issue",
@@ -2447,6 +2499,7 @@ def post_api_runtime_authority_lease_approve_and_issue(
             if approval_grant is not None
             else None,
             "approval_grant_payload_persisted": False,
+            "backend_approval_state_persisted": approval_grant is not None,
             "execution_performed": False,
             "unsupported_adapters_claimed_execution": False,
             "unknown_authority_default": "deny",

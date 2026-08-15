@@ -9,11 +9,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseIssueRequest,
     AuthorityLeaseStore,
     TrustMode,
-    build_authority_lease_approval_requirement_for_request,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
-    build_authority_lease_test_grant,
-    validate_authority_lease_approval,
+    issue_authority_lease_with_test_approval,
 )
 
 
@@ -23,25 +21,10 @@ def _issue_test_authority_lease(
     *,
     idempotency_ref: str,
 ) -> None:
-    requirement = build_authority_lease_approval_requirement_for_request(
+    lease, receipt = issue_authority_lease_with_test_approval(
+        AuthorityLeaseStore(state_dir),
         request,
         idempotency_ref=idempotency_ref,
-    )
-    if requirement.approval_required:
-        grant = build_authority_lease_test_grant(
-            requirement,
-            approval_ref=f"approval-ref:test-authority-lease:{idempotency_ref.rsplit(':', 1)[-1]}",
-        )
-        request = request.model_copy(
-            update={
-                "approval_ref": grant.approval_ref,
-                "approval_grants": [grant.model_dump(mode="json")],
-            }
-        )
-    lease, receipt = AuthorityLeaseStore(state_dir).issue_lease(
-        request,
-        idempotency_ref=idempotency_ref,
-        approval_validator=validate_authority_lease_approval,
     )
     assert receipt.status == "issued"
     assert lease is not None
