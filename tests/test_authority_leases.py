@@ -3783,7 +3783,9 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     assert tampered_receipt.redactions_applied
     assert tamper_store.list_leases() == []
     assert approval_store.signing_key_path.stat().st_mode & 0o077 == 0
-    assert approval_store.signing_key_path.stat().st_size == 32
+    encoded_signing_key = approval_store.signing_key_path.read_text(encoding="ascii")
+    assert len(encoded_signing_key) == 64
+    assert len(bytes.fromhex(encoded_signing_key)) == 32
     assert "signing_key" not in approval_store.records_path.read_text(encoding="utf-8")
 
 

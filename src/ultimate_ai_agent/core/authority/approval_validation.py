@@ -65,7 +65,10 @@ AUTHORITY_LEASE_APPROVAL_RECORD_SCHEMA_VERSION = (
 AUTHORITY_LEASE_APPROVALS_FILE = "authority_lease_approvals.json"
 AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_FILE = "authority_lease_approvals.key"
 AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT = 512
-AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES = 32
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES = 32
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES = (
+    AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES * 2
+)
 
 
 class AuthorityLeaseApprovalStateError(RuntimeError):
@@ -620,17 +623,17 @@ class AuthorityLeaseApprovalStore:
                 or (metadata.st_dev, metadata.st_ino)
                 != (linked_metadata.st_dev, linked_metadata.st_ino)
                 or stat.S_IMODE(metadata.st_mode) & 0o077
-                or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES
+                or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES
             ):
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
                 )
-            signing_key = os.read(
+            encoded_signing_key = os.read(
                 descriptor,
-                AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES + 1,
+                AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES + 1,
             )
             closed_over = os.fstat(descriptor)
-            if len(signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES or (
+            if len(encoded_signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES or (
                 closed_over.st_size,
                 closed_over.st_mtime_ns,
                 closed_over.st_ctime_ns,
@@ -639,6 +642,16 @@ class AuthorityLeaseApprovalStore:
                 metadata.st_mtime_ns,
                 metadata.st_ctime_ns,
             ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                )
+            try:
+                signing_key = bytes.fromhex(encoded_signing_key.decode("ascii"))
+            except (UnicodeDecodeError, ValueError) as exc:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                ) from exc
+            if len(signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES:
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
                 )
@@ -655,7 +668,10 @@ class AuthorityLeaseApprovalStore:
 
     def _create_signing_key_unlocked(self) -> bytes:
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        signing_key = secrets.token_bytes(AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES)
+        signing_key = secrets.token_bytes(
+            AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES
+        )
+        encoded_signing_key = signing_key.hex().encode("ascii")
         temp_path = self.signing_key_path.with_name(
             f".{self.signing_key_path.name}.{uuid.uuid4().hex}.tmp"
         )
@@ -673,7 +689,7 @@ class AuthorityLeaseApprovalStore:
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
                 os.fchmod(handle.fileno(), 0o600)
-                handle.write(signing_key)
+                handle.write(encoded_signing_key)
                 handle.flush()
                 os.fsync(handle.fileno())
             try:
