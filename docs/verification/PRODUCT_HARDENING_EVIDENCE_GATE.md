@@ -17,9 +17,26 @@ distribution or production readiness.
 | Supply-chain evidence | Frozen `uv.lock` installation, Python and npm audit, and CycloneDX SBOM generation run on standard ephemeral GitHub-hosted macOS runners. The content-free CodeQL SARIF severity verifier is implemented, but CodeQL analysis remains blocked by the repository action allow-policy. | Audit or SBOM validation fails the workflow; supplied SARIF with a high-severity finding fails the local verifier. |
 | Dependency compatibility | Standard ephemeral GitHub-hosted macOS runners install the bounded lowest-direct and highest dependency resolutions and run the identity, API, recovery, and property boundaries. | Either supported edge fails its focused pytest lane. |
 
-Historical Goat comparison evidence is checked against source bytes from its
-recorded Git commit, not against the moving worktree. Pytest CI retains Git
-history for this fail-closed binding check.
+Historical Goat comparison evidence remains byte-for-byte immutable. Its
+generation-1 provenance proof binds the exact artifact digest, records the
+pre-squash source SHA as historical rather than current authority, and replaces
+it with a reachable `main` SHA whose evaluator envelope has the same digest.
+The verifier additionally binds the current full evaluator digest and permits
+only its provenance verifier and direct test to differ from that reachable
+source. Missing or extra proof generations, artifact replacement, source-SHA or
+digest substitution, and unrelated evaluator drift fail closed. Pytest CI
+retains Git history for the reachable replacement check; the historical branch
+object is not required in a fresh clone.
+
+| Provenance repair invariant | Enforced posture |
+|---|---|
+| Provenance and authority | Exact artifact hash, digest-equivalent reachable replacement, and `authority_granted: false`. |
+| Atomicity and recovery | Bounded no-follow single-link reads; the historical in-place refresh path is rejected. |
+| Concurrency and generations | Exactly one generation-1 proof; extra, missing, or duplicate generations fail closed. |
+| Tampering and substitution | Artifact, commit, digest, source-path, unsafe-field, and filesystem-object substitutions are rejected. |
+| Capacity and retention | One size-bounded proof is accepted and the predecessor artifact is retained unchanged. |
+| Failure truth | The orphaned SHA is historical only; the reachable replacement and current content digest must both verify. |
+| Cross-surface parity | Not applicable: this proof changes no Core, API, CLI product command, Control Center, or runtime authority contract. |
 
 The full repository verifier, documentation verifier, OpenAPI verifier, and
 Foundation Gate remain required. These independent lanes supplement them; they

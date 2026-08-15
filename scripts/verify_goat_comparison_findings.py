@@ -57,6 +57,22 @@ DEFAULT_ARTIFACT = (
     / "runtime_capability_foundation"
     / "goat_comparison_20260712.json"
 )
+PROVENANCE_REPLACEMENT = (
+    ROOT
+    / "docs"
+    / "benchmarks"
+    / "runtime_capability_foundation"
+    / "goat_comparison_20260712.provenance-0001.json"
+)
+PROVENANCE_REPLACEMENT_GLOB = "goat_comparison_20260712.provenance-*.json"
+HISTORICAL_ARTIFACT_DIGEST = (
+    "sha256:e5145cb1c1cbd92aa222d0d4fa19ca1def82b54e1593cc673cf8db433a97b751"
+)
+PROVENANCE_REPAIR_BASE_COMMIT = "5a07d3cff7a0d6cce5780378b8c1624bd8417d74"
+PROVENANCE_TRANSITION_SOURCE_REFS = (
+    "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
+    "repo-ref:uaa:tests/test_goat_comparison_findings.py",
+)
 COMPONENT_IDS = (
     "reasoning_task_understanding",
     "planning_orchestration",
@@ -126,6 +142,7 @@ SAFE_SENSITIVE_KEY_SUFFIXES = (
 )
 UNSAFE_TEXT = ("/Users/", "/home/", "C:\\", "api_key=", "password=")
 MAX_ARTIFACT_BYTES = 1_000_000
+MAX_PROVENANCE_REPLACEMENT_BYTES = 16_384
 MAX_EVIDENCE_BYTES = 5_000_000
 
 
@@ -357,11 +374,198 @@ def _projection_digest(projection: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
+def _sha256_ref(payload: bytes) -> str:
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _load_provenance_replacement() -> dict[str, Any]:
+    candidates = tuple(
+        sorted(PROVENANCE_REPLACEMENT.parent.glob(PROVENANCE_REPLACEMENT_GLOB))
+    )
+    if candidates != (PROVENANCE_REPLACEMENT,):
+        raise VerificationError(
+            "comparison provenance requires exactly one bounded generation"
+        )
+    payload = _safe_read(
+        PROVENANCE_REPLACEMENT.relative_to(ROOT),
+        root=ROOT,
+        maximum_bytes=MAX_PROVENANCE_REPLACEMENT_BYTES,
+    )
+    return json.loads(payload.decode("utf-8"))
+
+
+def _evaluation_source_changed_refs_at_commit(commit: str) -> tuple[str, ...]:
+    changed: list[str] = []
+    for relative in evaluation_source_paths():
+        result = subprocess.run(
+            ("/usr/bin/git", "cat-file", "blob", f"{commit}:{relative}"),
+            cwd=ROOT,
+            env={
+                "PATH": "/usr/bin:/bin",
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+            },
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            raise VerificationError(
+                "reachable replacement source envelope is unavailable"
+            )
+        current = _safe_read(
+            Path(relative), root=ROOT, maximum_bytes=MAX_EVIDENCE_BYTES
+        )
+        if current != result.stdout:
+            changed.append(f"repo-ref:uaa:{relative}")
+    return tuple(changed)
+
+
+def _validate_provenance_replacement(
+    data: dict[str, Any], replacement: dict[str, Any]
+) -> None:
+    _walk(replacement)
+    if contains_secret_like(replacement) or contains_obvious_secret(replacement):
+        raise VerificationError("comparison provenance contains secret-like material")
+    if set(replacement) != {
+        "schema_version",
+        "generation",
+        "comparison_artifact",
+        "historical_binding",
+        "reachable_replacement",
+        "contract_transition",
+        "retention_posture",
+        "generation_posture",
+        "cross_surface_parity",
+        "reason_ref",
+        "authority_granted",
+    }:
+        raise VerificationError("comparison provenance replacement shape drift")
+    if (
+        replacement.get("schema_version")
+        != "uaa_goat_comparison_provenance_replacement.v1"
+        or replacement.get("generation") != 1
+    ):
+        raise VerificationError("comparison provenance generation drift")
+    if replacement.get("authority_granted") is not False:
+        raise VerificationError("comparison provenance cannot grant authority")
+    if replacement.get("retention_posture") != "append_only_predecessor_retained":
+        raise VerificationError("comparison provenance retention drift")
+    if replacement.get("generation_posture") != "single_generation_fail_closed":
+        raise VerificationError("comparison provenance generation posture drift")
+    if replacement.get("cross_surface_parity") != "not_applicable_provenance_only":
+        raise VerificationError("comparison provenance parity posture drift")
+    if replacement.get("reason_ref") != (
+        "reason-ref:goat-comparison-orphaned-squash-source-binding"
+    ):
+        raise VerificationError("comparison provenance reason drift")
+
+    historical_payload = _safe_read(
+        DEFAULT_ARTIFACT.relative_to(ROOT),
+        root=ROOT,
+        maximum_bytes=MAX_ARTIFACT_BYTES,
+    )
+    artifact = replacement.get("comparison_artifact")
+    if not isinstance(artifact, dict) or artifact != {
+        "artifact_ref": "artifact-ref:uaa-goat-comparison:20260712",
+        "artifact_sha256": HISTORICAL_ARTIFACT_DIGEST,
+        "immutable": True,
+    }:
+        raise VerificationError("comparison artifact replacement binding drift")
+    if _sha256_ref(historical_payload) != HISTORICAL_ARTIFACT_DIGEST:
+        raise VerificationError("historical comparison artifact substitution")
+
+    result = data.get("implementation_result", {})
+    historical = replacement.get("historical_binding")
+    if not isinstance(historical, dict):
+        raise VerificationError("historical comparison source binding is required")
+    source_commit = result.get("uaa_source_commit")
+    if not isinstance(source_commit, str) or not re.fullmatch(
+        r"[0-9a-f]{40}", source_commit
+    ):
+        raise VerificationError("exact UAA evaluation source commit is required")
+    if historical != {
+        "source_commit": source_commit,
+        "evaluator_source_digest": result.get("evaluator_source_digest"),
+        "evaluator_source_file_count": result.get("evaluator_source_file_count"),
+        "posture": "historical_unreachable_or_missing_from_fresh_main",
+    }:
+        raise VerificationError("historical evaluator source digest substitution")
+
+    reachable = replacement.get("reachable_replacement")
+    if not isinstance(reachable, dict) or set(reachable) != {
+        "source_commit",
+        "evaluator_source_digest",
+        "evaluator_source_file_count",
+        "posture",
+    }:
+        raise VerificationError("reachable comparison replacement shape drift")
+    replacement_commit = reachable.get("source_commit")
+    if replacement_commit != PROVENANCE_REPAIR_BASE_COMMIT:
+        raise VerificationError("reachable comparison source commit substitution")
+    if reachable.get("posture") != "reachable_ancestor_digest_equivalent":
+        raise VerificationError("reachable comparison source posture drift")
+    if not evaluation_source_commit_is_ancestor(replacement_commit):
+        raise VerificationError(
+            "replacement UAA evaluation source commit is not reachable"
+        )
+    replacement_digest = evaluation_source_digest_at_commit(replacement_commit)
+    if reachable.get("evaluator_source_digest") != replacement_digest:
+        raise VerificationError("reachable comparison source digest drift")
+    if reachable.get("evaluator_source_file_count") != len(evaluation_source_paths()):
+        raise VerificationError("reachable comparison source coverage drift")
+    if historical.get("evaluator_source_digest") != replacement_digest:
+        raise VerificationError(
+            "historical and reachable comparison sources are not digest equivalent"
+        )
+
+    transition = replacement.get("contract_transition")
+    if not isinstance(transition, dict) or set(transition) != {
+        "current_evaluator_source_digest",
+        "current_evaluator_source_file_count",
+        "changed_source_refs",
+        "posture",
+        "comparison_findings_changed",
+        "score_changed",
+        "report_projection_changed",
+    }:
+        raise VerificationError("comparison provenance transition shape drift")
+    if transition.get("current_evaluator_source_digest") != evaluation_source_digest():
+        raise VerificationError(
+            "stored capability evidence is stale for the current evaluator source"
+        )
+    if transition.get("current_evaluator_source_file_count") != len(
+        evaluation_source_paths()
+    ):
+        raise VerificationError("current capability evaluator source coverage drift")
+    expected_changed_refs = _evaluation_source_changed_refs_at_commit(
+        replacement_commit
+    )
+    if expected_changed_refs != PROVENANCE_TRANSITION_SOURCE_REFS:
+        raise VerificationError("unbounded comparison provenance source transition")
+    if transition.get("changed_source_refs") != list(expected_changed_refs):
+        raise VerificationError("comparison provenance source substitution")
+    if transition.get("posture") != (
+        "provenance_verifier_only_no_runtime_evaluator_change"
+    ):
+        raise VerificationError("comparison provenance transition posture drift")
+    for field in (
+        "comparison_findings_changed",
+        "score_changed",
+        "report_projection_changed",
+    ):
+        if transition.get(field) is not False:
+            raise VerificationError(
+                "comparison provenance cannot change evidence truth"
+            )
+
+
 def verify_data(
     data: dict[str, Any],
     *,
     goat_root: Path | None = None,
     revalidate_uaa: bool = False,
+    provenance_replacement: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if goat_root is not None:
         goat_root = _validate_external_root(goat_root)
@@ -477,25 +681,12 @@ def verify_data(
         raise VerificationError("capability evaluation report projection digest drift")
     if result.get("registry_fingerprint_ref") != evaluation_registry_fingerprint():
         raise VerificationError("capability evaluation registry fingerprint drift")
-    source_commit = result.get("uaa_source_commit")
-    if not isinstance(source_commit, str) or not re.fullmatch(
-        r"[0-9a-f]{40}", source_commit
-    ):
-        raise VerificationError("exact UAA evaluation source commit is required")
-    if not evaluation_source_commit_is_ancestor(source_commit):
-        raise VerificationError(
-            "UAA evaluation source commit is not reachable from the current head"
-        )
-    if result.get("evaluator_source_digest") != evaluation_source_digest_at_commit(
-        source_commit
-    ):
-        raise VerificationError("capability evaluator source digest drift")
-    if result.get("evaluator_source_digest") != evaluation_source_digest():
-        raise VerificationError(
-            "stored capability evidence is stale for the current evaluator source"
-        )
-    if result.get("evaluator_source_file_count") != len(evaluation_source_paths()):
-        raise VerificationError("capability evaluator source coverage drift")
+    _validate_provenance_replacement(
+        data,
+        provenance_replacement
+        if provenance_replacement is not None
+        else _load_provenance_replacement(),
+    )
     if result.get("runtime_revalidation_required") is not True:
         raise VerificationError("runtime revalidation posture drift")
     if result.get("external_evidence_posture") != "opt_in_root_required":
@@ -541,6 +732,8 @@ def verify(
     goat_root: Path | None = None,
     revalidate_uaa: bool = False,
 ) -> dict[str, Any]:
+    if path != DEFAULT_ARTIFACT:
+        raise VerificationError("comparison verification path is not canonical")
     payload = _safe_read(
         path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES
     )
@@ -548,6 +741,7 @@ def verify(
         json.loads(payload.decode("utf-8")),
         goat_root=goat_root,
         revalidate_uaa=revalidate_uaa,
+        provenance_replacement=_load_provenance_replacement(),
     )
 
 
@@ -571,6 +765,10 @@ def refresh_uaa_evaluation(path: Path = DEFAULT_ARTIFACT) -> dict[str, Any]:
     if status.returncode != 0 or status.stdout:
         raise VerificationError(
             "comparison artifact refresh requires an exact clean committed worktree"
+        )
+    if PROVENANCE_REPLACEMENT.exists():
+        raise VerificationError(
+            "historical comparison artifact is immutable; create a new bounded artifact"
         )
     data = json.loads(
         _safe_read(path.relative_to(ROOT), root=ROOT, maximum_bytes=MAX_ARTIFACT_BYTES)

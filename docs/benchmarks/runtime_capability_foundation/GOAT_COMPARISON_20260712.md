@@ -2,7 +2,9 @@
 
 This is a bounded evidence-gate comparison, not a base-model intelligence score
 or a production-readiness claim. The machine-readable ledger is
-[`goat_comparison_20260712.json`](goat_comparison_20260712.json).
+[`goat_comparison_20260712.json`](goat_comparison_20260712.json). That historical
+ledger remains immutable. Its bounded generation-1 provenance repair is
+[`goat_comparison_20260712.provenance-0001.json`](goat_comparison_20260712.provenance-0001.json).
 
 ## Baselines and limitations
 
@@ -88,13 +90,16 @@ The local result was:
 These are UAA-only controlled scenarios. They do not establish a cross-project
 empirical winner.
 
-The stored projection is bound to exact UAA source commit `9a76be7b4` and a
-content digest covering the 49 evaluator, verifier, dependency-lock, and target
-files used by the run. The default verifier is repository-local and does not
-open a sibling benchmark checkout. GoatCitadel evidence-line revalidation is an
-explicit opt-in operation requiring a caller-supplied read-only root. A fresh
-bounded UAA runtime revalidation matched the stored projection after these
-bindings were added.
+The stored projection and scores remain unchanged. The historical ledger's
+latest embedded UAA source SHA was produced on a pre-squash branch and is not
+reachable from fresh `main`; it is retained only as historical provenance. The
+separate proof binds the ledger's exact bytes to reachable `main` source with
+the same evaluator-envelope digest, then bounds the current contract transition
+to this verifier and its direct test. The default verifier fails closed on
+artifact replacement, source substitution, extra proof generations, or any
+other evaluator-source drift. It remains repository-local and does not open a
+sibling benchmark checkout. GoatCitadel evidence-line revalidation is still an
+explicit opt-in operation requiring a caller-supplied read-only root.
 
 ## Reciprocal learning
 
