@@ -5266,6 +5266,31 @@ def test_worktree_inventory_snapshot_rejects_changed_imported_source(
         )
 
 
+def test_worktree_inventory_snapshot_rejects_changed_frontend_imported_source(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "apps/control-center/src"
+    source_root.mkdir(parents=True)
+    test_path = source_root / "example.test.ts"
+    test_path.write_text(
+        'import { CASES } from "./cases";\ntest.each(CASES)("renders %s", () => {});\n'
+    )
+    helper = source_root / "cases.ts"
+    helper.write_text('export const CASES = [["one"]] as const;\n')
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+    helper.write_text('export const CASES = [["two"]] as const;\n')
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard._validate_worktree_inventory_snapshot(
+            tmp_path,
+            snapshot,
+            set(guard.discover_test_files(tmp_path)),
+        )
+
+
 def test_removed_declarations_indexes_base_and_worktree_submodules(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5348,6 +5373,49 @@ def test_removed_declarations_reuses_validated_python_snapshot(
     ) == ()
 
 
+def test_removed_declarations_reuses_validated_frontend_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "apps/control-center/src/example.test.ts"
+    source = 'test("case", () => {});\n'
+    target = tmp_path / test_path
+    target.parent.mkdir(parents=True)
+    target.write_text(source)
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({test_path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: source if path == test_path else None,
+    )
+    monkeypatch.setattr(
+        guard,
+        "_parse_worktree_test_declarations",
+        lambda *_args, **_kwargs: pytest.fail(
+            "validated frontend declarations must be reused"
+        ),
+    )
+
+    assert (
+        guard.removed_declarations(
+            tmp_path,
+            "a" * 40,
+            worktree_snapshot=snapshot,
+        )
+        == ()
+    )
+
+
 def test_removed_declarations_revalidates_snapshot_after_changed_path_analysis(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5393,7 +5461,7 @@ def test_removed_declarations_revalidates_snapshot_after_changed_path_analysis(
         )
 
 
-def test_removed_declarations_do_not_fingerprint_application_subject_changes(
+def test_removed_declarations_compares_base_application_parameter_sources(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5409,11 +5477,160 @@ def test_removed_declarations_do_not_fingerprint_application_subject_changes(
     current_sources = {
         test_path: test_source,
         package_path: "",
-        module_path: "VALUES = (1, 2)\n",
+        module_path: "VALUES = (1,)\n",
     }
     base_sources = {
         **current_sources,
-        module_path: "VALUES = (1,)\n",
+        module_path: "VALUES = (1, 2)\n",
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    removed = guard.removed_declarations(tmp_path, "a" * 40)
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{test_path}::test_case::parametrize-sha256:")
+
+
+def test_removed_declarations_reuses_collection_neutral_application_runtime_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    test_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value()\n"
+    )
+    current_sources = {
+        test_path: test_source,
+        package_path: "",
+        module_path: "def runtime_value(): return 'current'\n",
+    }
+    base_sources = {
+        **current_sources,
+        module_path: "def runtime_value(): return 'base'\n",
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_reuses_nested_runtime_helper_application_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    tests_package_path = "tests/__init__.py"
+    helper_path = "tests/test_runtime_helper.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    test_source = (
+        "from .test_runtime_helper import runtime_helper\n"
+        "def test_case(): assert runtime_helper()\n"
+    )
+    helper_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def runtime_helper(): return runtime_value()\n"
+    )
+    current_sources = {
+        test_path: test_source,
+        tests_package_path: "",
+        helper_path: helper_source,
+        package_path: "",
+        module_path: "def runtime_value(): return 'current'\n",
+    }
+    base_sources = {
+        **current_sources,
+        module_path: "def runtime_value(): return 'base'\n",
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_reuses_collection_neutral_autouse_runtime_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    test_source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def runtime_fixture(): runtime_value()\n"
+        "def test_case(): pass\n"
+    )
+    current_sources = {
+        test_path: test_source,
+        package_path: "",
+        module_path: "def runtime_value(): return 'current'\n",
+    }
+    base_sources = {
+        **current_sources,
+        module_path: "def runtime_value(): return 'base'\n",
     }
     for path, text in current_sources.items():
         target = tmp_path / path

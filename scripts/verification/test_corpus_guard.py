@@ -262,6 +262,7 @@ class _WorktreeInventorySnapshot:
     declarations: tuple[TestDeclaration, ...]
     files_by_path: dict[str, _TestFileInventory]
     python_import_source_resolver: Callable[[str], str | None]
+    frontend_source_cache: dict[str, str | None]
 
 
 @dataclass(frozen=True)
@@ -4266,6 +4267,7 @@ def _parameterized_ref(
     ) = None,
     local_fixture_resolver: Callable[[str], str | None] | None = None,
     *,
+    runtime_import_source_resolver: Callable[[str], str | None] | None = None,
     container_decorators: tuple[ast.expr, ...] = (),
     collection_lineno: int | None = None,
     shadowed_import_names: frozenset[str] = frozenset(),
@@ -4273,6 +4275,7 @@ def _parameterized_ref(
     relative_package: str | None = None,
     normalize_non_aborting_runtime_helpers: bool = False,
 ) -> str:
+    runtime_source_resolver = runtime_import_source_resolver or import_source_resolver
     candidate_decorators = (*container_decorators, *node.decorator_list)
     relative_import_bindings = {
         alias.asname or alias.name
@@ -5733,7 +5736,7 @@ def _parameterized_ref(
                 }:
                     runtime_abort_aliases[alias] = abort_name
     imported_runtime_abort_identities: list[str] = []
-    if import_source_resolver is not None:
+    if runtime_source_resolver is not None:
         runtime_module_shape_cache: dict[
             tuple[str, str],
             tuple[
@@ -5743,7 +5746,7 @@ def _parameterized_ref(
                 str,
             ],
         ] = getattr(
-            import_source_resolver,
+            runtime_source_resolver,
             "_uaa_runtime_module_shape_cache",
             {},
         )
@@ -5768,7 +5771,7 @@ def _parameterized_ref(
                 tree = _python_parsed_module(
                     module,
                     source_text,
-                    import_source_resolver,
+                    runtime_source_resolver,
                 )
             except SyntaxError as exc:
                 raise TestCorpusGuardError(
@@ -5813,7 +5816,7 @@ def _parameterized_ref(
                         continue
                     del remaining[: len(imported_suffix)]
                 current_module = candidate
-                current_source = import_source_resolver(current_module)
+                current_source = runtime_source_resolver(current_module)
                 if current_source is None:
                     continue
                 while len(remaining) > 1:
@@ -5839,7 +5842,7 @@ def _parameterized_ref(
                             "imported runtime helper dependency is ambiguous"
                         )
                     nested_source = (
-                        import_source_resolver(nested_module)
+                        runtime_source_resolver(nested_module)
                         if exported_as_module and not statically_bound
                         else None
                     )
@@ -5984,7 +5987,7 @@ def _parameterized_ref(
                 for name, candidates in called_helper_imports.items():
                     active_module_runtime_imports[name] = candidates
         for imported_module, imported_name in sorted(imported_calls):
-            imported_source = import_source_resolver(imported_module)
+            imported_source = runtime_source_resolver(imported_module)
             if imported_source is None:
                 continue
             try:
@@ -5992,7 +5995,7 @@ def _parameterized_ref(
                     imported_module,
                     imported_source,
                     imported_name,
-                    import_source_resolver,
+                    runtime_source_resolver,
                 )
             except TestCorpusGuardError as exc:
                 if (
@@ -6461,7 +6464,7 @@ def _parameterized_ref(
                         {},
                     )
                 )
-        if import_source_resolver is not None:
+        if runtime_source_resolver is not None:
             helper_import_requirements = runtime_scope_import_requirements(helper)
             for closure_binding in closure_binding_nodes:
                 if not isinstance(
@@ -6490,11 +6493,11 @@ def _parameterized_ref(
                 resolved = [
                     (candidate, imported_source)
                     for candidate in candidates
-                    if (imported_source := import_source_resolver(candidate))
+                    if (imported_source := runtime_source_resolver(candidate))
                     is not None
                 ]
                 module_counts: dict[str, int] | None = getattr(
-                    import_source_resolver,
+                    runtime_source_resolver,
                     "_uaa_local_python_module_counts",
                     None,
                 )
@@ -6534,7 +6537,7 @@ def _parameterized_ref(
                     imported_module_identity = _python_module_dependency_identity(
                         imported_module,
                         imported_source,
-                        import_source_resolver,
+                        runtime_source_resolver,
                     )
                     if (
                         "runtime-abort-posture=true"
@@ -6552,7 +6555,7 @@ def _parameterized_ref(
                             imported_module,
                             imported_source,
                             resolved_name,
-                            import_source_resolver,
+                            runtime_source_resolver,
                         )
                         if helper_has_runtime_abort or (
                             "runtime-abort-posture=true"
@@ -7163,6 +7166,7 @@ def _python_inventory_entries(
     text: str,
     import_source_resolver: Callable[[str], str | None] | None = None,
     *,
+    runtime_import_source_resolver: Callable[[str], str | None] | None = None,
     normalize_non_aborting_runtime_helpers: bool = False,
 ) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
@@ -7203,7 +7207,8 @@ def _python_inventory_entries(
             "collection-binding-sha256:"
             + hashlib.sha256(collection_identity.encode("utf-8")).hexdigest()
         )
-    if import_source_resolver is not None:
+    runtime_source_resolver = runtime_import_source_resolver or import_source_resolver
+    if runtime_source_resolver is not None:
         execution_import_bindings = _python_import_modules(
             tree,
             relative_package=relative_package,
@@ -7216,10 +7221,10 @@ def _python_inventory_entries(
         side_effect_modules = _python_execution_import_modules(
             tree,
             relative_package=relative_package,
-            import_source_resolver=import_source_resolver,
+            import_source_resolver=runtime_source_resolver,
         )
         for module in side_effect_modules:
-            source = import_source_resolver(module)
+            source = runtime_source_resolver(module)
             if source is None:
                 continue
             import_is_referenced = any(
@@ -7231,7 +7236,7 @@ def _python_inventory_entries(
                 + _python_side_effect_import_identity(
                     module,
                     source,
-                    import_source_resolver,
+                    runtime_source_resolver,
                     include_transitive=not import_is_referenced,
                 )
             )
@@ -8173,7 +8178,7 @@ def _python_inventory_entries(
     autouse_fixture_declarations = _autouse_fixture_declarations(
         text,
         path,
-        import_source_resolver,
+        runtime_source_resolver,
     )
     autouse_fixture_identity = (
         hashlib.sha256(
@@ -8914,6 +8919,7 @@ def _python_inventory_entries(
                     import_source_resolver,
                     fixture_override_matches,
                     local_fixture_identity,
+                    runtime_import_source_resolver=runtime_source_resolver,
                     container_decorators=tuple(module_pytestmark_decorators),
                     module_side_effect_identities=tuple(module_side_effect_identities),
                     relative_package=relative_package,
@@ -9037,6 +9043,7 @@ def _python_inventory_entries(
                 import_source_resolver,
                 fixture_override_matches,
                 local_fixture_identity,
+                runtime_import_source_resolver=runtime_source_resolver,
                 container_decorators=class_decorators,
                 collection_lineno=node.lineno,
                 shadowed_import_names=frozenset(class_shadowed_import_names),
@@ -9500,6 +9507,7 @@ def _parse_base_test_declarations(
     frontend_source_cache: dict[str, str | None] | None = None,
     frontend_initializer_cache: dict[str, str] | None = None,
     frontend_runtime_dependency_cache: dict[str, frozenset[str]] | None = None,
+    python_runtime_import_source_resolver: (Callable[[str], str | None] | None) = None,
 ) -> tuple[TestDeclaration, ...]:
     if path.endswith(".py"):
         return tuple(
@@ -9511,6 +9519,7 @@ def _parse_base_test_declarations(
                 or _python_import_resolver(
                     lambda candidate: _base_text(repo, base_sha, candidate)
                 ),
+                runtime_import_source_resolver=(python_runtime_import_source_resolver),
             )
         )
 
@@ -9789,6 +9798,7 @@ def _inventory_worktree_snapshot(repo: Path) -> _WorktreeInventorySnapshot:
         declarations=tuple(sorted(declarations, key=lambda item: item.ref)),
         files_by_path=files_by_path,
         python_import_source_resolver=python_import_source_resolver,
+        frontend_source_cache=dict(frontend_source_cache),
     )
 
 
@@ -12027,6 +12037,16 @@ def _validate_worktree_inventory_snapshot(
         if current_resolver(module) != source:
             raise TestCorpusGuardError("test inventory changed during verification")
 
+    for path, source in snapshot.frontend_source_cache.items():
+        target = repo / path
+        current_source = (
+            _read_worktree_text(repo, path)
+            if target.is_file() and _worktree_path_has_exact_case(repo, path)
+            else None
+        )
+        if current_source != source:
+            raise TestCorpusGuardError("test inventory changed during verification")
+
 
 def removed_declarations(
     repo: Path,
@@ -12036,18 +12056,59 @@ def removed_declarations(
 ) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
+    base_python_source_cache: dict[str, str | None] = {}
 
     def read_base_python_import(candidate: str) -> str | None:
+        if candidate not in base_python_source_cache:
+            base_python_source_cache[candidate] = _base_text(
+                repo,
+                base_sha,
+                candidate,
+            )
+        return base_python_source_cache[candidate]
+
+    base_import_source_resolver = _python_import_resolver(read_base_python_import)
+    base_runtime_source_cache: dict[str, str | None] = {}
+
+    def read_base_python_runtime_import(candidate: str) -> str | None:
+        if candidate in base_runtime_source_cache:
+            return base_runtime_source_cache[candidate]
+        base_source = read_base_python_import(candidate)
+        selected_source = base_source
         target = repo / candidate
         if (
             candidate.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
+            and base_source is not None
             and target.is_file()
             and _worktree_path_has_exact_case(repo, candidate)
         ):
-            return _read_worktree_text(repo, candidate)
-        return _base_text(repo, base_sha, candidate)
+            current_source = _read_worktree_text(repo, candidate)
+            try:
+                base_tree = ast.parse(base_source, filename=candidate)
+                current_tree = ast.parse(current_source, filename=candidate)
+            except SyntaxError:
+                pass
+            else:
+                base_imports = _python_import_modules(base_tree)
+                current_imports = _python_import_modules(current_tree)
+                if not _has_module_level_collection_abort(
+                    base_tree,
+                    base_imports,
+                ) and not _has_module_level_collection_abort(
+                    current_tree,
+                    current_imports,
+                ):
+                    # Application implementation imports are execution subjects,
+                    # not test inventory. Reuse the worktree source only after
+                    # proving both revisions cannot abort collection; decorator
+                    # parameter bindings still resolve through the base resolver.
+                    selected_source = current_source
+        base_runtime_source_cache[candidate] = selected_source
+        return selected_source
 
-    base_import_source_resolver = _python_import_resolver(read_base_python_import)
+    base_runtime_import_source_resolver = _python_import_resolver(
+        read_base_python_runtime_import
+    )
     base_module_counts: dict[str, int] = {}
     base_python_paths_seen = 0
     for path in _base_file_paths(repo, base_sha):
@@ -12060,6 +12121,11 @@ def removed_declarations(
         base_module_counts[module] = base_module_counts.get(module, 0) + 1
     setattr(
         base_import_source_resolver,
+        "_uaa_local_python_module_counts",
+        base_module_counts,
+    )
+    setattr(
+        base_runtime_import_source_resolver,
         "_uaa_local_python_module_counts",
         base_module_counts,
     )
@@ -12102,10 +12168,11 @@ def removed_declarations(
             base_frontend_source_cache,
             base_frontend_initializer_cache,
             base_frontend_runtime_dependency_cache,
+            python_runtime_import_source_resolver=(base_runtime_import_source_resolver),
         )
         prior_refs = {item.ref for item in prior_declarations}
         if path in current_paths:
-            if worktree_snapshot is not None and path.endswith(".py"):
+            if worktree_snapshot is not None:
                 current_inventory = worktree_snapshot.files_by_path[path]
                 current_text = current_inventory.source
                 current_declarations = current_inventory.declarations
@@ -12133,6 +12200,9 @@ def removed_declarations(
                     path,
                     prior,
                     base_import_source_resolver,
+                    runtime_import_source_resolver=(
+                        base_runtime_import_source_resolver
+                    ),
                     normalize_non_aborting_runtime_helpers=True,
                 )
             )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import timedelta
 
@@ -3729,7 +3730,38 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     assert tamper_grant is not None
     approval_store = AuthorityLeaseApprovalStore(tamper_dir)
     state_payload = json.loads(approval_store.records_path.read_text(encoding="utf-8"))
-    state_payload["records"][0]["caller_payload_accepted"] = True
+    forged_record = state_payload["records"][0]
+    forged_record["grant"]["approved_by_actor_id"] = "operator-ref:forged-writer"
+    forged_record_payload = {
+        key: value
+        for key, value in forged_record.items()
+        if key != "record_authenticator_ref"
+    }
+    forged_record["record_authenticator_ref"] = (
+        "authority-lease-approval-record-authenticator-ref:hmac-sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                forged_record_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    forged_store_payload = {
+        key: value
+        for key, value in state_payload.items()
+        if key != "store_authenticator_ref"
+    }
+    state_payload["store_authenticator_ref"] = (
+        "authority-lease-approval-store-authenticator-ref:hmac-sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                forged_store_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+    )
     approval_store.records_path.write_text(
         json.dumps(state_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -3750,6 +3782,70 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     assert tampered_receipt.raw_provider_payload_included is False
     assert tampered_receipt.redactions_applied
     assert tamper_store.list_leases() == []
+    assert approval_store.signing_key_path.stat().st_mode & 0o077 == 0
+    assert approval_store.signing_key_path.stat().st_size == 32
+    assert "signing_key" not in approval_store.records_path.read_text(encoding="utf-8")
+
+
+def test_authority_lease_expired_backend_approval_is_recaptured_after_confirmation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import ultimate_ai_agent.core.approvals.authority as approval_authority_module
+    import ultimate_ai_agent.core.authority.approval_validation as validation_module
+
+    state_dir = tmp_path / "authority-recapture"
+    idempotency_ref = "idempotency-ref:authority-backend-recapture"
+    approval_ref = "approval-ref:authority-backend-recapture"
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-backend-recapture",
+        safe_summary="Recapture one expired exact backend approval after confirmation.",
+    )
+    store = AuthorityLeaseStore(state_dir)
+    requirement, first_grant = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref=approval_ref,
+    )
+    assert first_grant is not None
+    assert first_grant.expires_at is not None
+    recapture_time = first_grant.expires_at + timedelta(seconds=1)
+    monkeypatch.setattr(validation_module, "utc_now", lambda: recapture_time)
+    monkeypatch.setattr(approval_authority_module, "utc_now", lambda: recapture_time)
+
+    recaptured_requirement, recaptured_grant = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref=approval_ref,
+    )
+
+    assert recaptured_requirement == requirement
+    assert recaptured_grant is not None
+    assert recaptured_grant.approval_ref == first_grant.approval_ref
+    assert recaptured_grant.created_at == recapture_time
+    assert recaptured_grant.expires_at > first_grant.expires_at
+    approval_state = json.loads(
+        AuthorityLeaseApprovalStore(state_dir).records_path.read_text(encoding="utf-8")
+    )
+    assert approval_state["generation"] == 2
+    assert len(approval_state["records"]) == 1
+
+    lease, receipt = issue_authority_lease_from_backend_state(
+        store,
+        request.model_copy(update={"approval_ref": approval_ref}),
+        idempotency_ref=idempotency_ref,
+    )
+    assert lease is not None
+    assert receipt.status == "issued"
+    assert receipt.approval_validated is True
 
 
 def test_authority_lease_backend_approval_store_is_bounded_and_idempotent(
@@ -3878,6 +3974,33 @@ def test_authority_lease_openapi_and_cli_reject_grant_payload_inputs(
     assert str(tmp_path) not in conflict_output.err
     assert len(AuthorityLeaseStore(authority_state_dir).list_leases()) == 1
     assert len(AuthorityLeaseStore(authority_state_dir).list_receipts(limit=10)) == 1
+
+    invalid_state_dir = tmp_path / "authority-invalid-cli-state"
+    invalid_state_dir.mkdir()
+    invalid_records_path = invalid_state_dir / "authority_lease_approvals.json"
+    invalid_records_path.write_text("{}\n", encoding="utf-8")
+    invalid_records_path.chmod(0o600)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(invalid_state_dir))
+    invalid_state_result = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--reason-ref",
+            "reason-ref:authority-cli-invalid-backend-state",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-invalid-backend-state",
+            "--summary",
+            "Report invalid backend approval state without exposing raw data.",
+            "--approval-ref",
+            "approval-ref:authority-cli-invalid-backend-state",
+        ]
+    )
+    assert invalid_state_result == 1
+    invalid_state_output = capsys.readouterr().out
+    assert "Approval reasons: APPROVAL_BACKEND_STATE_INVALID" in (invalid_state_output)
+    assert "Blocked reasons: none" in invalid_state_output
+    assert str(tmp_path) not in invalid_state_output
 
 
 def _exact_workspace_constraints(*, path_ref: str) -> list[AuthorityConstraint]:

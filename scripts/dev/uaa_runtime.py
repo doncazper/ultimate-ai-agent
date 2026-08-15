@@ -2764,6 +2764,10 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         print(f"Approval required: {receipt.approval_required}")
         print(f"Approval validated: {receipt.approval_validated}")
         print(f"Approval status: {receipt.approval_status}")
+        print(
+            "Approval reasons: " + ", ".join(receipt.approval_reason_codes or ["none"])
+        )
+        print("Blocked reasons: " + ", ".join(receipt.blocked_reason_refs or ["none"]))
         print(f"Approval captured: {approval_captured}")
         if approval_ref:
             print(f"Approval ref: {approval_ref}")

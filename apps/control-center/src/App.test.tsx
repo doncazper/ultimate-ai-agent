@@ -14152,6 +14152,24 @@ describe("Web Control Center shell", () => {
       receipt_ref: "receipt-ref:authority-lease:app-test-revoked",
       safe_summary: "Authority lease revoked for app test.",
     };
+    const deniedReceipt: AuthorityLeaseReceipt = {
+      ...issuedReceipt,
+      status: "denied",
+      receipt_ref: "receipt-ref:authority-lease:app-test-denied",
+      lease_ref: "authority-lease-ref:app-test-denied",
+      mode: "ask_before_changes",
+      lease_issued_at: null,
+      lease_expires_at: null,
+      granted_domains: {},
+      approval_validated: false,
+      approval_status: "invalid",
+      approval_reason_codes: ["APPROVAL_BACKEND_STATE_INVALID"],
+      blocked_reason_refs: [
+        "reason-ref:authority:backend-approval-state-invalid",
+      ],
+      safe_summary:
+        "Authority lease denied because backend approval state is invalid.",
+    };
     const authorityPreview: AuthorityDecisionPreview = {
       schema_version: "uaa-authority-decision-preview.v1",
       preview_ref: "authority-decision-preview-ref:app-test-workspace-execute",
@@ -14379,6 +14397,28 @@ describe("Web Control Center shell", () => {
         urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue)
       ) {
         const requestBody = String(options.body ?? "");
+        if (requestBody.includes("control-center-authority-ask_before_changes")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              success: false,
+              data: {
+                lease: null,
+                receipt: deniedReceipt,
+                approval_captured: false,
+                approval_ref: deniedReceipt.approval_ref,
+                approval_grant_payload_persisted: false,
+                execution_performed: false,
+                unsupported_adapters_claimed_execution: false,
+                unknown_authority_default: "deny",
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
         const missionIssue = requestBody.includes(
           "mission-ref:control-center-workspace-maintenance-preview",
         );
@@ -14640,6 +14680,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("button", { name: "Delegated mission" }),
     ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask before changes" }));
+    const deniedActionResult = await screen.findByLabelText(
+      "Authority lease action result",
+    );
+    expect(deniedActionResult).toHaveTextContent(
+      "APPROVAL_BACKEND_STATE_INVALID",
+    );
+    expect(deniedActionResult).toHaveTextContent(
+      "reason-ref:authority:backend-approval-state-invalid",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Workspace command" }));
     const previewResult = await screen.findByRole("status", {

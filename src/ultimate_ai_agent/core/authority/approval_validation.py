@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
+import secrets
 import stat
 import uuid
 from datetime import datetime, timedelta
@@ -55,13 +57,15 @@ from ultimate_ai_agent.core.time import utc_now
 
 
 AUTHORITY_LEASE_APPROVAL_STORE_SCHEMA_VERSION = (
-    "uaa-authority-lease-approval-store.v1"
+    "uaa-authority-lease-approval-store.v2"
 )
 AUTHORITY_LEASE_APPROVAL_RECORD_SCHEMA_VERSION = (
-    "uaa-authority-lease-approval-record.v1"
+    "uaa-authority-lease-approval-record.v2"
 )
 AUTHORITY_LEASE_APPROVALS_FILE = "authority_lease_approvals.json"
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_FILE = "authority_lease_approvals.key"
 AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT = 512
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES = 32
 
 
 class AuthorityLeaseApprovalStateError(RuntimeError):
@@ -77,7 +81,7 @@ class AuthorityLeaseApprovalCapacityError(RuntimeError):
 
 
 class AuthorityLeaseApprovalRecord(BaseModel):
-    schema_version: Literal["uaa-authority-lease-approval-record.v1"] = (
+    schema_version: Literal["uaa-authority-lease-approval-record.v2"] = (
         AUTHORITY_LEASE_APPROVAL_RECORD_SCHEMA_VERSION
     )
     record_ref: str = Field(..., min_length=1)
@@ -90,7 +94,7 @@ class AuthorityLeaseApprovalRecord(BaseModel):
     backend_owned: Literal[True] = True
     caller_payload_accepted: Literal[False] = False
     safe_summary: str = Field(..., min_length=1, max_length=360)
-    record_fingerprint_ref: str = Field(..., min_length=1)
+    record_authenticator_ref: str = Field(..., min_length=1)
     created_at: datetime = Field(default_factory=utc_now)
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
@@ -107,8 +111,8 @@ class AuthorityLeaseApprovalRecord(BaseModel):
             (self.approval_scope_ref, "authority_lease_approval_scope_ref"),
             (self.idempotency_ref, "authority_lease_approval_idempotency_ref"),
             (
-                self.record_fingerprint_ref,
-                "authority_lease_approval_record_fingerprint_ref",
+                self.record_authenticator_ref,
+                "authority_lease_approval_record_authenticator_ref",
             ),
         ]:
             validate_task_ref(value, field_name)
@@ -137,14 +141,10 @@ class AuthorityLeaseApprovalRecord(BaseModel):
             ]
         ):
             raise ValueError("AUTHORITY_LEASE_APPROVAL_RECORD_SCOPE_INVALID")
-        expected_fingerprint = _approval_record_fingerprint_ref(
-            self.model_dump(
-                mode="json",
-                exclude={"record_fingerprint_ref"},
-            )
-        )
-        if self.record_fingerprint_ref != expected_fingerprint:
-            raise ValueError("AUTHORITY_LEASE_APPROVAL_RECORD_FINGERPRINT_INVALID")
+        if not self.record_authenticator_ref.startswith(
+            "authority-lease-approval-record-authenticator-ref:hmac-sha256:"
+        ):
+            raise ValueError("AUTHORITY_LEASE_APPROVAL_RECORD_AUTHENTICATOR_INVALID")
         return self
 
 
@@ -155,9 +155,37 @@ def _stable_approval_ref(prefix: str, payload: dict[str, Any]) -> str:
     return f"{prefix}:sha256:{digest}"
 
 
-def _approval_record_fingerprint_ref(payload: dict[str, Any]) -> str:
-    return _stable_approval_ref(
-        "authority-lease-approval-record-fingerprint-ref",
+def _approval_authenticator_ref(
+    prefix: str,
+    signing_key: bytes,
+    payload: dict[str, Any],
+) -> str:
+    digest = hmac.new(
+        signing_key,
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{prefix}:hmac-sha256:{digest}"
+
+
+def _approval_record_authenticator_ref(
+    signing_key: bytes,
+    payload: dict[str, Any],
+) -> str:
+    return _approval_authenticator_ref(
+        "authority-lease-approval-record-authenticator-ref",
+        signing_key,
+        payload,
+    )
+
+
+def _approval_store_authenticator_ref(
+    signing_key: bytes,
+    payload: dict[str, Any],
+) -> str:
+    return _approval_authenticator_ref(
+        "authority-lease-approval-store-authenticator-ref",
+        signing_key,
         payload,
     )
 
@@ -167,6 +195,7 @@ def _build_authority_lease_approval_record(
     grant: ApprovalGrant,
     *,
     idempotency_ref: str,
+    signing_key: bytes,
 ) -> AuthorityLeaseApprovalRecord:
     created_at = grant.created_at
     payload: dict[str, Any] = {
@@ -204,13 +233,16 @@ def _build_authority_lease_approval_record(
             "requirement": requirement,
             "grant": grant,
         },
-        record_fingerprint_ref="authority-lease-approval-record-fingerprint-ref:pending",
+        record_authenticator_ref=(
+            "authority-lease-approval-record-authenticator-ref:hmac-sha256:pending"
+        ),
     )
-    payload["record_fingerprint_ref"] = _approval_record_fingerprint_ref(
+    payload["record_authenticator_ref"] = _approval_record_authenticator_ref(
+        signing_key,
         record.model_dump(
             mode="json",
-            exclude={"record_fingerprint_ref"},
-        )
+            exclude={"record_authenticator_ref"},
+        ),
     )
     return AuthorityLeaseApprovalRecord.model_validate(payload)
 
@@ -234,6 +266,9 @@ class AuthorityLeaseApprovalStore:
     def __init__(self, state_dir: Path | None = None) -> None:
         self.state_dir = state_dir or authority_state_dir()
         self.records_path = self.state_dir / AUTHORITY_LEASE_APPROVALS_FILE
+        self.signing_key_path = (
+            self.state_dir / AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_FILE
+        )
         self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
 
     def capture(
@@ -252,11 +287,16 @@ class AuthorityLeaseApprovalStore:
         )
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             generation, records = self._read_state_unlocked()
-            existing = next(
-                (record for record in records if record.approval_ref == approval_ref),
+            existing_match = next(
+                (
+                    (index, record)
+                    for index, record in enumerate(records)
+                    if record.approval_ref == approval_ref
+                ),
                 None,
             )
-            if existing is not None:
+            if existing_match is not None:
+                existing_index, existing = existing_match
                 if (
                     existing.requirement != requirement
                     or existing.idempotency_ref != idempotency_ref
@@ -265,7 +305,11 @@ class AuthorityLeaseApprovalStore:
                     raise AuthorityLeaseApprovalConflictError(
                         "AUTHORITY_LEASE_APPROVAL_REF_CONFLICT"
                     )
-                return existing.grant.model_copy(deep=True)
+                if _approval_record_is_current(existing, now=utc_now()):
+                    return existing.grant.model_copy(deep=True)
+            else:
+                existing_index = None
+            signing_key = self._read_signing_key_unlocked(create=True)
             authority = LocalApprovalAuthority()
             approval_request = authority.create_request(
                 build_authority_lease_approval_request(requirement)
@@ -275,24 +319,37 @@ class AuthorityLeaseApprovalStore:
                 approved_by_actor_id=approved_by_actor_id,
                 approval_ref=approval_ref,
             )
-            if len(records) >= AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT:
+            if (
+                existing_index is None
+                and len(records) >= AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT
+            ):
                 records = [
                     record
                     for record in records
                     if _approval_record_is_current(record, now=utc_now())
                 ]
-            if len(records) >= AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT:
+            if (
+                existing_index is None
+                and len(records) >= AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT
+            ):
                 raise AuthorityLeaseApprovalCapacityError(
                     "AUTHORITY_LEASE_APPROVAL_CAPACITY_EXHAUSTED"
                 )
-            records.append(
-                _build_authority_lease_approval_record(
-                    requirement,
-                    grant,
-                    idempotency_ref=idempotency_ref,
-                )
+            replacement = _build_authority_lease_approval_record(
+                requirement,
+                grant,
+                idempotency_ref=idempotency_ref,
+                signing_key=signing_key,
             )
-            self._write_state_unlocked(generation + 1, records)
+            if existing_index is None:
+                records.append(replacement)
+            else:
+                records[existing_index] = replacement
+            self._write_state_unlocked(
+                generation + 1,
+                records,
+                signing_key=signing_key,
+            )
             return grant.model_copy(deep=True)
 
     def resolve(
@@ -403,21 +460,48 @@ class AuthorityLeaseApprovalStore:
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_STATE_INVALID"
             )
+        if set(payload) != {
+            "schema_version",
+            "generation",
+            "records",
+            "store_authenticator_ref",
+        }:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_STATE_INVALID"
+            )
         if payload.get("schema_version") != AUTHORITY_LEASE_APPROVAL_STORE_SCHEMA_VERSION:
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_STATE_SCHEMA_INVALID"
             )
         generation = payload.get("generation")
         record_payloads = payload.get("records")
+        store_authenticator_ref = payload.get("store_authenticator_ref")
         if (
             not isinstance(generation, int)
             or generation < 0
             or not isinstance(record_payloads, list)
+            or not isinstance(store_authenticator_ref, str)
             or len(record_payloads) > AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT
             or generation < len(record_payloads)
         ):
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_STATE_INVALID"
+            )
+        signing_key = self._read_signing_key_unlocked(create=False)
+        expected_store_authenticator_ref = _approval_store_authenticator_ref(
+            signing_key,
+            {
+                "schema_version": payload["schema_version"],
+                "generation": generation,
+                "records": record_payloads,
+            },
+        )
+        if not hmac.compare_digest(
+            store_authenticator_ref,
+            expected_store_authenticator_ref,
+        ):
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_STATE_AUTHENTICATOR_INVALID"
             )
         try:
             records = [
@@ -428,6 +512,21 @@ class AuthorityLeaseApprovalStore:
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_RECORD_INVALID"
             ) from exc
+        for record in records:
+            expected_record_authenticator_ref = _approval_record_authenticator_ref(
+                signing_key,
+                record.model_dump(
+                    mode="json",
+                    exclude={"record_authenticator_ref"},
+                ),
+            )
+            if not hmac.compare_digest(
+                record.record_authenticator_ref,
+                expected_record_authenticator_ref,
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_RECORD_AUTHENTICATOR_INVALID"
+                )
         refs = [record.approval_ref for record in records]
         record_refs = [record.record_ref for record in records]
         audit_refs = [record.audit_ref for record in records]
@@ -444,6 +543,8 @@ class AuthorityLeaseApprovalStore:
         self,
         generation: int,
         records: list[AuthorityLeaseApprovalRecord],
+        *,
+        signing_key: bytes,
     ) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -451,6 +552,10 @@ class AuthorityLeaseApprovalStore:
             "generation": generation,
             "records": [record.model_dump(mode="json") for record in records],
         }
+        payload["store_authenticator_ref"] = _approval_store_authenticator_ref(
+            signing_key,
+            payload,
+        )
         temp_path = self.records_path.with_name(
             f".{self.records_path.name}.{uuid.uuid4().hex}.tmp"
         )
@@ -479,6 +584,113 @@ class AuthorityLeaseApprovalStore:
         except OSError as exc:
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_STATE_WRITE_FAILED"
+            ) from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def _read_signing_key_unlocked(self, *, create: bool) -> bytes:
+        if not self.signing_key_path.exists():
+            if not create:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_MISSING"
+                )
+            return self._create_signing_key_unlocked()
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(
+                os,
+                "O_NOFOLLOW",
+                0,
+            )
+        )
+        descriptor = -1
+        try:
+            descriptor = os.open(self.signing_key_path, flags)
+            metadata = os.fstat(descriptor)
+            linked_metadata = os.lstat(self.signing_key_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (linked_metadata.st_dev, linked_metadata.st_ino)
+                or stat.S_IMODE(metadata.st_mode) & 0o077
+                or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                )
+            signing_key = os.read(
+                descriptor,
+                AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES + 1,
+            )
+            closed_over = os.fstat(descriptor)
+            if len(signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES or (
+                closed_over.st_size,
+                closed_over.st_mtime_ns,
+                closed_over.st_ctime_ns,
+            ) != (
+                metadata.st_size,
+                metadata.st_mtime_ns,
+                metadata.st_ctime_ns,
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                )
+            return signing_key
+        except AuthorityLeaseApprovalStateError:
+            raise
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+            ) from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+    def _create_signing_key_unlocked(self) -> bytes:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        signing_key = secrets.token_bytes(AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES)
+        temp_path = self.signing_key_path.with_name(
+            f".{self.signing_key_path.name}.{uuid.uuid4().hex}.tmp"
+        )
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                temp_path,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+            with os.fdopen(descriptor, "wb") as handle:
+                descriptor = -1
+                os.fchmod(handle.fileno(), 0o600)
+                handle.write(signing_key)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temp_path, self.signing_key_path)
+            except FileExistsError:
+                return self._read_signing_key_unlocked(create=False)
+            directory_descriptor = os.open(self.state_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+            return signing_key
+        except AuthorityLeaseApprovalStateError:
+            raise
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_WRITE_FAILED"
             ) from exc
         finally:
             if descriptor >= 0:
