@@ -252,6 +252,39 @@ class TestDeclaration:
 
 
 @dataclass(frozen=True)
+class _TestFileInventory:
+    source: str
+    declarations: tuple[TestDeclaration, ...]
+
+
+@dataclass(frozen=True)
+class _WorktreeInventorySnapshot:
+    declarations: tuple[TestDeclaration, ...]
+    files_by_path: dict[str, _TestFileInventory]
+    python_import_source_resolver: Callable[[str], str | None]
+
+
+@dataclass(frozen=True)
+class _PythonBindingNodeAnalysis:
+    serialized: str
+    imported_requirements: tuple[tuple[str, tuple[str, ...]], ...]
+    star_import_requirements: tuple[str, ...]
+    local_dependency_names: tuple[str, ...]
+    runtime_abort_posture: bool
+
+
+@dataclass(frozen=True)
+class _PythonBindingModuleAnalysis:
+    tree: ast.Module
+    relative_package: str
+    module_bindings: dict[str, tuple[_ModuleBinding, ...]]
+    imported_modules: dict[str, tuple[str, ...]]
+    direct_module_aliases: frozenset[str]
+    star_import_modules: tuple[str, ...]
+    node_analyses: dict[tuple[int, int], _PythonBindingNodeAnalysis]
+
+
+@dataclass(frozen=True)
 class _ModuleBinding:
     node: ast.AST
     applies_after_declaration: bool = False
@@ -3347,6 +3380,172 @@ def _python_side_effect_import_identity(
     return identity
 
 
+def _python_binding_module_analysis(
+    module: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+) -> _PythonBindingModuleAnalysis:
+    cache_key = (module, hashlib.sha256(source.encode("utf-8")).hexdigest())
+    analysis_cache: dict[
+        tuple[str, str], _PythonBindingModuleAnalysis
+    ] | None = None
+    if import_source_resolver is not None:
+        analysis_cache = getattr(
+            import_source_resolver,
+            "_uaa_binding_module_analysis_cache",
+            None,
+        )
+        if analysis_cache is not None and cache_key in analysis_cache:
+            return analysis_cache[cache_key]
+
+    source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
+    try:
+        tree = _python_parsed_module(
+            module,
+            source_text,
+            import_source_resolver,
+        )
+    except SyntaxError as exc:
+        raise TestCorpusGuardError(
+            "imported Python parameter data cannot be inventoried safely"
+        ) from exc
+    source_path = source.split("\n", 1)[0].removeprefix("path=")
+    relative_package = module
+    if not source_path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    module_bindings = _python_module_bindings(tree)
+    imported_modules = _python_import_modules(
+        tree,
+        relative_package=relative_package,
+    )
+    import_positions: dict[str, tuple[int, int]] = {}
+    binding_positions: dict[str, tuple[int, int]] = {}
+    direct_module_aliases: set[str] = set()
+    for node in _module_execution_nodes(tree):
+        position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
+        if isinstance(node, ast.Import):
+            for imported in node.names:
+                local_name = imported.asname or imported.name.split(".", 1)[0]
+                direct_module_aliases.add(local_name)
+                import_positions[local_name] = max(
+                    import_positions.get(local_name, (0, 0)),
+                    position,
+                )
+            continue
+        if isinstance(node, ast.ImportFrom):
+            for imported in node.names:
+                if imported.name != "*":
+                    local_name = imported.asname or imported.name
+                    import_positions[local_name] = max(
+                        import_positions.get(local_name, (0, 0)),
+                        position,
+                    )
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound_names = (node.name,)
+        elif isinstance(node, ast.Assign):
+            bound_names = tuple(
+                name
+                for target in node.targets
+                for name in _binding_target_names(target)
+            )
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            bound_names = tuple(_binding_target_names(node.target))
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            bound_names = tuple(_binding_target_names(node.target))
+        else:
+            continue
+        for name in bound_names:
+            binding_positions[name] = max(
+                binding_positions.get(name, (0, 0)),
+                position,
+            )
+    rebound_import_names = {
+        name
+        for name in imported_modules
+        if binding_positions.get(name, (0, 0)) > import_positions.get(name, (0, 0))
+    }
+    if rebound_import_names:
+        imported_modules = {
+            name: candidates
+            for name, candidates in imported_modules.items()
+            if name not in rebound_import_names
+        }
+        direct_module_aliases.difference_update(rebound_import_names)
+    analysis = _PythonBindingModuleAnalysis(
+        tree=tree,
+        relative_package=relative_package,
+        module_bindings=module_bindings,
+        imported_modules=imported_modules,
+        direct_module_aliases=frozenset(direct_module_aliases),
+        star_import_modules=_python_star_import_modules(
+            tree,
+            relative_package=relative_package,
+        ),
+        node_analyses={},
+    )
+    if analysis_cache is not None:
+        analysis_cache[cache_key] = analysis
+    return analysis
+
+
+def _python_binding_node_analysis(
+    analysis: _PythonBindingModuleAnalysis,
+    node: ast.AST,
+) -> _PythonBindingNodeAnalysis:
+    """Reuse immutable binding-node facts within one exact source analysis."""
+
+    position = (node.lineno, node.col_offset)
+    cached = analysis.node_analyses.get(position)
+    if cached is not None:
+        return cached
+    imported_requirements = tuple(
+        (root, tuple(sorted(names)))
+        for root, names in sorted(
+            _python_import_requirements(node, analysis.imported_modules).items()
+        )
+    )
+    star_import_requirements = (
+        tuple(sorted(_python_star_import_dependency_names(node)))
+        if analysis.star_import_modules
+        else ()
+    )
+    local_dependency_names: set[str] = set()
+    runtime_abort_posture = False
+    for child in ast.walk(node):
+        if (
+            isinstance(child, ast.Name)
+            and child.id not in analysis.imported_modules
+            and child.id in analysis.module_bindings
+        ):
+            local_dependency_names.add(child.id)
+        if (
+            isinstance(child, ast.Call)
+            and _pytest_collection_abort_callable_name(
+                child.func,
+                analysis.imported_modules,
+                {},
+            )
+            in {
+                "importorskip",
+                "skip",
+                "skip-exception",
+                "xfail",
+                "xfail-exception",
+            }
+        ):
+            runtime_abort_posture = True
+    result = _PythonBindingNodeAnalysis(
+        serialized=ast.dump(node, annotate_fields=True, include_attributes=False),
+        imported_requirements=imported_requirements,
+        star_import_requirements=star_import_requirements,
+        local_dependency_names=tuple(sorted(local_dependency_names)),
+        runtime_abort_posture=runtime_abort_posture,
+    )
+    analysis.node_analyses[position] = result
+    return result
+
+
 def _python_imported_binding_source(
     module: str,
     source: str,
@@ -3389,83 +3588,17 @@ def _python_imported_binding_source(
             root_binding_cache[cache_key] = identity
         return identity
 
-    source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
-    try:
-        tree = _python_parsed_module(
-            module,
-            source_text,
-            import_source_resolver,
-        )
-    except SyntaxError as exc:
-        raise TestCorpusGuardError(
-            "imported Python parameter data cannot be inventoried safely"
-        ) from exc
-    source_path = source.split("\n", 1)[0].removeprefix("path=")
-    relative_package = module
-    if not source_path.endswith("/__init__.py") and "." in module:
-        relative_package = module.rsplit(".", 1)[0]
-    module_bindings = _python_module_bindings(tree)
-    imported_modules = _python_import_modules(
-        tree,
-        relative_package=relative_package,
+    analysis = _python_binding_module_analysis(
+        module,
+        source,
+        import_source_resolver,
     )
-    import_positions: dict[str, tuple[int, int]] = {}
-    binding_positions: dict[str, tuple[int, int]] = {}
-    direct_module_aliases: set[str] = set()
-    for node in _module_execution_nodes(tree):
-        position = (getattr(node, "lineno", 0), getattr(node, "col_offset", 0))
-        if isinstance(node, ast.Import):
-            for imported in node.names:
-                local_name = imported.asname or imported.name.split(".", 1)[0]
-                direct_module_aliases.add(local_name)
-                import_positions[local_name] = max(
-                    import_positions.get(local_name, (0, 0)),
-                    position,
-                )
-            continue
-        if isinstance(node, ast.ImportFrom):
-            for imported in node.names:
-                if imported.name != "*":
-                    import_positions[imported.asname or imported.name] = max(
-                        import_positions.get(imported.asname or imported.name, (0, 0)),
-                        position,
-                    )
-            continue
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            bound_names = (node.name,)
-        elif isinstance(node, ast.Assign):
-            bound_names = tuple(
-                name
-                for target in node.targets
-                for name in _binding_target_names(target)
-            )
-        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
-            bound_names = tuple(_binding_target_names(node.target))
-        elif isinstance(node, (ast.For, ast.AsyncFor)):
-            bound_names = tuple(_binding_target_names(node.target))
-        else:
-            continue
-        for name in bound_names:
-            binding_positions[name] = max(
-                binding_positions.get(name, (0, 0)),
-                position,
-            )
-    rebound_import_names = {
-        name
-        for name in imported_modules
-        if binding_positions.get(name, (0, 0)) > import_positions.get(name, (0, 0))
-    }
-    if rebound_import_names:
-        imported_modules = {
-            name: candidates
-            for name, candidates in imported_modules.items()
-            if name not in rebound_import_names
-        }
-        direct_module_aliases.difference_update(rebound_import_names)
-    star_import_modules = _python_star_import_modules(
-        tree,
-        relative_package=relative_package,
-    )
+    tree = analysis.tree
+    relative_package = analysis.relative_package
+    module_bindings = analysis.module_bindings
+    imported_modules = analysis.imported_modules
+    direct_module_aliases = analysis.direct_module_aliases
+    star_import_modules = analysis.star_import_modules
     pending = [binding_name]
     resolved: set[str] = set()
     binding_nodes: dict[tuple[int, int], ast.AST] = {}
@@ -3568,26 +3701,22 @@ def _python_imported_binding_source(
         for module_binding in bindings:
             node = module_binding.node
             binding_nodes[(node.lineno, node.col_offset)] = node
-            for root, names in _python_import_requirements(
-                node,
-                imported_modules,
-            ).items():
+            node_analysis = _python_binding_node_analysis(analysis, node)
+            for root, names in node_analysis.imported_requirements:
                 imported_requirements.setdefault(root, set()).update(names)
             if star_import_modules:
                 star_import_requirements.update(
                     name
-                    for name in _python_star_import_dependency_names(node)
+                    for name in node_analysis.star_import_requirements
                     if name not in imported_modules and name not in module_bindings
                 )
-            for child in ast.walk(node):
-                if not isinstance(child, ast.Name) or child.id in resolved:
-                    continue
-                if child.id in imported_modules:
-                    continue
-                if child.id in module_bindings:
-                    pending.append(child.id)
+            pending.extend(
+                name
+                for name in node_analysis.local_dependency_names
+                if name not in resolved
+            )
     serialized_parts = [
-        ast.dump(node, annotate_fields=True, include_attributes=False)
+        _python_binding_node_analysis(analysis, node).serialized
         for _position, node in sorted(binding_nodes.items())
     ]
     _reject_repository_reader_calls(tuple(binding_nodes.values()), imported_modules)
@@ -3668,21 +3797,8 @@ def _python_imported_binding_source(
     )
     contains_cycle = "transitive-import-cycle=" in identity_material
     runtime_abort_posture = any(
-        _pytest_collection_abort_callable_name(
-            child.func,
-            imported_modules,
-            {},
-        )
-        in {
-            "importorskip",
-            "skip",
-            "skip-exception",
-            "xfail",
-            "xfail-exception",
-        }
+        _python_binding_node_analysis(analysis, binding_node).runtime_abort_posture
         for binding_node in binding_nodes.values()
-        for child in ast.walk(binding_node)
-        if isinstance(child, ast.Call)
     ) or any(
         "runtime-abort-posture=true" in part.splitlines() for part in serialized_parts
     )
@@ -9119,8 +9235,10 @@ def _python_import_resolver(
         return result
 
     setattr(resolve, "_uaa_module_identity_cache", {})
+    setattr(resolve, "_uaa_source_cache", source_cache)
     setattr(resolve, "_uaa_parsed_module_cache", {})
     setattr(resolve, "_uaa_binding_identity_cache", {})
+    setattr(resolve, "_uaa_binding_module_analysis_cache", {})
     setattr(resolve, "_uaa_root_binding_identity_cache", {})
     setattr(resolve, "_uaa_runtime_module_shape_cache", {})
     setattr(resolve, "_uaa_side_effect_identity_cache", {})
@@ -9628,7 +9746,7 @@ def _local_python_module_counts(repo: Path) -> dict[str, int]:
     return counts
 
 
-def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
+def _inventory_worktree_snapshot(repo: Path) -> _WorktreeInventorySnapshot:
     def read_python_import(candidate: str) -> str | None:
         target = repo / candidate
         if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
@@ -9645,25 +9763,37 @@ def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
     frontend_initializer_cache: dict[str, str] = {}
     frontend_runtime_dependency_cache: dict[str, frozenset[str]] = {}
     declarations: list[TestDeclaration] = []
+    files_by_path: dict[str, _TestFileInventory] = {}
     for path in discover_test_files(repo):
         text = _read_worktree_text(repo, path)
-        declarations.extend(
-            _parse_worktree_test_declarations(
-                repo,
-                path,
-                text,
-                python_import_source_resolver,
-                frontend_source_cache,
-                frontend_initializer_cache,
-                frontend_runtime_dependency_cache,
-            )
+        parsed = _parse_worktree_test_declarations(
+            repo,
+            path,
+            text,
+            python_import_source_resolver,
+            frontend_source_cache,
+            frontend_initializer_cache,
+            frontend_runtime_dependency_cache,
+        )
+        declarations.extend(parsed)
+        files_by_path[path] = _TestFileInventory(
+            source=text,
+            declarations=parsed,
         )
     refs = [item.ref for item in declarations]
     if len(refs) != len(set(refs)):
         raise TestCorpusGuardError("test inventory contains duplicate stable refs")
     if not declarations:
         raise TestCorpusGuardError("test inventory is empty")
-    return tuple(sorted(declarations, key=lambda item: item.ref))
+    return _WorktreeInventorySnapshot(
+        declarations=tuple(sorted(declarations, key=lambda item: item.ref)),
+        files_by_path=files_by_path,
+        python_import_source_resolver=python_import_source_resolver,
+    )
+
+
+def inventory_worktree(repo: Path) -> tuple[TestDeclaration, ...]:
+    return _inventory_worktree_snapshot(repo).declarations
 
 
 def _run_git(repo: Path, args: list[str]) -> subprocess.CompletedProcess[bytes]:
@@ -11858,7 +11988,52 @@ def _historical_source_refs(ledger: dict[str, Any]) -> dict[str, str]:
     return source_refs
 
 
-def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
+def _validate_worktree_inventory_snapshot(
+    repo: Path,
+    snapshot: _WorktreeInventorySnapshot,
+    current_paths: set[str],
+) -> None:
+    """Fail closed if any source consumed by the cached inventory has changed."""
+
+    if set(snapshot.files_by_path) != current_paths:
+        raise TestCorpusGuardError("test inventory changed during verification")
+    for path, inventory in snapshot.files_by_path.items():
+        if _read_worktree_text(repo, path) != inventory.source:
+            raise TestCorpusGuardError("test inventory changed during verification")
+
+    source_cache = getattr(
+        snapshot.python_import_source_resolver,
+        "_uaa_source_cache",
+        None,
+    )
+    module_counts = getattr(
+        snapshot.python_import_source_resolver,
+        "_uaa_local_python_module_counts",
+        None,
+    )
+    if not isinstance(source_cache, dict) or not isinstance(module_counts, dict):
+        raise TestCorpusGuardError("test inventory snapshot is invalid")
+
+    def read_current_import(candidate: str) -> str | None:
+        target = repo / candidate
+        if not target.is_file() or not _worktree_path_has_exact_case(repo, candidate):
+            return None
+        return _read_worktree_text(repo, candidate)
+
+    current_resolver = _python_import_resolver(read_current_import)
+    if _local_python_module_counts(repo) != module_counts:
+        raise TestCorpusGuardError("test inventory changed during verification")
+    for module, source in source_cache.items():
+        if current_resolver(module) != source:
+            raise TestCorpusGuardError("test inventory changed during verification")
+
+
+def removed_declarations(
+    repo: Path,
+    base_sha: str,
+    *,
+    worktree_snapshot: _WorktreeInventorySnapshot | None = None,
+) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
 
@@ -11895,12 +12070,19 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
             return None
         return _read_worktree_text(repo, candidate)
 
-    worktree_import_source_resolver = _python_import_resolver(read_worktree_import)
-    setattr(
-        worktree_import_source_resolver,
-        "_uaa_local_python_module_counts",
-        _local_python_module_counts(repo),
-    )
+    if worktree_snapshot is None:
+        worktree_import_source_resolver = _python_import_resolver(
+            read_worktree_import
+        )
+        setattr(
+            worktree_import_source_resolver,
+            "_uaa_local_python_module_counts",
+            _local_python_module_counts(repo),
+        )
+    else:
+        worktree_import_source_resolver = (
+            worktree_snapshot.python_import_source_resolver
+        )
     base_frontend_source_cache: dict[str, str | None] = {}
     base_frontend_initializer_cache: dict[str, str] = {}
     base_frontend_runtime_dependency_cache: dict[str, frozenset[str]] = {}
@@ -11923,16 +12105,21 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
         )
         prior_refs = {item.ref for item in prior_declarations}
         if path in current_paths:
-            current_text = _read_worktree_text(repo, path)
-            current_declarations = _parse_worktree_test_declarations(
-                repo,
-                path,
-                current_text,
-                worktree_import_source_resolver,
-                worktree_frontend_source_cache,
-                worktree_frontend_initializer_cache,
-                worktree_frontend_runtime_dependency_cache,
-            )
+            if worktree_snapshot is not None and path.endswith(".py"):
+                current_inventory = worktree_snapshot.files_by_path[path]
+                current_text = current_inventory.source
+                current_declarations = current_inventory.declarations
+            else:
+                current_text = _read_worktree_text(repo, path)
+                current_declarations = _parse_worktree_test_declarations(
+                    repo,
+                    path,
+                    current_text,
+                    worktree_import_source_resolver,
+                    worktree_frontend_source_cache,
+                    worktree_frontend_initializer_cache,
+                    worktree_frontend_runtime_dependency_cache,
+                )
             current_refs = {item.ref for item in current_declarations}
         else:
             current_text = None
@@ -11975,6 +12162,12 @@ def removed_declarations(repo: Path, base_sha: str) -> tuple[str, ...]:
                 if normalized.ref in current_normalized_refs
             )
         removed.update(path_removed)
+    if worktree_snapshot is not None:
+        _validate_worktree_inventory_snapshot(
+            repo,
+            worktree_snapshot,
+            set(discover_test_files(repo)),
+        )
     return tuple(sorted(removed))
 
 
@@ -12085,10 +12278,17 @@ def verify_test_corpus_guard(
         repo,
         base_sha if base_sha is not None else os.environ.get(BASE_SHA_ENV),
     )
-    declarations = inventory_worktree(repo)
+    worktree_snapshot = _inventory_worktree_snapshot(repo)
+    declarations = worktree_snapshot.declarations
     current_refs = {item.ref for item in declarations}
     removed = (
-        set(removed_declarations(repo, resolved_base))
+        set(
+            removed_declarations(
+                repo,
+                resolved_base,
+                worktree_snapshot=worktree_snapshot,
+            )
+        )
         if resolved_base is not None
         else set()
     )

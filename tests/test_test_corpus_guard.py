@@ -5201,6 +5201,71 @@ def test_repository_inventory_is_nonempty_and_deterministic() -> None:
     assert {item.kind for item in first} == {"python_test", "frontend_test"}
 
 
+def test_worktree_inventory_snapshot_reuses_exact_validated_declarations(
+    tmp_path: Path,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_example.py").write_text("def test_case(): pass\n")
+
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+
+    guard._validate_worktree_inventory_snapshot(
+        tmp_path,
+        snapshot,
+        set(guard.discover_test_files(tmp_path)),
+    )
+    assert snapshot.declarations == guard.inventory_worktree(tmp_path)
+
+
+def test_worktree_inventory_snapshot_rejects_changed_test_source(
+    tmp_path: Path,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    target = tests_root / "test_example.py"
+    target.write_text("def test_case(): pass\n")
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+    target.write_text("def test_case(): assert False\n")
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard._validate_worktree_inventory_snapshot(
+            tmp_path,
+            snapshot,
+            set(guard.discover_test_files(tmp_path)),
+        )
+
+
+def test_worktree_inventory_snapshot_rejects_changed_imported_source(
+    tmp_path: Path,
+) -> None:
+    tests_root = tmp_path / "tests"
+    tests_root.mkdir()
+    (tests_root / "test_example.py").write_text(
+        "import pytest\n"
+        "from tests.helper import CASES\n"
+        '@pytest.mark.parametrize("case", CASES)\n'
+        "def test_case(case): pass\n"
+    )
+    helper = tests_root / "helper.py"
+    helper.write_text("CASES = (1,)\n")
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+    helper.write_text("CASES = (2,)\n")
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard._validate_worktree_inventory_snapshot(
+            tmp_path,
+            snapshot,
+            set(guard.discover_test_files(tmp_path)),
+        )
+
+
 def test_removed_declarations_indexes_base_and_worktree_submodules(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5241,6 +5306,91 @@ def test_removed_declarations_indexes_base_and_worktree_submodules(
     )
 
     assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_reuses_validated_python_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    source = "def test_case(): pass\n"
+    target = tmp_path / test_path
+    target.parent.mkdir(parents=True)
+    target.write_text(source)
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({test_path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: source if path == test_path else None,
+    )
+    monkeypatch.setattr(
+        guard,
+        "_parse_worktree_test_declarations",
+        lambda *_args, **_kwargs: pytest.fail(
+            "validated Python declarations must be reused"
+        ),
+    )
+
+    assert guard.removed_declarations(
+        tmp_path,
+        "a" * 40,
+        worktree_snapshot=snapshot,
+    ) == ()
+
+
+def test_removed_declarations_revalidates_snapshot_after_changed_path_analysis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    source = "def test_case(): pass\n"
+    target = tmp_path / test_path
+    target.parent.mkdir(parents=True)
+    target.write_text(source)
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+
+    def mutate_during_changed_path_analysis(
+        _repo: Path,
+        _base_sha: str,
+    ) -> tuple[str, ...]:
+        target.write_text("def test_case(): assert False\n")
+        return (test_path,)
+
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        mutate_during_changed_path_analysis,
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset({test_path}),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: source if path == test_path else None,
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard.removed_declarations(
+            tmp_path,
+            "a" * 40,
+            worktree_snapshot=snapshot,
+        )
 
 
 def test_removed_declarations_do_not_fingerprint_application_subject_changes(
@@ -11314,6 +11464,68 @@ def test_python_import_resolver_reuses_only_exact_source_trees() -> None:
     assert repeated is first
     assert changed is not first
     assert len(getattr(resolver, "_uaa_parsed_module_cache")) == 2
+
+
+def test_imported_binding_analysis_reuses_only_exact_module_source() -> None:
+    resolver = guard._python_import_resolver(lambda _path: None)
+    first_source = "path=tests/helper.py\nFIRST = 1\nSECOND = 2\n"
+    changed_source = "path=tests/helper.py\nFIRST = 3\nSECOND = 2\n"
+
+    first = guard._python_imported_binding_source(
+        "tests.helper",
+        first_source,
+        "FIRST",
+        resolver,
+    )
+    second = guard._python_imported_binding_source(
+        "tests.helper",
+        first_source,
+        "SECOND",
+        resolver,
+    )
+    analysis_cache = getattr(resolver, "_uaa_binding_module_analysis_cache")
+
+    assert first != second
+    assert len(analysis_cache) == 1
+    changed = guard._python_imported_binding_source(
+        "tests.helper",
+        changed_source,
+        "FIRST",
+        resolver,
+    )
+    assert changed != first
+    assert len(analysis_cache) == 2
+
+
+def test_imported_binding_analysis_reuses_shared_binding_nodes() -> None:
+    resolver = guard._python_import_resolver(lambda _path: None)
+    source = (
+        "path=tests/helper.py\n"
+        "SHARED = ('stable', 1)\n"
+        "FIRST = SHARED\n"
+        "SECOND = SHARED\n"
+    )
+
+    guard._python_imported_binding_source(
+        "tests.helper",
+        source,
+        "FIRST",
+        resolver,
+    )
+    module_analysis = next(
+        iter(getattr(resolver, "_uaa_binding_module_analysis_cache").values())
+    )
+    cached_positions = set(module_analysis.node_analyses)
+
+    guard._python_imported_binding_source(
+        "tests.helper",
+        source,
+        "SECOND",
+        resolver,
+    )
+
+    assert cached_positions.issubset(module_analysis.node_analyses)
+    assert len(module_analysis.node_analyses) == len(cached_positions) + 1
 
 
 def test_imported_binding_identity_caches_top_level_cycle_closures() -> None:
