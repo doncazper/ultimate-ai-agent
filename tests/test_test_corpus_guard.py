@@ -5461,6 +5461,77 @@ def test_removed_declarations_revalidates_snapshot_after_changed_path_analysis(
         )
 
 
+def test_removed_declarations_revalidates_snapshot_after_base_source_checks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    test_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value()\n"
+    )
+    current_module_source = "def runtime_value(): return 'current'\n"
+    current_sources = {
+        test_path: test_source,
+        package_path: "",
+        module_path: current_module_source,
+    }
+    base_sources = {
+        **current_sources,
+        module_path: "def runtime_value(): return 'base'\n",
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    snapshot = guard._inventory_worktree_snapshot(tmp_path)
+
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+    original_read = guard._read_worktree_text
+    module_reads = 0
+
+    def mutate_during_base_source_revalidation(repo: Path, path: str) -> str:
+        nonlocal module_reads
+        source = original_read(repo, path)
+        if path == module_path:
+            module_reads += 1
+            if module_reads == 2:
+                (repo / test_path).write_text("def test_case(): assert False\n")
+        return source
+
+    monkeypatch.setattr(
+        guard,
+        "_read_worktree_text",
+        mutate_during_base_source_revalidation,
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard.removed_declarations(
+            tmp_path,
+            "a" * 40,
+            worktree_snapshot=snapshot,
+        )
+
+
 def test_removed_declarations_compares_base_application_parameter_sources(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -5554,6 +5625,129 @@ def test_removed_declarations_reuses_collection_neutral_application_runtime_sour
     )
 
     assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_removed_declarations_does_not_reuse_transitively_aborting_runtime_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    child_path = "src/ultimate_ai_agent/collection_child.py"
+    test_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value()\n"
+    )
+    base_sources = {
+        test_path: test_source,
+        package_path: "",
+        module_path: "def runtime_value(): return 'base'\n",
+        child_path: "VALUE = 'base'\n",
+    }
+    current_sources = {
+        **base_sources,
+        module_path: (
+            "from ultimate_ai_agent.collection_child import VALUE\n"
+            "def runtime_value(): return VALUE\n"
+        ),
+        child_path: (
+            "import pytest\n"
+            'pytest.skip("disabled", allow_module_level=True)\n'
+            "VALUE = 'current'\n"
+        ),
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="runtime import closure can abort collection",
+    ):
+        guard.removed_declarations(tmp_path, "a" * 40)
+
+
+def test_removed_declarations_revalidates_current_sources_used_only_by_base_graph(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    package_path = "src/ultimate_ai_agent/__init__.py"
+    module_path = "src/ultimate_ai_agent/subject.py"
+    base_test_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value()\n"
+    )
+    current_test_source = "def test_case(): assert True\n"
+    application_source = "def runtime_value(): return 'current'\n"
+    base_sources = {
+        test_path: base_test_source,
+        package_path: "",
+        module_path: "def runtime_value(): return 'base'\n",
+    }
+    current_sources = {
+        test_path: current_test_source,
+        package_path: "",
+        module_path: application_source,
+    }
+    for path, text in current_sources.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+    original_read = guard._read_worktree_text
+    mutated = False
+
+    def mutate_after_base_only_read(repo: Path, path: str) -> str:
+        nonlocal mutated
+        source = original_read(repo, path)
+        if path == module_path and not mutated:
+            mutated = True
+            (repo / path).write_text("def runtime_value(): return 'changed'\n")
+        return source
+
+    monkeypatch.setattr(guard, "_read_worktree_text", mutate_after_base_only_read)
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="test inventory changed during verification",
+    ):
+        guard.removed_declarations(tmp_path, "a" * 40)
 
 
 def test_removed_declarations_reuses_nested_runtime_helper_application_source(

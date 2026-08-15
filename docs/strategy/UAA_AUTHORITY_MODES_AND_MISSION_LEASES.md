@@ -66,9 +66,14 @@ Authority-increasing lease issuance resolves `approval_ref` only through the
 backend-owned durable AuthorityLease approval store. The public lease request
 schema and `select-authority-mode` CLI do not accept approval-grant payloads.
 `approve-and-issue` and CLI `--approve` capture one exact-scoped durable record
-before normal lease validation; unknown, stale, tampered, or scope-mismatched
-records fail closed with redacted receipts. Control Center remains a shell over
-that backend truth and cannot mint approval state.
+before normal lease validation. Scope binds the lease window, generic and typed
+constraints, requested lease identity, mode, domains, capabilities, operator,
+mission, and idempotency ref. Record authenticators use a private signing key
+stored outside the mutable authority-state directory; interrupted key publication
+is recovered only from an exact same-inode temporary link. Unknown, stale,
+tampered, or scope-mismatched records fail closed with redacted receipts, and a
+denied idempotent retry remains denied. Control Center remains a shell over that
+backend truth and cannot mint approval state.
 - `GET /api/runtime/authority-state#decision_catalog` evaluates every
   capability mapping against the active AuthorityLease set and reports the
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with

@@ -63,12 +63,9 @@ AUTHORITY_LEASE_APPROVAL_RECORD_SCHEMA_VERSION = (
     "uaa-authority-lease-approval-record.v2"
 )
 AUTHORITY_LEASE_APPROVALS_FILE = "authority_lease_approvals.json"
-AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_FILE = "authority_lease_approvals.key"
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR = ".uaa-authority-approval-secrets"
 AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT = 512
-AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES = 32
-AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES = (
-    AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES * 2
-)
+AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES = 32
 
 
 class AuthorityLeaseApprovalStateError(RuntimeError):
@@ -269,8 +266,15 @@ class AuthorityLeaseApprovalStore:
     def __init__(self, state_dir: Path | None = None) -> None:
         self.state_dir = state_dir or authority_state_dir()
         self.records_path = self.state_dir / AUTHORITY_LEASE_APPROVALS_FILE
-        self.signing_key_path = (
-            self.state_dir / AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_FILE
+        resolved_state_dir = self.state_dir.resolve()
+        self.signing_key_dir = (
+            resolved_state_dir.parent / AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR
+        )
+        state_binding = hashlib.sha256(
+            str(resolved_state_dir).encode("utf-8")
+        ).hexdigest()
+        self.signing_key_path = self.signing_key_dir / (
+            f"authority_lease_approvals.{state_binding}.key"
         )
         self.lock_manager = authority_state_lock_manager(str(self.state_dir.resolve()))
 
@@ -597,6 +601,7 @@ class AuthorityLeaseApprovalStore:
                 pass
 
     def _read_signing_key_unlocked(self, *, create: bool) -> bytes:
+        self._validate_signing_key_dir_unlocked(create=create)
         if not self.signing_key_path.exists():
             if not create:
                 raise AuthorityLeaseApprovalStateError(
@@ -617,23 +622,29 @@ class AuthorityLeaseApprovalStore:
             descriptor = os.open(self.signing_key_path, flags)
             metadata = os.fstat(descriptor)
             linked_metadata = os.lstat(self.signing_key_path)
+            if metadata.st_nlink != 1:
+                metadata = self._recover_signing_key_links_unlocked(
+                    descriptor,
+                    metadata,
+                )
+                linked_metadata = os.lstat(self.signing_key_path)
             if (
                 not stat.S_ISREG(metadata.st_mode)
                 or metadata.st_nlink != 1
                 or (metadata.st_dev, metadata.st_ino)
                 != (linked_metadata.st_dev, linked_metadata.st_ino)
                 or stat.S_IMODE(metadata.st_mode) & 0o077
-                or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES
+                or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES
             ):
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
                 )
-            encoded_signing_key = os.read(
+            signing_key = os.read(
                 descriptor,
-                AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES + 1,
+                AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES + 1,
             )
             closed_over = os.fstat(descriptor)
-            if len(encoded_signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_HEX_BYTES or (
+            if len(signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES or (
                 closed_over.st_size,
                 closed_over.st_mtime_ns,
                 closed_over.st_ctime_ns,
@@ -642,16 +653,6 @@ class AuthorityLeaseApprovalStore:
                 metadata.st_mtime_ns,
                 metadata.st_ctime_ns,
             ):
-                raise AuthorityLeaseApprovalStateError(
-                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
-                )
-            try:
-                signing_key = bytes.fromhex(encoded_signing_key.decode("ascii"))
-            except (UnicodeDecodeError, ValueError) as exc:
-                raise AuthorityLeaseApprovalStateError(
-                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
-                ) from exc
-            if len(signing_key) != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES:
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
                 )
@@ -667,11 +668,8 @@ class AuthorityLeaseApprovalStore:
                 os.close(descriptor)
 
     def _create_signing_key_unlocked(self) -> bytes:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        signing_key = secrets.token_bytes(
-            AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_ENTROPY_BYTES
-        )
-        encoded_signing_key = signing_key.hex().encode("ascii")
+        self._validate_signing_key_dir_unlocked(create=True)
+        signing_key = secrets.token_bytes(AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES)
         temp_path = self.signing_key_path.with_name(
             f".{self.signing_key_path.name}.{uuid.uuid4().hex}.tmp"
         )
@@ -689,14 +687,15 @@ class AuthorityLeaseApprovalStore:
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
                 os.fchmod(handle.fileno(), 0o600)
-                handle.write(encoded_signing_key)
+                handle.write(signing_key)
                 handle.flush()
                 os.fsync(handle.fileno())
             try:
                 os.link(temp_path, self.signing_key_path)
             except FileExistsError:
                 return self._read_signing_key_unlocked(create=False)
-            directory_descriptor = os.open(self.state_dir, os.O_RDONLY)
+            temp_path.unlink()
+            directory_descriptor = os.open(self.signing_key_dir, os.O_RDONLY)
             try:
                 os.fsync(directory_descriptor)
             finally:
@@ -715,6 +714,69 @@ class AuthorityLeaseApprovalStore:
                 temp_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+    def _validate_signing_key_dir_unlocked(self, *, create: bool) -> None:
+        if create:
+            self.signing_key_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        try:
+            metadata = os.lstat(self.signing_key_dir)
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR_INVALID"
+            ) from exc
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+            or (hasattr(os, "geteuid") and metadata.st_uid != os.geteuid())
+            or self.state_dir.resolve() == self.signing_key_dir
+            or self.state_dir.resolve() in self.signing_key_dir.parents
+        ):
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR_INVALID"
+            )
+
+    def _recover_signing_key_links_unlocked(
+        self,
+        descriptor: int,
+        metadata: os.stat_result,
+    ) -> os.stat_result:
+        prefix = f".{self.signing_key_path.name}."
+        matching_temp_paths: list[Path] = []
+        try:
+            for entry in os.scandir(self.signing_key_dir):
+                if not (entry.name.startswith(prefix) and entry.name.endswith(".tmp")):
+                    continue
+                entry_metadata = entry.stat(follow_symlinks=False)
+                if (
+                    stat.S_ISREG(entry_metadata.st_mode)
+                    and (entry_metadata.st_dev, entry_metadata.st_ino)
+                    == (metadata.st_dev, metadata.st_ino)
+                ):
+                    matching_temp_paths.append(Path(entry.path))
+            if len(matching_temp_paths) != metadata.st_nlink - 1:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                )
+            for temp_path in matching_temp_paths:
+                temp_path.unlink()
+            directory_descriptor = os.open(self.signing_key_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+            recovered = os.fstat(descriptor)
+            if recovered.st_nlink != 1:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                )
+            return recovered
+        except AuthorityLeaseApprovalStateError:
+            raise
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+            ) from exc
 
 
 def _approval_state_denial(
@@ -850,11 +912,16 @@ def issue_authority_lease_from_backend_state(
     *,
     idempotency_ref: str,
 ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
-    return store.issue_lease(
-        request,
-        idempotency_ref=idempotency_ref,
-        approval_validator=authority_lease_approval_validator(store.state_dir),
-    )
+    try:
+        return store.issue_lease(
+            request,
+            idempotency_ref=idempotency_ref,
+            approval_validator=authority_lease_approval_validator(store.state_dir),
+        )
+    except OSError as exc:
+        raise AuthorityLeaseApprovalStateError(
+            "AUTHORITY_LEASE_APPROVAL_LOCK_UNAVAILABLE"
+        ) from exc
 
 
 def issue_authority_lease_with_backend_approval(
@@ -870,65 +937,70 @@ def issue_authority_lease_with_backend_approval(
     AuthorityLease | None,
     AuthorityLeaseReceipt,
 ]:
-    with store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
-        try:
-            requirement, grant = capture_authority_lease_backend_approval(
-                store,
-                request,
-                idempotency_ref=idempotency_ref,
-                approved_by_actor_id=approved_by_actor_id,
-                approval_ref=approval_ref,
-            )
-        except (
-            AuthorityLeaseApprovalCapacityError,
-            AuthorityLeaseApprovalStateError,
-        ) as exc:
-            requirement = build_authority_lease_approval_requirement_for_request(
-                request,
-                idempotency_ref=idempotency_ref,
-            )
-            failed_approval_ref = (
-                approval_ref
-                or build_authority_lease_backend_approval_ref(
-                    requirement,
+    try:
+        with store.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
+            try:
+                requirement, grant = capture_authority_lease_backend_approval(
+                    store,
+                    request,
+                    idempotency_ref=idempotency_ref,
+                    approved_by_actor_id=approved_by_actor_id,
+                    approval_ref=approval_ref,
+                )
+            except (
+                AuthorityLeaseApprovalCapacityError,
+                AuthorityLeaseApprovalStateError,
+            ) as exc:
+                requirement = build_authority_lease_approval_requirement_for_request(
+                    request,
                     idempotency_ref=idempotency_ref,
                 )
+                failed_approval_ref = (
+                    approval_ref
+                    or build_authority_lease_backend_approval_ref(
+                        requirement,
+                        idempotency_ref=idempotency_ref,
+                    )
+                )
+                approval_request = build_authority_lease_approval_request(requirement)
+                reason_code = (
+                    "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
+                    if isinstance(exc, AuthorityLeaseApprovalCapacityError)
+                    else "APPROVAL_BACKEND_STATE_INVALID"
+                )
+                decision = _approval_state_denial(
+                    approval_request,
+                    failed_approval_ref,
+                    reason_code=reason_code,
+                    safe_message=(
+                        "Backend-owned approval state could not safely capture "
+                        "the exact lease approval."
+                    ),
+                )
+                failed_request = request.model_copy(
+                    update={"approval_ref": failed_approval_ref}
+                )
+                lease, receipt = store.issue_lease(
+                    failed_request,
+                    idempotency_ref=idempotency_ref,
+                    approval_validator=lambda _request, _requirement: decision,
+                )
+                return requirement, None, lease, receipt
+            approved_request = (
+                request.model_copy(update={"approval_ref": grant.approval_ref})
+                if grant is not None
+                else request
             )
-            approval_request = build_authority_lease_approval_request(requirement)
-            reason_code = (
-                "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
-                if isinstance(exc, AuthorityLeaseApprovalCapacityError)
-                else "APPROVAL_BACKEND_STATE_INVALID"
-            )
-            decision = _approval_state_denial(
-                approval_request,
-                failed_approval_ref,
-                reason_code=reason_code,
-                safe_message=(
-                    "Backend-owned approval state could not safely capture "
-                    "the exact lease approval."
-                ),
-            )
-            failed_request = request.model_copy(
-                update={"approval_ref": failed_approval_ref}
-            )
-            lease, receipt = store.issue_lease(
-                failed_request,
+            lease, receipt = issue_authority_lease_from_backend_state(
+                store,
+                approved_request,
                 idempotency_ref=idempotency_ref,
-                approval_validator=lambda _request, _requirement: decision,
             )
-            return requirement, None, lease, receipt
-        approved_request = (
-            request.model_copy(update={"approval_ref": grant.approval_ref})
-            if grant is not None
-            else request
-        )
-        lease, receipt = issue_authority_lease_from_backend_state(
-            store,
-            approved_request,
-            idempotency_ref=idempotency_ref,
-        )
-        return requirement, grant, lease, receipt
+            return requirement, grant, lease, receipt
+    except OSError as exc:
+        raise AuthorityLeaseApprovalStateError(
+            "AUTHORITY_LEASE_APPROVAL_LOCK_UNAVAILABLE"
+        ) from exc
 
 
 def build_authority_lease_test_grant(

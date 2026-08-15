@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.authority import (
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
     AuthorityLeaseApprovalConflictError,
+    AuthorityLeaseApprovalStateError,
     issue_authority_lease_from_backend_state,
     issue_authority_lease_with_backend_approval,
 )
@@ -2346,6 +2347,26 @@ def post_api_runtime_authority_lease(
             request,
             idempotency_ref=idempotency_ref,
         )
+    except AuthorityLeaseApprovalStateError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="APPROVAL_BACKEND_STATE_INVALID",
+                category=ErrorCategory.security_blocked,
+                safe_message=(
+                    "Backend-owned approval state is unavailable; no authority "
+                    "lease was issued."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=["safe_refs_only", "raw_local_paths_omitted"],
+        )
     except AuthorityLeaseConflictError:
         return ResultEnvelope(
             success=False,
@@ -2407,6 +2428,26 @@ def post_api_runtime_authority_lease_approve_and_issue(
                 idempotency_ref=idempotency_ref,
                 approved_by_actor_id=AUTHORITY_LEASE_LOCAL_OPERATOR_REF,
             )
+        )
+    except AuthorityLeaseApprovalStateError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_approve_and_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="APPROVAL_BACKEND_STATE_INVALID",
+                category=ErrorCategory.security_blocked,
+                safe_message=(
+                    "Backend-owned approval state is unavailable; no approval "
+                    "or authority lease was issued."
+                ),
+                severity=Severity.high,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=["safe_refs_only", "raw_local_paths_omitted"],
         )
     except (AuthorityLeaseApprovalConflictError, AuthorityLeaseConflictError):
         return ResultEnvelope(

@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
 )
 from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
     AuthorityLeaseApprovalConflictError,
+    AuthorityLeaseApprovalStateError,
     issue_authority_lease_from_backend_state,
     issue_authority_lease_with_backend_approval,
 )
@@ -2717,6 +2718,13 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
                     approved_by_actor_id=args.approved_by_actor_ref,
                 )
             )
+        except AuthorityLeaseApprovalStateError:
+            print(
+                "ERROR: backend-owned authority approval state is unavailable; "
+                "no approval or authority lease was issued.",
+                file=sys.stderr,
+            )
+            return 1
         except AuthorityLeaseApprovalConflictError:
             print(
                 "ERROR: exact backend-owned authority approval state conflicts "
@@ -2728,11 +2736,19 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
             approval_captured = True
             approval_ref = approval_grant.approval_ref
     else:
-        lease, receipt = issue_authority_lease_from_backend_state(
-            store,
-            request,
-            idempotency_ref=args.idempotency_ref,
-        )
+        try:
+            lease, receipt = issue_authority_lease_from_backend_state(
+                store,
+                request,
+                idempotency_ref=args.idempotency_ref,
+            )
+        except AuthorityLeaseApprovalStateError:
+            print(
+                "ERROR: backend-owned authority approval state is unavailable; "
+                "no authority lease was issued.",
+                file=sys.stderr,
+            )
+            return 1
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-select-authority-mode",

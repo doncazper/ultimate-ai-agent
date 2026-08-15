@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
@@ -3730,6 +3732,7 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     assert tamper_grant is not None
     approval_store = AuthorityLeaseApprovalStore(tamper_dir)
     state_payload = json.loads(approval_store.records_path.read_text(encoding="utf-8"))
+    forged_signing_key = b"f" * 32
     forged_record = state_payload["records"][0]
     forged_record["grant"]["approved_by_actor_id"] = "operator-ref:forged-writer"
     forged_record_payload = {
@@ -3739,12 +3742,14 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     }
     forged_record["record_authenticator_ref"] = (
         "authority-lease-approval-record-authenticator-ref:hmac-sha256:"
-        + hashlib.sha256(
+        + hmac.new(
+            forged_signing_key,
             json.dumps(
                 forged_record_payload,
                 sort_keys=True,
                 separators=(",", ":"),
-            ).encode("utf-8")
+            ).encode("utf-8"),
+            hashlib.sha256,
         ).hexdigest()
     )
     forged_store_payload = {
@@ -3754,18 +3759,23 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     }
     state_payload["store_authenticator_ref"] = (
         "authority-lease-approval-store-authenticator-ref:hmac-sha256:"
-        + hashlib.sha256(
+        + hmac.new(
+            forged_signing_key,
             json.dumps(
                 forged_store_payload,
                 sort_keys=True,
                 separators=(",", ":"),
-            ).encode("utf-8")
+            ).encode("utf-8"),
+            hashlib.sha256,
         ).hexdigest()
     )
     approval_store.records_path.write_text(
         json.dumps(state_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    caller_writable_key = tamper_dir / "authority_lease_approvals.key"
+    caller_writable_key.write_bytes(forged_signing_key)
+    caller_writable_key.chmod(0o600)
     tampered_lease, tampered_receipt = issue_authority_lease_from_backend_state(
         tamper_store,
         request.model_copy(update={"approval_ref": tamper_grant.approval_ref}),
@@ -3782,10 +3792,11 @@ def test_authority_lease_backend_approval_expiry_and_tampering_fail_closed(
     assert tampered_receipt.raw_provider_payload_included is False
     assert tampered_receipt.redactions_applied
     assert tamper_store.list_leases() == []
+    assert not approval_store.signing_key_path.is_relative_to(tamper_dir)
+    assert approval_store.signing_key_dir.stat().st_mode & 0o077 == 0
     assert approval_store.signing_key_path.stat().st_mode & 0o077 == 0
-    encoded_signing_key = approval_store.signing_key_path.read_text(encoding="ascii")
-    assert len(encoded_signing_key) == 64
-    assert len(bytes.fromhex(encoded_signing_key)) == 32
+    assert approval_store.signing_key_path.stat().st_size == 32
+    assert caller_writable_key.read_bytes() == forged_signing_key
     assert "signing_key" not in approval_store.records_path.read_text(encoding="utf-8")
 
 
@@ -3848,6 +3859,94 @@ def test_authority_lease_expired_backend_approval_is_recaptured_after_confirmati
     assert lease is not None
     assert receipt.status == "issued"
     assert receipt.approval_validated is True
+
+
+def test_authority_lease_signing_key_recovers_interrupted_publish_link(
+    tmp_path,
+) -> None:
+    state_dir = tmp_path / "authority-key-recovery"
+    store = AuthorityLeaseStore(state_dir)
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-key-recovery",
+        safe_summary="Recover an interrupted backend signing key publication.",
+    )
+    capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref="idempotency-ref:authority-key-recovery",
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref="approval-ref:authority-key-recovery",
+    )
+    approval_store = AuthorityLeaseApprovalStore(state_dir)
+    interrupted_temp = approval_store.signing_key_path.with_name(
+        f".{approval_store.signing_key_path.name}.interrupted.tmp"
+    )
+    os.link(approval_store.signing_key_path, interrupted_temp)
+    assert approval_store.signing_key_path.stat().st_nlink == 2
+
+    records = approval_store.list_records()
+
+    assert len(records) == 1
+    assert interrupted_temp.exists() is False
+    assert approval_store.signing_key_path.stat().st_nlink == 1
+
+
+@pytest.mark.parametrize(
+    "request_update",
+    (
+        {"duration_minutes": 480},
+        {"constraints": {"workspace_ref": "workspace-ref:substituted"}},
+    ),
+)
+def test_authority_lease_backend_approval_binds_complete_lease_scope(
+    tmp_path,
+    monkeypatch,
+    request_update,
+) -> None:
+    suffix = next(iter(request_update))
+    state_dir = tmp_path / f"authority-scope-{suffix}"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
+    idempotency_ref = f"idempotency-ref:authority-scope-{suffix}"
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref=f"reason-ref:authority-scope-{suffix}",
+        duration_minutes=5,
+        constraints={"workspace_ref": "workspace-ref:approved"},
+        safe_summary="Bind every authority-bearing lease field to approval scope.",
+    )
+    store = AuthorityLeaseStore(state_dir)
+    _requirement, grant = capture_authority_lease_backend_approval(
+        store,
+        request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id="operator-ref:test-backend-approver",
+        approval_ref=f"approval-ref:authority-scope-{suffix}",
+    )
+    assert grant is not None
+
+    response = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": idempotency_ref},
+        json={
+            **request.model_copy(update=request_update).model_dump(mode="json"),
+            "approval_ref": grant.approval_ref,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["data"]["lease"] is None
+    assert response.json()["data"]["receipt"]["approval_reason_codes"] == [
+        "APPROVAL_BACKEND_SCOPE_MISMATCH"
+    ]
+    assert store.list_leases() == []
 
 
 def test_authority_lease_backend_approval_store_is_bounded_and_idempotent(
@@ -3921,6 +4020,90 @@ def test_authority_lease_backend_approval_store_is_bounded_and_idempotent(
         "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
     ]
     assert AuthorityLeaseStore(api_state_dir).list_receipts(limit=10)
+
+    monkeypatch.setattr(validation_module, "AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT", 1)
+    retry = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:authority-backend-capacity-api"
+            )
+        },
+        json={"lease_issue_request": request.model_dump(mode="json")},
+    )
+    assert retry.status_code == 200
+    assert retry.json()["success"] is False
+    assert retry.json()["data"]["lease"] is None
+    assert retry.json()["data"]["receipt"]["status"] == "denied"
+    assert retry.json()["data"]["receipt"]["approval_reason_codes"] == [
+        "APPROVAL_BACKEND_CAPACITY_EXHAUSTED"
+    ]
+    assert AuthorityLeaseStore(api_state_dir).list_leases() == []
+
+
+def test_authority_lease_lock_failures_are_redacted_across_api_and_cli(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    invalid_state_path = tmp_path / "authority-state-is-not-a-directory"
+    invalid_state_path.write_text("not a directory\n", encoding="utf-8")
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(invalid_state_path))
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [AuthorityCapability.execute]
+        },
+        decision_reason_ref="reason-ref:authority-lock-unavailable",
+        safe_summary="Fail closed when backend approval locking is unavailable.",
+    )
+
+    for route, payload, suffix in (
+        (
+            "/api/runtime/authority-leases",
+            issue_request.model_dump(mode="json"),
+            "issue",
+        ),
+        (
+            "/api/runtime/authority-leases/approve-and-issue",
+            {"lease_issue_request": issue_request.model_dump(mode="json")},
+            "approve",
+        ),
+    ):
+        response = client.post(
+            route,
+            headers={
+                "x-uaa-idempotency-key": f"idempotency-ref:authority-lock-{suffix}"
+            },
+            json=payload,
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is False
+        assert response.json()["error"]["code"] == "APPROVAL_BACKEND_STATE_INVALID"
+        assert response.json()["error"]["details_redacted"] is True
+        assert str(tmp_path) not in response.text
+
+    cli_result = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--domain",
+            "workspace:execute",
+            "--reason-ref",
+            "reason-ref:authority-lock-cli",
+            "--idempotency-ref",
+            "idempotency-ref:authority-lock-cli",
+            "--summary",
+            "Fail closed without exposing the backend approval path.",
+            "--approve",
+        ]
+    )
+    cli_output = capsys.readouterr()
+    assert cli_result == 1
+    assert cli_output.out == ""
+    assert "backend-owned authority approval state is unavailable" in cli_output.err
+    assert str(tmp_path) not in cli_output.err
 
 
 def test_authority_lease_openapi_and_cli_reject_grant_payload_inputs(

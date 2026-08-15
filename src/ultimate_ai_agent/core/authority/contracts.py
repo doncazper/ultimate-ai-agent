@@ -3265,6 +3265,9 @@ def build_authority_lease_approval_requirement(
         "scope": request.scope,
         "mission_ref": request.mission_ref,
         "operator_ref": request.operator_ref,
+        "requested_lease_ref": request.requested_lease_ref,
+        "duration_minutes": request.duration_minutes,
+        "constraints": request.constraints,
         "resources": resource_refs,
         "authority_constraints": [
             constraint.model_dump(mode="json")
@@ -3701,6 +3704,8 @@ class AuthorityLeaseStore:
                     "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
                 )
             lease = self._lease_by_ref(existing.lease_ref)
+            if existing.status == "denied":
+                return None, existing.model_copy(deep=True)
             return lease, existing.model_copy(update={"status": "replayed"})
         if (
             request.requested_lease_ref is not None
