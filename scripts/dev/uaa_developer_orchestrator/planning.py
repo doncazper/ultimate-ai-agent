@@ -44,6 +44,7 @@ _TASK_HEADING = re.compile(
 )
 _STATUS = re.compile(r"^Status:\s*(?P<status>.+)$", re.IGNORECASE | re.MULTILINE)
 _PRIORITY = re.compile(r"\bP(?P<priority>[0-3])\b")
+_ANY_HEADING = re.compile(r"^(?P<marks>#{1,6})\s+", re.MULTILINE)
 
 
 def _fingerprint_ref(value: str) -> str:
@@ -58,7 +59,9 @@ def _document_slug(relative_path: str) -> str:
 def _source_status(*, section: str, block: str) -> DeveloperPlanningStatus:
     status_match = _STATUS.search(block)
     descriptor = (status_match.group("status") if status_match else section).lower()
-    if any(token in descriptor for token in ("implemented", "complete", "ready for review")):
+    if any(
+        token in descriptor for token in ("implemented", "complete", "ready for review")
+    ):
         return "implemented"
     if "blocked" in descriptor or "parked" in descriptor:
         return "blocked"
@@ -73,6 +76,14 @@ def _source_status(*, section: str, block: str) -> DeveloperPlanningStatus:
     if any(token in descriptor for token in ("proposed", "future", "planned")):
         return "proposed"
     return "unclear"
+
+
+def _task_block_end(text: str, heading: re.Match[str]) -> int:
+    heading_level = len(heading.group(0)) - len(heading.group(0).lstrip("#"))
+    for candidate in _ANY_HEADING.finditer(text, heading.end()):
+        if len(candidate.group("marks")) <= heading_level:
+            return candidate.start()
+    return len(text)
 
 
 def _safe_title(identifier: str, heading_title: str) -> str:
@@ -150,14 +161,24 @@ class DeveloperPlanningCatalog(BaseModel):
             validate_task_ref(value, "developer_planning_catalog_ref")
         for value in [self.safe_summary, self.next_safe_action]:
             validate_safe_task_text(value, "developer_planning_catalog_text")
-        if self.automatic_queue_mutation_performed or self.automatic_agent_dispatch_performed:
-            raise ValueError("planning catalog must not mutate or dispatch automatically")
+        if (
+            self.automatic_queue_mutation_performed
+            or self.automatic_agent_dispatch_performed
+        ):
+            raise ValueError(
+                "planning catalog must not mutate or dispatch automatically"
+            )
         if self.raw_paths_included or self.raw_content_included:
             raise ValueError("planning catalog must omit raw paths and content")
+        planning_refs = [candidate.planning_item_ref for candidate in self.candidates]
+        if len(planning_refs) != len(set(planning_refs)):
+            raise ValueError("planning catalog item refs must be unique")
         return self
 
 
-def build_developer_planning_catalog(root: Path | None = None) -> DeveloperPlanningCatalog:
+def build_developer_planning_catalog(
+    root: Path | None = None,
+) -> DeveloperPlanningCatalog:
     """Index the durable UAA planning sources with safe refs only.
 
     A candidate is deliberately not an executable task: a human still supplies
@@ -181,32 +202,44 @@ def build_developer_planning_catalog(root: Path | None = None) -> DeveloperPlann
             [*_HEADING.finditer(text), *_TASK_HEADING.finditer(text)],
             key=lambda match: match.start(),
         )
+        identifier_counts: dict[str, int] = {}
+        for heading in headings:
+            key = heading.group("identifier").lower()
+            identifier_counts[key] = identifier_counts.get(key, 0) + 1
         section = ""
         section_start = 0
         sections = list(re.finditer(r"^##\s+(?P<section>.+)$", text, re.MULTILINE))
-        for ordinal, heading in enumerate(headings, start=1):
+        for heading in headings:
             while (
                 section_start < len(sections)
                 and sections[section_start].start() < heading.start()
             ):
                 section = sections[section_start].group("section")
                 section_start += 1
-            block_end = headings[ordinal].start() if ordinal < len(headings) else len(text)
+            block_end = _task_block_end(text, heading)
             block = text[heading.start() : block_end]
             identifier = heading.group("identifier")
+            stable_identifier = identifier.lower()
             rest = heading.group("rest").strip(" -–—:\t")
+            if identifier_counts[stable_identifier] > 1:
+                heading_fingerprint = hashlib.sha256(
+                    f"{stable_identifier}\n{section}\n{rest}".encode("utf-8")
+                ).hexdigest()[:12]
+                stable_identifier = f"{stable_identifier}-{heading_fingerprint}"
             title = _safe_title(
                 identifier,
                 rest or f"Canonical planning item {identifier}",
             )
             priority_match = _PRIORITY.search(f"{identifier} {rest}")
             priority = (
-                f"p{priority_match.group('priority')}" if priority_match is not None else None
+                f"p{priority_match.group('priority')}"
+                if priority_match is not None
+                else None
             )
             candidates.append(
                 DeveloperPlanningCandidate(
                     planning_item_ref=(
-                        f"planning-item-ref:{_document_slug(relative_path)}/{ordinal}"
+                        f"planning-item-ref:{_document_slug(relative_path)}/{stable_identifier}"
                     ),
                     canonical_task_ref=f"canonical-task-ref:{identifier.lower()}",
                     title=title,
@@ -215,7 +248,7 @@ def build_developer_planning_catalog(root: Path | None = None) -> DeveloperPlann
                     canonical_source_ref=document_ref,
                     canonical_source_fingerprint_ref=_fingerprint_ref(text),
                     source_anchor_ref=(
-                        f"canonical-anchor-ref:{_document_slug(relative_path)}/{ordinal}"
+                        f"canonical-anchor-ref:{_document_slug(relative_path)}/{stable_identifier}"
                     ),
                     safe_summary=(
                         "Canonical planning candidate indexed for explicit developer "

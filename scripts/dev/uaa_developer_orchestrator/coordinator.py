@@ -23,6 +23,9 @@ DEVELOPER_COORDINATOR_CLI_REF = "scripts/dev/uaa_developer_queue.py"
 DEVELOPER_COORDINATOR_STATE_DIR_ENV = "UAA_DEVELOPER_COORDINATOR_STATE_DIR"
 DEVELOPER_COORDINATOR_STATE_FILE = "developer_work_queue.json"
 DEVELOPER_COORDINATOR_RECEIPTS_FILE = "developer_work_queue_receipts.jsonl"
+DEVELOPER_COORDINATOR_PENDING_TRANSACTION_FILE = (
+    "developer_work_queue_pending_transaction.json"
+)
 DEVELOPER_COORDINATOR_LOCK_FILE = "developer_work_queue.lock"
 DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT = 1
 DEVELOPER_COORDINATOR_NODE_WIP_LIMIT = 2
@@ -56,6 +59,7 @@ DeveloperWorkEventKind = Literal[
     "task_unblocked",
     "scope_disposition_recorded",
     "task_completed",
+    "task_canceled",
     "task_archive_ready",
 ]
 DeveloperNodeReadiness = Literal["ready", "degraded", "offline"]
@@ -86,14 +90,22 @@ def _hash_ref(prefix: str, value: object) -> str:
         separators=(",", ":"),
         ensure_ascii=True,
     )
-    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    return (
+        f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    )
 
 
 def developer_coordinator_state_dir() -> Path:
     value = os.environ.get(DEVELOPER_COORDINATOR_STATE_DIR_ENV, "").strip()
     if value:
         return Path(value).expanduser()
-    return Path.home() / ".local" / "state" / "ultimate-ai-agent" / "developer_work_coordinator"
+    return (
+        Path.home()
+        / ".local"
+        / "state"
+        / "ultimate-ai-agent"
+        / "developer_work_coordinator"
+    )
 
 
 def _validate_refs(values: list[str], field_name: str) -> None:
@@ -235,9 +247,15 @@ class DeveloperScopeDisposition(BaseModel):
         )
         for value in [self.classification, self.safe_summary]:
             validate_safe_task_text(value, "developer_scope_disposition_text")
-        if self.classification == "defer_safely" and self.deferred_follow_up_ref is None:
+        if (
+            self.classification == "defer_safely"
+            and self.deferred_follow_up_ref is None
+        ):
             raise ValueError("safe deferral requires a durable follow-up ref")
-        if self.classification in {"must_fix_now", "dismiss_with_evidence"} and not self.evidence_refs:
+        if (
+            self.classification in {"must_fix_now", "dismiss_with_evidence"}
+            and not self.evidence_refs
+        ):
             raise ValueError("scope disposition requires evidence refs")
         return self
 
@@ -250,6 +268,7 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
     latest_heartbeat_ref: str | None = None
     blocker_refs: list[str] = Field(default_factory=list)
     completion_evidence_refs: list[str] = Field(default_factory=list)
+    cancellation_reason_ref: str | None = None
     terminal_scope_packet_ref: str | None = None
     latest_receipt_ref: str | None = None
     scope_dispositions: list[DeveloperScopeDisposition] = Field(default_factory=list)
@@ -261,15 +280,28 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
         _validate_refs(
             [
                 *([self.claim_ref] if self.claim_ref is not None else []),
-                *([self.latest_heartbeat_ref] if self.latest_heartbeat_ref is not None else []),
+                *(
+                    [self.latest_heartbeat_ref]
+                    if self.latest_heartbeat_ref is not None
+                    else []
+                ),
                 *self.blocker_refs,
                 *self.completion_evidence_refs,
+                *(
+                    [self.cancellation_reason_ref]
+                    if self.cancellation_reason_ref is not None
+                    else []
+                ),
                 *(
                     [self.terminal_scope_packet_ref]
                     if self.terminal_scope_packet_ref is not None
                     else []
                 ),
-                *([self.latest_receipt_ref] if self.latest_receipt_ref is not None else []),
+                *(
+                    [self.latest_receipt_ref]
+                    if self.latest_receipt_ref is not None
+                    else []
+                ),
             ],
             "developer_work_task_state_ref",
         )
@@ -284,11 +316,15 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
             raise ValueError("blocked developer work task requires blocker refs")
         if self.state == "completed" and not self.completion_evidence_refs:
             raise ValueError("completed developer work task requires evidence refs")
-        if (
-            self.terminal_scope_packet_ref is not None
-            and self.state not in {"completed", "canceled"}
-        ):
-            raise ValueError("terminal scope packet requires a terminal developer work task")
+        if (self.state == "canceled") != (self.cancellation_reason_ref is not None):
+            raise ValueError("canceled developer work task requires one reason ref")
+        if self.terminal_scope_packet_ref is not None and self.state not in {
+            "completed",
+            "canceled",
+        }:
+            raise ValueError(
+                "terminal scope packet requires a terminal developer work task"
+            )
         findings = [item.finding_ref for item in self.scope_dispositions]
         if len(findings) != len(set(findings)):
             raise ValueError("developer scope findings must be unique")
@@ -325,6 +361,15 @@ class DeveloperWorkQueueSnapshot(BaseModel):
                 raise ValueError("developer work task dependency missing")
         if _has_dependency_cycle(self.tasks):
             raise ValueError("developer work queue dependency cycle")
+        active_tasks = [
+            task for task in self.tasks if task.state not in {"completed", "canceled"}
+        ]
+        branch_refs = [task.branch_ref for task in active_tasks]
+        if len(branch_refs) != len(set(branch_refs)):
+            raise ValueError("active developer work branch refs must be unique")
+        worktree_refs = [task.worktree_ref for task in active_tasks]
+        if len(worktree_refs) != len(set(worktree_refs)):
+            raise ValueError("active developer work worktree refs must be unique")
         exclusive_claims = [
             task
             for task in self.tasks
@@ -392,6 +437,22 @@ class DeveloperWorkQueueReceipt(BaseModel):
         return self
 
 
+class DeveloperWorkQueuePendingTransaction(BaseModel):
+    schema_version: Literal["uaa-local-developer-work-queue-transaction.v1"] = (
+        "uaa-local-developer-work-queue-transaction.v1"
+    )
+    snapshot: DeveloperWorkQueueSnapshot
+    receipt: DeveloperWorkQueueReceipt
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_transaction(self) -> "DeveloperWorkQueuePendingTransaction":
+        if self.snapshot.revision != self.receipt.revision:
+            raise ValueError("developer work transaction revision mismatch")
+        return self
+
+
 class DeveloperWorkQueueTaskView(BaseModel):
     task_ref: str
     canonical_task_ref: str
@@ -414,6 +475,7 @@ class DeveloperWorkQueueTaskView(BaseModel):
     next_safe_action: str
     blocker_refs: list[str] = Field(default_factory=list)
     completion_evidence_refs: list[str] = Field(default_factory=list)
+    cancellation_reason_ref: str | None = None
     terminal_scope_packet_ref: str | None = None
     archive_ready: bool = False
     acceptance_refs: list[str] = Field(default_factory=list)
@@ -439,7 +501,9 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
     nodes: list[DeveloperWorkNode] = Field(default_factory=list)
     tasks: list[DeveloperWorkQueueTaskView] = Field(default_factory=list)
     next_task_by_node_ref: dict[str, str | None] = Field(default_factory=dict)
-    global_exclusive_wip_limit: Literal[1] = DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT
+    global_exclusive_wip_limit: Literal[1] = (
+        DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT
+    )
     node_wip_limit: int = DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
     active_exclusive_task_ref: str | None = None
     archive_ready_task_refs: list[str] = Field(default_factory=list)
@@ -471,6 +535,12 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
                     else []
                 ),
                 *self.archive_ready_task_refs,
+                *self.next_task_by_node_ref.keys(),
+                *(
+                    task_ref
+                    for task_ref in self.next_task_by_node_ref.values()
+                    if task_ref is not None
+                ),
                 *self.redactions_applied,
             ],
             "developer_work_read_model_ref",
@@ -533,13 +603,19 @@ class DeveloperWorkCoordinator:
         self.state_dir = state_dir or developer_coordinator_state_dir()
         self.state_path = self.state_dir / DEVELOPER_COORDINATOR_STATE_FILE
         self.receipts_path = self.state_dir / DEVELOPER_COORDINATOR_RECEIPTS_FILE
+        self.pending_transaction_path = (
+            self.state_dir / DEVELOPER_COORDINATOR_PENDING_TRANSACTION_FILE
+        )
         self.lock_path = self.state_dir / DEVELOPER_COORDINATOR_LOCK_FILE
 
     def initialize(self, *, idempotency_ref: str) -> DeveloperWorkQueueReceipt:
         validate_task_ref(idempotency_ref, "developer_work_initialize_idempotency_ref")
         with self._locked():
             snapshot = self._load_snapshot()
-            payload = {"event_kind": "initialized", "coordinator_ref": DEVELOPER_COORDINATOR_REF}
+            payload = {
+                "event_kind": "initialized",
+                "coordinator_ref": DEVELOPER_COORDINATOR_REF,
+            }
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
@@ -550,8 +626,7 @@ class DeveloperWorkCoordinator:
                 revision=snapshot.revision,
                 safe_summary="Local developer work coordinator initialized with no task execution.",
             )
-            self._write_snapshot(snapshot)
-            self._append_receipt(receipt)
+            self._commit_mutation(snapshot, receipt)
             return receipt
 
     def register_node(
@@ -562,7 +637,13 @@ class DeveloperWorkCoordinator:
     ) -> DeveloperWorkQueueReceipt:
         """Register one reviewed developer machine before it may claim work."""
 
-        validate_task_ref(idempotency_ref, "developer_work_register_node_idempotency_ref")
+        validate_task_ref(
+            idempotency_ref, "developer_work_register_node_idempotency_ref"
+        )
+        if node.heartbeat_generation != 0 or node.latest_heartbeat_ref is not None:
+            raise ValueError(
+                "developer work node registration cannot preseed heartbeat"
+            )
         with self._locked():
             snapshot = self._load_snapshot()
             payload = {
@@ -573,7 +654,9 @@ class DeveloperWorkCoordinator:
             if replay is not None:
                 return replay
             if any(candidate.node_ref == node.node_ref for candidate in snapshot.nodes):
-                raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_NODE_REF_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_NODE_REF_CONFLICT"
+                )
             next_snapshot = snapshot.model_copy(
                 update={
                     "revision": snapshot.revision + 1,
@@ -591,8 +674,7 @@ class DeveloperWorkCoordinator:
                     "no remote worker was started."
                 ),
             )
-            self._write_snapshot(next_snapshot)
-            self._append_receipt(receipt)
+            self._commit_mutation(next_snapshot, receipt)
             return receipt
 
     def node_heartbeat(
@@ -604,7 +686,9 @@ class DeveloperWorkCoordinator:
         """Record liveness for an idle or active registered node."""
 
         validate_task_ref(node_ref, "developer_work_node_heartbeat_node_ref")
-        validate_task_ref(idempotency_ref, "developer_work_node_heartbeat_idempotency_ref")
+        validate_task_ref(
+            idempotency_ref, "developer_work_node_heartbeat_idempotency_ref"
+        )
         with self._locked():
             snapshot = self._load_snapshot()
             node = self._find_node(snapshot, node_ref)
@@ -644,8 +728,7 @@ class DeveloperWorkCoordinator:
                     "and does not start, stop, or control a remote worker."
                 ),
             )
-            self._write_snapshot(next_snapshot)
-            self._append_receipt(receipt)
+            self._commit_mutation(next_snapshot, receipt)
             return receipt
 
     def add_task(
@@ -657,15 +740,46 @@ class DeveloperWorkCoordinator:
         validate_task_ref(idempotency_ref, "developer_work_add_idempotency_ref")
         with self._locked():
             snapshot = self._load_snapshot()
-            payload = {"event_kind": "task_added", "draft": draft.model_dump(mode="json")}
+            payload = {
+                "event_kind": "task_added",
+                "draft": draft.model_dump(mode="json"),
+            }
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
             if any(task.task_ref == draft.task_ref for task in snapshot.tasks):
-                raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_TASK_REF_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_REF_CONFLICT"
+                )
+            missing_dependencies = set(draft.depends_on_task_refs) - {
+                task.task_ref for task in snapshot.tasks
+            }
+            if missing_dependencies:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
+                )
+            if any(
+                task.state not in {"completed", "canceled"}
+                and task.branch_ref == draft.branch_ref
+                for task in snapshot.tasks
+            ):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_BRANCH_REF_CONFLICT"
+                )
+            if any(
+                task.state not in {"completed", "canceled"}
+                and task.worktree_ref == draft.worktree_ref
+                for task in snapshot.tasks
+            ):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_WORKTREE_REF_CONFLICT"
+                )
             task = DeveloperWorkTask(**draft.model_dump(mode="json"))
             next_snapshot = snapshot.model_copy(
-                update={"revision": snapshot.revision + 1, "tasks": [*snapshot.tasks, task]}
+                update={
+                    "revision": snapshot.revision + 1,
+                    "tasks": [*snapshot.tasks, task],
+                }
             )
             receipt = self._receipt(
                 event_kind="task_added",
@@ -675,10 +789,13 @@ class DeveloperWorkCoordinator:
                 revision=next_snapshot.revision,
                 safe_summary="Developer task recorded with safe refs; no branch, shell, Git, or agent execution occurred.",
             )
-            updated_task = task.model_copy(update={"latest_receipt_ref": receipt.receipt_ref})
-            next_snapshot = next_snapshot.model_copy(update={"tasks": [*snapshot.tasks, updated_task]})
-            self._write_snapshot(next_snapshot)
-            self._append_receipt(receipt)
+            updated_task = task.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            next_snapshot = next_snapshot.model_copy(
+                update={"tasks": [*snapshot.tasks, updated_task]}
+            )
+            self._commit_mutation(next_snapshot, receipt)
             return receipt
 
     def claim_next(
@@ -776,6 +893,76 @@ class DeveloperWorkCoordinator:
             safe_summary="Developer task marked completed with safe evidence refs; no shell, Git, remote dispatch, or product authority was performed by the coordinator.",
         )
 
+    def cancel(
+        self,
+        *,
+        task_ref: str,
+        cancellation_reason_ref: str,
+        idempotency_ref: str,
+    ) -> DeveloperWorkQueueReceipt:
+        """Cancel one unclaimed task with an exact durable reason ref."""
+
+        validate_task_ref(task_ref, "developer_work_cancel_task_ref")
+        validate_task_ref(
+            cancellation_reason_ref,
+            "developer_work_cancellation_reason_ref",
+        )
+        validate_task_ref(idempotency_ref, "developer_work_cancel_idempotency_ref")
+        with self._locked():
+            snapshot = self._load_snapshot()
+            task = self._find_task(snapshot, task_ref)
+            payload = {
+                "event_kind": "task_canceled",
+                "task_ref": task_ref,
+                "cancellation_reason_ref": cancellation_reason_ref,
+            }
+            replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
+            if replay is not None:
+                return replay
+            if task.state == "claimed":
+                raise DeveloperWorkQueueClaimError(
+                    "DEVELOPER_WORK_CLAIM_RELEASE_REQUIRED"
+                )
+            if task.state in {"completed", "canceled"}:
+                raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TERMINAL_TASK")
+            updated = task.model_copy(
+                update={
+                    "state": "canceled",
+                    "owner_node_ref": None,
+                    "claim_ref": None,
+                    "latest_heartbeat_ref": None,
+                    "blocker_refs": [],
+                    "cancellation_reason_ref": cancellation_reason_ref,
+                }
+            )
+            next_snapshot = snapshot.model_copy(
+                update={
+                    "revision": snapshot.revision + 1,
+                    "tasks": self._replace_task(snapshot, updated),
+                }
+            )
+            receipt = self._receipt(
+                event_kind="task_canceled",
+                task_ref=task_ref,
+                idempotency_ref=idempotency_ref,
+                payload=payload,
+                revision=next_snapshot.revision,
+                safe_summary=(
+                    "Unclaimed developer task canceled with one exact safe reason ref; "
+                    "no task, shell, Git, remote dispatch, or archive action occurred."
+                ),
+            )
+            updated = updated.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            self._commit_mutation(
+                next_snapshot.model_copy(
+                    update={"tasks": self._replace_task(next_snapshot, updated)}
+                ),
+                receipt,
+            )
+            return receipt
+
     def record_terminal_scope_packet(
         self,
         *,
@@ -808,9 +995,13 @@ class DeveloperWorkCoordinator:
             if task.state not in {"completed", "canceled"}:
                 raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TASK_NOT_TERMINAL")
             if task.state == "completed" and not task.completion_evidence_refs:
-                raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_COMPLETION_EVIDENCE_REQUIRED")
+                raise DeveloperWorkQueueClaimError(
+                    "DEVELOPER_WORK_COMPLETION_EVIDENCE_REQUIRED"
+                )
             if task.terminal_scope_packet_ref is not None:
-                raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_TERMINAL_PACKET_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TERMINAL_PACKET_CONFLICT"
+                )
             updated = task.model_copy(
                 update={"terminal_scope_packet_ref": terminal_scope_packet_ref}
             )
@@ -831,13 +1022,15 @@ class DeveloperWorkCoordinator:
                     "only as a Codex thread-management decision; no thread was archived here."
                 ),
             )
-            updated = updated.model_copy(update={"latest_receipt_ref": receipt.receipt_ref})
-            self._write_snapshot(
+            updated = updated.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            self._commit_mutation(
                 next_snapshot.model_copy(
                     update={"tasks": self._replace_task(next_snapshot, updated)}
-                )
+                ),
+                receipt,
             )
-            self._append_receipt(receipt)
             return receipt
 
     def block(
@@ -857,7 +1050,11 @@ class DeveloperWorkCoordinator:
             task = self._find_task(snapshot, task_ref)
             if task.state in {"completed", "canceled"}:
                 raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TERMINAL_TASK")
-            payload = {"event_kind": "task_blocked", "task_ref": task_ref, "blocker_refs": blocker_refs}
+            payload = {
+                "event_kind": "task_blocked",
+                "task_ref": task_ref,
+                "blocker_refs": blocker_refs,
+            }
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
@@ -889,10 +1086,12 @@ class DeveloperWorkCoordinator:
             updated = self._find_task(next_snapshot, task_ref).model_copy(
                 update={"latest_receipt_ref": receipt.receipt_ref}
             )
-            self._write_snapshot(
-                next_snapshot.model_copy(update={"tasks": self._replace_task(next_snapshot, updated)})
+            self._commit_mutation(
+                next_snapshot.model_copy(
+                    update={"tasks": self._replace_task(next_snapshot, updated)}
+                ),
+                receipt,
             )
-            self._append_receipt(receipt)
             return receipt
 
     def unblock(
@@ -932,13 +1131,15 @@ class DeveloperWorkCoordinator:
                     "no shell, Git, remote dispatch, or task execution occurred."
                 ),
             )
-            updated = updated.model_copy(update={"latest_receipt_ref": receipt.receipt_ref})
-            self._write_snapshot(
+            updated = updated.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            self._commit_mutation(
                 next_snapshot.model_copy(
                     update={"tasks": self._replace_task(next_snapshot, updated)}
-                )
+                ),
+                receipt,
             )
-            self._append_receipt(receipt)
             return receipt
 
     def record_scope_disposition(
@@ -969,7 +1170,9 @@ class DeveloperWorkCoordinator:
                 item.finding_ref == disposition.finding_ref
                 for item in task.scope_dispositions
             ):
-                raise DeveloperWorkQueueConflictError("DEVELOPER_SCOPE_FINDING_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_SCOPE_FINDING_CONFLICT"
+                )
             updated = task.model_copy(
                 update={"scope_dispositions": [*task.scope_dispositions, disposition]}
             )
@@ -990,19 +1193,27 @@ class DeveloperWorkCoordinator:
                     "scope expansion, task execution, Git, or remote dispatch."
                 ),
             )
-            updated = updated.model_copy(update={"latest_receipt_ref": receipt.receipt_ref})
-            self._write_snapshot(
+            updated = updated.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            self._commit_mutation(
                 next_snapshot.model_copy(
                     update={"tasks": self._replace_task(next_snapshot, updated)}
-                )
+                ),
+                receipt,
             )
-            self._append_receipt(receipt)
             return receipt
 
-    def inspect(self, *, node_refs: list[str] | None = None) -> DeveloperWorkCoordinatorReadModel:
-        snapshot = self._load_snapshot()
-        known_by_ref = {task.task_ref: task for task in snapshot.tasks}
+    def inspect(
+        self, *, node_refs: list[str] | None = None
+    ) -> DeveloperWorkCoordinatorReadModel:
         next_nodes = node_refs or ["node-ref:mac", "node-ref:beast"]
+        _validate_refs(next_nodes, "developer_work_inspect_node_ref")
+        if len(next_nodes) != len(set(next_nodes)):
+            raise ValueError("developer work inspect node refs must be unique")
+        with self._locked():
+            snapshot = self._load_snapshot()
+        known_by_ref = {task.task_ref: task for task in snapshot.tasks}
         active_exclusive = next(
             (
                 task.task_ref
@@ -1040,6 +1251,7 @@ class DeveloperWorkCoordinator:
                     next_safe_action=task.next_safe_action,
                     blocker_refs=task.blocker_refs,
                     completion_evidence_refs=task.completion_evidence_refs,
+                    cancellation_reason_ref=task.cancellation_reason_ref,
                     terminal_scope_packet_ref=task.terminal_scope_packet_ref,
                     archive_ready=self._archive_ready(task),
                     acceptance_refs=task.acceptance_refs,
@@ -1047,12 +1259,16 @@ class DeveloperWorkCoordinator:
                     merge_gate_refs=task.merge_gate_refs,
                     scope_dispositions=task.scope_dispositions,
                 )
-                for task in sorted(snapshot.tasks, key=lambda task: (_priority_rank(task.priority), task.task_ref))
+                for task in sorted(
+                    snapshot.tasks,
+                    key=lambda task: (_priority_rank(task.priority), task.task_ref),
+                )
             ],
             next_task_by_node_ref={
                 node_ref: (
                     task.task_ref
-                    if (task := self._next_claimable(snapshot, node_ref=node_ref)) is not None
+                    if (task := self._next_claimable(snapshot, node_ref=node_ref))
+                    is not None
                     else None
                 )
                 for node_ref in next_nodes
@@ -1094,7 +1310,11 @@ class DeveloperWorkCoordinator:
         idempotency_ref: str,
     ) -> DeveloperWorkQueueReceipt:
         task = self._find_task(snapshot, task_ref)
-        payload = {"event_kind": "task_claimed", "task_ref": task_ref, "node_ref": node_ref}
+        payload = {
+            "event_kind": "task_claimed",
+            "task_ref": task_ref,
+            "node_ref": node_ref,
+        }
         replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
         if replay is not None:
             return replay
@@ -1103,11 +1323,19 @@ class DeveloperWorkCoordinator:
         if task.state != "queued":
             raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TASK_NOT_QUEUED")
         node = self._find_node(snapshot, node_ref)
-        if node.readiness != "ready" or "queue_claim" not in node.capabilities:
+        if (
+            node.readiness != "ready"
+            or "queue_claim" not in node.capabilities
+            or node.heartbeat_generation < 1
+            or node.latest_heartbeat_ref is None
+        ):
             raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_NODE_NOT_READY")
         if not self._dependencies_complete(snapshot, task):
             raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_DEPENDENCIES_INCOMPLETE")
-        if self._node_claim_count(snapshot, node_ref) >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT:
+        if (
+            self._node_claim_count(snapshot, node_ref)
+            >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
+        ):
             raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_NODE_WIP_LIMIT")
         if task.concurrency == "exclusive" and any(
             candidate.state == "claimed" and candidate.concurrency == "exclusive"
@@ -1117,7 +1345,11 @@ class DeveloperWorkCoordinator:
         claim_generation = task.claim_generation + 1
         claim_ref = _hash_ref(
             "developer-work-claim-ref",
-            {"task_ref": task_ref, "node_ref": node_ref, "generation": claim_generation},
+            {
+                "task_ref": task_ref,
+                "node_ref": node_ref,
+                "generation": claim_generation,
+            },
         )
         updated = task.model_copy(
             update={
@@ -1126,13 +1358,17 @@ class DeveloperWorkCoordinator:
                 "claim_ref": claim_ref,
                 "claim_generation": claim_generation,
                 "latest_heartbeat_ref": _hash_ref(
-                    "developer-work-heartbeat-ref", {"claim_ref": claim_ref, "generation": 0}
+                    "developer-work-heartbeat-ref",
+                    {"claim_ref": claim_ref, "generation": 0},
                 ),
                 "blocker_refs": [],
             }
         )
         next_snapshot = snapshot.model_copy(
-            update={"revision": snapshot.revision + 1, "tasks": self._replace_task(snapshot, updated)}
+            update={
+                "revision": snapshot.revision + 1,
+                "tasks": self._replace_task(snapshot, updated),
+            }
         )
         receipt = self._receipt(
             event_kind="task_claimed",
@@ -1143,17 +1379,19 @@ class DeveloperWorkCoordinator:
             revision=next_snapshot.revision,
             safe_summary="Developer task claimed by one named node with a bounded WIP slot; no execution occurred.",
         )
-        self._write_snapshot(
+        self._commit_mutation(
             next_snapshot.model_copy(
                 update={
                     "tasks": self._replace_task(
                         next_snapshot,
-                        updated.model_copy(update={"latest_receipt_ref": receipt.receipt_ref}),
+                        updated.model_copy(
+                            update={"latest_receipt_ref": receipt.receipt_ref}
+                        ),
                     )
                 }
-            )
+            ),
+            receipt,
         )
-        self._append_receipt(receipt)
         return receipt
 
     def _transition_claimed_task(
@@ -1182,18 +1420,26 @@ class DeveloperWorkCoordinator:
             if replay is not None:
                 return replay
             if task.state != "claimed" or task.owner_node_ref != node_ref:
-                raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_CLAIM_OWNERSHIP_REQUIRED")
+                raise DeveloperWorkQueueClaimError(
+                    "DEVELOPER_WORK_CLAIM_OWNERSHIP_REQUIRED"
+                )
             if event_kind == "task_completed" and any(
                 item.classification == "must_fix_now" and not item.evidence_refs
                 for item in task.scope_dispositions
             ):
-                raise DeveloperWorkQueueClaimError("DEVELOPER_SCOPE_FIX_EVIDENCE_REQUIRED")
+                raise DeveloperWorkQueueClaimError(
+                    "DEVELOPER_SCOPE_FIX_EVIDENCE_REQUIRED"
+                )
             if event_kind == "task_heartbeat":
                 updated = task.model_copy(
                     update={
                         "latest_heartbeat_ref": _hash_ref(
                             "developer-work-heartbeat-ref",
-                            {"claim_ref": task.claim_ref, "generation": task.claim_generation, "revision": snapshot.revision + 1},
+                            {
+                                "claim_ref": task.claim_ref,
+                                "generation": task.claim_generation,
+                                "revision": snapshot.revision + 1,
+                            },
                         )
                     }
                 )
@@ -1213,11 +1459,16 @@ class DeveloperWorkCoordinator:
                         "owner_node_ref": None,
                         "claim_ref": None,
                         "latest_heartbeat_ref": None,
-                        "completion_evidence_refs": list(dict.fromkeys(evidence_refs or [])),
+                        "completion_evidence_refs": list(
+                            dict.fromkeys(evidence_refs or [])
+                        ),
                     }
                 )
             next_snapshot = snapshot.model_copy(
-                update={"revision": snapshot.revision + 1, "tasks": self._replace_task(snapshot, updated)}
+                update={
+                    "revision": snapshot.revision + 1,
+                    "tasks": self._replace_task(snapshot, updated),
+                }
             )
             receipt = self._receipt(
                 event_kind=event_kind,
@@ -1228,17 +1479,19 @@ class DeveloperWorkCoordinator:
                 revision=next_snapshot.revision,
                 safe_summary=safe_summary,
             )
-            self._write_snapshot(
+            self._commit_mutation(
                 next_snapshot.model_copy(
                     update={
                         "tasks": self._replace_task(
                             next_snapshot,
-                            updated.model_copy(update={"latest_receipt_ref": receipt.receipt_ref}),
+                            updated.model_copy(
+                                update={"latest_receipt_ref": receipt.receipt_ref}
+                            ),
                         )
                     }
-                )
+                ),
+                receipt,
             )
-            self._append_receipt(receipt)
             return receipt
 
     def _next_claimable(
@@ -1247,10 +1500,26 @@ class DeveloperWorkCoordinator:
         *,
         node_ref: str,
     ) -> DeveloperWorkTask | None:
-        node = next((candidate for candidate in snapshot.nodes if candidate.node_ref == node_ref), None)
-        if node is None or node.readiness != "ready" or "queue_claim" not in node.capabilities:
+        node = next(
+            (
+                candidate
+                for candidate in snapshot.nodes
+                if candidate.node_ref == node_ref
+            ),
+            None,
+        )
+        if (
+            node is None
+            or node.readiness != "ready"
+            or "queue_claim" not in node.capabilities
+            or node.heartbeat_generation < 1
+            or node.latest_heartbeat_ref is None
+        ):
             return None
-        if self._node_claim_count(snapshot, node_ref) >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT:
+        if (
+            self._node_claim_count(snapshot, node_ref)
+            >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
+        ):
             return None
         exclusive_active = any(
             task.state == "claimed" and task.concurrency == "exclusive"
@@ -1261,7 +1530,9 @@ class DeveloperWorkCoordinator:
             key=lambda task: (_priority_rank(task.priority), task.task_ref),
         )
         for task in candidates:
-            if task.state != "queued" or not self._dependencies_complete(snapshot, task):
+            if task.state != "queued" or not self._dependencies_complete(
+                snapshot, task
+            ):
                 continue
             if task.concurrency == "exclusive" and exclusive_active:
                 continue
@@ -1274,7 +1545,9 @@ class DeveloperWorkCoordinator:
         task: DeveloperWorkTask,
     ) -> bool:
         by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
-        return all(by_ref[ref].state == "completed" for ref in task.depends_on_task_refs)
+        return all(
+            by_ref[ref].state == "completed" for ref in task.depends_on_task_refs
+        )
 
     @staticmethod
     def _archive_ready(task: DeveloperWorkTask) -> bool:
@@ -1293,14 +1566,18 @@ class DeveloperWorkCoordinator:
         )
 
     @staticmethod
-    def _find_task(snapshot: DeveloperWorkQueueSnapshot, task_ref: str) -> DeveloperWorkTask:
+    def _find_task(
+        snapshot: DeveloperWorkQueueSnapshot, task_ref: str
+    ) -> DeveloperWorkTask:
         for task in snapshot.tasks:
             if task.task_ref == task_ref:
                 return task
         raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TASK_NOT_FOUND")
 
     @staticmethod
-    def _find_node(snapshot: DeveloperWorkQueueSnapshot, node_ref: str) -> DeveloperWorkNode:
+    def _find_node(
+        snapshot: DeveloperWorkQueueSnapshot, node_ref: str
+    ) -> DeveloperWorkNode:
         for node in snapshot.nodes:
             if node.node_ref == node_ref:
                 return node
@@ -1341,7 +1618,11 @@ class DeveloperWorkCoordinator:
         return DeveloperWorkQueueReceipt(
             receipt_ref=_hash_ref(
                 "developer-work-receipt-ref",
-                {"event_kind": event_kind, "idempotency_ref": idempotency_ref, "payload": payload},
+                {
+                    "event_kind": event_kind,
+                    "idempotency_ref": idempotency_ref,
+                    "payload": payload,
+                },
             ),
             event_kind=event_kind,
             task_ref=task_ref,
@@ -1360,21 +1641,109 @@ class DeveloperWorkCoordinator:
             self.state_path.read_text(encoding="utf-8")
         )
 
-    def _write_snapshot(self, snapshot: DeveloperWorkQueueSnapshot) -> None:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        temporary_path = self.state_dir / f".{DEVELOPER_COORDINATOR_STATE_FILE}.tmp"
-        temporary_path.write_text(
-            json.dumps(snapshot.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
+    def _commit_mutation(
+        self,
+        snapshot: DeveloperWorkQueueSnapshot,
+        receipt: DeveloperWorkQueueReceipt,
+    ) -> None:
+        """Durably prepare and recover one snapshot/receipt transaction."""
+
+        validated_snapshot = DeveloperWorkQueueSnapshot.model_validate(
+            snapshot.model_dump(mode="json")
         )
-        os.replace(temporary_path, self.state_path)
+        transaction = DeveloperWorkQueuePendingTransaction(
+            snapshot=validated_snapshot,
+            receipt=receipt,
+        )
+        self._write_pending_transaction(transaction)
+        self._write_snapshot(validated_snapshot)
+        self._append_receipt(receipt)
+        self._clear_pending_transaction()
+
+    def _write_snapshot(self, snapshot: DeveloperWorkQueueSnapshot) -> None:
+        validated = DeveloperWorkQueueSnapshot.model_validate(
+            snapshot.model_dump(mode="json")
+        )
+        self._atomic_write_text(
+            self.state_path,
+            json.dumps(validated.model_dump(mode="json"), indent=2, sort_keys=True)
+            + "\n",
+        )
 
     def _append_receipt(self, receipt: DeveloperWorkQueueReceipt) -> None:
+        receipts = self._load_receipts()
+        for existing in receipts:
+            if existing.receipt_ref == receipt.receipt_ref:
+                if existing.model_dump(mode="json") != receipt.model_dump(mode="json"):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_RECEIPT_REF_CONFLICT"
+                    )
+                return
+            if existing.idempotency_ref == receipt.idempotency_ref:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
+                )
+        lines = [
+            json.dumps(item.model_dump(mode="json"), sort_keys=True)
+            for item in [*receipts, receipt]
+        ]
+        self._atomic_write_text(self.receipts_path, "\n".join(lines) + "\n")
+
+    def _load_receipts(self) -> list[DeveloperWorkQueueReceipt]:
+        if not self.receipts_path.exists():
+            return []
+        receipts: list[DeveloperWorkQueueReceipt] = []
+        for line in self.receipts_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                receipts.append(DeveloperWorkQueueReceipt.model_validate_json(line))
+        return receipts
+
+    def _write_pending_transaction(
+        self,
+        transaction: DeveloperWorkQueuePendingTransaction,
+    ) -> None:
+        self._atomic_write_text(
+            self.pending_transaction_path,
+            json.dumps(transaction.model_dump(mode="json"), indent=2, sort_keys=True)
+            + "\n",
+        )
+
+    def _recover_pending_transaction(self) -> None:
+        if not self.pending_transaction_path.exists():
+            return
+        try:
+            transaction = DeveloperWorkQueuePendingTransaction.model_validate_json(
+                self.pending_transaction_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as error:
+            raise DeveloperWorkQueueError(
+                "DEVELOPER_WORK_PENDING_TRANSACTION_INVALID"
+            ) from error
+        self._write_snapshot(transaction.snapshot)
+        self._append_receipt(transaction.receipt)
+        self._clear_pending_transaction()
+
+    def _clear_pending_transaction(self) -> None:
+        if self.pending_transaction_path.exists():
+            self.pending_transaction_path.unlink()
+            self._fsync_state_dir()
+
+    def _atomic_write_text(self, path: Path, payload: str) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        with self.receipts_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n")
+        temporary_path = self.state_dir / f".{path.name}.tmp"
+        with temporary_path.open("w", encoding="utf-8") as handle:
+            handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        self._fsync_state_dir()
+
+    def _fsync_state_dir(self) -> None:
+        directory_fd = os.open(self.state_dir, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
 
     def _replay(
         self,
@@ -1382,17 +1751,14 @@ class DeveloperWorkCoordinator:
         idempotency_ref: str,
         payload: dict[str, object],
     ) -> DeveloperWorkQueueReceipt | None:
-        if not self.receipts_path.exists():
-            return None
         expected_fingerprint = _hash_ref("developer-work-payload-ref", payload)
-        for line in self.receipts_path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            receipt = DeveloperWorkQueueReceipt.model_validate_json(line)
+        for receipt in self._load_receipts():
             if receipt.idempotency_ref != idempotency_ref:
                 continue
             if receipt.payload_fingerprint_ref != expected_fingerprint:
-                raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
+                )
             return receipt.model_copy(update={"replayed": True})
         return None
 
@@ -1404,16 +1770,13 @@ class DeveloperWorkCoordinator:
     ) -> DeveloperWorkQueueReceipt | None:
         """Replay a claim-next receipt before selecting a different later task."""
 
-        if not self.receipts_path.exists():
-            return None
-        for line in self.receipts_path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            receipt = DeveloperWorkQueueReceipt.model_validate_json(line)
+        for receipt in self._load_receipts():
             if receipt.idempotency_ref != idempotency_ref:
                 continue
             if receipt.event_kind != "task_claimed" or receipt.node_ref != node_ref:
-                raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
+                )
             return receipt.model_copy(update={"replayed": True})
         return None
 
@@ -1425,6 +1788,7 @@ class DeveloperWorkCoordinator:
                 import fcntl
 
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                self._recover_pending_transaction()
                 yield
             finally:
                 try:

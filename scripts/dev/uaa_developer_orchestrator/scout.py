@@ -12,7 +12,10 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core.planning.validation import validate_safe_task_text, validate_task_ref
+from ultimate_ai_agent.core.planning.validation import (
+    validate_safe_task_text,
+    validate_task_ref,
+)
 
 
 DeveloperScoutSeverity = Literal["p0", "p1", "p2"]
@@ -104,15 +107,17 @@ class DeveloperWorkspaceScoutReadModel(BaseModel):
         "uaa-developer-workspace-scout.v1"
     )
     contract_ref: str = DEVELOPER_GIT_SCOUT_CONTRACT_REF
+    available: bool
     safe_summary: str
-    dirty_entry_count: int = Field(ge=0)
-    registered_worktree_count: int = Field(ge=0)
-    prunable_worktree_count: int = Field(ge=0)
+    dirty_entry_count: int | None = Field(default=None, ge=0)
+    registered_worktree_count: int | None = Field(default=None, ge=0)
+    prunable_worktree_count: int | None = Field(default=None, ge=0)
     unmerged_branches: list[DeveloperUnmergedBranch] = Field(default_factory=list)
-    unmerged_branch_count: int = Field(ge=0)
-    branch_without_upstream_count: int = Field(ge=0)
+    unmerged_branch_count: int | None = Field(default=None, ge=0)
+    branch_without_upstream_count: int | None = Field(default=None, ge=0)
     local_main_ahead_count: int | None = Field(default=None, ge=0)
     local_main_behind_count: int | None = Field(default=None, ge=0)
+    unavailable_check_refs: list[str] = Field(default_factory=list)
     risks: list[DeveloperScoutRisk] = Field(default_factory=list)
     next_safe_action: str
     git_metadata_inspection_performed: bool = True
@@ -130,11 +135,16 @@ class DeveloperWorkspaceScoutReadModel(BaseModel):
 
     @model_validator(mode="after")
     def validate_read_model(self) -> "DeveloperWorkspaceScoutReadModel":
-        validate_task_ref(self.contract_ref, "developer_scout_contract_ref")
+        for value in [self.contract_ref, *self.unavailable_check_refs]:
+            validate_task_ref(value, "developer_scout_contract_ref")
         for value in [self.safe_summary, self.next_safe_action]:
             validate_safe_task_text(value, "developer_scout_text")
-        if self.unmerged_branch_count != len(self.unmerged_branches):
+        if self.unmerged_branch_count is not None and self.unmerged_branch_count != len(
+            self.unmerged_branches
+        ):
             raise ValueError("developer scout unmerged branch count mismatch")
+        if self.available == bool(self.unavailable_check_refs):
+            raise ValueError("developer scout availability mismatch")
         forbidden = {
             "git_mutation_performed": self.git_mutation_performed,
             "branch_deletion_performed": self.branch_deletion_performed,
@@ -175,14 +185,44 @@ class DeveloperWorkspaceScout:
         branches = self.runner.run(self._UNMERGED, cwd=repository_root)
         divergence = self.runner.run(self._DIVERGENCE, cwd=repository_root)
 
-        dirty_entry_count = len([line for line in status.stdout.splitlines() if line.strip()])
-        registered_worktree_count = sum(
-            1 for line in worktrees.stdout.splitlines() if line.startswith("worktree ")
+        unavailable_check_refs = [
+            check_ref
+            for check_ref, result in [
+                ("developer-git-check-ref:status", status),
+                ("developer-git-check-ref:worktrees", worktrees),
+                ("developer-git-check-ref:unmerged-branches", branches),
+                ("developer-git-check-ref:main-divergence", divergence),
+            ]
+            if result.exit_code != 0
+        ]
+        dirty_entry_count = (
+            len([line for line in status.stdout.splitlines() if line.strip()])
+            if status.exit_code == 0
+            else None
         )
-        prunable_worktree_count = sum(
-            1 for line in worktrees.stdout.splitlines() if line.startswith("prunable ")
+        registered_worktree_count = (
+            sum(
+                1
+                for line in worktrees.stdout.splitlines()
+                if line.startswith("worktree ")
+            )
+            if worktrees.exit_code == 0
+            else None
         )
-        unmerged_branches = self._parse_unmerged_branches(branches.stdout)
+        prunable_worktree_count = (
+            sum(
+                1
+                for line in worktrees.stdout.splitlines()
+                if line.startswith("prunable ")
+            )
+            if worktrees.exit_code == 0
+            else None
+        )
+        unmerged_branches = (
+            self._parse_unmerged_branches(branches.stdout)
+            if branches.exit_code == 0
+            else []
+        )
         local_main_ahead_count, local_main_behind_count = self._parse_divergence(
             divergence
         )
@@ -192,28 +232,48 @@ class DeveloperWorkspaceScout:
             unmerged_branches=unmerged_branches,
             local_main_behind_count=local_main_behind_count,
         )
+        if unavailable_check_refs:
+            risks.insert(
+                0,
+                DeveloperScoutRisk(
+                    risk_ref="developer-risk-ref:git-metadata-unavailable",
+                    severity="p0",
+                    safe_summary=(
+                        "One or more fixed Git metadata checks failed. Missing evidence "
+                        "must not be interpreted as a clean repository or cleanup authority."
+                    ),
+                    remediation_ref="developer-remediation-ref:restore-git-metadata-inspection",
+                ),
+            )
         return DeveloperWorkspaceScoutReadModel(
+            available=not unavailable_check_refs,
             safe_summary=(
-                "Read-only local Git metadata scout. It counts hygiene risks and emits "
-                "review gates without merging, deleting branches, pruning worktrees, or "
-                "running developer tasks. GitHub pull-request state is not inspected in v1."
+                "Read-only local Git metadata scout. Failed checks remain explicitly "
+                "unavailable; no missing result is treated as clean evidence. It does not "
+                "merge, delete branches, prune worktrees, or inspect GitHub in v1."
             ),
             dirty_entry_count=dirty_entry_count,
             registered_worktree_count=registered_worktree_count,
             prunable_worktree_count=prunable_worktree_count,
             unmerged_branches=unmerged_branches,
-            unmerged_branch_count=len(unmerged_branches),
-            branch_without_upstream_count=sum(
-                1 for branch in unmerged_branches if not branch.upstream_configured
+            unmerged_branch_count=(
+                len(unmerged_branches) if branches.exit_code == 0 else None
+            ),
+            branch_without_upstream_count=(
+                sum(1 for branch in unmerged_branches if not branch.upstream_configured)
+                if branches.exit_code == 0
+                else None
             ),
             local_main_ahead_count=local_main_ahead_count,
             local_main_behind_count=local_main_behind_count,
+            unavailable_check_refs=unavailable_check_refs,
             risks=risks,
             next_safe_action=(
                 "Review the P0 hygiene gates, reconcile current main only in a clean "
                 "worktree, then triage each branch or prunable registration before any "
                 "explicit merge, worktree prune, or branch deletion command."
             ),
+            git_metadata_inspection_performed=not unavailable_check_refs,
         )
 
     @staticmethod
@@ -250,8 +310,8 @@ class DeveloperWorkspaceScout:
     @staticmethod
     def _risks(
         *,
-        dirty_entry_count: int,
-        prunable_worktree_count: int,
+        dirty_entry_count: int | None,
+        prunable_worktree_count: int | None,
         unmerged_branches: list[DeveloperUnmergedBranch],
         local_main_behind_count: int | None,
     ) -> list[DeveloperScoutRisk]:
@@ -320,29 +380,6 @@ class DeveloperWorkspaceScout:
         return risks
 
 
-class GitHubPullRequestRunner(Protocol):
-    def run(self, args: tuple[str, ...], *, cwd: Path) -> GitMetadataCommandResult: ...
-
-
-class SubprocessGitHubPullRequestRunner:
-    """Runs one fixed read-only GitHub CLI query without a shell."""
-
-    def run(self, args: tuple[str, ...], *, cwd: Path) -> GitMetadataCommandResult:
-        completed = subprocess.run(
-            list(args),
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            check=False,
-            shell=False,
-            timeout=10,
-        )
-        return GitMetadataCommandResult(
-            stdout=completed.stdout if completed.returncode == 0 else "",
-            exit_code=completed.returncode,
-        )
-
-
 class DeveloperPullRequestMetadata(BaseModel):
     pull_request_ref: str
     number: int = Field(ge=1)
@@ -368,9 +405,7 @@ class DeveloperPullRequestMetadata(BaseModel):
         for value in [
             self.title,
             self.merge_state_status,
-            *(
-                [self.review_decision] if self.review_decision is not None else []
-            ),
+            *([self.review_decision] if self.review_decision is not None else []),
             *(
                 [self.head_branch_display_name]
                 if self.head_branch_display_name is not None
@@ -429,57 +464,26 @@ class DeveloperPullRequestScoutReadModel(BaseModel):
 
 
 class DeveloperPullRequestScout:
-    """Opt-in open-PR metadata reader; it has no GitHub mutation capability."""
+    """Fail-closed parser for externally supplied PR metadata; it performs no query."""
 
-    _OPEN_PULL_REQUESTS = (
-        "gh",
-        "pr",
-        "list",
-        "--state",
-        "open",
-        "--limit",
-        "100",
-        "--json",
-        "number,title,headRefName,baseRefName,isDraft,mergeStateStatus,reviewDecision",
-    )
-
-    def __init__(self, runner: GitHubPullRequestRunner | None = None) -> None:
-        self.runner = runner or SubprocessGitHubPullRequestRunner()
-
-    def inspect(self, *, repository_root: Path) -> DeveloperPullRequestScoutReadModel:
-        result = self.runner.run(self._OPEN_PULL_REQUESTS, cwd=repository_root)
+    def inspect_result(
+        self,
+        result: GitMetadataCommandResult,
+    ) -> DeveloperPullRequestScoutReadModel:
         if result.exit_code != 0:
-            return DeveloperPullRequestScoutReadModel(
-                available=False,
-                open_pull_request_count=0,
-                safe_summary=(
-                    "The optional fixed GitHub read-only query was unavailable. No pull "
-                    "request state was inferred and no GitHub mutation was attempted."
-                ),
-                next_safe_action=(
-                    "Restore a local GitHub CLI read-only session, then inspect open pull "
-                    "requests before making any merge or branch-retirement decision."
-                ),
-                github_read_only_inspection_performed=False,
-                risks=[
-                    DeveloperScoutRisk(
-                        risk_ref="developer-risk-ref:github-pr-state-unavailable",
-                        severity="p1",
-                        safe_summary=(
-                            "Open pull-request state is unavailable, so no branch can be "
-                            "treated as merge-ready from local Git metadata alone."
-                        ),
-                        remediation_ref="developer-remediation-ref:restore-github-read-only-inspection",
-                    )
-                ],
-            )
+            return self._unavailable()
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError:
-            payload = []
-        if not isinstance(payload, list):
-            payload = []
-        pull_requests = [self._pull_request(item) for item in payload if isinstance(item, dict)]
+            return self._unavailable()
+        if not isinstance(payload, list) or not all(
+            isinstance(item, dict) for item in payload
+        ):
+            return self._unavailable()
+        try:
+            pull_requests = [self._pull_request(item) for item in payload]
+        except ValueError:
+            return self._unavailable()
         risks = self._risks(pull_requests)
         return DeveloperPullRequestScoutReadModel(
             available=True,
@@ -487,14 +491,41 @@ class DeveloperPullRequestScout:
             pull_requests=pull_requests,
             risks=risks,
             safe_summary=(
-                "Optional fixed GitHub read-only inspection of open pull-request metadata. "
-                "It does not review, merge, close, comment on, push, or alter any pull request."
+                "Externally supplied open pull-request metadata parsed without performing "
+                "a GitHub query, mutation, merge, comment, push, or branch operation."
             ),
             next_safe_action=(
                 "Resolve conflict or unstable PRs first, then review verifier evidence "
                 "and required approvals before explicitly merging any ready PR."
             ),
-            github_read_only_inspection_performed=True,
+            github_read_only_inspection_performed=False,
+        )
+
+    @staticmethod
+    def _unavailable() -> DeveloperPullRequestScoutReadModel:
+        return DeveloperPullRequestScoutReadModel(
+            available=False,
+            open_pull_request_count=0,
+            safe_summary=(
+                "Externally supplied pull-request metadata was unavailable or malformed. "
+                "No pull-request state was inferred and no GitHub query was performed."
+            ),
+            next_safe_action=(
+                "Use a separately authorized GitHub inspection lane and supply complete "
+                "validated metadata before any merge or branch-retirement decision."
+            ),
+            github_read_only_inspection_performed=False,
+            risks=[
+                DeveloperScoutRisk(
+                    risk_ref="developer-risk-ref:github-pr-state-unavailable",
+                    severity="p1",
+                    safe_summary=(
+                        "Open pull-request state is unavailable, so no branch can be "
+                        "treated as merge-ready from local Git metadata alone."
+                    ),
+                    remediation_ref="developer-remediation-ref:use-authorized-github-inspection",
+                )
+            ],
         )
 
     @staticmethod
@@ -510,7 +541,9 @@ class DeveloperPullRequestScout:
         return DeveloperPullRequestMetadata(
             pull_request_ref=f"pull-request-ref:{number}",
             number=number,
-            title=_safe_title_or_redacted(title, f"Pull request {number} title redacted"),
+            title=_safe_title_or_redacted(
+                title, f"Pull request {number} title redacted"
+            ),
             head_branch_ref=_safe_ref("branch-ref", head),
             head_branch_display_name=_display_name_or_redacted(head),
             base_branch_ref=_safe_ref("branch-ref", base),

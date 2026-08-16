@@ -25,7 +25,6 @@ from uaa_developer_orchestrator.planning import (  # noqa: E402
     find_planning_candidate,
 )
 from uaa_developer_orchestrator.scout import (  # noqa: E402
-    DeveloperPullRequestScout,
     DeveloperWorkspaceScout,
 )
 
@@ -123,13 +122,11 @@ def inspect(args: argparse.Namespace) -> int:
         "queue": coordinator.inspect(node_refs=args.node_ref).model_dump(mode="json"),
     }
     if args.include_scout:
-        payload["workspace_scout"] = DeveloperWorkspaceScout().inspect(
-            repository_root=ROOT
-        ).model_dump(mode="json")
-    if args.include_github_read:
-        payload["pull_request_scout"] = DeveloperPullRequestScout().inspect(
-            repository_root=ROOT
-        ).model_dump(mode="json")
+        payload["workspace_scout"] = (
+            DeveloperWorkspaceScout()
+            .inspect(repository_root=ROOT)
+            .model_dump(mode="json")
+        )
     return _print(payload, pretty=args.pretty)
 
 
@@ -182,6 +179,19 @@ def complete(args: argparse.Namespace) -> int:
             task_ref=args.task_ref,
             node_ref=args.node_ref,
             evidence_refs=args.evidence_ref,
+            idempotency_ref=args.idempotency_ref,
+        ),
+        pretty=args.pretty,
+    )
+
+
+def cancel(args: argparse.Namespace) -> int:
+    if args.confirm_cancel != "cancel-task":
+        raise ValueError("DEVELOPER_QUEUE_CANCELLATION_CONFIRMATION_REQUIRED")
+    return _print(
+        _coordinator(args).cancel(
+            task_ref=args.task_ref,
+            cancellation_reason_ref=args.cancellation_reason_ref,
             idempotency_ref=args.idempotency_ref,
         ),
         pretty=args.pretty,
@@ -265,19 +275,17 @@ def handoff(args: argparse.Namespace) -> int:
 
 
 def scout(args: argparse.Namespace) -> int:
-    payload: dict[str, object] = {
+    payload = {
         "workspace_scout": DeveloperWorkspaceScout()
         .inspect(repository_root=ROOT)
         .model_dump(mode="json")
     }
-    if args.include_github_read:
-        payload["pull_request_scout"] = DeveloperPullRequestScout().inspect(
-            repository_root=ROOT
-        ).model_dump(mode="json")
     return _print(payload, pretty=args.pretty)
 
 
-def _receipt_command(parser: argparse.ArgumentParser, *, name: str, func: object) -> None:
+def _receipt_command(
+    parser: argparse.ArgumentParser, *, name: str, func: object
+) -> None:
     command = parser.add_parser(name)
     command.add_argument("--task-ref", required=True)
     command.add_argument("--node-ref", required=True)
@@ -302,11 +310,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    catalog_command = subparsers.add_parser("catalog", help="Index canonical planning sources without mutating the queue.")
+    catalog_command = subparsers.add_parser(
+        "catalog", help="Index canonical planning sources without mutating the queue."
+    )
     catalog_command.add_argument("--pretty", action="store_true")
     catalog_command.set_defaults(func=catalog)
 
-    initialize_command = subparsers.add_parser("initialize", help="Initialize the durable local queue.")
+    initialize_command = subparsers.add_parser(
+        "initialize", help="Initialize the durable local queue."
+    )
     initialize_command.add_argument("--idempotency-ref", required=True)
     initialize_command.add_argument("--pretty", action="store_true")
     initialize_command.set_defaults(func=initialize)
@@ -368,14 +380,19 @@ def build_parser() -> argparse.ArgumentParser:
     triage_command.add_argument("--pretty", action="store_true")
     triage_command.set_defaults(func=triage)
 
-    inspect_command = subparsers.add_parser("inspect", help="Inspect durable queue state and optionally the local Git scout.")
+    inspect_command = subparsers.add_parser(
+        "inspect",
+        help="Inspect durable queue state and optionally the local Git scout.",
+    )
     inspect_command.add_argument("--node-ref", action="append", default=[])
     inspect_command.add_argument("--include-scout", action="store_true")
-    inspect_command.add_argument("--include-github-read", action="store_true")
     inspect_command.add_argument("--pretty", action="store_true")
     inspect_command.set_defaults(func=inspect)
 
-    claim_next_command = subparsers.add_parser("claim-next", help="Explicitly claim the highest-priority dependency-ready task.")
+    claim_next_command = subparsers.add_parser(
+        "claim-next",
+        help="Explicitly claim the highest-priority dependency-ready task.",
+    )
     claim_next_command.add_argument("--node-ref", required=True)
     claim_next_command.add_argument("--idempotency-ref", required=True)
     claim_next_command.add_argument("--pretty", action="store_true")
@@ -384,13 +401,26 @@ def build_parser() -> argparse.ArgumentParser:
     _receipt_command(subparsers, name="heartbeat", func=heartbeat)
     _receipt_command(subparsers, name="release", func=release)
 
-    complete_command = subparsers.add_parser("complete", help="Record verifier evidence for an owned task.")
+    complete_command = subparsers.add_parser(
+        "complete", help="Record verifier evidence for an owned task."
+    )
     complete_command.add_argument("--task-ref", required=True)
     complete_command.add_argument("--node-ref", required=True)
     complete_command.add_argument("--evidence-ref", action="append", required=True)
     complete_command.add_argument("--idempotency-ref", required=True)
     complete_command.add_argument("--pretty", action="store_true")
     complete_command.set_defaults(func=complete)
+
+    cancel_command = subparsers.add_parser(
+        "cancel",
+        help="Cancel one unclaimed task with an exact durable reason ref.",
+    )
+    cancel_command.add_argument("--task-ref", required=True)
+    cancel_command.add_argument("--cancellation-reason-ref", required=True)
+    cancel_command.add_argument("--idempotency-ref", required=True)
+    cancel_command.add_argument("--confirm-cancel", required=True)
+    cancel_command.add_argument("--pretty", action="store_true")
+    cancel_command.set_defaults(func=cancel)
 
     archive_ready_command = subparsers.add_parser(
         "record-terminal-packet",
@@ -403,7 +433,9 @@ def build_parser() -> argparse.ArgumentParser:
     archive_ready_command.add_argument("--pretty", action="store_true")
     archive_ready_command.set_defaults(func=record_terminal_packet)
 
-    block_command = subparsers.add_parser("block", help="Record a safe blocker ref for a task.")
+    block_command = subparsers.add_parser(
+        "block", help="Record a safe blocker ref for a task."
+    )
     block_command.add_argument("--task-ref", required=True)
     block_command.add_argument("--blocker-ref", action="append", required=True)
     block_command.add_argument("--idempotency-ref", required=True)
@@ -436,17 +468,16 @@ def build_parser() -> argparse.ArgumentParser:
     scope_command.add_argument("--pretty", action="store_true")
     scope_command.set_defaults(func=record_scope_disposition)
 
-    handoff_command = subparsers.add_parser("handoff", help="Print one safe task handoff for a Mac or Beast worker.")
+    handoff_command = subparsers.add_parser(
+        "handoff", help="Print one safe task handoff for a Mac or Beast worker."
+    )
     handoff_command.add_argument("--task-ref", required=True)
     handoff_command.add_argument("--node-ref", required=True)
     handoff_command.add_argument("--pretty", action="store_true")
     handoff_command.set_defaults(func=handoff)
 
-    scout_command = subparsers.add_parser("scout", help="Run fixed read-only local Git metadata checks.")
-    scout_command.add_argument(
-        "--include-github-read",
-        action="store_true",
-        help="Opt into one fixed read-only GitHub CLI query for open PR metadata.",
+    scout_command = subparsers.add_parser(
+        "scout", help="Run fixed read-only local Git metadata checks."
     )
     scout_command.add_argument("--pretty", action="store_true")
     scout_command.set_defaults(func=scout)

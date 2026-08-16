@@ -39,8 +39,10 @@ memory, or echo raw local paths.
 the existing long-running UAA planning queue. It indexes canonical planning
 sources, requires explicit branch/worktree/verifier/merge-gate triage plus a
 registered, heartbeating node before a Mac or Beast worker can claim a task,
-and exposes a terminal scope-packet archive gate. It provides fixed read-only
-Git hygiene scouting plus an opt-in fixed read-only GitHub PR metadata query.
+uses a recoverable snapshot/receipt transaction journal, prevents active
+branch/worktree collisions, and exposes exact completion or cancellation plus
+a terminal scope-packet archive gate. It provides fixed read-only local Git
+hygiene scouting; GitHub queries remain outside coordinator v1.
 It neither runs developer agents nor mutates Git, worktrees, pull requests, or
 UAA product-runtime authority. See
 `docs/developer/LOCAL_DEVELOPER_WORK_COORDINATOR.md` for the shared-ledger and

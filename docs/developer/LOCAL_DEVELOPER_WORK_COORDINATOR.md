@@ -19,14 +19,16 @@ Markdown item executable by itself.
   worktree reference, priority, dependencies, acceptance checks, verifier
   checks, merge gates, an explicit in-scope/out-of-scope contract, and a
   task-appropriate `gpt-5.6-sol` thinking level.
-- Provides a durable, fsync-backed, idempotent local task ledger so registered
-  Mac and Beast nodes can claim bounded work without double ownership. A node
+- Provides a durable, fsync-backed, recoverable transaction journal so every
+  snapshot mutation and idempotency receipt commit together. Registered Mac
+  and Beast nodes can claim bounded work without double ownership. A node
   must declare its safe transport reference, reviewed capabilities, and ready
   posture before it may claim work; its idle and active liveness is recorded by
   a separate node heartbeat. Use one explicitly configured shared local state
   directory for both machines.
 - Enforces at most two claims per named node and only one `exclusive` task at
-  a time. Use `exclusive` for the active authority-changing lane.
+  a time. Active tasks cannot share a branch or worktree reference. Use
+  `exclusive` for the active authority-changing lane.
 - Runs four fixed, read-only Git metadata checks: dirty-entry count, registered
   and prunable worktree counts, non-merged branch metadata, and local-main
   divergence from `origin/main`. It never passes user-provided text to a shell
@@ -41,8 +43,9 @@ Markdown item executable by itself.
 
 - It does not start Codex or any other developer agent, connect to Beast,
   create or delete worktrees, create branches, commit, push, merge, prune,
-  rebase, pull, or delete branches. An optional fixed read-only GitHub query
-  can inspect open PR metadata, but cannot comment, review, close, or merge.
+  rebase, pull, delete branches, or query GitHub. Pull-request inspection stays
+  in a separately authorized app/operator lane; v1 only contains a fail-closed
+  parser contract for externally supplied safe PR metadata.
 - It does not run test suites or arbitrary shell commands. Workers run the
   bounded implementation and verifier commands in their isolated worktrees,
   then record evidence references themselves.
@@ -111,8 +114,6 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" node-heartbeat \
   --node-ref node-ref:mac --idempotency-ref idempotency-ref:mac-heartbeat-001 --pretty
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
-PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
-  scout --include-github-read --pretty
 ```
 
 Triage requires every bounded worktree and merge-safety input. For example,
@@ -121,7 +122,7 @@ replace the safe-reference placeholders with the exact reviewed values:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" triage \
-  --planning-item-ref planning-item-ref:docs-kanban-founder-command-center-board/24 \
+  --planning-item-ref planning-item-ref:docs-kanban-founder-command-center-board/fcc-today-render-001 \
   --task-ref dev-task:fcc-today-render-001 \
   --branch-ref branch-ref:codex/fcc-today-render-001 \
   --worktree-ref worktree-ref:mac/fcc-today-render-001 \
@@ -150,10 +151,20 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --node-ref node-ref:mac --idempotency-ref idempotency-ref:mac-claim-001 --pretty
 ```
 
-Use `heartbeat`, `complete`, `block`, `unblock`, `release`, and
+Use `heartbeat`, `complete`, `cancel`, `block`, `unblock`, `release`, and
 `inspect --include-scout` to maintain the ledger. `complete` requires focused
 evidence references. `unblock` is an explicit reviewed transition; it does not
-silently retry or reassign work.
+silently retry or reassign work. `cancel` applies only to unclaimed work,
+requires an exact reason ref plus explicit confirmation, and is idempotent.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" cancel \
+  --task-ref dev-task:fcc-today-render-001 \
+  --cancellation-reason-ref cancellation-ref:superseded-by-accepted-scope \
+  --idempotency-ref idempotency-ref:cancel-today-render \
+  --confirm-cancel cancel-task --pretty
+```
 
 After completion, record one terminal scope packet before the associated Codex
 task may be archived. This binds the final scope dispositions, durable

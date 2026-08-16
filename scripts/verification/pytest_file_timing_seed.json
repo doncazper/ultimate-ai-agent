@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 950,
+  "timed_file_count": 951,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -773,6 +773,11 @@
     {
       "path": "tests/test_dev_setup.py",
       "seconds": 0.16,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_developer_orchestrator.py",
+      "seconds": 0.58,
       "source": "pytest-duration-summary"
     },
     {
