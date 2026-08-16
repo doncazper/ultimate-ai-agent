@@ -63,6 +63,17 @@ def _workspace_write_lease() -> AuthorityLease:
     )
 
 
+def _action_revision_ref(
+    repo: FounderLoopRepository, action_id: str = "local-task-create-scorecard"
+) -> str:
+    item_ref = f"founder-action:{action_id}"
+    return next(
+        str(item["action_revision_ref"])
+        for item in repo.list_action_inbox(limit=200)
+        if item["item_ref"] == item_ref
+    )
+
+
 def test_backend_truth_is_short_lived_revision_bound_and_fail_closed(
     tmp_path,
 ) -> None:
@@ -209,6 +220,7 @@ def test_backend_truth_accepts_normal_durable_local_task_evidence(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
             metadata_refs=["metadata-ref:operator:daily-loop"],
         ),
@@ -252,6 +264,7 @@ def test_backend_truth_matches_proof_to_each_committed_action(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -305,6 +318,7 @@ def test_backend_truth_discovers_durable_commit_beyond_today_page(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -350,6 +364,7 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -479,6 +494,7 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -543,6 +559,7 @@ def test_backend_truth_rejects_tampered_durable_task_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",

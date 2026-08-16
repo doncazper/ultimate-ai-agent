@@ -82,7 +82,7 @@ LOCAL_MODEL_VALIDATION_PATHS = {
     "/models/route/preview",
     "/runtime/smoke-reports/validate",
 }
-ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer", "/cancel")
 ACTION_LOCAL_TASK_COMMIT_PATHS = {
     "/control-center/actions/{action_id}/local-task/commit",
 }

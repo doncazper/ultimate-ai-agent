@@ -21,6 +21,11 @@
       "source": "pytest-duration-summary"
     },
     {
+      "path": "tests/test_action_inbox_revision_lifecycle.py",
+      "seconds": 5.0,
+      "source": "operator-supplied-advisory"
+    },
+    {
       "path": "tests/test_action_inbox_work_queue.py",
       "seconds": 2.66,
       "source": "pytest-duration-summary"

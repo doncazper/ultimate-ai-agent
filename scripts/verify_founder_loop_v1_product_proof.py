@@ -71,6 +71,12 @@ def _validate_live_read_model(failures: list[str]) -> None:
             action_id="setup-assistant-hardening",
             decision="defer",
             request=FounderLoopActionDecisionRequest(
+                expected_revision_ref=next(
+                    str(item["action_revision_ref"])
+                    for item in repo.list_action_inbox(limit=200)
+                    if item["item_ref"]
+                    == "founder-action:setup-assistant-hardening"
+                ),
                 decision_reason_ref="decision-reason-ref:proof-verifier-action"
             ),
             idempotency_key_ref="idempotency-ref:proof-verifier-action",

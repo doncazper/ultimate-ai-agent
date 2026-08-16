@@ -23,6 +23,19 @@ from tests.authority_helpers import (
 from scripts import verify_fcc_v1_002_action_inbox_state_machine as verifier
 
 
+def _revision(repo: FounderLoopRepository, action_id: str) -> str:
+    return str(repo.action_revision(action_id)["revision_ref"])
+
+
+def _api_revision(client: TestClient, item_ref: str) -> str:
+    inbox = client.get("/control-center/actions/inbox").json()["data"]
+    return str(
+        next(item for item in inbox["items"] if item["item_ref"] == item_ref)[
+            "action_revision_ref"
+        ]
+    )
+
+
 def test_action_decision_storage_records_receipts_replay_and_conflict(
     tmp_path: Path,
 ) -> None:
@@ -31,6 +44,7 @@ def test_action_decision_storage_records_receipts_replay_and_conflict(
         active_authority_leases=[workspace_write_authority_lease()],
     )
     request = FounderLoopActionDecisionRequest(
+        expected_revision_ref=_revision(repo, "setup-assistant-hardening"),
         decision_reason_ref="decision-reason-ref:test-reject"
     )
 
@@ -66,6 +80,7 @@ def test_action_decision_storage_records_receipts_replay_and_conflict(
             action_id="setup-assistant-hardening",
             decision="reject",
             request=FounderLoopActionDecisionRequest(
+                expected_revision_ref=request.expected_revision_ref,
                 decision_reason_ref="decision-reason-ref:test-reject-changed"
             ),
             idempotency_key_ref="idempotency-ref:test-reject-0001",
@@ -84,6 +99,7 @@ def test_approval_decision_records_backend_owned_exact_local_approval(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_revision(repo, "setup-assistant-hardening"),
             decision_reason_ref="decision-reason-ref:test-backend-owned-approval"
         ),
         idempotency_key_ref="idempotency-ref:test-backend-owned-approval",
@@ -100,6 +116,7 @@ def test_approval_decision_records_backend_owned_exact_local_approval(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_revision(repo, "setup-assistant-hardening"),
             decision_reason_ref="decision-reason-ref:test-approval-valid",
         ),
         idempotency_key_ref="idempotency-ref:test-approval-approved",
@@ -124,6 +141,7 @@ def test_action_decision_without_workspace_write_authority_blocks_receipt_state(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_revision(repo, "local-task-create-scorecard"),
             decision_reason_ref="decision-reason-ref:test-authority-missing"
         ),
         idempotency_key_ref="idempotency-ref:test-authority-missing",
@@ -153,7 +171,13 @@ def test_action_decision_api_requires_idempotency_and_returns_receipt(
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     issue_workspace_write_authority_lease(authority_state_dir)
     client = TestClient(app)
-    body = {"decision_reason_ref": "decision-reason-ref:test-api-reject"}
+    body = {
+        "expected_revision_ref": _api_revision(
+            client,
+            "founder-action:setup-assistant-hardening",
+        ),
+        "decision_reason_ref": "decision-reason-ref:test-api-reject",
+    }
 
     missing = client.post(
         "/control-center/actions/setup-assistant-hardening/reject",
@@ -183,7 +207,10 @@ def test_action_decision_api_requires_idempotency_and_returns_receipt(
 
     conflict = client.post(
         "/control-center/actions/setup-assistant-hardening/reject",
-        json={"decision_reason_ref": "decision-reason-ref:test-api-changed"},
+        json={
+            "expected_revision_ref": body["expected_revision_ref"],
+            "decision_reason_ref": "decision-reason-ref:test-api-changed",
+        },
         headers={"x-uaa-idempotency-key": "idempotency-ref:test-api-reject"},
     )
     assert conflict.status_code == 409
@@ -210,6 +237,10 @@ def test_action_decision_api_records_backend_owned_approval_without_frontend_gra
     response = client.post(
         "/control-center/actions/local-task-create-scorecard/approve",
         json={
+            "expected_revision_ref": _api_revision(
+                client,
+                "founder-action:local-task-create-scorecard",
+            ),
             "decision_reason_ref": "decision-reason-ref:test-api-backend-owned-approval",
             "metadata_refs": ["metadata-ref:test-api-backend-owned-approval"],
         },

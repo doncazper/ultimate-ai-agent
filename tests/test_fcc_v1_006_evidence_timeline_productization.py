@@ -100,6 +100,12 @@ def _approve_local_task_seed_action() -> dict[str, object]:
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-action",
@@ -227,6 +233,7 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     action_response = client.post(
         f"/control-center/actions/{action_item['item_ref']}/reject",
         json={
+            "expected_revision_ref": action_item["action_revision_ref"],
             "decision_reason_ref": "decision-reason-ref:fcc-v1-006-action",
             "metadata_refs": ["metadata-ref:fcc-v1-006-action"],
         },

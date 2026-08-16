@@ -96,6 +96,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert FOUNDER_LOOP_CONTROL_CENTER_ROUTES == {
         "/control-center/actions/inbox",
         "/control-center/actions/{action_id}/approve",
+        "/control-center/actions/{action_id}/cancel",
         "/control-center/actions/{action_id}/defer",
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/receipt",
@@ -150,6 +151,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert FOUNDER_LOOP_ACTION_DECISION_ROUTES == {
         "/control-center/actions/{action_id}/approve",
+        "/control-center/actions/{action_id}/cancel",
         "/control-center/actions/{action_id}/defer",
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/reject",

@@ -2,33 +2,44 @@
 
 Status: implemented for backend-owned Action Inbox decision state.
 
-FCC-V1-002 makes Action Inbox approve, edit, reject, and defer decisions
-backend-owned, append-first, idempotent, receipt-backed, and gated by active
+FCC-V1-002 makes Action Inbox approve, edit, reject, defer, and cancel decisions
+backend-owned, atomic, idempotent, revision-bound, receipt-backed, and gated by active
 `workspace/write` AuthorityLease scope. It does not execute the approved action
 and does not grant connector, shell/subprocess, provider/model, memory-write,
 public beta, distribution, or production authority.
 
 ## Implemented Boundary
 
-- Core contract: `contract-ref:founder-loop-action-state-machine:v1`.
+- Core contracts: `contract-ref:founder-loop-action-state-machine:v1` and
+  `contract-ref:founder-loop-action-revision-lifecycle:v1`.
 - Decision statuses: `approved`, `approval_required`, `edited`, `rejected`,
-  `deferred`, `blocked`, and `replayed`.
+  `deferred`, `cancelled`, `blocked`, and `replayed`.
 - Decision routes:
   - `POST /control-center/actions/{action_id}/approve`
+  - `POST /control-center/actions/{action_id}/cancel`
   - `POST /control-center/actions/{action_id}/edit`
   - `POST /control-center/actions/{action_id}/reject`
   - `POST /control-center/actions/{action_id}/defer`
   - `GET /control-center/actions/{action_id}/receipt`
 - Existing inbox route: `GET /control-center/actions/inbox`.
+- Every decision requires the exact current `expected_revision_ref`. Stale
+  revisions return `FOUNDER_LOOP_ACTION_STALE_REVISION` with safe current refs
+  and require an authoritative inbox refresh before intent may be retried.
 - Approve validates exact `LocalApprovalAuthority` scope when approval is
   required. Approval refs remain identifiers until exact actor, action,
   resource refs, risk, expiry, and classification are validated.
-- Approve/edit/reject/defer decision receipt mutation requires active
+- Approval scope binds the current revision, generation, payload fingerprint,
+  decision route, Python Core adapter, deadline, and authority-input refs.
+- Approve/edit/reject/defer/cancel decision receipt mutation requires active
   `workspace/write` AuthorityLease scope. Missing or mismatched authority
   records a blocked receipt with authority decision refs and does not mint
   backend-owned approval.
-- Edit records a corrected envelope ref only. It does not execute work and does
-  not grant approval.
+- Edit records a corrected envelope ref only and advances the authoritative
+  generation. Edit and cancel atomically invalidate every earlier approval.
+  Cancel is idempotent and never executes the action.
+- The Control Center enables cancel only for backend-persisted items marked
+  `action_revision_decision_eligible`; proposal-only generated rows remain
+  visibly non-mutating.
 - Reject and defer record decision state and receipt refs only.
 - Reusing the same idempotency key with the same decision payload returns the
   prior receipt with replay posture.
@@ -45,6 +56,18 @@ Receipts use safe refs only:
 - `decision_ref`
 - `decision`
 - `status`
+- `expected_revision_ref`
+- `generation_ref`
+- `revision_ref`
+- `revision_fingerprint_ref`
+- `result_generation_ref`
+- `result_revision_ref`
+- `approval_scope_ref`
+- `decision_route_binding_ref`
+- `decision_adapter_ref`
+- `decision_deadline_ref`
+- `authority_input_refs`
+- `invalidated_approval_refs`
 - `approval_ref`
 - `approval_validated`
 - `action_executed`
@@ -65,17 +88,16 @@ provider/model calls, and shell/subprocess work.
 
 ## Control Center Surface
 
-The `/actions` surface now calls the backend decision routes and displays
-receipt/audit refs. The route remains `partial` in the release surface
-manifest because FCC-V1-003 owns the first full Today item to Action envelope
-to exact decision to durable receipt to Evidence Timeline loop.
+The Action Inbox surface binds decisions to the rendered revision and displays
+receipt/audit refs. Stale conflicts trigger an authoritative refresh. Refresh
+failure preserves the last confirmed UI snapshot and never marks unconfirmed
+decision state as committed.
 
 ## Remaining Blockers
 
 - Broader Today-to-action execution beyond review-only envelope creation.
 - Action execution contract.
 - Evidence Timeline mutation binding for action decisions.
-- CLI/repo-local inspection command for the first full vertical loop.
 - Product `ship`, public beta, public distribution, and production authority
   claims.
 

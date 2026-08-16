@@ -70,6 +70,7 @@ HISTORICAL_ARTIFACT_DIGEST = (
 )
 PROVENANCE_REPAIR_BASE_COMMIT = "5a07d3cff7a0d6cce5780378b8c1624bd8417d74"
 PROVENANCE_TRANSITION_SOURCE_REFS = (
+    "repo-ref:uaa:apps/control-center/src/App.test.tsx",
     "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
     "repo-ref:uaa:tests/test_goat_comparison_findings.py",
 )

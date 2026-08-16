@@ -60,6 +60,10 @@ ACTION_ROUTES = {
         "post_control_center_actions_action_id_edit",
         "mutating_requires_authority",
     ),
+    ("POST", "/control-center/actions/{action_id}/cancel"): (
+        "post_control_center_actions_action_id_cancel",
+        "mutating_requires_authority",
+    ),
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): (
         "post_control_center_actions_action_id_local_task_commit",
         "mutating_requires_authority",
@@ -305,7 +309,20 @@ def _append_api_behavior_failures(
         )
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
-            body = {"decision_reason_ref": "decision-reason-ref:verifier-reject"}
+            inbox_response = context.client.get(
+                "/control-center/actions/inbox",
+                headers=auth_headers,
+            )
+            action = next(
+                item
+                for item in inbox_response.json().get("data", {}).get("items", [])
+                if item.get("item_ref")
+                == "founder-action:setup-assistant-hardening"
+            )
+            body = {
+                "expected_revision_ref": action["action_revision_ref"],
+                "decision_reason_ref": "decision-reason-ref:verifier-reject",
+            }
             missing = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
                 json=body,
@@ -339,7 +356,10 @@ def _append_api_behavior_failures(
                 failures.append("Action decision route must replay matching idempotency payload")
             conflict = context.client.post(
                 "/control-center/actions/setup-assistant-hardening/reject",
-                json={"decision_reason_ref": "decision-reason-ref:verifier-changed"},
+                json={
+                    "expected_revision_ref": body["expected_revision_ref"],
+                    "decision_reason_ref": "decision-reason-ref:verifier-changed",
+                },
                 headers={
                     **auth_headers,
                     "x-uaa-idempotency-key": "idempotency-ref:verifier-reject",

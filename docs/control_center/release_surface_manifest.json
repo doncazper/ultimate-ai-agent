@@ -683,6 +683,13 @@
         },
         {
           "method": "POST",
+          "path": "/control-center/actions/{action_id}/cancel",
+          "operation_id": "post_control_center_actions_action_id_cancel",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
           "path": "/control-center/actions/{action_id}/edit",
           "operation_id": "post_control_center_actions_action_id_edit",
           "side_effect_class": "local_dev_workspace_only",

@@ -214,6 +214,12 @@ def test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:test:preexisting-approval",
             metadata_refs=["metadata-ref:test:preexisting-local-task"],
         ),

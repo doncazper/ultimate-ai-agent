@@ -40,11 +40,23 @@ def _repo_with_workspace_write(tmp_path: Path) -> FounderLoopRepository:
     )
 
 
+def _action_revision_ref(
+    repo: FounderLoopRepository, action_id: str = "local-task-create-scorecard"
+) -> str:
+    item_ref = f"founder-action:{action_id}"
+    return next(
+        str(item["action_revision_ref"])
+        for item in repo.list_action_inbox(limit=200)
+        if item["item_ref"] == item_ref
+    )
+
+
 def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
@@ -66,6 +78,7 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=_action_revision_ref(repo),
             decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval"
         ),
         idempotency_key_ref="idempotency-ref:test-backend-owned-local-task-approval",
@@ -99,17 +112,23 @@ def test_action_decision_ignores_caller_supplied_approval_grants(
         if item["item_ref"] == "founder-action:setup-assistant-hardening"
     )
     request = FounderLoopActionDecisionRequest(
+        expected_revision_ref=str(action["action_revision_ref"]),
         decision_reason_ref="decision-reason-ref:test-caller-grant-denied"
     )
     approval_request = action_approval_request(
         item_ref=str(action["item_ref"]),
         actor_context=request.actor_context,
         risk_class=str(action["risk_class"]),
+        decision="approve",
+        expected_revision_ref=str(action["action_revision_ref"]),
+        approval_scope_ref="approval-scope:action-inbox-revision:test-caller-grant",
         resource_refs=[
             str(action["item_ref"]),
             str(action["action_envelope_ref"]),
             str(action["action_scope_ref"]),
             str(action["action_approval_requirement_ref"]),
+            str(action["action_revision_ref"]),
+            "approval-scope:action-inbox-revision:test-caller-grant",
         ],
     )
     authority = LocalApprovalAuthority()
@@ -124,6 +143,7 @@ def test_action_decision_ignores_caller_supplied_approval_grants(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(action["action_revision_ref"]),
             approval_ref=forged_grant.approval_ref,
             approval_grants=[forged_grant],
             decision_reason_ref="decision-reason-ref:test-caller-grant-denied",

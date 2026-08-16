@@ -2236,6 +2236,13 @@ export interface FounderLoopActionApprovalEnvelope {
   source:
     "python_core_action_inbox_read_model" | "mock_fallback_non_authoritative";
   backend_owned: boolean;
+  revision_contract_ref?: string;
+  generation?: number;
+  generation_ref?: string;
+  revision_ref?: string;
+  revision_fingerprint_ref?: string;
+  expected_revision_ref?: string;
+  expected_revision_required?: boolean;
   action_kind: string;
   exact_scope: string;
   risk_class: string;
@@ -2911,6 +2918,31 @@ export interface FounderLoopActionItem {
   next_safe_action: string;
   action_envelope_contract_ref?: string;
   action_envelope_ref?: string;
+  action_revision_contract_ref?: string;
+  action_generation?: number;
+  action_generation_ref?: string;
+  action_revision_ref?: string;
+  action_revision_fingerprint_ref?: string;
+  action_revision_source_fingerprint_ref?: string;
+  action_revision_transition_ref?: string;
+  expected_revision_ref?: string;
+  action_revision_decision_eligible?: boolean;
+  action_revision_state?: {
+    revision_contract_ref: string;
+    item_ref: string;
+    generation: number;
+    generation_ref: string;
+    revision_ref: string;
+    revision_fingerprint_ref: string;
+    source_fingerprint_ref: string;
+    previous_revision_ref?: string | null;
+    transition_ref: string;
+    backend_owned: boolean;
+    safe_refs_only: boolean;
+    expected_revision_required: boolean;
+    stale_conflict_code: string;
+    refresh_route_ref: string;
+  };
   action_envelope_status?: string;
   action_envelope_safe_summary?: string;
   action_scope_ref?: string;
@@ -3527,8 +3559,11 @@ export interface FounderLoopActionInboxDecisionLaneReadModel {
 
 export type FounderLoopActionDecisionKind =
   "approve" | "edit" | "reject" | "defer";
+export type FounderLoopActionLifecycleDecisionKind =
+  FounderLoopActionDecisionKind | "cancel";
 
 export interface FounderLoopActionDecisionRequest {
+  expected_revision_ref: string;
   decision_reason_ref: string;
   approval_ref?: string | null;
   edited_envelope_ref?: string | null;
@@ -3541,13 +3576,31 @@ export interface FounderLoopActionDecisionReceipt {
   contract_ref: string;
   decision_ref: string;
   item_ref: string;
-  decision: FounderLoopActionDecisionKind;
+  decision: FounderLoopActionLifecycleDecisionKind;
   status: string;
   receipt_ref: string;
   audit_ref: string;
   idempotency_key_ref: string;
   payload_fingerprint_ref: string;
-  approval_ref: string;
+  expected_revision_ref: string;
+  generation: number;
+  generation_ref: string;
+  revision_ref: string;
+  revision_fingerprint_ref: string;
+  result_generation: number;
+  result_generation_ref: string;
+  result_revision_ref: string;
+  result_revision_fingerprint_ref: string;
+  revision_advanced: boolean;
+  approval_scope_ref: string;
+  decision_route_ref: string;
+  decision_route_binding_ref: string;
+  decision_adapter_ref: string;
+  decision_deadline_ref: string;
+  authority_input_refs: string[];
+  invalidated_approval_refs: string[];
+  invalidated_approval_count: number;
+  approval_ref: string | null;
   approval_status: string;
   approval_reason_refs: string[];
   action_executed: boolean;
@@ -8885,7 +8938,14 @@ export interface FounderLoopActionsInbox {
   decision_route_refs?: string[];
   decision_state_contract_ref?: string;
   decision_statuses?: string[];
-  decision_actions?: FounderLoopActionDecisionKind[];
+  decision_actions?: FounderLoopActionLifecycleDecisionKind[];
+  action_revision_contract_ref?: string;
+  expected_revision_required?: boolean;
+  stale_revision_conflict_code?: string;
+  stale_revision_refresh_route_ref?: string;
+  cancel_decision_enabled?: boolean;
+  cancel_invalidates_prior_approvals?: boolean;
+  action_decision_receipt_limit_per_item?: number;
   decision_receipts_required?: boolean;
   idempotency_replay_enabled?: boolean;
   idempotency_conflict_rejected?: boolean;

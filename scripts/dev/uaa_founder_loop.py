@@ -94,6 +94,9 @@ from ultimate_ai_agent.core.storage import (  # noqa: E402
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
 )
+from ultimate_ai_agent.core.storage.founder_loop import (  # noqa: E402
+    FounderLoopActionRevisionConflict,
+)
 
 
 def _repository(args: argparse.Namespace) -> FounderLoopRepository:
@@ -112,6 +115,16 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "risk_class": action.get("risk_class"),
         "side_effect_class": action.get("side_effect_class"),
         "action_envelope_ref": action.get("action_envelope_ref"),
+        "action_revision_contract_ref": action.get(
+            "action_revision_contract_ref"
+        ),
+        "action_generation": action.get("action_generation"),
+        "action_generation_ref": action.get("action_generation_ref"),
+        "action_revision_ref": action.get("action_revision_ref"),
+        "action_revision_fingerprint_ref": action.get(
+            "action_revision_fingerprint_ref"
+        ),
+        "expected_revision_ref": action.get("expected_revision_ref"),
         "approval_envelope_ref": action.get("approval_envelope_ref"),
         "approval_envelope_status": action.get("approval_envelope_status"),
         "state_change_contract_ref": action.get("state_change_contract_ref"),
@@ -1250,7 +1263,13 @@ def _promote_action_envelope(args: argparse.Namespace) -> int:
 
 def _record_action_decision(args: argparse.Namespace) -> int:
     repo = _repository(args)
+    command_ref = getattr(
+        args,
+        "command_ref",
+        "repo-local-command:founder-loop-record-action-decision",
+    )
     request = FounderLoopActionDecisionRequest(
+        expected_revision_ref=args.expected_revision_ref,
         approval_ref=args.approval_ref,
         decision_reason_ref=args.decision_reason_ref,
         edited_envelope_ref=args.edited_envelope_ref,
@@ -1264,6 +1283,23 @@ def _record_action_decision(args: argparse.Namespace) -> int:
             request=request,
             idempotency_key_ref=args.idempotency_ref,
         )
+    except FounderLoopActionRevisionConflict as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": command_ref,
+                "status": "conflict",
+                "error_ref": exc.code,
+                "refresh_required": True,
+                "current_revision_ref": exc.current_revision_ref,
+                "current_generation_ref": exc.current_generation_ref,
+                "refresh_command_ref": "repo-local-command:founder-loop-inspect-actions",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
     except (
         FounderLoopStorageDuplicateError,
         FounderLoopStorageError,
@@ -1273,7 +1309,7 @@ def _record_action_decision(args: argparse.Namespace) -> int:
         _print_json(
             {
                 "schema_version": "founder-loop-cli:v1",
-                "command_ref": "repo-local-command:founder-loop-record-action-decision",
+                "command_ref": command_ref,
                 "status": "blocked",
                 "error_ref": str(exc) or "FOUNDER_LOOP_ACTION_DECISION_BLOCKED",
                 "action_ref": args.action_id,
@@ -1287,7 +1323,7 @@ def _record_action_decision(args: argparse.Namespace) -> int:
         return 1
     output = {
         "schema_version": "founder-loop-cli:v1",
-        "command_ref": "repo-local-command:founder-loop-record-action-decision",
+        "command_ref": command_ref,
         "receipt": receipt,
         "safe_refs_only": True,
         "raw_content_omitted": True,
@@ -2540,9 +2576,10 @@ def build_parser() -> argparse.ArgumentParser:
     decision_parser.add_argument("--action-id", required=True)
     decision_parser.add_argument(
         "--decision",
-        choices=["approve", "edit", "reject", "defer"],
+        choices=["approve", "edit", "reject", "defer", "cancel"],
         required=True,
     )
+    decision_parser.add_argument("--expected-revision-ref", required=True)
     decision_parser.add_argument("--idempotency-ref", required=True)
     decision_parser.add_argument(
         "--approval-ref",
@@ -2564,7 +2601,39 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Safe metadata ref to attach to the receipt. May be repeated.",
     )
-    decision_parser.set_defaults(func=_record_action_decision)
+    decision_parser.set_defaults(
+        func=_record_action_decision,
+        command_ref="repo-local-command:founder-loop-record-action-decision",
+    )
+
+    cancel_parser = subparsers.add_parser(
+        "cancel-action",
+        help=(
+            "Cancel one exact Action Inbox revision and invalidate its earlier "
+            "backend-owned approvals without executing the action."
+        ),
+    )
+    cancel_parser.add_argument("--action-id", required=True)
+    cancel_parser.add_argument("--expected-revision-ref", required=True)
+    cancel_parser.add_argument("--idempotency-ref", required=True)
+    cancel_parser.add_argument(
+        "--decision-reason-ref",
+        default="decision-reason-ref:founder-loop:cli-action-cancel",
+    )
+    cancel_parser.add_argument(
+        "--metadata-ref",
+        action="append",
+        default=[],
+        help="Safe metadata ref to attach to the receipt. May be repeated.",
+    )
+    cancel_parser.set_defaults(
+        func=_record_action_decision,
+        decision="cancel",
+        approval_ref=None,
+        edited_envelope_ref=None,
+        defer_until_ref=None,
+        command_ref="repo-local-command:founder-loop-cancel-action",
+    )
 
     commit_parser = subparsers.add_parser(
         "commit-local-task",

@@ -124,6 +124,12 @@ def _approve_local_task_seed_action(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
@@ -679,7 +685,13 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert inbox["decision_state_contract_ref"] == (
         "contract-ref:founder-loop-action-state-machine:v1"
     )
-    assert inbox["decision_actions"] == ["approve", "edit", "reject", "defer"]
+    assert inbox["decision_actions"] == [
+        "approve",
+        "edit",
+        "reject",
+        "defer",
+        "cancel",
+    ]
     assert inbox["decision_receipts_required"] is True
     assert inbox["idempotency_replay_enabled"] is True
     assert inbox["idempotency_conflict_rejected"] is True

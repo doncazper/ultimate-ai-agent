@@ -118,6 +118,12 @@ def test_founder_loop_trace_links_action_receipts_evidence_memory_and_weekly_rev
         action_id="setup-assistant-hardening",
         decision="defer",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:setup-assistant-hardening"
+            ),
             decision_reason_ref="decision-reason-ref:runs-integration-action-defer"
         ),
         idempotency_key_ref="idempotency-ref:runs-integration-action-defer",

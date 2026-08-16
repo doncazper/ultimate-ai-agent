@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `346` OpenAPI paths and `348` manifest route operations.
+Current generated contract snapshot: `347` OpenAPI paths and `349` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -585,6 +585,7 @@ Contract rules:
   output, credentials, or external telemetry.
 - `GET /control-center/today/summary`, `GET /control-center/actions/inbox`,
   `POST /control-center/actions/{action_id}/approve`,
+  `POST /control-center/actions/{action_id}/cancel`,
   `POST /control-center/actions/{action_id}/edit`,
   `POST /control-center/actions/{action_id}/reject`,
   `POST /control-center/actions/{action_id}/defer`,

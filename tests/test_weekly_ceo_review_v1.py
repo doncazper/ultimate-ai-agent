@@ -116,6 +116,12 @@ def test_weekly_ceo_review_v1_surfaces_receipt_backed_safe_refs(
         action_id="setup-assistant-hardening",
         decision="defer",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:setup-assistant-hardening"
+            ),
             decision_reason_ref="decision-reason-ref:weekly-review-action-defer"
         ),
         idempotency_key_ref="idempotency-ref:weekly-review-action-defer",

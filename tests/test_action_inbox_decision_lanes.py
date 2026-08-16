@@ -282,6 +282,12 @@ def test_action_inbox_decision_lanes_approval_receipts_do_not_execute(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:test-decision-lane-approve"
         ),
         idempotency_key_ref="idempotency-ref:test-decision-lane-approve",

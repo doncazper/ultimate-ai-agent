@@ -74,6 +74,7 @@ PROMOTED_ACTIONS = {
 MUTATING_ROUTE_RATE_LIMITS = {
     ("POST", "/control-center/today/action-envelope"): "today_to_action_envelope",
     ("POST", "/control-center/actions/{action_id}/approve"): "action_decision",
+    ("POST", "/control-center/actions/{action_id}/cancel"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/edit"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/defer"): "action_decision",
@@ -360,17 +361,21 @@ def _exercise_founder_loop(
     if not items:
         failures.append("Action Inbox proof exercise found no action candidates")
         return receipts
-    item_ref = next(
+    action_item = next(
         (
-            item.get("item_ref")
+            item
             for item in items
             if item.get("item_ref") != "founder-action:local-task-create-scorecard"
         ),
-        items[0].get("item_ref"),
+        items[0],
     )
+    item_ref = action_item.get("item_ref")
     action = context.client.post(
         f"/control-center/actions/{item_ref}/reject",
-        json={"decision_reason_ref": "decision-reason-ref:fcc-v1-007-action"},
+        json={
+            "expected_revision_ref": action_item.get("action_revision_ref"),
+            "decision_reason_ref": "decision-reason-ref:fcc-v1-007-action",
+        },
         headers={
             **auth_headers,
             "x-uaa-idempotency-key": "idempotency-ref:fcc-v1-007-action",
@@ -454,6 +459,12 @@ def _approve_local_task_for_proof() -> dict[str, Any]:
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:fcc-v1-007-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:fcc-v1-007-local-task-action",

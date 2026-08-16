@@ -44,6 +44,9 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
 )
+from ultimate_ai_agent.core.storage.founder_loop import (
+    FounderLoopActionRevisionConflict,
+)
 
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
@@ -1816,6 +1819,28 @@ def post_control_center_action_defer_decision(
     )
 
 
+@router.post("/actions/{action_id}/cancel", response_model=ResultEnvelope)
+def post_control_center_action_cancel_decision(
+    action_id: str,
+    request: FounderLoopActionDecisionRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    return _record_action_decision(
+        action_id=action_id,
+        decision="cancel",
+        request=request,
+        idempotency_key=x_uaa_idempotency_key,
+        idempotency_ref=x_uaa_idempotency_ref,
+    )
+
+
 @router.get("/actions/{action_id}/receipt", response_model=ResultEnvelope)
 def get_control_center_action_receipt(action_id: str) -> ResultEnvelope:
     data = get_founder_loop_service().action_receipt(action_id=action_id)
@@ -1988,7 +2013,7 @@ def get_control_center_storage_status() -> ResultEnvelope:
 def _record_action_decision(
     *,
     action_id: str,
-    decision: Literal["approve", "edit", "reject", "defer"],
+    decision: Literal["approve", "edit", "reject", "defer", "cancel"],
     request: FounderLoopActionDecisionRequest,
     idempotency_key: str | None,
     idempotency_ref: str | None,
@@ -2015,6 +2040,21 @@ def _record_action_decision(
                 ),
             },
         ) from exc
+    except FounderLoopActionRevisionConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": exc.code,
+                "safe_message": (
+                    "The Action changed after this decision was prepared; "
+                    "refresh the authoritative Action Inbox before retrying."
+                ),
+                "refresh_required": True,
+                "current_revision_ref": exc.current_revision_ref,
+                "current_generation_ref": exc.current_generation_ref,
+                "refresh_route_ref": exc.refresh_route_ref,
+            },
+        ) from exc
     except FounderLoopAuthorityError as exc:
         raise HTTPException(
             status_code=403,
@@ -2030,7 +2070,13 @@ def _record_action_decision(
         ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_ACTION_DECISION_ERROR"
-        status_code = 404 if code == "FOUNDER_LOOP_ACTION_NOT_FOUND" else 400
+        status_code = (
+            404
+            if code == "FOUNDER_LOOP_ACTION_NOT_FOUND"
+            else 409
+            if code == "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED"
+            else 400
+        )
         raise HTTPException(
             status_code=status_code,
             detail={

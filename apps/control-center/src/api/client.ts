@@ -108,6 +108,7 @@ import type {
   RuntimeWorktreePerAgentReadModel,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
+  FounderLoopActionLifecycleDecisionKind,
   FounderLoopActionDecisionReceipt,
   FounderLoopActionDecisionRequest,
   FounderLoopActionEnvelopePromotionReceipt,
@@ -193,6 +194,28 @@ const API_BASE_POLICY = resolveApiBaseUrl(
 );
 export const CONTROL_CENTER_READ_TIMEOUT_MS = 8000;
 export const CONTROL_CENTER_MAX_CONCURRENT_READS = 32;
+export const ACTION_INBOX_REVISION_REFRESH_EVENT =
+  "uaa:action-inbox-revision-refresh-required";
+const actionRevisionByItemRef = new Map<string, string>();
+
+export interface ActionInboxRevisionConflictDetail {
+  code: "FOUNDER_LOOP_ACTION_STALE_REVISION";
+  currentRevisionRef: string;
+  currentGenerationRef: string;
+  refreshRouteRef: string;
+}
+
+export class ActionInboxRevisionConflictError extends Error {
+  readonly detail: ActionInboxRevisionConflictDetail;
+
+  constructor(detail: ActionInboxRevisionConflictDetail) {
+    super(
+      "The Action changed after this decision was prepared. The authoritative inbox must be refreshed before retrying.",
+    );
+    this.name = "ActionInboxRevisionConflictError";
+    this.detail = detail;
+  }
+}
 const DEFAULT_LOCAL_MODEL_ID = "uaa-llama-cpp-local";
 const CHAT_OPERATOR_CONTRACT_REF =
   "contract-ref:chat-local-operator-surface:v1";
@@ -4189,17 +4212,55 @@ function isSafeNonNegativeInteger(value: unknown): value is number {
   return Number.isInteger(value) && Number(value) >= 0;
 }
 
+type ActionDecisionRequestInput = Omit<
+  FounderLoopActionDecisionRequest,
+  "expected_revision_ref"
+> &
+  Partial<Pick<FounderLoopActionDecisionRequest, "expected_revision_ref">>;
+
 export async function submitActionDecision(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
+  request: ActionDecisionRequestInput,
+  binding: BackendTruthReadBinding | null = null,
+): Promise<FounderLoopActionDecisionReceipt> {
+  return submitActionLifecycleDecision(actionId, decision, request, binding);
+}
+
+export async function submitActionCancellation(
+  actionId: string,
   request: FounderLoopActionDecisionRequest,
   binding: BackendTruthReadBinding | null = null,
+): Promise<FounderLoopActionDecisionReceipt> {
+  return submitActionLifecycleDecision(actionId, "cancel", request, binding);
+}
+
+async function submitActionLifecycleDecision(
+  actionId: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  request: ActionDecisionRequestInput,
+  binding: BackendTruthReadBinding | null,
 ): Promise<FounderLoopActionDecisionReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
+  const expectedRevisionRef =
+    request.expected_revision_ref ?? actionRevisionByItemRef.get(actionId);
+  if (!expectedRevisionRef) {
+    throw new Error(
+      "The Action revision is unavailable. Refresh the authoritative Action Inbox before recording a decision.",
+    );
+  }
+  const boundRequest: FounderLoopActionDecisionRequest = {
+    ...request,
+    expected_revision_ref: expectedRevisionRef,
+  };
+  const endpoint =
+    decision === "cancel"
+      ? actionDecisionEndpoint(actionId, "approve").replace(/\/approve$/, "/cancel")
+      : actionDecisionEndpoint(actionId, decision);
   const response = await fetch(
-    `${API_BASE_POLICY.baseUrl}${actionDecisionEndpoint(actionId, decision)}`,
+    `${API_BASE_POLICY.baseUrl}${endpoint}`,
     {
       method: "POST",
       headers: withLocalApiAuthHeaders(
@@ -4210,17 +4271,33 @@ export async function submitActionDecision(
             "X-UAA-Idempotency-Key": actionDecisionIdempotencyRef(
               actionId,
               decision,
-              request,
+              boundRequest,
             ),
           },
           binding,
         ),
       ),
-      body: JSON.stringify(request),
+      body: JSON.stringify(boundRequest),
     },
   );
-  const data =
-    (await response.json()) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
+  const revisionConflict = actionInboxRevisionConflictDetail(
+    response.status,
+    data,
+  );
+  if (revisionConflict) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent<ActionInboxRevisionConflictDetail>(
+          ACTION_INBOX_REVISION_REFRESH_EVENT,
+          { detail: revisionConflict },
+        ),
+      );
+    }
+    throw new ActionInboxRevisionConflictError(revisionConflict);
+  }
   const receipt = data.result ?? data.data;
   if (!response.ok || !receipt) {
     throw new Error(
@@ -4231,6 +4308,31 @@ export async function submitActionDecision(
     );
   }
   return receipt;
+}
+
+function actionInboxRevisionConflictDetail(
+  status: number,
+  data: unknown,
+): ActionInboxRevisionConflictDetail | null {
+  if (status !== 409 || !isPlainRecord(data) || !isPlainRecord(data.detail)) {
+    return null;
+  }
+  const detail = data.detail;
+  if (
+    detail.code !== "FOUNDER_LOOP_ACTION_STALE_REVISION" ||
+    detail.refresh_required !== true ||
+    typeof detail.current_revision_ref !== "string" ||
+    typeof detail.current_generation_ref !== "string" ||
+    typeof detail.refresh_route_ref !== "string"
+  ) {
+    return null;
+  }
+  return {
+    code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+    currentRevisionRef: detail.current_revision_ref,
+    currentGenerationRef: detail.current_generation_ref,
+    refreshRouteRef: detail.refresh_route_ref,
+  };
 }
 
 export async function fetchActionReceipt(
@@ -4666,11 +4768,13 @@ export async function fetchFounderActionsInbox(
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
-  return readEnvelope<FounderLoopActionsInbox>(
+  const inbox = await readEnvelope<FounderLoopActionsInbox>(
     API_ENDPOINTS.founderActionsInbox,
     defaultControlCenterReadLimiter,
     binding,
   );
+  rememberActionInboxRevisions(inbox);
+  return inbox;
 }
 
 export async function submitTodayActionEnvelope(
@@ -5271,7 +5375,7 @@ export async function fetchMemoryReviewDecisionReceipt(
 
 function actionDecisionIdempotencyRef(
   actionId: string,
-  decision: FounderLoopActionDecisionKind,
+  decision: FounderLoopActionLifecycleDecisionKind,
   request?: FounderLoopActionDecisionRequest,
 ): string {
   const safeActionId = actionId
@@ -5279,7 +5383,7 @@ function actionDecisionIdempotencyRef(
     .toLowerCase()
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
+  return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}:${safeHashSuffix(request?.expected_revision_ref ?? "revision-missing")}`;
 }
 
 function localTaskCommitIdempotencyRef(
@@ -17399,6 +17503,7 @@ function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {
 function normalizeFounderActionsInbox(
   value: FounderLoopActionsInbox | undefined,
 ): { value: FounderLoopActionsInbox; usedFallback: boolean } {
+  rememberActionInboxRevisions(value);
   const merged = stripFollowUpTrackerIfMissing(
     mockControlCenterData.founderActionsInbox,
     value,
@@ -17539,6 +17644,23 @@ function normalizeFounderActionsInbox(
     value: normalized as unknown as FounderLoopActionsInbox,
     usedFallback: merged.usedFallback,
   };
+}
+
+function rememberActionInboxRevisions(
+  inbox: FounderLoopActionsInbox | undefined,
+): void {
+  if (!inbox || !Array.isArray(inbox.items)) return;
+  for (const item of inbox.items) {
+    const revisionRef = item.action_revision_ref ?? item.expected_revision_ref;
+    if (
+      typeof item.item_ref === "string" &&
+      typeof revisionRef === "string" &&
+      revisionRef.startsWith("action-revision:") &&
+      revisionRef.length <= 200
+    ) {
+      actionRevisionByItemRef.set(item.item_ref, revisionRef);
+    }
+  }
 }
 
 function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {

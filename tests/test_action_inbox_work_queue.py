@@ -132,6 +132,9 @@ def test_action_inbox_work_queue_promotes_exact_local_task_lane_after_approval(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:test-work-queue-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-work-queue-approval",

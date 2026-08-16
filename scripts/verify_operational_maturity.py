@@ -2744,6 +2744,7 @@ def _approve_probe_local_task_action(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(action["action_revision_ref"]),
             decision_reason_ref="decision-reason-ref:operational-maturity-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:operational-maturity-action-approval",
