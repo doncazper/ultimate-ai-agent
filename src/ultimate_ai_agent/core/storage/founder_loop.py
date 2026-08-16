@@ -12829,7 +12829,11 @@ class FounderLoopRepository:
         item_ref = action_id_to_item_ref(action_id)
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            action = self._action_payload_for_item_ref(item_ref, conn=conn)
+            action = self._action_payload_for_item_ref(
+                item_ref,
+                conn=conn,
+                include_generated=False,
+            )
             if action is None:
                 raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
             action = {**action, **_action_envelope_contract_payload(action)}
@@ -12932,21 +12936,6 @@ class FounderLoopRepository:
                 raise FounderLoopStorageError(
                     "FOUNDER_LOOP_ACTION_DECISION_DEADLINE_EXPIRED"
                 )
-            receipt_count = int(
-                conn.execute(
-                    """
-                    SELECT COUNT(*) AS count
-                    FROM action_receipts
-                    WHERE item_ref = ?
-                    """,
-                    (item_ref,),
-                ).fetchone()["count"]
-            )
-            if receipt_count >= FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM:
-                raise FounderLoopStorageError(
-                    "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED"
-                )
-
             decision_route = action_decision_route_ref(decision)
             decision_route_binding = action_decision_route_binding_ref(decision)
             decision_deadline = action_decision_deadline_ref(
@@ -12967,6 +12956,38 @@ class FounderLoopRepository:
                 AuthorityDecisionOutcome.allow.value,
                 AuthorityDecisionOutcome.ask.value,
             }
+            receipt_count = int(
+                conn.execute(
+                    """
+                    SELECT COUNT(*) AS count
+                    FROM action_receipts
+                    WHERE item_ref = ?
+                    """,
+                    (item_ref,),
+                ).fetchone()["count"]
+            )
+            active_approval = (
+                self._latest_approved_action_decision_receipt_for_item_ref(
+                    item_ref,
+                    conn=conn,
+                    action=action,
+                )
+            )
+            decision_invalidates_approval = decision == "cancel" or (
+                decision == "edit" and request.edited_envelope_ref is not None
+            )
+            invalidation_overflow_allowed = (
+                authority_allowed
+                and decision_invalidates_approval
+                and active_approval is not None
+            )
+            if (
+                receipt_count >= FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM
+                and not invalidation_overflow_allowed
+            ):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED"
+                )
             effective_request = request
             if (
                 authority_allowed
@@ -13465,6 +13486,7 @@ class FounderLoopRepository:
         item_ref: str,
         *,
         conn: sqlite3.Connection | None = None,
+        include_generated: bool = True,
     ) -> dict[str, Any] | None:
         query = """
             SELECT item_ref, title, safe_summary, surface, priority, status,
@@ -13484,8 +13506,10 @@ class FounderLoopRepository:
             if conn is None
             else list(conn.execute(query, (item_ref,)).fetchall())
         )
-        if not rows:
+        if not rows and include_generated:
             return self._generated_action_payload_for_item_ref(item_ref)
+        if not rows:
+            return None
         return _row_to_payload(rows[0])
 
     def action_revision(self, action_id: str) -> dict[str, Any]:

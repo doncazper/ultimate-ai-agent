@@ -20032,21 +20032,37 @@ describe("Web Control Center shell", () => {
     await screen.findByText("Authoritatively refreshed Action review");
   });
 
-  it("preserves the confirmed actions snapshot when stale refresh fails", async () => {
+  it("preserves the confirmed actions snapshot when stale refresh fails and accepts a later retry", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-actions-failed:00000001:11111111111111111111";
     const itemRef = "founder-action:ui-actions-failed";
     const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const refreshedRevisionRef =
+      "action-revision:founder-action-ui-actions-failed:00000003:33333333333333333333";
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: refreshedRevisionRef,
+      status: "cancelled",
+    });
+    refreshedInbox.items[0].title = "Recovered authoritative Action review";
     let inboxReads = 0;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
         inboxReads += 1;
-        if (inboxReads > 1) throw new Error("authoritative refresh unavailable");
-        return new Response(JSON.stringify({ ok: true, result: initialInbox }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        if (inboxReads === 2) {
+          throw new Error("authoritative refresh unavailable");
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : refreshedInbox,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
@@ -20079,6 +20095,26 @@ describe("Web Control Center shell", () => {
     await screen.findByText("Action revision refresh unavailable");
     expect(screen.getByText("Revision-bound Action review")).toBeInTheDocument();
     expect(inboxReads).toBeGreaterThanOrEqual(2);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef: refreshedRevisionRef,
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions-failed:00000003",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await waitFor(() => expect(inboxReads).toBeGreaterThanOrEqual(3));
+    await screen.findByText("Recovered authoritative Action review");
+    expect(
+      screen.queryByText("Action revision refresh unavailable"),
+    ).not.toBeInTheDocument();
   });
 
   it("confirms cancellation only after an authoritative refreshed revision", async () => {

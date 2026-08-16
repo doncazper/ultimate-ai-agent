@@ -113,7 +113,12 @@ export function NorthStarRoute({
             backendInstanceRef: truthState.truth.backend_instance_ref,
           }
         : null,
-    [truthAdmitted, truthState.truth],
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
   );
   const state = useControlCenterData(
     moduleStatus === "ready" && truthAdmitted,
@@ -495,14 +500,22 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   );
   const truthAdmitted =
     !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
-  const truthReadBinding =
-    truthAdmitted && truthState.truth
-      ? {
-          snapshotRef: truthState.truth.envelope_integrity_ref,
-          backendRevisionRef: truthState.truth.backend_revision_ref,
-          backendInstanceRef: truthState.truth.backend_instance_ref,
-        }
-      : null;
+  const truthReadBinding = useMemo<BackendTruthReadBinding | null>(
+    () =>
+      truthAdmitted && truthState.truth
+        ? {
+            snapshotRef: truthState.truth.envelope_integrity_ref,
+            backendRevisionRef: truthState.truth.backend_revision_ref,
+            backendInstanceRef: truthState.truth.backend_instance_ref,
+          }
+        : null,
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
+  );
   const state = useControlCenterData(
     truthAdmitted,
     truthReadBinding,

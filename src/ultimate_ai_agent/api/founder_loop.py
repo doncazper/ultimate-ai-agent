@@ -67,12 +67,33 @@ class FounderLoopActionRevisionConflictResponse(BaseModel):
     detail: FounderLoopActionRevisionConflictDetail
 
 
+class FounderLoopActionIdempotencyConflictDetail(BaseModel):
+    code: Literal[
+        "FOUNDER_LOOP_ACTION_IDEMPOTENCY_CONFLICT",
+        "FOUNDER_LOOP_ACTION_IDEMPOTENCY_LEGACY_CONFLICT",
+    ]
+    safe_message: str
+
+
+class FounderLoopActionReceiptCapacityConflictDetail(BaseModel):
+    code: Literal["FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED"]
+    safe_message: str
+
+
+class FounderLoopActionDecisionConflictResponse(BaseModel):
+    detail: (
+        FounderLoopActionRevisionConflictDetail
+        | FounderLoopActionIdempotencyConflictDetail
+        | FounderLoopActionReceiptCapacityConflictDetail
+    )
+
+
 ACTION_DECISION_CONFLICT_RESPONSES = {
     409: {
-        "model": FounderLoopActionRevisionConflictResponse,
+        "model": FounderLoopActionDecisionConflictResponse,
         "description": (
-            "Revision conflict requiring an authoritative Action Inbox refresh; "
-            "the route can also return a safe idempotency or capacity conflict."
+            "Typed Action decision revision, idempotency, or receipt-capacity "
+            "conflict. Only revision conflicts require an authoritative refresh."
         ),
     }
 }

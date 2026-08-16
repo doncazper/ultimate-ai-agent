@@ -428,7 +428,18 @@ def test_cancel_openapi_contract_requires_revision_and_keeps_stable_operation_id
             "expected_revision_ref"
             in schema["components"]["schemas"][request_schema_name]["required"]
         )
-        assert conflict_schema_name == "FounderLoopActionRevisionConflictResponse"
+        assert conflict_schema_name == "FounderLoopActionDecisionConflictResponse"
+    conflict_detail_schema = schema["components"]["schemas"][
+        "FounderLoopActionDecisionConflictResponse"
+    ]["properties"]["detail"]
+    assert {
+        ref.rsplit("/", 1)[-1]
+        for ref in (variant["$ref"] for variant in conflict_detail_schema["anyOf"])
+    } == {
+        "FounderLoopActionRevisionConflictDetail",
+        "FounderLoopActionIdempotencyConflictDetail",
+        "FounderLoopActionReceiptCapacityConflictDetail",
+    }
     assert (
         schema["components"]["schemas"]["FounderLoopActionRevisionConflictDetail"][
             "properties"
@@ -482,9 +493,14 @@ def test_action_is_read_under_the_decision_write_lock(
         item_ref: str,
         *,
         conn=None,
+        include_generated: bool = True,
     ):
         observed_transaction_reads.append(conn is not None)
-        return original(item_ref, conn=conn)
+        return original(
+            item_ref,
+            conn=conn,
+            include_generated=include_generated,
+        )
 
     monkeypatch.setattr(repo, "_action_payload_for_item_ref", observe_read)
     repo.record_action_decision(
@@ -496,6 +512,31 @@ def test_action_is_read_under_the_decision_write_lock(
 
     assert observed_transaction_reads
     assert observed_transaction_reads[0] is True
+
+
+def test_generated_proposal_only_action_cannot_record_cancel_receipt(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    generated = next(
+        item
+        for item in repo.list_action_inbox(limit=200)
+        if str(item["item_ref"]).startswith("action-item:fcc-health-001:")
+    )
+    assert generated["action_revision_decision_eligible"] is False
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_NOT_FOUND",
+    ):
+        repo.record_action_decision(
+            action_id=str(generated["item_ref"]),
+            decision="cancel",
+            request=_request(str(generated["action_revision_ref"])),
+            idempotency_key_ref="idempotency-ref:test-generated-cancel-blocked",
+        )
+
+    assert repo.latest_action_receipt(str(generated["item_ref"])) is None
 
 
 def test_legacy_replay_receipt_returns_typed_conflict_instead_of_crashing(
@@ -623,6 +664,67 @@ def test_action_receipt_capacity_exhaustion_preserves_current_revision(
             idempotency_key_ref="idempotency-ref:test-capacity-exhausted",
         )
     assert _item(repo)["action_revision_ref"] == revision_ref
+
+
+def test_receipt_capacity_reserves_one_atomic_active_approval_invalidation(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-capacity-approve")
+    approved_revision = str(_item(repo)["action_revision_ref"])
+    with repo._connect() as conn:
+        for index in range(FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM - 1):
+            receipt_ref = f"receipt:test-invalidation-capacity:{index:02d}"
+            conn.execute(
+                """
+                INSERT INTO action_receipts (
+                    receipt_ref, item_ref, decision_ref, receipt_json, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt_ref,
+                    ITEM_REF,
+                    f"action-decision:test-invalidation-capacity:{index:02d}",
+                    json.dumps({"receipt_ref": receipt_ref}),
+                    f"2026-08-15T00:00:{index:02d}+00:00",
+                ),
+            )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="edit",
+            request=_request(approved_revision),
+            idempotency_key_ref="idempotency-ref:test-capacity-invalid-edit",
+        )
+
+    cancelled = repo.record_action_decision(
+        action_id=ACTION_ID,
+        decision="cancel",
+        request=_request(approved_revision),
+        idempotency_key_ref="idempotency-ref:test-capacity-cancel",
+    )
+
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["invalidated_approval_refs"] == [approval["approval_ref"]]
+    assert cancelled["invalidated_approval_count"] == 1
+    current_revision = str(_item(repo)["action_revision_ref"])
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="edit",
+            request=_request(
+                current_revision,
+                edited_envelope_ref="action-envelope:test-capacity-edit",
+            ),
+            idempotency_key_ref="idempotency-ref:test-capacity-edit-blocked",
+        )
 
 
 def test_cancel_api_returns_typed_stale_conflict_and_safe_refs(
