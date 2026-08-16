@@ -50,6 +50,7 @@ test.beforeEach(async ({ page }) => {
     });
   };
   await page.route("**/control-center/**", unavailable);
+  await page.route("**/api/runtime/**", unavailable);
   await page.route("**/runtime/**", unavailable);
 });
 
@@ -81,6 +82,7 @@ for (const [name, route, visibleText, critical] of workspaceSurfaces) {
 test("workspace preview renders while every backend read is pending", async ({ page }) => {
   const keepPending = async () => undefined;
   await page.route("**/control-center/**", keepPending);
+  await page.route("**/api/runtime/**", keepPending);
   await page.route("**/runtime/**", keepPending);
 
   await page.goto("/workspace/crm", { waitUntil: "domcontentloaded" });
