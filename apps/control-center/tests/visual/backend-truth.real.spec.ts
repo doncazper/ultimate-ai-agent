@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Request } from "@playwright/test";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,6 +40,65 @@ function resolveBackendSourceCommit(): string {
     throw new Error("BACKEND_TRUTH_TEST_SOURCE_COMMIT_UNAVAILABLE");
   }
   return commit;
+}
+
+function isPageBackendRead(request: Request): boolean {
+  if (request.method() !== "GET") return false;
+  const path = new URL(request.url()).pathname;
+  return (
+    path.startsWith("/control-center/") ||
+    path.startsWith("/api/runtime/") ||
+    path.startsWith("/runtime/")
+  );
+}
+
+function observePageBackendReads(page: Page) {
+  const inFlight = new Set<Request>();
+  let failureRef: string | null = null;
+  let completedReadCount = 0;
+  let cleanupCancellationCount = 0;
+  let teardownStarted = false;
+
+  page.on("request", (request) => {
+    if (isPageBackendRead(request)) inFlight.add(request);
+  });
+  page.on("response", (response) => {
+    if (isPageBackendRead(response.request()) && !response.ok()) {
+      failureRef = "BACKEND_READ_HTTP_FAILURE";
+    }
+  });
+  page.on("requestfinished", (request) => {
+    if (inFlight.delete(request)) completedReadCount += 1;
+  });
+  page.on("requestfailed", (request) => {
+    if (inFlight.delete(request)) {
+      const errorText = request.failure()?.errorText;
+      if (teardownStarted && errorText === "net::ERR_ABORTED") {
+        cleanupCancellationCount += 1;
+      } else {
+        failureRef = "BACKEND_READ_TRANSPORT_FAILURE";
+      }
+    }
+  });
+
+  return {
+    beginTeardown() {
+      expect(failureRef, "BACKEND_READ_PRE_BOUNDARY_FAILURE").toBeNull();
+      expect(
+        completedReadCount,
+        "BACKEND_READ_ACCOUNTING_MISSING",
+      ).toBeGreaterThan(0);
+      teardownStarted = true;
+    },
+    finishTeardown() {
+      expect(failureRef, "BACKEND_READ_TEARDOWN_FAILURE").toBeNull();
+      expect(page.isClosed(), "BACKEND_READ_PAGE_CLOSE_REQUIRED").toBe(true);
+      cleanupCancellationCount += inFlight.size;
+      inFlight.clear();
+      expect(inFlight.size, "BACKEND_READ_TEARDOWN_INCOMPLETE").toBe(0);
+      return { cleanupCancellationCount, completedReadCount };
+    },
+  };
 }
 
 function startBackend({ corruptReceipt = false } = {}): void {
@@ -106,7 +165,7 @@ test.afterAll(async () => {
 });
 
 test("critical founder-loop baselines stay backend-owned", async ({
-  page,
+  context,
   request,
 }) => {
   test.setTimeout(300_000);
@@ -120,26 +179,28 @@ test("critical founder-loop baselines stay backend-owned", async ({
     `commit-ref:git:${backendSourceCommit}`,
   );
   const fixedNow = new Date(initialTruth.data.generated_at).getTime() + 1_000;
-  await page.addInitScript((timestamp) => {
-    const RealDate = Date;
-    class FixedDate extends RealDate {
-      constructor(...args: unknown[]) {
-        if (args.length === 0) {
-          super(timestamp);
-          return;
-        }
-        super(...(args as [number]));
-      }
-
-      static now() {
-        return timestamp;
-      }
-    }
-    globalThis.Date = FixedDate as DateConstructor;
-  }, fixedNow);
 
   for (const [name, route] of backendOwnedVisualSurfaces) {
     await test.step(`capture backend-owned ${name}`, async () => {
+      const page = await context.newPage();
+      const backendReads = observePageBackendReads(page);
+      await page.addInitScript((timestamp) => {
+        const RealDate = Date;
+        class FixedDate extends RealDate {
+          constructor(...args: unknown[]) {
+            if (args.length === 0) {
+              super(timestamp);
+              return;
+            }
+            super(...(args as [number]));
+          }
+
+          static now() {
+            return timestamp;
+          }
+        }
+        globalThis.Date = FixedDate as DateConstructor;
+      }, fixedNow);
       await page.goto(route);
       await expect(
         page.getByRole("heading", {
@@ -151,6 +212,15 @@ test("critical founder-loop baselines stay backend-owned", async ({
       await expect(page).toHaveScreenshot(`${name}.png`, {
         animations: "disabled",
         fullPage: true,
+      });
+      backendReads.beginTeardown();
+      await page.close();
+      const accounting = backendReads.finishTeardown();
+      test.info().annotations.push({
+        type: "backend-read-cleanup",
+        description:
+          `content-free:completed=${accounting.completedReadCount};` +
+          `cleanup-cancelled=${accounting.cleanupCancellationCount}`,
       });
     });
   }
