@@ -9,17 +9,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "dev"))
 
-from uaa_developer_orchestrator.coordinator import (
+from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperScopeDisposition,
     DeveloperWorkCoordinator,
     DeveloperWorkQueueClaimError,
     DeveloperWorkNode,
     DeveloperWorkTaskDraft,
 )
-from uaa_developer_orchestrator.planning import (
+from uaa_developer_orchestrator.planning import (  # noqa: E402
     build_developer_planning_catalog,
 )
-from uaa_developer_orchestrator.scout import (
+from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperPullRequestScout,
     DeveloperWorkspaceScout,
     GitMetadataCommandResult,
