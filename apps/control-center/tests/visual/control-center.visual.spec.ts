@@ -294,7 +294,11 @@ test.beforeEach(async ({ page }) => {
       });
       return;
     }
-    if (!path.startsWith("/control-center/") && !path.startsWith("/runtime/")) {
+    if (
+      !path.startsWith("/control-center/") &&
+      !path.startsWith("/api/runtime/") &&
+      !path.startsWith("/runtime/")
+    ) {
       await route.continue();
       return;
     }
@@ -310,6 +314,7 @@ test.beforeEach(async ({ page }) => {
     });
   };
   await page.route("**/control-center/**", fulfillMissingBackend);
+  await page.route("**/api/runtime/**", fulfillMissingBackend);
   await page.route("**/runtime/**", fulfillMissingBackend);
 });
 
