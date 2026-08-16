@@ -3,12 +3,25 @@ from __future__ import annotations
 from contextlib import nullcontext
 import json
 from pathlib import Path
+import re
 
 import pytest
 
 from scripts.verification import frontend_command_process
+from scripts.verification import frontend_failure_diagnostics as diagnostics
 from scripts.verification import run_frontend_check as frontend_check
 from scripts.verification import run_frontend_playwright as frontend_playwright
+
+
+SAFE_FRONTEND_TEST_REF = re.compile(
+    r"^frontend-test-ref:(?:vitest|playwright):"
+    r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+)
+
+
+def _write_diagnostic_result(path: Path, payload: dict[str, object]) -> Path:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
 
 
 def _observation(runner_ref: str) -> dict[str, object]:
@@ -410,6 +423,172 @@ def test_frontend_process_runner_settles_the_owned_group(
         == 0
     )
     assert stopped == [(process,)]
+
+
+def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> None:
+    repository = tmp_path / "repo"
+    test_file = repository / "apps/control-center/src/ActionInbox.test.tsx"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text("", encoding="utf-8")
+    raw_title = "operator prompt and local-user-content"
+    assertions = [
+        {
+            "fullName": f"{raw_title}-{index}",
+            "status": "failed",
+        }
+        for index in range(12)
+    ]
+    result = _write_diagnostic_result(
+        tmp_path / "vitest.json",
+        {
+            "testResults": [
+                {
+                    "name": str(test_file),
+                    "assertionResults": assertions,
+                }
+            ]
+        },
+    )
+
+    refs = diagnostics.vitest_failed_test_refs(
+        result,
+        repository_root=repository,
+    )
+
+    assert len(refs) == diagnostics.MAX_FAILED_TEST_REFS
+    assert refs == tuple(sorted(refs))
+    assert all(SAFE_FRONTEND_TEST_REF.fullmatch(ref) for ref in refs)
+    rendered = json.dumps(refs)
+    assert "ActionInbox.test.tsx" in rendered
+    assert raw_title not in rendered
+    assert str(tmp_path) not in rendered
+
+
+def test_playwright_failure_ref_identifies_only_repo_test_file(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repo"
+    playwright_root = repository / "apps/control-center"
+    test_file = playwright_root / "e2e/control-center.visual.spec.ts"
+    test_file.parent.mkdir(parents=True)
+    test_file.write_text("", encoding="utf-8")
+    result = _write_diagnostic_result(
+        tmp_path / "playwright.json",
+        {
+            "config": {"rootDir": str(playwright_root)},
+            "suites": [
+                {
+                    "specs": [
+                        {
+                            "file": "e2e/control-center.visual.spec.ts",
+                            "id": "raw-spec-identity",
+                            "tests": [
+                                {
+                                    "projectId": "desktop",
+                                    "status": "unexpected",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ],
+        },
+    )
+
+    refs = diagnostics.playwright_failed_test_refs(
+        result,
+        repository_root=repository,
+    )
+
+    assert len(refs) == 1
+    assert SAFE_FRONTEND_TEST_REF.fullmatch(refs[0])
+    assert "control-center.visual.spec.ts" in refs[0]
+    assert "raw-spec-identity" not in refs[0]
+    assert str(tmp_path) not in refs[0]
+
+
+def test_failed_refs_append_only_safe_summary_lines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv(diagnostics.SUMMARY_ENV, str(summary))
+    ref = "frontend-test-ref:playwright:visual.spec.ts:0123456789ab"
+
+    diagnostics.publish_failed_test_refs((ref,), failed_test_count=1)
+
+    expected = (
+        "Frontend diagnostic refs: 1 of 1 failed tests\n"
+        f"Diagnostic frontend test ref: {ref}\n"
+    )
+    assert summary.read_text(encoding="ascii") == expected
+    assert capsys.readouterr().out == expected
+
+
+def test_failed_refs_reject_symlink_summary_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_summary = tmp_path / "real.md"
+    real_summary.write_text("unchanged\n", encoding="ascii")
+    linked_summary = tmp_path / "linked.md"
+    linked_summary.symlink_to(real_summary)
+    monkeypatch.setenv(diagnostics.SUMMARY_ENV, str(linked_summary))
+
+    with pytest.raises(
+        diagnostics.FrontendFailureDiagnosticsError,
+        match="unavailable",
+    ):
+        diagnostics.publish_failed_test_refs(
+            ("frontend-test-ref:vitest:unit.test.ts:0123456789ab",),
+            failed_test_count=1,
+        )
+
+    assert real_summary.read_text(encoding="ascii") == "unchanged\n"
+
+
+def test_retained_refs_are_validated_published_and_consumed(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    directory = tmp_path / "evidence"
+    directory.mkdir()
+    diagnostic = directory / diagnostics.DIAGNOSTIC_NAME
+    summary = tmp_path / "summary.md"
+    ref = "frontend-test-ref:vitest:ActionInbox.test.tsx:0123456789ab"
+
+    diagnostics.retain_failed_test_refs(
+        diagnostic,
+        (ref,),
+        failed_test_count=1,
+    )
+    assert diagnostics.publish_retained_failed_test_refs(
+        diagnostic,
+        summary_path=summary,
+    )
+
+    assert not diagnostic.exists()
+    assert ref in summary.read_text(encoding="ascii")
+    assert ref in capsys.readouterr().out
+
+
+def test_invalid_utf8_result_becomes_bounded_diagnostics_error(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    result = tmp_path / "result.json"
+    result.write_bytes(b'{"testResults": ["\xff"]}')
+
+    with pytest.raises(
+        diagnostics.FrontendFailureDiagnosticsError,
+        match="unavailable",
+    ):
+        diagnostics.vitest_failed_test_refs(
+            result,
+            repository_root=repository,
+        )
 
 
 def test_frontend_process_timeout_still_cleans_the_owned_group(
