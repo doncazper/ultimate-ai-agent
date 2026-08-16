@@ -3,25 +3,12 @@ from __future__ import annotations
 from contextlib import nullcontext
 import json
 from pathlib import Path
-import re
 
 import pytest
 
 from scripts.verification import frontend_command_process
-from scripts.verification import frontend_failure_diagnostics as diagnostics
 from scripts.verification import run_frontend_check as frontend_check
 from scripts.verification import run_frontend_playwright as frontend_playwright
-
-
-SAFE_FRONTEND_TEST_REF = re.compile(
-    r"^frontend-test-ref:(?:vitest|playwright):"
-    r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
-)
-
-
-def _write_diagnostic_result(path: Path, payload: dict[str, object]) -> Path:
-    path.write_text(json.dumps(payload), encoding="utf-8")
-    return path
 
 
 def _observation(runner_ref: str) -> dict[str, object]:
@@ -426,6 +413,14 @@ def test_frontend_process_runner_settles_the_owned_group(
 
 
 def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> None:
+    import re
+
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
+    safe_ref = re.compile(
+        r"^frontend-test-ref:(?:vitest|playwright):"
+        r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+    )
     repository = tmp_path / "repo"
     test_file = repository / "apps/control-center/src/ActionInbox.test.tsx"
     test_file.parent.mkdir(parents=True)
@@ -438,16 +433,17 @@ def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> Non
         }
         for index in range(12)
     ]
-    result = _write_diagnostic_result(
-        tmp_path / "vitest.json",
-        {
+    result = tmp_path / "vitest.json"
+    result.write_text(
+        json.dumps({
             "testResults": [
                 {
                     "name": str(test_file),
                     "assertionResults": assertions,
                 }
             ]
-        },
+        }),
+        encoding="utf-8",
     )
 
     refs = diagnostics.vitest_failed_test_refs(
@@ -457,7 +453,7 @@ def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> Non
 
     assert len(refs) == diagnostics.MAX_FAILED_TEST_REFS
     assert refs == tuple(sorted(refs))
-    assert all(SAFE_FRONTEND_TEST_REF.fullmatch(ref) for ref in refs)
+    assert all(safe_ref.fullmatch(ref) for ref in refs)
     rendered = json.dumps(refs)
     assert "ActionInbox.test.tsx" in rendered
     assert raw_title not in rendered
@@ -467,14 +463,22 @@ def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> Non
 def test_playwright_failure_ref_identifies_only_repo_test_file(
     tmp_path: Path,
 ) -> None:
+    import re
+
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
+    safe_ref = re.compile(
+        r"^frontend-test-ref:(?:vitest|playwright):"
+        r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+    )
     repository = tmp_path / "repo"
     playwright_root = repository / "apps/control-center"
     test_file = playwright_root / "e2e/control-center.visual.spec.ts"
     test_file.parent.mkdir(parents=True)
     test_file.write_text("", encoding="utf-8")
-    result = _write_diagnostic_result(
-        tmp_path / "playwright.json",
-        {
+    result = tmp_path / "playwright.json"
+    result.write_text(
+        json.dumps({
             "config": {"rootDir": str(playwright_root)},
             "suites": [
                 {
@@ -492,7 +496,8 @@ def test_playwright_failure_ref_identifies_only_repo_test_file(
                     ]
                 }
             ],
-        },
+        }),
+        encoding="utf-8",
     )
 
     refs = diagnostics.playwright_failed_test_refs(
@@ -501,7 +506,7 @@ def test_playwright_failure_ref_identifies_only_repo_test_file(
     )
 
     assert len(refs) == 1
-    assert SAFE_FRONTEND_TEST_REF.fullmatch(refs[0])
+    assert safe_ref.fullmatch(refs[0])
     assert "control-center.visual.spec.ts" in refs[0]
     assert "raw-spec-identity" not in refs[0]
     assert str(tmp_path) not in refs[0]
@@ -512,6 +517,8 @@ def test_failed_refs_append_only_safe_summary_lines(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
     summary = tmp_path / "summary.md"
     monkeypatch.setenv(diagnostics.SUMMARY_ENV, str(summary))
     ref = "frontend-test-ref:playwright:visual.spec.ts:0123456789ab"
@@ -530,6 +537,8 @@ def test_failed_refs_reject_symlink_summary_target(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
     real_summary = tmp_path / "real.md"
     real_summary.write_text("unchanged\n", encoding="ascii")
     linked_summary = tmp_path / "linked.md"
@@ -552,6 +561,8 @@ def test_retained_refs_are_validated_published_and_consumed(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
     directory = tmp_path / "evidence"
     directory.mkdir()
     diagnostic = directory / diagnostics.DIAGNOSTIC_NAME
@@ -576,6 +587,8 @@ def test_retained_refs_are_validated_published_and_consumed(
 def test_invalid_utf8_result_becomes_bounded_diagnostics_error(
     tmp_path: Path,
 ) -> None:
+    from scripts.verification import frontend_failure_diagnostics as diagnostics
+
     repository = tmp_path / "repo"
     repository.mkdir()
     result = tmp_path / "result.json"
