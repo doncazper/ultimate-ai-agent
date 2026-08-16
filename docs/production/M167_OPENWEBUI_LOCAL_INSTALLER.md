@@ -25,9 +25,12 @@ The only new CLI surface is:
 ```bash
 uaa setup install --target openwebui
 uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json"
-uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
-uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
 ```
+
+The legacy `--yes`, `--approval-token`, and `--write-approval-token` options
+remain parseable only to produce a truthful redacted denial. They cannot
+authorize the image pull, no token is read or written, and the operator must
+rerun without them and type the exact interactive confirmation.
 
 No API route, Control Center control, backend route, provider route, OpenWebUI
 admin call, plugin path, browser automation path, or model runtime route is
@@ -39,8 +42,7 @@ Allowed:
 
 - verify Docker CLI and Docker engine readiness
 - print the exact `docker pull` command before execution
-- require explicit typed operator approval or a matching preview-bound
-  approval token for `--yes`
+- require explicit typed operator approval after the exact preview
 - run the exact OpenWebUI image pull command
 - write a redacted local receipt under `.uaa/dev/setup-install-receipts/` by
   default, or to an explicit safe user-scope `--receipt` path
@@ -76,14 +78,15 @@ type:
 install openwebui
 ```
 
-`--yes` is allowed only for contexts where that approval has already been
-captured as a chmod `0600`, single-use, unexpired preview-bound approval
-token. Bare `--yes` fails closed before Docker is resolved. Tokens bind the
-milestone ref, target, action, digest-pinned image ref, exact command preview,
-receipt scope, rollback scope, and preview hash. A custom receipt destination
-must be identical when writing and consuming the token. Tokens are marked used before any Docker
-pull and fail closed when missing, expired, replayed, mismatched, malformed,
-symlinked, or not chmod `0600`.
+Unattended setup approval is disabled. The deprecated `--yes`,
+`--approval-token`, and `--write-approval-token` inputs always fail before
+Docker is resolved, record `INTERACTIVE_OPERATOR_CONFIRMATION_REQUIRED`,
+and cannot mint or validate a LocalApprovalAuthority grant. Structurally
+valid, hash-matching, stale, replayed, forged, malformed, symlinked, and
+arbitrary token paths are all non-authorizing because the token is never an
+approval source. These pre-authority denials record approval authority `none`
+and decision source `pre-authority-input-guard`; they do not attribute the
+rejection to PolicyEngine or LocalApprovalAuthority.
 
 Approved image-pull decisions are routed through the local PolicyEngine plus
 LocalApprovalAuthority adapter, which records a chmod `0600` redacted approval
@@ -97,13 +100,12 @@ receipts are stored under `.uaa/dev/setup-install-receipts/` by default, which
 is ignored local developer state. `--receipt` may instead select one exact
 nonexistent path beneath the current user's home. Symlinked, outside-home, and
 world-writable paths are denied; missing parents are created mode `0700`.
-Control characters, token or consumption-lock ancestry overlaps (including
-case variants), and paths that would occupy required setup evidence directories
-are denied before preview. Missing custom-receipt parents are prepared privately
-even for early token-writing failures, and the exact custom destination is
-reserved before approval is consumed or Docker is resolved. The command does
-not create OpenWebUI data state; that state is created only by the launcher when
-OpenWebUI is started.
+Control characters and paths that would occupy required setup evidence
+directories are denied before preview. Missing custom-receipt parents are
+prepared privately, and the exact custom destination is reserved before
+interactive approval or Docker resolution. The command does not create
+OpenWebUI data state; that state is created only by the launcher when OpenWebUI
+is started.
 
 ## Redacted Receipt Model
 
@@ -116,7 +118,7 @@ Each receipt records safe summary fields only:
 - image ref
 - preview hash
 - approval mode
-- approval authority decision ref
+- approval authority, decision source, and decision ref
 - safe receipt summary and hashed receipt scope ref
 - exact command label
 - status
@@ -134,19 +136,18 @@ cookies, or usernames.
 Focused tests must cover:
 
 - approval refusal does not run Docker pull
-- bare `--yes` fails before Docker is resolved
-- matching preview-bound approval token runs only the expected OpenWebUI image
-  pull argv and is marked used
-- stale, mismatched, replayed, bad-permission, or symlinked approval tokens
-  fail before Docker is resolved
+- bare `--yes` and every deprecated token input fail before Docker is resolved
+- structurally valid, forged, stale, mismatched, replayed, arbitrary-path, and
+  token-writer inputs remain non-authorizing and are not read or written
+- exact interactive confirmation runs only the expected OpenWebUI image pull
+  argv
 - Docker-not-ready path does not pull
 - install and approval receipts are chmod `0600`, exact-scope, and redacted
-- a custom receipt is preview-bound, token-paired, safely reserved before
-  Docker, no-follow/exclusive-created, and never printed as a raw home path
-- receipt/token destination aliases or ancestry overlaps, including case
-  variants and the token consumption lock path, control characters, internal
-  evidence directory occupancy, and unsafe or reused custom paths fail closed;
-  missing parents remain private under a permissive umask on all receipt writes
+- a custom receipt is preview-bound, safely reserved before Docker,
+  no-follow/exclusive-created, and never printed as a raw home path
+- control characters, internal evidence directory occupancy, and unsafe or
+  reused custom receipt paths fail closed; missing parents remain private under
+  a permissive umask on all receipt writes
 - rollback text is present and names the selected safe receipt scope
 - plain `uaa setup` remains diagnostic and does not run install paths
 - launcher still refuses missing images and points to the setup install command

@@ -92,16 +92,13 @@ path must be under your home directory, must not already exist or cross a
 symlink, and must not cross a world-writable directory. Reusing the same custom
 receipt path fails closed with exit code 2.
 
-The receipt destination is bound into the preview hash. For noninteractive
-automation with a custom destination, pass the same `--receipt` value when you
-write the approval token and when you consume it:
-
-```bash
-uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --write-approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
-uaa setup install --target openwebui --receipt "$HOME/.local/state/uaa/openwebui-install-receipt.json" --yes --approval-token "$HOME/.local/state/uaa/openwebui-install-approval.json"
-```
-
-Bare `--yes` fails closed before Docker is resolved.
+The receipt destination is bound into the preview hash. Unattended approval is
+disabled: bare `--yes` and the deprecated `--approval-token` and
+`--write-approval-token` inputs fail closed before Docker is resolved, and no
+token path is read or written. Rerun without those options and type the exact
+interactive confirmation. Denial receipts label approval authority as `none`
+and the decision source as `pre-authority-input-guard` because the approval
+stack is never constructed for unattended input.
 
 It does not install Python, Node/npm dependencies, Homebrew packages,
 llama.cpp, models, providers, plugins, browser tooling, credentials, or system
