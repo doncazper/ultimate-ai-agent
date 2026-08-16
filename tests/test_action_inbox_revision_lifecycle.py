@@ -557,6 +557,54 @@ def test_generated_proposal_only_action_cannot_record_cancel_receipt(
     assert repo.latest_action_receipt(str(generated["item_ref"])) is None
 
 
+def test_generated_proposal_defer_materializes_one_authoritative_projection(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    generated = next(
+        item
+        for item in repo.list_action_inbox(limit=200)
+        if str(item["item_ref"]).startswith("action-item:fcc-health-001:")
+    )
+    item_ref = str(generated["item_ref"])
+
+    with pytest.raises(FounderLoopActionRevisionConflict):
+        repo.record_action_decision(
+            action_id=item_ref,
+            decision="defer",
+            request=_request(
+                "action-revision:test-stale-generated",
+                defer_until_ref="defer-until-ref:test-generated-review-later",
+            ),
+            idempotency_key_ref="idempotency-ref:test-generated-defer-stale",
+        )
+    assert repo._action_payload_for_item_ref(item_ref, include_generated=False) is None
+
+    receipt = repo.record_action_decision(
+        action_id=item_ref,
+        decision="defer",
+        request=_request(
+            str(generated["action_revision_ref"]),
+            defer_until_ref="defer-until-ref:test-generated-review-later",
+        ),
+        idempotency_key_ref="idempotency-ref:test-generated-defer",
+    )
+
+    matching_items = [
+        item
+        for item in repo.list_action_inbox(limit=200)
+        if item["item_ref"] == item_ref
+    ]
+    assert len(matching_items) == 1
+    deferred = matching_items[0]
+    assert deferred["status"] == "deferred"
+    assert deferred["action_revision_decision_eligible"] is True
+    assert (
+        deferred["receipt_visibility"]["decision_receipt_ref"] == receipt["receipt_ref"]
+    )
+    assert deferred["health_recommendation_action_execution_authorized"] is False
+
+
 def test_legacy_replay_receipt_returns_typed_conflict_instead_of_crashing(
     tmp_path: Path,
 ) -> None:

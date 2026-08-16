@@ -10755,11 +10755,30 @@ class FounderLoopRepository:
         revision_decision_eligible_item_refs = {
             str(action["item_ref"]) for action in actions
         }
+
+        def merge_generated_actions(
+            generated_actions: list[dict[str, Any]],
+        ) -> None:
+            action_indexes = {
+                str(action["item_ref"]): index for index, action in enumerate(actions)
+            }
+            for generated_action in generated_actions:
+                item_ref = str(generated_action["item_ref"])
+                existing_index = action_indexes.get(item_ref)
+                if existing_index is None:
+                    action_indexes[item_ref] = len(actions)
+                    actions.append(generated_action)
+                    continue
+                actions[existing_index] = {
+                    **generated_action,
+                    **actions[existing_index],
+                }
+
         source_readiness = self.source_readiness()
         source_readiness_actions = _source_readiness_action_items(
             list(source_readiness.get("source_readiness_proposal_candidates") or [])
         )
-        actions.extend(source_readiness_actions)
+        merge_generated_actions(source_readiness_actions)
         health_recommendation_actions = _health_recommendation_action_items(
             build_fcc_health_recommendations(
                 source_readiness=source_readiness,
@@ -10768,11 +10787,11 @@ class FounderLoopRepository:
                 ),
             )
         )
-        actions.extend(health_recommendation_actions)
+        merge_generated_actions(health_recommendation_actions)
         task_decomposition_actions = _task_decomposition_action_items_for_plans(
             self.list_plan_summaries(limit=3)
         )
-        actions.extend(task_decomposition_actions)
+        merge_generated_actions(task_decomposition_actions)
         projected_actions: list[dict[str, Any]] = []
         for action in actions:
             action_envelope_payload = _action_envelope_contract_payload(action)
@@ -12851,6 +12870,23 @@ class FounderLoopRepository:
                 conn=conn,
                 include_generated=False,
             )
+            if action is None and decision == "defer":
+                generated_action = self._generated_action_payload_for_item_ref(item_ref)
+                if generated_action is not None:
+                    generated_record = {
+                        field_name: generated_action[field_name]
+                        for field_name in FounderLoopActionRecord.model_fields
+                        if field_name in generated_action
+                    }
+                    self._upsert_action_record(
+                        conn,
+                        FounderLoopActionRecord.model_validate(generated_record),
+                    )
+                    action = self._action_payload_for_item_ref(
+                        item_ref,
+                        conn=conn,
+                        include_generated=False,
+                    )
             if action is None:
                 raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
             action = {**action, **_action_envelope_contract_payload(action)}
