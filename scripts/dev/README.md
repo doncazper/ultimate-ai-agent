@@ -23,6 +23,8 @@ authority.
 ./scripts/dev/uaa launch-ui
 .venv/bin/python scripts/dev/uaa_founder_loop.py inspect
 .venv/bin/python scripts/dev/uaa_founder_loop.py promote-action-envelope --today-item-ref briefing:storage-state-first-loop --idempotency-ref idempotency-ref:local-review
+.venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
 ```
 
 `uaa_founder_loop.py` is a repo-local FCC-V1-003 inspection helper. It prints
@@ -30,6 +32,21 @@ safe refs for Today, Actions, receipts, and Evidence Timeline state, and can
 create a review-only Today-to-Action envelope receipt. It does not execute
 actions, call providers, write connectors, run shell/subprocess work, write
 memory, or echo raw local paths.
+
+## Local Developer Work Coordinator
+
+`uaa_developer_queue.py` is a separate local developer coordination plane for
+the existing long-running UAA planning queue. It indexes canonical planning
+sources, requires explicit branch/worktree/verifier/merge-gate triage plus a
+registered, heartbeating node before a Mac or Beast worker can claim a task,
+uses a recoverable snapshot/receipt transaction journal, prevents active
+branch/worktree collisions, and exposes exact completion or cancellation plus
+a terminal scope-packet archive gate. It provides fixed read-only local Git
+hygiene scouting; GitHub queries remain outside coordinator v1.
+It neither runs developer agents nor mutates Git, worktrees, pull requests, or
+UAA product-runtime authority. See
+`docs/developer/LOCAL_DEVELOPER_WORK_COORDINATOR.md` for the shared-ledger and
+handoff workflow.
 
 ## First-Run Setup Doctor
 

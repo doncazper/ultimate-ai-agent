@@ -1,0 +1,259 @@
+# Local Developer Work Coordinator
+
+Status: implemented local-developer coordination v1. It is deliberately
+separate from the UAA Python Agent Core, Control Center, and product-runtime
+authority model.
+
+The coordinator turns the existing strategic queue into explicit, durable
+developer work handoffs. It is not a second roadmap and it never makes a
+Markdown item executable by itself.
+
+## What It Does
+
+- Indexes the canonical current board, Founder Command Center board, runtime
+  roadmap, and Phase 0/1 task breakdown. The catalog currently exposes the
+  existing planning candidates, including the continuous authority conveyor,
+  rather than replacing that months-long queue with a small local list.
+- Requires an explicit triage record before a candidate can be claimed: a
+  canonical source reference and fingerprint, branch reference, isolated
+  worktree reference, priority, dependencies, acceptance checks, verifier
+  checks, merge gates, an explicit in-scope/out-of-scope contract, and a
+  task-appropriate `gpt-5.6-sol` thinking level.
+- Provides a durable, fsync-backed, recoverable transaction journal so every
+  snapshot mutation and idempotency receipt commit together. Registered Mac
+  and Beast nodes can claim bounded work without double ownership. A node
+  must declare its safe transport reference, reviewed capabilities, and ready
+  posture before it may claim work; its idle and active liveness is recorded by
+  a separate node heartbeat. Use one explicitly configured shared local state
+  directory for both machines.
+- Enforces at most two claims per named node and only one `exclusive` task at
+  a time. Active tasks cannot share a branch or worktree reference. Use
+  `exclusive` for the active authority-changing lane.
+- Runs four fixed, read-only Git metadata checks: dirty-entry count, registered
+  and prunable worktree counts, non-merged branch metadata, and local-main
+  divergence from `origin/main`. It never passes user-provided text to a shell
+  or Git command.
+- Produces safe-ref-only receipts, handoff JSON, and scout reports. It omits
+  raw paths, file contents, Git diffs, terminal output, and credentials.
+- Records every discovered issue as exactly one of `must_fix_now`,
+  `defer_safely`, or `dismiss_with_evidence`. Safe deferral requires a durable
+  follow-up reference; an adjacent issue may not silently broaden the PR.
+
+## What It Does Not Do
+
+- It does not start Codex or any other developer agent, connect to Beast,
+  create or delete worktrees, create branches, commit, push, merge, prune,
+  rebase, pull, delete branches, or query GitHub. Pull-request inspection stays
+  in a separately authorized app/operator lane; v1 only contains a fail-closed
+  parser contract for externally supplied safe PR metadata.
+- It does not run test suites or arbitrary shell commands. Workers run the
+  bounded implementation and verifier commands in their isolated worktrees,
+  then record evidence references themselves.
+- It has no product-runtime authority. It does not call models/providers,
+  browse, use connectors, grant UAA approvals, or alter UAA policy.
+
+Those limits are intentional for v1: Git and remote-worker mutation need their
+own exact developer-operations admission path. The read-only scout makes the
+current risks visible first, so cleanup and merging are reviewed rather than
+silent side effects.
+
+The broader Git-operations proposal is explicitly deferred as
+`follow-up-ref:developer-operations-exact-admission-v1`. It is not part of
+`contract-ref:developer-coordinator-durable-v1`, cannot be admitted by a
+queue entry, and must receive its own threat model, branch, owner, acceptance
+checks, verifier, and merge gates before any developer Git mutation is added.
+
+## Operating Flow
+
+1. Inspect canonical work with `catalog`. Planning candidates remain
+   non-dispatchable.
+2. Register each reviewed node and record an initial node heartbeat. A
+   non-ready or unregistered node cannot claim work.
+3. Create exactly one triaged task with a pre-created isolated branch/worktree
+   reference, focused acceptance and verifier references, and explicit merge
+   gates.
+4. Print a handoff for `node-ref:mac` or `node-ref:beast`. On the target
+   machine, an operator starts the bounded local worker and has it explicitly
+   claim the task from the same shared ledger.
+5. The worker implements and verifies in that isolated worktree. It records a
+   heartbeat, scope dispositions, evidence references, then completion or a
+   safe blocker reference.
+6. Run `scout` before any cleanup or merge. A dirty worktree, stale/prunable
+   worktree registration, local-main divergence, or non-merged branch is a
+   review gate, not a reason to run a destructive command automatically.
+7. A human reviews PR status and exact verifier evidence before any explicit
+   merge or cleanup operation outside this coordinator.
+
+## Commands
+
+The default state home is host-level rather than worktree-level, so every
+isolated Codex worktree on the Mac observes the same queue. Set the same state
+directory on Mac and Beast only if it is an intentionally
+shared, access-controlled developer volume that guarantees atomic replacement
+and cross-host POSIX advisory locking. Do not use a consumer sync folder or
+two independently replicated directories: that can duplicate claims. The
+default host-level location is suitable for the Mac only; Beast must use an
+explicit verified shared transport before it claims from the same ledger.
+
+```bash
+export UAA_DEVELOPER_COORDINATOR_STATE_DIR="<shared-local-state-dir>"
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  initialize --idempotency-ref idempotency-ref:developer-queue-init --pretty
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" register-node \
+  --node-ref node-ref:mac \
+  --transport-ref developer-transport-ref:mac-host-local \
+  --capability queue_claim --capability local_worktree \
+  --capability local_verification \
+  --idempotency-ref idempotency-ref:register-mac \
+  --confirm-register register-node --pretty
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" node-heartbeat \
+  --node-ref node-ref:mac --idempotency-ref idempotency-ref:mac-heartbeat-001 --pretty
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
+```
+
+Triage requires every bounded worktree and merge-safety input. For example,
+replace the safe-reference placeholders with the exact reviewed values:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" triage \
+  --planning-item-ref planning-item-ref:docs-kanban-founder-command-center-board/fcc-today-render-001 \
+  --task-ref dev-task:fcc-today-render-001 \
+  --branch-ref branch-ref:codex/fcc-today-render-001 \
+  --worktree-ref worktree-ref:mac/fcc-today-render-001 \
+  --workstream-ref workstream-ref:founder-command-center \
+  --scope-contract-ref scope-contract-ref:fcc-today-render-001 \
+  --in-scope-ref scope-ref:today-render/accepted-composition \
+  --out-of-scope-ref scope-ref:today-render/no-new-backend-authority \
+  --sol-thinking high \
+  --acceptance-ref acceptance-ref:today-render-fidelity \
+  --verifier-ref verifier-ref:frontend-focused \
+  --merge-gate-ref merge-gate-ref:clean-worktree \
+  --next-safe-action "Implement the accepted Today render correction only." \
+  --idempotency-ref idempotency-ref:triage-today-render \
+  --confirm-triage triage --pretty
+```
+
+Then prepare and claim a Mac/Beast handoff:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" handoff \
+  --task-ref dev-task:fcc-today-render-001 --node-ref node-ref:mac --pretty
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" claim-next \
+  --node-ref node-ref:mac --idempotency-ref idempotency-ref:mac-claim-001 --pretty
+```
+
+Use `heartbeat`, `complete`, `cancel`, `block`, `unblock`, `release`, and
+`inspect --include-scout` to maintain the ledger. `complete` requires focused
+evidence references. `unblock` is an explicit reviewed transition; it does not
+silently retry or reassign work. `cancel` applies only to unclaimed work,
+requires an exact reason ref plus explicit confirmation, and is idempotent.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" cancel \
+  --task-ref dev-task:fcc-today-render-001 \
+  --cancellation-reason-ref cancellation-ref:superseded-by-accepted-scope \
+  --idempotency-ref idempotency-ref:cancel-today-render \
+  --confirm-cancel cancel-task --pretty
+```
+
+After completion, record one terminal scope packet before the associated Codex
+task may be archived. This binds the final scope dispositions, durable
+deferrals, and completion evidence to the archive decision; the CLI does not
+archive a Codex task itself.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" record-terminal-packet \
+  --task-ref dev-task:fcc-today-render-001 \
+  --terminal-scope-packet-ref terminal-packet-ref:fcc-today-render-001 \
+  --idempotency-ref idempotency-ref:archive-ready-today-render \
+  --confirm-archive-ready archive-ready --pretty
+```
+
+Classify an issue before changing the PR:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" record-scope-disposition \
+  --task-ref dev-task:fcc-today-render-001 \
+  --finding-ref finding-ref:adjacent-layout-hardening \
+  --classification defer_safely \
+  --safe-summary "Adjacent layout hardening is outside the accepted correction." \
+  --deferred-follow-up-ref follow-up-ref:layout-hardening \
+  --idempotency-ref idempotency-ref:defer-layout --pretty
+```
+
+## Scope, Deferral, And Loop Policy
+
+Every task must name its owned outcomes and explicit non-goals. A finding is
+`must_fix_now` only when evidence shows it breaks the locked acceptance criteria,
+an invariant, required verification, or exact merge gate. It requires evidence
+of the repair before completion. `defer_safely` is for adjacent hardening, edge
+cases, or independent improvement; it requires a durable follow-up reference.
+`dismiss_with_evidence` is for a duplicate, superseded, or unsupported finding.
+
+Do one complete in-scope repair batch, then rerun only affected checks. Never
+spin in repeated broad qualifications, CI requests, review requests, or polling
+without a changed candidate or material new evidence. After two repeats of the
+same non-progress condition, record a concise escalation and move to an
+independent ready task until an owner or external state resolves it.
+
+## Nodes, Threads, And Communication
+
+Node references are unbounded: `node-ref:mac`, `node-ref:beast`, and a future
+third machine use the same claim/handoff protocol. Each needs its own isolated
+worktree and access to the verified shared ledger. Do not give two nodes the
+same branch or worktree reference.
+
+For each task, keep one Codex thread as its primary owner and communicate at
+claim, before the first shared-file change, focused verification completion,
+scope disposition, PR publication, review/CI material change, block,
+post-merge proof, and cleanup. The app-level coordinator sets the worker model
+to `gpt-5.6-sol` and selects thinking as follows:
+
+- `medium`: inventory, documentation-only, read-only scouting, and bounded
+  mechanical cleanup review.
+- `high`: normal focused frontend, test, packaging, or single-module work.
+- `xhigh`: cross-surface state changes, approval/idempotency/recovery/security
+  work, merge-conflict resolution, or an adversarial final qualification.
+
+Threads are archive-ready only after the task is merged or explicitly canceled,
+post-merge or final evidence is recorded, no active handoff remains, and the
+owner has written the terminal scope/deferral packet through
+`record-terminal-packet`. The coordinator exposes this gate in `inspect`; the
+Codex app monitor may archive a task only after that gate is true. It does not
+archive an active or genuinely useful blocked thread.
+
+The Codex app monitor named `UAA developer coordinator health monitor` applies
+this policy every three hours as a read-only control loop. It reports only
+material changes and can archive a terminal UAA task thread; it cannot create
+workers, mutate Git/GitHub, or grant runtime authority. A new remote computer
+must appear as a connected Codex host with an explicitly configured project and
+a verified shared-ledger transport before it may receive a handoff.
+
+## Required Merge And Cleanup Discipline
+
+The coordinator does not claim that a task is merge-ready merely because it is
+completed. A PR/branch remains review-required until its exact acceptance and
+verifier evidence are available, the source fingerprint is still current, the
+target worktree is clean, current main has been reconciled in a clean isolated
+worktree, and a human has reviewed conflicts and GitHub state. Stale worktree
+registrations must be classified before an explicit prune command.
+
+## Verification
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_developer_orchestrator.py -q
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
+```
