@@ -1563,6 +1563,8 @@ def test_local_frontend_lane_preserves_terminal_status_and_resource_fence(
         lambda _path: {
             "collection_digest_ref": "sha256:" + "d" * 64,
             "collected_test_count": 3,
+            "failed_test_count": 0,
+            "failed_test_refs": [],
             "result_status": "passed",
         },
     )
@@ -2257,6 +2259,24 @@ def test_pytest_shard_summary_includes_bounded_collection_rejection_reason() -> 
     )
 
     assert lines[-1] == f"Pytest collection evidence reason: {reason_ref}"
+
+
+def test_frontend_summary_includes_bounded_failed_test_refs() -> None:
+    failed_ref = "frontend-test-ref:playwright:visual.spec.ts:0123456789ab"
+
+    lines = runner._pytest_shard_summary_lines(
+        {
+            "frontend_collection_evidence_status": "collected",
+            "frontend_collected_test_count": 96,
+            "frontend_failed_test_count": 1,
+            "frontend_failed_test_refs": (failed_ref,),
+        }
+    )
+
+    assert lines[-2:] == [
+        "Failed frontend tests: 1",
+        f"Diagnostic frontend test ref: {failed_ref}",
+    ]
 
 
 @pytest.mark.parametrize(

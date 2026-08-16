@@ -13,12 +13,13 @@ from scripts.verification import run_frontend_playwright as frontend_playwright
 
 def _observation(runner_ref: str) -> dict[str, object]:
     return {
-        "schema_version": "uaa_frontend_collection_evidence.v1",
+        "schema_version": "uaa_frontend_collection_evidence.v2",
         "runner_ref": runner_ref,
         "collected_test_count": 3,
         "collection_digest_ref": "sha256:" + "a" * 64,
         "collection_error_count": 0,
         "failed_test_count": 0,
+        "failed_test_refs": [],
         "flaky_test_count": 0,
         "passed_test_count": 3,
         "redaction_status": "content_free",

@@ -4,13 +4,14 @@ import hashlib
 import json
 import math
 import os
+import re
 import stat
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 
-SCHEMA_VERSION = "uaa_frontend_collection_evidence.v1"
-AGGREGATE_SCHEMA_VERSION = "uaa_frontend_collection_aggregate.v1"
+SCHEMA_VERSION = "uaa_frontend_collection_evidence.v2"
+AGGREGATE_SCHEMA_VERSION = "uaa_frontend_collection_aggregate.v2"
 MAX_RESULT_BYTES = 16 * 1024 * 1024
 MAX_JSON_DEPTH = 32
 MAX_JSON_NODES = 500_000
@@ -20,6 +21,7 @@ MAX_SUITES = 25_000
 MAX_ATTEMPTS_PER_TEST = 10
 MAX_PATH_CHARS = 4_096
 MAX_IDENTITY_CHARS = 16_384
+MAX_FAILED_TEST_REFS = 8
 
 _VITEST_RUNNER_REF = "runner-ref:frontend:vitest"
 _PLAYWRIGHT_RUNNER_REF = "runner-ref:frontend:playwright"
@@ -66,11 +68,17 @@ _PLAYWRIGHT_RESULT_STATUSES = {
     "skipped",
     "timedOut",
 }
+_SAFE_TEST_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+_SAFE_FRONTEND_TEST_REF_RE = re.compile(
+    r"^frontend-test-ref:(?:vitest|playwright):"
+    r"[a-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+)
 _SAFE_OBSERVATION_FIELDS = {
     "collected_test_count",
     "collection_digest_ref",
     "collection_error_count",
     "failed_test_count",
+    "failed_test_refs",
     "flaky_test_count",
     "passed_test_count",
     "redaction_status",
@@ -86,6 +94,7 @@ _AGGREGATE_FIELDS = {
     "collection_digest_ref",
     "collected_test_count",
     "failed_test_count",
+    "failed_test_refs",
     "observations",
     "redaction_status",
     "result_status",
@@ -413,10 +422,51 @@ def _identity_hash(*parts: str) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def safe_frontend_test_ref(
+    runner_ref: str,
+    relative_path: str,
+    identity: str,
+) -> str:
+    """Return a bounded code-metadata ref without retaining test titles."""
+
+    runner = {
+        _VITEST_RUNNER_REF: "vitest",
+        _PLAYWRIGHT_RUNNER_REF: "playwright",
+    }.get(runner_ref)
+    if runner is None:
+        _fail("failed-test-ref-runner")
+    module = _SAFE_TEST_COMPONENT_RE.sub(
+        "-", PurePosixPath(relative_path).name
+    ).strip(".-")
+    module = (module[:72] or "frontend-test").lower()
+    digest = hashlib.sha256(
+        f"{runner_ref}|{relative_path}|{identity}".encode("utf-8")
+    ).hexdigest()[:12]
+    return f"frontend-test-ref:{runner}:{module}:{digest}"
+
+
+def is_safe_frontend_test_ref(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and _SAFE_FRONTEND_TEST_REF_RE.fullmatch(value) is not None
+    )
+
+
+def _retain_failed_test_ref(refs: list[str], ref: str) -> None:
+    """Keep the lexically first bounded refs regardless of runner result order."""
+
+    if ref in refs:
+        return
+    refs.append(ref)
+    refs.sort()
+    del refs[MAX_FAILED_TEST_REFS:]
+
+
 def _safe_payload(
     *,
     runner_ref: str,
     identities: list[tuple[str, str]],
+    failed_test_refs: list[str],
     passed: int,
     failed: int,
     skipped: int,
@@ -435,6 +485,7 @@ def _safe_payload(
     canonical_projection: dict[str, object] = {
         "collected_test_count": collected,
         "failed_test_count": failed,
+        "failed_test_refs": sorted(failed_test_refs),
         "flaky_test_count": flaky,
         "identities": sorted(identities),
         "passed_test_count": passed,
@@ -456,6 +507,7 @@ def _safe_payload(
         "collection_digest_ref": f"sha256:{hashlib.sha256(encoded).hexdigest()}",
         "collection_error_count": 0,
         "failed_test_count": failed,
+        "failed_test_refs": sorted(failed_test_refs),
         "flaky_test_count": flaky,
         "passed_test_count": passed,
         "redaction_status": "content_free",
@@ -644,15 +696,22 @@ def consume_vitest_json_result(
         _fail("vitest-success-mismatch")
     occurrence_by_name: dict[tuple[str, str], int] = {}
     identities: list[tuple[str, str]] = []
+    failed_test_refs: list[str] = []
     for relative_path, full_name, status in sorted(identity_material):
         occurrence_key = (relative_path, full_name)
         occurrence = occurrence_by_name.get(occurrence_key, 0)
         occurrence_by_name[occurrence_key] = occurrence + 1
         identity = _identity_hash(relative_path, full_name, str(occurrence))
         identities.append((identity, status))
+        if status == "failed":
+            _retain_failed_test_ref(
+                failed_test_refs,
+                safe_frontend_test_ref(_VITEST_RUNNER_REF, relative_path, identity)
+            )
     return _safe_payload(
         runner_ref=_VITEST_RUNNER_REF,
         identities=identities,
+        failed_test_refs=failed_test_refs,
         passed=observed["passed"],
         failed=observed["failed"],
         skipped=observed["skipped"],
@@ -785,6 +844,7 @@ def consume_playwright_json_result(
     }
 
     identities: list[tuple[str, str]] = []
+    failed_test_refs: list[str] = []
     observed = {"expected": 0, "flaky": 0, "skipped": 0, "unexpected": 0}
     retries = 0
     spec_outcomes: dict[tuple[str, str], tuple[bool, list[str]]] = {}
@@ -861,6 +921,15 @@ def consume_playwright_json_result(
         observed[outcome] += 1
         identity = _identity_hash(relative_path, spec_id, project_id)
         identities.append((identity, outcome))
+        if outcome == "unexpected":
+            _retain_failed_test_ref(
+                failed_test_refs,
+                safe_frontend_test_ref(
+                    _PLAYWRIGHT_RUNNER_REF,
+                    relative_path,
+                    identity,
+                )
+            )
         spec_key = (relative_path, spec_id)
         spec_ok = spec["ok"]
         assert isinstance(spec_ok, bool)
@@ -898,6 +967,7 @@ def consume_playwright_json_result(
     return _safe_payload(
         runner_ref=_PLAYWRIGHT_RUNNER_REF,
         identities=identities,
+        failed_test_refs=failed_test_refs,
         passed=observed["expected"],
         failed=observed["unexpected"],
         skipped=observed["skipped"],
@@ -960,6 +1030,16 @@ def _validated_safe_observation(payload: object) -> dict[str, Any]:
         observation["result_status"] == "passed"
     ):
         _fail("safe-observation-status")
+    failed_test_refs = _require_list(
+        observation["failed_test_refs"], "safe-observation-failed-test-refs"
+    )
+    if (
+        len(failed_test_refs)
+        != min(counts["failed_test_count"], MAX_FAILED_TEST_REFS)
+        or len(failed_test_refs) != len(set(failed_test_refs))
+        or any(not is_safe_frontend_test_ref(ref) for ref in failed_test_refs)
+    ):
+        _fail("safe-observation-failed-test-refs")
     return dict(observation)
 
 
@@ -981,9 +1061,16 @@ def _aggregate_payload(observations: tuple[dict[str, Any], ...]) -> dict[str, An
         separators=(",", ":"),
     ).encode("ascii")
     aggregate_digest = hashlib.sha256(
-        b"uaa-frontend-aggregate-v1\0" + digest_material
+        b"uaa-frontend-aggregate-v2\0" + digest_material
     ).hexdigest()
     failed = sum(int(observation["failed_test_count"]) for observation in normalized)
+    failed_test_refs = sorted(
+        str(ref)
+        for observation in normalized
+        for ref in observation["failed_test_refs"]
+    )
+    if len(failed_test_refs) != len(set(failed_test_refs)):
+        _fail("aggregate-failed-test-ref-duplicate")
     payload = {
         "schema_version": AGGREGATE_SCHEMA_VERSION,
         "collection_digest_ref": f"sha256:{aggregate_digest}",
@@ -991,6 +1078,7 @@ def _aggregate_payload(observations: tuple[dict[str, Any], ...]) -> dict[str, An
             int(observation["collected_test_count"]) for observation in normalized
         ),
         "failed_test_count": failed,
+        "failed_test_refs": failed_test_refs,
         "observations": list(normalized),
         "redaction_status": "content_free",
         "result_status": "failed" if failed else "passed",

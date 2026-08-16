@@ -233,6 +233,7 @@ def test_safe_frontend_aggregate_is_content_bound_and_consumed(
     assert consumed == published
     assert consumed["schema_version"] == evidence.AGGREGATE_SCHEMA_VERSION
     assert consumed["collected_test_count"] == 1
+    assert consumed["failed_test_refs"] == []
     assert consumed["result_status"] == "passed"
     assert consumed["collection_digest_ref"].startswith("sha256:")
     assert not target.exists()
@@ -327,7 +328,37 @@ def test_vitest_failed_run_remains_valid_collection_evidence(tmp_path: Path) -> 
 
     assert result["result_status"] == "failed"
     assert result["failed_test_count"] == 1
+    assert len(result["failed_test_refs"]) == 1
+    assert evidence.is_safe_frontend_test_ref(result["failed_test_refs"][0])
     assert not raw.exists()
+
+
+def test_playwright_failed_run_retains_only_bounded_safe_test_refs(
+    tmp_path: Path,
+) -> None:
+    directory = _private_directory(tmp_path)
+    failed = _playwright_test(
+        outcome="unexpected",
+        attempts=[_playwright_attempt("failed", 0)],
+    )
+    raw = _write_raw(directory, _playwright_payload([failed]))
+
+    result = evidence.consume_playwright_json_result(raw, repository_root=ROOT)
+
+    assert result["result_status"] == "failed"
+    assert result["failed_test_count"] == 1
+    assert len(result["failed_test_refs"]) == 1
+    assert evidence.is_safe_frontend_test_ref(result["failed_test_refs"][0])
+    rendered = json.dumps(result)
+    for forbidden in ("raw", "title", str(ROOT), "stdout", "stderr"):
+        assert forbidden not in rendered
+    assert not raw.exists()
+
+    target = directory / "aggregate.json"
+    published = evidence.publish_frontend_collection_evidence(target, (result,))
+    consumed = evidence.consume_frontend_collection_evidence(target)
+    assert consumed["failed_test_refs"] == result["failed_test_refs"]
+    assert consumed == published
 
 
 def test_vitest_4_1_8_real_shape_counts_file_root_and_describe_suite(
