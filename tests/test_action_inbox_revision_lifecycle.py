@@ -254,7 +254,15 @@ def test_revision_binding_receipt_covers_scope_route_adapter_deadline_and_author
 
 @pytest.mark.parametrize(
     "binding_kind",
-    ["scope", "route", "adapter", "deadline", "authority"],
+    [
+        "scope",
+        "route",
+        "adapter",
+        "deadline",
+        "authority",
+        "rollback",
+        "safe_disable",
+    ],
 )
 def test_revision_binding_changes_make_prior_approval_stale(
     monkeypatch: pytest.MonkeyPatch,
@@ -294,7 +302,7 @@ def test_revision_binding_changes_make_prior_approval_stale(
                 f"deadline-ref:action-inbox-decision:substituted:{generation:08d}"
             ),
         )
-    else:
+    elif binding_kind == "authority":
         monkeypatch.setattr(
             founder_loop_storage,
             "FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_INPUT_REFS",
@@ -303,6 +311,15 @@ def test_revision_binding_changes_make_prior_approval_stale(
                 "authority-input-ref:substituted",
             ),
         )
+    else:
+        with repo._connect() as conn:
+            column = (
+                "rollback_ref" if binding_kind == "rollback" else "safe_disable_ref"
+            )
+            conn.execute(
+                f"UPDATE action_inbox SET {column} = ? WHERE item_ref = ?",
+                (f"{binding_kind}-ref:substituted-recovery-control", ITEM_REF),
+            )
 
     current = repo.action_revision(ACTION_ID)
     assert current["revision_ref"] != approved_revision_ref
@@ -439,6 +456,7 @@ def test_cancel_openapi_contract_requires_revision_and_keeps_stable_operation_id
         "FounderLoopActionRevisionConflictDetail",
         "FounderLoopActionIdempotencyConflictDetail",
         "FounderLoopActionReceiptCapacityConflictDetail",
+        "FounderLoopActionStateConflictDetail",
     }
     assert (
         schema["components"]["schemas"]["FounderLoopActionRevisionConflictDetail"][
@@ -630,6 +648,83 @@ def test_local_task_commit_revalidates_approval_after_concurrent_cancel(
         assert conn.execute("SELECT COUNT(*) FROM local_tasks").fetchone()[0] == 0
 
 
+def test_local_task_commit_reloads_safe_disable_posture_under_write_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-safe-disable-race-approve")
+    original_authority_decision = repo._local_task_authority_decision
+
+    def disable_before_write_lock(**kwargs):
+        repo._disable_local_task_create_lane_for_test(
+            disabled_reason_refs=["safe-disable-reason:test-concurrent-disable"],
+        )
+        return original_authority_decision(**kwargs)
+
+    monkeypatch.setattr(
+        repo,
+        "_local_task_authority_decision",
+        disable_before_write_lock,
+    )
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED",
+    ):
+        repo.commit_local_task(
+            action_id=ACTION_ID,
+            request=FounderLoopLocalTaskCommitRequest(
+                approval_ref=str(approval["approval_ref"]),
+                decision_reason_ref="decision-reason-ref:test-safe-disable-race",
+            ),
+            idempotency_key_ref="idempotency-ref:test-safe-disable-race",
+        )
+
+    with repo._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM local_tasks").fetchone()[0] == 0
+        assert (
+            conn.execute("SELECT COUNT(*) FROM local_task_commit_receipts").fetchone()[
+                0
+            ]
+            == 0
+        )
+
+
+def test_action_decisions_reject_terminal_committed_local_task(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-terminal-approve")
+    commit_receipt = repo.commit_local_task(
+        action_id=ACTION_ID,
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(approval["approval_ref"]),
+            decision_reason_ref="decision-reason-ref:test-terminal-commit",
+        ),
+        idempotency_key_ref="idempotency-ref:test-terminal-commit",
+    )
+    committed = _item(repo)
+    assert committed["status"] == "receipt_recorded"
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_TERMINAL_LOCAL_TASK_COMMITTED",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="cancel",
+            request=_request(str(committed["action_revision_ref"])),
+            idempotency_key_ref="idempotency-ref:test-terminal-cancel",
+        )
+
+    still_committed = _item(repo)
+    assert still_committed["status"] == "receipt_recorded"
+    assert (
+        still_committed["local_task_commit_receipt_ref"]
+        == commit_receipt["receipt_ref"]
+    )
+
+
 def test_action_receipt_capacity_exhaustion_preserves_current_revision(
     tmp_path: Path,
 ) -> None:
@@ -711,7 +806,12 @@ def test_receipt_capacity_reserves_one_atomic_active_approval_invalidation(
     assert cancelled["status"] == "cancelled"
     assert cancelled["invalidated_approval_refs"] == [approval["approval_ref"]]
     assert cancelled["invalidated_approval_count"] == 1
-    current_revision = str(_item(repo)["action_revision_ref"])
+    cancelled_item = _item(repo)
+    assert (
+        cancelled_item["receipt_visibility"]["decision_receipt_ref"]
+        == cancelled["receipt_ref"]
+    )
+    current_revision = str(cancelled_item["action_revision_ref"])
     with pytest.raises(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED",

@@ -4868,6 +4868,16 @@ def _action_revision_source_payload(action: dict[str, Any]) -> dict[str, Any]:
         ),
         "exact_scope_ref": str(action["action_scope_ref"]),
         "approval_requirement_ref": str(action["action_approval_requirement_ref"]),
+        "rollback_ref": str(
+            action.get("rollback_ref")
+            or action.get("action_rollback_ref")
+            or "rollback-ref:missing"
+        ),
+        "safe_disable_ref": str(
+            action.get("safe_disable_ref")
+            or action.get("action_safe_disable_ref")
+            or "safe-disable-ref:missing"
+        ),
         "action_kind": str(action.get("action_kind") or "review_only"),
         "risk_class": str(action.get("risk_class") or "high"),
         "side_effect_class": str(
@@ -12354,32 +12364,33 @@ class FounderLoopRepository:
             )
         return receipt.model_dump(mode="json")
 
-    def local_task_safe_disable_posture(self) -> dict[str, Any]:
-        rows = self._fetch_all(
-            """
+    def local_task_safe_disable_posture(
+        self,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        query = """
             SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
                    safe_disable_posture_ref, disabled_reason_refs_json,
                    blocked_state_refs_json, updated_at
             FROM local_task_lane_postures
             WHERE lane_id = ?
             LIMIT 1
-            """,
-            (FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,),
+            """
+        query_params = (FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,)
+        rows = (
+            self._fetch_all(query, query_params)
+            if conn is None
+            else list(conn.execute(query, query_params).fetchall())
         )
         if not rows:
-            with self._connect() as conn:
+            if conn is None:
+                with self._connect() as posture_conn:
+                    self._ensure_local_task_lane_posture(posture_conn)
+                rows = self._fetch_all(query, query_params)
+            else:
                 self._ensure_local_task_lane_posture(conn)
-            rows = self._fetch_all(
-                """
-                SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
-                       safe_disable_posture_ref, disabled_reason_refs_json,
-                       blocked_state_refs_json, updated_at
-                FROM local_task_lane_postures
-                WHERE lane_id = ?
-                LIMIT 1
-                """,
-                (FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,),
-            )
+                rows = list(conn.execute(query, query_params).fetchall())
         payload = _row_to_payload(rows[0])
         enabled = bool(payload.get("enabled"))
         disabled_reason_refs = list(payload.get("disabled_reason_refs") or [])
@@ -12662,44 +12673,11 @@ class FounderLoopRepository:
                 ]
             )
         )
-        receipt = FounderLoopLocalTaskCommitReceipt(
-            item_ref=item_ref,
-            local_task_ref=local_task_ref,
-            receipt_ref=receipt_ref,
-            audit_ref=audit_ref,
-            idempotency_key_ref=idempotency_key_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-            run_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
-            evidence_timeline_event_ref=evidence_event_ref,
-            approval_ref=request.approval_ref,
-            approval_status=approval_status,
-            approval_reason_refs=approval_reason_refs,
-            authority_decision_ref=authority_decision.decision_ref,
-            authority_decision_outcome=authority_decision.outcome,
-            authority_lease_ref=authority_decision.lease_ref,
-            authority_audit_ref=authority_decision.audit_record_ref,
-            authority_policy_receipt_ref=authority_decision.receipt_ref,
-            safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
-            rollback_ref=str(safe_disable_posture["rollback_ref"]),
-            safe_disable_posture_ref=str(
-                safe_disable_posture["safe_disable_posture_ref"]
-            ),
-            safe_disable_enabled=bool(
-                safe_disable_posture["local_task_commits_enabled"]
-            ),
-            rollback_execution_enabled=bool(
-                safe_disable_posture["rollback_execution_enabled"]
-            ),
-            rollback_blocker_refs=list(safe_disable_posture["rollback_blocker_refs"]),
-            safe_summary=(
-                "Approved Action Inbox local task was committed to local Founder Loop state."
-            ),
-            evidence_refs=evidence_refs,
-            blocked_state_refs=list(FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS),
-        )
-        receipt_payload = receipt.model_dump(mode="json")
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
+            locked_safe_disable_posture = self.local_task_safe_disable_posture(
+                conn=conn
+            )
             locked_action = self._action_payload_for_item_ref(item_ref, conn=conn)
             if locked_action is None:
                 raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
@@ -12722,7 +12700,7 @@ class FounderLoopRepository:
                     conn=conn,
                 ),
                 approval_receipt=locked_approval_receipt,
-                safe_disable_posture=safe_disable_posture,
+                safe_disable_posture=locked_safe_disable_posture,
             )
             if (
                 locked_blocked_reasons
@@ -12740,6 +12718,45 @@ class FounderLoopRepository:
                         "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED"
                     )
                 raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED")
+            receipt = FounderLoopLocalTaskCommitReceipt(
+                item_ref=item_ref,
+                local_task_ref=local_task_ref,
+                receipt_ref=receipt_ref,
+                audit_ref=audit_ref,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                run_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+                evidence_timeline_event_ref=evidence_event_ref,
+                approval_ref=request.approval_ref,
+                approval_status=approval_status,
+                approval_reason_refs=approval_reason_refs,
+                authority_decision_ref=authority_decision.decision_ref,
+                authority_decision_outcome=authority_decision.outcome,
+                authority_lease_ref=authority_decision.lease_ref,
+                authority_audit_ref=authority_decision.audit_record_ref,
+                authority_policy_receipt_ref=authority_decision.receipt_ref,
+                safe_disable_ref=str(locked_safe_disable_posture["safe_disable_ref"]),
+                rollback_ref=str(locked_safe_disable_posture["rollback_ref"]),
+                safe_disable_posture_ref=str(
+                    locked_safe_disable_posture["safe_disable_posture_ref"]
+                ),
+                safe_disable_enabled=bool(
+                    locked_safe_disable_posture["local_task_commits_enabled"]
+                ),
+                rollback_execution_enabled=bool(
+                    locked_safe_disable_posture["rollback_execution_enabled"]
+                ),
+                rollback_blocker_refs=list(
+                    locked_safe_disable_posture["rollback_blocker_refs"]
+                ),
+                safe_summary=(
+                    "Approved Action Inbox local task was committed to local "
+                    "Founder Loop state."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_state_refs=list(FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS),
+            )
+            receipt_payload = receipt.model_dump(mode="json")
             conn.execute(
                 """
                 INSERT INTO local_tasks (
@@ -12922,6 +12939,17 @@ class FounderLoopRepository:
                         "idempotency key and revision-bound payload."
                     ),
                 }
+
+            if (
+                self._latest_local_task_commit_receipt_for_item_ref(
+                    item_ref,
+                    conn=conn,
+                )
+                is not None
+            ):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_ACTION_TERMINAL_LOCAL_TASK_COMMITTED"
+                )
 
             current_revision = self._action_revision_state_for_action(
                 action,
@@ -14667,7 +14695,7 @@ class FounderLoopRepository:
             SELECT receipt_json
             FROM action_receipts
             WHERE item_ref = ?
-            ORDER BY created_at ASC
+            ORDER BY created_at DESC, receipt_ref DESC
             LIMIT 50
             """
         rows = (
@@ -14675,7 +14703,8 @@ class FounderLoopRepository:
             if conn is None
             else list(conn.execute(query, (item_ref,)).fetchall())
         )
-        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+        newest_first = [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+        return list(reversed(newest_first))
 
     def _build_action_decision_receipt(
         self,

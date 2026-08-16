@@ -80,11 +80,17 @@ class FounderLoopActionReceiptCapacityConflictDetail(BaseModel):
     safe_message: str
 
 
+class FounderLoopActionStateConflictDetail(BaseModel):
+    code: Literal["FOUNDER_LOOP_ACTION_TERMINAL_LOCAL_TASK_COMMITTED"]
+    safe_message: str
+
+
 class FounderLoopActionDecisionConflictResponse(BaseModel):
     detail: (
         FounderLoopActionRevisionConflictDetail
         | FounderLoopActionIdempotencyConflictDetail
         | FounderLoopActionReceiptCapacityConflictDetail
+        | FounderLoopActionStateConflictDetail
     )
 
 
@@ -2141,7 +2147,11 @@ def _record_action_decision(
             404
             if code == "FOUNDER_LOOP_ACTION_NOT_FOUND"
             else 409
-            if code == "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED"
+            if code
+            in {
+                "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED",
+                "FOUNDER_LOOP_ACTION_TERMINAL_LOCAL_TASK_COMMITTED",
+            }
             else 400
         )
         raise HTTPException(
