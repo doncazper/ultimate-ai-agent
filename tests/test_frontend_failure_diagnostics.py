@@ -11,7 +11,7 @@ from scripts.verification import frontend_failure_diagnostics as diagnostics
 
 SAFE_REF = re.compile(
     r"^frontend-test-ref:(?:vitest|playwright):"
-    r"[a-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+    r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
 )
 
 
@@ -54,6 +54,7 @@ def test_vitest_failure_refs_are_bounded_and_content_free(tmp_path: Path) -> Non
     assert refs == tuple(sorted(refs))
     assert all(SAFE_REF.fullmatch(ref) for ref in refs)
     rendered = json.dumps(refs)
+    assert "ActionInbox.test.tsx" in rendered
     assert raw_title not in rendered
     assert str(tmp_path) not in rendered
 

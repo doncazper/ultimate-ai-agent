@@ -20,7 +20,7 @@ SUMMARY_ENV = "GITHUB_STEP_SUMMARY"
 _SAFE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 _SAFE_REF_RE = re.compile(
     r"^frontend-test-ref:(?:vitest|playwright):"
-    r"[a-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+    r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
 )
 
 
@@ -69,7 +69,7 @@ def _safe_ref(runner: str, relative_path: str, *identity: str) -> str:
     component = _SAFE_COMPONENT_RE.sub(
         "-", PurePosixPath(relative_path).name
     ).strip(".-")
-    component = (component[:72] or "frontend-test").lower()
+    component = component[:72] or "frontend-test"
     digest = hashlib.sha256(
         "\0".join((runner, relative_path, *identity)).encode("utf-8")
     ).hexdigest()[:12]
