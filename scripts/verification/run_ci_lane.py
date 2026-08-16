@@ -1398,36 +1398,30 @@ def _build_terminal_foundation_run(
 
 def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
     status = result.get("pytest_shard_evidence_status")
-    lines: list[str] = []
-    if status is not None:
-        lines.append("Pytest shard evidence: " + str(status))
-        for failed_ref in result.get("failed_shard_refs", ()):
-            shard_index = failed_ref.split(":", maxsplit=2)[1]
-            lines.append(
-                f"Failed shard: {failed_ref} "
-                f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
-            )
-        for failed_test_ref in result.get("failed_test_refs", ()):
-            lines.append(f"Diagnostic test ref: {failed_test_ref}")
-        collection_status = result.get("pytest_collection_evidence_status")
-        if collection_status is not None:
-            lines.append("Pytest collection evidence: " + str(collection_status))
-        collection_reason_ref = result.get("pytest_collection_evidence_reason_ref")
-        if collection_reason_ref is not None:
-            lines.append(
-                "Pytest collection evidence reason: " + str(collection_reason_ref)
-            )
-        if collected_count := result.get("pytest_collected_test_count"):
-            lines.append(f"Observed pytest tests: {collected_count}")
+    if status is None:
+        return []
+    lines = ["Pytest shard evidence: " + str(status)]
+    for failed_ref in result.get("failed_shard_refs", ()):
+        shard_index = failed_ref.split(":", maxsplit=2)[1]
+        lines.append(
+            f"Failed shard: {failed_ref} "
+            f"(reproduce with make ci-reproduce-shard CI_SHARD_INDEX={shard_index})"
+        )
+    for failed_test_ref in result.get("failed_test_refs", ()):
+        lines.append(f"Diagnostic test ref: {failed_test_ref}")
+    collection_status = result.get("pytest_collection_evidence_status")
+    if collection_status is not None:
+        lines.append("Pytest collection evidence: " + str(collection_status))
+    collection_reason_ref = result.get("pytest_collection_evidence_reason_ref")
+    if collection_reason_ref is not None:
+        lines.append("Pytest collection evidence reason: " + str(collection_reason_ref))
+    if collected_count := result.get("pytest_collected_test_count"):
+        lines.append(f"Observed pytest tests: {collected_count}")
     frontend_status = result.get("frontend_collection_evidence_status")
     if frontend_status is not None:
         lines.append("Frontend collection evidence: " + str(frontend_status))
     if frontend_count := result.get("frontend_collected_test_count"):
         lines.append(f"Observed frontend tests: {frontend_count}")
-    if frontend_failed_count := result.get("frontend_failed_test_count"):
-        lines.append(f"Failed frontend tests: {frontend_failed_count}")
-    for failed_test_ref in result.get("frontend_failed_test_refs", ()):
-        lines.append(f"Diagnostic frontend test ref: {failed_test_ref}")
     return lines
 
 
@@ -2058,12 +2052,6 @@ def run_lane(
                                     frontend_collection_payload[
                                         "collected_test_count"
                                     ]
-                                ),
-                                "frontend_failed_test_count": (
-                                    frontend_collection_payload["failed_test_count"]
-                                ),
-                                "frontend_failed_test_refs": tuple(
-                                    frontend_collection_payload["failed_test_refs"]
                                 ),
                             }
                         )

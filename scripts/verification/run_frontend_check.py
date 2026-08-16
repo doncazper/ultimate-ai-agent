@@ -31,6 +31,11 @@ from scripts.verification.frontend_command_process import (  # noqa: E402
     resolve_installed_frontend_tool,
     run_frontend_command,
 )
+from scripts.verification.frontend_failure_diagnostics import (  # noqa: E402
+    FrontendFailureDiagnosticsError,
+    publish_failed_test_refs,
+    vitest_failed_test_refs,
+)
 
 
 class FrontendCheckError(RuntimeError):
@@ -139,6 +144,10 @@ def run() -> int:
                 timeout=TEST_TIMEOUT_SECONDS,
                 env=env,
             )
+        failed_test_refs = vitest_failed_test_refs(
+            raw_result,
+            repository_root=ROOT,
+        )
         observation = consume_vitest_json_result(raw_result, repository_root=ROOT)
         if (test_returncode == 0) != (observation["result_status"] == "passed"):
             raise FrontendCheckError("frontend test status and evidence disagree")
@@ -153,6 +162,10 @@ def run() -> int:
             f"({observation['collected_test_count']} observed)"
         )
         if test_returncode != 0:
+            publish_failed_test_refs(
+                failed_test_refs,
+                failed_test_count=int(observation["failed_test_count"]),
+            )
             print("Frontend unit tests: failed (reason-ref:frontend:tests-failed)")
             return 1
 
@@ -181,6 +194,7 @@ def main() -> int:
     except (
         FrontendCheckError,
         FrontendCollectionEvidenceError,
+        FrontendFailureDiagnosticsError,
         KeyboardInterrupt,
         OSError,
     ):

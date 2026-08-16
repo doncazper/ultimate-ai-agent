@@ -13,13 +13,12 @@ from scripts.verification import run_frontend_playwright as frontend_playwright
 
 def _observation(runner_ref: str) -> dict[str, object]:
     return {
-        "schema_version": "uaa_frontend_collection_evidence.v2",
+        "schema_version": "uaa_frontend_collection_evidence.v1",
         "runner_ref": runner_ref,
         "collected_test_count": 3,
         "collection_digest_ref": "sha256:" + "a" * 64,
         "collection_error_count": 0,
         "failed_test_count": 0,
-        "failed_test_refs": [],
         "flaky_test_count": 0,
         "passed_test_count": 3,
         "redaction_status": "content_free",
@@ -123,6 +122,11 @@ def test_frontend_check_executes_one_typecheck_and_no_duplicate_alias(
     )
     monkeypatch.setattr(
         frontend_check,
+        "vitest_failed_test_refs",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        frontend_check,
         "publish_frontend_collection_evidence",
         lambda path, observations: published.append((path, observations)),
     )
@@ -160,12 +164,69 @@ def test_frontend_check_fails_closed_on_result_status_disagreement(
         "consume_vitest_json_result",
         lambda *_args, **_kwargs: _observation("runner-ref:frontend:vitest"),
     )
+    monkeypatch.setattr(
+        frontend_check,
+        "vitest_failed_test_refs",
+        lambda *_args, **_kwargs: (),
+    )
 
     with pytest.raises(
         frontend_check.FrontendCheckError,
         match="status and evidence disagree",
     ):
         frontend_check.run()
+
+
+def test_frontend_check_publishes_failed_test_refs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    monkeypatch.setenv(
+        frontend_check.EVIDENCE_ENV,
+        str(evidence_directory / "aggregate.json"),
+    )
+    monkeypatch.setattr(frontend_check, "_load_scripts", lambda: {})
+    returncodes = iter((0, 1))
+    monkeypatch.setattr(
+        frontend_check,
+        "_run",
+        lambda *_args, **_kwargs: next(returncodes),
+    )
+    failed_observation = _observation("runner-ref:frontend:vitest")
+    failed_observation.update(
+        failed_test_count=1,
+        passed_test_count=2,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_check,
+        "consume_vitest_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    failed_ref = "frontend-test-ref:vitest:unit.test.ts:0123456789ab"
+    monkeypatch.setattr(
+        frontend_check,
+        "vitest_failed_test_refs",
+        lambda *_args, **_kwargs: (failed_ref,),
+    )
+    published: list[tuple[tuple[str, ...], int]] = []
+    monkeypatch.setattr(
+        frontend_check,
+        "publish_failed_test_refs",
+        lambda refs, *, failed_test_count: published.append(
+            (refs, failed_test_count)
+        ),
+    )
+    monkeypatch.setattr(
+        frontend_check,
+        "publish_frontend_collection_evidence",
+        lambda *_args, **_kwargs: {},
+    )
+
+    assert frontend_check.run() == 1
+    assert published == [((failed_ref,), 1)]
 
 
 def test_playwright_runner_emits_one_safe_observation(
@@ -197,6 +258,11 @@ def test_playwright_runner_emits_one_safe_observation(
         frontend_playwright,
         "consume_playwright_json_result",
         lambda *_args, **_kwargs: _observation("runner-ref:frontend:playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: (),
     )
     monkeypatch.setattr(
         frontend_playwright,
@@ -241,6 +307,11 @@ def test_smoke_runner_preserves_all_configured_projects(
         frontend_playwright,
         "consume_playwright_json_result",
         lambda *_args, **_kwargs: _observation("runner-ref:frontend:playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: (),
     )
     monkeypatch.setattr(
         frontend_playwright,
