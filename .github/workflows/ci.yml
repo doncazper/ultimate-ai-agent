@@ -776,6 +776,13 @@ jobs:
             --github-output-file "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
+      - name: Publish bounded frontend failure refs
+        if: failure()
+        run: |
+          .venv/bin/python scripts/verification/frontend_failure_diagnostics.py \
+            --diagnostic-file "$RUNNER_TEMP/uaa_frontend_collection_evidence/failure-diagnostics.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
   release-lane-desktop-packaging:
     name: Release Lane / Desktop and Local Packaging Proof
     timeout-minutes: 45
@@ -1100,4 +1107,11 @@ jobs:
             --temp-root "$RUNNER_TEMP" \
             --verification-execution-fence-root "$RUNNER_TEMP/uaa-verification-execution-fence-v2" \
             --github-output-file "$GITHUB_OUTPUT" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish bounded frontend failure refs
+        if: failure()
+        run: |
+          .venv/bin/python scripts/verification/frontend_failure_diagnostics.py \
+            --diagnostic-file "$RUNNER_TEMP/uaa_frontend_collection_evidence/failure-diagnostics.json" \
             --summary-file "$GITHUB_STEP_SUMMARY"
