@@ -32,8 +32,10 @@ from scripts.verification.frontend_command_process import (  # noqa: E402
     run_frontend_command,
 )
 from scripts.verification.frontend_failure_diagnostics import (  # noqa: E402
+    DIAGNOSTIC_NAME,
     FrontendFailureDiagnosticsError,
     publish_failed_test_refs,
+    retain_failed_test_refs,
     vitest_failed_test_refs,
 )
 
@@ -162,6 +164,12 @@ def run() -> int:
             f"({observation['collected_test_count']} observed)"
         )
         if test_returncode != 0:
+            if external_target is not None:
+                retain_failed_test_refs(
+                    external_target.with_name(DIAGNOSTIC_NAME),
+                    failed_test_refs,
+                    failed_test_count=int(observation["failed_test_count"]),
+                )
             publish_failed_test_refs(
                 failed_test_refs,
                 failed_test_count=int(observation["failed_test_count"]),

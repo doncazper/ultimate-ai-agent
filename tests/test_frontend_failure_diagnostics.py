@@ -139,3 +139,46 @@ def test_failed_refs_reject_symlink_summary_target(
         )
 
     assert real_summary.read_text(encoding="ascii") == "unchanged\n"
+
+
+def test_retained_refs_are_validated_published_and_consumed(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    directory = tmp_path / "evidence"
+    directory.mkdir()
+    diagnostic = directory / diagnostics.DIAGNOSTIC_NAME
+    summary = tmp_path / "summary.md"
+    ref = "frontend-test-ref:vitest:ActionInbox.test.tsx:0123456789ab"
+
+    diagnostics.retain_failed_test_refs(
+        diagnostic,
+        (ref,),
+        failed_test_count=1,
+    )
+    assert diagnostics.publish_retained_failed_test_refs(
+        diagnostic,
+        summary_path=summary,
+    )
+
+    assert not diagnostic.exists()
+    assert ref in summary.read_text(encoding="ascii")
+    assert ref in capsys.readouterr().out
+
+
+def test_invalid_utf8_result_becomes_bounded_diagnostics_error(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    result = tmp_path / "result.json"
+    result.write_bytes(b'{"testResults": ["\xff"]}')
+
+    with pytest.raises(
+        diagnostics.FrontendFailureDiagnosticsError,
+        match="unavailable",
+    ):
+        diagnostics.vitest_failed_test_refs(
+            result,
+            repository_root=repository,
+        )

@@ -218,6 +218,12 @@ def test_frontend_exact_receipt_is_fenced_and_reused_by_release_lane() -> None:
     assert "verification-envelope:" in visual
     assert visual.count('--github-output-file "$GITHUB_OUTPUT"') == 1
     assert '--base-sha "$UAA_CI_COMPARISON_BASE_SHA"' in visual
+    for section in (control, visual):
+        assert "Publish bounded frontend failure refs" in section
+        assert "if: failure()" in section
+        assert "scripts/verification/frontend_failure_diagnostics.py" in section
+        assert "failure-diagnostics.json" in section
+        assert '--summary-file "$GITHUB_STEP_SUMMARY"' in section
 
 
 def test_independent_preflights_and_full_pytest_start_after_manifest() -> None:

@@ -212,6 +212,14 @@ def test_frontend_check_publishes_failed_test_refs(
         lambda *_args, **_kwargs: (failed_ref,),
     )
     published: list[tuple[tuple[str, ...], int]] = []
+    retained: list[tuple[Path, tuple[str, ...], int]] = []
+    monkeypatch.setattr(
+        frontend_check,
+        "retain_failed_test_refs",
+        lambda path, refs, *, failed_test_count: retained.append(
+            (path, refs, failed_test_count)
+        ),
+    )
     monkeypatch.setattr(
         frontend_check,
         "publish_failed_test_refs",
@@ -226,6 +234,13 @@ def test_frontend_check_publishes_failed_test_refs(
     )
 
     assert frontend_check.run() == 1
+    assert retained == [
+        (
+            evidence_directory / frontend_check.DIAGNOSTIC_NAME,
+            (failed_ref,),
+            1,
+        )
+    ]
     assert published == [((failed_ref,), 1)]
 
 

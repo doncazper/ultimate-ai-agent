@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -16,6 +17,8 @@ MAX_TESTS = 100_000
 MAX_FAILED_TEST_REFS = 8
 MAX_SUITE_DEPTH = 32
 SUMMARY_ENV = "GITHUB_STEP_SUMMARY"
+DIAGNOSTIC_NAME = "failure-diagnostics.json"
+DIAGNOSTIC_SCHEMA = "uaa.frontend_failure_diagnostics.v1"
 
 _SAFE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 _SAFE_REF_RE = re.compile(
@@ -34,7 +37,7 @@ def _load_result(path: Path) -> dict[str, Any]:
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_RESULT_BYTES:
             raise FrontendFailureDiagnosticsError("frontend diagnostic result is unsafe")
         payload = json.loads(path.read_bytes())
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
         raise FrontendFailureDiagnosticsError(
             "frontend diagnostic result is unavailable"
         ) from exc
@@ -81,6 +84,24 @@ def _safe_ref(runner: str, relative_path: str, *identity: str) -> str:
 
 def _bounded_refs(refs: list[str]) -> tuple[str, ...]:
     return tuple(sorted(set(refs))[:MAX_FAILED_TEST_REFS])
+
+
+def _validate_failed_refs(
+    refs: tuple[str, ...],
+    *,
+    failed_test_count: int,
+) -> None:
+    if (
+        failed_test_count <= 0
+        or not refs
+        or len(refs) > min(failed_test_count, MAX_FAILED_TEST_REFS)
+        or len(refs) != len(set(refs))
+        or tuple(sorted(refs)) != refs
+        or any(_SAFE_REF_RE.fullmatch(ref) is None for ref in refs)
+    ):
+        raise FrontendFailureDiagnosticsError(
+            "frontend diagnostic refs disagree with the failed count"
+        )
 
 
 def vitest_failed_test_refs(
@@ -230,15 +251,11 @@ def publish_failed_test_refs(
     refs: tuple[str, ...],
     *,
     failed_test_count: int,
+    summary_path: Path | None = None,
 ) -> None:
     """Append refs to the GitHub summary and stdout without raw reporter content."""
 
-    if failed_test_count <= 0:
-        return
-    if not refs or len(refs) > min(failed_test_count, MAX_FAILED_TEST_REFS):
-        raise FrontendFailureDiagnosticsError(
-            "frontend diagnostic refs disagree with the failed count"
-        )
+    _validate_failed_refs(refs, failed_test_count=failed_test_count)
     lines = [
         f"Frontend diagnostic refs: {len(refs)} of {failed_test_count} failed tests",
         *(f"Diagnostic frontend test ref: {ref}" for ref in refs),
@@ -246,10 +263,11 @@ def publish_failed_test_refs(
     for line in lines:
         print(line)
 
-    rendered = os.environ.get(SUMMARY_ENV)
-    if rendered is None:
-        return
-    summary_path = Path(rendered)
+    if summary_path is None:
+        rendered = os.environ.get(SUMMARY_ENV)
+        if rendered is None:
+            return
+        summary_path = Path(rendered)
     if not summary_path.is_absolute() or summary_path.name in {"", ".", ".."}:
         raise FrontendFailureDiagnosticsError(
             "frontend diagnostic summary target is invalid"
@@ -274,3 +292,134 @@ def publish_failed_test_refs(
         raise FrontendFailureDiagnosticsError(
             "frontend diagnostic summary target is unavailable"
         ) from exc
+
+
+def retain_failed_test_refs(
+    path: Path,
+    refs: tuple[str, ...],
+    *,
+    failed_test_count: int,
+) -> None:
+    """Retain only validated refs for the workflow summary follow-up step."""
+
+    _validate_failed_refs(refs, failed_test_count=failed_test_count)
+    if not path.is_absolute() or path.name != DIAGNOSTIC_NAME:
+        raise FrontendFailureDiagnosticsError(
+            "frontend diagnostic retention target is invalid"
+        )
+    try:
+        parent = path.parent.resolve(strict=True)
+    except OSError as exc:
+        raise FrontendFailureDiagnosticsError(
+            "frontend diagnostic retention parent is unavailable"
+        ) from exc
+    if parent != path.parent or path.parent.is_symlink() or not parent.is_dir():
+        raise FrontendFailureDiagnosticsError(
+            "frontend diagnostic retention parent is unsafe"
+        )
+    payload = {
+        "schema_version": DIAGNOSTIC_SCHEMA,
+        "failed_test_count": failed_test_count,
+        "failed_test_refs": list(refs),
+        "redaction_status": "content_free",
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
+        "ascii"
+    )
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags, 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise FrontendFailureDiagnosticsError(
+                    "frontend diagnostic retention target is unsafe"
+                )
+            os.write(descriptor, encoded)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise FrontendFailureDiagnosticsError(
+            "frontend diagnostic retention target is unavailable"
+        ) from exc
+
+
+def publish_retained_failed_test_refs(
+    path: Path,
+    *,
+    summary_path: Path,
+) -> bool:
+    """Validate, publish, and consume a retained content-free diagnostic."""
+
+    if not path.exists():
+        return False
+    payload = _load_result(path)
+    if set(payload) != {
+        "schema_version",
+        "failed_test_count",
+        "failed_test_refs",
+        "redaction_status",
+    }:
+        raise FrontendFailureDiagnosticsError(
+            "retained frontend diagnostic schema is invalid"
+        )
+    failed_test_count = payload["failed_test_count"]
+    raw_refs = payload["failed_test_refs"]
+    if (
+        payload["schema_version"] != DIAGNOSTIC_SCHEMA
+        or payload["redaction_status"] != "content_free"
+        or isinstance(failed_test_count, bool)
+        or not isinstance(failed_test_count, int)
+        or not isinstance(raw_refs, list)
+        or any(not isinstance(ref, str) for ref in raw_refs)
+    ):
+        raise FrontendFailureDiagnosticsError(
+            "retained frontend diagnostic is invalid"
+        )
+    refs = tuple(raw_refs)
+    publish_failed_test_refs(
+        refs,
+        failed_test_count=failed_test_count,
+        summary_path=summary_path,
+    )
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise FrontendFailureDiagnosticsError(
+            "retained frontend diagnostic could not be consumed"
+        ) from exc
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Publish retained content-free frontend failure refs."
+    )
+    parser.add_argument("--diagnostic-file", type=Path, required=True)
+    parser.add_argument("--summary-file", type=Path, required=True)
+    args = parser.parse_args(argv)
+    try:
+        published = publish_retained_failed_test_refs(
+            args.diagnostic_file,
+            summary_path=args.summary_file,
+        )
+    except (FrontendFailureDiagnosticsError, KeyboardInterrupt, OSError):
+        print(
+            "Frontend diagnostics: blocked "
+            "(reason-ref:frontend-diagnostics:unsafe-evidence)"
+        )
+        return 1
+    if not published:
+        print(
+            "Frontend diagnostics: unavailable "
+            "(reason-ref:frontend-diagnostics:not-produced)"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
