@@ -5,6 +5,7 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
+from pydantic import BaseModel
 
 from ultimate_ai_agent.api.dependencies import get_founder_loop_service
 from ultimate_ai_agent.api.idempotency import (
@@ -51,6 +52,30 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
+
+
+class FounderLoopActionRevisionConflictDetail(BaseModel):
+    code: Literal["FOUNDER_LOOP_ACTION_STALE_REVISION"]
+    safe_message: str
+    refresh_required: Literal[True]
+    current_revision_ref: str
+    current_generation_ref: str
+    refresh_route_ref: str
+
+
+class FounderLoopActionRevisionConflictResponse(BaseModel):
+    detail: FounderLoopActionRevisionConflictDetail
+
+
+ACTION_DECISION_CONFLICT_RESPONSES = {
+    409: {
+        "model": FounderLoopActionRevisionConflictResponse,
+        "description": (
+            "Revision conflict requiring an authoritative Action Inbox refresh; "
+            "the route can also return a safe idempotency or capacity conflict."
+        ),
+    }
+}
 
 
 @router.get("/backend-truth", response_model=ResultEnvelope)
@@ -160,9 +185,7 @@ def get_control_center_trust_authority_matrix() -> ResultEnvelope:
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:trust-authority-matrix",
         data=data,
-        evidence=[
-            {"evidence_ref": "evidence-ref:control-center:trust-authority"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:control-center:trust-authority"}],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -434,7 +457,9 @@ def get_control_center_memory_retrieval_diagnostics(
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:memory-retrieval-diagnostics",
         data=data,
-        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-retrieval-diagnostics"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-retrieval-diagnostics"}
+        ],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -470,7 +495,9 @@ def get_control_center_memory_citation_integrity(
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:memory-citation-integrity",
         data=data,
-        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-citation-integrity"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-citation-integrity"}
+        ],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -542,7 +569,9 @@ def get_control_center_memory_maintenance_runs(
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:memory-maintenance-runs",
         data=data,
-        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-maintenance-runs"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-maintenance-runs"}
+        ],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -579,7 +608,9 @@ def get_control_center_memory_context_manifest(
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:memory-context-manifest",
         data=data,
-        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-context-manifest"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-context-manifest"}
+        ],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -763,8 +794,7 @@ def get_control_center_memory_context_pack_preview(
         raise HTTPException(
             status_code=status_code,
             detail={
-                "code": str(exc)
-                or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_ERROR",
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_ERROR",
                 "safe_message": (
                     "The Memory context-pack preview could not be inspected safely."
                 ),
@@ -1162,9 +1192,7 @@ def get_control_center_agent_loop_thread() -> ResultEnvelope:
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:agent-loop-thread",
         data=data,
-        evidence=[
-            {"evidence_ref": "evidence-ref:control-center:agent-loop-thread"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:control-center:agent-loop-thread"}],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -1185,9 +1213,7 @@ def post_control_center_web_evidence_attach(
     try:
         data = get_founder_loop_service().attach_web_evidence(
             request,
-            active_authority_leases=AuthorityLeaseStore().list_leases(
-                active_only=True
-            ),
+            active_authority_leases=AuthorityLeaseStore().list_leases(active_only=True),
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
@@ -1542,7 +1568,9 @@ def post_control_center_memory_review_manual_candidate(
         service="FounderLoopControlCenterAPI",
         trace_id="founder-loop:memory-manual-candidate",
         data=data,
-        evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-manual-candidate"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-manual-candidate"}
+        ],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -1731,7 +1759,11 @@ def post_control_center_memory_review_forget_request(
     )
 
 
-@router.post("/actions/{action_id}/approve", response_model=ResultEnvelope)
+@router.post(
+    "/actions/{action_id}/approve",
+    response_model=ResultEnvelope,
+    responses=ACTION_DECISION_CONFLICT_RESPONSES,
+)
 def post_control_center_action_approve_decision(
     action_id: str,
     request: FounderLoopActionDecisionRequest,
@@ -1753,7 +1785,11 @@ def post_control_center_action_approve_decision(
     )
 
 
-@router.post("/actions/{action_id}/edit", response_model=ResultEnvelope)
+@router.post(
+    "/actions/{action_id}/edit",
+    response_model=ResultEnvelope,
+    responses=ACTION_DECISION_CONFLICT_RESPONSES,
+)
 def post_control_center_action_edit_decision(
     action_id: str,
     request: FounderLoopActionDecisionRequest,
@@ -1775,7 +1811,11 @@ def post_control_center_action_edit_decision(
     )
 
 
-@router.post("/actions/{action_id}/reject", response_model=ResultEnvelope)
+@router.post(
+    "/actions/{action_id}/reject",
+    response_model=ResultEnvelope,
+    responses=ACTION_DECISION_CONFLICT_RESPONSES,
+)
 def post_control_center_action_reject_decision(
     action_id: str,
     request: FounderLoopActionDecisionRequest,
@@ -1797,7 +1837,11 @@ def post_control_center_action_reject_decision(
     )
 
 
-@router.post("/actions/{action_id}/defer", response_model=ResultEnvelope)
+@router.post(
+    "/actions/{action_id}/defer",
+    response_model=ResultEnvelope,
+    responses=ACTION_DECISION_CONFLICT_RESPONSES,
+)
 def post_control_center_action_defer_decision(
     action_id: str,
     request: FounderLoopActionDecisionRequest,
@@ -1819,7 +1863,11 @@ def post_control_center_action_defer_decision(
     )
 
 
-@router.post("/actions/{action_id}/cancel", response_model=ResultEnvelope)
+@router.post(
+    "/actions/{action_id}/cancel",
+    response_model=ResultEnvelope,
+    responses=ACTION_DECISION_CONFLICT_RESPONSES,
+)
 def post_control_center_action_cancel_decision(
     action_id: str,
     request: FounderLoopActionDecisionRequest,
@@ -2025,9 +2073,7 @@ def _record_action_decision(
             decision=decision,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
-            active_authority_leases=AuthorityLeaseStore().list_leases(
-                active_only=True
-            ),
+            active_authority_leases=AuthorityLeaseStore().list_leases(active_only=True),
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(

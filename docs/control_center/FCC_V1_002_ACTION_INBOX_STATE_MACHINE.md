@@ -23,13 +23,16 @@ public beta, distribution, or production authority.
   - `GET /control-center/actions/{action_id}/receipt`
 - Existing inbox route: `GET /control-center/actions/inbox`.
 - Every decision requires the exact current `expected_revision_ref`. Stale
-  revisions return `FOUNDER_LOOP_ACTION_STALE_REVISION` with safe current refs
-  and require an authoritative inbox refresh before intent may be retried.
+  revisions return a typed HTTP 409 `FOUNDER_LOOP_ACTION_STALE_REVISION` response
+  with safe current refs and require an authoritative inbox refresh before intent
+  may be retried.
 - Approve validates exact `LocalApprovalAuthority` scope when approval is
   required. Approval refs remain identifiers until exact actor, action,
   resource refs, risk, expiry, and classification are validated.
 - Approval scope binds the current revision, generation, payload fingerprint,
-  decision route, Python Core adapter, deadline, and authority-input refs.
+  decision route, Python Core adapter, authoritative action expiry through its
+  deadline ref, and authority-input refs. Changing the expiry invalidates the
+  revision and any approval minted for the earlier deadline.
 - Approve/edit/reject/defer/cancel decision receipt mutation requires active
   `workspace/write` AuthorityLease scope. Missing or mismatched authority
   records a blocked receipt with authority decision refs and does not mint

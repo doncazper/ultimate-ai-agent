@@ -121,6 +121,14 @@ export function NorthStarRoute({
   );
   const loadedActionInbox =
     state.status === "ready" ? state.data.founderActionsInbox : null;
+  const loadedActionInboxSnapshotKey = loadedActionInbox
+    ? loadedActionInbox.items
+        .map(
+          (item) =>
+            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}`,
+        )
+        .join("|")
+    : "unavailable";
   const [actionInboxOverride, setActionInboxOverride] =
     useState<FounderLoopActionsInbox | null>(null);
   const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
@@ -128,11 +136,15 @@ export function NorthStarRoute({
   useEffect(() => {
     setActionInboxOverride(null);
     setRevisionRefreshFailed(false);
-  }, [loadedActionInbox]);
+  }, [loadedActionInboxSnapshotKey]);
 
   useEffect(() => {
     const canonicalPath = canonicalizeControlCenterPath(activePath);
-    if (canonicalPath !== "/workspace/decisions" || !truthReadBinding) return;
+    if (
+      !["/actions", "/workspace/decisions"].includes(canonicalPath) ||
+      !truthReadBinding
+    )
+      return;
     let active = true;
     const refreshAfterConflict = () => {
       setRevisionRefreshFailed(false);
@@ -495,6 +507,54 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     truthAdmitted,
     truthReadBinding,
   );
+  const loadedActionInbox =
+    state.status === "ready" ? state.data.founderActionsInbox : null;
+  const loadedActionInboxSnapshotKey = loadedActionInbox
+    ? loadedActionInbox.items
+        .map(
+          (item) =>
+            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}`,
+        )
+        .join("|")
+    : "unavailable";
+  const [actionInboxOverride, setActionInboxOverride] =
+    useState<FounderLoopActionsInbox | null>(null);
+  const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
+
+  useEffect(() => {
+    setActionInboxOverride(null);
+    setRevisionRefreshFailed(false);
+  }, [loadedActionInboxSnapshotKey]);
+
+  useEffect(() => {
+    if (
+      canonicalizeControlCenterPath(activePath) !== "/actions" ||
+      !truthReadBinding
+    )
+      return;
+    let active = true;
+    const refreshAfterConflict = () => {
+      setRevisionRefreshFailed(false);
+      void fetchFounderActionsInbox(truthReadBinding)
+        .then((inbox) => {
+          if (active) setActionInboxOverride(inbox);
+        })
+        .catch(() => {
+          if (active) setRevisionRefreshFailed(true);
+        });
+    };
+    window.addEventListener(
+      ACTION_INBOX_REVISION_REFRESH_EVENT,
+      refreshAfterConflict as EventListener,
+    );
+    return () => {
+      active = false;
+      window.removeEventListener(
+        ACTION_INBOX_REVISION_REFRESH_EVENT,
+        refreshAfterConflict as EventListener,
+      );
+    };
+  }, [activePath, truthReadBinding]);
   const retryCriticalRoute = async () => {
     await truthState.retry();
     state.retry();
@@ -579,38 +639,50 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     );
   }
 
+  const visibleData = actionInboxOverride
+    ? { ...state.data, founderActionsInbox: actionInboxOverride }
+    : state.data;
+  const routeState = state.data.routeStates[activePath];
+
   return (
     <AppShell
       activePath={activePath}
-      authorityMode={state.data.settingsStatus.authority_lease_state.active_mode}
+      authorityMode={visibleData.settingsStatus.authority_lease_state.active_mode}
       authorityModeAuthoritative={
-        state.data.routeStates["/settings"]?.state === "backend_owned"
+        visibleData.routeStates["/settings"]?.state === "backend_owned"
       }
-      connection={state.data.connection}
+      connection={visibleData.connection}
       killSwitchEngaged={
-        state.data.settingsStatus.authority_lease_state.kill_switch_engaged
+        visibleData.settingsStatus.authority_lease_state.kill_switch_engaged
       }
       killSwitchVisible={
-        state.data.settingsStatus.authority_lease_state.kill_switch_visible
+        visibleData.settingsStatus.authority_lease_state.kill_switch_visible
       }
-      routeState={state.data.routeStates[activePath]}
+      routeState={routeState}
     >
+      {revisionRefreshFailed ? (
+        <SafeAlert
+          message="The authoritative Action Inbox refresh failed. The last confirmed backend snapshot remains visible; retry the backend read before making another decision."
+          title="Action revision refresh unavailable"
+          tone="warning"
+        />
+      ) : null}
       <ConnectionStatus
-        connection={state.data.connection}
-        routeState={state.data.routeStates[activePath]}
+        connection={visibleData.connection}
+        routeState={routeState}
       />
-      {state.data.runtimeInterfaceMode.interface_enabled ? (
-        <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
+      {visibleData.runtimeInterfaceMode.interface_enabled ? (
+        <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
       ) : null}
       <RouteStatePanel
         state={getRouteStateDescriptor(
           activePath,
-          state.data.connection,
-          state.data.routeStates[activePath],
+          visibleData.connection,
+          routeState,
         )}
       />
       <BackendTruthMutationBindingProvider binding={truthReadBinding}>
-        {renderRoute(activePath, state.data)}
+        {renderRoute(activePath, visibleData)}
       </BackendTruthMutationBindingProvider>
     </AppShell>
   );

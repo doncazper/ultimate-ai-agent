@@ -19888,7 +19888,7 @@ describe("Web Control Center shell", () => {
     expect(isPreviewEndpoint("/control-center/plugins/enable")).toBe(false);
   });
 
-  it("binds legacy decisions to the rendered revision and emits a typed stale refresh event", async () => {
+  it("binds decisions to the explicitly rendered revision and emits a typed stale refresh event", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-stale:00000001:11111111111111111111";
     const generationRef = "action-generation:founder-action-ui-stale:00000002";
@@ -19928,7 +19928,10 @@ describe("Web Control Center shell", () => {
         submitActionDecision(
           "founder-action:ui-stale",
           "reject",
-          { decision_reason_ref: "decision-reason-ref:test-ui-stale" },
+          {
+            expected_revision_ref: revisionRef,
+            decision_reason_ref: "decision-reason-ref:test-ui-stale",
+          },
           TEST_MUTATION_BINDING,
         ),
       ).rejects.toBeInstanceOf(ActionInboxRevisionConflictError);
@@ -19953,6 +19956,129 @@ describe("Web Control Center shell", () => {
         refreshEvent,
       );
     }
+  });
+
+  it("rejects a decision when the caller omits the displayed revision", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      submitActionDecision(
+        "founder-action:ui-missing-revision",
+        "reject",
+        {
+          decision_reason_ref: "decision-reason-ref:test-ui-missing-revision",
+        } as Parameters<typeof submitActionDecision>[2],
+        TEST_MUTATION_BINDING,
+      ),
+    ).rejects.toThrow(/revision is unavailable/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the authoritative Action Inbox after a stale event on actions", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-actions:00000001:11111111111111111111";
+    const refreshedRevisionRef =
+      "action-revision:founder-action-ui-actions:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-actions";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: refreshedRevisionRef,
+      status: "cancelled",
+    });
+    refreshedInbox.items[0].title = "Authoritatively refreshed Action review";
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : refreshedInbox,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByText("Revision-bound Action review");
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef: refreshedRevisionRef,
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions:00000002",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await waitFor(() => expect(inboxReads).toBeGreaterThanOrEqual(2));
+    await screen.findByText("Authoritatively refreshed Action review");
+  });
+
+  it("preserves the confirmed actions snapshot when stale refresh fails", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-actions-failed:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-actions-failed";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        if (inboxReads > 1) throw new Error("authoritative refresh unavailable");
+        return new Response(JSON.stringify({ ok: true, result: initialInbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByText("Revision-bound Action review");
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef:
+              "action-revision:founder-action-ui-actions-failed:00000002:22222222222222222222",
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions-failed:00000002",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await screen.findByText("Action revision refresh unavailable");
+    expect(screen.getByText("Revision-bound Action review")).toBeInTheDocument();
+    expect(inboxReads).toBeGreaterThanOrEqual(2);
   });
 
   it("confirms cancellation only after an authoritative refreshed revision", async () => {

@@ -196,7 +196,6 @@ export const CONTROL_CENTER_READ_TIMEOUT_MS = 8000;
 export const CONTROL_CENTER_MAX_CONCURRENT_READS = 32;
 export const ACTION_INBOX_REVISION_REFRESH_EVENT =
   "uaa:action-inbox-revision-refresh-required";
-const actionRevisionByItemRef = new Map<string, string>();
 
 export interface ActionInboxRevisionConflictDetail {
   code: "FOUNDER_LOOP_ACTION_STALE_REVISION";
@@ -4212,16 +4211,10 @@ function isSafeNonNegativeInteger(value: unknown): value is number {
   return Number.isInteger(value) && Number(value) >= 0;
 }
 
-type ActionDecisionRequestInput = Omit<
-  FounderLoopActionDecisionRequest,
-  "expected_revision_ref"
-> &
-  Partial<Pick<FounderLoopActionDecisionRequest, "expected_revision_ref">>;
-
 export async function submitActionDecision(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
-  request: ActionDecisionRequestInput,
+  request: FounderLoopActionDecisionRequest,
   binding: BackendTruthReadBinding | null = null,
 ): Promise<FounderLoopActionDecisionReceipt> {
   return submitActionLifecycleDecision(actionId, decision, request, binding);
@@ -4238,23 +4231,19 @@ export async function submitActionCancellation(
 async function submitActionLifecycleDecision(
   actionId: string,
   decision: FounderLoopActionLifecycleDecisionKind,
-  request: ActionDecisionRequestInput,
+  request: FounderLoopActionDecisionRequest,
   binding: BackendTruthReadBinding | null,
 ): Promise<FounderLoopActionDecisionReceipt> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
-  const expectedRevisionRef =
-    request.expected_revision_ref ?? actionRevisionByItemRef.get(actionId);
+  const expectedRevisionRef = request.expected_revision_ref;
   if (!expectedRevisionRef) {
     throw new Error(
       "The Action revision is unavailable. Refresh the authoritative Action Inbox before recording a decision.",
     );
   }
-  const boundRequest: FounderLoopActionDecisionRequest = {
-    ...request,
-    expected_revision_ref: expectedRevisionRef,
-  };
+  const boundRequest = request;
   const endpoint =
     decision === "cancel"
       ? actionDecisionEndpoint(actionId, "approve").replace(/\/approve$/, "/cancel")
@@ -4773,7 +4762,6 @@ export async function fetchFounderActionsInbox(
     defaultControlCenterReadLimiter,
     binding,
   );
-  rememberActionInboxRevisions(inbox);
   return inbox;
 }
 
@@ -17503,7 +17491,6 @@ function isSafeMorningBriefingV1ReadModel(value: unknown): boolean {
 function normalizeFounderActionsInbox(
   value: FounderLoopActionsInbox | undefined,
 ): { value: FounderLoopActionsInbox; usedFallback: boolean } {
-  rememberActionInboxRevisions(value);
   const merged = stripFollowUpTrackerIfMissing(
     mockControlCenterData.founderActionsInbox,
     value,
@@ -17644,23 +17631,6 @@ function normalizeFounderActionsInbox(
     value: normalized as unknown as FounderLoopActionsInbox,
     usedFallback: merged.usedFallback,
   };
-}
-
-function rememberActionInboxRevisions(
-  inbox: FounderLoopActionsInbox | undefined,
-): void {
-  if (!inbox || !Array.isArray(inbox.items)) return;
-  for (const item of inbox.items) {
-    const revisionRef = item.action_revision_ref ?? item.expected_revision_ref;
-    if (
-      typeof item.item_ref === "string" &&
-      typeof revisionRef === "string" &&
-      revisionRef.startsWith("action-revision:") &&
-      revisionRef.length <= 200
-    ) {
-      actionRevisionByItemRef.set(item.item_ref, revisionRef);
-    }
-  }
 }
 
 function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {

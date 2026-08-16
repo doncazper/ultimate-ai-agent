@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM,
     FOUNDER_LOOP_ACTION_REVISION_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.storage import founder_loop as founder_loop_storage
 from ultimate_ai_agent.core.storage import (
@@ -286,7 +290,7 @@ def test_revision_binding_changes_make_prior_approval_stale(
         monkeypatch.setattr(
             founder_loop_storage,
             "action_decision_deadline_ref",
-            lambda _item_ref, generation: (
+            lambda _item_ref, generation, _expiry=None: (
                 f"deadline-ref:action-inbox-decision:substituted:{generation:08d}"
             ),
         )
@@ -407,17 +411,182 @@ def test_cancel_openapi_contract_requires_revision_and_keeps_stable_operation_id
     None
 ):
     schema = app.openapi()
-    operation = schema["paths"]["/control-center/actions/{action_id}/cancel"]["post"]
-    request_schema_ref = operation["requestBody"]["content"]["application/json"][
-        "schema"
-    ]["$ref"]
-    request_schema_name = request_schema_ref.rsplit("/", 1)[-1]
+    for decision in ("approve", "edit", "reject", "defer", "cancel"):
+        operation = schema["paths"][
+            f"/control-center/actions/{{action_id}}/{decision}"
+        ]["post"]
+        request_schema_ref = operation["requestBody"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        request_schema_name = request_schema_ref.rsplit("/", 1)[-1]
+        conflict_schema_ref = operation["responses"]["409"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        conflict_schema_name = conflict_schema_ref.rsplit("/", 1)[-1]
 
-    assert operation["operationId"] == "post_control_center_actions_action_id_cancel"
+        assert (
+            "expected_revision_ref"
+            in schema["components"]["schemas"][request_schema_name]["required"]
+        )
+        assert conflict_schema_name == "FounderLoopActionRevisionConflictResponse"
     assert (
-        "expected_revision_ref"
-        in schema["components"]["schemas"][request_schema_name]["required"]
+        schema["components"]["schemas"]["FounderLoopActionRevisionConflictDetail"][
+            "properties"
+        ]["refresh_required"]["const"]
+        is True
     )
+    assert (
+        schema["paths"]["/control-center/actions/{action_id}/cancel"]["post"][
+            "operationId"
+        ]
+        == "post_control_center_actions_action_id_cancel"
+    )
+
+
+def test_authoritative_expiry_changes_revision_and_expired_decision_is_denied(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    initial_revision = str(_item(repo)["action_revision_ref"])
+    expired_at = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    with repo._connect() as conn:
+        conn.execute(
+            "UPDATE action_inbox SET expires_at = ? WHERE item_ref = ?",
+            (expired_at, ITEM_REF),
+        )
+
+    refreshed = _item(repo)
+    assert refreshed["action_revision_ref"] != initial_revision
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_DECISION_DEADLINE_EXPIRED",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="reject",
+            request=_request(str(refreshed["action_revision_ref"])),
+            idempotency_key_ref="idempotency-ref:test-expired-decision",
+        )
+
+
+def test_action_is_read_under_the_decision_write_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    revision_ref = str(_item(repo)["action_revision_ref"])
+    original = repo._action_payload_for_item_ref
+    observed_transaction_reads: list[bool] = []
+
+    def observe_read(
+        item_ref: str,
+        *,
+        conn=None,
+    ):
+        observed_transaction_reads.append(conn is not None)
+        return original(item_ref, conn=conn)
+
+    monkeypatch.setattr(repo, "_action_payload_for_item_ref", observe_read)
+    repo.record_action_decision(
+        action_id=ACTION_ID,
+        decision="reject",
+        request=_request(revision_ref),
+        idempotency_key_ref="idempotency-ref:test-locked-action-read",
+    )
+
+    assert observed_transaction_reads
+    assert observed_transaction_reads[0] is True
+
+
+def test_legacy_replay_receipt_returns_typed_conflict_instead_of_crashing(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    revision_ref = str(_item(repo)["action_revision_ref"])
+    receipt_ref = "receipt:founder-loop-action:legacy-replay"
+    key_ref = "idempotency-ref:test-legacy-action-replay"
+    with repo._connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO action_receipts (
+                receipt_ref, item_ref, decision_ref, receipt_json, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                receipt_ref,
+                ITEM_REF,
+                "action-decision:test-legacy-action-replay",
+                json.dumps({"receipt_ref": receipt_ref, "status": "rejected"}),
+                "2026-08-15T00:00:00+00:00",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO action_idempotency_replays (
+                key_ref, item_ref, decision, payload_fingerprint_ref,
+                receipt_ref, decision_ref, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                key_ref,
+                ITEM_REF,
+                "reject",
+                "payload-fingerprint:founder-loop-action:legacy",
+                receipt_ref,
+                "action-decision:test-legacy-action-replay",
+                "2026-08-15T00:00:00+00:00",
+            ),
+        )
+
+    with pytest.raises(
+        FounderLoopStorageDuplicateError,
+        match="FOUNDER_LOOP_ACTION_IDEMPOTENCY_LEGACY_CONFLICT",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="reject",
+            request=_request(revision_ref),
+            idempotency_key_ref=key_ref,
+        )
+
+
+def test_local_task_commit_revalidates_approval_after_concurrent_cancel(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-commit-race-approve")
+    original_authority_decision = repo._local_task_authority_decision
+
+    def cancel_before_commit(**kwargs):
+        current_revision = str(_item(repo)["action_revision_ref"])
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="cancel",
+            request=_request(current_revision),
+            idempotency_key_ref="idempotency-ref:test-commit-race-cancel",
+        )
+        return original_authority_decision(**kwargs)
+
+    monkeypatch.setattr(
+        repo,
+        "_local_task_authority_decision",
+        cancel_before_commit,
+    )
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_LOCAL_TASK_APPROVAL_REQUIRED",
+    ):
+        repo.commit_local_task(
+            action_id=ACTION_ID,
+            request=FounderLoopLocalTaskCommitRequest(
+                approval_ref=str(approval["approval_ref"]),
+                decision_reason_ref="decision-reason-ref:test-commit-race",
+            ),
+            idempotency_key_ref="idempotency-ref:test-commit-race",
+        )
+    with repo._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM local_tasks").fetchone()[0] == 0
 
 
 def test_action_receipt_capacity_exhaustion_preserves_current_revision(

@@ -12390,6 +12390,8 @@ function ActionDecisionControls({
   }>({ status: "idle", refreshStatus: "idle" });
   const pending = state.status === "pending";
   const costGate = actionCostGatePosture(item);
+  const displayedRevisionRef =
+    item.action_revision_ref ?? item.expected_revision_ref;
 
   async function refreshDecisionActionItem(
     receipt: FounderLoopActionDecisionReceipt,
@@ -12462,12 +12464,23 @@ function ActionDecisionControls({
   }
 
   async function recordDecision(decision: FounderLoopActionDecisionKind) {
+    if (!displayedRevisionRef) {
+      setState({
+        status: "failed",
+        refreshStatus: "idle",
+        decision,
+        message:
+          "The displayed Action revision is unavailable. Refresh the authoritative Action Inbox before recording a decision.",
+      });
+      return;
+    }
     setState({ status: "pending", refreshStatus: "idle", decision });
     try {
       const receipt = await submitActionDecision(
         item.item_ref,
         decision,
         {
+          expected_revision_ref: displayedRevisionRef,
           decision_reason_ref: `decision-reason-ref:control-center:${decision}`,
           edited_envelope_ref:
             decision === "edit"
@@ -12507,7 +12520,7 @@ function ActionDecisionControls({
           return (
             <button
               className="secondary-button"
-              disabled={pending || costBlocked}
+              disabled={pending || costBlocked || !displayedRevisionRef}
               key={decision}
               onClick={() => void recordDecision(decision)}
               title={costBlocked ? costGate.summary : undefined}

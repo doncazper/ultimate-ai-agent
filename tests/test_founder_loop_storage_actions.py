@@ -40,23 +40,14 @@ def _repo_with_workspace_write(tmp_path: Path) -> FounderLoopRepository:
     )
 
 
-def _action_revision_ref(
-    repo: FounderLoopRepository, action_id: str = "local-task-create-scorecard"
-) -> str:
-    item_ref = f"founder-action:{action_id}"
-    return next(
-        str(item["action_revision_ref"])
-        for item in repo.list_action_inbox(limit=200)
-        if item["item_ref"] == item_ref
-    )
-
-
 def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
@@ -78,8 +69,10 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
-            decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval"
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
+            decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-backend-owned-local-task-approval",
     )
@@ -97,9 +90,10 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
     assert action["action_group_id"] == "approved_local_task_lane"
     assert action["local_task_commit_eligible"] is True
     assert action["local_task_commit_approval_ref"] == approval_receipt["approval_ref"]
-    assert action["receipt_visibility"]["decision_receipt_ref"] == approval_receipt[
-        "receipt_ref"
-    ]
+    assert (
+        action["receipt_visibility"]["decision_receipt_ref"]
+        == approval_receipt["receipt_ref"]
+    )
 
 
 def test_action_decision_ignores_caller_supplied_approval_grants(
@@ -113,7 +107,7 @@ def test_action_decision_ignores_caller_supplied_approval_grants(
     )
     request = FounderLoopActionDecisionRequest(
         expected_revision_ref=str(action["action_revision_ref"]),
-        decision_reason_ref="decision-reason-ref:test-caller-grant-denied"
+        decision_reason_ref="decision-reason-ref:test-caller-grant-denied",
     )
     approval_request = action_approval_request(
         item_ref=str(action["item_ref"]),
@@ -692,6 +686,6 @@ def test_action_inbox_local_task_commit_rejects_expired_backend_approval(
     ):
         repo.commit_local_task(
             action_id="local-task-create-scorecard",
-            request=_local_task_commit_request_for_action(expired_action),
+            request=_local_task_commit_request_for_action(action),
             idempotency_key_ref="idempotency-ref:test-local-task-expired",
         )

@@ -9,13 +9,23 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest
-from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.approvals.enums import (
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
-from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.actor_context import (
+    ActorContext,
+    ActorType,
+    AuthoritySource,
+)
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -86,9 +96,7 @@ FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_INPUT_REFS = (
 )
 FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM = 50
 FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
-FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
-    "contract-ref:frontier-ai-cost-usage-telemetry:v1"
-)
+FRONTIER_AI_COST_USAGE_CONTRACT_REF = "contract-ref:frontier-ai-cost-usage-telemetry:v1"
 FOUNDER_LOOP_ACTION_STATUSES = (
     "proposed",
     "approved",
@@ -650,7 +658,9 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
         }
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
-            raise ValueError(f"action envelope receipt enabled denied authority: {enabled[0]}")
+            raise ValueError(
+                f"action envelope receipt enabled denied authority: {enabled[0]}"
+            )
         _validate_safe_payload(
             self.model_dump(mode="json"),
             "action_envelope_promotion_receipt",
@@ -772,10 +782,19 @@ def action_decision_route_binding_ref(decision: str) -> str:
     return f"route-ref:control-center:action-decision:{decision}"
 
 
-def action_decision_deadline_ref(item_ref: str, generation: int) -> str:
+def action_decision_deadline_ref(
+    item_ref: str,
+    generation: int,
+    authoritative_expiry: str | None = None,
+) -> str:
+    _validate_safe_ref(item_ref, "item_ref")
+    if generation < 1:
+        raise ValueError("action generation must be positive")
+    expiry_binding = authoritative_expiry or "expiry-not-set"
+    expiry_digest = hashlib.sha256(expiry_binding.encode("utf-8")).hexdigest()[:20]
     return (
         "deadline-ref:action-inbox-decision:"
-        f"{_safe_suffix(item_ref)}:{generation:08d}"
+        f"{_safe_suffix(item_ref)}:{generation:08d}:{expiry_digest}"
     )
 
 

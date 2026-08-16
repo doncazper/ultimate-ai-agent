@@ -63,17 +63,6 @@ def _workspace_write_lease() -> AuthorityLease:
     )
 
 
-def _action_revision_ref(
-    repo: FounderLoopRepository, action_id: str = "local-task-create-scorecard"
-) -> str:
-    item_ref = f"founder-action:{action_id}"
-    return next(
-        str(item["action_revision_ref"])
-        for item in repo.list_action_inbox(limit=200)
-        if item["item_ref"] == item_ref
-    )
-
-
 def test_backend_truth_is_short_lived_revision_bound_and_fail_closed(
     tmp_path,
 ) -> None:
@@ -156,8 +145,7 @@ def test_backend_truth_uses_bounded_durable_receipt_candidate_window(
         ]
     assert "idx_local_task_commit_receipts_created_item" in indexes
     assert any(
-        "idx_local_task_commit_receipts_created_item" in step
-        for step in query_plan
+        "idx_local_task_commit_receipts_created_item" in step for step in query_plan
     )
 
 
@@ -179,9 +167,10 @@ def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
 
     assert truth["source_revision_bound"] is False
     assert truth["evidence_binding"]["status"] == "invalid_evidence"
-    assert "issue-ref:backend-source-revision-unbound" in truth[
-        "evidence_binding"
-    ]["issue_refs"]
+    assert (
+        "issue-ref:backend-source-revision-unbound"
+        in truth["evidence_binding"]["issue_refs"]
+    )
 
 
 def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
@@ -220,7 +209,9 @@ def test_backend_truth_accepts_normal_durable_local_task_evidence(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
             metadata_refs=["metadata-ref:operator:daily-loop"],
         ),
@@ -264,7 +255,9 @@ def test_backend_truth_matches_proof_to_each_committed_action(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -318,7 +311,9 @@ def test_backend_truth_discovers_durable_commit_beyond_today_page(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -364,7 +359,9 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -380,8 +377,7 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
     today = reloaded.today_summary()
     corrupt_item_ref = "founder-action:corrupt-second"
     corrupt_receipt_ref = (
-        "receipt:founder-loop-local-task:corrupt-second:"
-        "idempotency-ref-corrupt-second"
+        "receipt:founder-loop-local-task:corrupt-second:idempotency-ref-corrupt-second"
     )
     corrupt_action = {
         **today["actions"][0],
@@ -494,7 +490,9 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -509,8 +507,7 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
     receipt_ref = str(committed["receipt_ref"])
     with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
         row = connection.execute(
-            "SELECT receipt_json FROM local_task_commit_receipts "
-            "WHERE receipt_ref = ?",
+            "SELECT receipt_json FROM local_task_commit_receipts WHERE receipt_ref = ?",
             (receipt_ref,),
         ).fetchone()
         assert row is not None
@@ -559,7 +556,9 @@ def test_backend_truth_rejects_tampered_durable_task_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            expected_revision_ref=_action_revision_ref(repo),
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -718,9 +717,7 @@ def test_backend_truth_api_redacts_real_sqlite_storage_failure(
             "literal_error",
         ),
         (
-            lambda value: value.update(
-                backend_revision_ref="commit-ref:git:untrusted"
-            ),
+            lambda value: value.update(backend_revision_ref="commit-ref:git:untrusted"),
             "envelope integrity mismatch",
         ),
         (
@@ -850,9 +847,10 @@ def test_backend_truth_cli_matches_the_core_contract(tmp_path) -> None:
     assert payload["backend_truth"]["backend_revision_ref"] == (
         f"commit-ref:git:{head}"
     )
-    assert payload["backend_truth"]["authority_posture"][
-        "control_center_grants_authority"
-    ] is False
+    assert (
+        payload["backend_truth"]["authority_posture"]["control_center_grants_authority"]
+        is False
+    )
     assert payload["safe_refs_only"] is True
 
 
