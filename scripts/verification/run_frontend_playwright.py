@@ -80,7 +80,9 @@ def run(suite: str) -> int:
         artifact_output.mkdir(mode=0o700)
         env = dict(os.environ)
         env["PLAYWRIGHT_JSON_OUTPUT_FILE"] = str(raw_result)
-        project_args = ("--project=desktop",) if suite == "visual" else ()
+        suite_args = (
+            ("--project=desktop", "--workers=1") if suite == "visual" else ()
+        )
         try:
             with _private_umask():
                 returncode = run_frontend_command(
@@ -88,7 +90,7 @@ def run(suite: str) -> int:
                         str(resolve_installed_frontend_tool(APP, "playwright")),
                         "test",
                         f"--config={config}",
-                        *project_args,
+                        *suite_args,
                         "--reporter=json",
                         f"--output={artifact_output}",
                     ),

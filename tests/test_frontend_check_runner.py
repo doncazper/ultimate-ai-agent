@@ -289,6 +289,7 @@ def test_playwright_runner_emits_one_safe_observation(
     assert len(command) == 1
     assert "--config=playwright.visual.config.ts" in command[0]
     assert "--project=desktop" in command[0]
+    assert "--workers=1" in command[0]
     assert "--reporter=json" in command[0]
     assert any(argument.startswith("--output=") for argument in command[0])
     assert command[0][0] == "/safe-installed/playwright"
@@ -337,6 +338,7 @@ def test_smoke_runner_preserves_all_configured_projects(
     assert frontend_playwright.run("smoke") == 0
     assert "--config=playwright.smoke.config.ts" in commands[0]
     assert all(not argument.startswith("--project=") for argument in commands[0])
+    assert all(not argument.startswith("--workers=") for argument in commands[0])
 
 
 def test_installed_frontend_tool_must_resolve_inside_node_modules(
