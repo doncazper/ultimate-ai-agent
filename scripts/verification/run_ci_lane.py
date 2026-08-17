@@ -2212,7 +2212,8 @@ def run_lane(
                             "failure-ref:performance-latency:evidence:invalid",
                         ),
                     )
-                    result["status"] = "fail"
+                    if result["status"] == "pass":
+                        result["status"] = "fail"
                 if result["status"] == "pass":
                     if performance_failure is not None:
                         performance_failure = (

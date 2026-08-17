@@ -87,7 +87,7 @@ PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
     "92aafd7e1eabe04980a17a8593e1d7d10dff53f9e15b8d911633edbd9be09d5c"
 )
 PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
-    "f22266e758d6166d164fcf049018963d7c860e1467715bedce7dae9c8c4117eb"
+    "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
 )
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
@@ -11430,6 +11430,13 @@ def _safe_performance_runner_evidence_alignment_paths(
     current_by_path: dict[str, str],
     prior_by_path: dict[str, str],
 ) -> set[str]:
+    """Admit only one explicitly approved, full-byte runner transformation.
+
+    Rotation requires a new exact-scoped approval, independently reviewed prior
+    and current bytes, replacement of both SHA-256 constants, adversarial pair
+    tests, and a base-bound guard run with zero removals or retirements. This is
+    not a reusable runner allowlist; absent, extra, or mismatched bytes fail.
+    """
     expected_paths = {PERFORMANCE_RUNNER_ALIGNMENT_PATH}
     if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
         return set()

@@ -218,7 +218,10 @@ def _write_performance_metrics_handoff(metrics: dict[str, object]) -> None:
     if REPOSITORY_SHA_RE.fullmatch(repository_sha) is None:
         raise RuntimeError("performance metrics handoff SHA binding is invalid")
     parent = path.parent
-    parent_metadata = parent.lstat()
+    try:
+        parent_metadata = parent.lstat()
+    except OSError as exc:
+        raise RuntimeError("performance metrics handoff parent is unsafe") from exc
     if (
         parent.is_symlink()
         or not stat.S_ISDIR(parent_metadata.st_mode)

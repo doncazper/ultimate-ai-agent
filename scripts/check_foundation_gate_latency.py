@@ -385,7 +385,8 @@ def _duration_bucket(observed_ms: float, budget_ms: float) -> str:
 
 
 def _budget_ref(value: float) -> str:
-    return f"{int(value) if value.is_integer() else value:g}ms"
+    normalized = float(value)
+    return f"{int(normalized) if normalized.is_integer() else normalized:g}ms"
 
 
 def _safe_failure_refs(
@@ -1142,6 +1143,16 @@ def main(argv: list[str] | None = None) -> int:
         max_mean_ms=args.max_mean_ms,
         failures=failures,
     )
+    if safe_failure_refs and not failures:
+        failures.append("safe performance failure evidence is present")
+    latency_summary = build_foundation_gate_latency_summary(
+        metrics,
+        max_best_ms=args.max_best_ms,
+        max_mean_ms=args.max_mean_ms,
+    )
+    if failures != latency_summary["failures"]:
+        latency_summary["status"] = "failed"
+        latency_summary["failures"] = list(failures)
     if failures:
         _write_safe_failure_receipt(
             failure_refs=safe_failure_refs,
@@ -1154,13 +1165,9 @@ def main(argv: list[str] | None = None) -> int:
         "max_mean_ms": args.max_mean_ms,
         "passed": not failures,
         "failures": failures,
-        "foundation_gate_latency_summary": build_foundation_gate_latency_summary(
-            metrics,
-            max_best_ms=args.max_best_ms,
-            max_mean_ms=args.max_mean_ms,
-        ),
+        "foundation_gate_latency_summary": latency_summary,
     }
-    if safe_failure_refs:
+    if failures and safe_failure_refs:
         payload["safe_failure_refs"] = list(safe_failure_refs)
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))

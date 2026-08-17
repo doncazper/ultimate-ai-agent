@@ -562,6 +562,30 @@ def test_latency_gate_reuses_exact_warmed_benchmark_measurement(
     assert not handoff_path.exists()
 
 
+def test_performance_handoff_rejects_missing_parent_with_bounded_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handoff_path = (
+        tmp_path
+        / "missing"
+        / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+
+    with pytest.raises(RuntimeError, match="handoff parent is unsafe"):
+        benchmark_foundation_gate._write_performance_metrics_handoff(
+            _performance_handoff_metrics()
+        )
+
+
 def test_failed_latency_gate_writes_bounded_content_free_route_receipt(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -768,6 +792,56 @@ def test_safe_failure_refs_are_capped_without_raw_measurements() -> None:
     assert "failure-ref:performance-latency:evidence:ref-cap-exceeded" in refs
     assert refs == tuple(sorted(refs))
     assert "100000" not in json.dumps(refs)
+
+
+def test_integer_budget_refs_are_python_310_compatible() -> None:
+    assert check_foundation_gate_latency._budget_ref(45_000) == "45000ms"
+    assert check_foundation_gate_latency._budget_ref(45_000.5) == "45000.5ms"
+
+
+def test_safe_failure_refs_force_failed_payload_and_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    metrics = _performance_handoff_metrics()
+    receipt_path = (
+        tmp_path
+        / check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    )
+    safe_ref = "failure-ref:performance-latency:validation:failed"
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_benchmark",
+        lambda **_kwargs: metrics,
+    )
+    monkeypatch.setattr(
+        check_foundation_gate_latency,
+        "_safe_failure_refs",
+        lambda *_args, **_kwargs: (safe_ref,),
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        str(receipt_path),
+    )
+
+    assert check_foundation_gate_latency.main(
+        ["--max-best-ms", "45000", "--max-mean-ms", "45000", "--json"]
+    ) == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["passed"] is False
+    assert payload["safe_failure_refs"] == [safe_ref]
+    assert payload["failures"] == [
+        "safe performance failure evidence is present"
+    ]
+    assert payload["foundation_gate_latency_summary"]["status"] == "failed"
+    assert payload["foundation_gate_latency_summary"]["failures"] == [
+        "safe performance failure evidence is present"
+    ]
+    assert json.loads(receipt_path.read_text(encoding="utf-8"))[
+        "failure_refs"
+    ] == [safe_ref]
 
 
 def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
