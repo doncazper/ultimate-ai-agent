@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import sys
 import tempfile
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -31,6 +34,7 @@ from scripts.verification.frontend_command_process import (  # noqa: E402
 )
 from scripts.verification.frontend_failure_diagnostics import (  # noqa: E402
     DIAGNOSTIC_NAME,
+    MAX_FAILED_TEST_REFS,
     FrontendFailureDiagnosticsError,
     playwright_failed_test_refs,
     publish_failed_test_refs,
@@ -40,6 +44,10 @@ from scripts.verification.frontend_failure_diagnostics import (  # noqa: E402
 
 class FrontendPlaywrightError(RuntimeError):
     """A bounded Playwright check could not produce exact safe evidence."""
+
+
+VISUAL_BACKEND_TRUTH_TEST = "tests/visual/backend-truth.real.spec.ts"
+VISUAL_BACKEND_TRUTH_INVERT = "[desktop] > backend-truth.real.spec.ts\n"
 
 
 @contextmanager
@@ -62,6 +70,79 @@ def _evidence_target() -> Path | None:
     return path
 
 
+def _combined_playwright_observation(
+    observations: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    if len(observations) == 1:
+        return observations[0]
+    digest_material = json.dumps(
+        [observation["collection_digest_ref"] for observation in observations],
+        separators=(",", ":"),
+    ).encode("ascii")
+    failed = sum(int(observation["failed_test_count"]) for observation in observations)
+    return {
+        "schema_version": "uaa_frontend_collection_evidence.v1",
+        "runner_ref": "runner-ref:frontend:playwright",
+        "collected_test_count": sum(
+            int(observation["collected_test_count"])
+            for observation in observations
+        ),
+        "collection_digest_ref": "sha256:"
+        + hashlib.sha256(
+            b"uaa-playwright-phase-aggregate-v1\0" + digest_material
+        ).hexdigest(),
+        "collection_error_count": sum(
+            int(observation["collection_error_count"])
+            for observation in observations
+        ),
+        "failed_test_count": failed,
+        "flaky_test_count": sum(
+            int(observation["flaky_test_count"]) for observation in observations
+        ),
+        "passed_test_count": sum(
+            int(observation["passed_test_count"]) for observation in observations
+        ),
+        "redaction_status": "content_free",
+        "result_status": "failed" if failed else "passed",
+        "retry_attempt_count": sum(
+            int(observation["retry_attempt_count"])
+            for observation in observations
+        ),
+        "skipped_test_count": sum(
+            int(observation["skipped_test_count"]) for observation in observations
+        ),
+        "todo_test_count": sum(
+            int(observation["todo_test_count"]) for observation in observations
+        ),
+    }
+
+
+def _refresh_retained_failed_test_refs(
+    path: Path,
+    refs: tuple[str, ...],
+    *,
+    failed_test_count: int,
+) -> None:
+    with tempfile.TemporaryDirectory(
+        prefix="uaa-frontend-diagnostic-",
+        dir=path.parent,
+    ) as temporary:
+        temporary_root = Path(temporary)
+        temporary_root.chmod(0o700)
+        staged = temporary_root / DIAGNOSTIC_NAME
+        retain_failed_test_refs(
+            staged,
+            refs,
+            failed_test_count=failed_test_count,
+        )
+        try:
+            os.replace(staged, path)
+        except OSError as exc:
+            raise FrontendPlaywrightError(
+                "completed frontend diagnostics could not be refreshed"
+            ) from exc
+
+
 def run(suite: str) -> int:
     config = {
         "visual": "playwright.visual.config.ts",
@@ -78,42 +159,113 @@ def run(suite: str) -> int:
         raw_result = temporary_root / "playwright-result.json"
         artifact_output = temporary_root / "playwright-artifacts"
         artifact_output.mkdir(mode=0o700)
-        env = dict(os.environ)
-        env["PLAYWRIGHT_JSON_OUTPUT_FILE"] = str(raw_result)
         suite_args = (
             ("--project=desktop", "--workers=1") if suite == "visual" else ()
         )
-        try:
+        phases: tuple[tuple[str, ...], ...] = ((),)
+        if suite == "visual":
+            fixture_list = temporary_root / "visual-fixtures-only.list"
             with _private_umask():
-                returncode = run_frontend_command(
-                    (
-                        str(resolve_installed_frontend_tool(APP, "playwright")),
-                        "test",
-                        f"--config={config}",
-                        *suite_args,
-                        "--reporter=json",
-                        f"--output={artifact_output}",
-                    ),
-                    cwd=APP,
-                    env=env,
-                    timeout_seconds=TIMEOUT_SECONDS,
+                fixture_list.write_text(
+                    VISUAL_BACKEND_TRUTH_INVERT,
+                    encoding="ascii",
                 )
+            fixture_list.chmod(0o600)
+            phases = (
+                (VISUAL_BACKEND_TRUTH_TEST,),
+                (f"--test-list-invert={fixture_list}",),
+            )
+        try:
+            playwright = str(resolve_installed_frontend_tool(APP, "playwright"))
         except FrontendCommandProcessError as exc:
             raise FrontendPlaywrightError(
-                "frontend Playwright command did not settle safely"
+                "frontend installed Playwright tool is unavailable"
             ) from exc
-        failed_test_refs = playwright_failed_test_refs(
-            raw_result,
-            repository_root=ROOT,
+        deadline = (
+            time.monotonic() + TIMEOUT_SECONDS if suite == "visual" else None
         )
-        observation = consume_playwright_json_result(
-            raw_result,
-            repository_root=ROOT,
-        )
-        if (returncode == 0) != (observation["result_status"] == "passed"):
-            raise FrontendPlaywrightError(
-                "frontend Playwright status and evidence disagree"
+        observations: list[dict[str, object]] = []
+        all_failed_test_refs: set[str] = set()
+        returncodes: list[int] = []
+        diagnostics_retained = False
+        for phase_index, phase_args in enumerate(phases):
+            phase_raw_result = raw_result.with_stem(
+                f"{raw_result.stem}-{phase_index}"
             )
+            phase_artifact_output = artifact_output / str(phase_index)
+            phase_artifact_output.mkdir(mode=0o700)
+            env = dict(os.environ)
+            env["PLAYWRIGHT_JSON_OUTPUT_FILE"] = str(phase_raw_result)
+            if suite == "visual":
+                env.pop("CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER", None)
+            timeout_seconds = (
+                TIMEOUT_SECONDS
+                if deadline is None
+                else int(deadline - time.monotonic())
+            )
+            if timeout_seconds <= 0:
+                raise FrontendPlaywrightError(
+                    "frontend Playwright command exceeded its bounded timeout"
+                )
+            try:
+                with _private_umask():
+                    returncode = run_frontend_command(
+                        (
+                            playwright,
+                            "test",
+                            f"--config={config}",
+                            *suite_args,
+                            *phase_args,
+                            "--reporter=json",
+                            f"--output={phase_artifact_output}",
+                        ),
+                        cwd=APP,
+                        env=env,
+                        timeout_seconds=timeout_seconds,
+                    )
+            except FrontendCommandProcessError as exc:
+                raise FrontendPlaywrightError(
+                    "frontend Playwright command did not settle safely"
+                ) from exc
+            if deadline is not None and time.monotonic() > deadline:
+                raise FrontendPlaywrightError(
+                    "frontend Playwright command exceeded its bounded timeout"
+                )
+            phase_failed_test_refs = playwright_failed_test_refs(
+                phase_raw_result,
+                repository_root=ROOT,
+            )
+            phase_observation = consume_playwright_json_result(
+                phase_raw_result,
+                repository_root=ROOT,
+            )
+            if (returncode == 0) != (
+                phase_observation["result_status"] == "passed"
+            ):
+                raise FrontendPlaywrightError(
+                    "frontend Playwright status and evidence disagree"
+                )
+            returncodes.append(returncode)
+            observations.append(phase_observation)
+            all_failed_test_refs.update(phase_failed_test_refs)
+            if (
+                returncode != 0
+                and external_target is not None
+                and phase_index + 1 < len(phases)
+            ):
+                retain_failed_test_refs(
+                    external_target.with_name(DIAGNOSTIC_NAME),
+                    tuple(sorted(all_failed_test_refs))[:MAX_FAILED_TEST_REFS],
+                    failed_test_count=sum(
+                        int(item["failed_test_count"]) for item in observations
+                    ),
+                )
+                diagnostics_retained = True
+        observation = _combined_playwright_observation(tuple(observations))
+        returncode = 1 if any(returncodes) else 0
+        failed_test_refs = tuple(sorted(all_failed_test_refs))[
+            :MAX_FAILED_TEST_REFS
+        ]
         if external_target is not None:
             publish_frontend_collection_evidence(
                 external_target,
@@ -126,11 +278,19 @@ def run(suite: str) -> int:
         )
         if returncode != 0:
             if external_target is not None:
-                retain_failed_test_refs(
-                    external_target.with_name(DIAGNOSTIC_NAME),
-                    failed_test_refs,
-                    failed_test_count=int(observation["failed_test_count"]),
-                )
+                diagnostic_target = external_target.with_name(DIAGNOSTIC_NAME)
+                if diagnostics_retained:
+                    _refresh_retained_failed_test_refs(
+                        diagnostic_target,
+                        failed_test_refs,
+                        failed_test_count=int(observation["failed_test_count"]),
+                    )
+                else:
+                    retain_failed_test_refs(
+                        diagnostic_target,
+                        failed_test_refs,
+                        failed_test_count=int(observation["failed_test_count"]),
+                    )
             publish_failed_test_refs(
                 failed_test_refs,
                 failed_test_count=int(observation["failed_test_count"]),

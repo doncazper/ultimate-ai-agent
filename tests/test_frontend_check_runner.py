@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+import hashlib
 import json
 from pathlib import Path
 
@@ -252,8 +253,12 @@ def test_playwright_runner_emits_one_safe_observation(
     evidence_directory.mkdir(mode=0o700)
     target = evidence_directory / "aggregate.json"
     command: list[tuple[str, ...]] = []
+    phase_environments: list[dict[str, str]] = []
+    invert_list_contents: list[str] = []
+    timeouts: list[int] = []
     published: list[tuple[Path, tuple[dict[str, object], ...]]] = []
     monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setenv("CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER", "1")
     monkeypatch.setattr(
         frontend_playwright,
         "resolve_installed_frontend_tool",
@@ -264,15 +269,40 @@ def test_playwright_runner_emits_one_safe_observation(
         argv: tuple[str, ...],
         **kwargs: object,
     ) -> int:
-        assert kwargs["timeout_seconds"] == frontend_playwright.TIMEOUT_SECONDS
+        timeouts.append(int(kwargs["timeout_seconds"]))
+        phase_environments.append(dict(kwargs["env"]))
+        for argument in argv:
+            if argument.startswith("--test-list-invert="):
+                invert_list_contents.append(
+                    Path(argument.split("=", 1)[1]).read_text(encoding="ascii")
+                )
         command.append(argv)
         return 0
 
     monkeypatch.setattr(frontend_playwright, "run_frontend_command", fake_run)
+    monotonic = iter((0.0, 0.0, 100.0, 100.0, 100.0))
+    monkeypatch.setattr(
+        frontend_playwright.time,
+        "monotonic",
+        lambda: next(monotonic),
+    )
+    backend_observation = _observation("runner-ref:frontend:playwright")
+    backend_observation.update(
+        collected_test_count=2,
+        collection_digest_ref="sha256:" + "b" * 64,
+        passed_test_count=2,
+    )
+    fixture_observation = _observation("runner-ref:frontend:playwright")
+    fixture_observation.update(
+        collected_test_count=94,
+        collection_digest_ref="sha256:" + "c" * 64,
+        passed_test_count=94,
+    )
+    observations = iter((backend_observation, fixture_observation))
     monkeypatch.setattr(
         frontend_playwright,
         "consume_playwright_json_result",
-        lambda *_args, **_kwargs: _observation("runner-ref:frontend:playwright"),
+        lambda *_args, **_kwargs: next(observations),
     )
     monkeypatch.setattr(
         frontend_playwright,
@@ -286,16 +316,272 @@ def test_playwright_runner_emits_one_safe_observation(
     )
 
     assert frontend_playwright.run("visual") == 0
-    assert len(command) == 1
-    assert "--config=playwright.visual.config.ts" in command[0]
-    assert "--project=desktop" in command[0]
-    assert "--workers=1" in command[0]
-    assert "--reporter=json" in command[0]
-    assert any(argument.startswith("--output=") for argument in command[0])
-    assert command[0][0] == "/safe-installed/playwright"
-    assert published == [
-        (target, (_observation("runner-ref:frontend:playwright"),))
+    assert len(command) == 2
+    assert timeouts == [frontend_playwright.TIMEOUT_SECONDS, 800]
+    assert all(
+        "CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER" not in phase_environment
+        for phase_environment in phase_environments
+    )
+    assert frontend_playwright.VISUAL_BACKEND_TRUTH_TEST in command[0]
+    assert frontend_playwright.VISUAL_BACKEND_TRUTH_TEST not in command[1]
+    assert invert_list_contents == [frontend_playwright.VISUAL_BACKEND_TRUTH_INVERT]
+    for phase_command in command:
+        assert "--config=playwright.visual.config.ts" in phase_command
+        assert "--project=desktop" in phase_command
+        assert "--workers=1" in phase_command
+        assert "--reporter=json" in phase_command
+        assert any(argument.startswith("--output=") for argument in phase_command)
+        assert phase_command[0] == "/safe-installed/playwright"
+    expected_digest = "sha256:" + hashlib.sha256(
+        b"uaa-playwright-phase-aggregate-v1\0"
+        + json.dumps(
+            [
+                backend_observation["collection_digest_ref"],
+                fixture_observation["collection_digest_ref"],
+            ],
+            separators=(",", ":"),
+        ).encode("ascii")
+    ).hexdigest()
+    assert len(published) == 1
+    assert published[0][0] == target
+    combined = published[0][1][0]
+    assert combined["collected_test_count"] == 96
+    assert combined["passed_test_count"] == 96
+    assert combined["failed_test_count"] == 0
+    assert combined["retry_attempt_count"] == 0
+    assert combined["collection_digest_ref"] == expected_digest
+
+
+def test_playwright_visual_runner_retains_completed_failure_before_later_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    commands: list[tuple[str, ...]] = []
+
+    def fake_run(argv: tuple[str, ...], **_kwargs: object) -> int:
+        commands.append(argv)
+        if len(commands) == 1:
+            return 1
+        raise frontend_command_process.FrontendCommandProcessError(
+            "unsafe local command detail"
+        )
+
+    monkeypatch.setattr(frontend_playwright, "run_frontend_command", fake_run)
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        collected_test_count=2,
+        failed_test_count=1,
+        passed_test_count=1,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    failed_ref = "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab"
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: (failed_ref,),
+    )
+
+    with pytest.raises(
+        frontend_playwright.FrontendPlaywrightError,
+        match="did not settle safely",
+    ):
+        frontend_playwright.run("visual")
+
+    assert len(commands) == 2
+    assert json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    ) == {
+        "schema_version": "uaa.frontend_failure_diagnostics.v1",
+        "failed_test_count": 1,
+        "failed_test_refs": [failed_ref],
+        "redaction_status": "content_free",
+    }
+
+
+def test_playwright_visual_runner_atomically_refreshes_completed_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "run_frontend_command",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        failed_test_count=1,
+        passed_test_count=2,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    failed_refs = iter(
+        (
+            ("frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",),
+            ("frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",),
+        )
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: next(failed_refs),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_frontend_collection_evidence",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_failed_test_refs",
+        lambda *_args, **_kwargs: None,
+    )
+
+    assert frontend_playwright.run("visual") == 1
+    retained = json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    )
+    assert retained["failed_test_count"] == 2
+    assert retained["failed_test_refs"] == [
+        "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",
+        "frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",
     ]
+
+
+def test_playwright_visual_runner_preserves_completed_failure_on_refresh_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "run_frontend_command",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        failed_test_count=1,
+        passed_test_count=2,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    first_ref = "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab"
+    failed_refs = iter(
+        (
+            (first_ref,),
+            ("frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",),
+        )
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: next(failed_refs),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_frontend_collection_evidence",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        frontend_playwright.os,
+        "replace",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("injected")),
+    )
+
+    with pytest.raises(
+        frontend_playwright.FrontendPlaywrightError,
+        match="could not be refreshed",
+    ):
+        frontend_playwright.run("visual")
+
+    retained = json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    )
+    assert retained["failed_test_count"] == 1
+    assert retained["failed_test_refs"] == [first_ref]
+
+
+def test_playwright_visual_runner_rejects_fractional_timeout_overrun(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    monkeypatch.setenv(
+        frontend_playwright.EVIDENCE_ENV,
+        str(evidence_directory / "aggregate.json"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    monotonic = iter((0.0, 899.2))
+    monkeypatch.setattr(
+        frontend_playwright.time,
+        "monotonic",
+        lambda: next(monotonic),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "run_frontend_command",
+        lambda *_args, **_kwargs: pytest.fail(
+            "fractional remaining time must not extend the shared deadline"
+        ),
+    )
+
+    with pytest.raises(
+        frontend_playwright.FrontendPlaywrightError,
+        match="bounded timeout",
+    ):
+        frontend_playwright.run("visual")
 
 
 def test_smoke_runner_preserves_all_configured_projects(
@@ -314,10 +600,16 @@ def test_smoke_runner_preserves_all_configured_projects(
         lambda _app, _tool: Path("/safe-installed/playwright"),
     )
     commands: list[tuple[str, ...]] = []
+
+    def fake_run(argv: tuple[str, ...], **kwargs: object) -> int:
+        assert kwargs["timeout_seconds"] == frontend_playwright.TIMEOUT_SECONDS
+        commands.append(argv)
+        return 0
+
     monkeypatch.setattr(
         frontend_playwright,
         "run_frontend_command",
-        lambda argv, **_kwargs: commands.append(argv) or 0,
+        fake_run,
     )
     monkeypatch.setattr(
         frontend_playwright,
@@ -339,6 +631,36 @@ def test_smoke_runner_preserves_all_configured_projects(
     assert "--config=playwright.smoke.config.ts" in commands[0]
     assert all(not argument.startswith("--project=") for argument in commands[0])
     assert all(not argument.startswith("--workers=") for argument in commands[0])
+
+
+def test_playwright_runner_bounds_installed_tool_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    monkeypatch.setenv(
+        frontend_playwright.EVIDENCE_ENV,
+        str(evidence_directory / "aggregate.json"),
+    )
+
+    def fail_resolution(_app: Path, _tool: str) -> Path:
+        raise frontend_command_process.FrontendCommandProcessError(
+            "unsafe local tool detail"
+        )
+
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        fail_resolution,
+    )
+
+    assert frontend_playwright.main(["--suite", "smoke"]) == 1
+    assert capsys.readouterr().out == (
+        "Frontend Playwright: blocked "
+        "(reason-ref:frontend-check:unsafe-evidence)\n"
+    )
 
 
 def test_installed_frontend_tool_must_resolve_inside_node_modules(
