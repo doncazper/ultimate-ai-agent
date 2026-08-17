@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 import hashlib
 import importlib.util
 import json
@@ -123,11 +124,32 @@ TERMINATION_GRACE_SECONDS = 10.0
 MAX_TRANSIENT_OUTPUT_BYTES = 32 * 1024 * 1024
 MAX_RECEIPT_BYTES = 1024 * 1024
 MAX_PYTEST_PERFORMANCE_REPORT_BYTES = 256 * 1024
+MAX_PERFORMANCE_SAFE_FAILURE_RECEIPT_BYTES = 16 * 1024
+MAX_PERFORMANCE_SAFE_FAILURE_REFS = 16
 PYTEST_PERFORMANCE_REPORT_NAME = "uaa_pytest_performance_report.json"
 PYTEST_FILE_TIMINGS_NAME = "uaa_pytest_file_timings.json"
 PYTEST_COLLECTION_EVIDENCE_NAME = "uaa_pytest_collection_evidence.json"
 FRONTEND_COLLECTION_EVIDENCE_DIRNAME = "uaa_frontend_collection_evidence"
 FRONTEND_COLLECTION_EVIDENCE_NAME = "aggregate.json"
+PERFORMANCE_METRICS_HANDOFF_NAME = "uaa_performance_metrics_handoff.json"
+PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME = (
+    "uaa_performance_safe_failure_receipt.json"
+)
+PERFORMANCE_METRICS_HANDOFF_ENV = "UAA_PERFORMANCE_METRICS_HANDOFF_FILE"
+PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV = (
+    "UAA_PERFORMANCE_SAFE_FAILURE_RECEIPT_FILE"
+)
+PERFORMANCE_MEASUREMENT_WARMUP_ENV = "UAA_PERFORMANCE_MEASUREMENT_WARMUP"
+VERIFICATION_REPOSITORY_SHA_ENV = "UAA_VERIFICATION_REPOSITORY_SHA"
+PERFORMANCE_SAFE_FAILURE_SCHEMA_VERSION = (
+    "uaa_performance_latency_safe_failure_receipt.v1"
+)
+SAFE_PERFORMANCE_FAILURE_REF_RE = re.compile(
+    r"^failure-ref:performance-latency:[a-z0-9._:-]{1,220}$"
+)
+SAFE_PERFORMANCE_MEASUREMENT_REF_RE = re.compile(
+    r"^measurement-ref:performance:(?:sha256:[0-9a-f]{64}|unavailable)$"
+)
 PYTEST_PERFORMANCE_SCHEMA_VERSION = "uaa_pytest_performance_report.v1"
 PYTEST_PLAN_REF_RE = re.compile(r"^pytest-shard-plan-ref:sha256:[0-9a-f]{64}$")
 PYTEST_REPRODUCTION_LANE_RE = re.compile(
@@ -215,6 +237,7 @@ def _safe_env(
     temp_root: Path,
     base_sha: str | None = None,
     visual_scope: str | None = None,
+    repository_sha: str | None = None,
 ) -> dict[str, str]:
     env = build_shard_env(ROOT)
     isolated_home = temp_root / "runtime-home"
@@ -240,6 +263,8 @@ def _safe_env(
         env["UAA_VERIFICATION_BASE_SHA"] = base_sha
     if visual_scope is not None:
         env["UAA_VERIFICATION_VISUAL_SCOPE"] = visual_scope
+    if repository_sha is not None:
+        env[VERIFICATION_REPOSITORY_SHA_ENV] = repository_sha
     if any(key == DECLARED_RUNNER_PROFILE_ENV for key, _value in command.env):
         raise ValueError("command environment cannot override declared runner profile")
     declared_runner_profile = os.environ.get(DECLARED_RUNNER_PROFILE_ENV)
@@ -254,6 +279,26 @@ def _safe_env(
         env["UAA_FRONTEND_COLLECTION_EVIDENCE_PATH"] = str(
             frontend_evidence_directory / FRONTEND_COLLECTION_EVIDENCE_NAME
         )
+    if command.command_ref in {
+        "command:performance.benchmark",
+        "command:performance.latency-gate",
+    }:
+        env[PERFORMANCE_METRICS_HANDOFF_ENV] = str(
+            temp_root / PERFORMANCE_METRICS_HANDOFF_NAME
+        )
+        env[PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV] = str(
+            temp_root / PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+        )
+    if command.command_ref == "command:performance.benchmark":
+        env[PERFORMANCE_MEASUREMENT_WARMUP_ENV] = "1"
+    reserved_performance_env = {
+        PERFORMANCE_METRICS_HANDOFF_ENV,
+        PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        PERFORMANCE_MEASUREMENT_WARMUP_ENV,
+        VERIFICATION_REPOSITORY_SHA_ENV,
+    }
+    if any(key in reserved_performance_env for key, _value in command.env):
+        raise ValueError("command environment cannot override performance evidence")
     env.update(dict(command.env))
     return env
 
@@ -269,6 +314,184 @@ def _result_ref(
         (command_ref, repository_sha, str(returncode), output_digest, str(duration_ms))
     )
     return f"result-ref:ci:{hashlib.sha256(payload.encode()).hexdigest()}"
+
+
+def _assert_performance_evidence_absent(temp_root: Path) -> None:
+    for name in (
+        PERFORMANCE_METRICS_HANDOFF_NAME,
+        PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME,
+    ):
+        try:
+            (temp_root / name).lstat()
+        except FileNotFoundError:
+            continue
+        raise ValueError("performance evidence must not predate the current attempt")
+
+
+def _discard_performance_evidence(temp_root: Path) -> None:
+    for name in (
+        PERFORMANCE_METRICS_HANDOFF_NAME,
+        PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME,
+    ):
+        path = temp_root / name
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            continue
+        if (
+            path.is_symlink()
+            or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_uid != os.getuid()
+        ):
+            raise ValueError("performance evidence cleanup is unsafe")
+        path.unlink()
+
+
+@contextmanager
+def _performance_lane_lock(
+    *,
+    lane_ref: str,
+    temp_root: Path,
+    lock: Any,
+) -> Iterator[Any]:
+    if lane_ref == "performance":
+        _assert_performance_evidence_absent(temp_root)
+    try:
+        with lock as acquired_lock:
+            yield acquired_lock
+    finally:
+        if lane_ref == "performance":
+            _discard_performance_evidence(temp_root)
+
+
+def _consume_performance_safe_failure_receipt(
+    temp_root: Path,
+) -> tuple[str, tuple[str, ...]] | None:
+    path = temp_root / PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    if (
+        path.is_symlink()
+        or not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_uid != os.getuid()
+        or metadata.st_mode & 0o077
+        or metadata.st_size > MAX_PERFORMANCE_SAFE_FAILURE_RECEIPT_BYTES
+    ):
+        raise ValueError("performance safe failure receipt boundary is unsafe")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            opened.st_dev != metadata.st_dev
+            or opened.st_ino != metadata.st_ino
+            or opened.st_mode != metadata.st_mode
+            or opened.st_nlink != metadata.st_nlink
+            or opened.st_uid != metadata.st_uid
+            or opened.st_size != metadata.st_size
+        ):
+            raise ValueError(
+                "performance safe failure receipt changed before reading"
+            )
+        chunks: list[bytes] = []
+        remaining = opened.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 16 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        encoded = b"".join(chunks)
+        if len(encoded) != opened.st_size:
+            raise ValueError("performance safe failure receipt read is incomplete")
+    finally:
+        os.close(descriptor)
+        try:
+            current = path.lstat()
+        except FileNotFoundError:
+            current = None
+        if (
+            current is not None
+            and current.st_dev == metadata.st_dev
+            and current.st_ino == metadata.st_ino
+        ):
+            path.unlink()
+    def reject_duplicate_keys(
+        pairs: list[tuple[str, object]],
+    ) -> dict[str, object]:
+        payload_object: dict[str, object] = {}
+        for key, value in pairs:
+            if key in payload_object:
+                raise ValueError(
+                    "performance safe failure receipt contains duplicate keys"
+                )
+            payload_object[key] = value
+        return payload_object
+
+    try:
+        payload = json.loads(encoded, object_pairs_hook=reject_duplicate_keys)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("performance safe failure receipt is invalid JSON") from exc
+    if not isinstance(payload, dict) or set(payload) != {
+        "schema_version",
+        "command_ref",
+        "status",
+        "measurement_ref",
+        "failure_refs",
+        "redaction_status",
+    }:
+        raise ValueError("performance safe failure receipt envelope is malformed")
+    if (
+        payload.get("schema_version") != PERFORMANCE_SAFE_FAILURE_SCHEMA_VERSION
+        or payload.get("command_ref") != "command:performance.latency-gate"
+        or payload.get("status") != "failed"
+        or payload.get("redaction_status")
+        != "content_free_refs_and_duration_buckets_only"
+    ):
+        raise ValueError("performance safe failure receipt contract is invalid")
+    measurement_ref = payload.get("measurement_ref")
+    failure_refs = payload.get("failure_refs")
+    if (
+        not isinstance(measurement_ref, str)
+        or SAFE_PERFORMANCE_MEASUREMENT_REF_RE.fullmatch(measurement_ref) is None
+        or not isinstance(failure_refs, list)
+        or not failure_refs
+        or len(failure_refs) > MAX_PERFORMANCE_SAFE_FAILURE_REFS
+        or len(failure_refs) != len(set(failure_refs))
+        or failure_refs != sorted(failure_refs)
+        or any(
+            not isinstance(ref, str)
+            or SAFE_PERFORMANCE_FAILURE_REF_RE.fullmatch(ref) is None
+            for ref in failure_refs
+        )
+    ):
+        raise ValueError("performance safe failure receipt refs are invalid")
+    return measurement_ref, tuple(failure_refs)
+
+
+def _bind_performance_safe_failure_refs(
+    result: dict[str, Any],
+    *,
+    measurement_ref: str,
+    failure_refs: tuple[str, ...],
+) -> None:
+    result["performance_measurement_ref"] = measurement_ref
+    result["safe_failure_refs"] = failure_refs
+    binding = json.dumps(
+        {
+            "prior_result_ref": result["result_ref"],
+            "measurement_ref": measurement_ref,
+            "safe_failure_refs": failure_refs,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    result["result_ref"] = (
+        "result-ref:ci:" + hashlib.sha256(binding).hexdigest()
+    )
 
 
 def _transient_output_metadata(path: Path) -> tuple[int, str]:
@@ -645,6 +868,7 @@ def _run_command(
                                 temp_root,
                                 resolved_base_sha,
                                 visual_scope,
+                                repository_sha,
                             ),
                             stdout=output,
                             stderr=subprocess.STDOUT,
@@ -918,6 +1142,10 @@ def _typed_output_digest(results: list[dict[str, Any]]) -> str:
             "duration_ms": result["duration_ms"],
             "output_byte_count": result.get("output_byte_count", 0),
             "output_digest": result.get("output_digest"),
+            "performance_measurement_ref": result.get(
+                "performance_measurement_ref"
+            ),
+            "safe_failure_refs": result.get("safe_failure_refs", ()),
         }
         for result in results
     )
@@ -1425,6 +1653,17 @@ def _pytest_shard_summary_lines(result: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _performance_failure_summary_lines(result: dict[str, Any]) -> list[str]:
+    lines = [
+        "Performance measurement: " + str(result["performance_measurement_ref"])
+    ] if result.get("performance_measurement_ref") is not None else []
+    lines.extend(
+        "Performance failure: " + str(ref)
+        for ref in result.get("safe_failure_refs", ())
+    )
+    return lines
+
+
 def run_lane(
     lane_ref: str,
     *,
@@ -1822,7 +2061,11 @@ def run_lane(
         if diagnostic_reproduction
         else nullcontext()
     )
-    with lock as full_suite_lock:
+    with _performance_lane_lock(
+        lane_ref=lane_ref,
+        temp_root=temp_root,
+        lock=lock,
+    ) as full_suite_lock:
         expected_pytest_plan_ref: str | None = None
         if lane_ref == "ci-pytest-shards":
             _assert_pytest_report_absent(temp_root)
@@ -1957,6 +2200,44 @@ def run_lane(
                 ),
                 emit_failure_diagnostic_ref=emit_failure_diagnostic_ref,
             )
+            if command_ref == "command:performance.latency-gate":
+                try:
+                    performance_failure = (
+                        _consume_performance_safe_failure_receipt(temp_root)
+                    )
+                except ValueError:
+                    performance_failure = (
+                        "measurement-ref:performance:unavailable",
+                        (
+                            "failure-ref:performance-latency:evidence:invalid",
+                        ),
+                    )
+                    if result["status"] == "pass":
+                        result["status"] = "fail"
+                if result["status"] == "pass":
+                    if performance_failure is not None:
+                        performance_failure = (
+                            "measurement-ref:performance:unavailable",
+                            (
+                                "failure-ref:performance-latency:evidence:"
+                                "unexpected-on-pass",
+                            ),
+                        )
+                        result["status"] = "fail"
+                elif performance_failure is None:
+                    performance_failure = (
+                        "measurement-ref:performance:unavailable",
+                        (
+                            "failure-ref:performance-latency:evidence:missing",
+                        ),
+                    )
+                if performance_failure is not None:
+                    measurement_ref, failure_refs = performance_failure
+                    _bind_performance_safe_failure_refs(
+                        result,
+                        measurement_ref=measurement_ref,
+                        failure_refs=failure_refs,
+                    )
             if lane_ref == "ci-pytest-shards":
                 assert expected_pytest_plan_ref is not None
                 result.update(
@@ -2210,6 +2491,9 @@ def run_lane(
     )
     for result in results:
         summary.extend(f"- {line}" for line in _pytest_shard_summary_lines(result))
+        summary.extend(
+            f"- {line}" for line in _performance_failure_summary_lines(result)
+        )
     summary.extend(f"- Stored typed proof: {ref}" for ref in typed_artifact_refs)
     _append_summary(summary_file, summary)
     _write_receipt(receipt_file, receipt, temp_root)
@@ -2350,6 +2634,8 @@ def main(argv: list[str] | None = None) -> int:
         for result in receipt["command_results"]:
             print(f"- {result['command_ref']}: {result['status']}")
             for line in _pytest_shard_summary_lines(result):
+                print(f"- {line}")
+            for line in _performance_failure_summary_lines(result):
                 print(f"- {line}")
         print("GitHub merge gate satisfied: no")
     return 0 if receipt["status"] == "pass" else 1

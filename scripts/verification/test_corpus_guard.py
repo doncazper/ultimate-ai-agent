@@ -82,6 +82,13 @@ PYTEST_RUNNER_CONFIG_PATHS = {
     "scripts/verification/run_pytest_shards.py",
     "scripts/verify_test_corpus_guard.py",
 }
+PERFORMANCE_RUNNER_ALIGNMENT_PATH = "scripts/verification/run_ci_lane.py"
+PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
+    "92aafd7e1eabe04980a17a8593e1d7d10dff53f9e15b8d911633edbd9be09d5c"
+)
+PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
+    "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
+)
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
         "scripts.verification.pytest_collection_evidence",
@@ -11418,6 +11425,33 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     return expected_paths
 
 
+def _safe_performance_runner_evidence_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only one explicitly approved, full-byte runner transformation.
+
+    Rotation requires a new exact-scoped approval, independently reviewed prior
+    and current bytes, replacement of both SHA-256 constants, adversarial pair
+    tests, and a base-bound guard run with zero removals or retirements. This is
+    not a reusable runner allowlist; absent, extra, or mismatched bytes fail.
+    """
+    expected_paths = {PERFORMANCE_RUNNER_ALIGNMENT_PATH}
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    current = current_by_path[PERFORMANCE_RUNNER_ALIGNMENT_PATH].encode("utf-8")
+    prior = prior_by_path[PERFORMANCE_RUNNER_ALIGNMENT_PATH].encode("utf-8")
+    if (
+        hashlib.sha256(prior).hexdigest()
+        != PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256
+        or hashlib.sha256(current).hexdigest()
+        != PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256
+    ):
+        return set()
+    return expected_paths
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -11523,6 +11557,18 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior_by_path={
             path: prior_runner_by_path[path] for path in effective_changed_runner_paths
         },
+    )
+    safe_runner_paths.update(
+        _safe_performance_runner_evidence_alignment_paths(
+            current_by_path={
+                path: current_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+            prior_by_path={
+                path: prior_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+        )
     )
     for path in changed_runner_paths:
         current = current_runner_by_path[path]
@@ -12333,13 +12379,29 @@ def removed_declarations(
         base_source = read_base_python_import(candidate)
         selected_source = base_source
         target = repo / candidate
-        if (
-            candidate.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
-            and base_source is not None
+        current_source = (
+            _read_worktree_text(repo, candidate)
+            if base_source is not None
             and target.is_file()
             and _worktree_path_has_exact_case(repo, candidate)
+            else None
+        )
+        exact_performance_runner_alignment = bool(
+            current_source is not None
+            and candidate == PERFORMANCE_RUNNER_ALIGNMENT_PATH
+            and _safe_performance_runner_evidence_alignment_paths(
+                current_by_path={candidate: current_source},
+                prior_by_path={candidate: base_source},
+            )
+        )
+        if (
+            (
+                candidate.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
+                or exact_performance_runner_alignment
+            )
+            and base_source is not None
+            and current_source is not None
         ):
-            current_source = _read_worktree_text(repo, candidate)
             module = _python_module_name_for_path(candidate)
             base_module_source = f"path={candidate}\n{base_source}"
             current_module_source = f"path={candidate}\n{current_source}"

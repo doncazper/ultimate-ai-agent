@@ -124,6 +124,32 @@ def _write_pytest_performance_report(
     )
 
 
+def _write_performance_safe_failure_receipt(
+    path: Path,
+    *,
+    failure_refs: list[str],
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": runner.PERFORMANCE_SAFE_FAILURE_SCHEMA_VERSION,
+                "command_ref": "command:performance.latency-gate",
+                "status": "failed",
+                "measurement_ref": (
+                    "measurement-ref:performance:sha256:" + "a" * 64
+                ),
+                "failure_refs": failure_refs,
+                "redaction_status": (
+                    "content_free_refs_and_duration_buckets_only"
+                ),
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    path.chmod(0o600)
+
+
 def test_safe_env_preserves_valid_declared_runner_profile(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -171,6 +197,44 @@ def test_safe_env_rejects_command_override_of_declared_runner_profile(
 
     with pytest.raises(ValueError, match="cannot override declared runner profile"):
         runner._safe_env(command, tmp_path)
+
+
+def test_safe_env_binds_performance_measurement_lifecycle(
+    tmp_path: Path,
+) -> None:
+    benchmark_env = runner._safe_env(
+        CommandSpec(
+            "command:performance.benchmark",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        tmp_path,
+        repository_sha=SHA,
+    )
+    gate_env = runner._safe_env(
+        CommandSpec(
+            "command:performance.latency-gate",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        tmp_path,
+        repository_sha=SHA,
+    )
+
+    assert benchmark_env[runner.PERFORMANCE_MEASUREMENT_WARMUP_ENV] == "1"
+    assert runner.PERFORMANCE_MEASUREMENT_WARMUP_ENV not in gate_env
+    assert benchmark_env[runner.VERIFICATION_REPOSITORY_SHA_ENV] == SHA
+    assert gate_env[runner.VERIFICATION_REPOSITORY_SHA_ENV] == SHA
+    assert benchmark_env[runner.PERFORMANCE_METRICS_HANDOFF_ENV] == gate_env[
+        runner.PERFORMANCE_METRICS_HANDOFF_ENV
+    ]
+    assert benchmark_env[runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV] == gate_env[
+        runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV
+    ]
 
 
 def _patch_lane(
@@ -233,6 +297,312 @@ def test_lane_runner_emits_content_free_hash_bound_receipt(
         json.loads(receipt_file.read_text(encoding="utf-8"))["receipt_ref"]
         == receipt["receipt_ref"]
     )
+
+
+def test_failed_performance_gate_preserves_safe_refs_through_lane_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands = (
+        CommandSpec(
+            "command:performance.benchmark",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        CommandSpec(
+            "command:performance.latency-gate",
+            ("false",),
+            (),
+            "release_lane",
+            10,
+        ),
+    )
+    _patch_lane(monkeypatch, commands, lane_ref="performance")
+    safe_ref = (
+        "failure-ref:performance-latency:route:api_manifest:p95:"
+        "budget-150ms:observed-gte-1.25x-lt-1.5x"
+    )
+
+    def fake_run_command(
+        command: CommandSpec,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        if command.command_ref == "command:performance.latency-gate":
+            evidence_path = (
+                Path(str(kwargs["temp_root"]))
+                / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+            )
+            _write_performance_safe_failure_receipt(
+                evidence_path,
+                failure_refs=[safe_ref],
+            )
+        status = (
+            "fail"
+            if command.command_ref == "command:performance.latency-gate"
+            else "pass"
+        )
+        digest = hashlib.sha256(command.command_ref.encode()).hexdigest()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": status,
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": digest,
+            "result_ref": f"result-ref:ci:{digest}",
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+    summary_file = tmp_path / "summary.md"
+    receipt = runner.run_lane(
+        "performance",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+        summary_file=summary_file,
+    )
+
+    assert receipt["status"] == "fail"
+    result = receipt["command_results"][1]
+    assert result["safe_failure_refs"] == (safe_ref,)
+    assert result["performance_measurement_ref"] == (
+        "measurement-ref:performance:sha256:" + "a" * 64
+    )
+    summary = summary_file.read_text(encoding="utf-8")
+    assert safe_ref in summary
+    assert "Performance measurement: measurement-ref:performance:sha256:" in summary
+    assert not (
+        tmp_path / "temp" / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    ).exists()
+
+
+def test_passing_performance_gate_rejects_unexpected_failure_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands = (
+        CommandSpec(
+            "command:performance.benchmark",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        CommandSpec(
+            "command:performance.latency-gate",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+    )
+    _patch_lane(monkeypatch, commands, lane_ref="performance")
+
+    def fake_run_command(
+        command: CommandSpec,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        if command.command_ref == "command:performance.latency-gate":
+            _write_performance_safe_failure_receipt(
+                Path(str(kwargs["temp_root"]))
+                / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME,
+                failure_refs=[
+                    "failure-ref:performance-latency:validation:failed"
+                ],
+            )
+        digest = hashlib.sha256(command.command_ref.encode()).hexdigest()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": "pass",
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": digest,
+            "result_ref": f"result-ref:ci:{digest}",
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    receipt = runner.run_lane(
+        "performance",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+    )
+
+    assert receipt["status"] == "fail"
+    result = receipt["command_results"][1]
+    assert result["status"] == "fail"
+    assert result["safe_failure_refs"] == (
+        "failure-ref:performance-latency:evidence:unexpected-on-pass",
+    )
+
+
+@pytest.mark.parametrize("terminal_status", ("timed_out", "cancelled"))
+def test_invalid_performance_evidence_preserves_terminal_process_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal_status: str,
+) -> None:
+    commands = (
+        CommandSpec(
+            "command:performance.benchmark",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        CommandSpec(
+            "command:performance.latency-gate",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+    )
+    _patch_lane(monkeypatch, commands, lane_ref="performance")
+
+    def fake_run_command(
+        command: CommandSpec,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        status = "pass"
+        if command.command_ref == "command:performance.latency-gate":
+            status = terminal_status
+            evidence_path = (
+                Path(str(kwargs["temp_root"]))
+                / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+            )
+            evidence_path.write_text("{}", encoding="utf-8")
+            evidence_path.chmod(0o600)
+        digest = hashlib.sha256(command.command_ref.encode()).hexdigest()
+        return {
+            "command_ref": command.command_ref,
+            "category": command.category,
+            "status": status,
+            "started_at": "2026-07-15T00:00:00Z",
+            "completed_at": "2026-07-15T00:00:01Z",
+            "duration_ms": 1_000,
+            "output_byte_count": 0,
+            "output_digest": digest,
+            "result_ref": f"result-ref:ci:{digest}",
+            "redaction_status": "content_free_output_metadata_only",
+        }
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    receipt = runner.run_lane(
+        "performance",
+        repository_sha=SHA,
+        temp_root=tmp_path / "temp",
+    )
+
+    assert receipt["status"] == terminal_status
+    result = receipt["command_results"][1]
+    assert result["status"] == terminal_status
+    assert result["safe_failure_refs"] == (
+        "failure-ref:performance-latency:evidence:invalid",
+    )
+
+
+def test_performance_evidence_cleanup_survives_gate_runner_exception(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands = (
+        CommandSpec(
+            "command:performance.benchmark",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+        CommandSpec(
+            "command:performance.latency-gate",
+            ("true",),
+            (),
+            "release_lane",
+            10,
+        ),
+    )
+    _patch_lane(monkeypatch, commands, lane_ref="performance")
+    temp_root = tmp_path / "temp"
+
+    def fake_run_command(
+        command: CommandSpec,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        evidence_root = Path(str(kwargs["temp_root"]))
+        if command.command_ref == "command:performance.benchmark":
+            handoff_path = evidence_root / runner.PERFORMANCE_METRICS_HANDOFF_NAME
+            handoff_path.write_text("{}", encoding="utf-8")
+            handoff_path.chmod(0o600)
+            digest = hashlib.sha256(command.command_ref.encode()).hexdigest()
+            return {
+                "command_ref": command.command_ref,
+                "category": command.category,
+                "status": "pass",
+                "started_at": "2026-07-15T00:00:00Z",
+                "completed_at": "2026-07-15T00:00:01Z",
+                "duration_ms": 1_000,
+                "output_byte_count": 0,
+                "output_digest": digest,
+                "result_ref": f"result-ref:ci:{digest}",
+                "redaction_status": "content_free_output_metadata_only",
+            }
+        _write_performance_safe_failure_receipt(
+            evidence_root / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME,
+            failure_refs=[
+                "failure-ref:performance-latency:foundation-gate:status-not-passed"
+            ],
+        )
+        raise RuntimeError("simulated gate runner exception")
+
+    monkeypatch.setattr(runner, "_run_command", fake_run_command)
+
+    with pytest.raises(RuntimeError, match="simulated gate runner exception"):
+        runner.run_lane(
+            "performance",
+            repository_sha=SHA,
+            temp_root=temp_root,
+        )
+
+    assert not (temp_root / runner.PERFORMANCE_METRICS_HANDOFF_NAME).exists()
+    assert not (
+        temp_root / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    ).exists()
+
+
+def test_performance_safe_failure_receipt_rejects_cap_and_raw_content(
+    tmp_path: Path,
+) -> None:
+    temp_root = runner._safe_temp_root(tmp_path / "temp")
+    evidence_path = temp_root / runner.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    _write_performance_safe_failure_receipt(
+        evidence_path,
+        failure_refs=[
+            f"failure-ref:performance-latency:route:health:cause-{index}"
+            for index in range(runner.MAX_PERFORMANCE_SAFE_FAILURE_REFS + 1)
+        ],
+    )
+
+    with pytest.raises(ValueError, match="refs are invalid"):
+        runner._consume_performance_safe_failure_receipt(temp_root)
+
+    assert not evidence_path.exists()
+    _write_performance_safe_failure_receipt(
+        evidence_path,
+        failure_refs=["raw local path /private/example"],
+    )
+    with pytest.raises(ValueError, match="refs are invalid"):
+        runner._consume_performance_safe_failure_receipt(temp_root)
+    assert not evidence_path.exists()
 
 
 def test_lane_receipt_duration_tracks_wall_clock_across_host_sleep(

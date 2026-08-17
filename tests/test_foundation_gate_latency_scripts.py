@@ -1,5 +1,6 @@
-from typing import Any
 import json
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -97,6 +98,51 @@ def _release_latency_success_payload(
             benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
         ),
         "release_latency_path_results": path_results,
+    }
+
+
+def _performance_handoff_metrics(
+    *,
+    best_ms: float = 44_000.0,
+    mean_ms: float = 44_000.0,
+    path_results: list[dict[str, object]] | None = None,
+    release_status: str = "passed",
+) -> dict[str, object]:
+    release_metrics = _release_latency_success_payload(path_results=path_results)
+    return {
+        "schema_version": "foundation_gate_benchmark.v2",
+        "repeat": 1,
+        "warmup": 1,
+        "foundation_gate_warmup_statuses": ["passed"],
+        "foundation_gate_warmup_result_counts": [2],
+        "foundation_gate_runs_ms": [best_ms],
+        "foundation_gate_best_ms": best_ms,
+        "foundation_gate_mean_ms": mean_ms,
+        "foundation_gate_status": "passed",
+        "foundation_gate_result_count": 2,
+        "release_latency_schema_version": "uaa_release_latency_baseline.v1",
+        "hot_path_profile_overall_status": "passed",
+        **release_metrics,
+        "release_latency_overall_status": release_status,
+        "release_latency_budget_passed": release_status == "passed",
+        "release_latency_report_json": (
+            "reports/performance/latest_release_latency_baseline.json"
+        ),
+        "release_latency_report_md": (
+            "reports/performance/latest_release_latency_baseline.md"
+        ),
+        "performance_regression_report_json": (
+            "reports/performance/latest_performance_regression_report.json"
+        ),
+        "performance_regression_report_md": (
+            "reports/performance/latest_performance_regression_report.md"
+        ),
+        "hot_path_profile_report_json": (
+            "reports/performance/latest_hot_path_profile.json"
+        ),
+        "hot_path_profile_report_md": (
+            "reports/performance/latest_hot_path_profile.md"
+        ),
     }
 
 
@@ -480,6 +526,322 @@ def test_foundation_gate_latency_summary_rejects_partial_precomputed_timing() ->
             precomputed_foundation_gate_ms=12.34,
             precomputed_foundation_gate_status="passed",
         )
+
+
+def test_latency_gate_reuses_exact_warmed_benchmark_measurement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handoff_path = tmp_path / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    monkeypatch.setenv(
+        benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+    benchmark_foundation_gate._write_performance_metrics_handoff(
+        _performance_handoff_metrics()
+    )
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_benchmark",
+        lambda **_kwargs: pytest.fail(
+            "latency gate must not take a second contention-sensitive sample"
+        ),
+    )
+
+    exit_code = check_foundation_gate_latency.main(
+        ["--max-best-ms", "45000", "--max-mean-ms", "45000", "--json"]
+    )
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["passed"] is True
+    assert not handoff_path.exists()
+
+
+def test_performance_handoff_rejects_missing_parent_with_bounded_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handoff_path = (
+        tmp_path
+        / "missing"
+        / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+
+    with pytest.raises(RuntimeError, match="handoff parent is unsafe"):
+        benchmark_foundation_gate._write_performance_metrics_handoff(
+            _performance_handoff_metrics()
+        )
+
+
+def test_failed_latency_gate_writes_bounded_content_free_route_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handoff_path = tmp_path / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    receipt_path = (
+        tmp_path
+        / check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        str(receipt_path),
+    )
+    path_results = [
+        _release_latency_result(path_id)
+        for path_id in sorted(
+            benchmark_foundation_gate.RELEASE_LATENCY_REQUIRED_PATH_IDS
+        )
+    ]
+    path_results.extend(
+        _release_latency_result(path_id, status="skipped", p95_ms=None)
+        for path_id in sorted(
+            benchmark_foundation_gate.RELEASE_LATENCY_OPTIONAL_PATH_IDS
+        )
+    )
+    failing = next(
+        result for result in path_results if result["path_id"] == "api_manifest"
+    )
+    failing.update(
+        {
+            "status": "failed",
+            "p50_ms": 200.0,
+            "p95_ms": 200.0,
+            "budget_passed": False,
+            "failed_call_count": 0,
+            "reason_codes": ["P95_BUDGET_EXCEEDED"],
+        }
+    )
+    benchmark_foundation_gate._write_performance_metrics_handoff(
+        _performance_handoff_metrics(
+            path_results=path_results,
+            release_status="failed",
+        )
+    )
+
+    exit_code = check_foundation_gate_latency.main(
+        ["--max-best-ms", "45000", "--max-mean-ms", "45000", "--json"]
+    )
+
+    assert exit_code == 1
+    assert json.loads(capsys.readouterr().out)["passed"] is False
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["failure_refs"] == [
+        "failure-ref:performance-latency:release-latency:status-not-passed",
+        "failure-ref:performance-latency:route:api_manifest:p95:"
+        "budget-150ms:observed-gte-1.25x-lt-1.5x",
+        "failure-ref:performance-latency:route:api_manifest:status-not-passed",
+    ]
+    serialized = json.dumps(receipt, sort_keys=True)
+    assert "200.0" not in serialized
+    assert str(tmp_path) not in serialized
+    assert receipt["redaction_status"] == (
+        "content_free_refs_and_duration_buckets_only"
+    )
+    assert not handoff_path.exists()
+
+
+def test_latency_gate_rejects_malformed_handoff_with_safe_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handoff_path = tmp_path / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    receipt_path = (
+        tmp_path
+        / check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    )
+    handoff_path.write_text("{}", encoding="utf-8")
+    handoff_path.chmod(0o600)
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        str(receipt_path),
+    )
+
+    assert check_foundation_gate_latency.main(["--json"]) == 1
+
+    assert json.loads(capsys.readouterr().out)["safe_failure_refs"] == [
+        "failure-ref:performance-latency:measurement-handoff:invalid"
+    ]
+    assert json.loads(receipt_path.read_text(encoding="utf-8"))[
+        "failure_refs"
+    ] == ["failure-ref:performance-latency:measurement-handoff:invalid"]
+
+
+@pytest.mark.parametrize(
+    "mutations",
+    (
+        {"schema_version": "foundation_gate_benchmark.v1"},
+        {"release_latency_schema_version": "uaa_release_latency_baseline.v0"},
+        {
+            "foundation_gate_best_ms": 1.0,
+            "foundation_gate_mean_ms": 1.0,
+        },
+    ),
+)
+def test_latency_gate_rejects_inconsistent_typed_handoff_metrics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutations: dict[str, object],
+) -> None:
+    handoff_path = tmp_path / benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_NAME
+    receipt_path = (
+        tmp_path
+        / check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.PERFORMANCE_METRICS_HANDOFF_ENV,
+        str(handoff_path),
+    )
+    monkeypatch.setenv(
+        benchmark_foundation_gate.VERIFICATION_REPOSITORY_SHA_ENV,
+        "a" * 40,
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        str(receipt_path),
+    )
+    benchmark_foundation_gate._write_performance_metrics_handoff(
+        _performance_handoff_metrics(best_ms=60_000.0, mean_ms=60_000.0)
+    )
+    payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+    payload["metrics"].update(mutations)
+    payload["measurement_digest"] = benchmark_foundation_gate.hashlib.sha256(
+        benchmark_foundation_gate._canonical_json_bytes(payload["metrics"])
+    ).hexdigest()
+    handoff_path.write_bytes(
+        benchmark_foundation_gate._canonical_json_bytes(payload)
+    )
+    handoff_path.chmod(0o600)
+
+    assert check_foundation_gate_latency.main(
+        ["--max-best-ms", "45000", "--max-mean-ms", "45000", "--json"]
+    ) == 1
+
+    assert json.loads(capsys.readouterr().out)["safe_failure_refs"] == [
+        "failure-ref:performance-latency:measurement-handoff:invalid"
+    ]
+    assert json.loads(receipt_path.read_text(encoding="utf-8"))[
+        "failure_refs"
+    ] == ["failure-ref:performance-latency:measurement-handoff:invalid"]
+
+
+def test_safe_failure_refs_are_capped_without_raw_measurements() -> None:
+    metrics = _performance_handoff_metrics(
+        best_ms=100_000.0,
+        mean_ms=100_000.0,
+        path_results=[
+            {
+                **_release_latency_result(path_id, status="failed"),
+                "p95_ms": 100_000.0,
+                "budget_passed": False,
+                "failed_call_count": 1,
+                "authority_path_bypassed_for_speed": True,
+                "authority_decision_cached_for_speed": True,
+            }
+            for path_id in sorted(
+                benchmark_foundation_gate.RELEASE_LATENCY_BUDGETS_MS
+            )
+        ],
+        release_status="failed",
+    )
+    failures = check_foundation_gate_latency._foundation_gate_latency_failures(
+        metrics,
+        max_best_ms=45_000,
+        max_mean_ms=45_000,
+    )
+
+    refs = check_foundation_gate_latency._safe_failure_refs(
+        metrics,
+        max_best_ms=45_000,
+        max_mean_ms=45_000,
+        failures=failures,
+    )
+
+    assert len(refs) == check_foundation_gate_latency.MAX_PERFORMANCE_SAFE_FAILURE_REFS
+    assert "failure-ref:performance-latency:evidence:ref-cap-exceeded" in refs
+    assert refs == tuple(sorted(refs))
+    assert "100000" not in json.dumps(refs)
+
+
+def test_integer_budget_refs_are_python_310_compatible() -> None:
+    assert check_foundation_gate_latency._budget_ref(45_000) == "45000ms"
+    assert check_foundation_gate_latency._budget_ref(45_000.5) == "45000.5ms"
+
+
+def test_safe_failure_refs_force_failed_payload_and_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    metrics = _performance_handoff_metrics()
+    receipt_path = (
+        tmp_path
+        / check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_NAME
+    )
+    safe_ref = "failure-ref:performance-latency:validation:failed"
+    monkeypatch.setattr(
+        benchmark_foundation_gate,
+        "_benchmark",
+        lambda **_kwargs: metrics,
+    )
+    monkeypatch.setattr(
+        check_foundation_gate_latency,
+        "_safe_failure_refs",
+        lambda *_args, **_kwargs: (safe_ref,),
+    )
+    monkeypatch.setenv(
+        check_foundation_gate_latency.PERFORMANCE_SAFE_FAILURE_RECEIPT_ENV,
+        str(receipt_path),
+    )
+
+    assert check_foundation_gate_latency.main(
+        ["--max-best-ms", "45000", "--max-mean-ms", "45000", "--json"]
+    ) == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["passed"] is False
+    assert payload["safe_failure_refs"] == [safe_ref]
+    assert payload["failures"] == [
+        "safe performance failure evidence is present"
+    ]
+    assert payload["foundation_gate_latency_summary"]["status"] == "failed"
+    assert payload["foundation_gate_latency_summary"]["failures"] == [
+        "safe performance failure evidence is present"
+    ]
+    assert json.loads(receipt_path.read_text(encoding="utf-8"))[
+        "failure_refs"
+    ] == [safe_ref]
 
 
 def test_foundation_gate_latency_guard_fails_when_budget_exceeded(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
