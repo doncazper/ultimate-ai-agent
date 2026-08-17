@@ -4,9 +4,12 @@ from __future__ import annotations
 
 
 import argparse
+import hashlib
 import json
 import math
 import os
+import re
+import stat
 import statistics
 import sys
 import tempfile
@@ -40,6 +43,13 @@ RELEASE_LATENCY_LOCAL_API_BEARER = "local-performance-api-bearer"
 RELEASE_LATENCY_TASK_BEARER = "local-performance-bearer"
 RELEASE_LATENCY_LOCAL_GATEWAY_KEY = "uaa-local-test"
 RELEASE_LATENCY_CHAT_IDEMPOTENCY_KEY = "idempotency:release-latency:v1-chat"
+PERFORMANCE_METRICS_HANDOFF_ENV = "UAA_PERFORMANCE_METRICS_HANDOFF_FILE"
+PERFORMANCE_MEASUREMENT_WARMUP_ENV = "UAA_PERFORMANCE_MEASUREMENT_WARMUP"
+VERIFICATION_REPOSITORY_SHA_ENV = "UAA_VERIFICATION_REPOSITORY_SHA"
+PERFORMANCE_METRICS_HANDOFF_NAME = "uaa_performance_metrics_handoff.json"
+PERFORMANCE_METRICS_HANDOFF_SCHEMA_VERSION = "uaa_performance_metrics_handoff.v1"
+MAX_PERFORMANCE_METRICS_HANDOFF_BYTES = 64 * 1024
+REPOSITORY_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HEALTH_RELEASE_PATH_MIN_REPEAT = 20
 RELEASE_LATENCY_BUDGETS_MS: dict[str, float] = {
     "health": 50.0,
@@ -61,6 +71,34 @@ RELEASE_LATENCY_OPTIONAL_PATH_IDS = frozenset(
     path_id
     for path_id in RELEASE_LATENCY_BUDGETS_MS
     if path_id not in RELEASE_LATENCY_REQUIRED_PATH_IDS
+)
+
+PERFORMANCE_HANDOFF_METRIC_KEYS = (
+    "schema_version",
+    "repeat",
+    "warmup",
+    "foundation_gate_warmup_statuses",
+    "foundation_gate_warmup_result_counts",
+    "foundation_gate_runs_ms",
+    "foundation_gate_best_ms",
+    "foundation_gate_mean_ms",
+    "foundation_gate_status",
+    "foundation_gate_result_count",
+    "release_latency_schema_version",
+    "hot_path_profile_overall_status",
+    "release_latency_overall_status",
+    "release_latency_path_repeat",
+    "release_latency_path_warmup",
+    "release_latency_measurement_prerequisites",
+    "release_latency_budget_definitions_ms",
+    "release_latency_budget_passed",
+    "release_latency_path_results",
+    "release_latency_report_json",
+    "release_latency_report_md",
+    "performance_regression_report_json",
+    "performance_regression_report_md",
+    "hot_path_profile_report_json",
+    "hot_path_profile_report_md",
 )
 
 
@@ -131,6 +169,107 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--json", action="store_true", help="Print metrics as JSON.")
     return parser.parse_args(argv)
+
+
+def _canonical_json_bytes(payload: object) -> bytes:
+    return json.dumps(
+        payload,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def _performance_handoff_metrics(metrics: dict[str, object]) -> dict[str, object]:
+    missing = [key for key in PERFORMANCE_HANDOFF_METRIC_KEYS if key not in metrics]
+    if missing:
+        raise RuntimeError("performance metrics handoff is incomplete")
+    safe_metrics = {key: metrics[key] for key in PERFORMANCE_HANDOFF_METRIC_KEYS}
+    runs = safe_metrics["foundation_gate_runs_ms"]
+    if (
+        not isinstance(runs, list)
+        or not runs
+        or any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(float(value))
+            or float(value) < 0
+            for value in runs
+        )
+    ):
+        raise RuntimeError("performance metrics handoff samples are invalid")
+    normalized_runs = [float(value) for value in runs]
+    safe_metrics["foundation_gate_best_ms"] = round(min(normalized_runs), 2)
+    safe_metrics["foundation_gate_mean_ms"] = round(
+        statistics.mean(normalized_runs),
+        2,
+    )
+    return safe_metrics
+
+
+def _write_performance_metrics_handoff(metrics: dict[str, object]) -> None:
+    raw_path = os.environ.get(PERFORMANCE_METRICS_HANDOFF_ENV)
+    if raw_path is None:
+        return
+    path = Path(raw_path)
+    repository_sha = os.environ.get(VERIFICATION_REPOSITORY_SHA_ENV, "")
+    if path.name != PERFORMANCE_METRICS_HANDOFF_NAME:
+        raise RuntimeError("performance metrics handoff target is invalid")
+    if REPOSITORY_SHA_RE.fullmatch(repository_sha) is None:
+        raise RuntimeError("performance metrics handoff SHA binding is invalid")
+    parent = path.parent
+    parent_metadata = parent.lstat()
+    if (
+        parent.is_symlink()
+        or not stat.S_ISDIR(parent_metadata.st_mode)
+        or parent_metadata.st_uid != os.getuid()
+    ):
+        raise RuntimeError("performance metrics handoff parent is unsafe")
+
+    safe_metrics = _performance_handoff_metrics(metrics)
+    metrics_bytes = _canonical_json_bytes(safe_metrics)
+    payload = {
+        "schema_version": PERFORMANCE_METRICS_HANDOFF_SCHEMA_VERSION,
+        "repository_sha": repository_sha,
+        "measurement_digest": hashlib.sha256(metrics_bytes).hexdigest(),
+        "metrics": safe_metrics,
+    }
+    encoded = _canonical_json_bytes(payload)
+    if len(encoded) > MAX_PERFORMANCE_METRICS_HANDOFF_BYTES:
+        raise RuntimeError("performance metrics handoff exceeds its byte bound")
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        written = 0
+        while written < len(encoded):
+            written += os.write(descriptor, encoded[written:])
+        os.fsync(descriptor)
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or metadata.st_uid != os.getuid()
+            or metadata.st_size != len(encoded)
+            or metadata.st_mode & 0o077
+        ):
+            raise RuntimeError("performance metrics handoff write is unsafe")
+    finally:
+        os.close(descriptor)
+
+
+def _handoff_warmup(default: int) -> int:
+    if os.environ.get(PERFORMANCE_METRICS_HANDOFF_ENV) is None:
+        return default
+    raw_warmup = os.environ.get(PERFORMANCE_MEASUREMENT_WARMUP_ENV)
+    if raw_warmup is None or not raw_warmup.isascii() or not raw_warmup.isdigit():
+        raise RuntimeError("performance measurement warmup binding is invalid")
+    warmup = int(raw_warmup)
+    if warmup < 0:
+        raise RuntimeError("performance measurement warmup binding is invalid")
+    return warmup
 
 
 def _benchmark(
@@ -1329,11 +1468,12 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     metrics = _benchmark(
         repeat=args.repeat,
-        warmup=args.warmup,
+        warmup=_handoff_warmup(args.warmup),
         path_repeat=args.path_repeat,
         path_warmup=args.path_warmup,
         write_report=not args.no_write_report,
     )
+    _write_performance_metrics_handoff(metrics)
     if args.json:
         print(json.dumps(metrics, indent=2, sort_keys=True))
     else:
