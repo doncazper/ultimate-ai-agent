@@ -358,6 +358,9 @@ function ActionInboxCancellationControl({
     data.connection.state === "online" &&
     !data.connection.usingMockData &&
     data.routeStates["/actions"]?.state === "backend_owned";
+  const localTaskCommitted = Boolean(
+    selectedItem?.local_task_commit_receipt_ref?.startsWith("receipt:"),
+  );
   const canCancel = Boolean(
     authoritative &&
       binding &&
@@ -367,6 +370,7 @@ function ActionInboxCancellationControl({
       selectedItem &&
       selectedItem.action_revision_decision_eligible === true &&
       selectedItem.status !== "cancelled" &&
+      !localTaskCommitted &&
       expectedRevisionRef,
   );
 
@@ -440,8 +444,9 @@ function ActionInboxCancellationControl({
       <p className="eyebrow">Action Inbox · exact revision lifecycle</p>
       <h2>Cancel a pending action safely</h2>
       <p>
-        Python Core validates the displayed revision and invalidates earlier
-        approvals atomically. This control never executes the action.
+        {localTaskCommitted
+          ? "This Action is terminal because its local task is already committed. Cancellation remains blocked; the durable task receipt is unchanged."
+          : "Python Core validates the displayed revision and invalidates earlier approvals atomically. This control never executes the action."}
       </p>
       <label>
         Action
@@ -466,7 +471,11 @@ function ActionInboxCancellationControl({
         onClick={() => void cancelSelectedRevision()}
         type="button"
       >
-        {pending ? "Recording cancellation…" : "Cancel exact revision"}
+        {pending
+          ? "Recording cancellation…"
+          : localTaskCommitted
+            ? "Cancellation unavailable · local task committed"
+            : "Cancel exact revision"}
       </button>
       <p aria-live="polite">{feedback}</p>
     </section>

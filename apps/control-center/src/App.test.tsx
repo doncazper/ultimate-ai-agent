@@ -20117,6 +20117,56 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders committed local-task Actions as terminal instead of offering cancellation", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-committed:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-committed";
+    const inbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+      status: "receipt_recorded",
+    });
+    Object.assign(inbox.items[0], {
+      local_task_commit_receipt_ref:
+        "receipt:founder-loop-local-task:ui-committed",
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(
+        `unexpected ${options?.method ?? "GET"} request ${urlText}`,
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/workspace/decisions");
+    render(<App />);
+
+    const terminal = await screen.findByRole("button", {
+      name: "Cancellation unavailable · local task committed",
+    });
+    expect(terminal).toBeDisabled();
+    expect(
+      screen.getByText(/local task is already committed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cancel exact revision" }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, options]) => options?.method === "POST"),
+    ).toBe(false);
+  });
+
   it("confirms cancellation only after an authoritative refreshed revision", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-cancel:00000001:11111111111111111111";

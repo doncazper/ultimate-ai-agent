@@ -32,6 +32,7 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopStorageError,
 )
 from ultimate_ai_agent.core.storage.founder_loop import (
+    FounderLoopActionRecord,
     FounderLoopActionRevisionConflict,
 )
 
@@ -63,6 +64,18 @@ def _request(revision_ref: str, **updates: object) -> FounderLoopActionDecisionR
             )
         ),
         **updates,
+    )
+
+
+def _stored_action_record(repo: FounderLoopRepository) -> FounderLoopActionRecord:
+    payload = repo._action_payload_for_item_ref(ITEM_REF, include_generated=False)
+    assert payload is not None
+    return FounderLoopActionRecord.model_validate(
+        {
+            field_name: payload[field_name]
+            for field_name in FounderLoopActionRecord.model_fields
+            if field_name in payload
+        }
     )
 
 
@@ -333,6 +346,71 @@ def test_revision_binding_changes_make_prior_approval_stale(
         )
 
 
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"title": "Reviewed Action title changed"},
+        {"safe_summary": "Reviewed safe summary changed without raw content."},
+        {
+            "estimated_cost_usd": 1.25,
+            "max_approved_cost_usd": 2.0,
+            "cost_estimate_ref": "cost-estimate-ref:test-reviewed-posture",
+        },
+        {
+            "provider_ref": "provider-ref:test-reviewed-posture",
+            "model_profile_ref": "model-profile-ref:test-reviewed-posture",
+        },
+    ],
+)
+def test_reviewed_content_cost_and_provider_drift_invalidates_revision(
+    tmp_path: Path,
+    updates: dict[str, object],
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-reviewed-drift-approve")
+    approved_revision = str(approval["result_revision_ref"])
+    approved_generation = int(approval["result_generation"])
+
+    repo.upsert_action(_stored_action_record(repo).model_copy(update=updates))
+
+    current = _item(repo)
+    assert current["action_revision_ref"] != approved_revision
+    assert current["action_generation"] == approved_generation + 1
+    assert repo._latest_approved_action_decision_receipt_for_item_ref(ITEM_REF) is None
+
+
+def test_source_revision_advance_is_persisted_and_resists_aba_restore(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-source-aba-approve")
+    original = _stored_action_record(repo)
+    approved_revision = str(approval["result_revision_ref"])
+    approved_generation = int(approval["result_generation"])
+
+    repo.upsert_action(
+        original.model_copy(update={"title": "Transient reviewed Action title"})
+    )
+    transient = _item(repo)
+    repo.upsert_action(original)
+    restored = _item(repo)
+
+    assert transient["action_generation"] == approved_generation + 1
+    assert restored["action_generation"] == approved_generation + 2
+    assert restored["action_revision_ref"] != approved_revision
+    assert restored["action_revision_ref"] != transient["action_revision_ref"]
+    assert repo._latest_approved_action_decision_receipt_for_item_ref(ITEM_REF) is None
+    with repo._connect() as conn:
+        persisted = json.loads(
+            conn.execute(
+                "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+                (ITEM_REF,),
+            ).fetchone()[0]
+        )
+    assert persisted["generation"] == approved_generation + 2
+    assert persisted["revision_ref"] == restored["action_revision_ref"]
+
+
 def test_changed_payload_cannot_reuse_an_earlier_approval_scope(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     approval = _approve(repo, key="idempotency-ref:test-payload-original")
@@ -377,10 +455,13 @@ def test_action_decision_partial_failure_rolls_back_revision_receipt_and_approva
     assert repo.latest_action_receipt(ACTION_ID) is None
     assert _item(repo)["action_revision_ref"] == initial_revision
     with repo._connect() as conn:
-        assert (
-            conn.execute("SELECT COUNT(*) FROM action_revision_state").fetchone()[0]
-            == 0
+        persisted_revision = json.loads(
+            conn.execute(
+                "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+                (ITEM_REF,),
+            ).fetchone()[0]
         )
+        assert persisted_revision["revision_ref"] == initial_revision
         assert conn.execute("SELECT COUNT(*) FROM action_receipts").fetchone()[0] == 0
         assert (
             conn.execute(
@@ -496,6 +577,146 @@ def test_authoritative_expiry_changes_revision_and_expired_decision_is_denied(
             request=_request(str(refreshed["action_revision_ref"])),
             idempotency_key_ref="idempotency-ref:test-expired-decision",
         )
+
+
+def test_malformed_nonempty_deadline_fails_closed(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    with repo._connect() as conn:
+        conn.execute(
+            "UPDATE action_inbox SET expires_at = ? WHERE item_ref = ?",
+            ("malformed-deadline", ITEM_REF),
+        )
+    revision = repo.action_revision(ACTION_ID)
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_ACTION_DECISION_DEADLINE_EXPIRED",
+    ):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="reject",
+            request=_request(str(revision["revision_ref"])),
+            idempotency_key_ref="idempotency-ref:test-malformed-deadline",
+        )
+
+
+def test_historical_deadline_marker_is_normalized_during_upgrade(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    initial_generation = int(_item(repo)["action_generation"])
+    with repo._connect() as conn:
+        conn.execute(
+            "UPDATE action_inbox SET expires_at = ? WHERE item_ref = ?",
+            ("review_required_before_local_task_commit", ITEM_REF),
+        )
+    marker_generation = int(_item(repo)["action_generation"])
+    assert marker_generation == initial_generation + 1
+
+    reopened = _repo(tmp_path)
+    refreshed = _item(reopened)
+    assert refreshed["expires_at"] is None
+    assert int(refreshed["action_generation"]) == marker_generation + 1
+
+    receipt = reopened.record_action_decision(
+        action_id=ACTION_ID,
+        decision="reject",
+        request=_request(str(refreshed["action_revision_ref"])),
+        idempotency_key_ref="idempotency-ref:test-historical-deadline-upgrade",
+    )
+    assert receipt["status"] == "rejected"
+
+
+@pytest.mark.parametrize("decision", ["reject", "defer"])
+def test_successful_decisions_advance_revision_and_block_cross_client_overwrite(
+    tmp_path: Path,
+    decision: str,
+) -> None:
+    repo = _repo(tmp_path)
+    displayed_revision = str(_item(repo)["action_revision_ref"])
+    updates = (
+        {"defer_until_ref": "defer-until-ref:test-cross-client"}
+        if decision == "defer"
+        else {}
+    )
+    receipt = repo.record_action_decision(
+        action_id=ACTION_ID,
+        decision=decision,
+        request=_request(displayed_revision, **updates),
+        idempotency_key_ref=f"idempotency-ref:test-cross-client-{decision}",
+    )
+
+    assert (
+        receipt["status"]
+        == {
+            "reject": "rejected",
+            "defer": "deferred",
+        }[decision]
+    )
+    assert receipt["revision_advanced"] is True
+    assert receipt["result_generation"] == receipt["generation"] + 1
+    with pytest.raises(FounderLoopActionRevisionConflict):
+        repo.record_action_decision(
+            action_id=ACTION_ID,
+            decision="approve",
+            request=_request(displayed_revision),
+            idempotency_key_ref=f"idempotency-ref:test-stale-after-{decision}",
+        )
+
+
+def test_non_local_approve_advances_revision_and_blocks_stale_overwrite(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    action_id = "setup-assistant-hardening"
+    item_ref = f"founder-action:{action_id}"
+    item = next(
+        item for item in repo.list_action_inbox() if item["item_ref"] == item_ref
+    )
+    displayed_revision = str(item["action_revision_ref"])
+
+    receipt = repo.record_action_decision(
+        action_id=action_id,
+        decision="approve",
+        request=_request(displayed_revision),
+        idempotency_key_ref="idempotency-ref:test-non-local-approve",
+    )
+
+    assert receipt["status"] == "approved"
+    assert receipt["revision_advanced"] is True
+    with pytest.raises(FounderLoopActionRevisionConflict):
+        repo.record_action_decision(
+            action_id=action_id,
+            decision="reject",
+            request=_request(displayed_revision),
+            idempotency_key_ref="idempotency-ref:test-stale-non-local-approve",
+        )
+
+
+def test_generated_approval_ref_is_stable_and_schema_bounded(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    revision_ref = str(_item(repo)["action_revision_ref"])
+    key_ref = "idempotency-ref:test-max-length:" + "x" * 220
+
+    receipt = repo.record_action_decision(
+        action_id=ACTION_ID,
+        decision="approve",
+        request=_request(revision_ref),
+        idempotency_key_ref=key_ref,
+    )
+    replay = repo.record_action_decision(
+        action_id=ACTION_ID,
+        decision="approve",
+        request=_request(revision_ref),
+        idempotency_key_ref=key_ref,
+    )
+
+    approval_ref = str(receipt["approval_ref"])
+    assert approval_ref.startswith("approval-ref:founder-loop-action:")
+    assert len(approval_ref) <= 160
+    assert "x" * 20 not in approval_ref
+    assert replay["approval_ref"] == approval_ref
+    assert replay["replayed"] is True
 
 
 def test_action_is_read_under_the_decision_write_lock(
@@ -975,3 +1196,42 @@ def test_cancel_cli_requires_revision_and_reports_typed_conflict(
     assert conflict["error_ref"] == "FOUNDER_LOOP_ACTION_STALE_REVISION"
     assert conflict["refresh_required"] is True
     assert conflict["current_revision_ref"] == receipt["receipt"]["result_revision_ref"]
+
+
+def test_action_decision_cli_redacts_malformed_revision_validation(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    sentinel = "SENTINEL-REVISION-RAW-VALUE with spaces"
+    rc = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(tmp_path / "founder_loop"),
+            "cancel-action",
+            "--action-id",
+            ACTION_ID,
+            "--expected-revision-ref",
+            sentinel,
+            "--idempotency-ref",
+            "idempotency-ref:test-cli-malformed-revision",
+        ]
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert rc == 1
+    assert captured.err == ""
+    assert sentinel not in captured.out
+    assert "Traceback" not in captured.out
+    assert payload == {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-cancel-action",
+        "status": "blocked",
+        "error_ref": "FOUNDER_LOOP_ACTION_DECISION_UNSAFE_INPUT",
+        "safe_message": (
+            "The Action decision input failed safe-ref validation and was not recorded."
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }

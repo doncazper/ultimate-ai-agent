@@ -1268,15 +1268,15 @@ def _record_action_decision(args: argparse.Namespace) -> int:
         "command_ref",
         "repo-local-command:founder-loop-record-action-decision",
     )
-    request = FounderLoopActionDecisionRequest(
-        expected_revision_ref=args.expected_revision_ref,
-        approval_ref=args.approval_ref,
-        decision_reason_ref=args.decision_reason_ref,
-        edited_envelope_ref=args.edited_envelope_ref,
-        defer_until_ref=args.defer_until_ref,
-        metadata_refs=args.metadata_ref,
-    )
     try:
+        request = FounderLoopActionDecisionRequest(
+            expected_revision_ref=args.expected_revision_ref,
+            approval_ref=args.approval_ref,
+            decision_reason_ref=args.decision_reason_ref,
+            edited_envelope_ref=args.edited_envelope_ref,
+            defer_until_ref=args.defer_until_ref,
+            metadata_refs=args.metadata_ref,
+        )
         receipt = repo.record_action_decision(
             action_id=args.action_id,
             decision=args.decision,
@@ -1300,21 +1300,72 @@ def _record_action_decision(args: argparse.Namespace) -> int:
             }
         )
         return 1
-    except (
-        FounderLoopStorageDuplicateError,
-        FounderLoopStorageError,
-        ValidationError,
-        ValueError,
-    ) as exc:
+    except FounderLoopStorageDuplicateError as exc:
+        duplicate_error_refs = (
+            "FOUNDER_LOOP_ACTION_IDEMPOTENCY_CONFLICT",
+            "FOUNDER_LOOP_ACTION_IDEMPOTENCY_LEGACY_CONFLICT",
+        )
+        error_ref = next(
+            (ref for ref in duplicate_error_refs if exc.args == (ref,)),
+            "FOUNDER_LOOP_ACTION_IDEMPOTENCY_CONFLICT",
+        )
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": command_ref,
+                "status": "conflict",
+                "error_ref": error_ref,
+                "safe_message": (
+                    "The idempotency key is already bound to a different or "
+                    "legacy Action decision payload."
+                ),
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+    except FounderLoopStorageError as exc:
+        storage_error_refs = (
+            "FOUNDER_LOOP_ACTION_NOT_FOUND",
+            "FOUNDER_LOOP_ACTION_RECEIPT_NOT_FOUND",
+            "FOUNDER_LOOP_ACTION_RECEIPT_CAPACITY_EXHAUSTED",
+            "FOUNDER_LOOP_ACTION_TERMINAL_LOCAL_TASK_COMMITTED",
+            "FOUNDER_LOOP_ACTION_DECISION_DEADLINE_EXPIRED",
+            "FOUNDER_LOOP_ACTION_DECISION_UNSUPPORTED",
+            "FOUNDER_LOOP_ACTION_APPROVAL_CAPTURE_INVALID",
+        )
+        error_ref = next(
+            (ref for ref in storage_error_refs if exc.args == (ref,)),
+            "FOUNDER_LOOP_ACTION_DECISION_BLOCKED",
+        )
         _print_json(
             {
                 "schema_version": "founder-loop-cli:v1",
                 "command_ref": command_ref,
                 "status": "blocked",
-                "error_ref": str(exc) or "FOUNDER_LOOP_ACTION_DECISION_BLOCKED",
-                "action_ref": args.action_id,
-                "decision": args.decision,
-                "idempotency_ref": args.idempotency_ref,
+                "error_ref": error_ref,
+                "safe_message": (
+                    "The Action decision was not recorded. Refresh the authoritative "
+                    "Action Inbox before retrying with validated safe refs."
+                ),
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+    except (ValidationError, ValueError):
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": command_ref,
+                "status": "blocked",
+                "error_ref": "FOUNDER_LOOP_ACTION_DECISION_UNSAFE_INPUT",
+                "safe_message": (
+                    "The Action decision input failed safe-ref validation and was not "
+                    "recorded."
+                ),
                 "safe_refs_only": True,
                 "raw_content_omitted": True,
                 "raw_paths_omitted": True,
