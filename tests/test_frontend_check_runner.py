@@ -245,7 +245,7 @@ def test_frontend_check_publishes_failed_test_refs(
     assert published == [((failed_ref,), 1)]
 
 
-def test_playwright_visual_runner_isolates_backend_truth_and_preserves_evidence(
+def test_playwright_runner_emits_one_safe_observation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
