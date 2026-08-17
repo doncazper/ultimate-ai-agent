@@ -117,6 +117,32 @@ def _combined_playwright_observation(
     }
 
 
+def _refresh_retained_failed_test_refs(
+    path: Path,
+    refs: tuple[str, ...],
+    *,
+    failed_test_count: int,
+) -> None:
+    with tempfile.TemporaryDirectory(
+        prefix="uaa-frontend-diagnostic-",
+        dir=path.parent,
+    ) as temporary:
+        temporary_root = Path(temporary)
+        temporary_root.chmod(0o700)
+        staged = temporary_root / DIAGNOSTIC_NAME
+        retain_failed_test_refs(
+            staged,
+            refs,
+            failed_test_count=failed_test_count,
+        )
+        try:
+            os.replace(staged, path)
+        except OSError as exc:
+            raise FrontendPlaywrightError(
+                "completed frontend diagnostics could not be refreshed"
+            ) from exc
+
+
 def run(suite: str) -> int:
     config = {
         "visual": "playwright.visual.config.ts",
@@ -161,6 +187,7 @@ def run(suite: str) -> int:
         observations: list[dict[str, object]] = []
         all_failed_test_refs: set[str] = set()
         returncodes: list[int] = []
+        diagnostics_retained = False
         for phase_index, phase_args in enumerate(phases):
             phase_raw_result = raw_result.with_stem(
                 f"{raw_result.stem}-{phase_index}"
@@ -221,6 +248,19 @@ def run(suite: str) -> int:
             returncodes.append(returncode)
             observations.append(phase_observation)
             all_failed_test_refs.update(phase_failed_test_refs)
+            if (
+                returncode != 0
+                and external_target is not None
+                and phase_index + 1 < len(phases)
+            ):
+                retain_failed_test_refs(
+                    external_target.with_name(DIAGNOSTIC_NAME),
+                    tuple(sorted(all_failed_test_refs))[:MAX_FAILED_TEST_REFS],
+                    failed_test_count=sum(
+                        int(item["failed_test_count"]) for item in observations
+                    ),
+                )
+                diagnostics_retained = True
         observation = _combined_playwright_observation(tuple(observations))
         returncode = 1 if any(returncodes) else 0
         failed_test_refs = tuple(sorted(all_failed_test_refs))[
@@ -238,11 +278,19 @@ def run(suite: str) -> int:
         )
         if returncode != 0:
             if external_target is not None:
-                retain_failed_test_refs(
-                    external_target.with_name(DIAGNOSTIC_NAME),
-                    failed_test_refs,
-                    failed_test_count=int(observation["failed_test_count"]),
-                )
+                diagnostic_target = external_target.with_name(DIAGNOSTIC_NAME)
+                if diagnostics_retained:
+                    _refresh_retained_failed_test_refs(
+                        diagnostic_target,
+                        failed_test_refs,
+                        failed_test_count=int(observation["failed_test_count"]),
+                    )
+                else:
+                    retain_failed_test_refs(
+                        diagnostic_target,
+                        failed_test_refs,
+                        failed_test_count=int(observation["failed_test_count"]),
+                    )
             publish_failed_test_refs(
                 failed_test_refs,
                 failed_test_count=int(observation["failed_test_count"]),

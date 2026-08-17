@@ -352,6 +352,202 @@ def test_playwright_runner_emits_one_safe_observation(
     assert combined["collection_digest_ref"] == expected_digest
 
 
+def test_playwright_visual_runner_retains_completed_failure_before_later_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    commands: list[tuple[str, ...]] = []
+
+    def fake_run(argv: tuple[str, ...], **_kwargs: object) -> int:
+        commands.append(argv)
+        if len(commands) == 1:
+            return 1
+        raise frontend_command_process.FrontendCommandProcessError(
+            "unsafe local command detail"
+        )
+
+    monkeypatch.setattr(frontend_playwright, "run_frontend_command", fake_run)
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        collected_test_count=2,
+        failed_test_count=1,
+        passed_test_count=1,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    failed_ref = "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab"
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: (failed_ref,),
+    )
+
+    with pytest.raises(
+        frontend_playwright.FrontendPlaywrightError,
+        match="did not settle safely",
+    ):
+        frontend_playwright.run("visual")
+
+    assert len(commands) == 2
+    assert json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    ) == {
+        "schema_version": "uaa.frontend_failure_diagnostics.v1",
+        "failed_test_count": 1,
+        "failed_test_refs": [failed_ref],
+        "redaction_status": "content_free",
+    }
+
+
+def test_playwright_visual_runner_atomically_refreshes_completed_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "run_frontend_command",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        failed_test_count=1,
+        passed_test_count=2,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    failed_refs = iter(
+        (
+            ("frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",),
+            ("frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",),
+        )
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: next(failed_refs),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_frontend_collection_evidence",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_failed_test_refs",
+        lambda *_args, **_kwargs: None,
+    )
+
+    assert frontend_playwright.run("visual") == 1
+    retained = json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    )
+    assert retained["failed_test_count"] == 2
+    assert retained["failed_test_refs"] == [
+        "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",
+        "frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",
+    ]
+
+
+def test_playwright_visual_runner_preserves_completed_failure_on_refresh_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_directory = tmp_path / "evidence"
+    evidence_directory.mkdir(mode=0o700)
+    target = evidence_directory / "aggregate.json"
+    monkeypatch.setenv(frontend_playwright.EVIDENCE_ENV, str(target))
+    monkeypatch.setattr(
+        frontend_playwright,
+        "resolve_installed_frontend_tool",
+        lambda _app, _tool: Path("/safe-installed/playwright"),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "run_frontend_command",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(frontend_playwright.time, "monotonic", lambda: 0.0)
+    failed_observation = _observation("runner-ref:frontend:playwright")
+    failed_observation.update(
+        failed_test_count=1,
+        passed_test_count=2,
+        result_status="failed",
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "consume_playwright_json_result",
+        lambda *_args, **_kwargs: failed_observation,
+    )
+    first_ref = "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab"
+    failed_refs = iter(
+        (
+            (first_ref,),
+            ("frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",),
+        )
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "playwright_failed_test_refs",
+        lambda *_args, **_kwargs: next(failed_refs),
+    )
+    monkeypatch.setattr(
+        frontend_playwright,
+        "publish_frontend_collection_evidence",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        frontend_playwright.os,
+        "replace",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("injected")),
+    )
+
+    with pytest.raises(
+        frontend_playwright.FrontendPlaywrightError,
+        match="could not be refreshed",
+    ):
+        frontend_playwright.run("visual")
+
+    retained = json.loads(
+        (evidence_directory / frontend_playwright.DIAGNOSTIC_NAME).read_text(
+            encoding="ascii"
+        )
+    )
+    assert retained["failed_test_count"] == 1
+    assert retained["failed_test_refs"] == [first_ref]
+
+
 def test_playwright_visual_runner_rejects_fractional_timeout_overrun(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
