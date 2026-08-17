@@ -175,7 +175,6 @@ def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
 
 def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
     tmp_path,
-    monkeypatch,
 ) -> None:
     state_dir = tmp_path / "durable"
     repo = FounderLoopRepository(
@@ -227,24 +226,25 @@ def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
         connection.set_trace_callback(traced_statements.append)
         return connection
 
-    monkeypatch.setattr(reloaded, "_connect", traced_connect)
-    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as watcher:
-        before_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
-        before_database_state = "\n".join(watcher.iterdump())
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(reloaded, "_connect", traced_connect)
+        with sqlite3.connect(state_dir / "founder_loop.sqlite3") as watcher:
+            before_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+            before_database_state = "\n".join(watcher.iterdump())
 
-        for _ in range(2):
-            reloaded.list_action_inbox(limit=50)
-            validated_receipt = reloaded.validated_local_task_commit_receipt(
-                str(committed_action["local_task_commit_receipt_ref"])
-            )
-            truth = build_control_center_backend_truth(
-                repo=reloaded,
-                now=NOW,
-                identity=_identity(),
-            )
+            for _ in range(2):
+                reloaded.list_action_inbox(limit=50)
+                validated_receipt = reloaded.validated_local_task_commit_receipt(
+                    str(committed_action["local_task_commit_receipt_ref"])
+                )
+                truth = build_control_center_backend_truth(
+                    repo=reloaded,
+                    now=NOW,
+                    identity=_identity(),
+                )
 
-        after_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
-        after_database_state = "\n".join(watcher.iterdump())
+            after_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+            after_database_state = "\n".join(watcher.iterdump())
 
     assert validated_receipt["approval_ref"] == approval_ref
     assert truth["evidence_binding"]["status"] == "verified_complete"
