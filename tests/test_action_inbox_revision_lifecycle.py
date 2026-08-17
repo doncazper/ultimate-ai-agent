@@ -612,6 +612,14 @@ def test_historical_deadline_marker_is_normalized_during_upgrade(
         )
     marker_generation = int(_item(repo)["action_generation"])
     assert marker_generation == initial_generation + 1
+    with repo._connect() as conn:
+        persisted_before_upgrade = json.loads(
+            conn.execute(
+                "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+                (ITEM_REF,),
+            ).fetchone()[0]
+        )
+    assert persisted_before_upgrade["generation"] == initial_generation
 
     reopened = _repo(tmp_path)
     refreshed = _item(reopened)
@@ -964,6 +972,7 @@ def test_action_decisions_reject_terminal_committed_local_task(
 ) -> None:
     repo = _repo(tmp_path)
     approval = _approve(repo, key="idempotency-ref:test-terminal-approve")
+    approved = _item(repo)
     commit_receipt = repo.commit_local_task(
         action_id=ACTION_ID,
         request=FounderLoopLocalTaskCommitRequest(
@@ -974,6 +983,41 @@ def test_action_decisions_reject_terminal_committed_local_task(
     )
     committed = _item(repo)
     assert committed["status"] == "receipt_recorded"
+    assert committed["action_generation"] == approved["action_generation"] + 1
+    assert committed["action_revision_ref"] != approved["action_revision_ref"]
+    assert (
+        committed["action_revision_transition_ref"]
+        == "revision-transition:action-inbox:local-task-commit"
+    )
+    assert committed["local_task_commit_eligible"] is False
+    assert (
+        committed["local_task_commit_approval_status"]
+        == "committed_receipt_reference_only"
+    )
+    with repo._connect() as conn:
+        revision_state = json.loads(
+            conn.execute(
+                "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+                (ITEM_REF,),
+            ).fetchone()[0]
+        )
+        grant_json, approval_evidence_json = conn.execute(
+            "SELECT grant_json, receipt_json "
+            "FROM founder_loop_internal_approval_grants "
+            "WHERE approval_ref = ?",
+            (approval["approval_ref"],),
+        ).fetchone()
+    grant = json.loads(grant_json)
+    approval_evidence = json.loads(approval_evidence_json)
+    assert revision_state["revision_ref"] == committed["action_revision_ref"]
+    assert revision_state["previous_revision_ref"] == approved["action_revision_ref"]
+    assert grant["status"] == "revoked"
+    assert grant["revoked_at"] is not None
+    assert approval_evidence["status"] == "invalidated"
+    assert (
+        approval_evidence["invalidated_by_revision_ref"]
+        == committed["action_revision_ref"]
+    )
 
     with pytest.raises(
         FounderLoopStorageError,
@@ -992,6 +1036,70 @@ def test_action_decisions_reject_terminal_committed_local_task(
         still_committed["local_task_commit_receipt_ref"]
         == commit_receipt["receipt_ref"]
     )
+
+
+def test_local_task_commit_revision_and_invalidation_roll_back_atomically(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    approval = _approve(repo, key="idempotency-ref:test-terminal-rollback-approve")
+    before = _item(repo)
+    with repo._connect() as conn:
+        before_revision = conn.execute(
+            "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+            (ITEM_REF,),
+        ).fetchone()[0]
+        before_grant = conn.execute(
+            "SELECT grant_json, receipt_json "
+            "FROM founder_loop_internal_approval_grants "
+            "WHERE approval_ref = ?",
+            (approval["approval_ref"],),
+        ).fetchone()
+
+    def fail_invalidation(**_: object) -> list[str]:
+        raise RuntimeError("local-task-invalidation-failed")
+
+    monkeypatch.setattr(repo, "_invalidate_action_approvals", fail_invalidation)
+    with pytest.raises(RuntimeError, match="local-task-invalidation-failed"):
+        repo.commit_local_task(
+            action_id=ACTION_ID,
+            request=FounderLoopLocalTaskCommitRequest(
+                approval_ref=str(approval["approval_ref"]),
+                decision_reason_ref="decision-reason-ref:test-terminal-rollback",
+            ),
+            idempotency_key_ref="idempotency-ref:test-terminal-rollback",
+        )
+
+    after = _item(repo)
+    with repo._connect() as conn:
+        after_revision = conn.execute(
+            "SELECT state_json FROM action_revision_state WHERE item_ref = ?",
+            (ITEM_REF,),
+        ).fetchone()[0]
+        after_grant = conn.execute(
+            "SELECT grant_json, receipt_json "
+            "FROM founder_loop_internal_approval_grants "
+            "WHERE approval_ref = ?",
+            (approval["approval_ref"],),
+        ).fetchone()
+        assert conn.execute("SELECT COUNT(*) FROM local_tasks").fetchone()[0] == 0
+        assert (
+            conn.execute("SELECT COUNT(*) FROM local_task_commit_receipts").fetchone()[
+                0
+            ]
+            == 0
+        )
+        assert (
+            conn.execute("SELECT COUNT(*) FROM local_task_commit_replays").fetchone()[
+                0
+            ]
+            == 0
+        )
+    assert after["status"] == before["status"]
+    assert after["action_revision_ref"] == before["action_revision_ref"]
+    assert after_revision == before_revision
+    assert after_grant == before_grant
 
 
 def test_action_receipt_capacity_exhaustion_preserves_current_revision(

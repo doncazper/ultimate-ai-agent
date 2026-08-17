@@ -12261,6 +12261,190 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def _historical_action_approval_evidence_for_committed_receipt(
+        self,
+        receipt: FounderLoopLocalTaskCommitReceipt,
+    ) -> dict[str, Any] | None:
+        matching_receipts: list[FounderLoopActionDecisionReceipt] = []
+        for payload in self._action_decision_receipts_for_item_ref(receipt.item_ref):
+            if payload.get("approval_ref") != receipt.approval_ref:
+                continue
+            try:
+                decision_receipt = FounderLoopActionDecisionReceipt.model_validate(
+                    payload
+                )
+            except ValueError:
+                return None
+            if (
+                decision_receipt.decision != "approve"
+                or decision_receipt.status != "approved"
+                or decision_receipt.approval_status != "approved"
+            ):
+                return None
+            matching_receipts.append(decision_receipt)
+        if len(matching_receipts) != 1:
+            return None
+        decision_receipt = matching_receipts[0]
+
+        rows = self._fetch_all(
+            """
+            SELECT approval_kind, subject_ref, requested_action,
+                   exact_scope_ref, idempotency_key_ref,
+                   grant_json, receipt_json
+            FROM founder_loop_internal_approval_grants
+            WHERE approval_ref = ?
+            LIMIT 1
+            """,
+            (receipt.approval_ref,),
+        )
+        if len(rows) != 1:
+            return None
+        row = dict(rows[0])
+        revision_rows = self._fetch_all(
+            """
+            SELECT state_json
+            FROM action_revision_state
+            WHERE item_ref = ?
+            LIMIT 1
+            """,
+            (receipt.item_ref,),
+        )
+        if len(revision_rows) != 1:
+            return None
+        try:
+            grant = ApprovalGrant.model_validate(json.loads(str(row["grant_json"])))
+            approval_evidence = dict(json.loads(str(row["receipt_json"])))
+            terminal_revision = dict(
+                json.loads(str(revision_rows[0]["state_json"]))
+            )
+            _validate_safe_payload(
+                approval_evidence,
+                "historical_action_approval_evidence",
+            )
+            _validate_safe_payload(
+                terminal_revision,
+                "historical_action_terminal_revision",
+            )
+            commit_created_at = datetime.fromisoformat(
+                receipt.created_at.replace("Z", "+00:00")
+            )
+            decision_created_at = datetime.fromisoformat(
+                decision_receipt.created_at.replace("Z", "+00:00")
+            )
+            evidence_created_at = datetime.fromisoformat(
+                str(approval_evidence["created_at"]).replace("Z", "+00:00")
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+        row_bindings = {
+            "approval_kind": "founder_loop_action_decision",
+            "subject_ref": receipt.item_ref,
+            "requested_action": ACTION_DECISION_REQUESTED_ACTION,
+            "exact_scope_ref": decision_receipt.approval_scope_ref,
+            "idempotency_key_ref": decision_receipt.idempotency_key_ref,
+        }
+        if any(row.get(field) != expected for field, expected in row_bindings.items()):
+            return None
+        evidence_bindings: dict[str, Any] = {
+            "approval_kind": "founder_loop_action_decision",
+            "approval_ref": receipt.approval_ref,
+            "subject_ref": receipt.item_ref,
+            "requested_action": ACTION_DECISION_REQUESTED_ACTION,
+            "exact_scope_ref": decision_receipt.approval_scope_ref,
+            "idempotency_key_ref": decision_receipt.idempotency_key_ref,
+            "generation_ref": decision_receipt.generation_ref,
+            "revision_ref": decision_receipt.revision_ref,
+            "revision_fingerprint_ref": decision_receipt.revision_fingerprint_ref,
+            "payload_fingerprint_ref": decision_receipt.payload_fingerprint_ref,
+            "decision_route_binding_ref": (
+                decision_receipt.decision_route_binding_ref
+            ),
+            "decision_adapter_ref": decision_receipt.decision_adapter_ref,
+            "decision_deadline_ref": decision_receipt.decision_deadline_ref,
+            "authority_input_refs": decision_receipt.authority_input_refs,
+        }
+        if any(
+            approval_evidence.get(field) != expected
+            for field, expected in evidence_bindings.items()
+        ):
+            return None
+        if (
+            grant.approval_ref != receipt.approval_ref
+            or grant.subject_id != receipt.item_ref
+            or ACTION_DECISION_REQUESTED_ACTION not in grant.approved_actions
+        ):
+            return None
+        required_resource_refs = {
+            receipt.item_ref,
+            decision_receipt.approval_scope_ref,
+            decision_receipt.generation_ref,
+            decision_receipt.revision_ref,
+            decision_receipt.revision_fingerprint_ref,
+            decision_receipt.payload_fingerprint_ref,
+            decision_receipt.decision_route_binding_ref,
+            decision_receipt.decision_adapter_ref,
+            decision_receipt.decision_deadline_ref,
+            *decision_receipt.authority_input_refs,
+        }
+        if not required_resource_refs.issubset(set(grant.approved_resource_refs)):
+            return None
+        if (
+            decision_created_at > commit_created_at
+            or evidence_created_at > commit_created_at
+            or grant.created_at > commit_created_at
+            or grant.expires_at is None
+            or grant.expires_at < commit_created_at
+            or approval_evidence.get("expires_at") != grant.expires_at.isoformat()
+        ):
+            return None
+
+        evidence_status = approval_evidence.get("status")
+        if evidence_status == "approved":
+            if (
+                grant.status != ApprovalStatus.granted.value
+                or grant.revoked_at is not None
+            ):
+                return None
+        elif evidence_status == "invalidated":
+            invalidation_reason_ref = approval_evidence.get(
+                "invalidation_reason_ref"
+            )
+            invalidated_by_revision_ref = approval_evidence.get(
+                "invalidated_by_revision_ref"
+            )
+            try:
+                _validate_safe_ref(
+                    invalidation_reason_ref,
+                    "invalidation_reason_ref",
+                )
+                _validate_safe_ref(
+                    invalidated_by_revision_ref,
+                    "invalidated_by_revision_ref",
+                )
+            except (TypeError, ValueError):
+                return None
+            if (
+                grant.status != ApprovalStatus.revoked.value
+                or grant.revoked_at is None
+                or grant.metadata.get("revocation_reason_ref")
+                != invalidation_reason_ref
+                or grant.metadata.get("invalidated_by_revision_ref")
+                != invalidated_by_revision_ref
+                or invalidated_by_revision_ref
+                != terminal_revision.get("revision_ref")
+                or terminal_revision.get("generation")
+                != decision_receipt.result_generation + 1
+                or terminal_revision.get("previous_revision_ref")
+                != decision_receipt.result_revision_ref
+                or terminal_revision.get("transition_ref")
+                != "revision-transition:action-inbox:local-task-commit"
+            ):
+                return None
+        else:
+            return None
+        return decision_receipt.model_dump(mode="json")
+
     def validated_local_task_commit_receipt(
         self,
         receipt_ref: str,
@@ -12414,8 +12598,10 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_LOCAL_TASK_RECEIPT_ACTION_NOT_FOUND"
             )
         projected = {**action, **self._local_task_commit_projection(action)}
-        approval_receipt = self._latest_approved_action_decision_receipt_for_item_ref(
-            receipt.item_ref
+        approval_receipt = (
+            self._historical_action_approval_evidence_for_committed_receipt(
+                receipt
+            )
         )
         if (
             projected.get("action_kind") != FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
@@ -13689,8 +13875,43 @@ class FounderLoopRepository:
         *,
         conn: sqlite3.Connection | None = None,
     ) -> dict[str, Any]:
-        state, _ = self._synchronize_action_revision_state(action, conn=conn)
-        return state
+        item_ref = str(action["item_ref"])
+        query = """
+            SELECT state_json
+            FROM action_revision_state
+            WHERE item_ref = ?
+            LIMIT 1
+            """
+        rows = (
+            self._fetch_all(query, (item_ref,))
+            if conn is None
+            else list(conn.execute(query, (item_ref,)).fetchall())
+        )
+        stored = (
+            dict(json.loads(str(rows[0]["state_json"]))) if rows else None
+        )
+        return self._project_action_revision_state(action, stored=stored)
+
+    @staticmethod
+    def _project_action_revision_state(
+        action: dict[str, Any],
+        *,
+        stored: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        if stored is None:
+            return _build_action_revision_state(action, generation=1)
+        generation = int(stored["generation"])
+        current_source_fingerprint = action_payload_fingerprint_ref(
+            _action_revision_source_payload({**action, "action_generation": generation})
+        )
+        if stored.get("source_fingerprint_ref") == current_source_fingerprint:
+            return stored
+        return _build_action_revision_state(
+            action,
+            generation=generation + 1,
+            previous_revision_ref=str(stored["revision_ref"]),
+            transition_ref="revision-transition:action-inbox:source-binding-changed",
+        )
 
     def _synchronize_action_revision_state(
         self,
@@ -13728,31 +13949,22 @@ class FounderLoopRepository:
                 (item_ref,),
             ).fetchall()
         )
-        if not rows:
-            initial = _build_action_revision_state(action, generation=1)
-            self._persist_action_revision_state(conn, initial)
-            return initial, True
-        stored = dict(json.loads(str(rows[0]["state_json"])))
-        generation = int(stored["generation"])
-        current_source_fingerprint = action_payload_fingerprint_ref(
-            _action_revision_source_payload({**action, "action_generation": generation})
+        stored = (
+            dict(json.loads(str(rows[0]["state_json"]))) if rows else None
         )
-        if stored.get("source_fingerprint_ref") == current_source_fingerprint:
+        projected = self._project_action_revision_state(action, stored=stored)
+        if stored is not None and projected["revision_ref"] == stored["revision_ref"]:
             return stored, False
-        advanced = _build_action_revision_state(
-            action,
-            generation=generation + 1,
-            previous_revision_ref=str(stored["revision_ref"]),
-            transition_ref="revision-transition:action-inbox:source-binding-changed",
-        )
-        self._persist_action_revision_state(conn, advanced)
+        self._persist_action_revision_state(conn, projected)
+        if stored is None:
+            return projected, True
         self._invalidate_action_approvals(
             conn=conn,
             item_ref=item_ref,
-            result_revision_ref=str(advanced["revision_ref"]),
+            result_revision_ref=str(projected["revision_ref"]),
             decision="source-binding-change",
         )
-        return advanced, True
+        return projected, True
 
     @staticmethod
     def _persist_action_revision_state(
@@ -14182,11 +14394,21 @@ class FounderLoopRepository:
             safe_disable_posture=safe_disable_posture,
         )
         eligible = not blocked_reasons
-        approval_ref = (
+        current_approval_ref = (
             str(approval_receipt.get("approval_ref"))
             if approval_receipt and approval_receipt.get("approval_ref")
             else None
         )
+        committed_approval_ref = receipt.get("approval_ref") if receipt else None
+        if committed_approval_ref is not None:
+            try:
+                _validate_safe_ref(
+                    committed_approval_ref,
+                    "local_task_commit_approval_ref",
+                )
+            except (TypeError, ValueError):
+                committed_approval_ref = None
+        approval_ref = committed_approval_ref or current_approval_ref
         return {
             "action_kind": action_kind,
             "local_task_commit_contract_ref": FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
@@ -14194,7 +14416,11 @@ class FounderLoopRepository:
             "local_task_ref": local_task_ref,
             "local_task_commit_approval_ref": approval_ref,
             "local_task_commit_approval_status": (
-                "backend_owned_approval_ready" if approval_ref else "missing"
+                "committed_receipt_reference_only"
+                if committed_approval_ref
+                else "backend_owned_approval_ready"
+                if current_approval_ref
+                else "missing"
             ),
             "local_task_commit_eligible": eligible,
             "local_task_commit_receipt_ref": (
@@ -15207,6 +15433,10 @@ class FounderLoopRepository:
         action: dict[str, Any],
         receipt: FounderLoopLocalTaskCommitReceipt,
     ) -> None:
+        current_revision = self._action_revision_state_for_action(
+            {**action, **_action_envelope_contract_payload(action)},
+            conn=conn,
+        )
         receipt_refs = list(
             dict.fromkeys(
                 [*list(action.get("receipt_refs") or []), receipt.receipt_ref]
@@ -15247,6 +15477,33 @@ class FounderLoopRepository:
                 receipt.item_ref,
             ),
         )
+        committed_action = self._action_payload_for_item_ref(
+            receipt.item_ref,
+            conn=conn,
+            include_generated=False,
+        )
+        if committed_action is None:
+            raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
+        result_revision = _build_action_revision_state(
+            {
+                **committed_action,
+                **_action_envelope_contract_payload(committed_action),
+            },
+            generation=int(current_revision["generation"]) + 1,
+            previous_revision_ref=str(current_revision["revision_ref"]),
+            transition_ref="revision-transition:action-inbox:local-task-commit",
+        )
+        self._persist_action_revision_state(conn, result_revision)
+        invalidated_approval_refs = self._invalidate_action_approvals(
+            conn=conn,
+            item_ref=receipt.item_ref,
+            result_revision_ref=str(result_revision["revision_ref"]),
+            decision="local-task-commit",
+        )
+        if receipt.approval_ref not in invalidated_approval_refs:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_LOCAL_TASK_APPROVAL_INVALIDATION_MISMATCH"
+            )
 
     def list_plan_summaries(self, *, limit: int = 20) -> list[dict[str, Any]]:
         rows = self._fetch_all(
@@ -18578,11 +18835,41 @@ class FounderLoopRepository:
             "review_required_before_local_task_commit",
         )
         placeholders = ", ".join("?" for _ in legacy_deadline_markers)
+        affected_item_refs = [
+            str(row["item_ref"])
+            for row in conn.execute(
+                f"SELECT item_ref FROM action_inbox "
+                f"WHERE expires_at IN ({placeholders})",
+                legacy_deadline_markers,
+            ).fetchall()
+        ]
+        for item_ref in affected_item_refs:
+            action = self._action_payload_for_item_ref(
+                item_ref,
+                conn=conn,
+                include_generated=False,
+            )
+            if action is not None:
+                self._synchronize_action_revision_state(
+                    {**action, **_action_envelope_contract_payload(action)},
+                    conn=conn,
+                )
         conn.execute(
             f"UPDATE action_inbox SET expires_at = NULL "
             f"WHERE expires_at IN ({placeholders})",
             legacy_deadline_markers,
         )
+        for item_ref in affected_item_refs:
+            action = self._action_payload_for_item_ref(
+                item_ref,
+                conn=conn,
+                include_generated=False,
+            )
+            if action is not None:
+                self._synchronize_action_revision_state(
+                    {**action, **_action_envelope_contract_payload(action)},
+                    conn=conn,
+                )
 
     def _ensure_memory_review_contract_columns(self, conn: sqlite3.Connection) -> None:
         existing = {

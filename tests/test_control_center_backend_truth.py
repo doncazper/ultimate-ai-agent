@@ -175,6 +175,7 @@ def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
 
 def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
     tmp_path,
+    monkeypatch,
 ) -> None:
     state_dir = tmp_path / "durable"
     repo = FounderLoopRepository(
@@ -183,18 +184,82 @@ def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
     )
     build_dogfood_live_loop_acceptance_read_model(repo=repo, seed_fixture=True)
 
-    reloaded = FounderLoopRepository(state_dir)
-    truth = build_control_center_backend_truth(
-        repo=reloaded,
-        now=NOW,
-        identity=_identity(),
+    committed_action = repo.list_durable_local_task_actions(limit=50)[0]
+    approval_ref = str(committed_action["local_task_commit_approval_ref"])
+    assert approval_ref.startswith("approval-ref:")
+    assert (
+        committed_action["local_task_commit_approval_status"]
+        == "committed_receipt_reference_only"
+    )
+    assert committed_action["local_task_commit_eligible"] is False
+    assert "blocked-state:local-task-already-committed" in committed_action[
+        "local_task_commit_blocked_reasons"
+    ]
+    assert (
+        repo._latest_approved_action_decision_receipt_for_item_ref(
+            str(committed_action["item_ref"])
+        )
+        is None
+    )
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
+        stored = connection.execute(
+            "SELECT grant_json, receipt_json "
+            "FROM founder_loop_internal_approval_grants "
+            "WHERE approval_ref = ?",
+            (approval_ref,),
+        ).fetchone()
+    assert stored is not None
+    grant = json.loads(str(stored[0]))
+    approval_evidence = json.loads(str(stored[1]))
+    assert grant["status"] == "revoked"
+    assert grant["revoked_at"] is not None
+    assert approval_evidence["status"] == "invalidated"
+    assert approval_evidence["invalidated_by_revision_ref"].startswith(
+        "action-revision:"
     )
 
+    reloaded = FounderLoopRepository(state_dir)
+    traced_statements: list[str] = []
+    original_connect = reloaded._connect
+
+    def traced_connect() -> sqlite3.Connection:
+        connection = original_connect()
+        connection.set_trace_callback(traced_statements.append)
+        return connection
+
+    monkeypatch.setattr(reloaded, "_connect", traced_connect)
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as watcher:
+        before_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+        before_database_state = "\n".join(watcher.iterdump())
+
+        for _ in range(2):
+            reloaded.list_action_inbox(limit=50)
+            validated_receipt = reloaded.validated_local_task_commit_receipt(
+                str(committed_action["local_task_commit_receipt_ref"])
+            )
+            truth = build_control_center_backend_truth(
+                repo=reloaded,
+                now=NOW,
+                identity=_identity(),
+            )
+
+        after_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+        after_database_state = "\n".join(watcher.iterdump())
+
+    assert validated_receipt["approval_ref"] == approval_ref
     assert truth["evidence_binding"]["status"] == "verified_complete"
     assert truth["evidence_binding"]["issue_refs"] == []
     assert truth["evidence_binding"]["receipt_refs"]
     assert truth["evidence_binding"]["proof_refs"]
     assert truth["evidence_binding"]["evidence_refs"]
+    assert after_data_version == before_data_version
+    assert after_database_state == before_database_state
+    assert not any(
+        statement.lstrip().upper().startswith(
+            ("BEGIN IMMEDIATE", "INSERT", "UPDATE", "DELETE", "REPLACE")
+        )
+        for statement in traced_statements
+    )
 
 
 def test_backend_truth_accepts_normal_durable_local_task_evidence(
