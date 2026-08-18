@@ -26,9 +26,13 @@ Markdown item executable by itself.
   posture before it may claim work; its idle and active liveness is recorded by
   a separate node heartbeat. Use one explicitly configured shared local state
   directory for both machines.
-- Enforces at most two claims per named node and only one `exclusive` task at
-  a time. Active tasks cannot share a branch or worktree reference. Use
-  `exclusive` for the active authority-changing lane.
+- Enforces at most three claims globally, at most two claims per named node,
+  one claim in each `shared_core`, `product_surface`, and
+  `verification_read_only` lane, and only one `exclusive` task at a time.
+  Active tasks cannot share a branch or worktree reference. Use `exclusive`
+  for a bounded authority-changing lane, not as a broad global lock.
+- Treats a nonempty authoritative V2 queue with zero admitted nonterminal work
+  as queue starvation and a control-plane failure rather than successful idle.
 - Runs four fixed, read-only Git metadata checks: dirty-entry count, registered
   and prunable worktree counts, non-merged branch metadata, and local-main
   divergence from `origin/main`. It never passes user-provided text to a shell
@@ -66,7 +70,8 @@ checks, verifier, and merge gates before any developer Git mutation is added.
 ## Operating Flow
 
 1. Inspect canonical work with `catalog`. Planning candidates remain
-   non-dispatchable.
+   non-dispatchable. `inspect` validates Queue-of-Record V2 and reports its
+   admission, supersession, and starvation health.
 2. Register each reviewed node and record an initial node heartbeat. A
    non-ready or unregistered node cannot claim work.
 3. Create exactly one triaged task with a pre-created isolated branch/worktree
@@ -83,6 +88,45 @@ checks, verifier, and merge gates before any developer Git mutation is added.
    review gate, not a reason to run a destructive command automatically.
 7. A human reviews PR status and exact verifier evidence before any explicit
    merge or cleanup operation outside this coordinator.
+
+## Queue-of-Record V2
+
+`docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json` is the authoritative
+developer queue. It contains the complete Q00-Q31 dependency-wave order, exact
+WIP lanes, merge-order constraints for overlapping recovery work, two stale
+draft pull-request triage records, eleven visible gated programs, and the
+programs that must remain embedded rather than becoming duplicate top-level
+tasks.
+
+Admission is explicit, idempotent, and ledger-only. It creates no agent,
+branch, worktree, commit, pull request, connector, provider call, or product
+authority. It admits all thirty-two records but claims none. Owners use the
+normal claim path after proving the named isolated branch/worktree and next
+gate. The eleven authority-heavy entries are descriptive gated records and are
+not admitted as executable tasks.
+
+The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
+`docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
+evidence. Their former recovery command now fails closed with
+`DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2`; this prevents the rescued subset
+from duplicating work already represented by Q00-Q31.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  admit-queue-v2 \
+  --idempotency-prefix idempotency-ref:queue-v2-admission \
+  --confirm-admission admit-queue-v2 --pretty
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" inspect --pretty
+```
+
+If admission is interrupted, rerun it with the same idempotency prefix. Exact
+receipts replay and only the uncommitted tail is admitted. A successful
+inspection reports thirty-two admitted records and no starvation risk. The
+two current owner-held units are claimed separately so admission cannot create
+or duplicate workers.
 
 ## Commands
 
@@ -127,6 +171,7 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --branch-ref branch-ref:codex/fcc-today-render-001 \
   --worktree-ref worktree-ref:mac/fcc-today-render-001 \
   --workstream-ref workstream-ref:founder-command-center \
+  --wip-lane product_surface \
   --scope-contract-ref scope-contract-ref:fcc-today-render-001 \
   --in-scope-ref scope-ref:today-render/accepted-composition \
   --out-of-scope-ref scope-ref:today-render/no-new-backend-authority \

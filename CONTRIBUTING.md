@@ -14,6 +14,24 @@ project's local-first, contract-first, fail-closed boundaries.
    paths, raw logs, prompts, responses, provider payloads, or screenshots with
    private information.
 
+## Review convergence
+
+Follow
+[`docs/verification/REVIEW_CONVERGENCE_POLICY.md`](docs/verification/REVIEW_CONVERGENCE_POLICY.md).
+Scope a pull request to one durable contract, authority boundary, or
+independently reviewable product slice. Record the applicable authority,
+provenance, recovery, concurrency, tampering, capacity, failure-truth, and
+cross-surface invariants before implementation.
+
+Use targeted checks while coding, batch known findings, perform one structural
+adversarial audit before publishing, and run one broad local qualification on
+the final candidate. Publish once per candidate and request one exact-head CI
+and review cycle. Repeated architectural findings should become the smallest
+isolated prerequisite repair instead of another field-specific patch.
+
+This cadence does not weaken required review, CI, policy, approval, redaction,
+OpenAPI, Foundation Gate, or post-merge checks.
+
 ## Pull request safety
 
 External pull request workflows require maintainer approval before they run.

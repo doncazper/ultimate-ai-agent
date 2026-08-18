@@ -24,6 +24,11 @@ from uaa_developer_orchestrator.planning import (  # noqa: E402
     build_developer_planning_catalog,
     find_planning_candidate,
 )
+from uaa_developer_orchestrator.queue_record import (  # noqa: E402
+    assess_developer_queue_record_health,
+    build_developer_queue_record_drafts,
+    load_developer_queue_record_manifest,
+)
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperWorkspaceScout,
 )
@@ -90,10 +95,12 @@ def triage(args: argparse.Namespace) -> int:
         raise ValueError("DEVELOPER_QUEUE_PRIORITY_REQUIRED")
     draft = DeveloperWorkTaskDraft(
         task_ref=args.task_ref,
+        queue_order=args.queue_order,
         title=candidate.title,
         safe_summary=candidate.safe_summary,
         priority=priority,
         concurrency=args.concurrency,
+        wip_lane=args.wip_lane,
         canonical_task_ref=candidate.canonical_task_ref,
         canonical_source_ref=candidate.canonical_source_ref,
         canonical_source_fingerprint_ref=candidate.canonical_source_fingerprint_ref,
@@ -118,8 +125,19 @@ def triage(args: argparse.Namespace) -> int:
 
 def inspect(args: argparse.Namespace) -> int:
     coordinator = _coordinator(args)
+    queue = coordinator.inspect(node_refs=args.node_ref)
+    queue_manifest = load_developer_queue_record_manifest(ROOT)
     payload: dict[str, object] = {
-        "queue": coordinator.inspect(node_refs=args.node_ref).model_dump(mode="json"),
+        "queue": queue.model_dump(mode="json"),
+        "queue_of_record_health": assess_developer_queue_record_health(
+            manifest=queue_manifest,
+            task_states={task.task_ref: task.state for task in queue.tasks},
+        ).model_dump(mode="json"),
+        "legacy_recovery_status": {
+            "artifact_status": "superseded_historical_evidence",
+            "admission_enabled": False,
+            "superseded_by_ref": queue_manifest.queue_ref,
+        },
     }
     if args.include_scout:
         payload["workspace_scout"] = (
@@ -128,6 +146,47 @@ def inspect(args: argparse.Namespace) -> int:
             .model_dump(mode="json")
         )
     return _print(payload, pretty=args.pretty)
+
+
+def recover_remaining_queue(args: argparse.Namespace) -> int:
+    load_developer_queue_record_manifest(ROOT)
+    raise ValueError("DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2")
+
+
+def admit_queue_v2(args: argparse.Namespace) -> int:
+    if args.confirm_admission != "admit-queue-v2":
+        raise ValueError("DEVELOPER_QUEUE_V2_ADMISSION_CONFIRMATION_REQUIRED")
+    coordinator = _coordinator(args)
+    receipts = []
+    for draft in build_developer_queue_record_drafts(ROOT):
+        receipts.append(
+            coordinator.add_task(
+                draft,
+                idempotency_ref=(
+                    f"{args.idempotency_prefix}:"
+                    f"{draft.task_ref.removeprefix('dev-task:')}"
+                ),
+            )
+        )
+    queue = coordinator.inspect()
+    health = assess_developer_queue_record_health(
+        manifest=load_developer_queue_record_manifest(ROOT),
+        task_states={task.task_ref: task.state for task in queue.tasks},
+    )
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_admission_receipt.v2",
+            "receipt_refs": [receipt.receipt_ref for receipt in receipts],
+            "replayed_receipt_count": sum(receipt.replayed for receipt in receipts),
+            "queue_of_record_health": health.model_dump(mode="json"),
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
 
 
 def claim_next(args: argparse.Namespace) -> int:
@@ -323,6 +382,29 @@ def build_parser() -> argparse.ArgumentParser:
     initialize_command.add_argument("--pretty", action="store_true")
     initialize_command.set_defaults(func=initialize)
 
+    recover_command = subparsers.add_parser(
+        "recover-remaining-queue",
+        help=(
+            "Fail closed because the legacy recovery manifest is superseded by V2."
+        ),
+    )
+    recover_command.add_argument("--idempotency-prefix", required=True)
+    recover_command.add_argument("--confirm-recovery", required=True)
+    recover_command.add_argument("--pretty", action="store_true")
+    recover_command.set_defaults(func=recover_remaining_queue)
+
+    queue_v2_command = subparsers.add_parser(
+        "admit-queue-v2",
+        help=(
+            "Idempotently admit the authoritative Q00-Q31 records without claiming "
+            "or dispatching work."
+        ),
+    )
+    queue_v2_command.add_argument("--idempotency-prefix", required=True)
+    queue_v2_command.add_argument("--confirm-admission", required=True)
+    queue_v2_command.add_argument("--pretty", action="store_true")
+    queue_v2_command.set_defaults(func=admit_queue_v2)
+
     register_node_command = subparsers.add_parser(
         "register-node",
         help="Register one reviewed developer node before it may claim work.",
@@ -357,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     triage_command.add_argument("--planning-item-ref", required=True)
     triage_command.add_argument("--task-ref", required=True)
+    triage_command.add_argument("--queue-order", type=int, default=100000)
     triage_command.add_argument("--branch-ref", required=True)
     triage_command.add_argument("--worktree-ref", required=True)
     triage_command.add_argument("--workstream-ref", required=True)
@@ -369,6 +452,11 @@ def build_parser() -> argparse.ArgumentParser:
     triage_command.add_argument("--priority", choices=("p0", "p1", "p2", "p3"))
     triage_command.add_argument(
         "--concurrency", choices=("parallel_safe", "exclusive"), default="parallel_safe"
+    )
+    triage_command.add_argument(
+        "--wip-lane",
+        choices=("shared_core", "product_surface", "verification_read_only"),
+        required=True,
     )
     triage_command.add_argument("--acceptance-ref", action="append", required=True)
     triage_command.add_argument("--verifier-ref", action="append", required=True)

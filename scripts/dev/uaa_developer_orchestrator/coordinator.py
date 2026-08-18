@@ -27,7 +27,9 @@ DEVELOPER_COORDINATOR_PENDING_TRANSACTION_FILE = (
     "developer_work_queue_pending_transaction.json"
 )
 DEVELOPER_COORDINATOR_LOCK_FILE = "developer_work_queue.lock"
+DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT = 3
 DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT = 1
+DEVELOPER_COORDINATOR_WIP_LANE_LIMIT = 1
 DEVELOPER_COORDINATOR_NODE_WIP_LIMIT = 2
 
 DeveloperWorkPriority = Literal["p0", "p1", "p2", "p3"]
@@ -40,6 +42,11 @@ DeveloperWorkState = Literal[
     "canceled",
 ]
 DeveloperWorkConcurrency = Literal["parallel_safe", "exclusive"]
+DeveloperWorkWipLane = Literal[
+    "shared_core",
+    "product_surface",
+    "verification_read_only",
+]
 DeveloperWorktreePosture = Literal["isolated_required"]
 DeveloperSolThinkingLevel = Literal["medium", "high", "xhigh"]
 DeveloperScopeDispositionKind = Literal[
@@ -115,10 +122,12 @@ def _validate_refs(values: list[str], field_name: str) -> None:
 
 class DeveloperWorkTaskDraft(BaseModel):
     task_ref: str = Field(..., min_length=1)
+    queue_order: int = Field(default=100000, ge=0)
     title: str = Field(..., min_length=1, max_length=140)
     safe_summary: str = Field(..., min_length=1, max_length=640)
     priority: DeveloperWorkPriority
     concurrency: DeveloperWorkConcurrency = "parallel_safe"
+    wip_lane: DeveloperWorkWipLane = "shared_core"
     canonical_task_ref: str = Field(..., min_length=1)
     canonical_source_ref: str = Field(..., min_length=1)
     canonical_source_fingerprint_ref: str = Field(..., min_length=1)
@@ -166,6 +175,7 @@ class DeveloperWorkTaskDraft(BaseModel):
             self.safe_summary,
             self.priority,
             self.concurrency,
+            self.wip_lane,
             self.worktree_posture,
             self.sol_thinking_level,
             self.next_safe_action,
@@ -375,8 +385,14 @@ class DeveloperWorkQueueSnapshot(BaseModel):
             for task in self.tasks
             if task.state == "claimed" and task.concurrency == "exclusive"
         ]
+        claimed_tasks = [task for task in self.tasks if task.state == "claimed"]
+        if len(claimed_tasks) > DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT:
+            raise ValueError("developer work global WIP limit exceeded")
         if len(exclusive_claims) > DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT:
             raise ValueError("developer work exclusive WIP limit exceeded")
+        claimed_lanes = [task.wip_lane for task in claimed_tasks]
+        if len(claimed_lanes) != len(set(claimed_lanes)):
+            raise ValueError("developer work WIP lane limit exceeded")
         validate_safe_task_payload(
             self.model_dump(mode="json"), "developer_work_snapshot"
         )
@@ -455,6 +471,7 @@ class DeveloperWorkQueuePendingTransaction(BaseModel):
 
 class DeveloperWorkQueueTaskView(BaseModel):
     task_ref: str
+    queue_order: int
     canonical_task_ref: str
     canonical_source_ref: str
     canonical_source_fingerprint_ref: str
@@ -466,6 +483,7 @@ class DeveloperWorkQueueTaskView(BaseModel):
     priority: DeveloperWorkPriority
     state: DeveloperWorkState
     concurrency: DeveloperWorkConcurrency
+    wip_lane: DeveloperWorkWipLane
     owner_node_ref: str | None
     branch_ref: str
     worktree_ref: str
@@ -504,8 +522,11 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
     global_exclusive_wip_limit: Literal[1] = (
         DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT
     )
+    global_wip_limit: Literal[3] = DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT
+    wip_lane_limit: Literal[1] = DEVELOPER_COORDINATOR_WIP_LANE_LIMIT
     node_wip_limit: int = DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
     active_exclusive_task_ref: str | None = None
+    active_task_by_wip_lane: dict[str, str | None] = Field(default_factory=dict)
     archive_ready_task_refs: list[str] = Field(default_factory=list)
     safe_summary: str
     coordination_transport_posture: str
@@ -535,6 +556,11 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
                     else []
                 ),
                 *self.archive_ready_task_refs,
+                *(
+                    task_ref
+                    for task_ref in self.active_task_by_wip_lane.values()
+                    if task_ref is not None
+                ),
                 *self.next_task_by_node_ref.keys(),
                 *(
                     task_ref
@@ -554,6 +580,8 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
             self.next_safe_action,
         ]:
             validate_safe_task_text(value, "developer_work_read_model_text")
+        for lane in self.active_task_by_wip_lane:
+            validate_safe_task_text(lane, "developer_work_wip_lane")
         if not self.queue_mutation_requires_explicit_confirmation:
             raise ValueError("developer work queue confirmation posture missing")
         if not self.queue_mutation_requires_idempotency:
@@ -1228,6 +1256,7 @@ class DeveloperWorkCoordinator:
             tasks=[
                 DeveloperWorkQueueTaskView(
                     task_ref=task.task_ref,
+                    queue_order=task.queue_order,
                     canonical_task_ref=task.canonical_task_ref,
                     canonical_source_ref=task.canonical_source_ref,
                     canonical_source_fingerprint_ref=task.canonical_source_fingerprint_ref,
@@ -1239,6 +1268,7 @@ class DeveloperWorkCoordinator:
                     priority=task.priority,
                     state=task.state,
                     concurrency=task.concurrency,
+                    wip_lane=task.wip_lane,
                     owner_node_ref=task.owner_node_ref,
                     branch_ref=task.branch_ref,
                     worktree_ref=task.worktree_ref,
@@ -1261,7 +1291,11 @@ class DeveloperWorkCoordinator:
                 )
                 for task in sorted(
                     snapshot.tasks,
-                    key=lambda task: (_priority_rank(task.priority), task.task_ref),
+                    key=lambda task: (
+                        task.queue_order,
+                        _priority_rank(task.priority),
+                        task.task_ref,
+                    ),
                 )
             ],
             next_task_by_node_ref={
@@ -1274,6 +1308,21 @@ class DeveloperWorkCoordinator:
                 for node_ref in next_nodes
             },
             active_exclusive_task_ref=active_exclusive,
+            active_task_by_wip_lane={
+                lane: next(
+                    (
+                        task.task_ref
+                        for task in snapshot.tasks
+                        if task.state == "claimed" and task.wip_lane == lane
+                    ),
+                    None,
+                )
+                for lane in (
+                    "shared_core",
+                    "product_surface",
+                    "verification_read_only",
+                )
+            },
             archive_ready_task_refs=[
                 task.task_ref
                 for task in sorted(snapshot.tasks, key=lambda task: task.task_ref)
@@ -1337,6 +1386,13 @@ class DeveloperWorkCoordinator:
             >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
         ):
             raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_NODE_WIP_LIMIT")
+        if self._global_claim_count(snapshot) >= DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT:
+            raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_GLOBAL_WIP_LIMIT")
+        if any(
+            candidate.state == "claimed" and candidate.wip_lane == task.wip_lane
+            for candidate in snapshot.tasks
+        ):
+            raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_WIP_LANE_LIMIT")
         if task.concurrency == "exclusive" and any(
             candidate.state == "claimed" and candidate.concurrency == "exclusive"
             for candidate in snapshot.tasks
@@ -1521,13 +1577,22 @@ class DeveloperWorkCoordinator:
             >= DEVELOPER_COORDINATOR_NODE_WIP_LIMIT
         ):
             return None
+        if self._global_claim_count(snapshot) >= DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT:
+            return None
         exclusive_active = any(
             task.state == "claimed" and task.concurrency == "exclusive"
             for task in snapshot.tasks
         )
+        active_lanes = {
+            task.wip_lane for task in snapshot.tasks if task.state == "claimed"
+        }
         candidates = sorted(
             snapshot.tasks,
-            key=lambda task: (_priority_rank(task.priority), task.task_ref),
+            key=lambda task: (
+                task.queue_order,
+                _priority_rank(task.priority),
+                task.task_ref,
+            ),
         )
         for task in candidates:
             if task.state != "queued" or not self._dependencies_complete(
@@ -1535,6 +1600,8 @@ class DeveloperWorkCoordinator:
             ):
                 continue
             if task.concurrency == "exclusive" and exclusive_active:
+                continue
+            if task.wip_lane in active_lanes:
                 continue
             return task
         return None
@@ -1564,6 +1631,10 @@ class DeveloperWorkCoordinator:
             for task in snapshot.tasks
             if task.state == "claimed" and task.owner_node_ref == node_ref
         )
+
+    @staticmethod
+    def _global_claim_count(snapshot: DeveloperWorkQueueSnapshot) -> int:
+        return sum(1 for task in snapshot.tasks if task.state == "claimed")
 
     @staticmethod
     def _find_task(
