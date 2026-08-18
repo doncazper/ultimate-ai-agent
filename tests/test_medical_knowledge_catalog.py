@@ -105,6 +105,20 @@ def test_catalog_models_fail_closed_if_authority_flag_is_enabled() -> None:
         )
 
 
+def test_catalog_contracts_and_nested_collections_are_immutable() -> None:
+    catalog = build_medical_knowledge_catalog()
+    source = catalog.sources[0]
+
+    with pytest.raises(ValidationError):
+        catalog.runtime_fetch_enabled = True
+    with pytest.raises(ValidationError):
+        source.runtime_fetch_enabled = True
+    with pytest.raises(AttributeError):
+        catalog.sources.append(source)  # type: ignore[attr-defined]
+    with pytest.raises(AttributeError):
+        source.citation_locator_requirements.append("unsafe")  # type: ignore[attr-defined]
+
+
 def test_unknown_medical_source_is_rejected() -> None:
     with pytest.raises(KeyError, match="UNREGISTERED_MEDICAL_KNOWLEDGE_SOURCE"):
         get_medical_knowledge_source("unregistered_source")

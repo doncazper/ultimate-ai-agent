@@ -47,7 +47,7 @@ class MedicalSourceIntegrationState(str, Enum):
 
 class _MedicalKnowledgeModel(BaseModel):
     model_config = ConfigDict(
-        extra="forbid", use_enum_values=True, hide_input_in_errors=True
+        extra="forbid", frozen=True, use_enum_values=True, hide_input_in_errors=True
     )
 
     def model_copy(
@@ -67,8 +67,8 @@ class MedicalKnowledgeSource(_MedicalKnowledgeModel):
     integration_state: MedicalSourceIntegrationState
     source_scope: str = Field(..., min_length=10, max_length=500)
     license_posture: str = Field(..., min_length=10, max_length=500)
-    citation_locator_requirements: list[str] = Field(..., min_length=1)
-    future_adapter_scope: list[str] = Field(default_factory=list)
+    citation_locator_requirements: tuple[str, ...] = Field(..., min_length=1)
+    future_adapter_scope: tuple[str, ...] = Field(default_factory=tuple)
     last_reviewed_at: date = MEDICAL_KNOWLEDGE_LAST_REVIEWED_AT
     registered_as_base_reference: bool = True
     catalog_contains_source_content: bool = False
@@ -116,7 +116,7 @@ class MedicalKnowledgeSource(_MedicalKnowledgeModel):
 class MedicalKnowledgeCatalog(_MedicalKnowledgeModel):
     contract_ref: str = MEDICAL_KNOWLEDGE_CONTRACT_REF
     schema_version: str = "medical_knowledge_source_catalog.v1"
-    sources: list[MedicalKnowledgeSource] = Field(..., min_length=1)
+    sources: tuple[MedicalKnowledgeSource, ...] = Field(..., min_length=1)
     medical_use_requires_current_citations: bool = True
     medical_use_requires_human_clinical_judgment: bool = True
     contradictory_evidence_must_be_disclosed: bool = True

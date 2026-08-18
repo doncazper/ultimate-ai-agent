@@ -39,11 +39,11 @@ has learned, verified, or internalized it.
 - UTF-8 plain text and Markdown, with line locators
 - HTML, with scripts and styles excluded
 - EPUB, with bounded archive inspection and section locators
-- text-bearing PDF, using the narrow `pypdf` parser and page locators
 
-Scanned/image-only PDFs require a future governed OCR lane. Encrypted PDFs,
-unsupported formats, empty sources, oversized files/archives, secret-like
-content, and changing-during-read sources fail closed.
+PDF parsing remains blocked pending a separately reviewed dependency and parser
+hardening lane; scanned/image-only PDFs additionally require a future governed
+OCR lane. Unsupported formats, empty sources, oversized files/archives,
+secret-like content, and changing-during-read sources fail closed.
 
 ## Rights gate
 
@@ -72,7 +72,7 @@ Plan first; this reads and parses the file but does not create the store:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
-  plan-ingest path/to/source.pdf \
+  plan-ingest path/to/source.epub \
   --title "Source title" \
   --rights-basis licensed_for_local_retrieval \
   --rights-evidence-ref rights-evidence-ref:replace-with-reviewed-ref \
@@ -88,7 +88,7 @@ After reviewing the content-free plan, apply only that exact scope:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
-  ingest path/to/source.pdf \
+  ingest path/to/source.epub \
   --title "Source title" \
   --rights-basis licensed_for_local_retrieval \
   --rights-evidence-ref rights-evidence-ref:replace-with-reviewed-ref \

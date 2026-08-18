@@ -8,6 +8,8 @@ import pytest
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.capabilities.enums import RiskLevel as CapabilityRiskLevel
+from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -41,7 +43,12 @@ def _prepare(store: KnowledgeDumpStore, source: Path, **updates):  # type: ignor
     return store.prepare_ingest(source, **values)
 
 
-def _approve(store: KnowledgeDumpStore, prepared):  # type: ignore[no-untyped-def]
+def _approve(
+    store: KnowledgeDumpStore,
+    prepared,  # type: ignore[no-untyped-def]
+    *,
+    approved_by_actor_id: str | None = None,
+):  # type: ignore[no-untyped-def]
     actor = _actor()
     authority = LocalApprovalAuthority()
     request = store.approval_request_for_ingest(
@@ -50,7 +57,7 @@ def _approve(store: KnowledgeDumpStore, prepared):  # type: ignore[no-untyped-de
     authority.create_request(request)
     grant = authority.grant(
         request.approval_request_id,
-        approved_by_actor_id=actor.actor_id,
+        approved_by_actor_id=approved_by_actor_id or actor.actor_id,
         approved_actions=[request.requested_action],
         approved_resource_refs=request.resource_refs,
         approval_ref="approval:knowledge-dump:test",
@@ -100,6 +107,19 @@ def test_oversized_source_is_rejected_before_read(tmp_path: Path) -> None:
     store = KnowledgeDumpStore(tmp_path / "dump")
 
     with pytest.raises(ValueError, match="KNOWLEDGE_SOURCE_SIZE_OUT_OF_BOUNDS"):
+        _prepare(store, source)
+
+    assert not store.database_path.exists()
+
+
+def test_pdf_parser_remains_blocked_without_dependency_authority(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "reference.pdf"
+    source.write_bytes(b"%PDF-1.7 synthetic")
+    store = KnowledgeDumpStore(tmp_path / "dump")
+
+    with pytest.raises(ValueError, match="KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED"):
         _prepare(store, source)
 
     assert not store.database_path.exists()
@@ -197,6 +217,28 @@ def test_ingest_requires_exact_local_approval(tmp_path: Path) -> None:
             approval_ref="approval:unknown",
             actor_context=_actor(),
             run_id="run:knowledge-dump:test",
+        )
+
+    assert not store.database_path.exists()
+
+
+def test_ingest_requires_policy_eligibility_before_approval(tmp_path: Path) -> None:
+    source = tmp_path / "reference.txt"
+    source.write_text("A bounded synthetic policy statement.", encoding="utf-8")
+    store = KnowledgeDumpStore(
+        tmp_path / "dump",
+        policy_engine=PolicyEngine(default_max_risk=CapabilityRiskLevel.low),
+    )
+    prepared = _prepare(store, source)
+    actor, authority, approval_ref = _approve(store, prepared)
+
+    with pytest.raises(PermissionError, match="KNOWLEDGE_MUTATION_POLICY_DENIED"):
+        store.ingest(
+            prepared,
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=actor,
+            run_id="run:knowledge-dump:policy-denied",
         )
 
     assert not store.database_path.exists()
@@ -304,7 +346,10 @@ def test_ingest_search_and_context_pack_are_cited_and_idempotent(
     )
     store = KnowledgeDumpStore(tmp_path / "dump")
     prepared = _prepare(store, source)
-    actor, authority, approval_ref = _approve(store, prepared)
+    approver_actor_id = "knowledge_test_approver"
+    actor, authority, approval_ref = _approve(
+        store, prepared, approved_by_actor_id=approver_actor_id
+    )
 
     receipt = store.ingest(
         prepared,
@@ -344,10 +389,15 @@ def test_ingest_search_and_context_pack_are_cited_and_idempotent(
     assert len(audit_records) == 1
     assert audit_records[0].operation == "ingest"
     assert audit_records[0].mutation_performed is True
-    assert _actor().actor_id not in str(audit_records[0].model_dump(mode="json"))
+    serialized_audit = str(audit_records[0].model_dump(mode="json"))
+    assert audit_records[0].approver_ref.startswith("knowledge-approver-ref:sha256:")
+    assert _actor().actor_id not in serialized_audit
+    assert approver_actor_id not in serialized_audit
 
 
-def test_filtered_search_ranks_only_within_allowed_documents(tmp_path: Path) -> None:
+def test_filtered_search_ranks_only_within_allowed_documents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = KnowledgeDumpStore(tmp_path / "dump")
     dominant_source = tmp_path / "dominant.txt"
     dominant_source.write_text(("marker " * 10_000).strip(), encoding="utf-8")
@@ -385,6 +435,14 @@ def test_filtered_search_ranks_only_within_allowed_documents(tmp_path: Path) -> 
         run_id="run:knowledge-dump:test",
     )
 
+    def separate_inventory_connection_is_forbidden(**_kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError(
+            "filtered search must resolve membership in its query transaction"
+        )
+
+    monkeypatch.setattr(
+        store, "list_documents", separate_inventory_connection_is_forbidden
+    )
     hits = store.search("marker", category="allowed", limit=1)
 
     assert [hit.citation.document_ref for hit in hits] == [allowed_receipt.document_ref]

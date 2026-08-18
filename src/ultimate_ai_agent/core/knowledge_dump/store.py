@@ -18,6 +18,19 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalSubjectType,
     LocalApprovalAuthority,
 )
+from ultimate_ai_agent.core.capabilities.enums import (
+    CapabilityKind,
+    CoordinationMode,
+    PolicyDecisionStatus,
+    RiskLevel as CapabilityRiskLevel,
+    SideEffectLevel,
+)
+from ultimate_ai_agent.core.capabilities.models import (
+    CapabilityManifest,
+    SafetyPolicy,
+    TaskEnvelope,
+)
+from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
@@ -166,9 +179,17 @@ def _metadata_scope_ref(plan: KnowledgeMetadataUpdatePlan) -> str:
 class KnowledgeDumpStore:
     """SQLite-backed local corpus with exact approval and cited lexical retrieval."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        policy_engine: PolicyEngine | None = None,
+    ) -> None:
         self.root = Path(root).expanduser().resolve()
         self.database_path = self.root / "knowledge.sqlite3"
+        self.policy_engine = policy_engine or PolicyEngine(
+            default_max_risk=CapabilityRiskLevel.high
+        )
 
     @property
     def store_ref(self) -> str:
@@ -315,13 +336,23 @@ class KnowledgeDumpStore:
         request = self.approval_request_for_ingest(
             prepared, actor_context=actor_context, run_id=run_id
         )
+        self._require_mutation_policy(
+            operation="ingest",
+            plan_ref=prepared.plan.plan_ref,
+            exact_scope_ref=prepared.plan.exact_scope_ref,
+            idempotency_key=prepared.plan.idempotency_key,
+        )
         with approval_authority.hold_validation_lock():
             decision = approval_authority.validate_for_request(request, approval_ref)
             if not decision.allowed:
                 raise PermissionError("KNOWLEDGE_INGEST_EXACT_APPROVAL_REQUIRED")
+            grant = approval_authority.get_grant(approval_ref)
+            if grant is None:
+                raise PermissionError("KNOWLEDGE_INGEST_EXACT_APPROVAL_REQUIRED")
             return self._persist_approved_ingest(
                 prepared,
                 approval_ref=approval_ref,
+                approver_actor_id=grant.approved_by_actor_id,
                 actor_context=actor_context,
                 run_id=run_id,
             )
@@ -331,6 +362,7 @@ class KnowledgeDumpStore:
         prepared: PreparedKnowledgeIngest,
         *,
         approval_ref: str,
+        approver_actor_id: str,
         actor_context: ActorContext,
         run_id: str,
     ) -> KnowledgeIngestReceipt:
@@ -438,6 +470,7 @@ class KnowledgeDumpStore:
                     operation="ingest",
                     receipt=receipt,
                     subject_ref=document_ref,
+                    approver_actor_id=approver_actor_id,
                     actor_context=actor_context,
                     run_id=run_id,
                 ),
@@ -531,6 +564,7 @@ class KnowledgeDumpStore:
                 subject_ref=row["subject_ref"],
                 approval_ref=row["approval_ref"],
                 actor_ref=row["actor_ref"],
+                approver_ref=row["approver_ref"],
                 run_ref=row["run_ref"],
                 idempotency_key=row["idempotency_key"],
                 mutation_performed=bool(row["mutation_performed"]),
@@ -637,13 +671,23 @@ class KnowledgeDumpStore:
         request = self.approval_request_for_metadata_update(
             prepared, actor_context=actor_context, run_id=run_id
         )
+        self._require_mutation_policy(
+            operation="metadata_update",
+            plan_ref=prepared.plan.plan_ref,
+            exact_scope_ref=prepared.plan.exact_scope_ref,
+            idempotency_key=prepared.plan.idempotency_key,
+        )
         with approval_authority.hold_validation_lock():
             decision = approval_authority.validate_for_request(request, approval_ref)
             if not decision.allowed:
                 raise PermissionError("KNOWLEDGE_METADATA_EXACT_APPROVAL_REQUIRED")
+            grant = approval_authority.get_grant(approval_ref)
+            if grant is None:
+                raise PermissionError("KNOWLEDGE_METADATA_EXACT_APPROVAL_REQUIRED")
             return self._persist_approved_metadata_update(
                 prepared,
                 approval_ref=approval_ref,
+                approver_actor_id=grant.approved_by_actor_id,
                 actor_context=actor_context,
                 run_id=run_id,
             )
@@ -653,6 +697,7 @@ class KnowledgeDumpStore:
         prepared: PreparedKnowledgeMetadataUpdate,
         *,
         approval_ref: str,
+        approver_actor_id: str,
         actor_context: ActorContext,
         run_id: str,
     ) -> KnowledgeMetadataUpdateReceipt:
@@ -735,6 +780,7 @@ class KnowledgeDumpStore:
                     operation="metadata_update",
                     receipt=receipt,
                     subject_ref=plan.document_ref,
+                    approver_actor_id=approver_actor_id,
                     actor_context=actor_context,
                     run_id=run_id,
                 ),
@@ -758,20 +804,32 @@ class KnowledgeDumpStore:
             raise ValueError("KNOWLEDGE_QUERY_SECRET_LIKE")
         if not self.database_path.exists():
             return []
-        allowed_document_refs = {
-            item.document_ref
-            for item in self.list_documents(
-                source_kind=source_kind,
-                category=category,
-                collection=collection,
-                tag=tag,
-                sort_by="oldest",
-            )
-        }
-        if not allowed_document_refs:
-            return []
         match_query = " OR ".join(f'"{token.replace(chr(34), "")}"' for token in tokens)
         with self._connect() as connection:
+            connection.execute("BEGIN")
+            clauses: list[str] = []
+            parameters: list[str] = []
+            if source_kind is not None:
+                clauses.append("source_kind = ?")
+                parameters.append(_enum_value(source_kind))
+            if category is not None:
+                clauses.append("category = ?")
+                parameters.append(category)
+            if collection is not None:
+                clauses.append("collection = ?")
+                parameters.append(collection)
+            where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+            membership_rows = connection.execute(
+                f"SELECT document_ref, tags_json FROM documents{where}",
+                parameters,
+            ).fetchall()
+            allowed_document_refs = {
+                str(row["document_ref"])
+                for row in membership_rows
+                if tag is None or tag in json.loads(row["tags_json"])
+            }
+            if not allowed_document_refs:
+                return []
             connection.execute(
                 "CREATE TEMP TABLE allowed_document_refs "
                 "(document_ref TEXT PRIMARY KEY)"
@@ -993,6 +1051,7 @@ class KnowledgeDumpStore:
                     subject_ref TEXT NOT NULL,
                     approval_ref TEXT NOT NULL,
                     actor_ref TEXT NOT NULL,
+                    approver_ref TEXT NOT NULL,
                     run_ref TEXT NOT NULL,
                     idempotency_key TEXT NOT NULL,
                     mutation_performed INTEGER NOT NULL,
@@ -1017,6 +1076,84 @@ class KnowledgeDumpStore:
                     connection.execute(
                         f"ALTER TABLE documents ADD COLUMN {name} {declaration}"
                     )
+            audit_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(audit_records)"
+                ).fetchall()
+            }
+            if "approver_ref" not in audit_columns:
+                connection.execute(
+                    "ALTER TABLE audit_records ADD COLUMN approver_ref TEXT NOT NULL "
+                    "DEFAULT 'knowledge-approver-ref:legacy-unknown'"
+                )
+
+    def _require_mutation_policy(
+        self,
+        *,
+        operation: str,
+        plan_ref: str,
+        exact_scope_ref: str,
+        idempotency_key: str,
+    ) -> None:
+        manifest = CapabilityManifest(
+            id=f"knowledge.dump.{operation}",
+            version="q03-v1",
+            kind=CapabilityKind.tool,
+            name=f"knowledge.dump.{operation}",
+            description="Policy gate for exact-approved local knowledge mutation.",
+            owner="core.knowledge_dump",
+            tags=["knowledge", "local", "approval"],
+            examples=["Apply one exact-approved local knowledge mutation."],
+            anti_examples=["Persist source content without policy and exact approval."],
+            input_schema={
+                "type": "object",
+                "required": ["exact_scope_ref", "idempotency_key"],
+                "additionalProperties": False,
+            },
+            output_schema={
+                "type": "object",
+                "required": ["approval_required"],
+                "additionalProperties": True,
+            },
+            input_modes=["safe_ref", "redacted_summary"],
+            output_modes=["policy_decision"],
+            side_effects=SideEffectLevel.write,
+            risk_level=CapabilityRiskLevel.high,
+            approval_required=True,
+            allowed_coordination_modes=[CoordinationMode.direct_tool],
+            single_writer_required=True,
+            safety=SafetyPolicy(
+                require_single_writer=True,
+                approval_required=True,
+                max_risk_level=CapabilityRiskLevel.high,
+                max_side_effect_level=SideEffectLevel.write,
+            ),
+        )
+        task = TaskEnvelope(
+            task_id=f"knowledge-mutation-policy:{plan_ref}",
+            user_request=f"Evaluate approval-bound local knowledge {operation} policy.",
+            objective="Require policy eligibility before exact approval validation.",
+            selected_capability_ids=[manifest.id],
+            allowed_tool_ids=[manifest.id],
+            context={
+                "exact_scope_ref": exact_scope_ref,
+                "idempotency_key": idempotency_key,
+            },
+        )
+        decision = self.policy_engine.can_execute(
+            manifest,
+            task,
+            {
+                "max_risk_level": self.policy_engine.default_max_risk.value,
+                "idempotency_key": idempotency_key,
+            },
+        )
+        if not (
+            decision.status == PolicyDecisionStatus.approval_required
+            and decision.requires_approval
+        ):
+            raise PermissionError("KNOWLEDGE_MUTATION_POLICY_DENIED")
 
     @staticmethod
     def _audit_record(
@@ -1024,10 +1161,12 @@ class KnowledgeDumpStore:
         operation: str,
         receipt: KnowledgeIngestReceipt | KnowledgeMetadataUpdateReceipt,
         subject_ref: str,
+        approver_actor_id: str,
         actor_context: ActorContext,
         run_id: str,
     ) -> KnowledgeAuditRecord:
         actor_ref = _hash_ref("knowledge-actor-ref", actor_context.actor_id)
+        approver_ref = _hash_ref("knowledge-approver-ref", approver_actor_id)
         run_ref = _hash_ref("knowledge-run-ref", run_id)
         audit_ref = _hash_ref(
             "knowledge-audit-ref",
@@ -1037,6 +1176,7 @@ class KnowledgeDumpStore:
                     receipt.exact_scope_ref,
                     receipt.approval_ref,
                     actor_ref,
+                    approver_ref,
                     run_ref,
                 )
             ),
@@ -1049,6 +1189,7 @@ class KnowledgeDumpStore:
             subject_ref=subject_ref,
             approval_ref=receipt.approval_ref,
             actor_ref=actor_ref,
+            approver_ref=approver_ref,
             run_ref=run_ref,
             idempotency_key=receipt.idempotency_key,
             mutation_performed=receipt.mutation_performed,
@@ -1062,9 +1203,9 @@ class KnowledgeDumpStore:
         connection.execute(
             """INSERT OR IGNORE INTO audit_records
                (audit_ref, operation, receipt_ref, exact_scope_ref, subject_ref,
-                approval_ref, actor_ref, run_ref, idempotency_key,
+                approval_ref, actor_ref, approver_ref, run_ref, idempotency_key,
                 mutation_performed, reason_codes_json, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 record.audit_ref,
                 record.operation,
@@ -1073,6 +1214,7 @@ class KnowledgeDumpStore:
                 record.subject_ref,
                 record.approval_ref,
                 record.actor_ref,
+                record.approver_ref,
                 record.run_ref,
                 record.idempotency_key,
                 int(record.mutation_performed),

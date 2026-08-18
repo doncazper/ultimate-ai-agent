@@ -29,6 +29,7 @@ SYSTEM_MAP_CAPABILITY_SOURCE_MODULES = (
     "ultimate_ai_agent.core.device_capabilities.manifests",
     "ultimate_ai_agent.core.files.manager",
     "ultimate_ai_agent.core.governed_browser.contracts",
+    "ultimate_ai_agent.core.knowledge_dump.store",
     "ultimate_ai_agent.core.providers.credential_validation",
     "ultimate_ai_agent.core.providers.invocation",
     "ultimate_ai_agent.core.sandbox_calculation.adapter",

@@ -14,7 +14,6 @@ from ultimate_ai_agent.core.knowledge_dump.models import KnowledgeFormat
 
 MAX_SOURCE_BYTES = 100 * 1024 * 1024
 MAX_EXTRACTED_CHARACTERS = 20_000_000
-MAX_PDF_PAGES = 5_000
 MAX_EPUB_ENTRIES = 10_000
 
 
@@ -76,7 +75,6 @@ def detect_format(path: Path) -> KnowledgeFormat:
         ".html": KnowledgeFormat.html,
         ".htm": KnowledgeFormat.html,
         ".epub": KnowledgeFormat.epub,
-        ".pdf": KnowledgeFormat.pdf,
     }
     if suffix not in mapping:
         raise ValueError("KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED")
@@ -97,8 +95,6 @@ def extract_sections(
         sections = _extract_html(path)
     elif source_format == KnowledgeFormat.epub:
         sections = _extract_epub(path)
-    elif source_format == KnowledgeFormat.pdf:
-        sections = _extract_pdf(path)
     else:
         raise ValueError("KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED")
     total = sum(len(section.text) for section in sections)
@@ -208,24 +204,6 @@ def _epub_spine_names(archive: zipfile.ZipFile) -> list[str]:
     if not names:
         raise ValueError("KNOWLEDGE_EPUB_SPINE_HAS_NO_TEXT")
     return names
-
-
-def _extract_pdf(path: Path) -> list[ExtractedSection]:
-    try:
-        from pypdf import PdfReader
-    except ImportError as exc:
-        raise RuntimeError("KNOWLEDGE_PDF_PARSER_NOT_INSTALLED") from exc
-    reader = PdfReader(str(path))
-    if reader.is_encrypted:
-        raise ValueError("KNOWLEDGE_ENCRYPTED_PDF_UNSUPPORTED")
-    if len(reader.pages) > MAX_PDF_PAGES:
-        raise ValueError("KNOWLEDGE_PDF_PAGE_COUNT_OUT_OF_BOUNDS")
-    sections = []
-    for page_number, page in enumerate(reader.pages, 1):
-        text = _normalize_text(page.extract_text() or "")
-        if text:
-            sections.append(ExtractedSection(f"page:{page_number}", text))
-    return sections
 
 
 def _normalize_text(text: str) -> str:

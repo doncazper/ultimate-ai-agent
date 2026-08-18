@@ -326,6 +326,7 @@ class KnowledgeAuditRecord(_KnowledgeModel):
     subject_ref: str
     approval_ref: str
     actor_ref: str
+    approver_ref: str
     run_ref: str
     idempotency_key: str
     mutation_performed: bool
@@ -346,6 +347,7 @@ class KnowledgeAuditRecord(_KnowledgeModel):
         "subject_ref",
         "approval_ref",
         "actor_ref",
+        "approver_ref",
         "run_ref",
         "idempotency_key",
     )
