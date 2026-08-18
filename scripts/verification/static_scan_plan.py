@@ -17,7 +17,7 @@ DEFAULT_SCAN_MILLISECONDS = 100.0
 # registry is reviewed and this value is intentionally updated.
 APPROVED_PARALLEL_REGISTRY_FINGERPRINT = (
     "static-registry-ref:sha256:"
-    "95bd72d4a032423740cd524e27e187e3c730f675f908315320eca73f20df7ab7"
+    "204e8346c96fede3f2086a8fb3dad1da9084a23d16fd4df69c62a8d4ebd247e7"
 )
 EXCLUSIVE_SCAN_FUNCTIONS = frozenset(
     {

@@ -45,5 +45,7 @@ Avoid phase-only titles such as "close final gaps", "refresh provenance", or
 
 - [ ] Focused tests accompany behavior changes.
 - [ ] Relevant docs and indexes are updated.
+- [ ] New or changed capabilities and product features are registered in the
+      typed system-map sources, and `make verify-system-map` passes.
 - [ ] Route changes update OpenAPI, API manifest, and side-effect classification.
 - [ ] UI changes preserve backend ownership and include frontend verification.
