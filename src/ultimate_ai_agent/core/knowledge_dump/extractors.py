@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from html.parser import HTMLParser
+from pathlib import Path
+import re
+import zipfile
+
+from ultimate_ai_agent.core.knowledge_dump.models import KnowledgeFormat
+
+
+MAX_SOURCE_BYTES = 100 * 1024 * 1024
+MAX_EXTRACTED_CHARACTERS = 20_000_000
+MAX_PDF_PAGES = 5_000
+MAX_EPUB_ENTRIES = 10_000
+
+
+@dataclass(frozen=True)
+class ExtractedSection:
+    locator: str
+    text: str
+
+
+class _TextHTMLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._ignored_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self._ignored_depth += 1
+        elif not self._ignored_depth and tag in {
+            "p",
+            "div",
+            "br",
+            "li",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+        }:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"} and self._ignored_depth:
+            self._ignored_depth -= 1
+        elif not self._ignored_depth and tag in {
+            "p",
+            "div",
+            "li",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+        }:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self._ignored_depth:
+            self.parts.append(data)
+
+    def text(self) -> str:
+        return _normalize_text("".join(self.parts))
+
+
+def detect_format(path: Path) -> KnowledgeFormat:
+    suffix = path.suffix.lower()
+    mapping = {
+        ".txt": KnowledgeFormat.plain_text,
+        ".md": KnowledgeFormat.markdown,
+        ".markdown": KnowledgeFormat.markdown,
+        ".html": KnowledgeFormat.html,
+        ".htm": KnowledgeFormat.html,
+        ".epub": KnowledgeFormat.epub,
+        ".pdf": KnowledgeFormat.pdf,
+    }
+    if suffix not in mapping:
+        raise ValueError("KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED")
+    return mapping[suffix]
+
+
+def extract_sections(
+    path: Path, source_format: KnowledgeFormat
+) -> list[ExtractedSection]:
+    if not path.is_file():
+        raise ValueError("KNOWLEDGE_SOURCE_FILE_REQUIRED")
+    size = path.stat().st_size
+    if size <= 0 or size > MAX_SOURCE_BYTES:
+        raise ValueError("KNOWLEDGE_SOURCE_SIZE_OUT_OF_BOUNDS")
+    if source_format in {KnowledgeFormat.plain_text, KnowledgeFormat.markdown}:
+        sections = _extract_text(path)
+    elif source_format == KnowledgeFormat.html:
+        sections = _extract_html(path)
+    elif source_format == KnowledgeFormat.epub:
+        sections = _extract_epub(path)
+    elif source_format == KnowledgeFormat.pdf:
+        sections = _extract_pdf(path)
+    else:
+        raise ValueError("KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED")
+    total = sum(len(section.text) for section in sections)
+    if not sections or total <= 0:
+        raise ValueError("KNOWLEDGE_SOURCE_HAS_NO_EXTRACTABLE_TEXT")
+    if total > MAX_EXTRACTED_CHARACTERS:
+        raise ValueError("KNOWLEDGE_EXTRACTED_TEXT_OUT_OF_BOUNDS")
+    return sections
+
+
+def _extract_text(path: Path) -> list[ExtractedSection]:
+    text = path.read_text(encoding="utf-8-sig")
+    lines = text.splitlines()
+    sections: list[ExtractedSection] = []
+    start = 1
+    buffer: list[str] = []
+    for number, line in enumerate(lines, 1):
+        if not line.strip() and buffer:
+            sections.append(
+                ExtractedSection(
+                    f"lines:{start}-{number - 1}", _normalize_text("\n".join(buffer))
+                )
+            )
+            buffer = []
+            start = number + 1
+        elif line.strip():
+            if not buffer:
+                start = number
+            buffer.append(line)
+    if buffer:
+        sections.append(
+            ExtractedSection(
+                f"lines:{start}-{len(lines)}", _normalize_text("\n".join(buffer))
+            )
+        )
+    return [section for section in sections if section.text]
+
+
+def _extract_html(path: Path) -> list[ExtractedSection]:
+    parser = _TextHTMLParser()
+    parser.feed(path.read_text(encoding="utf-8-sig"))
+    return [ExtractedSection("document", parser.text())]
+
+
+def _extract_epub(path: Path) -> list[ExtractedSection]:
+    sections: list[ExtractedSection] = []
+    with zipfile.ZipFile(path) as archive:
+        infos = archive.infolist()
+        if (
+            len(infos) > MAX_EPUB_ENTRIES
+            or sum(info.file_size for info in infos) > MAX_SOURCE_BYTES
+        ):
+            raise ValueError("KNOWLEDGE_EPUB_ARCHIVE_OUT_OF_BOUNDS")
+        names = sorted(
+            info.filename
+            for info in infos
+            if not info.is_dir()
+            and Path(info.filename).suffix.lower() in {".xhtml", ".html", ".htm"}
+        )
+        for ordinal, name in enumerate(names, 1):
+            parser = _TextHTMLParser()
+            parser.feed(archive.read(name).decode("utf-8", errors="replace"))
+            text = parser.text()
+            if text:
+                sections.append(ExtractedSection(f"epub-section:{ordinal}", text))
+    return sections
+
+
+def _extract_pdf(path: Path) -> list[ExtractedSection]:
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:
+        raise RuntimeError("KNOWLEDGE_PDF_PARSER_NOT_INSTALLED") from exc
+    reader = PdfReader(str(path))
+    if reader.is_encrypted:
+        raise ValueError("KNOWLEDGE_ENCRYPTED_PDF_UNSUPPORTED")
+    if len(reader.pages) > MAX_PDF_PAGES:
+        raise ValueError("KNOWLEDGE_PDF_PAGE_COUNT_OUT_OF_BOUNDS")
+    sections = []
+    for page_number, page in enumerate(reader.pages, 1):
+        text = _normalize_text(page.extract_text() or "")
+        if text:
+            sections.append(ExtractedSection(f"page:{page_number}", text))
+    return sections
+
+
+def _normalize_text(text: str) -> str:
+    text = text.replace("\x00", " ")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
