@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 172,
-  "fingerprint": "api-contract-fingerprint:sha256:da9ff2147f5a9b0738bfa01aed2d702c5c8c7c450b515e0af35fbd10f8f793d7",
+  "control_center_route_count": 173,
+  "fingerprint": "api-contract-fingerprint:sha256:5fe12a1876c79d25f77d116b45a354135003b4f0260ae8a680b4a520628a5965",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 119,
-  "openapi_path_count": 346,
+  "mutating_route_count": 120,
+  "openapi_path_count": 347,
   "projection_fields": [
     "path",
     "method",
@@ -25,16 +25,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 229,
-    "required_before_mutation_authority": 119
+    "required_before_mutation_authority": 120
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 345,
+    "protected_local_bearer_required": 346,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 29,
     "local_sensitive": 197,
-    "mutating_requires_authority": 119,
+    "mutating_requires_authority": 120,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 348,
+  "route_count": 349,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 229,
-    "required_before_mutation_authority": 119
+    "required_before_mutation_authority": 120
   },
-  "route_operation_count": 348,
+  "route_operation_count": 349,
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 201,
-    "targeted_local_fixed_window": 147
+    "targeted_local_fixed_window": 148
   },
   "routes": [
     {
@@ -1790,6 +1790,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post control center actions action id approve",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_actions_action_id_cancel",
+      "path": "/control-center/actions/{action_id}/cancel",
+      "rate_limit_group": "action_decision",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post control center actions action id cancel",
       "tags": [
         "control-center"
       ]
@@ -7020,5 +7040,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 147
+  "targeted_rate_limit_route_count": 148
 }

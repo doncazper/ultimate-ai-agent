@@ -85,6 +85,12 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:api-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:api-local-task-action-approval",

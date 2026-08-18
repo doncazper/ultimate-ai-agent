@@ -145,8 +145,7 @@ def test_backend_truth_uses_bounded_durable_receipt_candidate_window(
         ]
     assert "idx_local_task_commit_receipts_created_item" in indexes
     assert any(
-        "idx_local_task_commit_receipts_created_item" in step
-        for step in query_plan
+        "idx_local_task_commit_receipts_created_item" in step for step in query_plan
     )
 
 
@@ -168,9 +167,10 @@ def test_backend_truth_rejects_completion_when_source_revision_is_unbound(
 
     assert truth["source_revision_bound"] is False
     assert truth["evidence_binding"]["status"] == "invalid_evidence"
-    assert "issue-ref:backend-source-revision-unbound" in truth[
-        "evidence_binding"
-    ]["issue_refs"]
+    assert (
+        "issue-ref:backend-source-revision-unbound"
+        in truth["evidence_binding"]["issue_refs"]
+    )
 
 
 def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
@@ -183,18 +183,83 @@ def test_backend_truth_survives_reload_only_with_exact_durable_loop_proof(
     )
     build_dogfood_live_loop_acceptance_read_model(repo=repo, seed_fixture=True)
 
-    reloaded = FounderLoopRepository(state_dir)
-    truth = build_control_center_backend_truth(
-        repo=reloaded,
-        now=NOW,
-        identity=_identity(),
+    committed_action = repo.list_durable_local_task_actions(limit=50)[0]
+    approval_ref = str(committed_action["local_task_commit_approval_ref"])
+    assert approval_ref.startswith("approval-ref:")
+    assert (
+        committed_action["local_task_commit_approval_status"]
+        == "committed_receipt_reference_only"
+    )
+    assert committed_action["local_task_commit_eligible"] is False
+    assert "blocked-state:local-task-already-committed" in committed_action[
+        "local_task_commit_blocked_reasons"
+    ]
+    assert (
+        repo._latest_approved_action_decision_receipt_for_item_ref(
+            str(committed_action["item_ref"])
+        )
+        is None
+    )
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
+        stored = connection.execute(
+            "SELECT grant_json, receipt_json "
+            "FROM founder_loop_internal_approval_grants "
+            "WHERE approval_ref = ?",
+            (approval_ref,),
+        ).fetchone()
+    assert stored is not None
+    grant = json.loads(str(stored[0]))
+    approval_evidence = json.loads(str(stored[1]))
+    assert grant["status"] == "revoked"
+    assert grant["revoked_at"] is not None
+    assert approval_evidence["status"] == "invalidated"
+    assert approval_evidence["invalidated_by_revision_ref"].startswith(
+        "action-revision:"
     )
 
+    reloaded = FounderLoopRepository(state_dir)
+    traced_statements: list[str] = []
+    original_connect = reloaded._connect
+
+    def traced_connect() -> sqlite3.Connection:
+        connection = original_connect()
+        connection.set_trace_callback(traced_statements.append)
+        return connection
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(reloaded, "_connect", traced_connect)
+        with sqlite3.connect(state_dir / "founder_loop.sqlite3") as watcher:
+            before_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+            before_database_state = "\n".join(watcher.iterdump())
+
+            for _ in range(2):
+                reloaded.list_action_inbox(limit=50)
+                validated_receipt = reloaded.validated_local_task_commit_receipt(
+                    str(committed_action["local_task_commit_receipt_ref"])
+                )
+                truth = build_control_center_backend_truth(
+                    repo=reloaded,
+                    now=NOW,
+                    identity=_identity(),
+                )
+
+            after_data_version = watcher.execute("PRAGMA data_version").fetchone()[0]
+            after_database_state = "\n".join(watcher.iterdump())
+
+    assert validated_receipt["approval_ref"] == approval_ref
     assert truth["evidence_binding"]["status"] == "verified_complete"
     assert truth["evidence_binding"]["issue_refs"] == []
     assert truth["evidence_binding"]["receipt_refs"]
     assert truth["evidence_binding"]["proof_refs"]
     assert truth["evidence_binding"]["evidence_refs"]
+    assert after_data_version == before_data_version
+    assert after_database_state == before_database_state
+    assert not any(
+        statement.lstrip().upper().startswith(
+            ("BEGIN IMMEDIATE", "INSERT", "UPDATE", "DELETE", "REPLACE")
+        )
+        for statement in traced_statements
+    )
 
 
 def test_backend_truth_accepts_normal_durable_local_task_evidence(
@@ -209,6 +274,9 @@ def test_backend_truth_accepts_normal_durable_local_task_evidence(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
             metadata_refs=["metadata-ref:operator:daily-loop"],
         ),
@@ -252,6 +320,9 @@ def test_backend_truth_matches_proof_to_each_committed_action(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -305,6 +376,9 @@ def test_backend_truth_discovers_durable_commit_beyond_today_page(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -350,6 +424,9 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -365,8 +442,7 @@ def test_backend_truth_rejects_one_corrupt_claim_among_valid_receipts(
     today = reloaded.today_summary()
     corrupt_item_ref = "founder-action:corrupt-second"
     corrupt_receipt_ref = (
-        "receipt:founder-loop-local-task:corrupt-second:"
-        "idempotency-ref-corrupt-second"
+        "receipt:founder-loop-local-task:corrupt-second:idempotency-ref-corrupt-second"
     )
     corrupt_action = {
         **today["actions"][0],
@@ -479,6 +555,9 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -493,8 +572,7 @@ def test_backend_truth_rejects_tampered_durable_receipt_bindings(
     receipt_ref = str(committed["receipt_ref"])
     with sqlite3.connect(state_dir / "founder_loop.sqlite3") as connection:
         row = connection.execute(
-            "SELECT receipt_json FROM local_task_commit_receipts "
-            "WHERE receipt_ref = ?",
+            "SELECT receipt_json FROM local_task_commit_receipts WHERE receipt_ref = ?",
             (receipt_ref,),
         ).fetchone()
         assert row is not None
@@ -543,6 +621,9 @@ def test_backend_truth_rejects_tampered_durable_task_bindings(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:operator:approve-local-task",
         ),
         idempotency_key_ref="idempotency-ref:operator:approve-local-task",
@@ -701,9 +782,7 @@ def test_backend_truth_api_redacts_real_sqlite_storage_failure(
             "literal_error",
         ),
         (
-            lambda value: value.update(
-                backend_revision_ref="commit-ref:git:untrusted"
-            ),
+            lambda value: value.update(backend_revision_ref="commit-ref:git:untrusted"),
             "envelope integrity mismatch",
         ),
         (
@@ -833,9 +912,10 @@ def test_backend_truth_cli_matches_the_core_contract(tmp_path) -> None:
     assert payload["backend_truth"]["backend_revision_ref"] == (
         f"commit-ref:git:{head}"
     )
-    assert payload["backend_truth"]["authority_posture"][
-        "control_center_grants_authority"
-    ] is False
+    assert (
+        payload["backend_truth"]["authority_posture"]["control_center_grants_authority"]
+        is False
+    )
     assert payload["safe_refs_only"] is True
 
 

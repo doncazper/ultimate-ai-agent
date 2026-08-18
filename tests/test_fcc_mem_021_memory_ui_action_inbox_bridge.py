@@ -73,6 +73,7 @@ def test_fcc_mem_021_memory_proposal_decision_receipt_does_not_mutate_memory(
         action_id=str(item["item_ref"]),
         decision="defer",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(item["action_revision_ref"]),
             decision_reason_ref="decision-reason-ref:fcc-mem-021-memory-proposal-defer",
             defer_until_ref="defer-until-ref:fcc-mem-021-review-later",
             metadata_refs=[

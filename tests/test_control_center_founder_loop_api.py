@@ -88,7 +88,16 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
     assert inbox["decision_state_contract_ref"] == (
         "contract-ref:founder-loop-action-state-machine:v1"
     )
-    assert inbox["decision_actions"] == ["approve", "edit", "reject", "defer"]
+    assert inbox["decision_actions"] == [
+        "approve",
+        "edit",
+        "reject",
+        "defer",
+        "cancel",
+    ]
+    assert inbox["expected_revision_required"] is True
+    assert inbox["cancel_decision_enabled"] is True
+    assert inbox["cancel_invalidates_prior_approvals"] is True
     assert inbox["decision_receipts_required"] is True
     assert inbox["idempotency_replay_enabled"] is True
     assert inbox["idempotency_conflict_rejected"] is True
@@ -177,6 +186,9 @@ def test_control_center_founder_loop_routes_are_storage_backed_and_safe(
         for item in inbox["items"]
         if item["item_ref"] == "founder-action:setup-assistant-hardening"
     )
+    assert setup_item["action_generation"] == 1
+    assert setup_item["action_revision_ref"].startswith("action-revision:")
+    assert setup_item["expected_revision_ref"] == setup_item["action_revision_ref"]
     assert setup_item["approval_required"] is True
     assert (
         setup_item["approval_envelope_ref"]

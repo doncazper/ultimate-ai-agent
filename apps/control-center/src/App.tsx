@@ -24,8 +24,15 @@ import { mockControlCenterData } from "./mocks/controlCenterData";
 import type {
   BackendConnectionSummary,
   ControlCenterData,
+  FounderLoopActionsInbox,
   RuntimeInterfaceModeReadModel,
 } from "./api/types";
+import {
+  ACTION_INBOX_REVISION_REFRESH_EVENT,
+  fetchFounderActionsInbox,
+  submitActionCancellation,
+  type BackendTruthReadBinding,
+} from "./api/client";
 import { isNorthStarPath } from "./northstar/model";
 import {
   canonicalizeControlCenterPath,
@@ -97,18 +104,75 @@ export function NorthStarRoute({
   );
   const truthAdmitted =
     !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
-  const truthReadBinding =
-    truthAdmitted && truthState.truth
-      ? {
-          snapshotRef: truthState.truth.envelope_integrity_ref,
-          backendRevisionRef: truthState.truth.backend_revision_ref,
-          backendInstanceRef: truthState.truth.backend_instance_ref,
-        }
-      : null;
+  const truthReadBinding = useMemo<BackendTruthReadBinding | null>(
+    () =>
+      truthAdmitted && truthState.truth
+        ? {
+            snapshotRef: truthState.truth.envelope_integrity_ref,
+            backendRevisionRef: truthState.truth.backend_revision_ref,
+            backendInstanceRef: truthState.truth.backend_instance_ref,
+          }
+        : null,
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
+  );
   const state = useControlCenterData(
     moduleStatus === "ready" && truthAdmitted,
     truthReadBinding,
   );
+  const loadedActionInbox =
+    state.status === "ready" ? state.data.founderActionsInbox : null;
+  const loadedActionInboxSnapshotKey = loadedActionInbox
+    ? loadedActionInbox.items
+        .map(
+          (item) =>
+            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}`,
+        )
+        .join("|")
+    : "unavailable";
+  const [actionInboxOverride, setActionInboxOverride] =
+    useState<FounderLoopActionsInbox | null>(null);
+  const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
+
+  useEffect(() => {
+    setActionInboxOverride(null);
+    setRevisionRefreshFailed(false);
+  }, [loadedActionInboxSnapshotKey]);
+
+  useEffect(() => {
+    const canonicalPath = canonicalizeControlCenterPath(activePath);
+    if (
+      !["/actions", "/workspace/decisions"].includes(canonicalPath) ||
+      !truthReadBinding
+    )
+      return;
+    let active = true;
+    const refreshAfterConflict = () => {
+      setRevisionRefreshFailed(false);
+      void fetchFounderActionsInbox(truthReadBinding)
+        .then((inbox) => {
+          if (active) setActionInboxOverride(inbox);
+        })
+        .catch(() => {
+          if (active) setRevisionRefreshFailed(true);
+        });
+    };
+    window.addEventListener(
+      ACTION_INBOX_REVISION_REFRESH_EVENT,
+      refreshAfterConflict as EventListener,
+    );
+    return () => {
+      active = false;
+      window.removeEventListener(
+        ACTION_INBOX_REVISION_REFRESH_EVENT,
+        refreshAfterConflict as EventListener,
+      );
+    };
+  }, [activePath, truthReadBinding]);
   const retryCriticalRoute = async () => {
     await truthState.retry();
     state.retry();
@@ -232,6 +296,10 @@ export function NorthStarRoute({
     );
   }
 
+  const visibleData = actionInboxOverride
+    ? { ...state.data, founderActionsInbox: actionInboxOverride }
+    : state.data;
+
   return (
     <Suspense
       fallback={
@@ -241,9 +309,176 @@ export function NorthStarRoute({
       }
     >
       <BackendTruthMutationBindingProvider binding={truthReadBinding}>
-        <NorthStarControlCenter activePath={activePath} data={state.data} />
+        {revisionRefreshFailed ? (
+          <SafeAlert
+            message="The authoritative Action Inbox refresh failed. The last confirmed backend snapshot remains visible; retry the backend read before making another decision."
+            title="Action revision refresh unavailable"
+            tone="warning"
+          />
+        ) : null}
+        {canonicalizeControlCenterPath(activePath) === "/workspace/decisions" ? (
+          <ActionInboxCancellationControl
+            binding={truthReadBinding}
+            data={visibleData}
+            onAuthoritativeRefresh={(inbox) => {
+              setActionInboxOverride(inbox);
+              setRevisionRefreshFailed(false);
+            }}
+          />
+        ) : null}
+        <NorthStarControlCenter activePath={activePath} data={visibleData} />
       </BackendTruthMutationBindingProvider>
     </Suspense>
+  );
+}
+
+function ActionInboxCancellationControl({
+  binding,
+  data,
+  onAuthoritativeRefresh,
+}: {
+  binding: BackendTruthReadBinding | null;
+  data: ControlCenterData;
+  onAuthoritativeRefresh: (inbox: FounderLoopActionsInbox) => void;
+}) {
+  const inbox = data.founderActionsInbox;
+  const [selectedItemRef, setSelectedItemRef] = useState(
+    inbox.items[0]?.item_ref ?? "",
+  );
+  const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState(
+    "Cancel is revision-bound and invalidates every earlier backend-owned approval.",
+  );
+  const selectedItem =
+    inbox.items.find((item) => item.item_ref === selectedItemRef) ??
+    inbox.items[0];
+  const expectedRevisionRef =
+    selectedItem?.action_revision_ref ?? selectedItem?.expected_revision_ref;
+  const authoritative =
+    data.connection.state === "online" &&
+    !data.connection.usingMockData &&
+    data.routeStates["/actions"]?.state === "backend_owned";
+  const localTaskCommitted = Boolean(
+    selectedItem?.local_task_commit_receipt_ref?.startsWith("receipt:"),
+  );
+  const canCancel = Boolean(
+    authoritative &&
+      binding &&
+      inbox.mutating_controls_enabled &&
+      inbox.expected_revision_required &&
+      inbox.cancel_decision_enabled &&
+      selectedItem &&
+      selectedItem.action_revision_decision_eligible === true &&
+      selectedItem.status !== "cancelled" &&
+      !localTaskCommitted &&
+      expectedRevisionRef,
+  );
+
+  useEffect(() => {
+    if (
+      !inbox.items.some((item) => item.item_ref === selectedItemRef)
+    ) {
+      setSelectedItemRef(inbox.items[0]?.item_ref ?? "");
+    }
+  }, [inbox.items, selectedItemRef]);
+
+  async function cancelSelectedRevision() {
+    if (!selectedItem || !expectedRevisionRef || !canCancel || pending) return;
+    setPending(true);
+    setFeedback("Recording the cancellation against the exact displayed revision…");
+    try {
+      const receipt = await submitActionCancellation(
+        selectedItem.item_ref,
+        {
+          expected_revision_ref: expectedRevisionRef,
+          decision_reason_ref:
+            "decision-reason-ref:control-center:action-inbox-cancel",
+          metadata_refs: [
+            "metadata-ref:control-center:action-inbox-cancel",
+            selectedItem.item_ref,
+          ],
+        },
+        binding,
+      );
+      try {
+        const refreshed = await fetchFounderActionsInbox(binding);
+        const refreshedItem = refreshed.items.find(
+          (item) => item.item_ref === selectedItem.item_ref,
+        );
+        const reconciled = Boolean(
+          refreshedItem?.status === "cancelled" &&
+            refreshedItem.action_revision_ref === receipt.result_revision_ref &&
+            refreshedItem.receipt_refs.includes(receipt.receipt_ref),
+        );
+        if (!reconciled) {
+          setFeedback(
+            "A cancellation receipt was returned, but authoritative reconciliation is still pending. The displayed state was not marked committed.",
+          );
+          return;
+        }
+        onAuthoritativeRefresh(refreshed);
+        setFeedback(
+          `Cancellation confirmed by the refreshed backend read model · ${receipt.receipt_ref}.`,
+        );
+      } catch {
+        setFeedback(
+          "A cancellation receipt was returned, but the authoritative refresh failed. The last confirmed Action Inbox remains visible and no unconfirmed state is shown as committed.",
+        );
+      }
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "The cancellation was not recorded safely.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section
+      aria-label="Revision-bound Action cancellation"
+      className="route-state-panel"
+    >
+      <p className="eyebrow">Action Inbox · exact revision lifecycle</p>
+      <h2>Cancel a pending action safely</h2>
+      <p>
+        {localTaskCommitted
+          ? "This Action is terminal because its local task is already committed. Cancellation remains blocked; the durable task receipt is unchanged."
+          : "Python Core validates the displayed revision and invalidates earlier approvals atomically. This control never executes the action."}
+      </p>
+      <label>
+        Action
+        <select
+          aria-label="Action to cancel"
+          disabled={pending || inbox.items.length === 0}
+          onChange={(event) => setSelectedItemRef(event.target.value)}
+          value={selectedItem?.item_ref ?? ""}
+        >
+          {inbox.items.map((item) => (
+            <option key={item.item_ref} value={item.item_ref}>
+              {item.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p>
+        Revision: <code>{expectedRevisionRef ?? "revision-ref:unavailable"}</code>
+      </p>
+      <button
+        disabled={!canCancel || pending}
+        onClick={() => void cancelSelectedRevision()}
+        type="button"
+      >
+        {pending
+          ? "Recording cancellation…"
+          : localTaskCommitted
+            ? "Cancellation unavailable · local task committed"
+            : "Cancel exact revision"}
+      </button>
+      <p aria-live="polite">{feedback}</p>
+    </section>
   );
 }
 
@@ -274,18 +509,74 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   );
   const truthAdmitted =
     !criticalPath || criticalTruthAllowsRoute(activePath, truthState);
-  const truthReadBinding =
-    truthAdmitted && truthState.truth
-      ? {
-          snapshotRef: truthState.truth.envelope_integrity_ref,
-          backendRevisionRef: truthState.truth.backend_revision_ref,
-          backendInstanceRef: truthState.truth.backend_instance_ref,
-        }
-      : null;
+  const truthReadBinding = useMemo<BackendTruthReadBinding | null>(
+    () =>
+      truthAdmitted && truthState.truth
+        ? {
+            snapshotRef: truthState.truth.envelope_integrity_ref,
+            backendRevisionRef: truthState.truth.backend_revision_ref,
+            backendInstanceRef: truthState.truth.backend_instance_ref,
+          }
+        : null,
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
+  );
   const state = useControlCenterData(
     truthAdmitted,
     truthReadBinding,
   );
+  const loadedActionInbox =
+    state.status === "ready" ? state.data.founderActionsInbox : null;
+  const loadedActionInboxSnapshotKey = loadedActionInbox
+    ? loadedActionInbox.items
+        .map(
+          (item) =>
+            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}`,
+        )
+        .join("|")
+    : "unavailable";
+  const [actionInboxOverride, setActionInboxOverride] =
+    useState<FounderLoopActionsInbox | null>(null);
+  const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
+
+  useEffect(() => {
+    setActionInboxOverride(null);
+    setRevisionRefreshFailed(false);
+  }, [loadedActionInboxSnapshotKey]);
+
+  useEffect(() => {
+    if (
+      canonicalizeControlCenterPath(activePath) !== "/actions" ||
+      !truthReadBinding
+    )
+      return;
+    let active = true;
+    const refreshAfterConflict = () => {
+      setRevisionRefreshFailed(false);
+      void fetchFounderActionsInbox(truthReadBinding)
+        .then((inbox) => {
+          if (active) setActionInboxOverride(inbox);
+        })
+        .catch(() => {
+          if (active) setRevisionRefreshFailed(true);
+        });
+    };
+    window.addEventListener(
+      ACTION_INBOX_REVISION_REFRESH_EVENT,
+      refreshAfterConflict as EventListener,
+    );
+    return () => {
+      active = false;
+      window.removeEventListener(
+        ACTION_INBOX_REVISION_REFRESH_EVENT,
+        refreshAfterConflict as EventListener,
+      );
+    };
+  }, [activePath, truthReadBinding]);
   const retryCriticalRoute = async () => {
     await truthState.retry();
     state.retry();
@@ -370,38 +661,50 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     );
   }
 
+  const visibleData = actionInboxOverride
+    ? { ...state.data, founderActionsInbox: actionInboxOverride }
+    : state.data;
+  const routeState = state.data.routeStates[activePath];
+
   return (
     <AppShell
       activePath={activePath}
-      authorityMode={state.data.settingsStatus.authority_lease_state.active_mode}
+      authorityMode={visibleData.settingsStatus.authority_lease_state.active_mode}
       authorityModeAuthoritative={
-        state.data.routeStates["/settings"]?.state === "backend_owned"
+        visibleData.routeStates["/settings"]?.state === "backend_owned"
       }
-      connection={state.data.connection}
+      connection={visibleData.connection}
       killSwitchEngaged={
-        state.data.settingsStatus.authority_lease_state.kill_switch_engaged
+        visibleData.settingsStatus.authority_lease_state.kill_switch_engaged
       }
       killSwitchVisible={
-        state.data.settingsStatus.authority_lease_state.kill_switch_visible
+        visibleData.settingsStatus.authority_lease_state.kill_switch_visible
       }
-      routeState={state.data.routeStates[activePath]}
+      routeState={routeState}
     >
+      {revisionRefreshFailed ? (
+        <SafeAlert
+          message="The authoritative Action Inbox refresh failed. The last confirmed backend snapshot remains visible; retry the backend read before making another decision."
+          title="Action revision refresh unavailable"
+          tone="warning"
+        />
+      ) : null}
       <ConnectionStatus
-        connection={state.data.connection}
-        routeState={state.data.routeStates[activePath]}
+        connection={visibleData.connection}
+        routeState={routeState}
       />
-      {state.data.runtimeInterfaceMode.interface_enabled ? (
-        <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
+      {visibleData.runtimeInterfaceMode.interface_enabled ? (
+        <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
       ) : null}
       <RouteStatePanel
         state={getRouteStateDescriptor(
           activePath,
-          state.data.connection,
-          state.data.routeStates[activePath],
+          visibleData.connection,
+          routeState,
         )}
       />
       <BackendTruthMutationBindingProvider binding={truthReadBinding}>
-        {renderRoute(activePath, state.data)}
+        {renderRoute(activePath, visibleData)}
       </BackendTruthMutationBindingProvider>
     </AppShell>
   );

@@ -259,6 +259,7 @@ def test_task_decomposition_generated_items_do_not_record_action_decisions(
             action_id=task_item["item_ref"],
             decision="approve",
             request=FounderLoopActionDecisionRequest(
+                expected_revision_ref=str(task_item["action_revision_ref"]),
                 decision_reason_ref="decision-reason-ref:task-decomposition:test"
             ),
             idempotency_key_ref="idempotency-ref:task-decomposition:test",

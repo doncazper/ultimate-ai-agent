@@ -241,6 +241,7 @@ def _append_repository_contract_failures(failures: list[str]) -> None:
                 action_id=str(item["item_ref"]),
                 decision="defer",
                 request=FounderLoopActionDecisionRequest(
+                    expected_revision_ref=str(item["action_revision_ref"]),
                     decision_reason_ref=(
                         "decision-reason-ref:fcc-mem-021-verifier-defer"
                     ),

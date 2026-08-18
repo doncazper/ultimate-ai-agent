@@ -766,7 +766,13 @@ VALIDATION_HINTS = (
     "/dry-run",
 )
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
-CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
+CONTROL_CENTER_ACTION_DECISION_SUFFIXES = (
+    "/approve",
+    "/edit",
+    "/reject",
+    "/defer",
+    "/cancel",
+)
 CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = (
     "/accept",
     "/correct",

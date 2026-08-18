@@ -52,8 +52,11 @@ import {
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import {
+  ACTION_INBOX_REVISION_REFRESH_EVENT,
+  ActionInboxRevisionConflictError,
   CONTROL_CENTER_MAX_CONCURRENT_READS,
   CONTROL_CENTER_READ_TIMEOUT_MS,
+  fetchFounderActionsInbox,
   fetchMemoryReviewDecisionReceipt,
   requestRedactedLocalChatProbe,
   recordChatTurnReceipt,
@@ -61,6 +64,7 @@ import {
   recordMemoryReviewDecision,
   resetControlCenterReadLimiterForTests,
   setLocalApiBearerForSession,
+  submitActionDecision,
   type BackendTruthReadBinding,
 } from "./api/client";
 import type {
@@ -12232,6 +12236,17 @@ describe("Web Control Center shell", () => {
     );
     Object.assign(readyItem, {
       status: "proposed",
+      action_revision_contract_ref:
+        "contract-ref:founder-loop-action-revision-lifecycle:v1",
+      action_generation: 1,
+      action_generation_ref:
+        "action-generation:founder-action-mock-local-task-create:00000001",
+      action_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+      action_revision_fingerprint_ref:
+        "revision-fingerprint:action-inbox:11111111111111111111111111111111",
+      expected_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
       action_group_id: "ready_for_decision",
       action_group_label: "Ready for decision",
       action_group_reason:
@@ -12579,6 +12594,17 @@ describe("Web Control Center shell", () => {
     );
     Object.assign(readyItem, {
       status: "proposed",
+      action_revision_contract_ref:
+        "contract-ref:founder-loop-action-revision-lifecycle:v1",
+      action_generation: 1,
+      action_generation_ref:
+        "action-generation:founder-action-mock-local-task-create:00000001",
+      action_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+      action_revision_fingerprint_ref:
+        "revision-fingerprint:action-inbox:11111111111111111111111111111111",
+      expected_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
       action_group_id: "ready_for_decision",
       action_group_label: "Ready for decision",
       action_group_reason:
@@ -12619,6 +12645,38 @@ describe("Web Control Center shell", () => {
       audit_ref: "audit:founder-loop-action:mock-local-task-create:approve",
       idempotency_key_ref: "idempotency-ref:control-center-action:approve",
       payload_fingerprint_ref: "payload-fingerprint-ref:action:approve",
+      expected_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+      generation: 1,
+      generation_ref:
+        "action-generation:founder-action-mock-local-task-create:00000001",
+      revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+      revision_fingerprint_ref:
+        "revision-fingerprint:action-inbox:11111111111111111111111111111111",
+      result_generation: 1,
+      result_generation_ref:
+        "action-generation:founder-action-mock-local-task-create:00000001",
+      result_revision_ref:
+        "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+      result_revision_fingerprint_ref:
+        "revision-fingerprint:action-inbox:11111111111111111111111111111111",
+      revision_advanced: false,
+      approval_scope_ref:
+        "approval-scope:action-inbox-revision:11111111111111111111111111111111",
+      decision_route_ref:
+        "POST /control-center/actions/{action_id}/approve",
+      decision_route_binding_ref:
+        "route-ref:control-center:action-decision:approve",
+      decision_adapter_ref:
+        "adapter-ref:python-core:founder-loop-action-decisions",
+      decision_deadline_ref:
+        "deadline-ref:action-inbox-decision:mock-local-task-create:00000001",
+      authority_input_refs: [
+        "authority-action-ref:action-inbox-decision-receipt",
+      ],
+      invalidated_approval_refs: [],
+      invalidated_approval_count: 0,
       approval_ref: "approval-ref:mock-local-task-action-approve",
       approval_status: "approved",
       approval_reason_refs: ["approval-reason:approved"],
@@ -12651,6 +12709,15 @@ describe("Web Control Center shell", () => {
     );
     Object.assign(approvedItem, {
       status: "approved",
+      action_revision_contract_ref:
+        "contract-ref:founder-loop-action-revision-lifecycle:v1",
+      action_generation: 1,
+      action_generation_ref:
+        "action-generation:founder-action-mock-local-task-create:00000001",
+      action_revision_ref: approvalReceipt.result_revision_ref,
+      action_revision_fingerprint_ref:
+        approvalReceipt.result_revision_fingerprint_ref,
+      expected_revision_ref: approvalReceipt.result_revision_ref,
       action_group_id: "approved_local_task_lane",
       action_group_label: "Approved local-task create lane",
       action_group_reason:
@@ -19820,7 +19887,468 @@ describe("Web Control Center shell", () => {
     );
     expect(isPreviewEndpoint("/control-center/plugins/enable")).toBe(false);
   });
+
+  it("binds decisions to the explicitly rendered revision and emits a typed stale refresh event", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-stale:00000001:11111111111111111111";
+    const generationRef = "action-generation:founder-action-ui-stale:00000002";
+    const currentRevisionRef =
+      "action-revision:founder-action-ui-stale:00000002:22222222222222222222";
+    const inbox = revisionBoundActionInbox({
+      itemRef: "founder-action:ui-stale",
+      revisionRef,
+    });
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        return new Response(
+          JSON.stringify({
+            detail: {
+              code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+              safe_message: "Refresh required.",
+              refresh_required: true,
+              current_revision_ref: currentRevisionRef,
+              current_generation_ref: generationRef,
+              refresh_route_ref: "GET /control-center/actions/inbox",
+            },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true, result: inbox }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchFounderActionsInbox(TEST_MUTATION_BINDING);
+    const refreshEvent = vi.fn();
+    window.addEventListener(ACTION_INBOX_REVISION_REFRESH_EVENT, refreshEvent);
+    try {
+      await expect(
+        submitActionDecision(
+          "founder-action:ui-stale",
+          "reject",
+          {
+            expected_revision_ref: revisionRef,
+            decision_reason_ref: "decision-reason-ref:test-ui-stale",
+          },
+          TEST_MUTATION_BINDING,
+        ),
+      ).rejects.toBeInstanceOf(ActionInboxRevisionConflictError);
+      const post = fetchMock.mock.calls.find(
+        ([, options]) => options?.method === "POST",
+      );
+      expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
+        expected_revision_ref: revisionRef,
+      });
+      expect(refreshEvent).toHaveBeenCalledTimes(1);
+      expect(
+        (refreshEvent.mock.calls[0]?.[0] as CustomEvent).detail,
+      ).toEqual({
+        code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+        currentRevisionRef,
+        currentGenerationRef: generationRef,
+        refreshRouteRef: "GET /control-center/actions/inbox",
+      });
+    } finally {
+      window.removeEventListener(
+        ACTION_INBOX_REVISION_REFRESH_EVENT,
+        refreshEvent,
+      );
+    }
+  });
+
+  it("rejects a decision when the caller omits the displayed revision", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      submitActionDecision(
+        "founder-action:ui-missing-revision",
+        "reject",
+        {
+          decision_reason_ref: "decision-reason-ref:test-ui-missing-revision",
+        } as Parameters<typeof submitActionDecision>[2],
+        TEST_MUTATION_BINDING,
+      ),
+    ).rejects.toThrow(/revision is unavailable/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the authoritative Action Inbox after a stale event on actions", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-actions:00000001:11111111111111111111";
+    const refreshedRevisionRef =
+      "action-revision:founder-action-ui-actions:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-actions";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: refreshedRevisionRef,
+      status: "cancelled",
+    });
+    refreshedInbox.items[0].title = "Authoritatively refreshed Action review";
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : refreshedInbox,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByText("Revision-bound Action review");
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef: refreshedRevisionRef,
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions:00000002",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await waitFor(() => expect(inboxReads).toBeGreaterThanOrEqual(2));
+    await screen.findByText("Authoritatively refreshed Action review");
+  });
+
+  it("preserves the confirmed actions snapshot when stale refresh fails and accepts a later retry", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-actions-failed:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-actions-failed";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const refreshedRevisionRef =
+      "action-revision:founder-action-ui-actions-failed:00000003:33333333333333333333";
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: refreshedRevisionRef,
+      status: "cancelled",
+    });
+    refreshedInbox.items[0].title = "Recovered authoritative Action review";
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        if (inboxReads === 2) {
+          throw new Error("authoritative refresh unavailable");
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : refreshedInbox,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    await screen.findByText("Revision-bound Action review");
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef:
+              "action-revision:founder-action-ui-actions-failed:00000002:22222222222222222222",
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions-failed:00000002",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await screen.findByText("Action revision refresh unavailable");
+    expect(screen.getByText("Revision-bound Action review")).toBeInTheDocument();
+    expect(inboxReads).toBeGreaterThanOrEqual(2);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef: refreshedRevisionRef,
+            currentGenerationRef:
+              "action-generation:founder-action-ui-actions-failed:00000003",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await waitFor(() => expect(inboxReads).toBeGreaterThanOrEqual(3));
+    await screen.findByText("Recovered authoritative Action review");
+    expect(
+      screen.queryByText("Action revision refresh unavailable"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders committed local-task Actions as terminal instead of offering cancellation", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-committed:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-committed";
+    const inbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+      status: "receipt_recorded",
+    });
+    Object.assign(inbox.items[0], {
+      local_task_commit_receipt_ref:
+        "receipt:founder-loop-local-task:ui-committed",
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(
+        `unexpected ${options?.method ?? "GET"} request ${urlText}`,
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/workspace/decisions");
+    render(<App />);
+
+    const terminal = await screen.findByRole("button", {
+      name: "Cancellation unavailable · local task committed",
+    });
+    expect(terminal).toBeDisabled();
+    expect(
+      screen.getByText(/local task is already committed/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cancel exact revision" }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, options]) => options?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("confirms cancellation only after an authoritative refreshed revision", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel:00000001:11111111111111111111";
+    const resultRevisionRef =
+      "action-revision:founder-action-ui-cancel:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-cancel";
+    const receiptRef = "receipt:founder-loop-action:ui-cancel:cancel";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: resultRevisionRef,
+      status: "cancelled",
+      receiptRef,
+    });
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (options?.method === "POST" && urlText.endsWith("/cancel")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              decision: "cancel",
+              status: "cancelled",
+              receipt_ref: receiptRef,
+              result_revision_ref: resultRevisionRef,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : refreshedInbox,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/workspace/decisions");
+    render(<App />);
+
+    const cancel = await screen.findByRole("button", {
+      name: "Cancel exact revision",
+    });
+    await waitFor(() => expect(cancel).toBeEnabled());
+    fireEvent.click(cancel);
+
+    expect(
+      await screen.findByText(/Cancellation confirmed by the refreshed backend/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(resultRevisionRef).length).toBeGreaterThan(0);
+    expect(cancel).toBeDisabled();
+    const post = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        options?.method === "POST" && String(url).endsWith("/cancel"),
+    );
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
+      expected_revision_ref: revisionRef,
+    });
+  });
+
+  it("preserves the last confirmed Action Inbox when cancellation refresh fails", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-refresh-failure:00000001:11111111111111111111";
+    const resultRevisionRef =
+      "action-revision:founder-action-ui-refresh-failure:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-refresh-failure";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (options?.method === "POST" && urlText.endsWith("/cancel")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              decision: "cancel",
+              status: "cancelled",
+              receipt_ref:
+                "receipt:founder-loop-action:ui-refresh-failure:cancel",
+              result_revision_ref: resultRevisionRef,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        if (inboxReads > 1) throw new Error("authoritative refresh unavailable");
+        return new Response(JSON.stringify({ ok: true, result: initialInbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/workspace/decisions");
+    render(<App />);
+
+    const cancel = await screen.findByRole("button", {
+      name: "Cancel exact revision",
+    });
+    await waitFor(() => expect(cancel).toBeEnabled());
+    fireEvent.click(cancel);
+
+    expect(
+      await screen.findByText(/last confirmed Action Inbox remains visible/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(revisionRef).length).toBeGreaterThan(0);
+    expect(screen.queryByText(resultRevisionRef)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Cancellation confirmed by the refreshed backend/i),
+    ).not.toBeInTheDocument();
+  });
 });
+
+function revisionBoundActionInbox({
+  itemRef,
+  revisionRef,
+  status = "proposed",
+  receiptRef,
+}: {
+  itemRef: string;
+  revisionRef: string;
+  status?: string;
+  receiptRef?: string;
+}) {
+  const inbox = cloneForTest({
+    ...mockControlCenterData.founderActionsInbox,
+    ...mockApiData.founderActionsInbox,
+    items: [mockApiData.founderActionsInbox.items[0]],
+  });
+  const item = inbox.items[0];
+  Object.assign(item, {
+    item_ref: itemRef,
+    title: "Revision-bound Action review",
+    status,
+    action_revision_contract_ref:
+      "contract-ref:founder-loop-action-revision-lifecycle:v1",
+    action_generation: status === "cancelled" ? 2 : 1,
+    action_generation_ref:
+      status === "cancelled"
+        ? `action-generation:${itemRef}:00000002`
+        : `action-generation:${itemRef}:00000001`,
+    action_revision_ref: revisionRef,
+    action_revision_fingerprint_ref:
+      "revision-fingerprint:action-inbox:11111111111111111111111111111111",
+    expected_revision_ref: revisionRef,
+    action_revision_decision_eligible: true,
+    receipt_refs: receiptRef ? [receiptRef] : [],
+  });
+  Object.assign(inbox, {
+    action_revision_contract_ref:
+      "contract-ref:founder-loop-action-revision-lifecycle:v1",
+    expected_revision_required: true,
+    stale_revision_conflict_code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+    stale_revision_refresh_route_ref: "GET /control-center/actions/inbox",
+    cancel_decision_enabled: true,
+    cancel_invalidates_prior_approvals: true,
+    decision_actions: ["approve", "edit", "reject", "defer", "cancel"],
+  });
+  return inbox;
+}
 
 function backendOwnedTrustAuthorityMatrix() {
   return {

@@ -347,20 +347,22 @@ def _exercise_loop(
         failures.append("Action Inbox unavailable for Evidence Timeline exercise")
         return receipts
     action_items = inbox.json().get("data", {}).get("items", [])
-    item_ref = next(
+    action_item = next(
         (
-            item.get("item_ref")
+            item
             for item in action_items
             if item.get("item_ref") == "founder-action:setup-assistant-hardening"
         ),
         None,
     )
-    if not item_ref:
+    if not action_item:
         failures.append("Action decision exercise item missing")
         return receipts
+    item_ref = action_item.get("item_ref")
     action = context.client.post(
         f"/control-center/actions/{item_ref}/reject",
         json={
+            "expected_revision_ref": action_item.get("action_revision_ref"),
             "decision_reason_ref": "decision-reason-ref:fcc-v1-006-action",
             "metadata_refs": ["metadata-ref:fcc-v1-006-action"],
         },
@@ -451,6 +453,12 @@ def _commit_local_task_for_timeline() -> str:
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-action",

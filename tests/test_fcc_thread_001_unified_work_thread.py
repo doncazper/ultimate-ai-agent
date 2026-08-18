@@ -120,6 +120,12 @@ def test_unified_work_thread_links_existing_founder_loop_refs(tmp_path: Path) ->
         action_id="setup-assistant-hardening",
         decision="defer",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:setup-assistant-hardening"
+            ),
             decision_reason_ref="decision-reason-ref:fcc-thread-001-action-defer"
         ),
         idempotency_key_ref="idempotency-ref:fcc-thread-001-action-defer",

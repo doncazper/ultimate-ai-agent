@@ -81,6 +81,19 @@ def test_verifier_value_audit_is_registry_bound_and_non_authoritative(
     assert "measurement-ref:synthetic-verifier-value" in covered
 
 
+def test_action_inbox_revision_suite_has_advisory_timing_coverage() -> None:
+    timing_seed = json.loads(
+        (audit.ROOT / "scripts/verification/pytest_file_timing_seed.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert any(
+        row["path"] == "tests/test_action_inbox_revision_lifecycle.py"
+        for row in timing_seed["timings"]
+    )
+
+
 def test_verifier_value_audit_rejects_duplicate_defect_claims(
     stable_measurement_repository: None,
 ) -> None:
@@ -125,9 +138,10 @@ def test_verifier_value_artifact_binds_exact_measurement_run_and_timings(
 
     assert result["schema_version"] == "uaa-verifier-value-measurements.v2"
     assert result["measurement_run"]["status"] == "passed"
-    assert result["measurement_run"]["bindings"]["repository_sha"] == result[
-        "source_repository_sha"
-    ]
+    assert (
+        result["measurement_run"]["bindings"]["repository_sha"]
+        == result["source_repository_sha"]
+    )
     assert result["measurement_run"]["survived_count"] == 0
     assert result["measurement_run"]["blocked_count"] == 0
     assert all(
@@ -141,9 +155,7 @@ def test_verifier_value_audit_rejects_derived_timing_tamper(
     stable_measurement_repository: None,
 ) -> None:
     payload = audit.load_measurements().copy()
-    payload["timing_comparisons"] = [
-        dict(row) for row in payload["timing_comparisons"]
-    ]
+    payload["timing_comparisons"] = [dict(row) for row in payload["timing_comparisons"]]
     payload["timing_comparisons"][0]["delta_percent"] = 99.0
     payload["fingerprint"] = audit._measurement_fingerprint(payload)
     path = tmp_path / "measurements.json"
@@ -158,9 +170,7 @@ def test_verifier_value_audit_derives_regression_warning_above_fifteen_percent(
     stable_measurement_repository: None,
 ) -> None:
     payload = audit.load_measurements().copy()
-    payload["timing_comparisons"] = [
-        dict(row) for row in payload["timing_comparisons"]
-    ]
+    payload["timing_comparisons"] = [dict(row) for row in payload["timing_comparisons"]]
     row = payload["timing_comparisons"][0]
     row.update(
         {
@@ -248,9 +258,10 @@ def test_verifier_value_audit_allows_documentation_only_descendant(
 
     path = _write_measurement(tmp_path, payload)
 
-    assert audit.load_measurements(path)["source_repository_sha"] == payload[
-        "source_repository_sha"
-    ]
+    assert (
+        audit.load_measurements(path)["source_repository_sha"]
+        == payload["source_repository_sha"]
+    )
 
 
 def test_verifier_value_audit_rejects_missing_source_commit(
@@ -311,9 +322,7 @@ def test_verifier_value_audit_rejects_zero_timing_sample(
     stable_measurement_repository: None,
 ) -> None:
     payload = audit.load_measurements().copy()
-    payload["timing_comparisons"] = [
-        dict(row) for row in payload["timing_comparisons"]
-    ]
+    payload["timing_comparisons"] = [dict(row) for row in payload["timing_comparisons"]]
     row = payload["timing_comparisons"][0]
     row.update(
         {

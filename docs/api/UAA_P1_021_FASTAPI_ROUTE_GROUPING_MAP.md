@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `346`.
+Current OpenAPI path count: `347`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `348`
-- OpenAPI paths: `346`
+- Manifest route operations: `349`
+- OpenAPI paths: `347`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 172 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:82, `local_sensitive`:15, `none`:12, `system_browser_exact_launch`:1, `validation_only`:24 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 173 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:83, `local_sensitive`:15, `none`:12, `system_browser_exact_launch`:1, `validation_only`:24 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -153,6 +153,7 @@ an idempotency conflict and never waits for or executes behind the owner.
 | GET | `/control-center/actions/inbox` | `get_control_center_actions_inbox` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/actions/preview` | `post_control_center_actions_preview` | `validation_only` | yes | future | yes |
 | POST | `/control-center/actions/{action_id}/approve` | `post_control_center_actions_action_id_approve` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/actions/{action_id}/cancel` | `post_control_center_actions_action_id_cancel` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/actions/{action_id}/defer` | `post_control_center_actions_action_id_defer` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/actions/{action_id}/edit` | `post_control_center_actions_action_id_edit` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/actions/{action_id}/local-task/commit` | `post_control_center_actions_action_id_local_task_commit` | `local_dev_workspace_only` | no | future | yes |

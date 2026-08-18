@@ -39,6 +39,7 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/api/runtime/local-model/call"),
         ("POST", "/api/runtime/safe-disable"),
         ("POST", "/control-center/actions/{action_id}/approve"),
+        ("POST", "/control-center/actions/{action_id}/cancel"),
         ("POST", "/control-center/actions/{action_id}/defer"),
         ("POST", "/control-center/actions/{action_id}/edit"),
         ("POST", "/control-center/actions/{action_id}/local-task/commit"),
@@ -181,9 +182,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 147
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 148
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "fa7515fed2df9a42dc3ba65257cb307bca0a99cce2e8c3b7a35b09aa9c3e907a"
+    "383683b142bcc4abba771ba472418826af38b01bb083eab6b38ef01b9ede5ae7"
 )
 
 

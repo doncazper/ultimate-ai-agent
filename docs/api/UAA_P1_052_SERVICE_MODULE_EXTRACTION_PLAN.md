@@ -2,7 +2,7 @@
 
 Status: active gated foundation plan
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 346
+Current OpenAPI path count: 347
 Scope: planning, extraction guardrails, and first low-risk extraction status
 
 This plan accepts the service-module boundary used by UAA-P1-058 for the first

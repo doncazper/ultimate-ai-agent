@@ -9,13 +9,23 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest
-from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.approvals.enums import (
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
-from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.actor_context import (
+    ActorContext,
+    ActorType,
+    AuthoritySource,
+)
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -30,6 +40,7 @@ FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS = (
     "POST /control-center/actions/{action_id}/edit",
     "POST /control-center/actions/{action_id}/reject",
     "POST /control-center/actions/{action_id}/defer",
+    "POST /control-center/actions/{action_id}/cancel",
     "GET /control-center/actions/{action_id}/receipt",
 )
 FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS = (
@@ -63,17 +74,36 @@ FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_MODE_REF = (
 FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF = (
     "blocked-state:action-inbox-decision:workspace-write-authority-required"
 )
-FOUNDER_LOOP_ACTION_DECISION_KINDS = ("approve", "edit", "reject", "defer")
-FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
-FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
-    "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+FOUNDER_LOOP_ACTION_DECISION_KINDS = (
+    "approve",
+    "edit",
+    "reject",
+    "defer",
+    "cancel",
 )
+FOUNDER_LOOP_ACTION_REVISION_CONTRACT_REF = (
+    "contract-ref:founder-loop-action-revision-lifecycle:v1"
+)
+FOUNDER_LOOP_ACTION_DECISION_ADAPTER_REF = (
+    "adapter-ref:python-core:founder-loop-action-decisions"
+)
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_INPUT_REFS = (
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_ACTION_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_LANE_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_DOMAIN_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_CAPABILITY_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_MODE_REF,
+)
+FOUNDER_LOOP_ACTION_DECISION_RECEIPT_LIMIT_PER_ITEM = 50
+FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
+FRONTIER_AI_COST_USAGE_CONTRACT_REF = "contract-ref:frontier-ai-cost-usage-telemetry:v1"
 FOUNDER_LOOP_ACTION_STATUSES = (
     "proposed",
     "approved",
     "edited",
     "rejected",
     "deferred",
+    "cancelled",
     "expired",
     "receipt_recorded",
     "blocked",
@@ -108,6 +138,7 @@ def _default_actor_context() -> ActorContext:
 
 
 class FounderLoopActionDecisionRequest(BaseModel):
+    expected_revision_ref: str = Field(..., min_length=1, max_length=200)
     actor_context: ActorContext = Field(default_factory=_default_actor_context)
     approval_ref: str | None = Field(default=None, max_length=160)
     approval_grants: list[ApprovalGrant] = Field(default_factory=list)
@@ -125,6 +156,7 @@ class FounderLoopActionDecisionRequest(BaseModel):
     @model_validator(mode="after")
     def validate_safe_refs(self) -> "FounderLoopActionDecisionRequest":
         for field_name in [
+            "expected_revision_ref",
             "approval_ref",
             "decision_reason_ref",
             "edited_envelope_ref",
@@ -196,6 +228,7 @@ class FounderLoopActionEnvelope(BaseModel):
         "edited",
         "rejected",
         "deferred",
+        "cancelled",
         "expired",
         "receipt_recorded",
         "blocked",
@@ -322,12 +355,30 @@ class FounderLoopActionDecisionReceipt(BaseModel):
     contract_ref: str = FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF
     decision_ref: str = Field(..., min_length=1)
     item_ref: str = Field(..., min_length=1)
-    decision: Literal["approve", "edit", "reject", "defer"]
+    decision: Literal["approve", "edit", "reject", "defer", "cancel"]
     status: str = Field(..., min_length=1, max_length=80)
     receipt_ref: str = Field(..., min_length=1)
     audit_ref: str = Field(..., min_length=1)
     idempotency_key_ref: str = Field(..., min_length=1)
     payload_fingerprint_ref: str = Field(..., min_length=1)
+    expected_revision_ref: str = Field(..., min_length=1)
+    generation: int = Field(..., ge=1)
+    generation_ref: str = Field(..., min_length=1)
+    revision_ref: str = Field(..., min_length=1)
+    revision_fingerprint_ref: str = Field(..., min_length=1)
+    result_generation: int = Field(..., ge=1)
+    result_generation_ref: str = Field(..., min_length=1)
+    result_revision_ref: str = Field(..., min_length=1)
+    result_revision_fingerprint_ref: str = Field(..., min_length=1)
+    revision_advanced: bool = False
+    approval_scope_ref: str = Field(..., min_length=1)
+    decision_route_ref: str = Field(..., min_length=1)
+    decision_route_binding_ref: str = Field(..., min_length=1)
+    decision_adapter_ref: str = FOUNDER_LOOP_ACTION_DECISION_ADAPTER_REF
+    decision_deadline_ref: str = Field(..., min_length=1)
+    authority_input_refs: list[str] = Field(default_factory=list)
+    invalidated_approval_refs: list[str] = Field(default_factory=list)
+    invalidated_approval_count: int = Field(default=0, ge=0)
     approval_ref: str | None = Field(default=None, max_length=160)
     approval_status: str = Field(default="not_required_for_decision", min_length=1)
     approval_reason_refs: list[str] = Field(default_factory=list)
@@ -390,6 +441,17 @@ class FounderLoopActionDecisionReceipt(BaseModel):
             "audit_ref",
             "idempotency_key_ref",
             "payload_fingerprint_ref",
+            "expected_revision_ref",
+            "generation_ref",
+            "revision_ref",
+            "revision_fingerprint_ref",
+            "result_generation_ref",
+            "result_revision_ref",
+            "result_revision_fingerprint_ref",
+            "approval_scope_ref",
+            "decision_route_binding_ref",
+            "decision_adapter_ref",
+            "decision_deadline_ref",
             "approval_ref",
         ]:
             ref_value = getattr(self, field_name)
@@ -399,6 +461,8 @@ class FounderLoopActionDecisionReceipt(BaseModel):
             "approval_reason_refs",
             "evidence_refs",
             "blocked_state_refs",
+            "authority_input_refs",
+            "invalidated_approval_refs",
             "cost_receipt_refs",
             "cost_blocked_state_refs",
         ]:
@@ -432,6 +496,17 @@ class FounderLoopActionDecisionReceipt(BaseModel):
                 self.authority_decision_outcome,
                 "authority_decision_outcome",
             )
+        _validate_safe_text(self.decision_route_ref, "decision_route_ref")
+        if self.invalidated_approval_count != len(self.invalidated_approval_refs):
+            raise ValueError("invalidated approval count must match refs")
+        if self.expected_revision_ref != self.revision_ref:
+            raise ValueError("expected revision must match the validated revision")
+        if self.revision_advanced != (
+            self.expected_revision_ref != self.result_revision_ref
+        ):
+            raise ValueError("revision advance flag must match revision refs")
+        if self.revision_advanced != (self.result_generation > self.generation):
+            raise ValueError("revision advance flag must match generations")
         if self.total_metered_units != (
             self.input_metered_units + self.output_metered_units
         ):
@@ -583,7 +658,9 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
         }
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
-            raise ValueError(f"action envelope receipt enabled denied authority: {enabled[0]}")
+            raise ValueError(
+                f"action envelope receipt enabled denied authority: {enabled[0]}"
+            )
         _validate_safe_payload(
             self.model_dump(mode="json"),
             "action_envelope_promotion_receipt",
@@ -667,16 +744,107 @@ def action_payload_fingerprint_ref(payload: dict[str, Any]) -> str:
     return f"payload-fingerprint:founder-loop-action:{digest}"
 
 
+def action_generation_ref(item_ref: str, generation: int) -> str:
+    _validate_safe_ref(item_ref, "item_ref")
+    if generation < 1:
+        raise ValueError("action generation must be positive")
+    return f"action-generation:{_safe_suffix(item_ref)}:{generation:08d}"
+
+
+def action_revision_fingerprint_ref(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"revision-fingerprint:action-inbox:{digest}"
+
+
+def action_revision_ref(
+    item_ref: str,
+    generation: int,
+    revision_fingerprint_ref: str,
+) -> str:
+    _validate_safe_ref(item_ref, "item_ref")
+    _validate_safe_ref(revision_fingerprint_ref, "revision_fingerprint_ref")
+    if generation < 1:
+        raise ValueError("action generation must be positive")
+    digest = revision_fingerprint_ref.rsplit(":", 1)[-1][:20]
+    return f"action-revision:{_safe_suffix(item_ref)}:{generation:08d}:{digest}"
+
+
+def action_decision_route_ref(decision: str) -> str:
+    if decision not in FOUNDER_LOOP_ACTION_DECISION_KINDS:
+        raise ValueError("unsupported Founder Loop Action decision")
+    return f"POST /control-center/actions/{{action_id}}/{decision}"
+
+
+def action_decision_route_binding_ref(decision: str) -> str:
+    if decision not in FOUNDER_LOOP_ACTION_DECISION_KINDS:
+        raise ValueError("unsupported Founder Loop Action decision")
+    return f"route-ref:control-center:action-decision:{decision}"
+
+
+def action_decision_deadline_ref(
+    item_ref: str,
+    generation: int,
+    authoritative_expiry: str | None = None,
+) -> str:
+    _validate_safe_ref(item_ref, "item_ref")
+    if generation < 1:
+        raise ValueError("action generation must be positive")
+    expiry_binding = authoritative_expiry or "expiry-not-set"
+    expiry_digest = hashlib.sha256(expiry_binding.encode("utf-8")).hexdigest()[:20]
+    return (
+        "deadline-ref:action-inbox-decision:"
+        f"{_safe_suffix(item_ref)}:{generation:08d}:{expiry_digest}"
+    )
+
+
+def action_decision_approval_scope_ref(
+    *,
+    expected_revision_ref: str,
+    payload_fingerprint_ref: str,
+    decision_route_binding_ref: str,
+    decision_adapter_ref: str,
+    decision_deadline_ref: str,
+    authority_input_refs: list[str],
+) -> str:
+    payload = {
+        "expected_revision_ref": expected_revision_ref,
+        "payload_fingerprint_ref": payload_fingerprint_ref,
+        "decision_route_binding_ref": decision_route_binding_ref,
+        "decision_adapter_ref": decision_adapter_ref,
+        "decision_deadline_ref": decision_deadline_ref,
+        "authority_input_refs": sorted(authority_input_refs),
+    }
+    for value in [
+        expected_revision_ref,
+        payload_fingerprint_ref,
+        decision_route_binding_ref,
+        decision_adapter_ref,
+        decision_deadline_ref,
+        *authority_input_refs,
+    ]:
+        _validate_safe_ref(value, "action_decision_approval_scope")
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return f"approval-scope:action-inbox-revision:{digest}"
+
+
 def action_approval_request(
     *,
     item_ref: str,
     actor_context: ActorContext,
     risk_class: str,
     resource_refs: list[str],
+    decision: str,
+    expected_revision_ref: str,
+    approval_scope_ref: str,
 ) -> ApprovalRequest:
     _validate_safe_ref(item_ref, "item_ref")
     for ref_value in resource_refs:
         _validate_safe_ref(ref_value, "resource_refs")
+    _validate_safe_ref(expected_revision_ref, "expected_revision_ref")
+    _validate_safe_ref(approval_scope_ref, "approval_scope_ref")
+    decision_route_binding = action_decision_route_binding_ref(decision)
     risk_values = {item.value for item in ApprovalRiskLevel}
     risk_level = (
         ApprovalRiskLevel(risk_class)
@@ -684,20 +852,38 @@ def action_approval_request(
         else ApprovalRiskLevel.high
     )
     return ApprovalRequest(
-        approval_request_id=f"approval-request:{_safe_suffix(item_ref)}",
-        run_id=f"run:founder-loop-action:{_safe_suffix(item_ref)}",
+        approval_request_id=(
+            f"approval-request:{_safe_suffix(item_ref)}:"
+            f"{_safe_suffix(expected_revision_ref)}:{_safe_suffix(decision)}"
+        ),
+        run_id=(
+            f"run:founder-loop-action:{_safe_suffix(item_ref)}:"
+            f"{_safe_suffix(expected_revision_ref)}"
+        ),
         subject_type=ApprovalSubjectType.external_action,
         subject_id=item_ref,
         actor_context=actor_context,
         requested_action=ACTION_DECISION_REQUESTED_ACTION,
-        purpose="Approve Founder Loop Action decision metadata for exact safe refs.",
+        purpose=(
+            "Approve revision-bound Founder Loop Action decision metadata for "
+            "exact safe refs."
+        ),
         risk_level=risk_level,
         data_classification=DataClassification(
             classification=ClassificationValue.project_private,
             source="founder_loop_action_decision",
             requires_redaction=True,
         ),
-        resource_refs=resource_refs,
+        resource_refs=list(
+            dict.fromkeys(
+                [
+                    *resource_refs,
+                    expected_revision_ref,
+                    approval_scope_ref,
+                    decision_route_binding,
+                ]
+            )
+        ),
         event_ref=f"event-ref:founder-loop-action:{_safe_suffix(item_ref)}",
         trace_id=f"trace-ref:founder-loop-action:{_safe_suffix(item_ref)}",
         expires_at=utc_now() + timedelta(hours=1),
@@ -709,11 +895,26 @@ def decision_payload_for_fingerprint(
     item_ref: str,
     decision: str,
     request: FounderLoopActionDecisionRequest,
+    generation_ref: str,
+    revision_fingerprint_ref: str,
+    decision_route_ref: str,
+    decision_route_binding_ref: str,
+    decision_adapter_ref: str,
+    decision_deadline_ref: str,
+    authority_input_refs: list[str],
 ) -> dict[str, Any]:
     return {
         "contract_ref": FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
         "item_ref": item_ref,
         "decision": decision,
+        "expected_revision_ref": request.expected_revision_ref,
+        "generation_ref": generation_ref,
+        "revision_fingerprint_ref": revision_fingerprint_ref,
+        "decision_route_ref": decision_route_ref,
+        "decision_route_binding_ref": decision_route_binding_ref,
+        "decision_adapter_ref": decision_adapter_ref,
+        "decision_deadline_ref": decision_deadline_ref,
+        "authority_input_refs": sorted(authority_input_refs),
         "actor_id": request.actor_context.actor_id,
         "approval_ref": request.approval_ref,
         "decision_reason_ref": request.decision_reason_ref,

@@ -2219,6 +2219,7 @@ M167_REDACTED_OBSERVABILITY_ROUTES = {
 FOUNDER_LOOP_ACTION_DECISION_ROUTES = frozenset(
     {
         "/control-center/actions/{action_id}/approve",
+        "/control-center/actions/{action_id}/cancel",
         "/control-center/actions/{action_id}/defer",
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/reject",

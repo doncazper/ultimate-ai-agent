@@ -306,6 +306,12 @@ def seed_dogfood_live_loop_fixture(repo: FounderLoopRepository) -> dict[str, Any
         action_id=DOGFOOD_LIVE_LOOP_ACTION_ID,
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=50)
+                if item["item_ref"]
+                == f"founder-action:{DOGFOOD_LIVE_LOOP_ACTION_ID}"
+            ),
             decision_reason_ref=DOGFOOD_LIVE_LOOP_DECISION_REASON_REF,
             metadata_refs=[DOGFOOD_LIVE_LOOP_METADATA_REF],
         ),

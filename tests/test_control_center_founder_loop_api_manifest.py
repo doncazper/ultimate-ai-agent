@@ -142,6 +142,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
 
     for path in [
         "/control-center/actions/{action_id}/approve",
+        "/control-center/actions/{action_id}/cancel",
         "/control-center/actions/{action_id}/edit",
         "/control-center/actions/{action_id}/reject",
         "/control-center/actions/{action_id}/defer",

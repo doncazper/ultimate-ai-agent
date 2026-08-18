@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
 )
+from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
 SUCCESS_MESSAGE = "FCC-V1-003 Founder Loop vertical slice verification passed."
@@ -354,6 +355,14 @@ def _exercise_decisions(
         ("defer", {"defer_until_ref": "defer-until-ref:fcc-v1-003"}, "deferred"),
     ]
     for decision, body, expected_status in checks:
+        body = {
+            **body,
+            "expected_revision_ref": str(
+                FounderLoopRepository(Path(state_dir)).action_revision(item_ref)[
+                    "revision_ref"
+                ]
+            ),
+        }
         response = context.client.post(
             f"{action_path}/{decision}",
             json=body,
@@ -416,10 +425,18 @@ def _issue_action_decision_authority_lease(
 
 
 def _approval_body(state_dir: str, item_ref: str) -> dict[str, Any]:
+    repo = FounderLoopRepository(Path(state_dir))
+    expected_revision_ref = next(
+        str(item["action_revision_ref"])
+        for item in repo.list_action_inbox(limit=200)
+        if item["item_ref"] == item_ref
+    )
     request = FounderLoopActionDecisionRequest(
+        expected_revision_ref=expected_revision_ref,
         decision_reason_ref="decision-reason-ref:fcc-v1-003-approve"
     )
     return {
+        "expected_revision_ref": request.expected_revision_ref,
         "decision_reason_ref": request.decision_reason_ref,
     }
 

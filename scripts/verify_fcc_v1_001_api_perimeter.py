@@ -72,6 +72,7 @@ TARGETED_ROUTE_EXPECTATIONS = {
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"): "memory_review_decision",
     ("POST", "/control-center/memory/feedback"): "memory_feedback",
     ("POST", "/control-center/actions/{action_id}/reject"): "action_decision",
+    ("POST", "/control-center/actions/{action_id}/cancel"): "action_decision",
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "action_decision",
     ("POST", "/control-center/providers/credentials/validate"): "provider_credential_validation",
     ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "provider_exact_approved_lane",

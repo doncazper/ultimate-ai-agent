@@ -266,6 +266,7 @@ def test_health_recommendation_review_decision_records_receipt_without_execution
         action_id=str(health_item["item_ref"]),
         decision="defer",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(health_item["action_revision_ref"]),
             decision_reason_ref="decision-reason-ref:test-health-review-defer",
             defer_until_ref="defer-until-ref:test-health-review-later",
             metadata_refs=[

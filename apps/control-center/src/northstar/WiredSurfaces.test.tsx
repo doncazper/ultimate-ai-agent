@@ -251,7 +251,11 @@ describe("North Star backend wiring", () => {
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
     Object.assign(item, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
       action_review_actions: ["approve", "edit", "reject", "defer"],
       action_envelope_cost_state_label: "Cost approved",
       action_envelope_estimated_cost_usd: 0,
@@ -538,7 +542,11 @@ describe("North Star backend wiring", () => {
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
     Object.assign(item, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
       action_review_actions: ["reject"],
       approval_envelope: { ...item.approval_envelope, source: "python_core_action_inbox_read_model", backend_owned: true },
       receipt_visibility: { ...item.receipt_visibility, source: "python_core_action_inbox_read_model", backend_owned: true },

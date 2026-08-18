@@ -59,7 +59,9 @@ def test_combined_api_verifier_lane_executes_all_specs(monkeypatch) -> None:
     monkeypatch.setattr(
         api_lane,
         "_iter_verifiers",
-        lambda: [(spec, _module(spec.milestone_id)) for spec in api_lane.API_VERIFIER_SPECS],
+        lambda: [
+            (spec, _module(spec.milestone_id)) for spec in api_lane.API_VERIFIER_SPECS
+        ],
     )
 
     assert api_lane.run_api_verifier_lane(context) == 0
@@ -87,8 +89,13 @@ def test_verify_all_uses_one_isolated_api_verifier_lane(monkeypatch) -> None:
 
     assert len(calls) == 1
     command, env = calls[0]
-    assert command == [run_all_legacy.sys.executable, "scripts/verification/api_lane.py"]
+    assert command == [
+        run_all_legacy.sys.executable,
+        "scripts/verification/api_lane.py",
+    ]
     assert env["PYTHONPATH"].split(run_all_legacy.os.pathsep)[0] == str(
         run_all_legacy.ROOT / "src"
     )
-    assert env["PYTHONPATH"].split(run_all_legacy.os.pathsep)[1] == "inherited-source-ref"
+    assert (
+        env["PYTHONPATH"].split(run_all_legacy.os.pathsep)[1] == "inherited-source-ref"
+    )

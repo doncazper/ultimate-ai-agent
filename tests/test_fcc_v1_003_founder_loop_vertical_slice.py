@@ -39,6 +39,12 @@ def _approve_local_task_seed_action(state_dir: Path) -> None:
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=next(
+                str(item["action_revision_ref"])
+                for item in repo.list_action_inbox(limit=200)
+                if item["item_ref"]
+                == "founder-action:local-task-create-scorecard"
+            ),
             decision_reason_ref="decision-reason-ref:test-cli-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-cli-local-task-action-approval",
@@ -227,6 +233,11 @@ def test_founder_loop_cli_records_approval_then_commits_local_task(
     authority_state_dir = tmp_path / "authority"
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     issue_workspace_write_authority_lease(authority_state_dir)
+    expected_revision_ref = str(
+        FounderLoopRepository(state_dir).action_revision(
+            "local-task-create-scorecard"
+        )["revision_ref"]
+    )
     rc = uaa_founder_loop.main(
         [
             "--state-dir",
@@ -236,6 +247,8 @@ def test_founder_loop_cli_records_approval_then_commits_local_task(
             "local-task-create-scorecard",
             "--decision",
             "approve",
+            "--expected-revision-ref",
+            expected_revision_ref,
             "--idempotency-ref",
             "idempotency-ref:test-cli-record-local-task-approval",
             "--metadata-ref",

@@ -45,6 +45,9 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
@@ -66,7 +69,10 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval"
+            expected_revision_ref=str(
+                repo.action_revision("local-task-create-scorecard")["revision_ref"]
+            ),
+            decision_reason_ref="decision-reason-ref:test-backend-owned-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-backend-owned-local-task-approval",
     )
@@ -84,9 +90,10 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
     assert action["action_group_id"] == "approved_local_task_lane"
     assert action["local_task_commit_eligible"] is True
     assert action["local_task_commit_approval_ref"] == approval_receipt["approval_ref"]
-    assert action["receipt_visibility"]["decision_receipt_ref"] == approval_receipt[
-        "receipt_ref"
-    ]
+    assert (
+        action["receipt_visibility"]["decision_receipt_ref"]
+        == approval_receipt["receipt_ref"]
+    )
 
 
 def test_action_decision_ignores_caller_supplied_approval_grants(
@@ -99,17 +106,23 @@ def test_action_decision_ignores_caller_supplied_approval_grants(
         if item["item_ref"] == "founder-action:setup-assistant-hardening"
     )
     request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:test-caller-grant-denied"
+        expected_revision_ref=str(action["action_revision_ref"]),
+        decision_reason_ref="decision-reason-ref:test-caller-grant-denied",
     )
     approval_request = action_approval_request(
         item_ref=str(action["item_ref"]),
         actor_context=request.actor_context,
         risk_class=str(action["risk_class"]),
+        decision="approve",
+        expected_revision_ref=str(action["action_revision_ref"]),
+        approval_scope_ref="approval-scope:action-inbox-revision:test-caller-grant",
         resource_refs=[
             str(action["item_ref"]),
             str(action["action_envelope_ref"]),
             str(action["action_scope_ref"]),
             str(action["action_approval_requirement_ref"]),
+            str(action["action_revision_ref"]),
+            "approval-scope:action-inbox-revision:test-caller-grant",
         ],
     )
     authority = LocalApprovalAuthority()
@@ -124,6 +137,7 @@ def test_action_decision_ignores_caller_supplied_approval_grants(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
+            expected_revision_ref=str(action["action_revision_ref"]),
             approval_ref=forged_grant.approval_ref,
             approval_grants=[forged_grant],
             decision_reason_ref="decision-reason-ref:test-caller-grant-denied",
@@ -672,6 +686,6 @@ def test_action_inbox_local_task_commit_rejects_expired_backend_approval(
     ):
         repo.commit_local_task(
             action_id="local-task-create-scorecard",
-            request=_local_task_commit_request_for_action(expired_action),
+            request=_local_task_commit_request_for_action(action),
             idempotency_key_ref="idempotency-ref:test-local-task-expired",
         )

@@ -557,15 +557,18 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     return allowed.filter((decision): decision is FounderLoopActionDecisionKind => ["approve", "edit", "reject", "defer"].includes(decision));
   }, [item]);
   const costApproved = item ? actionApprovalCostIsReady(item, decisionLaneItem) : false;
+  const displayedRevisionRef =
+    item?.action_revision_ref ?? item?.expected_revision_ref;
 
   async function recordDecision(decision: FounderLoopActionDecisionKind) {
-    if (!item || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
+    if (!item || !displayedRevisionRef || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
     setPending(decision);
     try {
       const recorded = await submitActionDecision(
         item.item_ref,
         decision,
         {
+          expected_revision_ref: displayedRevisionRef,
           decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
           edited_envelope_ref:
             decision === "edit"
