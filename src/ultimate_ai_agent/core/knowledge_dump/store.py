@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.knowledge_dump.extractors import (
     extract_sections,
 )
 from ultimate_ai_agent.core.knowledge_dump.models import (
+    KNOWLEDGE_DUMP_CONTRACT_REF,
     KnowledgeCitation,
     KnowledgeContextPack,
     KnowledgeDocument,
@@ -774,7 +775,8 @@ class KnowledgeDumpStore:
         if plan.chunk_manifest_ref != _chunk_manifest_ref(chunks):
             raise ValueError("KNOWLEDGE_INGEST_CHUNK_MANIFEST_MISMATCH")
         if (
-            plan.exact_scope_ref != _ingest_scope_ref(plan)
+            plan.contract_ref != KNOWLEDGE_DUMP_CONTRACT_REF
+            or plan.exact_scope_ref != _ingest_scope_ref(plan)
             or plan.plan_ref
             != _hash_ref("knowledge-ingest-plan-ref", plan.exact_scope_ref)
             or plan.rollback_ref
@@ -799,7 +801,8 @@ class KnowledgeDumpStore:
         if plan.store_ref != self.store_ref:
             raise ValueError("KNOWLEDGE_METADATA_STORE_SCOPE_MISMATCH")
         if (
-            plan.exact_scope_ref != _metadata_scope_ref(plan)
+            plan.contract_ref != KNOWLEDGE_DUMP_CONTRACT_REF
+            or plan.exact_scope_ref != _metadata_scope_ref(plan)
             or plan.plan_ref
             != _hash_ref("knowledge-metadata-plan-ref", plan.exact_scope_ref)
             or not plan.approval_required

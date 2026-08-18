@@ -149,6 +149,17 @@ def test_ingest_plan_binds_exact_chunks_and_persisted_metadata(tmp_path: Path) -
             run_id="run:knowledge-dump:expanded-authority",
         )
 
+    altered_contract = replace(
+        prepared,
+        plan=prepared.plan.model_copy(update={"contract_ref": "contract-ref:other"}),
+    )
+    with pytest.raises(ValueError, match="KNOWLEDGE_INGEST_PLAN_INTEGRITY_MISMATCH"):
+        store.approval_request_for_ingest(
+            altered_contract,
+            actor_context=_actor(),
+            run_id="run:knowledge-dump:altered-contract",
+        )
+
     assert not store.database_path.exists()
 
 
