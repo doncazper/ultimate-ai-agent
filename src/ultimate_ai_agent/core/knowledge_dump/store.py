@@ -672,6 +672,14 @@ class KnowledgeDumpStore:
             return []
         match_query = " OR ".join(f'"{token.replace(chr(34), "")}"' for token in tokens)
         with self._connect() as connection:
+            connection.execute(
+                "CREATE TEMP TABLE allowed_document_refs "
+                "(document_ref TEXT PRIMARY KEY)"
+            )
+            connection.executemany(
+                "INSERT INTO allowed_document_refs (document_ref) VALUES (?)",
+                ((document_ref,) for document_ref in sorted(allowed_document_refs)),
+            )
             rows = connection.execute(
                 """SELECT c.chunk_ref, c.locator, c.text, c.text_ref,
                           d.document_ref, d.source_content_ref, d.title,
@@ -679,9 +687,10 @@ class KnowledgeDumpStore:
                    FROM chunks_fts
                    JOIN chunks c ON c.chunk_ref = chunks_fts.chunk_ref
                    JOIN documents d ON d.document_ref = c.document_ref
+                   JOIN allowed_document_refs a ON a.document_ref = d.document_ref
                    WHERE chunks_fts MATCH ?
                    ORDER BY rank ASC, c.chunk_ref ASC LIMIT ?""",
-                (match_query, min(500, max(limit, limit * 10))),
+                (match_query, limit),
             ).fetchall()
         hits = [
             KnowledgeHit(
@@ -696,9 +705,8 @@ class KnowledgeDumpStore:
                 score=max(0.0, -float(row["rank"])),
             )
             for row in rows
-            if row["document_ref"] in allowed_document_refs
         ]
-        return hits[:limit]
+        return hits
 
     def prepare_context(
         self,

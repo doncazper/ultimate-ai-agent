@@ -257,6 +257,49 @@ def test_ingest_search_and_context_pack_are_cited_and_idempotent(
     assert context.used_characters <= context.max_characters
 
 
+def test_filtered_search_ranks_only_within_allowed_documents(tmp_path: Path) -> None:
+    store = KnowledgeDumpStore(tmp_path / "dump")
+    dominant_source = tmp_path / "dominant.txt"
+    dominant_source.write_text(("marker " * 10_000).strip(), encoding="utf-8")
+    dominant = _prepare(
+        store,
+        dominant_source,
+        title="Dominant excluded source",
+        category="excluded",
+        idempotency_key="knowledge-ingest-dominant-001",
+    )
+    actor1, authority1, approval_ref1 = _approve(store, dominant)
+    store.ingest(
+        dominant,
+        approval_authority=authority1,
+        approval_ref=approval_ref1,
+        actor_context=actor1,
+        run_id="run:knowledge-dump:test",
+    )
+
+    allowed_source = tmp_path / "allowed.txt"
+    allowed_source.write_text("A single marker in an allowed source.", encoding="utf-8")
+    allowed = _prepare(
+        store,
+        allowed_source,
+        title="Allowed source",
+        category="allowed",
+        idempotency_key="knowledge-ingest-allowed-001",
+    )
+    actor2, authority2, approval_ref2 = _approve(store, allowed)
+    allowed_receipt = store.ingest(
+        allowed,
+        approval_authority=authority2,
+        approval_ref=approval_ref2,
+        actor_context=actor2,
+        run_id="run:knowledge-dump:test",
+    )
+
+    hits = store.search("marker", category="allowed", limit=1)
+
+    assert [hit.citation.document_ref for hit in hits] == [allowed_receipt.document_ref]
+
+
 def test_proprietary_catalog_source_requires_retrieval_rights(tmp_path: Path) -> None:
     source = tmp_path / "notes.txt"
     source.write_text("Synthetic notes, not publisher content.", encoding="utf-8")
