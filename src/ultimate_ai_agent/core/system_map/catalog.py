@@ -115,4 +115,20 @@ SYSTEM_MAP_FEATURE_CATALOG = (
         ),
         source_refs=("source-ref:system-capability-map-contract",),
     ),
+    SystemMapFeatureDeclaration(
+        feature_ref="feature:local-knowledge-dump",
+        name="Local Knowledge Dump",
+        safe_summary=(
+            "Rights-gated local source ingestion, navigable inventory, cited lexical "
+            "retrieval, and explicit bounded context preparation."
+        ),
+        truth_status=SystemMapTruthStatus.implemented,
+        related_node_ids=(
+            "surface:memory",
+            "boundary:policy-engine",
+            "boundary:local-approval-authority",
+            "boundary:evidence-and-receipts",
+        ),
+        source_refs=("source-ref:local-knowledge-dump-contract",),
+    ),
 )
