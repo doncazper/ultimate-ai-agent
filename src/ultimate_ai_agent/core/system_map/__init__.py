@@ -27,9 +27,9 @@ from ultimate_ai_agent.core.system_map.models import (
 from ultimate_ai_agent.core.system_map.store import SystemMapSnapshotStore
 
 __all__ = [
-    "SYSTEM_MAP_GRAPH_SCHEMA_VERSION",
     "SYSTEM_MAP_CAPABILITY_SOURCE_MODULES",
     "SYSTEM_MAP_FEATURE_CATALOG",
+    "SYSTEM_MAP_GRAPH_SCHEMA_VERSION",
     "SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES",
     "SYSTEM_MAP_SNAPSHOT_SCHEMA_VERSION",
     "SystemCapabilityGraph",

@@ -34,6 +34,14 @@ from ultimate_ai_agent.core.system_map import (  # noqa: E402
 
 QUEUE_ITEM_ID = "UAA-P1-092"
 FIXED_TIME = datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc)
+_APPROVED_MANIFEST_MODULES = frozenset(
+    {
+        "ultimate_ai_agent.core.capabilities",
+        "ultimate_ai_agent.core.capabilities.models",
+        "ultimate_ai_agent.core.device_capabilities",
+        "ultimate_ai_agent.core.device_capabilities.contracts",
+    }
+)
 
 
 def discover_manifest_constructor_modules(root: Path = ROOT) -> tuple[str, ...]:
@@ -44,18 +52,15 @@ def discover_manifest_constructor_modules(root: Path = ROOT) -> tuple[str, ...]:
     discovered: set[str] = set()
     for path in sorted(package_root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=path.name)
-        constructor_names = set(SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ImportFrom):
-                continue
-            for imported in node.names:
-                if imported.name in SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES:
-                    constructor_names.add(imported.asname or imported.name)
+        constructor_names, module_aliases = _resolve_manifest_imports(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
-            constructor = _call_name(node.func)
-            if constructor not in constructor_names:
+            if not _is_manifest_constructor_call(
+                node.func,
+                constructor_names=constructor_names,
+                module_aliases=module_aliases,
+            ):
                 continue
             relative = path.relative_to(source_root).with_suffix("")
             discovered.add(".".join(relative.parts))
@@ -139,11 +144,55 @@ def verify_repository(root: Path = ROOT) -> list[str]:
     return failures
 
 
-def _call_name(function: ast.expr) -> str | None:
+def _resolve_manifest_imports(
+    tree: ast.AST,
+) -> tuple[set[str], dict[str, str]]:
+    constructor_names: set[str] = set()
+    module_aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for imported in node.names:
+                if (
+                    node.module in _APPROVED_MANIFEST_MODULES
+                    and imported.name in SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES
+                ):
+                    constructor_names.add(imported.asname or imported.name)
+                imported_module = f"{node.module}.{imported.name}"
+                if imported_module in _APPROVED_MANIFEST_MODULES:
+                    module_aliases[imported.asname or imported.name] = imported_module
+        elif isinstance(node, ast.Import):
+            for imported in node.names:
+                if imported.name not in _APPROVED_MANIFEST_MODULES:
+                    continue
+                alias = imported.asname or imported.name
+                module_aliases[alias] = imported.name
+    return constructor_names, module_aliases
+
+
+def _is_manifest_constructor_call(
+    function: ast.expr,
+    *,
+    constructor_names: set[str],
+    module_aliases: dict[str, str],
+) -> bool:
     if isinstance(function, ast.Name):
-        return function.id
-    if isinstance(function, ast.Attribute):
-        return function.attr
+        return function.id in constructor_names
+    if not isinstance(function, ast.Attribute):
+        return False
+    if function.attr not in SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES:
+        return False
+    receiver = _dotted_name(function.value)
+    if receiver in module_aliases:
+        receiver = module_aliases[receiver]
+    return receiver in _APPROVED_MANIFEST_MODULES
+
+
+def _dotted_name(value: ast.expr) -> str | None:
+    if isinstance(value, ast.Name):
+        return value.id
+    if isinstance(value, ast.Attribute):
+        parent = _dotted_name(value.value)
+        return f"{parent}.{value.attr}" if parent else None
     return None
 
 

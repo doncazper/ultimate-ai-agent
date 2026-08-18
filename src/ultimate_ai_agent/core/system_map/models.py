@@ -38,6 +38,14 @@ _FORBIDDEN_FIELD_PARTS = (
     "raw_log",
     "raw_content",
 )
+_SENSITIVE_FIELD_NAMES = (
+    "access_token",
+    "api_key",
+    "auth_token",
+    "client_secret",
+    "password",
+    "private_key",
+)
 
 
 class SystemMapNodeKind(str, Enum):
@@ -279,21 +287,13 @@ class SystemMapOpportunity(_SystemMapModel):
 
     @model_validator(mode="after")
     def validate_opportunity_identity(self) -> "SystemMapOpportunity":
-        current = system_map_opportunity_ref(
+        expected = system_map_opportunity_ref(
             self.graph_ref,
             self.capability_node_ids,
             self.supporting_edge_ids,
             self.gap_refs,
         )
-        legacy = _legacy_system_map_opportunity_ref(
-            self.graph_ref,
-            self.capability_node_ids,
-            self.gap_refs,
-        )
-        accepted_refs = {current}
-        if not self.supporting_edge_ids:
-            accepted_refs.add(legacy)
-        if self.opportunity_ref not in accepted_refs:
+        if self.opportunity_ref != expected:
             raise ValueError("SYSTEM_MAP_OPPORTUNITY_REF_MISMATCH")
         return self
 
@@ -400,21 +400,6 @@ def system_map_opportunity_ref(
     return f"system-map-opportunity:sha256:{_fingerprint(payload)}"
 
 
-def _legacy_system_map_opportunity_ref(
-    graph_ref: str,
-    capability_node_ids: tuple[str, ...],
-    gap_refs: tuple[str, ...],
-) -> str:
-    """Validate snapshots written by the pre-release v1 prototype."""
-
-    payload = {
-        "graph_ref": graph_ref,
-        "capability_node_ids": capability_node_ids,
-        "gap_refs": gap_refs,
-    }
-    return f"system-map-opportunity:sha256:{_fingerprint(payload)}"
-
-
 def system_map_snapshot_ref(
     *,
     created_at: datetime,
@@ -474,7 +459,14 @@ def _validate_ref(value: str, reason: str) -> str:
 
 def _validate_safe_payload(value: Any, *, field_name: str = "root") -> None:
     lowered = field_name.lower()
-    if any(fragment in lowered for fragment in _FORBIDDEN_FIELD_PARTS):
+    normalized = re.sub(r"[^a-z0-9]+", "_", lowered).strip("_")
+    sensitive_name = any(
+        normalized == name or normalized.endswith(f"_{name}")
+        for name in _SENSITIVE_FIELD_NAMES
+    )
+    if sensitive_name or any(
+        fragment in lowered for fragment in _FORBIDDEN_FIELD_PARTS
+    ):
         if value not in (None, False, "", (), [], {}):
             raise ValueError("SYSTEM_MAP_RAW_OR_SECRET_FIELD_DENIED")
     if isinstance(value, dict):

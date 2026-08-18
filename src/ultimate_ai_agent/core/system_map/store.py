@@ -12,6 +12,11 @@ import uuid
 
 from ultimate_ai_agent.core.system_map.models import SystemMapSnapshot
 
+try:  # pragma: no cover - platform dependent
+    import fcntl
+except ImportError:  # pragma: no cover - platform dependent
+    fcntl = None  # type: ignore[assignment]
+
 
 class SystemMapSnapshotStore:
     """Persist immutable history plus an atomically replaced current snapshot."""
@@ -125,18 +130,16 @@ class SystemMapSnapshotStore:
         with self._lock:
             self.state_dir.mkdir(parents=True, exist_ok=True)
             with self.lock_path.open("a+", encoding="utf-8") as lock_file:
+                if fcntl is None:
+                    raise RuntimeError("SYSTEM_MAP_FILE_LOCK_UNAVAILABLE")
                 try:
-                    import fcntl
-
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-                except (ImportError, OSError):
-                    pass
+                except OSError as exc:
+                    raise RuntimeError("SYSTEM_MAP_FILE_LOCK_FAILED") from exc
                 try:
                     yield
                 finally:
                     try:
-                        import fcntl
-
                         fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-                    except (ImportError, OSError):
-                        pass
+                    except OSError as exc:
+                        raise RuntimeError("SYSTEM_MAP_FILE_UNLOCK_FAILED") from exc

@@ -104,6 +104,9 @@ class SystemMapBuilder:
             self._add_ecosystem(nodes, edges)
 
         manifest_list = sorted(manifests, key=lambda item: item.id)
+        manifest_ids = [manifest.id for manifest in manifest_list]
+        if len(manifest_ids) != len(set(manifest_ids)):
+            raise ValueError("SYSTEM_MAP_DUPLICATE_MANIFEST_ID")
         self._add_manifests(nodes, edges, manifest_list)
         self._add_authority_mappings(nodes, edges, authority_mappings)
         self._add_capability_sources(nodes, edges, capability_source_modules)
@@ -375,7 +378,11 @@ class SystemMapBuilder:
                     kind=SystemMapNodeKind.capability,
                     name=mapping.label,
                     safe_summary=mapping.operator_copy,
-                    truth_status=_mapping_truth_status(mapping.status),
+                    truth_status=(
+                        SystemMapTruthStatus.blocked
+                        if mapping.unsupported_adapter_blocks_capability
+                        else _mapping_truth_status(mapping.status)
+                    ),
                     source_refs=tuple(sorted(mapping.evidence_refs)),
                     attributes={
                         "authority_domain": domain_value,
@@ -477,9 +484,18 @@ class SystemMapBuilder:
         edges: dict[str, SystemMapEdge],
         manifests: Sequence[CapabilityManifest],
     ) -> None:
+        consumers_by_mode: dict[str, list[CapabilityManifest]] = defaultdict(list)
+        for consumer in manifests:
+            for mode in set(consumer.input_modes):
+                consumers_by_mode[mode].append(consumer)
         for producer in manifests:
+            candidates = {
+                consumer.id: consumer
+                for mode in producer.output_modes
+                for consumer in consumers_by_mode.get(mode, ())
+            }
             producer_modes = set(producer.output_modes)
-            for consumer in manifests:
+            for consumer in sorted(candidates.values(), key=lambda item: item.id):
                 if producer.id == consumer.id:
                     continue
                 shared_modes = sorted(producer_modes.intersection(consumer.input_modes))
@@ -638,6 +654,28 @@ def discover_system_map_opportunities(
     if max_opportunities < 0:
         raise ValueError("SYSTEM_MAP_OPPORTUNITY_LIMIT_INVALID")
     node_by_id = {node.node_id: node for node in graph.nodes}
+    dependencies: dict[str, set[str]] = defaultdict(set)
+    for edge in graph.edges:
+        if edge.kind == SystemMapEdgeKind.depends_on:
+            dependencies[edge.source_node_id].add(edge.target_node_id)
+
+    def has_blocking_prerequisite(node_id: str) -> bool:
+        pending = list(dependencies.get(node_id, ()))
+        visited: set[str] = set()
+        while pending:
+            dependency_id = pending.pop()
+            if dependency_id in visited:
+                continue
+            visited.add(dependency_id)
+            dependency = node_by_id[dependency_id]
+            if dependency.truth_status in {
+                SystemMapTruthStatus.blocked,
+                SystemMapTruthStatus.missing,
+            }:
+                return True
+            pending.extend(dependencies.get(dependency_id, ()))
+        return False
+
     proposals: dict[str, SystemMapOpportunity] = {}
 
     for edge in graph.edges:
@@ -653,10 +691,12 @@ def discover_system_map_opportunities(
             node.truth_status
             in {SystemMapTruthStatus.blocked, SystemMapTruthStatus.missing}
             for node in (source, target)
-        )
+        ) or any(has_blocking_prerequisite(node.node_id) for node in (source, target))
         opportunity = _opportunity(
             graph,
-            title=f"{source.name} to {target.name} workflow",
+            title=_bounded_opportunity_title(
+                f"{source.name} to {target.name} workflow"
+            ),
             summary=(
                 "Typed output and input modes suggest a reviewable composition. "
                 "Schema, policy, availability, authority, and outcome proof still require validation."
@@ -758,6 +798,12 @@ def _opportunity(
 def _surface_node_id(kind: str, value: str) -> str:
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:32]
     return f"{kind}:sha256:{digest}"
+
+
+def _bounded_opportunity_title(value: str) -> str:
+    if len(value) <= 180:
+        return value
+    return f"{value[:177].rstrip()}..."
 
 
 def _manifest_truth_status(manifest: CapabilityManifest) -> SystemMapTruthStatus:
