@@ -85,8 +85,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ingest.add_argument(
         "--approve-exact-scope",
-        action="store_true",
-        help="Explicitly attest rights and approve only the printed content hash/scope.",
+        metavar="EXACT_SCOPE_REF",
+        help=(
+            "Explicitly attest rights and approve only the exact scope ref printed "
+            "by plan-ingest."
+        ),
     )
 
     listing = subparsers.add_parser(
@@ -119,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     categorize.add_argument("--collection")
     categorize.add_argument("--tag", action="append", default=[])
     categorize.add_argument("--idempotency-key", required=True)
-    categorize.add_argument("--approve-exact-scope", action="store_true")
+    categorize.add_argument("--approve-exact-scope", metavar="EXACT_SCOPE_REF")
     search = subparsers.add_parser(
         "search", help="Lexically search and return cited local chunks."
     )
@@ -154,10 +157,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "ingest":
         prepared = _prepare(store, args)
-        if not args.approve_exact_scope:
+        if args.approve_exact_scope != prepared.plan.exact_scope_ref:
             _dump(prepared.plan)
+            reason = (
+                "the provided exact scope does not match the current plan"
+                if args.approve_exact_scope
+                else "inspect the plan and provide its exact scope ref"
+            )
             raise SystemExit(
-                "Refusing mutation: inspect the plan and pass --approve-exact-scope."
+                "Refusing mutation: "
+                f"{reason} with --approve-exact-scope EXACT_SCOPE_REF."
             )
         actor = _actor()
         run_id = prepared.plan.plan_ref
@@ -210,10 +219,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             tags=args.tag,
             idempotency_key=args.idempotency_key,
         )
-        if not args.approve_exact_scope:
+        if args.approve_exact_scope != prepared.plan.exact_scope_ref:
             _dump(prepared.plan)
+            reason = (
+                "the provided exact scope does not match the current plan"
+                if args.approve_exact_scope
+                else "inspect the plan and provide its exact scope ref"
+            )
             raise SystemExit(
-                "Refusing mutation: inspect the plan and pass --approve-exact-scope."
+                "Refusing mutation: "
+                f"{reason} with --approve-exact-scope EXACT_SCOPE_REF."
             )
         actor = _actor()
         run_id = prepared.plan.plan_ref

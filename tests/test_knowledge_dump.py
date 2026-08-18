@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.knowledge_dump import (
     KnowledgeRightsBasis,
     KnowledgeSourceKind,
 )
+from scripts.dev import uaa_knowledge
 
 
 def _actor() -> ActorContext:
@@ -169,6 +170,45 @@ def test_ingest_requires_exact_local_approval(tmp_path: Path) -> None:
         )
 
     assert not store.database_path.exists()
+
+
+def test_cli_binds_operator_confirmation_to_printed_exact_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "reference.txt"
+    source.write_text("A bounded synthetic CLI approval statement.", encoding="utf-8")
+    root = tmp_path / "dump"
+    store = KnowledgeDumpStore(root)
+    prepared = _prepare(store, source)
+    shared = [
+        "--store",
+        str(root),
+        "ingest",
+        str(source),
+        "--title",
+        "Synthetic Clinical Reference",
+        "--rights-basis",
+        "operator_authored",
+        "--rights-evidence-ref",
+        "rights-evidence-ref:operator-authored:test",
+        "--idempotency-key",
+        "knowledge-ingest-test-001",
+    ]
+
+    with pytest.raises(SystemExit, match="provided exact scope does not match"):
+        uaa_knowledge.main(
+            [*shared, "--approve-exact-scope", "knowledge-ingest-scope-ref:stale"]
+        )
+    assert not store.database_path.exists()
+
+    assert (
+        uaa_knowledge.main(
+            [*shared, "--approve-exact-scope", prepared.plan.exact_scope_ref]
+        )
+        == 0
+    )
+    assert len(store.list_documents()) == 1
+    capsys.readouterr()
 
 
 def test_ingest_search_and_context_pack_are_cited_and_idempotent(

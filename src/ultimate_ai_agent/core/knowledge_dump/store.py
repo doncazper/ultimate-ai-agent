@@ -307,6 +307,7 @@ class KnowledgeDumpStore:
         document_ref = _hash_ref("knowledge-document-ref", plan.source_content_ref)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            self._validate_prepared_ingest(prepared)
             existing_by_idempotency = connection.execute(
                 """SELECT document_ref, source_content_ref, idempotency_key,
                           exact_scope_ref
@@ -570,6 +571,7 @@ class KnowledgeDumpStore:
         plan = prepared.plan
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            self._validate_prepared_metadata_update(prepared)
             existing = connection.execute(
                 "SELECT exact_scope_ref FROM metadata_updates WHERE idempotency_key = ?",
                 (plan.idempotency_key,),

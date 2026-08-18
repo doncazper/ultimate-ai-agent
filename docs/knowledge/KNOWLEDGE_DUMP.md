@@ -94,7 +94,7 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   --rights-evidence-ref rights-evidence-ref:replace-with-reviewed-ref \
   --idempotency-key knowledge-ingest-replace-with-unique-key \
   --catalog-source-id replace_with_registered_source_id \
-  --approve-exact-scope
+  --approve-exact-scope knowledge-ingest-scope-ref:replace-with-plan-ref
 ```
 
 Inspect metadata, retrieve cited chunks, or prepare a bounded Chat context:
@@ -120,8 +120,12 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   --collection medical_core \
   --tag cardiology \
   --idempotency-key knowledge-metadata-replace-with-unique-key \
-  --approve-exact-scope
+  --approve-exact-scope knowledge-metadata-scope-ref:replace-with-plan-ref
 ```
+
+The approval argument must equal the exact scope ref emitted by the immediately
+preceding plan. A missing or stale value prints the current content-free plan
+and refuses the mutation.
 
 The default local store is `.uaa/knowledge_dump`, which is gitignored. `--store`
 selects another local directory. Plans and receipts contain safe hashes/refs,
