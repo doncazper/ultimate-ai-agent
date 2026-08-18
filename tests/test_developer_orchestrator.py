@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -22,6 +23,16 @@ from uaa_developer_orchestrator.coordinator import (  # noqa: E402
 from uaa_developer_orchestrator.planning import (  # noqa: E402
     build_developer_planning_catalog,
 )
+from uaa_developer_orchestrator.queue_record import (  # noqa: E402
+    assess_developer_queue_record_health,
+    build_developer_queue_record_drafts,
+    load_developer_queue_record_manifest,
+)
+from uaa_developer_orchestrator.recovery import (  # noqa: E402
+    assess_developer_queue_recovery_health,
+    build_developer_queue_recovery_drafts,
+    load_developer_queue_recovery_manifest,
+)
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperPullRequestScout,
     DeveloperWorkspaceScout,
@@ -35,15 +46,19 @@ def _draft(
     *,
     priority: str = "p0",
     concurrency: str = "parallel_safe",
+    wip_lane: str = "shared_core",
+    queue_order: int = 100000,
     depends_on_task_refs: list[str] | None = None,
 ) -> DeveloperWorkTaskDraft:
     suffix = task_ref.removeprefix("dev-task:")
     return DeveloperWorkTaskDraft(
         task_ref=task_ref,
+        queue_order=queue_order,
         title=f"Developer task {suffix}",
         safe_summary="A bounded developer task with no implied execution authority.",
         priority=priority,
         concurrency=concurrency,
+        wip_lane=wip_lane,
         canonical_task_ref=f"canonical-task-ref:{suffix}",
         canonical_source_ref="canonical:developer-queue-test",
         canonical_source_fingerprint_ref="planning-fingerprint-ref:sha256:test",
@@ -161,11 +176,19 @@ def test_queue_allows_only_one_exclusive_developer_task(tmp_path: Path) -> None:
         idempotency_ref="idempotency-ref:register-beast",
     )
     coordinator.add_task(
-        _draft("dev-task:authority-one", concurrency="exclusive"),
+        _draft(
+            "dev-task:authority-one",
+            concurrency="exclusive",
+            wip_lane="shared_core",
+        ),
         idempotency_ref="idempotency-ref:add-authority-one",
     )
     coordinator.add_task(
-        _draft("dev-task:authority-two", concurrency="exclusive"),
+        _draft(
+            "dev-task:authority-two",
+            concurrency="exclusive",
+            wip_lane="product_surface",
+        ),
         idempotency_ref="idempotency-ref:add-authority-two",
     )
     coordinator.claim_next(
@@ -177,6 +200,252 @@ def test_queue_allows_only_one_exclusive_developer_task(tmp_path: Path) -> None:
             node_ref="node-ref:beast",
             idempotency_ref="idempotency-ref:claim-authority-two",
         )
+
+
+def test_queue_enforces_three_claim_global_wip_limit(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    _register_node(
+        coordinator,
+        "node-ref:mac",
+        idempotency_ref="idempotency-ref:register-mac",
+    )
+    _register_node(
+        coordinator,
+        "node-ref:beast",
+        idempotency_ref="idempotency-ref:register-beast",
+    )
+    lanes = [
+        "shared_core",
+        "product_surface",
+        "verification_read_only",
+        "shared_core",
+    ]
+    for index in range(4):
+        coordinator.add_task(
+            _draft(f"dev-task:global-wip-{index}", wip_lane=lanes[index]),
+            idempotency_ref=f"idempotency-ref:add-global-wip-{index}",
+        )
+    for index, node_ref in enumerate(
+        ["node-ref:mac", "node-ref:mac", "node-ref:beast"]
+    ):
+        coordinator.claim_task(
+            task_ref=f"dev-task:global-wip-{index}",
+            node_ref=node_ref,
+            idempotency_ref=f"idempotency-ref:claim-global-wip-{index}",
+        )
+
+    with pytest.raises(DeveloperWorkQueueClaimError, match="GLOBAL_WIP_LIMIT"):
+        coordinator.claim_task(
+            task_ref="dev-task:global-wip-3",
+            node_ref="node-ref:beast",
+            idempotency_ref="idempotency-ref:claim-global-wip-3",
+        )
+    view = coordinator.inspect(node_refs=["node-ref:mac", "node-ref:beast"])
+    assert view.global_wip_limit == 3
+    assert view.wip_lane_limit == 1
+    assert view.active_task_by_wip_lane == {
+        "shared_core": "dev-task:global-wip-0",
+        "product_surface": "dev-task:global-wip-1",
+        "verification_read_only": "dev-task:global-wip-2",
+    }
+    assert view.next_task_by_node_ref == {
+        "node-ref:mac": None,
+        "node-ref:beast": None,
+    }
+
+
+def test_queue_allows_only_one_claim_per_wip_lane(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    _register_node(
+        coordinator,
+        "node-ref:mac",
+        idempotency_ref="idempotency-ref:register-mac",
+    )
+    _register_node(
+        coordinator,
+        "node-ref:beast",
+        idempotency_ref="idempotency-ref:register-beast",
+    )
+    for suffix in ["one", "two"]:
+        coordinator.add_task(
+            _draft(
+                f"dev-task:lane-{suffix}",
+                wip_lane="verification_read_only",
+            ),
+            idempotency_ref=f"idempotency-ref:add-lane-{suffix}",
+        )
+    coordinator.claim_task(
+        task_ref="dev-task:lane-one",
+        node_ref="node-ref:mac",
+        idempotency_ref="idempotency-ref:claim-lane-one",
+    )
+    with pytest.raises(DeveloperWorkQueueClaimError, match="WIP_LANE_LIMIT"):
+        coordinator.claim_task(
+            task_ref="dev-task:lane-two",
+            node_ref="node-ref:beast",
+            idempotency_ref="idempotency-ref:claim-lane-two",
+        )
+
+
+def test_recovery_manifest_materializes_the_stranded_program() -> None:
+    manifest = load_developer_queue_recovery_manifest(ROOT)
+    drafts = build_developer_queue_recovery_drafts(ROOT)
+
+    assert len(manifest.items) == 11
+    assert len(drafts) == 11
+    assert manifest.recovery_policy.max_parallel_claims == 3
+    assert manifest.recovery_policy.queue_starvation_is_failure is True
+    assert {item.item_id for item in manifest.items} >= {
+        "queue-03-hermes-openclaw-parity",
+        "calendar-read-only-product-lane",
+        "first-class-crm",
+        "queue-07-news-signals",
+        "queue-09-final-goat-comparison",
+    }
+    assert all(draft.acceptance_refs for draft in drafts)
+    assert all(draft.verifier_refs for draft in drafts)
+    assert drafts[-1].concurrency == "exclusive"
+    assert len(drafts[-1].depends_on_task_refs) == 10
+
+
+def test_recovery_manifest_fails_closed_on_prompt_drift(tmp_path: Path) -> None:
+    recovery_root = tmp_path / "repository"
+    (recovery_root / "docs" / "roadmap").mkdir(parents=True)
+    shutil.copy2(
+        ROOT / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json",
+        recovery_root / "docs" / "roadmap" / "UAA_REMAINING_QUEUE_MANIFEST.json",
+    )
+    shutil.copy2(
+        ROOT / "docs" / "roadmap" / "UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json",
+        recovery_root
+        / "docs"
+        / "roadmap"
+        / "UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json",
+    )
+    shutil.copytree(
+        ROOT / "docs" / "prompts" / "remaining_queue_recovery",
+        recovery_root / "docs" / "prompts" / "remaining_queue_recovery",
+    )
+    prompt = (
+        recovery_root
+        / "docs"
+        / "prompts"
+        / "remaining_queue_recovery"
+        / "01_hermes_openclaw_parity.md"
+    )
+    prompt.write_text(
+        prompt.read_text(encoding="utf-8") + "\ndrift\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="SOURCE_DIGEST_MISMATCH"):
+        load_developer_queue_recovery_manifest(recovery_root)
+
+
+def test_recovery_health_escalates_zero_admission_as_starvation(
+    tmp_path: Path,
+) -> None:
+    manifest = load_developer_queue_recovery_manifest(ROOT)
+    health = assess_developer_queue_recovery_health(manifest=manifest, task_states={})
+    assert health.admission_gap_detected is True
+    assert health.queue_starvation_detected is True
+    assert health.risk_ref == "developer-risk-ref:recovery-queue-starvation"
+
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    for index, draft in enumerate(build_developer_queue_recovery_drafts(ROOT)):
+        coordinator.add_task(
+            draft,
+            idempotency_ref=f"idempotency-ref:recovery-admission-{index}",
+        )
+    view = coordinator.inspect()
+    admitted_health = assess_developer_queue_recovery_health(
+        manifest=manifest,
+        task_states={task.task_ref: task.state for task in view.tasks},
+    )
+    assert admitted_health.admission_gap_detected is False
+    assert admitted_health.queue_starvation_detected is False
+    assert admitted_health.admitted_recovery_item_count == 11
+    assert admitted_health.nonterminal_recovery_item_count == 11
+
+
+def test_queue_v2_manifest_materializes_authoritative_order() -> None:
+    manifest = load_developer_queue_record_manifest(ROOT)
+    drafts = build_developer_queue_record_drafts(ROOT)
+
+    assert len(manifest.items) == 32
+    assert len(manifest.gated_items) == 11
+    assert len(drafts) == 32
+    assert [item.item_id for item in manifest.items] == [
+        f"Q{index:02d}" for index in range(32)
+    ]
+    assert [draft.queue_order for draft in drafts] == list(range(32))
+    assert [draft.wip_lane for draft in drafts[:3]] == [
+        "product_surface",
+        "shared_core",
+        "verification_read_only",
+    ]
+    assert manifest.items[0].existing_owner_ref is not None
+    assert manifest.items[1].existing_owner_ref is not None
+    assert "Q22" in manifest.items[-1].depends_on_item_ids
+    assert "Q26" not in manifest.items[-1].depends_on_item_ids
+    assert manifest.policy.legacy_recovery_admission_enabled is False
+
+
+def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state_dir = tmp_path / "state"
+    parser = build_parser()
+    inspection = parser.parse_args(["--state-dir", str(state_dir), "inspect"])
+    assert inspection.func(inspection) == 0
+    empty_payload = json.loads(capsys.readouterr().out)
+    assert empty_payload["queue_of_record_health"]["queue_starvation_detected"] is True
+    assert empty_payload["legacy_recovery_status"]["admission_enabled"] is False
+
+    missing_confirmation = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "recover-remaining-queue",
+            "--idempotency-prefix",
+            "idempotency-ref:remaining-queue-recovery-v1",
+            "--confirm-recovery",
+            "wrong",
+        ]
+    )
+    with pytest.raises(ValueError, match="RECOVERY_SUPERSEDED_BY_V2"):
+        missing_confirmation.func(missing_confirmation)
+
+    admitted = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "admit-queue-v2",
+            "--idempotency-prefix",
+            "idempotency-ref:queue-v2-admission",
+            "--confirm-admission",
+            "admit-queue-v2",
+        ]
+    )
+    assert admitted.func(admitted) == 0
+    first_payload = json.loads(capsys.readouterr().out)
+    assert first_payload["replayed_receipt_count"] == 0
+    assert first_payload["queue_of_record_health"]["admission_gap_detected"] is False
+
+    assert admitted.func(admitted) == 0
+    replay_payload = json.loads(capsys.readouterr().out)
+    assert replay_payload["replayed_receipt_count"] == 32
+    view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
+    assert len(view.tasks) == 32
+    assert [task.queue_order for task in view.tasks] == list(range(32))
+
+    health = assess_developer_queue_record_health(
+        manifest=load_developer_queue_record_manifest(ROOT),
+        task_states={task.task_ref: task.state for task in view.tasks},
+    )
+    assert health.queue_starvation_detected is False
+    assert health.admitted_item_count == 32
 
 
 def test_blocked_task_requires_an_explicit_unblock_before_reclaim(
