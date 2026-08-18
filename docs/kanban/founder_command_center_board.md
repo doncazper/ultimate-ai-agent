@@ -1813,6 +1813,42 @@ moderation, external scheduling, provider/model calls, browser scraping,
 background sync, broad automation, public release, or production authority.
 This card grants no runtime capability.
 
+### FCC-FINANCE-001 - P2 - Finance & Compliance Local-First Program
+
+Epic: Product/UX, Founder Operations, Books, Tax Readiness, Compliance
+
+Description: Build a first-party UAA Finance application that keeps books
+continuously organized rather than reconstructed at period end. The complete
+vision includes local double-entry truth, manual/file import, a review-and-learn
+transaction inbox, receipt and business-context capture, reconciliation,
+spending intelligence, tax-readiness/accountant packets, and sourced
+entity/jurisdiction obligations. Finance projects exact work into Today,
+Morning Briefing, Action Inbox, Calendar, Work Board, Evidence, News, Memory,
+and Chat without duplicating canonical truth.
+
+Activation gates: FIN-000 planning and synthetic render acceptance may proceed
+now. Runtime begins only after ECO-001, first-class Boards/Kanban, Calendar,
+Today, Action Inbox, and ECO-008 ChangeSets are accepted. The local product
+precedes live bank or compliance connections; every adapter, accountant-access
+lane, payment, and filing handoff requires separate promotion.
+
+Board posture: Deferred. This card is not current WIP. Passing the activation
+gates makes FIN-001 eligible for explicit board promotion under WIP limits; it
+does not interrupt the Founder Command Center spine automatically.
+
+Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
+`docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,
+`docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`,
+`docs/security/UAA_FINANCE_COMPLIANCE_THREAT_MODEL.md`,
+`docs/product/UAA_FINANCE_FIN000_ACCEPTANCE_MATRIX.md`, and
+`docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`.
+
+Safety notes: No financial-account connection, aggregation provider, raw
+credential storage, maintained compliance feed, tax/legal/accounting advice,
+accountant invitation, payment, transfer, signature, filing, external write,
+provider/model call, browser automation, background sync, broad automation,
+public release, or production authority. This card grants no runtime capability.
+
 ## Review
 
 No Founder Command Center cards are in Review yet.

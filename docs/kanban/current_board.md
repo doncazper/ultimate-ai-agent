@@ -848,6 +848,23 @@ service, public distribution, or production authority.
 Next: review and accept `ECO-003A`, then implement no storage until `ECO-001`
 is accepted. Canonical Task projections also remain dependent on `ECO-002`.
 
+FIN-000 Finance & Compliance Product Contract And Render Acceptance
+Goal: preserve and refine the first-party UAA Finance vision before runtime:
+continuous local books, review-and-learn categorization, receipt/context
+capture, reconciliation, spending intelligence, accountant readiness, and
+sourced business-compliance obligations integrated with the Founder Loop.
+Status: planning package proposed for review; no Finance runtime, storage,
+connector, calculation, filing, payment, or professional authority exists.
+Scope: the product contract, privacy-safe workflow case study, implementation
+sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
+queue placement, and twelve-surface render brief. UAA builds first-party modules
+instead of white-labeling a complete finance product.
+Next: review FIN-000 planning truth and create/accept the synthetic render pack.
+Runtime FIN-001 remains behind ECO-001, first-class Boards/Kanban, Calendar,
+Today, Action Inbox, and ECO-008 ChangeSet gates. Financial/compliance adapters,
+accountant access, payments, tax filing, provider/model calls, browser runtime,
+background sync, public release, and production authority remain later lanes.
+
 CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
 Goal: evolve the implemented CRM M2 baseline into one relationship-first local
 CRM foundation with Sales, Real Estate, Professional Network, Personal Network,

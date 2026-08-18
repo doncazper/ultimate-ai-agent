@@ -433,6 +433,7 @@ def test_default_snapshot_converges_authority_lanes_and_ecosystem() -> None:
     assert "entity:task" in nodes
     assert "boundary:policy-engine" in nodes
     assert "lane-ref:today-loop-read" in nodes
+    assert "feature:finance-compliance-program" in nodes
     assert "feature:durable-system-capability-map" in nodes
     assert "capability-source:ultimate_ai_agent.core.capabilities.registry" in nodes
     assert any(node.kind.value == "route" for node in snapshot.graph.nodes)
