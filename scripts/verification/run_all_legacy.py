@@ -150,6 +150,7 @@ SCAN_SEQUENCE = [
     ("operator-readiness taxonomy scan", "verify_operator_readiness_taxonomy"),
     ("morning reconciliation artifact scan", "verify_morning_reconciliation_artifact"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
+    ("system capability map currentness scan", "verify_system_map_currentness"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
@@ -30613,6 +30614,11 @@ def run_static_scans(timings: Any | None = None) -> None:
 def verify_repo_awareness_benchmark() -> None:
     print("\n[Verifier] Running repo awareness benchmark verifier...")
     run_cmd([sys.executable, "scripts/verify_repo_awareness_benchmark.py"])
+
+
+def verify_system_map_currentness() -> None:
+    print("\n[Verifier] Running system capability map currentness verifier...")
+    run_cmd([sys.executable, "scripts/verify_system_map_currentness.py"])
 
 
 def verify_operational_maturity() -> None:

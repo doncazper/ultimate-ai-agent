@@ -19,7 +19,7 @@ CI_LANE ?= ci-lint
 CI_TEMP_ROOT ?= /tmp/uaa-ci-lane
 CI_SHARD_INDEX ?= 0
 VERIFICATION_EXECUTION_FENCE_ROOT ?= /private/tmp/uaa-verification-execution-fence-v2-$(shell /usr/bin/id -u)
-.PHONY: doctor verification-bootstrap test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
+.PHONY: doctor verification-bootstrap test test-serial test-sharded test-sharded-profile verify verify-static verify-gate-architecture verify-system-map verify-fast verify-affected verify-value-audit verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual ci-manifest ci-lane ci-reproduce-shard ci-fallback ci-fallback-status frontend-check frontend-visual-check frontend-turn-router-smoke openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -53,6 +53,9 @@ verify-static:
 
 verify-gate-architecture:
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
+
+verify-system-map:
+	PYTHONPATH=src $(PYTHON) scripts/verify_system_map_currentness.py
 
 verify-fast:
 	PYTHONPATH=src $(PYTHON) scripts/verification/changed_path_selector.py --tier fast --execute

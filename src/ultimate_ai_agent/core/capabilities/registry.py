@@ -178,6 +178,14 @@ class CapabilityRegistry:
             raise KeyError(f"Capability '{capability_id}' is not registered.")
         return manifest
 
+    def list_manifests(self) -> list[CapabilityManifest]:
+        """Return a stable copy of every registered typed capability manifest."""
+
+        return [
+            self._manifests[key].model_copy(deep=True)
+            for key in sorted(self._manifests)
+        ]
+
     def validate_manifest(self, manifest: CapabilityManifest) -> CapabilityManifest:
         return CapabilityManifest.model_validate(manifest.model_dump())
 

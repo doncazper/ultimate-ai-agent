@@ -620,6 +620,48 @@ blocked until `milestone-ref:fcc-mem-hrr-001-explicit-authority`.
 
 ## Ready Next
 
+### UAA-P1-092 Durable System Capability Map Merge And Currentness Gate
+
+Status: implemented as a read-only contract; merge evidence remains tracked
+through the normal pull-request and exact-head verification gates.
+
+Goal: land the read-only, content-addressed system capability map as UAA's
+durable architecture index, then keep it synchronized as the product grows.
+
+Scope: Python Core graph contracts, canonical feature and capability-source
+catalogs, crash-safe local snapshots, proposal-only opportunity discovery,
+repo-local CLI inspection, documentation, tests, and a fail-closed currentness
+verifier. This item adds no API route, Control Center runtime, model/provider
+call, web fetch, plugin import, connector write, shell authority, automatic
+feature implementation, automatic queue mutation, public beta, or production
+authority.
+
+System map registration: required for every future capability or feature.
+New `CapabilityManifest` or `DeviceCapabilityManifest` constructor modules must
+be registered in `SYSTEM_MAP_CAPABILITY_SOURCE_MODULES`; new first-party product
+features must be registered in `SYSTEM_MAP_FEATURE_CATALOG`; new ECO entity/app
+types and AuthorityLease lane mappings are ingested automatically. The
+`scripts/verify_system_map_currentness.py` merge check fails when a capability
+constructor source is unregistered or stale, a catalogued feature is absent
+from the graph, canonical ecosystem/authority nodes disappear, or this contract
+is removed.
+
+Merge admission:
+
+- reconcile this candidate against current main in a scope-clean branch or
+  worktree without absorbing unrelated local changes;
+- run the focused system-map tests, Ruff, documentation integrity, and
+  `make verify-system-map`;
+- retain hosted CI and human review as required merge evidence; and
+- keep opportunity output proposal-only and explicitly non-authoritative.
+
+Canonical implementation refs:
+`src/ultimate_ai_agent/core/system_map/`,
+`scripts/dev/uaa_system_map.py`,
+`scripts/verify_system_map_currentness.py`,
+`tests/test_system_map.py`, and
+`docs/architecture/SYSTEM_CAPABILITY_MAP.md`.
+
 ```text
 Post-FCC-MEM-022 Memory Follow-up Selection
 Goal: choose the next exact-scoped memory lane from merge/supersede UX,
