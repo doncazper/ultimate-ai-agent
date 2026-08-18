@@ -24,6 +24,7 @@ authority.
 .venv/bin/python scripts/dev/uaa_founder_loop.py inspect
 .venv/bin/python scripts/dev/uaa_founder_loop.py promote-action-envelope --today-item-ref briefing:storage-state-first-loop --idempotency-ref idempotency-ref:local-review
 .venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py admit-queue-v2 --idempotency-prefix idempotency-ref:queue-v2-admission --confirm-admission admit-queue-v2 --pretty
 .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
 ```
 
@@ -40,8 +41,13 @@ the existing long-running UAA planning queue. It indexes canonical planning
 sources, requires explicit branch/worktree/verifier/merge-gate triage plus a
 registered, heartbeating node before a Mac or Beast worker can claim a task,
 uses a recoverable snapshot/receipt transaction journal, prevents active
-branch/worktree collisions, and exposes exact completion or cancellation plus
-a terminal scope-packet archive gate. It provides fixed read-only local Git
+branch/worktree collisions, enforces a three-claim global WIP cap with one
+shared-core, one product-surface, and one verification/read-only task, and
+exposes exact completion or cancellation plus a terminal scope-packet archive
+gate. Its guarded V2 command materializes the authoritative Q00-Q31 queue;
+`inspect` treats zero admitted V2 work as starvation. The older recovery
+command fails closed because that source set is superseded. It provides fixed
+read-only local Git
 hygiene scouting; GitHub queries remain outside coordinator v1.
 It neither runs developer agents nor mutates Git, worktrees, pull requests, or
 UAA product-runtime authority. See

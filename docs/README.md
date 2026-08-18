@@ -8,6 +8,13 @@ remaining-queue manifest,
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. This program
 extends the existing Turn Contract Router, preserves the local model as UAA's
 language/reasoning engine, and grants no runtime authority by itself.
+The authoritative active developer order is now
+`docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
+Q31 in dependency waves, limits active work to one shared-core, one
+product-surface, and one verification/read-only claim, and keeps eleven
+authority-heavy programs visible but gated. The immutable remaining-queue
+manifest and its local recovery source set remain historical evidence; their
+legacy admission path is disabled so they cannot recreate duplicate work.
 
 This is the active documentation entrypoint. Start with UAA as the
 Founder Command Center product path: a local-first professional AI command
