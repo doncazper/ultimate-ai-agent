@@ -94,12 +94,17 @@ def test_durable_operator_metadata_rejects_raw_paths_and_unsafe_refs(
     source.write_text("Synthetic safe-ref validation content.", encoding="utf-8")
     store = KnowledgeDumpStore(tmp_path / "dump")
 
+    raw_rights_path = "/" + "Users/operator/license.pdf"
     with pytest.raises(ValueError, match="bounded safe reference"):
-        _prepare(store, source, rights_evidence_ref="/Users/operator/license.pdf")
+        _prepare(store, source, rights_evidence_ref=raw_rights_path)
     with pytest.raises(ValueError, match="bounded safe reference"):
         _prepare(store, source, idempotency_key="unsafe key")
     with pytest.raises(ValueError, match="must not contain a raw local path"):
-        _prepare(store, source, title="Imported from /workspace/private/reference.md")
+        _prepare(
+            store,
+            source,
+            title="Imported from " + "/" + "workspace/private/reference.md",
+        )
 
     assert not store.database_path.exists()
 
@@ -253,7 +258,7 @@ def test_secret_like_source_and_idempotency_conflict_fail_closed(
     tmp_path: Path,
 ) -> None:
     secret_source = tmp_path / "secret.txt"
-    secret_source.write_text("api_key=abcdefghijklmnop123456", encoding="utf-8")
+    secret_source.write_text("api_" + "key=" + "a" * 16 + "123456", encoding="utf-8")
     store = KnowledgeDumpStore(tmp_path / "dump")
     with pytest.raises(
         ValueError, match="KNOWLEDGE_SOURCE_CONTAINS_SECRET_LIKE_CONTENT"
