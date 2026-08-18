@@ -589,12 +589,27 @@ PYTHONPATH=src .venv/bin/python scripts/dev/capability_registry_smoke.py
 
 The harness registers one deterministic in-process echo capability, resolves it for a test run context, executes it, prints OpenAI/MCP schemas, runs a bounded manifest/coordinator capability path, validates an exact local approval grant for a high-risk manifest, and reloads the durable coordinator state file. It does not add backend routes, provider calls, plugin loading, shell/network authority, or production authority. The master verifier runs this smoke explicitly so the runnable example remains covered even when pytest is skipped in split CI jobs.
 
+## Durable System Capability Map
+
+`ultimate_ai_agent.core.system_map` converges canonical ECO-000 ownership,
+AuthorityLease lane mappings, and supplied `CapabilityManifest` records into a
+deterministic, content-addressed graph. It preserves capability dependencies,
+conflicts, I/O compatibility, truth status, governance boundaries, route/CLI
+exposure, and missing referenced capabilities. Bounded opportunity discovery
+produces operator-review proposals only; graph connectivity cannot grant
+authority, activate a capability, or prove execution.
+
+Snapshots are stored as immutable history plus an atomically replaced current
+snapshot under `.uaa/system_map`. See
+`docs/architecture/SYSTEM_CAPABILITY_MAP.md` and inspect the same Python Core
+contract with `scripts/dev/uaa_system_map.py`.
+
 ## Testing
 
 Run the focused suite:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py tests/test_system_map.py
 ```
 
 The tests cover manifest validation, registry search/load, compact catalog rendering, policy denials, exact approval grants, durable state persistence, single-writer validation, read-only fan-out, partial fan-out failure artifacts, retries, idempotency enforcement, adapter health denial, output-schema checks, fake tool/agent adapters, mocked structured selection, and JSON import/export.
