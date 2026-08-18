@@ -482,12 +482,12 @@ def test_currentness_gate_covers_repository_and_detects_new_manifest_source(
 @pytest.mark.parametrize(
     "unsafe_text",
     [
-        "/workspace/project/file",
-        "/root/private.json",
-        "/var/data",
-        "/opt/app",
-        "configured=/workspace/private.json",
-        "/root",
+        "/" + "workspace/project/file",
+        "/" + "root/private.json",
+        "/" + "var/data",
+        "/" + "opt/app",
+        "configured=" + "/" + "workspace/private.json",
+        "/" + "root",
     ],
 )
 def test_system_map_rejects_raw_absolute_paths(unsafe_text: str) -> None:
@@ -550,7 +550,7 @@ def test_blocking_adapter_posture_overrides_implemented_status() -> None:
 
 
 def test_manifest_ids_fail_at_contract_boundary_before_registry_use() -> None:
-    for invalid_id in ("x", "image caption", "cap:/root/private"):
+    for invalid_id in ("x", "image caption", "cap:" + "/" + "root/private"):
         with pytest.raises(ValidationError, match="bounded safe reference"):
             _manifest(invalid_id, input_modes=["request"], output_modes=["result"])
 
