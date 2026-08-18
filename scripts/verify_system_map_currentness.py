@@ -44,11 +44,18 @@ def discover_manifest_constructor_modules(root: Path = ROOT) -> tuple[str, ...]:
     discovered: set[str] = set()
     for path in sorted(package_root.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=path.name)
+        constructor_names = set(SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            for imported in node.names:
+                if imported.name in SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES:
+                    constructor_names.add(imported.asname or imported.name)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             constructor = _call_name(node.func)
-            if constructor not in SYSTEM_MAP_MANIFEST_CONSTRUCTOR_NAMES:
+            if constructor not in constructor_names:
                 continue
             relative = path.relative_to(source_root).with_suffix("")
             discovered.add(".".join(relative.parts))
@@ -84,10 +91,7 @@ def verify_repository(root: Path = ROOT) -> list[str]:
             f"entity:{assignment.entity_kind.value}"
             for assignment in CANONICAL_OWNERSHIP_REGISTRY.assignments
         ),
-        *(
-            mapping.lane_ref
-            for mapping in build_existing_lane_authority_mappings()
-        ),
+        *(mapping.lane_ref for mapping in build_existing_lane_authority_mappings()),
         *(feature.feature_ref for feature in SYSTEM_MAP_FEATURE_CATALOG),
         *(
             f"capability-source:{module}"
@@ -101,7 +105,10 @@ def verify_repository(root: Path = ROOT) -> list[str]:
     board_text = board.read_text(encoding="utf-8") if board.exists() else ""
     if f"### {QUEUE_ITEM_ID} " not in board_text:
         failures.append("SYSTEM_MAP_MERGE_QUEUE_ITEM_MISSING")
-    if "System map registration: required for every future capability or feature" not in board_text:
+    if (
+        "System map registration: required for every future capability or feature"
+        not in board_text
+    ):
         failures.append("SYSTEM_MAP_FUTURE_REGISTRATION_POLICY_MISSING")
 
     contract = root / "docs/architecture/SYSTEM_CAPABILITY_MAP.md"
@@ -123,7 +130,10 @@ def verify_repository(root: Path = ROOT) -> list[str]:
         if pull_request_template.exists()
         else ""
     )
-    if "typed system-map sources" not in template_text or "make verify-system-map" not in template_text:
+    if (
+        "typed system-map sources" not in template_text
+        or "make verify-system-map" not in template_text
+    ):
         failures.append("SYSTEM_MAP_PULL_REQUEST_CHECKLIST_MISSING")
 
     return failures

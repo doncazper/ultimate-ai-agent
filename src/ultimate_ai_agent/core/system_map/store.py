@@ -62,16 +62,16 @@ class SystemMapSnapshotStore:
             path = self.snapshot_path(snapshot_ref)
             if not path.exists():
                 raise FileNotFoundError("SYSTEM_MAP_SNAPSHOT_NOT_FOUND")
-            return self._load_path(path)
+            return self._load_history_path(path, snapshot_ref)
 
     def list_snapshot_refs(self) -> tuple[str, ...]:
         with self._locked_file():
             if not self.snapshots_dir.exists():
                 return ()
-            refs = [
-                self._load_path(path).snapshot_ref
-                for path in sorted(self.snapshots_dir.glob("*.json"))
-            ]
+            refs = []
+            for path in sorted(self.snapshots_dir.glob("*.json")):
+                expected_ref = f"system-map-snapshot:sha256:{path.stem}"
+                refs.append(self._load_history_path(path, expected_ref).snapshot_ref)
             return tuple(refs)
 
     def snapshot_path(self, snapshot_ref: str) -> Path:
@@ -87,6 +87,13 @@ class SystemMapSnapshotStore:
     def _load_path(path: Path) -> SystemMapSnapshot:
         payload = json.loads(path.read_text(encoding="utf-8"))
         return SystemMapSnapshot.model_validate(payload)
+
+    @classmethod
+    def _load_history_path(cls, path: Path, expected_ref: str) -> SystemMapSnapshot:
+        snapshot = cls._load_path(path)
+        if snapshot.snapshot_ref != expected_ref:
+            raise ValueError("SYSTEM_MAP_HISTORY_REF_MISMATCH")
+        return snapshot
 
     @staticmethod
     def _atomic_write(path: Path, payload: str) -> None:

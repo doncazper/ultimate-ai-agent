@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.capabilities.enums import (
 
 
 CAPABILITY_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
+CAPABILITY_MANIFEST_ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.:#{}-]{2,240}$")
 CAPABILITY_SCOPE_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]+$")
 KNOWN_CAPABILITY_SOURCES = {"python", "internal", "mcp", "openapi", "langchain", "pydantic_ai", "other"}
 SECRET_PATTERN = re.compile(
@@ -358,6 +359,23 @@ class CapabilityManifest(_CoordinatorCapabilityModel):
     safety: SafetyPolicy = Field(default_factory=SafetyPolicy)
     quality: QualitySignals = Field(default_factory=QualitySignals)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def validate_manifest_id(cls, value: str) -> str:
+        if not CAPABILITY_MANIFEST_ID_PATTERN.fullmatch(value):
+            raise ValueError("capability manifest id must be a bounded safe reference")
+        return value
+
+    @field_validator("dependencies", "conflicts_with")
+    @classmethod
+    def validate_manifest_refs(cls, values: list[str]) -> list[str]:
+        normalized = [value.strip() for value in values if value and value.strip()]
+        if any(not CAPABILITY_MANIFEST_ID_PATTERN.fullmatch(value) for value in normalized):
+            raise ValueError("capability manifest references must be bounded safe references")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("capability manifest references must be unique")
+        return normalized
 
     @field_validator("tags", "examples", "anti_examples", "input_modes", "output_modes", "auth_scopes", "data_classes")
     @classmethod

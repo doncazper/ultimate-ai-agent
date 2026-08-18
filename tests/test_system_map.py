@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from ultimate_ai_agent.core.capabilities import (
     CapabilityKind,
@@ -16,10 +17,24 @@ from ultimate_ai_agent.core.capabilities import (
 from ultimate_ai_agent.core.capabilities.enums import RiskLevel
 from ultimate_ai_agent.core.system_map import (
     SystemMapBuilder,
+    SystemMapEdge,
     SystemMapEdgeKind,
+    SystemMapEdgeOrigin,
+    SystemMapFeatureDeclaration,
+    SystemMapNode,
+    SystemMapNodeKind,
+    SystemMapOpportunity,
+    SystemMapSnapshot,
     SystemMapSnapshotStore,
     SystemMapTruthStatus,
     build_default_system_map_snapshot,
+)
+from ultimate_ai_agent.core.system_map.models import (
+    _legacy_system_map_opportunity_ref,
+    _validate_dependency_acyclic,
+    system_map_edge_id,
+    system_map_opportunity_ref,
+    system_map_snapshot_ref,
 )
 from scripts.dev import uaa_system_map
 from scripts import verify_system_map_currentness
@@ -144,6 +159,29 @@ def test_graph_ref_is_deterministic_for_input_order() -> None:
     assert graph_a.graph_ref == graph_b.graph_ref
 
 
+def test_feature_source_order_does_not_change_graph_ref() -> None:
+    def feature(source_refs: tuple[str, ...]) -> SystemMapFeatureDeclaration:
+        return SystemMapFeatureDeclaration(
+            feature_ref="feature:source-order-test",
+            name="Source order test",
+            safe_summary="Equivalent provenance order must remain canonical.",
+            truth_status=SystemMapTruthStatus.declared,
+            source_refs=source_refs,
+        )
+
+    builder = SystemMapBuilder()
+    graph_a = builder.build_graph(
+        feature_declarations=[feature(("source-ref:zeta", "source-ref:alpha"))],
+        include_ecosystem=False,
+    )
+    graph_b = builder.build_graph(
+        feature_declarations=[feature(("source-ref:alpha", "source-ref:zeta"))],
+        include_ecosystem=False,
+    )
+
+    assert graph_a == graph_b
+
+
 def test_opportunity_discovery_is_bounded_proposal_only() -> None:
     first = _manifest("cap:first", input_modes=["request"], output_modes=["artifact"])
     second = _manifest("cap:second", input_modes=["artifact"], output_modes=["result"])
@@ -162,6 +200,106 @@ def test_opportunity_discovery_is_bounded_proposal_only() -> None:
     assert opportunity.grants_authority is False
     assert opportunity.graph_ref == snapshot.graph.graph_ref
     assert snapshot.grants_authority is False
+
+
+def test_snapshot_rejects_opportunity_evidence_outside_bound_graph() -> None:
+    first = _manifest("cap:first", input_modes=["request"], output_modes=["artifact"])
+    second = _manifest("cap:second", input_modes=["artifact"], output_modes=["result"])
+    snapshot = SystemMapBuilder().build_snapshot(
+        manifests=[first, second],
+        include_ecosystem=False,
+        created_at=FIXED_TIME,
+        max_opportunities=1,
+    )
+    original = snapshot.opportunities[0]
+    bad_capabilities = (original.capability_node_ids[0], "cap:not-in-graph")
+    bad_ref = system_map_opportunity_ref(
+        snapshot.graph.graph_ref,
+        bad_capabilities,
+        original.supporting_edge_ids,
+        original.gap_refs,
+    )
+    bad = original.model_copy(
+        update={
+            "capability_node_ids": bad_capabilities,
+            "opportunity_ref": bad_ref,
+        }
+    )
+    snapshot_ref = system_map_snapshot_ref(
+        created_at=FIXED_TIME,
+        graph=snapshot.graph,
+        opportunities=(bad,),
+        source_refs=snapshot.source_refs,
+    )
+
+    with pytest.raises(
+        ValueError, match="SYSTEM_MAP_OPPORTUNITY_CAPABILITY_NODE_INVALID"
+    ):
+        SystemMapSnapshot(
+            snapshot_ref=snapshot_ref,
+            created_at=FIXED_TIME,
+            graph=snapshot.graph,
+            opportunities=(bad,),
+            source_refs=snapshot.source_refs,
+        )
+
+    missing_edges = ("system-map-edge:" + "0" * 32,)
+    bad_edge_ref = system_map_opportunity_ref(
+        snapshot.graph.graph_ref,
+        original.capability_node_ids,
+        missing_edges,
+        original.gap_refs,
+    )
+    bad_edge = original.model_copy(
+        update={
+            "supporting_edge_ids": missing_edges,
+            "opportunity_ref": bad_edge_ref,
+        }
+    )
+    bad_edge_snapshot_ref = system_map_snapshot_ref(
+        created_at=FIXED_TIME,
+        graph=snapshot.graph,
+        opportunities=(bad_edge,),
+        source_refs=snapshot.source_refs,
+    )
+    with pytest.raises(
+        ValueError, match="SYSTEM_MAP_OPPORTUNITY_SUPPORTING_EDGE_INVALID"
+    ):
+        SystemMapSnapshot(
+            snapshot_ref=bad_edge_snapshot_ref,
+            created_at=FIXED_TIME,
+            graph=snapshot.graph,
+            opportunities=(bad_edge,),
+            source_refs=snapshot.source_refs,
+        )
+
+
+def test_legacy_opportunity_ref_cannot_hide_supporting_edge_changes() -> None:
+    graph = SystemMapBuilder().build_graph(
+        manifests=[
+            _manifest("cap:first", input_modes=["request"], output_modes=["artifact"]),
+            _manifest("cap:second", input_modes=["artifact"], output_modes=["result"]),
+        ],
+        include_ecosystem=False,
+    )
+    capability_ids = ("cap:first", "cap:second")
+    supporting_edges = (graph.edges[0].edge_id,)
+    gap_refs = ("gap-ref:test",)
+    legacy_ref = _legacy_system_map_opportunity_ref(
+        graph.graph_ref, capability_ids, gap_refs
+    )
+
+    with pytest.raises(ValueError, match="SYSTEM_MAP_OPPORTUNITY_REF_MISMATCH"):
+        SystemMapOpportunity(
+            opportunity_ref=legacy_ref,
+            graph_ref=graph.graph_ref,
+            title="Legacy evidence mismatch",
+            safe_summary="Supporting evidence must remain content addressed.",
+            capability_node_ids=capability_ids,
+            supporting_edge_ids=supporting_edges,
+            gap_refs=gap_refs,
+            confidence=0.5,
+        )
 
 
 def test_snapshot_store_round_trip_history_and_tamper_detection(tmp_path) -> None:
@@ -183,6 +321,29 @@ def test_snapshot_store_round_trip_history_and_tamper_detection(tmp_path) -> Non
         store.load_current()
 
 
+def test_snapshot_store_binds_history_payload_to_filename_ref(tmp_path) -> None:
+    store = SystemMapSnapshotStore(tmp_path / "system-map")
+    first = SystemMapBuilder().build_snapshot(
+        include_ecosystem=True,
+        created_at=FIXED_TIME,
+    )
+    second = SystemMapBuilder().build_snapshot(
+        include_ecosystem=True,
+        created_at=FIXED_TIME.replace(minute=1),
+    )
+    store.save(first)
+    store.save(second)
+    store.snapshot_path(first.snapshot_ref).write_text(
+        store.snapshot_path(second.snapshot_ref).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="SYSTEM_MAP_HISTORY_REF_MISMATCH"):
+        store.load(first.snapshot_ref)
+    with pytest.raises(ValueError, match="SYSTEM_MAP_HISTORY_REF_MISMATCH"):
+        store.list_snapshot_refs()
+
+
 def test_default_snapshot_converges_authority_lanes_and_ecosystem() -> None:
     snapshot = build_default_system_map_snapshot(
         created_at=FIXED_TIME,
@@ -194,9 +355,7 @@ def test_default_snapshot_converges_authority_lanes_and_ecosystem() -> None:
     assert "boundary:policy-engine" in nodes
     assert "lane-ref:today-loop-read" in nodes
     assert "feature:durable-system-capability-map" in nodes
-    assert (
-        "capability-source:ultimate_ai_agent.core.capabilities.registry" in nodes
-    )
+    assert "capability-source:ultimate_ai_agent.core.capabilities.registry" in nodes
     assert any(node.kind.value == "route" for node in snapshot.graph.nodes)
     assert snapshot.opportunities
 
@@ -212,10 +371,92 @@ def test_currentness_gate_covers_repository_and_detects_new_manifest_source(
         "def build():\n    return CapabilityManifest()\n",
         encoding="utf-8",
     )
+    alias_source = tmp_path / "src/ultimate_ai_agent/aliased_capability.py"
+    alias_source.write_text(
+        "from package import CapabilityManifest as Manifest\n\n"
+        "def build():\n    return Manifest()\n",
+        encoding="utf-8",
+    )
 
     assert verify_system_map_currentness.discover_manifest_constructor_modules(
         tmp_path
-    ) == ("ultimate_ai_agent.new_capability",)
+    ) == (
+        "ultimate_ai_agent.aliased_capability",
+        "ultimate_ai_agent.new_capability",
+    )
+
+
+@pytest.mark.parametrize(
+    "unsafe_text",
+    [
+        "/workspace/project/file",
+        "/root/private.json",
+        "/var/data",
+        "/opt/app",
+        "configured=/workspace/private.json",
+        "/root",
+    ],
+)
+def test_system_map_rejects_raw_absolute_paths(unsafe_text: str) -> None:
+    with pytest.raises(ValueError, match="SYSTEM_MAP_UNSAFE_TEXT_DENIED"):
+        SystemMapNode(
+            node_id="source:absolute-path-test",
+            kind=SystemMapNodeKind.source,
+            name="Unsafe path test",
+            safe_summary=f"Durable payload included {unsafe_text}",
+            truth_status=SystemMapTruthStatus.declared,
+        )
+
+
+def test_system_map_node_attributes_are_deeply_immutable() -> None:
+    node = SystemMapNode(
+        node_id="source:immutable-attributes-test",
+        kind=SystemMapNodeKind.source,
+        name="Immutable attributes",
+        safe_summary="Fingerprint-bound attributes cannot drift in memory.",
+        truth_status=SystemMapTruthStatus.declared,
+        attributes={"nested": {"items": ["alpha", "beta"]}},
+    )
+
+    with pytest.raises(TypeError, match="SYSTEM_MAP_ATTRIBUTES_IMMUTABLE"):
+        node.attributes["new"] = "value"
+    with pytest.raises(TypeError, match="SYSTEM_MAP_ATTRIBUTES_IMMUTABLE"):
+        node.attributes["nested"]["new"] = "value"
+    assert node.attributes["nested"]["items"] == ("alpha", "beta")
+
+
+def test_manifest_ids_fail_at_contract_boundary_before_registry_use() -> None:
+    for invalid_id in ("x", "image caption", "cap:/root/private"):
+        with pytest.raises(ValidationError, match="bounded safe reference"):
+            _manifest(invalid_id, input_modes=["request"], output_modes=["result"])
+
+    with pytest.raises(ValidationError, match="references must be bounded"):
+        _manifest(
+            "cap:valid",
+            input_modes=["request"],
+            output_modes=["result"],
+            dependencies=["invalid dependency"],
+        )
+
+
+def test_dependency_cycle_check_handles_long_acyclic_chains_iteratively() -> None:
+    edges = tuple(
+        SystemMapEdge(
+            edge_id=system_map_edge_id(
+                f"cap:node-{index}",
+                SystemMapEdgeKind.depends_on,
+                f"cap:node-{index + 1}",
+            ),
+            source_node_id=f"cap:node-{index}",
+            target_node_id=f"cap:node-{index + 1}",
+            kind=SystemMapEdgeKind.depends_on,
+            origin=SystemMapEdgeOrigin.declared,
+            safe_summary="Long-chain dependency remains valid without recursion.",
+        )
+        for index in range(1_200)
+    )
+
+    _validate_dependency_acyclic(edges)
 
 
 def test_registry_lists_defensive_manifest_copies() -> None:

@@ -543,6 +543,7 @@ class SystemMapBuilder:
         if len(feature_refs) != len(set(feature_refs)):
             raise ValueError("SYSTEM_MAP_DUPLICATE_FEATURE")
         for feature in sorted(features, key=lambda item: item.feature_ref):
+            source_refs = tuple(sorted(feature.source_refs))
             missing = sorted(set(feature.related_node_ids) - set(nodes))
             if missing:
                 raise ValueError(
@@ -556,7 +557,7 @@ class SystemMapBuilder:
                     name=feature.name,
                     safe_summary=feature.safe_summary,
                     truth_status=feature.truth_status,
-                    source_refs=feature.source_refs,
+                    source_refs=source_refs,
                     attributes={"catalogued_feature": True},
                 ),
             )
@@ -568,7 +569,7 @@ class SystemMapBuilder:
                     SystemMapEdgeKind.participates_in,
                     SystemMapEdgeOrigin.declared,
                     "Canonical node participates in this catalogued product feature.",
-                    feature.source_refs,
+                    source_refs,
                 )
 
     @staticmethod

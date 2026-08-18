@@ -22,7 +22,11 @@ SYSTEM_MAP_GRAPH_SCHEMA_VERSION = "uaa-system-capability-graph.v1"
 SYSTEM_MAP_SNAPSHOT_SCHEMA_VERSION = "uaa-system-capability-snapshot.v1"
 _REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:/#{}-]{2,240}$")
 _RAW_LOCAL_PATH_RE = re.compile(
-    r"(?i)(?:^|[\s\"'`])(?:~[/\\]|/(?:users|home|private|tmp|etc)(?:/|$)|[a-z]:[\\/])"
+    r"(?i)(?:^|[\s\"'`(:=,\[])(?:~[/\\]|"
+    r"/(?!/)[a-z0-9._-]+(?=/|$|[\s\"'`),.;\]])|[a-z]:[\\/])"
+)
+_HTTP_ROUTE_REF_RE = re.compile(
+    r"^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /[A-Za-z0-9_{}./#:-]+$"
 )
 _FORBIDDEN_FIELD_PARTS = (
     "raw_prompt",
@@ -93,6 +97,25 @@ class _SystemMapModel(BaseModel):
         return self
 
 
+class _FrozenDict(dict[str, Any]):
+    """JSON-compatible mapping that cannot drift after content addressing."""
+
+    @staticmethod
+    def _deny(*args: Any, **kwargs: Any) -> None:
+        raise TypeError("SYSTEM_MAP_ATTRIBUTES_IMMUTABLE")
+
+    __setitem__ = _deny
+    __delitem__ = _deny
+    clear = _deny
+    pop = _deny
+    popitem = _deny
+    setdefault = _deny
+    update = _deny
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_FrozenDict":
+        return self
+
+
 class SystemMapFeatureDeclaration(_SystemMapModel):
     """A product feature that must remain visible in every default map."""
 
@@ -146,6 +169,11 @@ class SystemMapNode(_SystemMapModel):
         return tuple(
             _validate_ref(value, "SYSTEM_MAP_SOURCE_REF_INVALID") for value in values
         )
+
+    @field_validator("attributes", mode="after")
+    @classmethod
+    def freeze_attributes(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _deep_freeze_mapping(value)
 
 
 class SystemMapEdge(_SystemMapModel):
@@ -262,7 +290,10 @@ class SystemMapOpportunity(_SystemMapModel):
             self.capability_node_ids,
             self.gap_refs,
         )
-        if self.opportunity_ref not in {current, legacy}:
+        accepted_refs = {current}
+        if not self.supporting_edge_ids:
+            accepted_refs.add(legacy)
+        if self.opportunity_ref not in accepted_refs:
             raise ValueError("SYSTEM_MAP_OPPORTUNITY_REF_MISMATCH")
         return self
 
@@ -301,6 +332,22 @@ class SystemMapSnapshot(_SystemMapModel):
             raise ValueError("SYSTEM_MAP_SNAPSHOT_TIMEZONE_REQUIRED")
         if any(item.graph_ref != self.graph.graph_ref for item in self.opportunities):
             raise ValueError("SYSTEM_MAP_OPPORTUNITY_GRAPH_REF_MISMATCH")
+        node_by_id = {node.node_id: node for node in self.graph.nodes}
+        edge_by_id = {edge.edge_id: edge for edge in self.graph.edges}
+        for opportunity in self.opportunities:
+            if any(
+                node_id not in node_by_id
+                or node_by_id[node_id].kind != SystemMapNodeKind.capability
+                for node_id in opportunity.capability_node_ids
+            ):
+                raise ValueError("SYSTEM_MAP_OPPORTUNITY_CAPABILITY_NODE_INVALID")
+            for edge_id in opportunity.supporting_edge_ids:
+                edge = edge_by_id.get(edge_id)
+                if edge is None or not (
+                    edge.source_node_id in opportunity.capability_node_ids
+                    or edge.target_node_id in opportunity.capability_node_ids
+                ):
+                    raise ValueError("SYSTEM_MAP_OPPORTUNITY_SUPPORTING_EDGE_INVALID")
         opportunity_refs = [item.opportunity_ref for item in self.opportunities]
         if opportunity_refs != sorted(opportunity_refs):
             raise ValueError("SYSTEM_MAP_OPPORTUNITY_ORDER_REQUIRED")
@@ -398,28 +445,29 @@ def _validate_dependency_acyclic(edges: tuple[SystemMapEdge, ...]) -> None:
     for edge in dependency_edges:
         dependencies.setdefault(edge.source_node_id, set()).add(edge.target_node_id)
         dependencies.setdefault(edge.target_node_id, set())
-    active: set[str] = set()
-    complete: set[str] = set()
-
-    def visit(node_id: str) -> None:
-        if node_id in active:
-            raise ValueError("SYSTEM_MAP_DEPENDENCY_CYCLE")
-        if node_id in complete:
-            return
-        active.add(node_id)
-        for dependency in dependencies.get(node_id, set()):
-            visit(dependency)
-        active.remove(node_id)
-        complete.add(node_id)
-
-    for node_id in sorted(dependencies):
-        visit(node_id)
+    dependents: dict[str, set[str]] = {node_id: set() for node_id in dependencies}
+    for node_id, required in dependencies.items():
+        for dependency in required:
+            dependents[dependency].add(node_id)
+    ready = sorted(
+        node_id for node_id, required in dependencies.items() if not required
+    )
+    completed = 0
+    while ready:
+        node_id = ready.pop()
+        completed += 1
+        for dependent in sorted(dependents[node_id], reverse=True):
+            dependencies[dependent].discard(node_id)
+            if not dependencies[dependent]:
+                ready.append(dependent)
+    if completed != len(dependencies):
+        raise ValueError("SYSTEM_MAP_DEPENDENCY_CYCLE")
 
 
 def _validate_ref(value: str, reason: str) -> str:
     if not _REF_RE.fullmatch(value):
         raise ValueError(reason)
-    if _RAW_LOCAL_PATH_RE.search(value) or contains_obvious_secret(value):
+    if _contains_raw_local_path(value) or contains_obvious_secret(value):
         raise ValueError(reason)
     return value
 
@@ -438,5 +486,27 @@ def _validate_safe_payload(value: Any, *, field_name: str = "root") -> None:
             _validate_safe_payload(item, field_name=field_name)
         return
     if isinstance(value, str):
-        if _RAW_LOCAL_PATH_RE.search(value) or contains_obvious_secret(value):
+        if _contains_raw_local_path(value) or contains_obvious_secret(value):
             raise ValueError("SYSTEM_MAP_UNSAFE_TEXT_DENIED")
+
+
+def _contains_raw_local_path(value: str) -> bool:
+    if _HTTP_ROUTE_REF_RE.fullmatch(value):
+        return False
+    return _RAW_LOCAL_PATH_RE.search(value) is not None
+
+
+def _deep_freeze(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _deep_freeze_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_deep_freeze(item) for item in value)
+    if isinstance(value, set):
+        return frozenset(_deep_freeze(item) for item in value)
+    return value
+
+
+def _deep_freeze_mapping(value: dict[str, Any]) -> _FrozenDict:
+    mutable = dict.__new__(_FrozenDict)
+    dict.update(mutable, {key: _deep_freeze(item) for key, item in value.items()})
+    return mutable
