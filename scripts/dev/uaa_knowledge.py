@@ -158,11 +158,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return _run(args)
-    except Exception as exc:
-        message = str(exc)
+    except Exception as exc:  # noqa: BLE001 - single redaction boundary for operator output
+        message = exc.args[0] if isinstance(exc, KeyError) and exc.args else str(exc)
         code = (
-            message
-            if re.fullmatch(r"KNOWLEDGE_[A-Z0-9_:.-]+", message)
+            str(message)
+            if isinstance(message, str)
+            and re.fullmatch(
+                r"(?:KNOWLEDGE_[A-Z0-9_]+|UNKNOWN_KNOWLEDGE_DOCUMENT|"
+                r"UNREGISTERED_MEDICAL_KNOWLEDGE_SOURCE)"
+                r"(?::[A-Za-z0-9_.:#{}-]{3,200})?",
+                message,
+            )
             else "KNOWLEDGE_OPERATION_FAILED"
         )
         print(code, file=sys.stderr)

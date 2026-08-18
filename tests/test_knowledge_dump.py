@@ -1,5 +1,6 @@
 from dataclasses import replace
 from pathlib import Path
+import sqlite3
 import stat
 import threading
 import zipfile
@@ -121,6 +122,26 @@ def test_pdf_parser_remains_blocked_without_dependency_authority(
 
     with pytest.raises(ValueError, match="KNOWLEDGE_SOURCE_FORMAT_UNSUPPORTED"):
         _prepare(store, source)
+
+    assert not store.database_path.exists()
+
+
+def test_text_and_epub_parser_failures_use_bounded_error_codes(
+    tmp_path: Path,
+) -> None:
+    store = KnowledgeDumpStore(tmp_path / "dump")
+    invalid_text = tmp_path / "invalid.txt"
+    invalid_text.write_bytes(b"\xff\xfe\xfa")
+    invalid_html = tmp_path / "invalid.html"
+    invalid_html.write_bytes(b"\xff\xfe\xfa")
+    invalid_epub = tmp_path / "invalid.epub"
+    invalid_epub.write_bytes(b"not-a-zip-archive")
+
+    for source in (invalid_text, invalid_html):
+        with pytest.raises(ValueError, match="KNOWLEDGE_SOURCE_ENCODING_UNSUPPORTED"):
+            _prepare(store, source)
+    with pytest.raises(ValueError, match="KNOWLEDGE_EPUB_ARCHIVE_INVALID"):
+        _prepare(store, invalid_epub)
 
     assert not store.database_path.exists()
 
@@ -265,6 +286,10 @@ def test_store_enforces_private_directory_and_database_permissions(
 
     assert stat.S_IMODE(root.stat().st_mode) == 0o700
     assert stat.S_IMODE(store.database_path.stat().st_mode) == 0o600
+    with store._connect() as connection:
+        assert connection.execute("SELECT 1").fetchone()[0] == 1
+    with pytest.raises(sqlite3.ProgrammingError, match="closed database"):
+        connection.execute("SELECT 1")
 
 
 def test_cli_binds_operator_confirmation_to_printed_exact_scope(
@@ -333,6 +358,28 @@ def test_cli_redacts_source_failures(tmp_path: Path, capsys) -> None:  # type: i
     assert result == 2
     assert captured.err.strip() == "KNOWLEDGE_SOURCE_FILE_REQUIRED"
     assert str(missing) not in captured.err
+
+
+def test_cli_preserves_bounded_unknown_document_code(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    unknown_ref = "knowledge-document-ref:sha256:" + "0" * 24
+    result = uaa_knowledge.main(
+        [
+            "--store",
+            str(tmp_path / "dump"),
+            "categorize",
+            unknown_ref,
+            "--source-kind",
+            "notes",
+            "--category",
+            "medicine",
+            "--idempotency-key",
+            "knowledge-metadata-unknown-001",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 2
+    assert captured.err.strip() == f"UNKNOWN_KNOWLEDGE_DOCUMENT:{unknown_ref}"
 
 
 def test_ingest_search_and_context_pack_are_cited_and_idempotent(

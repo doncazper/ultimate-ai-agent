@@ -106,7 +106,7 @@ def extract_sections(
 
 
 def _extract_text(path: Path) -> list[ExtractedSection]:
-    text = path.read_text(encoding="utf-8-sig")
+    text = _read_utf8_text(path)
     lines = text.splitlines()
     sections: list[ExtractedSection] = []
     start = 1
@@ -135,11 +135,18 @@ def _extract_text(path: Path) -> list[ExtractedSection]:
 
 def _extract_html(path: Path) -> list[ExtractedSection]:
     parser = _TextHTMLParser()
-    parser.feed(path.read_text(encoding="utf-8-sig"))
+    parser.feed(_read_utf8_text(path))
     return [ExtractedSection("document", parser.text())]
 
 
 def _extract_epub(path: Path) -> list[ExtractedSection]:
+    try:
+        return _extract_epub_archive(path)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("KNOWLEDGE_EPUB_ARCHIVE_INVALID") from exc
+
+
+def _extract_epub_archive(path: Path) -> list[ExtractedSection]:
     sections: list[ExtractedSection] = []
     with zipfile.ZipFile(path) as archive:
         infos = archive.infolist()
@@ -156,6 +163,15 @@ def _extract_epub(path: Path) -> list[ExtractedSection]:
             if text:
                 sections.append(ExtractedSection(f"epub-section:{ordinal}", text))
     return sections
+
+
+def _read_utf8_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except UnicodeError as exc:
+        raise ValueError("KNOWLEDGE_SOURCE_ENCODING_UNSUPPORTED") from exc
+    except OSError as exc:
+        raise ValueError("KNOWLEDGE_SOURCE_READ_FAILED") from exc
 
 
 def _epub_spine_names(archive: zipfile.ZipFile) -> list[str]:

@@ -85,6 +85,8 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
 ```
 
 After reviewing the content-free plan, apply only that exact scope:
+repeat every plan flag because source and navigation metadata are bound into the
+approved scope.
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
@@ -93,6 +95,10 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   --rights-basis licensed_for_local_retrieval \
   --rights-evidence-ref rights-evidence-ref:replace-with-reviewed-ref \
   --idempotency-key knowledge-ingest-replace-with-unique-key \
+  --source-kind book \
+  --category medicine \
+  --collection medical_core \
+  --tag internal_medicine \
   --catalog-source-id replace_with_registered_source_id \
   --approve-exact-scope knowledge-ingest-scope-ref:replace-with-plan-ref
 ```
@@ -133,8 +139,8 @@ selects another local directory. Plans and receipts contain safe hashes/refs,
 counts, rights metadata, and approval binding; they omit source paths and source
 text. The store enforces owner-only directory and database permissions. Each
 successful ingest or metadata update persists a redacted audit record in the
-same transaction, including hashed actor/run refs and the exact approval,
-scope, receipt, idempotency, outcome, and reason refs.
+same transaction, including hashed requester/approver/run refs and the exact
+approval, scope, receipt, idempotency, outcome, and reason refs.
 
 An idempotency key can replay only the identical approved scope. Reusing it for
 different content or metadata is rejected. Identical content submitted under a

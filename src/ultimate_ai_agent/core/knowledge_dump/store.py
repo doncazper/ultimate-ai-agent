@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from collections import Counter
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 import re
 import sqlite3
 import stat
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from ultimate_ai_agent.core.approvals import (
     ApprovalRequest,
@@ -57,7 +58,10 @@ from ultimate_ai_agent.core.knowledge_dump.models import (
     KnowledgeRightsBasis,
     KnowledgeSourceKind,
 )
-from ultimate_ai_agent.core.medical_knowledge import get_medical_knowledge_source
+from ultimate_ai_agent.core.medical_knowledge import (
+    MedicalSourceAccessClass,
+    get_medical_knowledge_source,
+)
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 from ultimate_ai_agent.core.time import utc_now
 
@@ -218,6 +222,10 @@ class KnowledgeDumpStore:
             raise ValueError("KNOWLEDGE_RIGHTS_EVIDENCE_REF_SECRET_LIKE")
         if contains_obvious_secret({"idempotency_key": idempotency_key}):
             raise ValueError("KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE")
+        if catalog_source_id and not re.fullmatch(
+            r"[a-z][a-z0-9_]{2,80}", catalog_source_id
+        ):
+            raise ValueError("KNOWLEDGE_CATALOG_SOURCE_ID_INVALID")
         source_format = detect_format(path)
         if not path.is_file():
             raise ValueError("KNOWLEDGE_SOURCE_FILE_REQUIRED")
@@ -237,7 +245,8 @@ class KnowledgeDumpStore:
         if catalog_source_id:
             catalog_source = get_medical_knowledge_source(catalog_source_id)
             if (
-                catalog_source.access_class == "licensed_proprietary"
+                _enum_value(catalog_source.access_class)
+                == MedicalSourceAccessClass.licensed_proprietary.value
                 and rights_basis != KnowledgeRightsBasis.licensed_for_local_retrieval
             ):
                 raise ValueError(
@@ -584,6 +593,10 @@ class KnowledgeDumpStore:
         tags: list[str],
         idempotency_key: str,
     ) -> PreparedKnowledgeMetadataUpdate:
+        if not re.fullmatch(
+            r"knowledge-document-ref:sha256:[0-9a-f]{24}", document_ref
+        ):
+            raise ValueError("KNOWLEDGE_DOCUMENT_REF_INVALID")
         if contains_obvious_secret({"idempotency_key": idempotency_key}):
             raise ValueError("KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE")
         document = next(
@@ -1065,7 +1078,6 @@ class KnowledgeDumpStore:
                 for row in connection.execute("PRAGMA table_info(documents)").fetchall()
             }
             additions = {
-                "exact_scope_ref": "TEXT",
                 "source_kind": "TEXT NOT NULL DEFAULT 'reference'",
                 "category": "TEXT NOT NULL DEFAULT 'uncategorized'",
                 "collection": "TEXT",
@@ -1223,7 +1235,8 @@ class KnowledgeDumpStore:
             ),
         )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         if self.root.exists() and stat.S_IMODE(self.root.stat().st_mode) != 0o700:
             os.chmod(self.root, 0o700)
         if self.database_path.exists():
@@ -1232,9 +1245,16 @@ class KnowledgeDumpStore:
             if stat.S_IMODE(self.database_path.stat().st_mode) != 0o600:
                 os.chmod(self.database_path, 0o600)
         connection = sqlite3.connect(self.database_path)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            yield connection
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def _chunk_sections(
         self, source_content_ref: str, sections: Iterable[ExtractedSection]
