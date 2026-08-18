@@ -1,6 +1,7 @@
 """Local-first, rights-gated Knowledge Dump ingestion and retrieval."""
 
 from ultimate_ai_agent.core.knowledge_dump.models import (
+    KnowledgeAuditRecord,
     KnowledgeContextPack,
     KnowledgeDocument,
     KnowledgeFormat,
@@ -20,6 +21,7 @@ from ultimate_ai_agent.core.knowledge_dump.store import (
 )
 
 __all__ = [
+    "KnowledgeAuditRecord",
     "KnowledgeContextPack",
     "KnowledgeDocument",
     "KnowledgeDumpStore",

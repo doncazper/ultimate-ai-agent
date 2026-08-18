@@ -1,8 +1,11 @@
 from dataclasses import replace
 from pathlib import Path
+import stat
+import threading
 import zipfile
 
 import pytest
+from pydantic import ValidationError
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.hygiene.actor_context import (
@@ -15,6 +18,7 @@ from ultimate_ai_agent.core.knowledge_dump import (
     KnowledgeRightsBasis,
     KnowledgeSourceKind,
 )
+from ultimate_ai_agent.core.knowledge_dump.extractors import MAX_SOURCE_BYTES
 from scripts.dev import uaa_knowledge
 
 
@@ -88,6 +92,19 @@ def test_plan_is_content_free_and_does_not_create_store(tmp_path: Path) -> None:
     assert "Synthetic atrial rhythm reference" not in serialized
 
 
+def test_oversized_source_is_rejected_before_read(tmp_path: Path) -> None:
+    source = tmp_path / "oversized.txt"
+    source.touch()
+    with source.open("r+b") as handle:
+        handle.truncate(MAX_SOURCE_BYTES + 1)
+    store = KnowledgeDumpStore(tmp_path / "dump")
+
+    with pytest.raises(ValueError, match="KNOWLEDGE_SOURCE_SIZE_OUT_OF_BOUNDS"):
+        _prepare(store, source)
+
+    assert not store.database_path.exists()
+
+
 def test_durable_operator_metadata_rejects_raw_paths_and_unsafe_refs(
     tmp_path: Path,
 ) -> None:
@@ -100,6 +117,8 @@ def test_durable_operator_metadata_rejects_raw_paths_and_unsafe_refs(
         _prepare(store, source, rights_evidence_ref=raw_rights_path)
     with pytest.raises(ValueError, match="bounded safe reference"):
         _prepare(store, source, idempotency_key="unsafe key")
+    with pytest.raises(ValueError, match="KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE"):
+        _prepare(store, source, idempotency_key="token:" + "a" * 24)
     with pytest.raises(ValueError, match="must not contain a raw local path"):
         _prepare(
             store,
@@ -183,6 +202,29 @@ def test_ingest_requires_exact_local_approval(tmp_path: Path) -> None:
     assert not store.database_path.exists()
 
 
+def test_store_enforces_private_directory_and_database_permissions(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "reference.txt"
+    source.write_text("Synthetic private local content.", encoding="utf-8")
+    root = tmp_path / "dump"
+    root.mkdir(mode=0o755)
+    store = KnowledgeDumpStore(root)
+    prepared = _prepare(store, source)
+    actor, authority, approval_ref = _approve(store, prepared)
+
+    store.ingest(
+        prepared,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-dump:test",
+    )
+
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    assert stat.S_IMODE(store.database_path.stat().st_mode) == 0o600
+
+
 def test_cli_binds_operator_confirmation_to_printed_exact_scope(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -220,6 +262,35 @@ def test_cli_binds_operator_confirmation_to_printed_exact_scope(
     )
     assert len(store.list_documents()) == 1
     capsys.readouterr()
+    assert uaa_knowledge.main(["--store", str(root), "audit"]) == 0
+    audit_payload = capsys.readouterr().out
+    assert '"operation": "ingest"' in audit_payload
+    assert _actor().actor_id not in audit_payload
+
+
+def test_cli_redacts_source_failures(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    missing = tmp_path / "private" / "missing.txt"
+    result = uaa_knowledge.main(
+        [
+            "--store",
+            str(tmp_path / "dump"),
+            "plan-ingest",
+            str(missing),
+            "--title",
+            "Missing source",
+            "--rights-basis",
+            "operator_authored",
+            "--rights-evidence-ref",
+            "rights-evidence-ref:operator-authored:test",
+            "--idempotency-key",
+            "knowledge-ingest-missing-001",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 2
+    assert captured.err.strip() == "KNOWLEDGE_SOURCE_FILE_REQUIRED"
+    assert str(missing) not in captured.err
 
 
 def test_ingest_search_and_context_pack_are_cited_and_idempotent(
@@ -266,6 +337,14 @@ def test_ingest_search_and_context_pack_are_cited_and_idempotent(
     assert context.automatic_chat_injection_performed is False
     assert context.model_call_performed is False
     assert context.used_characters <= context.max_characters
+    with pytest.raises(ValidationError):
+        context.explicit_operator_use_required = False
+
+    audit_records = store.list_audit_records()
+    assert len(audit_records) == 1
+    assert audit_records[0].operation == "ingest"
+    assert audit_records[0].mutation_performed is True
+    assert _actor().actor_id not in str(audit_records[0].model_dump(mode="json"))
 
 
 def test_filtered_search_ranks_only_within_allowed_documents(tmp_path: Path) -> None:
@@ -311,6 +390,77 @@ def test_filtered_search_ranks_only_within_allowed_documents(tmp_path: Path) -> 
     assert [hit.citation.document_ref for hit in hits] == [allowed_receipt.document_ref]
 
 
+def test_unicode_queries_follow_unicode_fts_tokenization(tmp_path: Path) -> None:
+    source = tmp_path / "unicode.txt"
+    source.write_text("Café reference. Привет reference.", encoding="utf-8")
+    store = KnowledgeDumpStore(tmp_path / "dump")
+    prepared = _prepare(store, source, idempotency_key="knowledge-ingest-unicode-001")
+    actor, authority, approval_ref = _approve(store, prepared)
+    store.ingest(
+        prepared,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-dump:test",
+    )
+
+    assert store.search("café")
+    assert store.search("Привет")
+
+
+def test_approval_revocation_cannot_cross_durable_start_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "reference.txt"
+    source.write_text("Synthetic serialized approval content.", encoding="utf-8")
+    store = KnowledgeDumpStore(tmp_path / "dump")
+    prepared = _prepare(store, source)
+    actor, authority, approval_ref = _approve(store, prepared)
+    entered = threading.Event()
+    release = threading.Event()
+    revoked = threading.Event()
+    failures: list[BaseException] = []
+    original = store._persist_approved_ingest
+
+    def delayed_persist(*args, **kwargs):  # type: ignore[no-untyped-def]
+        entered.set()
+        if not release.wait(timeout=2):
+            raise TimeoutError("test release signal missing")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(store, "_persist_approved_ingest", delayed_persist)
+
+    def ingest() -> None:
+        try:
+            store.ingest(
+                prepared,
+                approval_authority=authority,
+                approval_ref=approval_ref,
+                actor_context=actor,
+                run_id="run:knowledge-dump:test",
+            )
+        except BaseException as exc:
+            failures.append(exc)
+
+    def revoke() -> None:
+        authority.revoke(approval_ref, "test concurrent revocation")
+        revoked.set()
+
+    ingest_thread = threading.Thread(target=ingest)
+    ingest_thread.start()
+    assert entered.wait(timeout=1)
+    revoke_thread = threading.Thread(target=revoke)
+    revoke_thread.start()
+    assert not revoked.wait(timeout=0.1)
+    release.set()
+    ingest_thread.join(timeout=2)
+    revoke_thread.join(timeout=2)
+
+    assert failures == []
+    assert revoked.is_set()
+    assert len(store.list_documents()) == 1
+
+
 def test_proprietary_catalog_source_requires_retrieval_rights(tmp_path: Path) -> None:
     source = tmp_path / "notes.txt"
     source.write_text("Synthetic notes, not publisher content.", encoding="utf-8")
@@ -337,14 +487,37 @@ def test_epub_html_text_is_extracted_without_storing_archive_path(
     source = tmp_path / "book.epub"
     with zipfile.ZipFile(source, "w") as archive:
         archive.writestr(
-            "chapter1.xhtml",
+            "META-INF/container.xml",
+            """<?xml version="1.0"?>
+            <container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+              <rootfiles><rootfile full-path="OPS/package.opf" /></rootfiles>
+            </container>""",
+        )
+        archive.writestr(
+            "OPS/package.opf",
+            """<?xml version="1.0"?>
+            <package xmlns="http://www.idpf.org/2007/opf">
+              <manifest>
+                <item id="chapter" href="chapter1.xhtml"
+                      media-type="application/xhtml+xml" />
+              </manifest>
+              <spine><itemref idref="chapter" /></spine>
+            </package>""",
+        )
+        archive.writestr(
+            "OPS/chapter1.xhtml",
             "<html><body><h1>Chapter</h1><p>Renal physiology marker.</p></body></html>",
+        )
+        archive.writestr(
+            "OPS/navigation.xhtml",
+            "<html><body><p>Navigation text must not be indexed.</p></body></html>",
         )
     store = KnowledgeDumpStore(tmp_path / "dump")
     prepared = _prepare(store, source, idempotency_key="knowledge-ingest-epub-001")
 
     assert prepared.plan.planned_chunk_count == 1
     assert prepared.chunks[0].locator.startswith("epub-section:1")
+    assert "Navigation text" not in prepared.chunks[0].text
     assert str(source) not in str(prepared.plan.model_dump(mode="json"))
 
 
@@ -479,6 +652,10 @@ def test_inventory_filters_sorting_and_recategorization(tmp_path: Path) -> None:
     assert store.inventory().by_category == {"clinical_reference": 1}
     assert store.prepare_context("cardiology", collection="medical_core").hits
     assert store.prepare_context("cardiology", collection="clinical_library").hits == []
+    assert [record.operation for record in store.list_audit_records()] == [
+        "ingest",
+        "metadata_update",
+    ]
 
 
 def test_metadata_update_requires_exact_approval_and_valid_slugs(
@@ -505,6 +682,15 @@ def test_metadata_update_requires_exact_approval_and_valid_slugs(
             collection=None,
             tags=[],
             idempotency_key="metadata-invalid-slug-001",
+        )
+    with pytest.raises(ValueError, match="KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE"):
+        store.prepare_metadata_update(
+            receipt.document_ref,
+            source_kind=KnowledgeSourceKind.notes,
+            category="research_notes",
+            collection=None,
+            tags=["reviewed"],
+            idempotency_key="password:" + "a" * 24,
         )
 
     update = store.prepare_metadata_update(

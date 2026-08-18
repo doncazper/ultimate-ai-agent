@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
+import sys
 from typing import Sequence
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
@@ -109,6 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "inventory", help="Show category, collection, tag, type, and format counts."
     )
+    subparsers.add_parser(
+        "audit", help="Inspect durable redacted ingest and metadata audit records."
+    )
     categorize = subparsers.add_parser(
         "categorize", help="Exact-approved navigation metadata update."
     )
@@ -151,6 +156,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        return _run(args)
+    except Exception as exc:
+        message = str(exc)
+        code = (
+            message
+            if re.fullmatch(r"KNOWLEDGE_[A-Z0-9_:.-]+", message)
+            else "KNOWLEDGE_OPERATION_FAILED"
+        )
+        print(code, file=sys.stderr)
+        return 2
+
+
+def _run(args: argparse.Namespace) -> int:
     store = KnowledgeDumpStore(args.store)
     if args.command == "plan-ingest":
         _dump(_prepare(store, args).plan)
@@ -209,6 +228,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "inventory":
         _dump(store.inventory())
+        return 0
+    if args.command == "audit":
+        _dump([item.model_dump(mode="json") for item in store.list_audit_records()])
         return 0
     if args.command == "categorize":
         prepared = store.prepare_metadata_update(

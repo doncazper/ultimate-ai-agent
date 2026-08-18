@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
+import posixpath
 import re
+from urllib.parse import unquote
 import zipfile
+import xml.etree.ElementTree as ET
 
 from ultimate_ai_agent.core.knowledge_dump.models import KnowledgeFormat
 
@@ -149,12 +152,7 @@ def _extract_epub(path: Path) -> list[ExtractedSection]:
             or sum(info.file_size for info in infos) > MAX_SOURCE_BYTES
         ):
             raise ValueError("KNOWLEDGE_EPUB_ARCHIVE_OUT_OF_BOUNDS")
-        names = sorted(
-            info.filename
-            for info in infos
-            if not info.is_dir()
-            and Path(info.filename).suffix.lower() in {".xhtml", ".html", ".htm"}
-        )
+        names = _epub_spine_names(archive)
         for ordinal, name in enumerate(names, 1):
             parser = _TextHTMLParser()
             parser.feed(archive.read(name).decode("utf-8", errors="replace"))
@@ -162,6 +160,54 @@ def _extract_epub(path: Path) -> list[ExtractedSection]:
             if text:
                 sections.append(ExtractedSection(f"epub-section:{ordinal}", text))
     return sections
+
+
+def _epub_spine_names(archive: zipfile.ZipFile) -> list[str]:
+    try:
+        container_root = ET.fromstring(archive.read("META-INF/container.xml"))
+        package_path = next(
+            element.attrib["full-path"]
+            for element in container_root.iter()
+            if element.tag.rsplit("}", 1)[-1] == "rootfile"
+            and element.attrib.get("full-path")
+        )
+        package_root = ET.fromstring(archive.read(package_path))
+    except (KeyError, StopIteration, ET.ParseError) as exc:
+        raise ValueError("KNOWLEDGE_EPUB_PACKAGE_INVALID") from exc
+
+    manifest: dict[str, tuple[str, str]] = {}
+    spine_ids: list[str] = []
+    for element in package_root.iter():
+        local_name = element.tag.rsplit("}", 1)[-1]
+        if local_name == "item":
+            item_id = element.attrib.get("id")
+            href = element.attrib.get("href")
+            if item_id and href:
+                manifest[item_id] = (href, element.attrib.get("media-type", ""))
+        elif local_name == "itemref" and element.attrib.get("idref"):
+            spine_ids.append(element.attrib["idref"])
+    if not spine_ids:
+        raise ValueError("KNOWLEDGE_EPUB_SPINE_REQUIRED")
+
+    package_dir = posixpath.dirname(package_path)
+    archive_names = set(archive.namelist())
+    names: list[str] = []
+    for item_id in spine_ids:
+        item = manifest.get(item_id)
+        if item is None:
+            raise ValueError("KNOWLEDGE_EPUB_SPINE_ITEM_MISSING")
+        href, media_type = item
+        if media_type not in {"application/xhtml+xml", "text/html"}:
+            continue
+        name = posixpath.normpath(
+            posixpath.join(package_dir, unquote(href.split("#", 1)[0]))
+        )
+        if name.startswith("../") or name.startswith("/") or name not in archive_names:
+            raise ValueError("KNOWLEDGE_EPUB_SPINE_ITEM_INVALID")
+        names.append(name)
+    if not names:
+        raise ValueError("KNOWLEDGE_EPUB_SPINE_HAS_NO_TEXT")
+    return names
 
 
 def _extract_pdf(path: Path) -> list[ExtractedSection]:

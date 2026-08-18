@@ -5,9 +5,11 @@ from datetime import datetime
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 from typing import Iterable
 
 from ultimate_ai_agent.core.approvals import (
@@ -23,11 +25,13 @@ from ultimate_ai_agent.core.hygiene.policies import (
 )
 from ultimate_ai_agent.core.knowledge_dump.extractors import (
     ExtractedSection,
+    MAX_SOURCE_BYTES,
     detect_format,
     extract_sections,
 )
 from ultimate_ai_agent.core.knowledge_dump.models import (
     KNOWLEDGE_DUMP_CONTRACT_REF,
+    KnowledgeAuditRecord,
     KnowledgeCitation,
     KnowledgeContextPack,
     KnowledgeDocument,
@@ -48,7 +52,7 @@ from ultimate_ai_agent.core.time import utc_now
 MAX_CHUNK_CHARACTERS = 1_800
 CHUNK_OVERLAP_CHARACTERS = 180
 MAX_QUERY_CHARACTERS = 500
-_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_-]*", re.IGNORECASE)
+_TOKEN_RE = re.compile(r"[^\W_][\w-]*", re.UNICODE)
 
 
 def _hash_ref(prefix: str, value: str | bytes, length: int = 24) -> str:
@@ -191,8 +195,17 @@ class KnowledgeDumpStore:
             raise ValueError("KNOWLEDGE_TITLE_SECRET_LIKE")
         if contains_obvious_secret({"rights_evidence_ref": rights_evidence_ref}):
             raise ValueError("KNOWLEDGE_RIGHTS_EVIDENCE_REF_SECRET_LIKE")
+        if contains_obvious_secret({"idempotency_key": idempotency_key}):
+            raise ValueError("KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE")
         source_format = detect_format(path)
+        if not path.is_file():
+            raise ValueError("KNOWLEDGE_SOURCE_FILE_REQUIRED")
+        source_size = path.stat().st_size
+        if source_size <= 0 or source_size > MAX_SOURCE_BYTES:
+            raise ValueError("KNOWLEDGE_SOURCE_SIZE_OUT_OF_BOUNDS")
         source_bytes = path.read_bytes()
+        if len(source_bytes) != source_size:
+            raise ValueError("KNOWLEDGE_SOURCE_CHANGED_DURING_PREPARATION")
         sections = extract_sections(path, source_format)
         if path.read_bytes() != source_bytes:
             raise ValueError("KNOWLEDGE_SOURCE_CHANGED_DURING_PREPARATION")
@@ -220,7 +233,7 @@ class KnowledgeDumpStore:
             store_ref=self.store_ref,
             title=title.strip(),
             source_format=source_format,
-            source_size_bytes=len(source_bytes),
+            source_size_bytes=source_size,
             rights_basis=rights_basis,
             rights_evidence_ref=rights_evidence_ref,
             catalog_source_id=catalog_source_id,
@@ -297,12 +310,30 @@ class KnowledgeDumpStore:
         actor_context: ActorContext,
         run_id: str,
     ) -> KnowledgeIngestReceipt:
+        if contains_obvious_secret({"approval_ref": approval_ref}):
+            raise ValueError("KNOWLEDGE_APPROVAL_REF_SECRET_LIKE")
         request = self.approval_request_for_ingest(
             prepared, actor_context=actor_context, run_id=run_id
         )
-        decision = approval_authority.validate_for_request(request, approval_ref)
-        if not decision.allowed:
-            raise PermissionError("KNOWLEDGE_INGEST_EXACT_APPROVAL_REQUIRED")
+        with approval_authority.hold_validation_lock():
+            decision = approval_authority.validate_for_request(request, approval_ref)
+            if not decision.allowed:
+                raise PermissionError("KNOWLEDGE_INGEST_EXACT_APPROVAL_REQUIRED")
+            return self._persist_approved_ingest(
+                prepared,
+                approval_ref=approval_ref,
+                actor_context=actor_context,
+                run_id=run_id,
+            )
+
+    def _persist_approved_ingest(
+        self,
+        prepared: PreparedKnowledgeIngest,
+        *,
+        approval_ref: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeIngestReceipt:
         self._initialize()
         plan = prepared.plan
         document_ref = _hash_ref("knowledge-document-ref", plan.source_content_ref)
@@ -377,30 +408,41 @@ class KnowledgeDumpStore:
                     )
             else:
                 document_ref = str(existing["document_ref"])
-        return KnowledgeIngestReceipt(
-            receipt_ref=_hash_ref(
-                "knowledge-ingest-receipt-ref", f"{plan.plan_ref}|{document_ref}"
-            ),
-            plan_ref=plan.plan_ref,
-            exact_scope_ref=plan.exact_scope_ref,
-            document_ref=document_ref,
-            source_content_ref=plan.source_content_ref,
-            chunk_count=len(prepared.chunks),
-            character_count=plan.planned_character_count,
-            rights_basis=plan.rights_basis,
-            rights_evidence_ref=plan.rights_evidence_ref,
-            approval_ref=approval_ref,
-            idempotency_key=plan.idempotency_key,
-            rollback_ref=plan.rollback_ref,
-            mutation_performed=mutation_performed,
-            reason_codes=[
-                "KNOWLEDGE_SOURCE_INGESTED"
-                if mutation_performed
-                else "KNOWLEDGE_SOURCE_ALREADY_PRESENT",
-                "KNOWLEDGE_RIGHTS_ATTESTED",
-                "KNOWLEDGE_EXACT_APPROVAL_VALIDATED",
-            ],
-        )
+            receipt = KnowledgeIngestReceipt(
+                receipt_ref=_hash_ref(
+                    "knowledge-ingest-receipt-ref", f"{plan.plan_ref}|{document_ref}"
+                ),
+                plan_ref=plan.plan_ref,
+                exact_scope_ref=plan.exact_scope_ref,
+                document_ref=document_ref,
+                source_content_ref=plan.source_content_ref,
+                chunk_count=len(prepared.chunks),
+                character_count=plan.planned_character_count,
+                rights_basis=plan.rights_basis,
+                rights_evidence_ref=plan.rights_evidence_ref,
+                approval_ref=approval_ref,
+                idempotency_key=plan.idempotency_key,
+                rollback_ref=plan.rollback_ref,
+                mutation_performed=mutation_performed,
+                reason_codes=[
+                    "KNOWLEDGE_SOURCE_INGESTED"
+                    if mutation_performed
+                    else "KNOWLEDGE_SOURCE_ALREADY_PRESENT",
+                    "KNOWLEDGE_RIGHTS_ATTESTED",
+                    "KNOWLEDGE_EXACT_APPROVAL_VALIDATED",
+                ],
+            )
+            self._insert_audit_record(
+                connection,
+                self._audit_record(
+                    operation="ingest",
+                    receipt=receipt,
+                    subject_ref=document_ref,
+                    actor_context=actor_context,
+                    run_id=run_id,
+                ),
+            )
+        return receipt
 
     def list_documents(
         self,
@@ -472,6 +514,32 @@ class KnowledgeDumpStore:
             ),
         )
 
+    def list_audit_records(self) -> list[KnowledgeAuditRecord]:
+        if not self.database_path.exists():
+            return []
+        self._initialize()
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM audit_records ORDER BY created_at, audit_ref"
+            ).fetchall()
+        return [
+            KnowledgeAuditRecord(
+                audit_ref=row["audit_ref"],
+                operation=row["operation"],
+                receipt_ref=row["receipt_ref"],
+                exact_scope_ref=row["exact_scope_ref"],
+                subject_ref=row["subject_ref"],
+                approval_ref=row["approval_ref"],
+                actor_ref=row["actor_ref"],
+                run_ref=row["run_ref"],
+                idempotency_key=row["idempotency_key"],
+                mutation_performed=bool(row["mutation_performed"]),
+                reason_codes=json.loads(row["reason_codes_json"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+            )
+            for row in rows
+        ]
+
     def prepare_metadata_update(
         self,
         document_ref: str,
@@ -482,6 +550,8 @@ class KnowledgeDumpStore:
         tags: list[str],
         idempotency_key: str,
     ) -> PreparedKnowledgeMetadataUpdate:
+        if contains_obvious_secret({"idempotency_key": idempotency_key}):
+            raise ValueError("KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE")
         document = next(
             (
                 item
@@ -562,12 +632,30 @@ class KnowledgeDumpStore:
         actor_context: ActorContext,
         run_id: str,
     ) -> KnowledgeMetadataUpdateReceipt:
+        if contains_obvious_secret({"approval_ref": approval_ref}):
+            raise ValueError("KNOWLEDGE_APPROVAL_REF_SECRET_LIKE")
         request = self.approval_request_for_metadata_update(
             prepared, actor_context=actor_context, run_id=run_id
         )
-        decision = approval_authority.validate_for_request(request, approval_ref)
-        if not decision.allowed:
-            raise PermissionError("KNOWLEDGE_METADATA_EXACT_APPROVAL_REQUIRED")
+        with approval_authority.hold_validation_lock():
+            decision = approval_authority.validate_for_request(request, approval_ref)
+            if not decision.allowed:
+                raise PermissionError("KNOWLEDGE_METADATA_EXACT_APPROVAL_REQUIRED")
+            return self._persist_approved_metadata_update(
+                prepared,
+                approval_ref=approval_ref,
+                actor_context=actor_context,
+                run_id=run_id,
+            )
+
+    def _persist_approved_metadata_update(
+        self,
+        prepared: PreparedKnowledgeMetadataUpdate,
+        *,
+        approval_ref: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeMetadataUpdateReceipt:
         self._initialize()
         plan = prepared.plan
         with self._connect() as connection:
@@ -620,27 +708,38 @@ class KnowledgeDumpStore:
                         utc_now().isoformat(),
                     ),
                 )
-        return KnowledgeMetadataUpdateReceipt(
-            receipt_ref=_hash_ref(
-                "knowledge-metadata-receipt-ref", plan.exact_scope_ref
-            ),
-            plan_ref=plan.plan_ref,
-            exact_scope_ref=plan.exact_scope_ref,
-            document_ref=plan.document_ref,
-            source_kind=plan.source_kind,
-            category=plan.category,
-            collection=plan.collection,
-            tags=plan.tags,
-            approval_ref=approval_ref,
-            idempotency_key=plan.idempotency_key,
-            mutation_performed=mutation_performed,
-            reason_codes=[
-                "KNOWLEDGE_METADATA_UPDATED"
-                if mutation_performed
-                else "KNOWLEDGE_METADATA_ALREADY_APPLIED",
-                "KNOWLEDGE_METADATA_EXACT_APPROVAL_VALIDATED",
-            ],
-        )
+            receipt = KnowledgeMetadataUpdateReceipt(
+                receipt_ref=_hash_ref(
+                    "knowledge-metadata-receipt-ref", plan.exact_scope_ref
+                ),
+                plan_ref=plan.plan_ref,
+                exact_scope_ref=plan.exact_scope_ref,
+                document_ref=plan.document_ref,
+                source_kind=plan.source_kind,
+                category=plan.category,
+                collection=plan.collection,
+                tags=plan.tags,
+                approval_ref=approval_ref,
+                idempotency_key=plan.idempotency_key,
+                mutation_performed=mutation_performed,
+                reason_codes=[
+                    "KNOWLEDGE_METADATA_UPDATED"
+                    if mutation_performed
+                    else "KNOWLEDGE_METADATA_ALREADY_APPLIED",
+                    "KNOWLEDGE_METADATA_EXACT_APPROVAL_VALIDATED",
+                ],
+            )
+            self._insert_audit_record(
+                connection,
+                self._audit_record(
+                    operation="metadata_update",
+                    receipt=receipt,
+                    subject_ref=plan.document_ref,
+                    actor_context=actor_context,
+                    run_id=run_id,
+                ),
+            )
+        return receipt
 
     def search(
         self,
@@ -652,7 +751,7 @@ class KnowledgeDumpStore:
         collection: str | None = None,
         tag: str | None = None,
     ) -> list[KnowledgeHit]:
-        tokens = list(dict.fromkeys(_TOKEN_RE.findall(query.lower())))
+        tokens = list(dict.fromkeys(_TOKEN_RE.findall(query.casefold())))
         if not tokens or len(query) > MAX_QUERY_CHARACTERS or limit < 1 or limit > 50:
             raise ValueError("KNOWLEDGE_QUERY_OUT_OF_BOUNDS")
         if contains_obvious_secret({"query": query}):
@@ -681,15 +780,32 @@ class KnowledgeDumpStore:
                 "INSERT INTO allowed_document_refs (document_ref) VALUES (?)",
                 ((document_ref,) for document_ref in sorted(allowed_document_refs)),
             )
+            filtered = any(
+                value is not None for value in (source_kind, category, collection, tag)
+            )
+            fts_table = "chunks_fts"
+            if filtered:
+                connection.execute(
+                    "CREATE VIRTUAL TABLE temp.filtered_chunks_fts USING fts5("
+                    "chunk_ref UNINDEXED, text, "
+                    "tokenize='unicode61 remove_diacritics 2')"
+                )
+                connection.execute(
+                    "INSERT INTO filtered_chunks_fts (chunk_ref, text) "
+                    "SELECT c.chunk_ref, c.text FROM chunks c "
+                    "JOIN allowed_document_refs a "
+                    "ON a.document_ref = c.document_ref"
+                )
+                fts_table = "filtered_chunks_fts"
             rows = connection.execute(
-                """SELECT c.chunk_ref, c.locator, c.text, c.text_ref,
+                f"""SELECT c.chunk_ref, c.locator, c.text, c.text_ref,
                           d.document_ref, d.source_content_ref, d.title,
-                          bm25(chunks_fts) AS rank
-                   FROM chunks_fts
-                   JOIN chunks c ON c.chunk_ref = chunks_fts.chunk_ref
+                          bm25({fts_table}) AS rank
+                   FROM {fts_table}
+                   JOIN chunks c ON c.chunk_ref = {fts_table}.chunk_ref
                    JOIN documents d ON d.document_ref = c.document_ref
                    JOIN allowed_document_refs a ON a.document_ref = d.document_ref
-                   WHERE chunks_fts MATCH ?
+                   WHERE {fts_table} MATCH ?
                    ORDER BY rank ASC, c.chunk_ref ASC LIMIT ?""",
                 (match_query, limit),
             ).fetchall()
@@ -818,6 +934,18 @@ class KnowledgeDumpStore:
 
     def _initialize(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if stat.S_IMODE(self.root.stat().st_mode) != 0o700:
+            os.chmod(self.root, 0o700)
+        if not self.database_path.exists():
+            flags = os.O_CREAT | os.O_EXCL | os.O_RDWR
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(self.database_path, flags, 0o600)
+            os.close(descriptor)
+        if self.database_path.is_symlink() or not self.database_path.is_file():
+            raise ValueError("KNOWLEDGE_STORE_PATH_UNSAFE")
+        if stat.S_IMODE(self.database_path.stat().st_mode) != 0o600:
+            os.chmod(self.database_path, 0o600)
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -857,6 +985,20 @@ class KnowledgeDumpStore:
                     document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS audit_records (
+                    audit_ref TEXT PRIMARY KEY,
+                    operation TEXT NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    exact_scope_ref TEXT NOT NULL,
+                    subject_ref TEXT NOT NULL,
+                    approval_ref TEXT NOT NULL,
+                    actor_ref TEXT NOT NULL,
+                    run_ref TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    mutation_performed INTEGER NOT NULL,
+                    reason_codes_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 """
             )
             existing_columns = {
@@ -876,7 +1018,77 @@ class KnowledgeDumpStore:
                         f"ALTER TABLE documents ADD COLUMN {name} {declaration}"
                     )
 
+    @staticmethod
+    def _audit_record(
+        *,
+        operation: str,
+        receipt: KnowledgeIngestReceipt | KnowledgeMetadataUpdateReceipt,
+        subject_ref: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeAuditRecord:
+        actor_ref = _hash_ref("knowledge-actor-ref", actor_context.actor_id)
+        run_ref = _hash_ref("knowledge-run-ref", run_id)
+        audit_ref = _hash_ref(
+            "knowledge-audit-ref",
+            "|".join(
+                (
+                    operation,
+                    receipt.exact_scope_ref,
+                    receipt.approval_ref,
+                    actor_ref,
+                    run_ref,
+                )
+            ),
+        )
+        return KnowledgeAuditRecord(
+            audit_ref=audit_ref,
+            operation=operation,
+            receipt_ref=receipt.receipt_ref,
+            exact_scope_ref=receipt.exact_scope_ref,
+            subject_ref=subject_ref,
+            approval_ref=receipt.approval_ref,
+            actor_ref=actor_ref,
+            run_ref=run_ref,
+            idempotency_key=receipt.idempotency_key,
+            mutation_performed=receipt.mutation_performed,
+            reason_codes=receipt.reason_codes,
+        )
+
+    @staticmethod
+    def _insert_audit_record(
+        connection: sqlite3.Connection, record: KnowledgeAuditRecord
+    ) -> None:
+        connection.execute(
+            """INSERT OR IGNORE INTO audit_records
+               (audit_ref, operation, receipt_ref, exact_scope_ref, subject_ref,
+                approval_ref, actor_ref, run_ref, idempotency_key,
+                mutation_performed, reason_codes_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                record.audit_ref,
+                record.operation,
+                record.receipt_ref,
+                record.exact_scope_ref,
+                record.subject_ref,
+                record.approval_ref,
+                record.actor_ref,
+                record.run_ref,
+                record.idempotency_key,
+                int(record.mutation_performed),
+                json.dumps(record.reason_codes, separators=(",", ":")),
+                record.created_at.isoformat(),
+            ),
+        )
+
     def _connect(self) -> sqlite3.Connection:
+        if self.root.exists() and stat.S_IMODE(self.root.stat().st_mode) != 0o700:
+            os.chmod(self.root, 0o700)
+        if self.database_path.exists():
+            if self.database_path.is_symlink() or not self.database_path.is_file():
+                raise ValueError("KNOWLEDGE_STORE_PATH_UNSAFE")
+            if stat.S_IMODE(self.database_path.stat().st_mode) != 0o600:
+                os.chmod(self.database_path, 0o600)
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")

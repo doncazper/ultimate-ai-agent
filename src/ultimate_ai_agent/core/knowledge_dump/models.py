@@ -74,7 +74,10 @@ def _validate_safe_title(value: str) -> str:
 
 class _KnowledgeModel(BaseModel):
     model_config = ConfigDict(
-        extra="forbid", use_enum_values=True, hide_input_in_errors=True
+        extra="forbid",
+        frozen=True,
+        use_enum_values=True,
+        hide_input_in_errors=True,
     )
 
 
@@ -312,6 +315,43 @@ class KnowledgeMetadataUpdateReceipt(_KnowledgeModel):
         if self.source_content_mutated or self.source_path_stored:
             raise ValueError("KNOWLEDGE_METADATA_RECEIPT_REDACTION_REQUIRED")
         return self
+
+
+class KnowledgeAuditRecord(_KnowledgeModel):
+    contract_ref: str = KNOWLEDGE_DUMP_CONTRACT_REF
+    audit_ref: str
+    operation: str
+    receipt_ref: str
+    exact_scope_ref: str
+    subject_ref: str
+    approval_ref: str
+    actor_ref: str
+    run_ref: str
+    idempotency_key: str
+    mutation_performed: bool
+    reason_codes: list[str]
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @field_validator("operation")
+    @classmethod
+    def validate_operation(cls, value: str) -> str:
+        if value not in {"ingest", "metadata_update"}:
+            raise ValueError("KNOWLEDGE_AUDIT_OPERATION_INVALID")
+        return value
+
+    @field_validator(
+        "audit_ref",
+        "receipt_ref",
+        "exact_scope_ref",
+        "subject_ref",
+        "approval_ref",
+        "actor_ref",
+        "run_ref",
+        "idempotency_key",
+    )
+    @classmethod
+    def validate_refs(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]
+        return _validate_safe_ref(value, info.field_name)
 
 
 class KnowledgeInventory(_KnowledgeModel):

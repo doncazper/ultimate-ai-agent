@@ -102,6 +102,7 @@ Inspect metadata, retrieve cited chunks, or prepare a bounded Chat context:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py list
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py inventory
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py audit
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   list --category medicine --collection medical_core --sort-by title
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py search "query terms"
@@ -130,13 +131,19 @@ and refuses the mutation.
 The default local store is `.uaa/knowledge_dump`, which is gitignored. `--store`
 selects another local directory. Plans and receipts contain safe hashes/refs,
 counts, rights metadata, and approval binding; they omit source paths and source
-text.
+text. The store enforces owner-only directory and database permissions. Each
+successful ingest or metadata update persists a redacted audit record in the
+same transaction, including hashed actor/run refs and the exact approval,
+scope, receipt, idempotency, outcome, and reason refs.
 
 An idempotency key can replay only the identical approved scope. Reusing it for
 different content or metadata is rejected. Identical content submitted under a
 different key is also rejected so a no-op cannot create an unrecorded key
-binding. Search limits are restricted to 1 through 50 results, and context packs
-are additionally bounded to 50,000 characters.
+binding. Secret-like operator refs are rejected before persistence. Search
+limits are restricted to 1 through 50 results, Unicode queries follow the local
+FTS tokenizer, filtered searches rank within the selected shelf, and context
+packs are additionally bounded to 50,000 characters. EPUB extraction follows
+the package spine rather than archive filename order.
 
 ## Chat boundary
 
