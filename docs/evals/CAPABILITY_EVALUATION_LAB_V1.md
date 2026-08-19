@@ -93,7 +93,8 @@ primitives through a lab-local Python-only child environment. It disables user
 site packages, bytecode writes, and third-party pytest plugin autoloading. The
 receipt binds the Python executable plus the bytes of every inventoried
 installed distribution file, and hashed RECORD entries must match those bytes;
-it also binds standard-library source, extension, and cached bytecode files.
+it also binds standard-library source, extension, cached bytecode, and safe
+in-toolchain symlink target bytes.
 Non-project editable dependencies fail closed. Python site initialization is
 disabled for controller and verifier children, so environment `.pth` startup
 hooks cannot execute; the verified venv site-packages roots are supplied

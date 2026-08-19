@@ -430,6 +430,9 @@ def _standard_library_digest(root: Path | None = None) -> str:
     )
     if not stdlib_root.is_dir() or stdlib_root.is_symlink():
         raise ValueError("capability lab standard library root is unsafe")
+    allowed_target_root = (
+        stdlib_root if root is not None else Path(sys.base_prefix).resolve(strict=True)
+    )
     digest = hashlib.sha256()
     file_count = 0
     for path in sorted(stdlib_root.rglob("*")):
@@ -437,9 +440,26 @@ def _standard_library_digest(root: Path | None = None) -> str:
         if any(part in {"site-packages", "dist-packages"} for part in relative.parts):
             continue
         if path.is_symlink():
-            raise ValueError(
-                "capability lab standard library contains an unsafe symlink"
-            )
+            try:
+                resolved = path.resolve(strict=True)
+            except OSError:
+                raise ValueError(
+                    "capability lab standard library contains a broken symlink"
+                ) from None
+            if not resolved.is_file() or not resolved.is_relative_to(
+                allowed_target_root
+            ):
+                raise ValueError(
+                    "capability lab standard library symlink target is unsafe"
+                )
+            digest.update(b"\n--UAA-CAPABILITY-LAB-STDLIB-SYMLINK--\n")
+            digest.update(str(relative).encode("utf-8"))
+            digest.update(b"\n")
+            digest.update(os.readlink(path).encode("utf-8"))
+            digest.update(b"\n")
+            _hash_file_into(digest, resolved)
+            file_count += 1
+            continue
         if not path.is_file():
             continue
         digest.update(b"\n--UAA-CAPABILITY-LAB-STDLIB-FILE--\n")

@@ -332,9 +332,14 @@ def test_standard_library_binding_hashes_file_bytes(tmp_path: Path) -> None:
     cache.mkdir()
     (cache / "example.pyc").write_bytes(b"executable-bytecode")
     third = runner._standard_library_digest(tmp_path)
+    target = tmp_path / "linked-target.bin"
+    target.write_bytes(b"linked-standard-library-bytes")
+    (tmp_path / "linked-file.bin").symlink_to(target)
+    fourth = runner._standard_library_digest(tmp_path)
 
     assert first != second
     assert second != third
+    assert third != fourth
 
 
 def test_environment_digest_changes_case_and_run_evidence() -> None:
