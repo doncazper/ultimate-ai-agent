@@ -334,6 +334,23 @@ class CapabilityEvaluationRunReceipt(_FrozenLabModel):
             CapabilityLabGateStatus.failed if failed else CapabilityLabGateStatus.passed
         ):
             raise ValueError("receipt status does not match regression gates")
+        receipt_payload = {
+            "manifest_ref": self.manifest_ref,
+            "manifest_digest_ref": self.manifest_digest_ref,
+            "evaluator_revision_ref": self.evaluator_revision_ref,
+            "evaluator_source_digest_ref": self.evaluator_source_digest_ref,
+            "evaluator_environment_digest_ref": self.evaluator_environment_digest_ref,
+            "results": [result.model_dump(mode="json") for result in self.results],
+            "missing_case_refs": self.missing_case_refs,
+            "unexpected_case_refs": self.unexpected_case_refs,
+            "claim_gates": [gate.model_dump(mode="json") for gate in self.claim_gates],
+            "status": self.status.value,
+        }
+        expected_digest = _canonical_digest(receipt_payload)
+        if self.evidence_digest_ref != expected_digest:
+            raise ValueError("receipt evidence digest binding drift")
+        if self.run_ref != f"evaluation-run-ref:capability-lab:{expected_digest}":
+            raise ValueError("receipt run ref binding drift")
         return self
 
 

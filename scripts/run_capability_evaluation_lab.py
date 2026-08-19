@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.evals.capability_lab import (  # noqa: E402
 
 DEFAULT_MANIFEST = ROOT / "docs/evals/capability_evaluation_lab_v1.json"
 ISOLATED_CONTROLLER_COMMIT_ENV = "UAA_CAPABILITY_LAB_CONTROLLER_COMMIT"
+PYTHON_SITE_INITIALIZATION_FLAG = "-S"
 
 
 class RedactedArgumentParser(argparse.ArgumentParser):
@@ -350,8 +351,28 @@ def _hash_file_into(digest: "hashlib._Hash", path: Path) -> str:
     return base64.urlsafe_b64encode(file_digest.digest()).rstrip(b"=").decode("ascii")
 
 
+def _trusted_python_prefix() -> Path:
+    prefix = Path(_trusted_python_launcher()).parent.parent.resolve(strict=True)
+    if not (prefix / "pyvenv.cfg").is_file():
+        raise ValueError("capability lab requires a verified virtual environment")
+    return prefix
+
+
+def _active_site_package_roots() -> tuple[Path, ...]:
+    prefix = _trusted_python_prefix()
+    variables = {"base": str(prefix), "platbase": str(prefix)}
+    roots: list[Path] = []
+    for name in ("purelib", "platlib"):
+        root = Path(sysconfig.get_path(name, vars=variables)).resolve(strict=True)
+        if not root.is_dir() or not root.is_relative_to(prefix):
+            raise ValueError("capability lab site-packages root is unsafe")
+        if root not in roots:
+            roots.append(root)
+    return tuple(roots)
+
+
 def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
-    prefix = Path(sys.prefix).resolve(strict=True)
+    prefix = _trusted_python_prefix()
     bindings: list[tuple[str, str, str]] = []
     for distribution in importlib.metadata.distributions():
         name = (distribution.metadata.get("Name") or "").lower()
@@ -413,16 +434,13 @@ def _standard_library_digest(root: Path | None = None) -> str:
     file_count = 0
     for path in sorted(stdlib_root.rglob("*")):
         relative = path.relative_to(stdlib_root)
-        if any(
-            part in {"__pycache__", "site-packages", "dist-packages"}
-            for part in relative.parts
-        ):
+        if any(part in {"site-packages", "dist-packages"} for part in relative.parts):
             continue
         if path.is_symlink():
             raise ValueError(
                 "capability lab standard library contains an unsafe symlink"
             )
-        if not path.is_file() or path.suffix == ".pyc":
+        if not path.is_file():
             continue
         digest.update(b"\n--UAA-CAPABILITY-LAB-STDLIB-FILE--\n")
         digest.update(str(relative).encode("utf-8"))
@@ -443,6 +461,7 @@ def evaluator_environment_digest() -> str:
         "python_cache_tag": sys.implementation.cache_tag,
         "python_version": sys.version,
         "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "python_site_initialization_enabled": False,
         "standard_library_digest": _standard_library_digest(),
         "distributions": _installed_distribution_bindings(),
     }
@@ -474,6 +493,7 @@ def _python_only_child_environment(
                 16,
             )
         )
+    site_packages = tuple(str(path) for path in _active_site_package_roots())
     environment = {
         "PATH": os.pathsep.join((python_dir, "/usr/bin", "/bin")),
         "HOME": str(home),
@@ -482,7 +502,7 @@ def _python_only_child_environment(
         "LC_ALL": "C.UTF-8",
         "CI": "true",
         "PYTHONHASHSEED": python_hash_seed,
-        "PYTHONPATH": "src",
+        "PYTHONPATH": os.pathsep.join(("src", *site_packages)),
         "PYTHONNOUSERSITE": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
         "VIRTUAL_ENV": sys.prefix,
@@ -518,7 +538,12 @@ def _run_python_scenario(
         if "pytest" in resolved:
             resolved.extend(("--basetemp", str(basetemp)))
         process = subprocess.Popen(
-            (*bounded_runner._sandbox_prefix(), *resolved),
+            (
+                *bounded_runner._sandbox_prefix(),
+                resolved[0],
+                PYTHON_SITE_INITIALIZATION_FLAG,
+                *resolved[1:],
+            ),
             cwd=execution_root,
             env=_python_only_child_environment(
                 basetemp.parent,
@@ -729,6 +754,7 @@ def _relaunch_from_isolated_controller(argv: list[str]) -> int:
         completed = subprocess.run(
             (
                 _trusted_python_launcher(),
+                PYTHON_SITE_INITIALIZATION_FLAG,
                 str(isolated_root / "scripts/run_capability_evaluation_lab.py"),
                 *argv,
             ),

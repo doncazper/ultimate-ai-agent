@@ -12,6 +12,7 @@ from scripts import run_capability_evaluation_lab as runner
 from ultimate_ai_agent.core.evals import (
     CAPABILITY_EVALUATION_LAB_SUBJECT_REFS,
     CapabilityEvaluationLabManifest,
+    CapabilityEvaluationRunReceipt,
     CapabilityLabFailureAttribution,
     CapabilityLabGateStatus,
     CapabilityLabObservedStatus,
@@ -262,7 +263,7 @@ def test_dependency_binding_hashes_installed_file_bytes(
         def locate_file(relative: Path) -> Path:
             return tmp_path / relative
 
-    monkeypatch.setattr(runner.sys, "prefix", str(tmp_path))
+    monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
     monkeypatch.setattr(
         runner.importlib.metadata,
         "distributions",
@@ -310,7 +311,7 @@ def test_dependency_binding_rejects_record_hash_drift(
         def locate_file(relative: RecordedPath) -> Path:
             return tmp_path / Path(relative)
 
-    monkeypatch.setattr(runner.sys, "prefix", str(tmp_path))
+    monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
     monkeypatch.setattr(
         runner.importlib.metadata,
         "distributions",
@@ -327,8 +328,13 @@ def test_standard_library_binding_hashes_file_bytes(tmp_path: Path) -> None:
     first = runner._standard_library_digest(tmp_path)
     module.write_text("VALUE = 2\n", encoding="utf-8")
     second = runner._standard_library_digest(tmp_path)
+    cache = tmp_path / "__pycache__"
+    cache.mkdir()
+    (cache / "example.pyc").write_bytes(b"executable-bytecode")
+    third = runner._standard_library_digest(tmp_path)
 
     assert first != second
+    assert second != third
 
 
 def test_environment_digest_changes_case_and_run_evidence() -> None:
@@ -362,6 +368,26 @@ def test_environment_digest_changes_case_and_run_evidence() -> None:
 
     assert first[0].evidence_digest_ref != second[0].evidence_digest_ref
     assert first_receipt.evidence_digest_ref != second_receipt.evidence_digest_ref
+
+
+def test_persisted_receipt_recomputes_evidence_digest_and_run_ref() -> None:
+    manifest = runner.load_manifest()
+    receipt = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=EVALUATOR_REVISION_REF,
+        evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
+        results=_passing_results(manifest),
+    )
+    payload = receipt.model_dump(mode="json")
+    payload["evidence_digest_ref"] = f"sha256:{'0' * 64}"
+    with pytest.raises(ValueError, match="receipt evidence digest binding drift"):
+        CapabilityEvaluationRunReceipt.model_validate(payload)
+
+    payload = receipt.model_dump(mode="json")
+    payload["run_ref"] = f"evaluation-run-ref:capability-lab:sha256:{'0' * 64}"
+    with pytest.raises(ValueError, match="receipt run ref binding drift"):
+        CapabilityEvaluationRunReceipt.model_validate(payload)
 
 
 def test_runner_projects_a_content_free_pass_receipt(
@@ -513,6 +539,23 @@ def test_python_launcher_preserves_virtual_environment_identity() -> None:
 
     assert launcher == Path(sys.executable)
     assert launcher.resolve().is_file()
+
+
+def test_python_child_disables_site_initialization(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            runner._trusted_python_launcher(),
+            runner.PYTHON_SITE_INITIALIZATION_FLAG,
+            "-c",
+            "import sys; raise SystemExit(0 if sys.flags.no_site else 1)",
+        ],
+        env=runner._python_only_child_environment(tmp_path),
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
 
 
 def test_case_seed_ref_controls_the_child_hash_seed(tmp_path: Path) -> None:

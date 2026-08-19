@@ -55,6 +55,9 @@ covered.
 - missing and unexpected case refs; and
 - the final claim-gate and run evidence digests.
 
+Persisted receipt validation recomputes the canonical final evidence digest and
+requires the run ref to contain that exact digest.
+
 Missing cases remain in `case_count` and make their claim gate fail. They are
 never removed from a complete-case denominator. Duplicate and unexpected case
 results fail closed.
@@ -90,8 +93,12 @@ primitives through a lab-local Python-only child environment. It disables user
 site packages, bytecode writes, and third-party pytest plugin autoloading. The
 receipt binds the Python executable plus the bytes of every inventoried
 installed distribution file, and hashed RECORD entries must match those bytes;
-it also binds the standard-library file tree. Non-project editable dependencies
-fail closed. That environment digest is rechecked before and after every case.
+it also binds standard-library source, extension, and cached bytecode files.
+Non-project editable dependencies fail closed. Python site initialization is
+disabled for controller and verifier children, so environment `.pth` startup
+hooks cannot execute; the verified venv site-packages roots are supplied
+explicitly and their distribution bytes remain bound. That environment digest
+is rechecked before and after every case.
 The complete controller relaunches from an isolated checkout before loading the
 manifest, and the cases execute from a second isolated checkout of the same
 recorded evaluator revision. Commands are fixed in the repository registry;

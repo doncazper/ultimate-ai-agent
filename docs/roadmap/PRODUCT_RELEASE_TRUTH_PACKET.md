@@ -22,8 +22,8 @@ revision/digest binding, explicit unknown failure attribution, and fail-closed
 missing-case claim gates. Fixed scenario evidence/seed/revision bindings,
 isolated exact-revision controller and verifier execution, and a digest of
 installed dependency and standard-library bytes close the local provenance
-boundary. A pass proves
-only the named pinned repository
+boundary; site-path startup hooks are disabled and final receipt digests
+self-verify. A pass proves only the named pinned repository
 contract; it does not run a live external benchmark, establish a product
 winner, graduate a score, or grant runtime or production authority. Evidence:
 `docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`,
