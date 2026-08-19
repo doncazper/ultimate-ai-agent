@@ -31,12 +31,10 @@ _EXACT_REVISION_RE = re.compile(
 
 class CapabilityLabExpectedStatus(str, Enum):
     passed = "passed"
-    blocked = "blocked"
 
 
 class CapabilityLabObservedStatus(str, Enum):
     passed = "passed"
-    blocked = "blocked"
     failed = "failed"
     unknown = "unknown"
 
@@ -250,10 +248,7 @@ class CapabilityEvaluationCaseResult(_FrozenLabModel):
             "source_evidence_digest_ref",
         )
         _validate_digest(self.evidence_digest_ref, "evidence_digest_ref")
-        safe_outcome = self.observed_status in {
-            CapabilityLabObservedStatus.passed,
-            CapabilityLabObservedStatus.blocked,
-        }
+        safe_outcome = self.observed_status == CapabilityLabObservedStatus.passed
         if safe_outcome != (
             self.failure_attribution == CapabilityLabFailureAttribution.none
         ):
@@ -348,6 +343,8 @@ def capability_evaluation_manifest_digest(
 def capability_evaluation_case_evidence_digest(
     *,
     case: CapabilityEvaluationLabCase,
+    evaluator_revision_ref: str,
+    evaluator_source_digest_ref: str,
     source_revision_ref: str,
     source_evidence_digest_ref: str,
     observed_status: CapabilityLabObservedStatus,
@@ -357,6 +354,8 @@ def capability_evaluation_case_evidence_digest(
     return _canonical_digest(
         {
             "case": case.model_dump(mode="json"),
+            "evaluator_revision_ref": evaluator_revision_ref,
+            "evaluator_source_digest_ref": evaluator_source_digest_ref,
             "source_revision_ref": source_revision_ref,
             "source_evidence_digest_ref": source_evidence_digest_ref,
             "observed_status": observed_status.value,
@@ -406,6 +405,18 @@ def build_capability_evaluation_run_receipt(
             or result.source_evidence_digest_ref != expected_digest
         ):
             raise ValueError("result source revision binding drift")
+        expected_evidence_digest = capability_evaluation_case_evidence_digest(
+            case=case,
+            evaluator_revision_ref=evaluator_revision_ref,
+            evaluator_source_digest_ref=evaluator_source_digest_ref,
+            source_revision_ref=result.source_revision_ref,
+            source_evidence_digest_ref=result.source_evidence_digest_ref,
+            observed_status=result.observed_status,
+            failure_attribution=result.failure_attribution,
+            reason_ref=result.reason_ref,
+        )
+        if result.evidence_digest_ref != expected_evidence_digest:
+            raise ValueError("result evidence digest binding drift")
 
     gates: list[CapabilityEvaluationClaimGate] = []
     for claim in manifest.claims:

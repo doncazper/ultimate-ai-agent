@@ -192,6 +192,30 @@ def evaluation_lab_source_digest_at_commit(commit: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
+def repository_inputs_match_exact_revision() -> bool:
+    executable = bounded_runner._trusted_executable("git")
+    result = subprocess.run(
+        (
+            executable,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=ROOT,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if result.returncode != 0 or len(result.stdout) > 1_000_000:
+        raise ValueError("capability lab repository revision is uninspectable")
+    return not result.stdout
+
+
 def _failure_posture(
     failure_code: str,
 ) -> tuple[CapabilityLabObservedStatus, CapabilityLabFailureAttribution, str]:
@@ -242,6 +266,8 @@ def _case_result(
         raise ValueError("capability lab source revision could not be resolved")
     evidence_digest_ref = capability_evaluation_case_evidence_digest(
         case=case,
+        evaluator_revision_ref=evaluator_revision_ref,
+        evaluator_source_digest_ref=evaluator_source_digest_ref,
         source_revision_ref=source_revision_ref,
         source_evidence_digest_ref=source_evidence_digest_ref,
         observed_status=observed,
@@ -266,6 +292,10 @@ def run_capability_evaluation_lab(
 ) -> CapabilityEvaluationRunReceipt:
     active_manifest = manifest or load_manifest()
     _validate_registry(active_manifest)
+    if not repository_inputs_match_exact_revision():
+        raise ValueError(
+            "capability lab verifier inputs do not match the exact repository revision"
+        )
     evaluator_commit = bounded_runner.repository_commit()
     evaluator_revision_ref = f"git-sha:{evaluator_commit}"
     evaluator_source_digest_ref = evaluation_lab_source_digest()
@@ -351,8 +381,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
             return 0
         receipt = run_capability_evaluation_lab(manifest)
-    except (OSError, RuntimeError, ValueError) as exc:
-        print(f"capability evaluation lab failed closed: {exc}", file=sys.stderr)
+    except (OSError, RuntimeError, ValueError):
+        print(
+            "capability evaluation lab failed closed: "
+            "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED",
+            file=sys.stderr,
+        )
         return 1
     if args.json:
         print(json.dumps(receipt.model_dump(mode="json"), indent=2, sort_keys=True))

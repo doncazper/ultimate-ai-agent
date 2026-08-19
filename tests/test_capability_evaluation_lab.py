@@ -24,12 +24,17 @@ EVALUATOR_REVISION_REF = f"git-sha:{'a' * 40}"
 EVALUATOR_SOURCE_DIGEST_REF = f"sha256:{'b' * 64}"
 
 
-def _passing_results(manifest: CapabilityEvaluationLabManifest):
+def _passing_results(
+    manifest: CapabilityEvaluationLabManifest,
+    *,
+    evaluator_revision_ref: str = EVALUATOR_REVISION_REF,
+    evaluator_source_digest_ref: str = EVALUATOR_SOURCE_DIGEST_REF,
+):
     return tuple(
         runner._case_result(
             case=case,
-            evaluator_revision_ref=EVALUATOR_REVISION_REF,
-            evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+            evaluator_revision_ref=evaluator_revision_ref,
+            evaluator_source_digest_ref=evaluator_source_digest_ref,
             failure_code="none",
         )
         for case in manifest.cases
@@ -62,6 +67,11 @@ def test_manifest_rejects_raw_payload_fields_and_score_authority() -> None:
     payload.pop("raw_prompt")
     payload["score_authority_enabled"] = True
     with pytest.raises(ValidationError, match="literal_error"):
+        CapabilityEvaluationLabManifest.model_validate(payload)
+
+    payload = runner.load_manifest().model_dump(mode="json")
+    payload["cases"][0]["expected_status"] = "blocked"
+    with pytest.raises(ValidationError, match="enum"):
         CapabilityEvaluationLabManifest.model_validate(payload)
 
 
@@ -150,11 +160,42 @@ def test_nonzero_verifier_result_uses_unknown_attribution_and_fails() -> None:
     assert first.run_ref == second.run_ref
 
 
+def test_builder_rejects_tampered_case_evidence_digest() -> None:
+    manifest = runner.load_manifest()
+    results = list(_passing_results(manifest))
+    results[0] = results[0].model_copy(
+        update={"evidence_digest_ref": f"sha256:{'0' * 64}"}
+    )
+
+    with pytest.raises(ValueError, match="evidence digest binding drift"):
+        build_capability_evaluation_run_receipt(
+            manifest=manifest,
+            evaluator_revision_ref=EVALUATOR_REVISION_REF,
+            evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+            results=tuple(results),
+        )
+
+
+def test_pinned_case_digest_changes_with_evaluator_revision() -> None:
+    manifest = runner.load_manifest()
+    first = _passing_results(manifest)
+    second = _passing_results(
+        manifest,
+        evaluator_revision_ref=f"git-sha:{'c' * 40}",
+        evaluator_source_digest_ref=f"sha256:{'d' * 64}",
+    )
+
+    assert first[1].source_revision_ref == second[1].source_revision_ref
+    assert first[1].source_evidence_digest_ref == second[1].source_evidence_digest_ref
+    assert first[1].evidence_digest_ref != second[1].evidence_digest_ref
+
+
 def test_runner_projects_a_content_free_pass_receipt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manifest = runner.load_manifest()
     monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
     monkeypatch.setattr(
         runner,
         "evaluation_lab_source_digest",
@@ -189,6 +230,7 @@ def test_runner_refuses_uncommitted_evaluator_source(
 ) -> None:
     manifest = runner.load_manifest()
     monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
     monkeypatch.setattr(
         runner,
         "evaluation_lab_source_digest",
@@ -202,6 +244,41 @@ def test_runner_refuses_uncommitted_evaluator_source(
 
     with pytest.raises(ValueError, match="not committed at the exact revision"):
         runner.run_capability_evaluation_lab(manifest)
+
+
+def test_runner_refuses_dirty_transitive_verifier_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = runner.load_manifest()
+    monkeypatch.setattr(
+        runner,
+        "repository_inputs_match_exact_revision",
+        lambda: False,
+    )
+
+    with pytest.raises(ValueError, match="verifier inputs do not match"):
+        runner.run_capability_evaluation_lab(manifest)
+
+
+def test_python_only_child_environment_does_not_require_node(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = runner.bounded_runner._trusted_executable
+
+    def python_only(name: str) -> str:
+        if name in {"npm", "node"}:
+            raise OSError("node unavailable")
+        return original(name)
+
+    monkeypatch.setattr(runner.bounded_runner, "_trusted_executable", python_only)
+    environment = runner.bounded_runner._child_environment(
+        tmp_path,
+        include_node=False,
+    )
+
+    assert environment["UAA_AGENT_EVAL_OFFLINE"] == "1"
+    assert "node" not in environment["PATH"].lower()
 
 
 def test_validate_only_cli_is_revision_safe_and_performs_no_benchmark() -> None:
@@ -226,3 +303,32 @@ def test_validate_only_cli_is_revision_safe_and_performs_no_benchmark() -> None:
     assert payload["live_provider_benchmark_performed"] is False
     assert payload["score_authority_granted"] is False
     assert payload["authority_granted"] is False
+
+
+def test_validation_failure_does_not_echo_rejected_manifest_content(
+    tmp_path: Path,
+) -> None:
+    secret_marker = "secret-marker-must-not-appear"
+    manifest_path = tmp_path / "invalid.json"
+    payload = runner.load_manifest().model_dump(mode="json")
+    payload["raw_prompt"] = secret_marker
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/run_capability_evaluation_lab.py",
+            "--manifest",
+            str(manifest_path),
+            "--validate-only",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 1
+    assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in result.stderr
+    assert secret_marker not in result.stderr

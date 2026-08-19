@@ -17,9 +17,11 @@ empirical product winner or current external runtime behavior.
 
 The UAA-native case binds the exact evaluator Git revision and the digest of
 every evaluator source file. The three comparison-contract cases bind pinned
-source revisions and pinned artifact digests. The runner rejects a dirty or
-otherwise uncommitted evaluator source instead of pairing working-tree bytes
-with the wrong commit.
+source revisions and pinned artifact digests. Before executing any case, the
+runner requires the complete tracked and untracked repository input set to
+match the exact Git revision. This covers schemas, templates, imports, and
+other transitive verifier inputs instead of pairing working-tree bytes with the
+wrong commit.
 
 ## Case Registry
 
@@ -53,8 +55,10 @@ results fail closed.
 
 ## Failure Attribution
 
-Successful and truthfully blocked cases carry `none`. Timeout and evaluator
-environment failures have explicit safe attribution. A generic nonzero
+Successful cases carry `none`. V1 accepts only `passed` as an expected status;
+it does not advertise a blocked-result protocol that the fixed verifiers cannot
+emit. Timeout and evaluator environment failures have explicit safe
+attribution. A generic nonzero
 verifier result is `unknown` rather than being blamed on the product or the
 verifier without independent evidence. Future `subject_regression` or
 `verifier_failure` attribution requires a separately verified classifier.
