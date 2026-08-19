@@ -272,10 +272,7 @@ def test_python_only_child_environment_does_not_require_node(
         return original(name)
 
     monkeypatch.setattr(runner.bounded_runner, "_trusted_executable", python_only)
-    environment = runner.bounded_runner._child_environment(
-        tmp_path,
-        include_node=False,
-    )
+    environment = runner._python_only_child_environment(tmp_path)
 
     assert environment["UAA_AGENT_EVAL_OFFLINE"] == "1"
     assert "node" not in environment["PATH"].lower()

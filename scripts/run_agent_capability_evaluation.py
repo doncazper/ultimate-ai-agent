@@ -458,21 +458,12 @@ def _sandbox_prefix() -> tuple[str, ...]:
     return (str(sandbox), "-p", NETWORK_SANDBOX_PROFILE)
 
 
-def _child_environment(
-    temp_root: Path,
-    *,
-    include_node: bool = True,
-) -> dict[str, str]:
+def _child_environment(temp_root: Path) -> dict[str, str]:
     python_dir = str(Path(_trusted_executable("{python}")).parent)
-    executable_dirs = [python_dir]
-    if include_node:
-        npm_dir = str(Path(_trusted_executable("npm")).parent)
-        node_dir = str(Path(_trusted_executable("node")).parent)
-        npm_search_dir = str(Path(shutil.which("npm") or npm_dir).absolute().parent)
-        node_search_dir = str(Path(shutil.which("node") or node_dir).absolute().parent)
-        executable_dirs.extend(
-            (npm_search_dir, node_search_dir, npm_dir, node_dir)
-        )
+    npm_dir = str(Path(_trusted_executable("npm")).parent)
+    node_dir = str(Path(_trusted_executable("node")).parent)
+    npm_search_dir = str(Path(shutil.which("npm") or npm_dir).absolute().parent)
+    node_search_dir = str(Path(shutil.which("node") or node_dir).absolute().parent)
     home = temp_root / "home"
     home.mkdir(parents=True, exist_ok=True)
     site_packages = tuple(
@@ -483,7 +474,17 @@ def _child_environment(
         and Path(path).name in {"site-packages", "dist-packages"}
     )
     return {
-        "PATH": os.pathsep.join((*executable_dirs, "/usr/bin", "/bin")),
+        "PATH": os.pathsep.join(
+            (
+                python_dir,
+                npm_search_dir,
+                node_search_dir,
+                npm_dir,
+                node_dir,
+                "/usr/bin",
+                "/bin",
+            )
+        ),
         "HOME": str(home),
         "TMPDIR": str(temp_root),
         "LANG": "C.UTF-8",
@@ -634,10 +635,7 @@ def _run_command(
         if "pytest" in resolved:
             resolved.extend(("--basetemp", str(basetemp)))
         argv = [*_sandbox_prefix(), *resolved]
-        environment = _child_environment(
-            basetemp.parent,
-            include_node=command[0] == "npm",
-        )
+        environment = _child_environment(basetemp.parent)
         started = time.monotonic()
         process = subprocess.Popen(
             argv,

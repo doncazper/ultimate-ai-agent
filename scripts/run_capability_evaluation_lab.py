@@ -7,6 +7,7 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -216,6 +217,56 @@ def repository_inputs_match_exact_revision() -> bool:
     return not result.stdout
 
 
+def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
+    python_dir = str(Path(bounded_runner._trusted_executable("{python}")).parent)
+    home = temp_root / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    site_packages = tuple(
+        path
+        for path in sys.path
+        if path
+        and Path(path).is_dir()
+        and Path(path).name in {"site-packages", "dist-packages"}
+    )
+    return {
+        "PATH": os.pathsep.join((python_dir, "/usr/bin", "/bin")),
+        "HOME": str(home),
+        "TMPDIR": str(temp_root),
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "CI": "true",
+        "PYTHONHASHSEED": "0",
+        "PYTHONPATH": os.pathsep.join(("src", *site_packages)),
+        "VIRTUAL_ENV": sys.prefix,
+        "UAA_AGENT_EVAL_OFFLINE": "1",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "HTTP_PROXY": "http://127.0.0.1:9",
+        "HTTPS_PROXY": "http://127.0.0.1:9",
+        "ALL_PROXY": "http://127.0.0.1:9",
+        "NO_PROXY": "",
+    }
+
+
+def _run_python_scenario(
+    command: tuple[str, ...],
+    *,
+    basetemp: Path,
+) -> bounded_runner.ScenarioCommandResult:
+    if command[0] != "{python}":
+        raise ValueError("capability lab supports exact Python verifiers only")
+    original_environment = bounded_runner._child_environment
+    bounded_runner._child_environment = _python_only_child_environment
+    try:
+        return bounded_runner._run_command(
+            command,
+            basetemp=basetemp,
+            timeout_seconds=180,
+        )
+    finally:
+        bounded_runner._child_environment = original_environment
+
+
 def _failure_posture(
     failure_code: str,
 ) -> tuple[CapabilityLabObservedStatus, CapabilityLabFailureAttribution, str]:
@@ -311,10 +362,9 @@ def run_capability_evaluation_lab(
     with tempfile.TemporaryDirectory(prefix="uaa-capability-lab-") as temp:
         temp_root = Path(temp)
         for index, scenario in enumerate(SCENARIOS, start=1):
-            command_result = bounded_runner._run_command(
+            command_result = _run_python_scenario(
                 scenario.command,
                 basetemp=temp_root / f"case-{index:02d}",
-                timeout_seconds=180,
             )
             results.append(
                 _case_result(
