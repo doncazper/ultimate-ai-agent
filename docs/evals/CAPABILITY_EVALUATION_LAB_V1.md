@@ -36,6 +36,9 @@ inputs without pairing mutable working-tree bytes with the wrong commit.
 The manifest is closed: every executable registry entry fixes its case,
 verifier, subject, and claim refs, and the manifest must agree exactly. Pinned
 source-revision or evidence-file drift fails validation.
+Evidence refs and deterministic seed refs are also fixed by that executable
+registry; a caller-supplied manifest cannot relabel them. Each fixed seed ref
+deterministically sets the case interpreter hash seed.
 Every case belongs to a claim gate, and all four declared subjects must remain
 covered.
 
@@ -85,10 +88,14 @@ PYTHONPATH=src .venv/bin/python scripts/run_capability_evaluation_lab.py --json
 The runner uses the existing bounded macOS no-network verifier process
 primitives through a lab-local Python-only child environment. It disables user
 site packages, bytecode writes, and third-party pytest plugin autoloading. The
-receipt binds the Python executable plus installed distribution inventory, and
-the cases execute from an isolated checkout of the recorded evaluator
-revision. Commands are fixed in the repository registry; the manifest cannot
-provide arbitrary argv.
+receipt binds the Python executable plus the bytes of every inventoried
+installed distribution file, and hashed RECORD entries must match those bytes;
+non-project editable dependencies fail closed. That environment digest is
+rechecked before and after every case.
+The complete controller relaunches from an isolated checkout before loading the
+manifest, and the cases execute from a second isolated checkout of the same
+recorded evaluator revision. Commands are fixed in the repository registry;
+the manifest cannot provide arbitrary argv.
 
 ## Authority Boundary
 

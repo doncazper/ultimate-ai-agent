@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from dataclasses import dataclass
 import hashlib
 import importlib.metadata
@@ -36,6 +37,7 @@ from ultimate_ai_agent.core.evals.capability_lab import (  # noqa: E402
 
 
 DEFAULT_MANIFEST = ROOT / "docs/evals/capability_evaluation_lab_v1.json"
+ISOLATED_CONTROLLER_COMMIT_ENV = "UAA_CAPABILITY_LAB_CONTROLLER_COMMIT"
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,8 @@ class CapabilityLabScenario:
     claim_ref: str
     verifier_ref: str
     command: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+    deterministic_seed_ref: str
     pinned_evidence_path: str | None
     pinned_source_revision_ref: str | None
 
@@ -65,6 +69,11 @@ SCENARIOS = (
             "tests/test_agent_capability_evaluation.py::test_report_separates_verifier_outcomes_from_unmeasured_task_completion",
             "tests/test_agent_capability_evaluation.py::test_runner_registry_closes_coverage_and_preserves_web_hybrid",
         ),
+        evidence_refs=(
+            "repo-ref:tests/test_agent_capability_evaluation.py",
+            "repo-ref:src/ultimate_ai_agent/core/evals/capability_metrics.py",
+        ),
+        deterministic_seed_ref="seed-ref:capability-lab:uaa-native:v1",
         pinned_evidence_path=None,
         pinned_source_revision_ref=None,
     ),
@@ -74,6 +83,11 @@ SCENARIOS = (
         claim_ref="claim-ref:hermes:trajectory-evidence-contract",
         verifier_ref="verifier-ref:capability-lab:hermes-trajectory-contract",
         command=("{python}", "scripts/verify_hermes_runtime_adoption_phase_40.py"),
+        evidence_refs=(
+            "repo-ref:docs/runtime/hermes_runtime_trajectory_eval_manifest.json",
+            "repo-ref:scripts/verify_hermes_runtime_adoption_phase_40.py",
+        ),
+        deterministic_seed_ref="seed-ref:capability-lab:hermes:v1",
         pinned_evidence_path="docs/runtime/hermes_runtime_trajectory_eval_manifest.json",
         pinned_source_revision_ref="source-revision-ref:hermes-phase-40:sha256:ea7ac693587d1e84ed882fae3fdef39299ae03476ee84d2408f6e73b77f3827d",
     ),
@@ -83,6 +97,11 @@ SCENARIOS = (
         claim_ref="claim-ref:openclaw:parity-evidence-contract",
         verifier_ref="verifier-ref:capability-lab:openclaw-parity-pack",
         command=("{python}", "scripts/verify_uaa_parity_gap_closure_prompt_pack.py"),
+        evidence_refs=(
+            "repo-ref:docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
+            "repo-ref:scripts/verify_uaa_parity_gap_closure_prompt_pack.py",
+        ),
+        deterministic_seed_ref="seed-ref:capability-lab:openclaw:v1",
         pinned_evidence_path="docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
         pinned_source_revision_ref="source-revision-ref:openclaw-parity-pack:sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
     ),
@@ -92,6 +111,11 @@ SCENARIOS = (
         claim_ref="claim-ref:goatcitadel:bounded-comparison-evidence",
         verifier_ref="verifier-ref:capability-lab:goat-comparison-contract",
         command=("{python}", "scripts/verify_goat_comparison_findings.py"),
+        evidence_refs=(
+            "repo-ref:docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json",
+            "repo-ref:scripts/verify_goat_comparison_findings.py",
+        ),
+        deterministic_seed_ref="seed-ref:capability-lab:goatcitadel:v1",
         pinned_evidence_path="docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json",
         pinned_source_revision_ref="git-sha:91775e6905c8ca6c5083444f64eb3457b2d0aaa0",
     ),
@@ -132,6 +156,11 @@ def _validate_registry(manifest: CapabilityEvaluationLabManifest) -> None:
             raise ValueError("capability lab subject or claim binding drift")
         if case.verifier_ref != scenario.verifier_ref:
             raise ValueError("capability lab verifier binding drift")
+        if (
+            case.evidence_refs != scenario.evidence_refs
+            or case.deterministic_seed_ref != scenario.deterministic_seed_ref
+        ):
+            raise ValueError("capability lab evidence or seed binding drift")
         if scenario.command[0] != "{python}":
             raise ValueError("capability lab executable is not allowlisted")
         if any("live" in part.lower() for part in scenario.command):
@@ -306,47 +335,105 @@ def _prepare_isolated_checkout(commit: str, destination: Path) -> Path:
     return destination
 
 
+def _hash_file_into(digest: "hashlib._Hash", path: Path) -> str:
+    file_digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+            file_digest.update(chunk)
+    return base64.urlsafe_b64encode(file_digest.digest()).rstrip(b"=").decode("ascii")
+
+
+def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
+    prefix = Path(sys.prefix).resolve(strict=True)
+    bindings: list[tuple[str, str, str]] = []
+    for distribution in importlib.metadata.distributions():
+        name = (distribution.metadata.get("Name") or "").lower()
+        if not name:
+            raise ValueError("capability lab dependency name is unavailable")
+        direct_url_text = distribution.read_text("direct_url.json") or ""
+        if '"editable": true' in direct_url_text.lower():
+            if name == "ultimate-ai-agent":
+                continue
+            raise ValueError("capability lab editable dependency is unsupported")
+        files = distribution.files
+        if files is None:
+            raise ValueError("capability lab dependency file inventory is unavailable")
+        digest = hashlib.sha256()
+        for relative in sorted(files, key=str):
+            recorded_hash = getattr(relative, "hash", None)
+            relative_text = str(relative)
+            digest.update(b"\n--UAA-CAPABILITY-LAB-DEPENDENCY-FILE--\n")
+            digest.update(relative_text.encode("utf-8"))
+            target = Path(distribution.locate_file(relative))
+            if target.is_symlink():
+                raise ValueError("capability lab dependency contains an unsafe symlink")
+            try:
+                resolved = target.resolve(strict=True)
+            except OSError:
+                if recorded_hash is not None:
+                    raise ValueError(
+                        "capability lab dependency file with a recorded hash is missing"
+                    ) from None
+                digest.update(b"\nmissing\n")
+                continue
+            if not resolved.is_relative_to(prefix):
+                raise ValueError("capability lab dependency escapes the Python prefix")
+            if resolved.is_file():
+                digest.update(b"\nfile\n")
+                observed_hash = _hash_file_into(digest, resolved)
+                if recorded_hash is not None and (
+                    recorded_hash.mode != "sha256"
+                    or recorded_hash.value != observed_hash
+                ):
+                    raise ValueError(
+                        "capability lab installed dependency integrity drift"
+                    )
+            else:
+                digest.update(b"\nnon-file\n")
+        bindings.append((name, distribution.version, digest.hexdigest()))
+    return tuple(sorted(bindings))
+
+
 def evaluator_environment_digest() -> str:
     executable = Path(bounded_runner._trusted_executable("{python}"))
     if not executable.is_file() or executable.is_symlink():
         raise ValueError("capability lab Python executable is unsafe")
-    distributions = sorted(
-        (
-            (distribution.metadata.get("Name") or "").lower(),
-            distribution.version,
-            hashlib.sha256(
-                (distribution.read_text("RECORD") or "").encode("utf-8")
-            ).hexdigest(),
-            hashlib.sha256(
-                (distribution.read_text("direct_url.json") or "").encode("utf-8")
-            ).hexdigest(),
-        )
-        for distribution in importlib.metadata.distributions()
-        if distribution.metadata.get("Name")
-    )
     payload = {
         "python_implementation": sys.implementation.name,
         "python_cache_tag": sys.implementation.cache_tag,
         "python_version": sys.version,
         "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
-        "distributions": distributions,
+        "distributions": _installed_distribution_bindings(),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
+def _python_only_child_environment(
+    temp_root: Path,
+    *,
+    deterministic_seed_ref: str | None = None,
+) -> dict[str, str]:
     python_dir = str(Path(bounded_runner._trusted_executable("{python}")).parent)
     home = temp_root / "home"
     home.mkdir(parents=True, exist_ok=True)
-    return {
+    python_hash_seed = "0"
+    if deterministic_seed_ref is not None:
+        python_hash_seed = str(
+            int(
+                hashlib.sha256(deterministic_seed_ref.encode("utf-8")).hexdigest()[:8],
+                16,
+            )
+        )
+    environment = {
         "PATH": os.pathsep.join((python_dir, "/usr/bin", "/bin")),
         "HOME": str(home),
         "TMPDIR": str(temp_root),
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
         "CI": "true",
-        "PYTHONHASHSEED": "0",
+        "PYTHONHASHSEED": python_hash_seed,
         "PYTHONPATH": "src",
         "PYTHONNOUSERSITE": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -360,6 +447,9 @@ def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
         "ALL_PROXY": "http://127.0.0.1:9",
         "NO_PROXY": "",
     }
+    if deterministic_seed_ref is not None:
+        environment["UAA_CAPABILITY_LAB_SEED_REF"] = deterministic_seed_ref
+    return environment
 
 
 def _run_python_scenario(
@@ -367,6 +457,7 @@ def _run_python_scenario(
     *,
     basetemp: Path,
     execution_root: Path = ROOT,
+    deterministic_seed_ref: str | None = None,
 ) -> bounded_runner.ScenarioCommandResult:
     if command[0] != "{python}":
         raise ValueError("capability lab supports exact Python verifiers only")
@@ -381,7 +472,10 @@ def _run_python_scenario(
         process = subprocess.Popen(
             (*bounded_runner._sandbox_prefix(), *resolved),
             cwd=execution_root,
-            env=_python_only_child_environment(basetemp.parent),
+            env=_python_only_child_environment(
+                basetemp.parent,
+                deterministic_seed_ref=deterministic_seed_ref,
+            ),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -487,6 +581,10 @@ def run_capability_evaluation_lab(
             "capability lab verifier inputs do not match the exact repository revision"
         )
     evaluator_commit = bounded_runner.repository_commit()
+    if os.environ.get(ISOLATED_CONTROLLER_COMMIT_ENV) != evaluator_commit:
+        raise ValueError(
+            "capability lab controller is not bound to the evaluator revision"
+        )
     evaluator_revision_ref = f"git-sha:{evaluator_commit}"
     evaluator_source_digest_ref = evaluation_lab_source_digest()
     evaluator_environment_digest_ref = evaluator_environment_digest()
@@ -509,15 +607,20 @@ def run_capability_evaluation_lab(
                 execution_root, evaluator_commit
             ):
                 raise ValueError("capability lab isolated verifier inputs drifted")
+            if evaluator_environment_digest() != evaluator_environment_digest_ref:
+                raise ValueError("capability lab dependency environment drifted")
             command_result = _run_python_scenario(
                 scenario.command,
                 basetemp=temp_root / f"case-{index:02d}",
                 execution_root=execution_root,
+                deterministic_seed_ref=scenario.deterministic_seed_ref,
             )
             if not isolated_checkout_matches_exact_revision(
                 execution_root, evaluator_commit
             ):
                 raise ValueError("capability lab isolated verifier inputs drifted")
+            if evaluator_environment_digest() != evaluator_environment_digest_ref:
+                raise ValueError("capability lab dependency environment drifted")
             results.append(
                 _case_result(
                     case=case_by_ref[scenario.case_ref],
@@ -557,7 +660,52 @@ def _human_receipt(receipt: CapabilityEvaluationRunReceipt) -> str:
     return "\n".join(lines)
 
 
+def _relaunch_from_isolated_controller(argv: list[str]) -> int:
+    if not repository_inputs_match_exact_revision():
+        raise ValueError(
+            "capability lab verifier inputs do not match the exact repository revision"
+        )
+    before_commit = bounded_runner.repository_commit()
+    if not repository_inputs_match_exact_revision():
+        raise ValueError("capability lab controller revision changed during capture")
+    after_commit = bounded_runner.repository_commit()
+    if before_commit != after_commit:
+        raise ValueError("capability lab controller revision changed during capture")
+    with tempfile.TemporaryDirectory(prefix="uaa-capability-controller-") as temp:
+        temp_root = Path(temp)
+        isolated_root = _prepare_isolated_checkout(
+            before_commit, temp_root / "repository"
+        )
+        environment = _python_only_child_environment(temp_root)
+        environment[ISOLATED_CONTROLLER_COMMIT_ENV] = before_commit
+        completed = subprocess.run(
+            (
+                bounded_runner._trusted_executable("{python}"),
+                str(isolated_root / "scripts/run_capability_evaluation_lab.py"),
+                *argv,
+            ),
+            cwd=isolated_root,
+            env=environment,
+            check=False,
+        )
+        return completed.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
+    active_argv = list(sys.argv[1:] if argv is None else argv)
+    if (
+        "--validate-only" not in active_argv
+        and ISOLATED_CONTROLLER_COMMIT_ENV not in os.environ
+    ):
+        try:
+            return _relaunch_from_isolated_controller(active_argv)
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+            print(
+                "capability evaluation lab failed closed: "
+                "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED",
+                file=sys.stderr,
+            )
+            return 1
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--json", action="store_true")
@@ -566,7 +714,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Validate the versioned registry without executing its local verifiers.",
     )
-    args = parser.parse_args(argv)
+    args = parser.parse_args(active_argv)
     try:
         manifest = load_manifest(args.manifest)
         if args.validate_only:

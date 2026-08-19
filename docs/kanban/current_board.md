@@ -26,7 +26,8 @@ read-only verification lane. Four versioned UAA-native, Hermes,
 OpenClaw-contract, and GoatCitadel-comparison cases bind exact source and
 evaluator revisions, content-free evidence digests, explicit unknown failure
 attribution, missing-case-safe regression gates, isolated exact-revision
-execution, and a dependency/toolchain digest. This is contract evidence,
+controller/verifier execution, fixed evidence/seed bindings, and an installed
+dependency-byte digest. This is contract evidence,
 not a live external benchmark, product winner, score promotion, or authority
 grant. Evidence: `docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`,
 `docs/evals/capability_evaluation_lab_v1.json`,

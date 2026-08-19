@@ -229,6 +229,98 @@ def test_pinned_source_revision_drift_fails_registry_validation() -> None:
         runner._validate_registry(drifted)
 
 
+def test_evidence_and_seed_drift_fail_registry_validation() -> None:
+    manifest = runner.load_manifest()
+    for update in (
+        {"evidence_refs": ("repo-ref:unrelated-evidence",)},
+        {"deterministic_seed_ref": "seed-ref:capability-lab:unrelated:v1"},
+    ):
+        cases = list(manifest.cases)
+        cases[0] = cases[0].model_copy(update=update)
+        drifted = manifest.model_copy(update={"cases": tuple(cases)})
+        with pytest.raises(ValueError, match="evidence or seed binding drift"):
+            runner._validate_registry(drifted)
+
+
+def test_dependency_binding_hashes_installed_file_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package_file = tmp_path / "demo.py"
+    package_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+    class FakeDistribution:
+        metadata = {"Name": "demo-dependency"}
+        version = "1.0"
+        files = (Path("demo.py"),)
+
+        @staticmethod
+        def read_text(_name: str) -> None:
+            return None
+
+        @staticmethod
+        def locate_file(relative: Path) -> Path:
+            return tmp_path / relative
+
+    monkeypatch.setattr(runner.sys, "prefix", str(tmp_path))
+    monkeypatch.setattr(
+        runner.importlib.metadata,
+        "distributions",
+        lambda: (FakeDistribution(),),
+    )
+    first = runner._installed_distribution_bindings()
+    package_file.write_text("VALUE = 2\n", encoding="utf-8")
+    second = runner._installed_distribution_bindings()
+
+    assert first != second
+
+
+def test_dependency_binding_rejects_record_hash_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package_file = tmp_path / "demo.py"
+    package_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+    class RecordedHash:
+        mode = "sha256"
+        value = "invalid-recorded-hash"
+
+    class RecordedPath:
+        hash = RecordedHash()
+
+        @staticmethod
+        def __fspath__() -> str:
+            return "demo.py"
+
+        @staticmethod
+        def __str__() -> str:
+            return "demo.py"
+
+    class FakeDistribution:
+        metadata = {"Name": "demo-dependency"}
+        version = "1.0"
+        files = (RecordedPath(),)
+
+        @staticmethod
+        def read_text(_name: str) -> None:
+            return None
+
+        @staticmethod
+        def locate_file(relative: RecordedPath) -> Path:
+            return tmp_path / Path(relative)
+
+    monkeypatch.setattr(runner.sys, "prefix", str(tmp_path))
+    monkeypatch.setattr(
+        runner.importlib.metadata,
+        "distributions",
+        lambda: (FakeDistribution(),),
+    )
+
+    with pytest.raises(ValueError, match="installed dependency integrity drift"):
+        runner._installed_distribution_bindings()
+
+
 def test_environment_digest_changes_case_and_run_evidence() -> None:
     manifest = runner.load_manifest()
     first = _passing_results(manifest)
@@ -271,6 +363,7 @@ def test_runner_projects_a_content_free_pass_receipt(
     isolated_root.mkdir()
     observed_execution_roots: list[Path] = []
     monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setenv(runner.ISOLATED_CONTROLLER_COMMIT_ENV, "c" * 40)
     monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
     monkeypatch.setattr(
         runner,
@@ -323,6 +416,7 @@ def test_runner_refuses_uncommitted_evaluator_source(
 ) -> None:
     manifest = runner.load_manifest()
     monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setenv(runner.ISOLATED_CONTROLLER_COMMIT_ENV, "c" * 40)
     monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
     monkeypatch.setattr(
         runner,
@@ -353,6 +447,38 @@ def test_runner_refuses_dirty_transitive_verifier_inputs(
         runner.run_capability_evaluation_lab(manifest)
 
 
+def test_runner_refuses_an_unbound_controller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = runner.load_manifest()
+    monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
+    monkeypatch.delenv(runner.ISOLATED_CONTROLLER_COMMIT_ENV, raising=False)
+
+    with pytest.raises(ValueError, match="controller is not bound"):
+        runner.run_capability_evaluation_lab(manifest)
+
+
+def test_main_relaunches_before_loading_the_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(runner.ISOLATED_CONTROLLER_COMMIT_ENV, raising=False)
+    monkeypatch.setattr(
+        runner,
+        "_relaunch_from_isolated_controller",
+        lambda argv: 0 if argv == ["--json"] else 1,
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_manifest",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("outer controller must not load the manifest")
+        ),
+    )
+
+    assert runner.main(["--json"]) == 0
+
+
 def test_python_only_child_environment_does_not_require_node(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -370,6 +496,20 @@ def test_python_only_child_environment_does_not_require_node(
     assert environment["UAA_AGENT_EVAL_OFFLINE"] == "1"
     assert environment["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
     assert "node" not in environment["PATH"].lower()
+
+
+def test_case_seed_ref_controls_the_child_hash_seed(tmp_path: Path) -> None:
+    first = runner._python_only_child_environment(
+        tmp_path / "first",
+        deterministic_seed_ref="seed-ref:capability-lab:first:v1",
+    )
+    second = runner._python_only_child_environment(
+        tmp_path / "second",
+        deterministic_seed_ref="seed-ref:capability-lab:second:v1",
+    )
+
+    assert first["UAA_CAPABILITY_LAB_SEED_REF"].endswith(":first:v1")
+    assert first["PYTHONHASHSEED"] != second["PYTHONHASHSEED"]
 
 
 def test_subprocess_timeout_uses_fixed_redacted_cli_error(
