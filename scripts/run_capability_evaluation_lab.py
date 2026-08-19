@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -45,6 +46,7 @@ class CapabilityLabScenario:
     verifier_ref: str
     command: tuple[str, ...]
     pinned_evidence_path: str | None
+    pinned_source_revision_ref: str | None
 
 
 SCENARIOS = (
@@ -64,6 +66,7 @@ SCENARIOS = (
             "tests/test_agent_capability_evaluation.py::test_runner_registry_closes_coverage_and_preserves_web_hybrid",
         ),
         pinned_evidence_path=None,
+        pinned_source_revision_ref=None,
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:hermes-trajectory-contract:v1",
@@ -72,6 +75,7 @@ SCENARIOS = (
         verifier_ref="verifier-ref:capability-lab:hermes-trajectory-contract",
         command=("{python}", "scripts/verify_hermes_runtime_adoption_phase_40.py"),
         pinned_evidence_path="docs/runtime/hermes_runtime_trajectory_eval_manifest.json",
+        pinned_source_revision_ref="source-revision-ref:hermes-phase-40:sha256:ea7ac693587d1e84ed882fae3fdef39299ae03476ee84d2408f6e73b77f3827d",
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:openclaw-parity-pack:v1",
@@ -80,6 +84,7 @@ SCENARIOS = (
         verifier_ref="verifier-ref:capability-lab:openclaw-parity-pack",
         command=("{python}", "scripts/verify_uaa_parity_gap_closure_prompt_pack.py"),
         pinned_evidence_path="docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
+        pinned_source_revision_ref="source-revision-ref:openclaw-parity-pack:sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:goat-comparison-contract:v1",
@@ -88,6 +93,7 @@ SCENARIOS = (
         verifier_ref="verifier-ref:capability-lab:goat-comparison-contract",
         command=("{python}", "scripts/verify_goat_comparison_findings.py"),
         pinned_evidence_path="docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json",
+        pinned_source_revision_ref="git-sha:91775e6905c8ca6c5083444f64eb3457b2d0aaa0",
     ),
 )
 
@@ -139,9 +145,13 @@ def _validate_registry(manifest: CapabilityEvaluationLabManifest) -> None:
         if scenario.pinned_evidence_path is None:
             if case.source_revision_binding != "evaluator_revision":
                 raise ValueError("UAA-native case must bind the evaluator revision")
+            if scenario.pinned_source_revision_ref is not None:
+                raise ValueError("evaluator-bound case cannot pin a source revision")
         else:
             if case.source_revision_binding != "pinned":
                 raise ValueError("external comparison contract must remain pinned")
+            if case.source_revision_ref != scenario.pinned_source_revision_ref:
+                raise ValueError("pinned source revision drift")
             observed_digest = _file_digest(scenario.pinned_evidence_path)
             if observed_digest != case.source_evidence_digest_ref:
                 raise ValueError("pinned source evidence digest drift")
@@ -209,7 +219,7 @@ def evaluation_lab_source_digest_at_commit(commit: str) -> str:
     return f"sha256:{digest.hexdigest()}"
 
 
-def repository_inputs_match_exact_revision() -> bool:
+def repository_inputs_match_exact_revision(root: Path = ROOT) -> bool:
     executable = bounded_runner._trusted_executable("git")
     result = subprocess.run(
         (
@@ -218,7 +228,7 @@ def repository_inputs_match_exact_revision() -> bool:
             "--porcelain=v1",
             "--untracked-files=all",
         ),
-        cwd=ROOT,
+        cwd=root,
         env={
             "PATH": "/usr/bin:/bin",
             "GIT_CONFIG_NOSYSTEM": "1",
@@ -233,17 +243,102 @@ def repository_inputs_match_exact_revision() -> bool:
     return not result.stdout
 
 
+def isolated_checkout_matches_exact_revision(root: Path, commit: str) -> bool:
+    if not repository_inputs_match_exact_revision(root):
+        return False
+    executable = bounded_runner._trusted_executable("git")
+    result = subprocess.run(
+        (executable, "rev-parse", "HEAD"),
+        cwd=root,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+        },
+        capture_output=True,
+        check=False,
+        timeout=5,
+        text=True,
+    )
+    return result.returncode == 0 and result.stdout.strip() == commit
+
+
+def _prepare_isolated_checkout(commit: str, destination: Path) -> Path:
+    executable = bounded_runner._trusted_executable("git")
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+    }
+    clone = subprocess.run(
+        (
+            executable,
+            "clone",
+            "--no-hardlinks",
+            "--no-checkout",
+            "--quiet",
+            "--config",
+            "core.hooksPath=/dev/null",
+            str(ROOT),
+            str(destination),
+        ),
+        env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        timeout=60,
+    )
+    if clone.returncode != 0:
+        raise ValueError("capability lab isolated checkout could not be created")
+    checkout = subprocess.run(
+        (executable, "checkout", "--detach", "--quiet", commit),
+        cwd=destination,
+        env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+        timeout=30,
+    )
+    if checkout.returncode != 0 or not isolated_checkout_matches_exact_revision(
+        destination, commit
+    ):
+        raise ValueError("capability lab isolated checkout revision drift")
+    return destination
+
+
+def evaluator_environment_digest() -> str:
+    executable = Path(bounded_runner._trusted_executable("{python}"))
+    if not executable.is_file() or executable.is_symlink():
+        raise ValueError("capability lab Python executable is unsafe")
+    distributions = sorted(
+        (
+            (distribution.metadata.get("Name") or "").lower(),
+            distribution.version,
+            hashlib.sha256(
+                (distribution.read_text("RECORD") or "").encode("utf-8")
+            ).hexdigest(),
+            hashlib.sha256(
+                (distribution.read_text("direct_url.json") or "").encode("utf-8")
+            ).hexdigest(),
+        )
+        for distribution in importlib.metadata.distributions()
+        if distribution.metadata.get("Name")
+    )
+    payload = {
+        "python_implementation": sys.implementation.name,
+        "python_cache_tag": sys.implementation.cache_tag,
+        "python_version": sys.version,
+        "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "distributions": distributions,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
 def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
     python_dir = str(Path(bounded_runner._trusted_executable("{python}")).parent)
     home = temp_root / "home"
     home.mkdir(parents=True, exist_ok=True)
-    site_packages = tuple(
-        path
-        for path in sys.path
-        if path
-        and Path(path).is_dir()
-        and Path(path).name in {"site-packages", "dist-packages"}
-    )
     return {
         "PATH": os.pathsep.join((python_dir, "/usr/bin", "/bin")),
         "HOME": str(home),
@@ -252,7 +347,9 @@ def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
         "LC_ALL": "C.UTF-8",
         "CI": "true",
         "PYTHONHASHSEED": "0",
-        "PYTHONPATH": os.pathsep.join(("src", *site_packages)),
+        "PYTHONPATH": "src",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
         "VIRTUAL_ENV": sys.prefix,
         "UAA_AGENT_EVAL_OFFLINE": "1",
         "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
@@ -269,6 +366,7 @@ def _run_python_scenario(
     command: tuple[str, ...],
     *,
     basetemp: Path,
+    execution_root: Path = ROOT,
 ) -> bounded_runner.ScenarioCommandResult:
     if command[0] != "{python}":
         raise ValueError("capability lab supports exact Python verifiers only")
@@ -282,7 +380,7 @@ def _run_python_scenario(
             resolved.extend(("--basetemp", str(basetemp)))
         process = subprocess.Popen(
             (*bounded_runner._sandbox_prefix(), *resolved),
-            cwd=ROOT,
+            cwd=execution_root,
             env=_python_only_child_environment(basetemp.parent),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -339,6 +437,7 @@ def _case_result(
     case: CapabilityEvaluationLabCase,
     evaluator_revision_ref: str,
     evaluator_source_digest_ref: str,
+    evaluator_environment_digest_ref: str,
     failure_code: str,
 ) -> CapabilityEvaluationCaseResult:
     observed, attribution, reason_ref = _failure_posture(failure_code)
@@ -358,6 +457,7 @@ def _case_result(
         case=case,
         evaluator_revision_ref=evaluator_revision_ref,
         evaluator_source_digest_ref=evaluator_source_digest_ref,
+        evaluator_environment_digest_ref=evaluator_environment_digest_ref,
         source_revision_ref=source_revision_ref,
         source_evidence_digest_ref=source_evidence_digest_ref,
         observed_status=observed,
@@ -389,6 +489,7 @@ def run_capability_evaluation_lab(
     evaluator_commit = bounded_runner.repository_commit()
     evaluator_revision_ref = f"git-sha:{evaluator_commit}"
     evaluator_source_digest_ref = evaluation_lab_source_digest()
+    evaluator_environment_digest_ref = evaluator_environment_digest()
     if (
         evaluation_lab_source_digest_at_commit(evaluator_commit)
         != evaluator_source_digest_ref
@@ -400,16 +501,29 @@ def run_capability_evaluation_lab(
     results: list[CapabilityEvaluationCaseResult] = []
     with tempfile.TemporaryDirectory(prefix="uaa-capability-lab-") as temp:
         temp_root = Path(temp)
+        execution_root = _prepare_isolated_checkout(
+            evaluator_commit, temp_root / "repository"
+        )
         for index, scenario in enumerate(SCENARIOS, start=1):
+            if not isolated_checkout_matches_exact_revision(
+                execution_root, evaluator_commit
+            ):
+                raise ValueError("capability lab isolated verifier inputs drifted")
             command_result = _run_python_scenario(
                 scenario.command,
                 basetemp=temp_root / f"case-{index:02d}",
+                execution_root=execution_root,
             )
+            if not isolated_checkout_matches_exact_revision(
+                execution_root, evaluator_commit
+            ):
+                raise ValueError("capability lab isolated verifier inputs drifted")
             results.append(
                 _case_result(
                     case=case_by_ref[scenario.case_ref],
                     evaluator_revision_ref=evaluator_revision_ref,
                     evaluator_source_digest_ref=evaluator_source_digest_ref,
+                    evaluator_environment_digest_ref=evaluator_environment_digest_ref,
                     failure_code=command_result.failure_code,
                 )
             )
@@ -417,6 +531,7 @@ def run_capability_evaluation_lab(
         manifest=active_manifest,
         evaluator_revision_ref=evaluator_revision_ref,
         evaluator_source_digest_ref=evaluator_source_digest_ref,
+        evaluator_environment_digest_ref=evaluator_environment_digest_ref,
         results=tuple(results),
     )
 
@@ -427,6 +542,7 @@ def _human_receipt(receipt: CapabilityEvaluationRunReceipt) -> str:
         f"  Status: {receipt.status.value}",
         f"  Cases accounted for: {receipt.case_count}",
         f"  Evaluator revision: {receipt.evaluator_revision_ref}",
+        f"  Evaluator environment: {receipt.evaluator_environment_digest_ref}",
         f"  Manifest digest: {receipt.manifest_digest_ref}",
     ]
     for gate in receipt.claim_gates:

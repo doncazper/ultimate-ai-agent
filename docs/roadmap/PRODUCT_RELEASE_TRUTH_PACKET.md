@@ -19,7 +19,9 @@ Capability Evaluation Lab V1 is implemented as a deterministic local
 verification contract. It checks four fixed UAA-native, Hermes,
 OpenClaw-contract, and GoatCitadel-comparison evidence cases with exact
 revision/digest binding, explicit unknown failure attribution, and fail-closed
-missing-case claim gates. A pass proves only the named pinned repository
+missing-case claim gates. Fixed pinned revisions, isolated exact-revision
+execution, and a dependency/toolchain digest close the local provenance
+boundary. A pass proves only the named pinned repository
 contract; it does not run a live external benchmark, establish a product
 winner, graduate a score, or grant runtime or production authority. Evidence:
 `docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`,

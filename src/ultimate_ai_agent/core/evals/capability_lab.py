@@ -12,9 +12,7 @@ from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 
 
 CAPABILITY_EVALUATION_LAB_SCHEMA_VERSION = "uaa-capability-evaluation-lab.v1"
-CAPABILITY_EVALUATION_LAB_CONTRACT_REF = (
-    "contract-ref:capability-evaluation-lab:v1"
-)
+CAPABILITY_EVALUATION_LAB_CONTRACT_REF = "contract-ref:capability-evaluation-lab:v1"
 CAPABILITY_EVALUATION_LAB_SUBJECT_REFS = (
     "subject-ref:uaa-native",
     "subject-ref:hermes",
@@ -284,6 +282,7 @@ class CapabilityEvaluationRunReceipt(_FrozenLabModel):
     manifest_digest_ref: str
     evaluator_revision_ref: str
     evaluator_source_digest_ref: str
+    evaluator_environment_digest_ref: str
     case_count: int = Field(..., ge=4, le=32)
     results: tuple[CapabilityEvaluationCaseResult, ...]
     missing_case_refs: tuple[str, ...] = ()
@@ -314,6 +313,10 @@ class CapabilityEvaluationRunReceipt(_FrozenLabModel):
         for digest, field_name in (
             (self.manifest_digest_ref, "manifest_digest_ref"),
             (self.evaluator_source_digest_ref, "evaluator_source_digest_ref"),
+            (
+                self.evaluator_environment_digest_ref,
+                "evaluator_environment_digest_ref",
+            ),
             (self.evidence_digest_ref, "evidence_digest_ref"),
         ):
             _validate_digest(digest, field_name)
@@ -345,6 +348,7 @@ def capability_evaluation_case_evidence_digest(
     case: CapabilityEvaluationLabCase,
     evaluator_revision_ref: str,
     evaluator_source_digest_ref: str,
+    evaluator_environment_digest_ref: str,
     source_revision_ref: str,
     source_evidence_digest_ref: str,
     observed_status: CapabilityLabObservedStatus,
@@ -356,6 +360,7 @@ def capability_evaluation_case_evidence_digest(
             "case": case.model_dump(mode="json"),
             "evaluator_revision_ref": evaluator_revision_ref,
             "evaluator_source_digest_ref": evaluator_source_digest_ref,
+            "evaluator_environment_digest_ref": evaluator_environment_digest_ref,
             "source_revision_ref": source_revision_ref,
             "source_evidence_digest_ref": source_evidence_digest_ref,
             "observed_status": observed_status.value,
@@ -370,11 +375,15 @@ def build_capability_evaluation_run_receipt(
     manifest: CapabilityEvaluationLabManifest,
     evaluator_revision_ref: str,
     evaluator_source_digest_ref: str,
+    evaluator_environment_digest_ref: str,
     results: tuple[CapabilityEvaluationCaseResult, ...],
 ) -> CapabilityEvaluationRunReceipt:
     if not re.fullmatch(r"git-sha:[0-9a-f]{40}", evaluator_revision_ref):
         raise ValueError("exact evaluator revision is required")
     _validate_digest(evaluator_source_digest_ref, "evaluator_source_digest_ref")
+    _validate_digest(
+        evaluator_environment_digest_ref, "evaluator_environment_digest_ref"
+    )
     result_by_ref: dict[str, CapabilityEvaluationCaseResult] = {}
     for result in results:
         if result.case_ref in result_by_ref:
@@ -409,6 +418,7 @@ def build_capability_evaluation_run_receipt(
             case=case,
             evaluator_revision_ref=evaluator_revision_ref,
             evaluator_source_digest_ref=evaluator_source_digest_ref,
+            evaluator_environment_digest_ref=evaluator_environment_digest_ref,
             source_revision_ref=result.source_revision_ref,
             source_evidence_digest_ref=result.source_evidence_digest_ref,
             observed_status=result.observed_status,
@@ -459,6 +469,7 @@ def build_capability_evaluation_run_receipt(
         "manifest_digest_ref": manifest_digest,
         "evaluator_revision_ref": evaluator_revision_ref,
         "evaluator_source_digest_ref": evaluator_source_digest_ref,
+        "evaluator_environment_digest_ref": evaluator_environment_digest_ref,
         "results": [result.model_dump(mode="json") for result in ordered_results],
         "missing_case_refs": missing,
         "unexpected_case_refs": unexpected,
@@ -472,6 +483,7 @@ def build_capability_evaluation_run_receipt(
         manifest_digest_ref=manifest_digest,
         evaluator_revision_ref=evaluator_revision_ref,
         evaluator_source_digest_ref=evaluator_source_digest_ref,
+        evaluator_environment_digest_ref=evaluator_environment_digest_ref,
         case_count=len(manifest.case_refs),
         results=ordered_results,
         missing_case_refs=missing,

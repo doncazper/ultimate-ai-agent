@@ -16,12 +16,13 @@ contract still matches its pinned evidence and verifier; it does not prove an
 empirical product winner or current external runtime behavior.
 
 The UAA-native case binds the exact evaluator Git revision and the digest of
-every evaluator source file. The three comparison-contract cases bind pinned
-source revisions and pinned artifact digests. Before executing any case, the
-runner requires the complete tracked and untracked repository input set to
-match the exact Git revision. This covers schemas, templates, imports, and
-other transitive verifier inputs instead of pairing working-tree bytes with the
-wrong commit.
+every evaluator source file. The three comparison-contract cases bind fixed
+scenario-owned source revisions and pinned artifact digests. Before executing
+any case, the runner requires the complete tracked and untracked repository
+input set to match the exact Git revision. It then creates a detached local
+checkout at that revision and verifies the checkout before and after every
+case. This covers schemas, templates, imports, and other transitive verifier
+inputs without pairing mutable working-tree bytes with the wrong commit.
 
 ## Case Registry
 
@@ -34,7 +35,7 @@ wrong commit.
 
 The manifest is closed: every executable registry entry fixes its case,
 verifier, subject, and claim refs, and the manifest must agree exactly. Pinned
-evidence file drift fails validation.
+source-revision or evidence-file drift fails validation.
 Every case belongs to a claim gate, and all four declared subjects must remain
 covered.
 
@@ -43,7 +44,8 @@ covered.
 `CapabilityEvaluationRunReceipt` binds:
 
 - the versioned manifest ref and digest;
-- the exact evaluator Git revision and evaluator-source digest;
+- the exact evaluator Git revision, evaluator-source digest, and Python
+  dependency/toolchain environment digest;
 - every case's resolved source revision and source-evidence digest;
 - expected and observed status through the claim gate;
 - a content-free reason ref and per-case evidence digest;
@@ -81,9 +83,12 @@ PYTHONPATH=src .venv/bin/python scripts/run_capability_evaluation_lab.py --json
 ```
 
 The runner uses the existing bounded macOS no-network verifier process
-primitives through a lab-local Python-only child environment. Third-party
-pytest plugin autoloading is disabled. Commands are fixed in the repository
-registry; the manifest cannot provide arbitrary argv.
+primitives through a lab-local Python-only child environment. It disables user
+site packages, bytecode writes, and third-party pytest plugin autoloading. The
+receipt binds the Python executable plus installed distribution inventory, and
+the cases execute from an isolated checkout of the recorded evaluator
+revision. Commands are fixed in the repository registry; the manifest cannot
+provide arbitrary argv.
 
 ## Authority Boundary
 

@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.evals import (
 
 EVALUATOR_REVISION_REF = f"git-sha:{'a' * 40}"
 EVALUATOR_SOURCE_DIGEST_REF = f"sha256:{'b' * 64}"
+EVALUATOR_ENVIRONMENT_DIGEST_REF = f"sha256:{'e' * 64}"
 
 
 def _passing_results(
@@ -35,6 +36,7 @@ def _passing_results(
             case=case,
             evaluator_revision_ref=evaluator_revision_ref,
             evaluator_source_digest_ref=evaluator_source_digest_ref,
+            evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
             failure_code="none",
         )
         for case in manifest.cases
@@ -110,6 +112,7 @@ def test_run_receipt_binds_revisions_without_granting_score_authority() -> None:
         manifest=manifest,
         evaluator_revision_ref=EVALUATOR_REVISION_REF,
         evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         results=_passing_results(manifest),
     )
 
@@ -117,10 +120,13 @@ def test_run_receipt_binds_revisions_without_granting_score_authority() -> None:
     assert receipt.case_count == 4
     assert receipt.missing_case_refs == ()
     assert receipt.unexpected_case_refs == ()
-    assert all(gate.status == CapabilityLabGateStatus.passed for gate in receipt.claim_gates)
+    assert all(
+        gate.status == CapabilityLabGateStatus.passed for gate in receipt.claim_gates
+    )
     uaa_result = receipt.results[0]
     assert uaa_result.source_revision_ref == EVALUATOR_REVISION_REF
     assert uaa_result.source_evidence_digest_ref == EVALUATOR_SOURCE_DIGEST_REF
+    assert receipt.evaluator_environment_digest_ref == EVALUATOR_ENVIRONMENT_DIGEST_REF
     assert receipt.score_authority_granted is False
     assert receipt.live_provider_benchmark_performed is False
     assert receipt.authority_granted is False
@@ -135,6 +141,7 @@ def test_missing_case_remains_in_denominator_and_fails_claim_gate() -> None:
         manifest=manifest,
         evaluator_revision_ref=EVALUATOR_REVISION_REF,
         evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         results=_passing_results(manifest)[:-1],
     )
 
@@ -152,26 +159,28 @@ def test_nonzero_verifier_result_uses_unknown_attribution_and_fails() -> None:
         case=manifest.cases[0],
         evaluator_revision_ref=EVALUATOR_REVISION_REF,
         evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         failure_code="assertion_failed",
     )
     first = build_capability_evaluation_run_receipt(
         manifest=manifest,
         evaluator_revision_ref=EVALUATOR_REVISION_REF,
         evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         results=tuple(results),
     )
     second = build_capability_evaluation_run_receipt(
         manifest=manifest,
         evaluator_revision_ref=EVALUATOR_REVISION_REF,
         evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         results=tuple(results),
     )
 
     assert first.status == CapabilityLabGateStatus.failed
     assert first.results[0].observed_status == CapabilityLabObservedStatus.unknown
     assert (
-        first.results[0].failure_attribution
-        == CapabilityLabFailureAttribution.unknown
+        first.results[0].failure_attribution == CapabilityLabFailureAttribution.unknown
     )
     assert first.evidence_digest_ref == second.evidence_digest_ref
     assert first.run_ref == second.run_ref
@@ -189,6 +198,7 @@ def test_builder_rejects_tampered_case_evidence_digest() -> None:
             manifest=manifest,
             evaluator_revision_ref=EVALUATOR_REVISION_REF,
             evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+            evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
             results=tuple(results),
         )
 
@@ -207,10 +217,59 @@ def test_pinned_case_digest_changes_with_evaluator_revision() -> None:
     assert first[1].evidence_digest_ref != second[1].evidence_digest_ref
 
 
+def test_pinned_source_revision_drift_fails_registry_validation() -> None:
+    manifest = runner.load_manifest()
+    cases = list(manifest.cases)
+    cases[1] = cases[1].model_copy(
+        update={"source_revision_ref": f"git-sha:{'0' * 40}"}
+    )
+    drifted = manifest.model_copy(update={"cases": tuple(cases)})
+
+    with pytest.raises(ValueError, match="pinned source revision drift"):
+        runner._validate_registry(drifted)
+
+
+def test_environment_digest_changes_case_and_run_evidence() -> None:
+    manifest = runner.load_manifest()
+    first = _passing_results(manifest)
+    other_environment = f"sha256:{'f' * 64}"
+    second = tuple(
+        runner._case_result(
+            case=case,
+            evaluator_revision_ref=EVALUATOR_REVISION_REF,
+            evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+            evaluator_environment_digest_ref=other_environment,
+            failure_code="none",
+        )
+        for case in manifest.cases
+    )
+    first_receipt = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=EVALUATOR_REVISION_REF,
+        evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
+        results=first,
+    )
+    second_receipt = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=EVALUATOR_REVISION_REF,
+        evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=other_environment,
+        results=second,
+    )
+
+    assert first[0].evidence_digest_ref != second[0].evidence_digest_ref
+    assert first_receipt.evidence_digest_ref != second_receipt.evidence_digest_ref
+
+
 def test_runner_projects_a_content_free_pass_receipt(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     manifest = runner.load_manifest()
+    isolated_root = tmp_path / "isolated-repository"
+    isolated_root.mkdir()
+    observed_execution_roots: list[Path] = []
     monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
     monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
     monkeypatch.setattr(
@@ -225,9 +284,25 @@ def test_runner_projects_a_content_free_pass_receipt(
     )
     monkeypatch.setattr(
         runner,
+        "evaluator_environment_digest",
+        lambda: EVALUATOR_ENVIRONMENT_DIGEST_REF,
+    )
+    monkeypatch.setattr(
+        runner,
+        "_prepare_isolated_checkout",
+        lambda _commit, _destination: isolated_root,
+    )
+    monkeypatch.setattr(
+        runner,
+        "isolated_checkout_matches_exact_revision",
+        lambda _root, _commit: True,
+    )
+    monkeypatch.setattr(
+        runner,
         "_run_python_scenario",
-        lambda *args, **kwargs: runner.bounded_runner.ScenarioCommandResult(
-            0, 1, "none"
+        lambda *args, **kwargs: (
+            observed_execution_roots.append(kwargs["execution_root"])
+            or runner.bounded_runner.ScenarioCommandResult(0, 1, "none")
         ),
     )
 
@@ -237,6 +312,7 @@ def test_runner_projects_a_content_free_pass_receipt(
     assert receipt.evaluator_revision_ref == f"git-sha:{'c' * 40}"
     assert receipt.content_free is True
     assert receipt.raw_content_persisted is False
+    assert observed_execution_roots == [isolated_root] * 4
     assert {result.failure_attribution for result in receipt.results} == {
         CapabilityLabFailureAttribution.none
     }
