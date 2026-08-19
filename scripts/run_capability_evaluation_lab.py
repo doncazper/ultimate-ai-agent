@@ -410,12 +410,20 @@ def evaluator_environment_digest() -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
+def _trusted_python_launcher() -> str:
+    launcher = Path(sys.executable)
+    resolved = launcher.resolve(strict=True)
+    if not launcher.is_file() or not resolved.is_file() or resolved.is_symlink():
+        raise OSError("trusted Python launcher is unavailable")
+    return str(launcher)
+
+
 def _python_only_child_environment(
     temp_root: Path,
     *,
     deterministic_seed_ref: str | None = None,
 ) -> dict[str, str]:
-    python_dir = str(Path(bounded_runner._trusted_executable("{python}")).parent)
+    python_dir = str(Path(_trusted_python_launcher()).parent)
     home = temp_root / "home"
     home.mkdir(parents=True, exist_ok=True)
     python_hash_seed = "0"
@@ -462,7 +470,7 @@ def _run_python_scenario(
     if command[0] != "{python}":
         raise ValueError("capability lab supports exact Python verifiers only")
     try:
-        executable = bounded_runner._trusted_executable(command[0])
+        executable = _trusted_python_launcher()
         resolved = [
             executable,
             *(part.format(python=sys.executable) for part in command[1:]),
@@ -680,7 +688,7 @@ def _relaunch_from_isolated_controller(argv: list[str]) -> int:
         environment[ISOLATED_CONTROLLER_COMMIT_ENV] = before_commit
         completed = subprocess.run(
             (
-                bounded_runner._trusted_executable("{python}"),
+                _trusted_python_launcher(),
                 str(isolated_root / "scripts/run_capability_evaluation_lab.py"),
                 *argv,
             ),

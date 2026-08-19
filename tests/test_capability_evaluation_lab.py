@@ -498,6 +498,13 @@ def test_python_only_child_environment_does_not_require_node(
     assert "node" not in environment["PATH"].lower()
 
 
+def test_python_launcher_preserves_virtual_environment_identity() -> None:
+    launcher = Path(runner._trusted_python_launcher())
+
+    assert launcher == Path(sys.executable)
+    assert launcher.resolve().is_file()
+
+
 def test_case_seed_ref_controls_the_child_hash_seed(tmp_path: Path) -> None:
     first = runner._python_only_child_environment(
         tmp_path / "first",
