@@ -257,7 +257,7 @@ class CapabilityEvaluationCaseResult(_FrozenLabModel):
 class CapabilityEvaluationClaimGate(_FrozenLabModel):
     claim_ref: str
     subject_ref: str
-    required_case_refs: tuple[str, ...]
+    required_case_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
     status: CapabilityLabGateStatus
     evidence_digest_ref: str
 
@@ -287,7 +287,9 @@ class CapabilityEvaluationRunReceipt(_FrozenLabModel):
     results: tuple[CapabilityEvaluationCaseResult, ...]
     missing_case_refs: tuple[str, ...] = ()
     unexpected_case_refs: tuple[str, ...] = ()
-    claim_gates: tuple[CapabilityEvaluationClaimGate, ...]
+    claim_gates: tuple[CapabilityEvaluationClaimGate, ...] = Field(
+        ..., min_length=4, max_length=16
+    )
     status: CapabilityLabGateStatus
     evidence_digest_ref: str
     deterministic: Literal[True] = True
@@ -327,6 +329,57 @@ class CapabilityEvaluationRunReceipt(_FrozenLabModel):
         result_refs = [result.case_ref for result in self.results]
         if len(result_refs) != len(set(result_refs)):
             raise ValueError("receipt result refs must be unique")
+        expected_case_refs = (*result_refs, *self.missing_case_refs)
+        if len(expected_case_refs) != len(set(expected_case_refs)):
+            raise ValueError("receipt expected case refs must be unique")
+        if set(expected_case_refs) & set(self.unexpected_case_refs):
+            raise ValueError("receipt unexpected case refs overlap expected cases")
+        gate_claim_refs = [gate.claim_ref for gate in self.claim_gates]
+        gate_subject_refs = [gate.subject_ref for gate in self.claim_gates]
+        if len(gate_claim_refs) != len(set(gate_claim_refs)):
+            raise ValueError("receipt claim gate refs must be unique")
+        if len(gate_subject_refs) != len(set(gate_subject_refs)) or set(
+            gate_subject_refs
+        ) != set(CAPABILITY_EVALUATION_LAB_SUBJECT_REFS):
+            raise ValueError("receipt claim gates must cover all declared subjects")
+        result_by_ref = {result.case_ref: result for result in self.results}
+        covered_case_refs: list[str] = []
+        for gate in self.claim_gates:
+            gate_results = [result_by_ref.get(ref) for ref in gate.required_case_refs]
+            expected_gate_status = (
+                CapabilityLabGateStatus.passed
+                if all(
+                    result is not None
+                    and result.observed_status == CapabilityLabObservedStatus.passed
+                    for result in gate_results
+                )
+                else CapabilityLabGateStatus.failed
+            )
+            if gate.status != expected_gate_status:
+                raise ValueError("receipt claim gate status binding drift")
+            for result in gate_results:
+                if result is not None and (
+                    result.claim_ref != gate.claim_ref
+                    or result.subject_ref != gate.subject_ref
+                ):
+                    raise ValueError("receipt result claim gate binding drift")
+            gate_payload = {
+                "claim_ref": gate.claim_ref,
+                "subject_ref": gate.subject_ref,
+                "required_case_refs": gate.required_case_refs,
+                "result_evidence_refs": [
+                    result.evidence_digest_ref if result is not None else "missing"
+                    for result in gate_results
+                ],
+                "status": gate.status.value,
+            }
+            if gate.evidence_digest_ref != _canonical_digest(gate_payload):
+                raise ValueError("receipt claim gate evidence binding drift")
+            covered_case_refs.extend(gate.required_case_refs)
+        if len(covered_case_refs) != len(set(covered_case_refs)) or set(
+            covered_case_refs
+        ) != set(expected_case_refs):
+            raise ValueError("receipt claim gates do not cover the expected cases")
         failed = bool(self.missing_case_refs or self.unexpected_case_refs) or any(
             gate.status == CapabilityLabGateStatus.failed for gate in self.claim_gates
         )

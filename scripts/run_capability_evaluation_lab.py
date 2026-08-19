@@ -7,6 +7,7 @@ import argparse
 import base64
 from dataclasses import dataclass
 import hashlib
+import importlib.machinery
 import importlib.metadata
 import json
 import os
@@ -39,6 +40,7 @@ from ultimate_ai_agent.core.evals.capability_lab import (  # noqa: E402
 
 DEFAULT_MANIFEST = ROOT / "docs/evals/capability_evaluation_lab_v1.json"
 ISOLATED_CONTROLLER_COMMIT_ENV = "UAA_CAPABILITY_LAB_CONTROLLER_COMMIT"
+ISOLATED_CONTROLLER_TIMEOUT_SECONDS = 780
 PYTHON_SITE_INITIALIZATION_FLAG = "-S"
 
 
@@ -373,9 +375,12 @@ def _active_site_package_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
+def _installed_distribution_inventory() -> tuple[
+    tuple[tuple[str, str, str], ...], frozenset[Path]
+]:
     prefix = _trusted_python_prefix()
     bindings: list[tuple[str, str, str]] = []
+    owned_files: set[Path] = set()
     for distribution in importlib.metadata.distributions():
         name = (distribution.metadata.get("Name") or "").lower()
         if not name:
@@ -409,6 +414,7 @@ def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
             if not resolved.is_relative_to(prefix):
                 raise ValueError("capability lab dependency escapes the Python prefix")
             if resolved.is_file():
+                owned_files.add(resolved)
                 digest.update(b"\nfile\n")
                 observed_hash = _hash_file_into(digest, resolved)
                 if recorded_hash is not None and (
@@ -421,7 +427,46 @@ def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
             else:
                 digest.update(b"\nnon-file\n")
         bindings.append((name, distribution.version, digest.hexdigest()))
-    return tuple(sorted(bindings))
+    return tuple(sorted(bindings)), frozenset(owned_files)
+
+
+def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
+    bindings, _owned_files = _installed_distribution_inventory()
+    return bindings
+
+
+def _unowned_importable_site_files_digest(owned_files: frozenset[Path]) -> str:
+    prefix = _trusted_python_prefix()
+    importable_suffixes = tuple(
+        sorted(
+            {
+                *importlib.machinery.SOURCE_SUFFIXES,
+                *importlib.machinery.BYTECODE_SUFFIXES,
+                *importlib.machinery.EXTENSION_SUFFIXES,
+            },
+            key=len,
+            reverse=True,
+        )
+    )
+    digest = hashlib.sha256()
+    for root_index, root in enumerate(_active_site_package_roots()):
+        for path in sorted(root.rglob("*")):
+            if not path.name.endswith(importable_suffixes):
+                continue
+            if path.is_symlink():
+                raise ValueError(
+                    "capability lab unowned importable file is an unsafe symlink"
+                )
+            resolved = path.resolve(strict=True)
+            if not resolved.is_file() or not resolved.is_relative_to(prefix):
+                raise ValueError("capability lab importable site file is unsafe")
+            if resolved in owned_files:
+                continue
+            digest.update(b"\n--UAA-CAPABILITY-LAB-UNOWNED-IMPORTABLE--\n")
+            digest.update(f"{root_index}:{path.relative_to(root)}".encode("utf-8"))
+            digest.update(b"\n")
+            _hash_file_into(digest, resolved)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _standard_library_digest(root: Path | None = None) -> str:
@@ -478,6 +523,7 @@ def evaluator_environment_digest() -> str:
     executable = Path(bounded_runner._trusted_executable("{python}"))
     if not executable.is_file() or executable.is_symlink():
         raise ValueError("capability lab Python executable is unsafe")
+    distributions, owned_files = _installed_distribution_inventory()
     payload = {
         "python_implementation": sys.implementation.name,
         "python_cache_tag": sys.implementation.cache_tag,
@@ -485,7 +531,10 @@ def evaluator_environment_digest() -> str:
         "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "python_site_initialization_enabled": False,
         "standard_library_digest": _standard_library_digest(),
-        "distributions": _installed_distribution_bindings(),
+        "distributions": distributions,
+        "unowned_importable_site_files_digest": (
+            _unowned_importable_site_files_digest(owned_files)
+        ),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
@@ -773,7 +822,7 @@ def _relaunch_from_isolated_controller(argv: list[str]) -> int:
         )
         environment = _python_only_child_environment(temp_root)
         environment[ISOLATED_CONTROLLER_COMMIT_ENV] = before_commit
-        completed = subprocess.run(
+        process = subprocess.Popen(
             (
                 _trusted_python_launcher(),
                 PYTHON_SITE_INITIALIZATION_FLAG,
@@ -782,9 +831,15 @@ def _relaunch_from_isolated_controller(argv: list[str]) -> int:
             ),
             cwd=isolated_root,
             env=environment,
-            check=False,
+            start_new_session=True,
         )
-        return completed.returncode
+        try:
+            return process.wait(timeout=ISOLATED_CONTROLLER_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            bounded_runner._terminate(process)
+            raise RuntimeError(
+                "capability lab isolated controller exceeded deadline"
+            ) from None
 
 
 def main(argv: list[str] | None = None) -> int:

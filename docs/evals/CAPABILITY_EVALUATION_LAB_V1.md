@@ -56,7 +56,9 @@ covered.
 - the final claim-gate and run evidence digests.
 
 Persisted receipt validation recomputes the canonical final evidence digest and
-requires the run ref to contain that exact digest.
+requires the run ref to contain that exact digest. It also requires complete,
+unique claim-gate coverage for all four subjects and recomputes every gate from
+its bound case results.
 
 Missing cases remain in `case_count` and make their claim gate fail. They are
 never removed from a complete-case denominator. Duplicate and unexpected case
@@ -94,7 +96,8 @@ site packages, bytecode writes, and third-party pytest plugin autoloading. The
 receipt binds the Python executable plus the bytes of every inventoried
 installed distribution file, and hashed RECORD entries must match those bytes;
 it also binds standard-library source, extension, cached bytecode, and safe
-in-toolchain symlink target bytes.
+in-toolchain symlink target bytes. Importable files not owned by an installed
+distribution are separately inventoried and byte-bound.
 Non-project editable dependencies fail closed. Python site initialization is
 disabled for controller and verifier children, so environment `.pth` startup
 hooks cannot execute; the verified venv site-packages roots are supplied
@@ -102,7 +105,9 @@ explicitly and their distribution bytes remain bound. That environment digest
 is rechecked before and after every case.
 The complete controller relaunches from an isolated checkout before loading the
 manifest, and the cases execute from a second isolated checkout of the same
-recorded evaluator revision. Commands are fixed in the repository registry;
+recorded evaluator revision. Both verifier processes and the complete isolated
+controller have fixed deadlines with process-tree termination. Commands are
+fixed in the repository registry;
 the manifest cannot provide arbitrary argv. Invalid CLI arguments fail with a
 fixed error code and never echo rejected argument content.
 

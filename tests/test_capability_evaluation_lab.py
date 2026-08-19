@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from scripts import run_capability_evaluation_lab as runner
+from ultimate_ai_agent.core.evals import capability_lab as capability_lab_contract
 from ultimate_ai_agent.core.evals import (
     CAPABILITY_EVALUATION_LAB_SUBJECT_REFS,
     CapabilityEvaluationLabManifest,
@@ -24,6 +25,27 @@ from ultimate_ai_agent.core.evals import (
 EVALUATOR_REVISION_REF = f"git-sha:{'a' * 40}"
 EVALUATOR_SOURCE_DIGEST_REF = f"sha256:{'b' * 64}"
 EVALUATOR_ENVIRONMENT_DIGEST_REF = f"sha256:{'e' * 64}"
+
+
+def _rebind_receipt_payload(payload: dict[str, object]) -> None:
+    receipt_payload = {
+        key: payload[key]
+        for key in (
+            "manifest_ref",
+            "manifest_digest_ref",
+            "evaluator_revision_ref",
+            "evaluator_source_digest_ref",
+            "evaluator_environment_digest_ref",
+            "results",
+            "missing_case_refs",
+            "unexpected_case_refs",
+            "claim_gates",
+            "status",
+        )
+    }
+    digest = capability_lab_contract._canonical_digest(receipt_payload)
+    payload["evidence_digest_ref"] = digest
+    payload["run_ref"] = f"evaluation-run-ref:capability-lab:{digest}"
 
 
 def _passing_results(
@@ -322,6 +344,30 @@ def test_dependency_binding_rejects_record_hash_drift(
         runner._installed_distribution_bindings()
 
 
+def test_unowned_importable_site_files_are_environment_bound(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    site_packages = tmp_path / "lib" / "python" / "site-packages"
+    site_packages.mkdir(parents=True)
+    owned = site_packages / "owned.py"
+    owned.write_text("VALUE = 'owned'\n", encoding="utf-8")
+    loose = site_packages / "loose.py"
+    loose.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
+    monkeypatch.setattr(
+        runner,
+        "_active_site_package_roots",
+        lambda: (site_packages,),
+    )
+
+    first = runner._unowned_importable_site_files_digest(frozenset({owned.resolve()}))
+    loose.write_text("VALUE = 2\n", encoding="utf-8")
+    second = runner._unowned_importable_site_files_digest(frozenset({owned.resolve()}))
+
+    assert first != second
+
+
 def test_standard_library_binding_hashes_file_bytes(tmp_path: Path) -> None:
     module = tmp_path / "example.py"
     module.write_text("VALUE = 1\n", encoding="utf-8")
@@ -392,6 +438,23 @@ def test_persisted_receipt_recomputes_evidence_digest_and_run_ref() -> None:
     payload = receipt.model_dump(mode="json")
     payload["run_ref"] = f"evaluation-run-ref:capability-lab:sha256:{'0' * 64}"
     with pytest.raises(ValueError, match="receipt run ref binding drift"):
+        CapabilityEvaluationRunReceipt.model_validate(payload)
+
+
+def test_persisted_receipt_requires_complete_claim_gates() -> None:
+    manifest = runner.load_manifest()
+    receipt = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=EVALUATOR_REVISION_REF,
+        evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
+        results=_passing_results(manifest),
+    )
+    payload = receipt.model_dump(mode="json")
+    payload["claim_gates"] = []
+    _rebind_receipt_payload(payload)
+
+    with pytest.raises(ValidationError, match="claim_gates"):
         CapabilityEvaluationRunReceipt.model_validate(payload)
 
 
@@ -619,6 +682,48 @@ def test_subprocess_timeout_uses_fixed_redacted_cli_error(
     assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in captured.err
     assert "Traceback" not in captured.err
     assert str(Path(__file__).resolve().parents[1]) not in captured.err
+
+
+def test_isolated_controller_timeout_terminates_process_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    isolated_root = tmp_path / "repository"
+    isolated_root.mkdir()
+    observed: dict[str, object] = {}
+
+    class HungController:
+        def wait(self, *, timeout: int) -> int:
+            observed["timeout"] = timeout
+            raise subprocess.TimeoutExpired("controller", timeout)
+
+    def popen(*args: object, **kwargs: object) -> HungController:
+        observed["args"] = args
+        observed["kwargs"] = kwargs
+        return HungController()
+
+    monkeypatch.setattr(runner, "repository_inputs_match_exact_revision", lambda: True)
+    monkeypatch.setattr(runner.bounded_runner, "repository_commit", lambda: "c" * 40)
+    monkeypatch.setattr(
+        runner,
+        "_prepare_isolated_checkout",
+        lambda _commit, _destination: isolated_root,
+    )
+    monkeypatch.setattr(runner, "_python_only_child_environment", lambda _root: {})
+    monkeypatch.setattr(runner, "_trusted_python_launcher", lambda: sys.executable)
+    monkeypatch.setattr(runner.subprocess, "Popen", popen)
+    monkeypatch.setattr(
+        runner.bounded_runner,
+        "_terminate",
+        lambda process: observed.update(terminated=process),
+    )
+
+    with pytest.raises(RuntimeError, match="exceeded deadline"):
+        runner._relaunch_from_isolated_controller(["--json"])
+
+    assert observed["timeout"] == runner.ISOLATED_CONTROLLER_TIMEOUT_SECONDS
+    assert observed["terminated"].__class__ is HungController
+    assert observed["kwargs"]["start_new_session"] is True
 
 
 def test_argument_parser_failure_uses_fixed_redacted_cli_error(
