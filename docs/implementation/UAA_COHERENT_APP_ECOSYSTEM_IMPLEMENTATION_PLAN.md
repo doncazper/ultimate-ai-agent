@@ -8,14 +8,16 @@ Subordinate to:
 `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`
 Related product plans:
 `docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`,
-`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md` and
+`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`,
+`docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md` and
 `docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`
 
 ## Executive Decision
 
 UAA will become a coherent local-first application ecosystem in which Calendar,
-Tasks, Boards, CRM, Inbox, Social, Today, Memory, and Evidence are individually
-excellent products and materially better when used together.
+Tasks, Boards, CRM, Inbox, Social, Finance & Compliance, Today, Memory, and
+Evidence are individually excellent products and materially better when used
+together.
 
 The product target is not a set of shallow dashboard widgets. Each primary app
 must be standalone-worthy: it has a complete domain model, durable local data,
@@ -28,8 +30,9 @@ system, and typed cross-app links. They do not share ownership by duplicating
 records. Calendar owns events. Tasks owns tasks. CRM owns relationships and
 opportunities. Boards owns board membership, layout, and ordering while
 projecting canonical domain records. Inbox owns source artifacts. Evidence owns
-redacted decisions and receipts. Memory remains reviewed recall, not truth or
-authority.
+redacted decisions and receipts. Finance owns books, source observations,
+balanced postings, reconciliations, tax-readiness state, and sourced compliance
+obligations. Memory remains reviewed recall, not truth or authority.
 
 The target experience is:
 
@@ -37,10 +40,11 @@ The target experience is:
 Sources and manual input
         |
         v
-People, events, tasks, relationships, opportunities, projects and lists
+People, events, tasks, relationships, opportunities, books, obligations,
+projects and lists
         |
         v
-Today, Calendar, Tasks, Boards and CRM
+Today, Calendar, Tasks, Boards, CRM and Finance
         |
         v
 Proposal -> Review -> Exact change set -> Receipts -> Evidence -> Memory review
@@ -72,6 +76,9 @@ professional life:
 - Social turns authorized performance, audience, campaign, cadence, and
   conversation observations into source-linked creator intelligence, then
   routes context to the canonical owning application.
+- Finance & Compliance keeps local books continuously reviewable, reconciled,
+  evidence-backed, accountant-ready, and connected to sourced obligations
+  without treating feeds, suggestions, estimates, or Memory as truth.
 - Today and Briefing assemble the operator's actual commitments, priorities,
   follow-ups, events, risks, and evidence gaps across every app.
 - Evidence and Memory make the ecosystem trustworthy, correctable, and
@@ -308,6 +315,34 @@ conversations, CRM owns relationships, Studio owns assets, and Evidence owns
 proof. The initial milestone is read-only and adds no account authentication,
 live connector read, background sync, publishing, reply, delete, moderation,
 provider/model call, or external account authority.
+
+### UAA Finance & Compliance
+
+Finance is the continuous bookkeeping, spending intelligence, tax-readiness,
+accountant-handoff, and sourced obligation product defined in
+`docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md` and sequenced by
+`docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`.
+
+- A protected local double-entry core separates immutable source observations,
+  normalized candidates, suggestions, and reviewed balanced postings.
+- A dedicated review queue learns through explicit deterministic rules and
+  repeated corrections while abstaining on uncertain or high-consequence work.
+- Receipts, statements, business purpose, allocations, questions, and
+  reconciliation proofs remain linked to exact financial objects.
+- Tax readiness produces a clear checklist and reproducible accountant packet;
+  it does not claim professional approval or filing.
+- Compliance obligations carry entity, jurisdiction, applicability, official
+  source, effective/freshness dates, review state, evidence, and Calendar
+  projections.
+
+Finance owns books, accounts, observations, candidates, journal entries,
+postings, classifications, reconciliations, readiness state, obligations, and
+filing instances. Action Inbox owns pending decisions, Calendar owns time,
+Boards/Plans own multi-step work, Evidence owns protected proof or safe refs,
+and Today owns priority. The initial implementation is manual/file-import and
+local-first; live financial aggregation, maintained compliance feeds,
+accountant access, payment, filing, and professional services remain exact
+later lanes.
 
 ### UAA Lists, Routines, And Personal Organizer
 
@@ -663,6 +698,9 @@ AI may later assist with:
 - Board setup and layout proposals.
 - Social performance explanations, audience-signal clustering, cadence
   observations, campaign lessons, and conversation prioritization.
+- Finance category, transfer, split, recurring-pattern, missing-evidence, and
+  exception suggestions after deterministic rules, evaluation, and abstention
+  gates; no generated tax, accounting, or compliance conclusion is authority.
 - Briefings, weekly reviews, and missing-evidence detection.
 
 Every generated result carries source citations, workspace scope, privacy
@@ -718,6 +756,16 @@ proof.
 - Source triage, thread detail, linked-context inspector, multi-app proposals,
   draft comparison, selected-source permission, sync conflict, custom lists,
   routines/chores, meal-plan concept, and household wallboard.
+
+### Finance and compliance set
+
+- Finance Command View, Source & Statement Inbox, extraction/reconciliation
+  workbench, transfer and balance-sheet review, ranked Review Batches,
+  transaction review, transaction/evidence inspector, books and reconciliation,
+  spending/report views, tax readiness and accountant packet, sourced
+  compliance obligations, Finance Calendar saved view, and Today/Action
+  Inbox/Work Board projections as specified in
+  `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md`.
 
 Every set requires desktop, compact, and the relevant narrow or wallboard
 variants plus loading, empty, first-run, locked, offline, stale, conflict,
@@ -843,12 +891,34 @@ content leaking to evidence or unrelated workspaces.
 Gate: golden local workflows update multiple apps coherently and recover from
 conflict or failure without duplicated truth.
 
+### `FIN-001` through `FIN-008` and `COMP-001` Local Finance & Compliance program
+
+- Execute the protected local books, manual/file import, review/rules/learning,
+  evidence, reconciliation, cross-surface integration, reports, tax readiness,
+  accountant packet, and manual sourced-obligation milestones in
+  `docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`.
+- Prove the privacy-safe statement-cleanup and accountant-readiness golden path
+  in `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md` with synthetic data.
+- Preserve the queue placement in
+  `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`: first-class
+  Boards/Kanban, Calendar, Today, Action Inbox, and shared ChangeSets precede
+  runtime implementation; contract/threat-model/render work may proceed earlier.
+
+Gate: the local product works without live accounts or maintained compliance
+feeds; bookkeeping invariants, protected-data controls, review and correction,
+reconciliation, export, cross-surface ownership, recovery, and CLI/API/UI parity
+are evidenced. This gate grants no connector, accountant-access, payment,
+filing, provider/model, or professional authority.
+
 ### `ECO-009` Exact read-only connector program
 
 - Graduate selected calendar, email, message, CRM, meeting, form, and other
   sources one capability at a time.
 - Add source selection, field/time bounds, sync cursors, provenance, conflict,
   retention, revocation, safe-disable, rate limits, and failure UI.
+- Finance and compliance sources enter only as separately named
+  `FIN-CONN-001` and `COMP-CONN-001` adapter milestones after their local-domain,
+  license/provider, threat-model, and exact-capability gates.
 
 Gate: connector-specific proof exists; no broad read or account-sync flag.
 
@@ -981,7 +1051,13 @@ ECO-006 Today + ECO-007 Inbox
 ECO-008 cross-app ChangeSets
         |
         v
-ECO-009 reads -> ECO-010 intelligence -> ECO-011 writes
+FIN-001..FIN-008 local Finance + COMP-001 manual obligations
+        |
+        v
+ECO-009 reads -> exact FIN/COMP read adapters -> ECO-010 intelligence
+        |
+        v
+ECO-011 writes
         |
         v
 ECO-012 automation -> ECO-013 organizer -> ECO-014 collaboration
@@ -998,13 +1074,15 @@ not become a substitute for complete local apps.
 ## Definition Of Done
 
 The coherent ecosystem vision is complete only when Calendar, Tasks, Boards,
-CRM, and Inbox each satisfy their standalone product contract; Today assembles
-canonical cross-app truth; shared identity, links, search, privacy, storage,
-backup, migration, ChangeSets, Evidence, and Memory are consistent; the golden
-integrated workflows are polished and recovery-safe; presets support work,
-sales, real estate, professional, personal, private, and organizer contexts;
+CRM, Inbox, and the accepted local Finance & Compliance scope each satisfy their
+standalone product contract; Today assembles canonical cross-app truth; shared
+identity, links, search, privacy, storage, backup, migration, ChangeSets,
+Evidence, and Memory are consistent; the golden integrated workflows are
+polished and recovery-safe; presets support work, sales, real estate,
+professional, personal, private, finance, compliance, and organizer contexts;
 approved connectors and writes are exact-scoped and receipt-backed; automation
 is bounded and revocable; desktop, narrow, focus, and applicable wallboard
 experiences pass quality gates; and all unimplemented connector, provider,
-browser, background, collaboration, packaging, public-release, and production
-authority states remain truthfully labeled.
+browser, background, collaboration, accountant-access, payment, filing,
+professional-service, packaging, public-release, and production authority
+states remain truthfully labeled.

@@ -257,9 +257,10 @@ or production authority.
 
 The full-vision application-suite program is defined in
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`. It
-plans standalone-quality Calendar, Tasks, Boards, CRM, Inbox, Social, Today,
-and personal-organizer applications over canonical shared identity, event,
-task, relationship, source, link, change-set, evidence, and memory contracts.
+plans standalone-quality Calendar, Tasks, Boards, CRM, Inbox, Social, Finance &
+Compliance, Today, and personal-organizer applications over canonical shared
+identity, event, task, relationship, source, link, change-set, evidence, and
+memory contracts.
 The plan includes local storage and migration, presets, complete north-star
 render sets, cross-app workflows, connectors, AI proposals, exact writes,
 automation, collaboration, packaging, accessibility, performance, recovery,
@@ -273,6 +274,20 @@ Communications, CRM, Studio, Evidence, and Memory retaining canonical
 ownership. It adds no route, connector runtime, account access, publishing,
 reply, scheduling write, provider/model call, background sync, public release,
 or production authority.
+
+The proposed planning-only Finance & Compliance program is defined in
+`docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`, sequenced in
+`docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`, and placed
+durably by `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`. The
+privacy-safe `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md` adds
+real-workflow requirements for statement intake, extraction diagnostics,
+reconciliation, transfer matching, grouped review batches, accountant
+questions, and packet readiness. UAA builds its own local books,
+review/learning, evidence, reconciliation, tax-readiness, accountant-packet,
+and sourced-obligation modules after the shared
+Boards/Calendar/Today/Action Inbox/ChangeSet foundation. Live financial and
+compliance adapters, accountant access, payment, filing, advice, and production
+authority remain separate later lanes.
 
 Connector draft-only proposals are backend-owned safe-ref review artifacts in
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,
@@ -382,6 +397,7 @@ product-truth ledgers.
 | Studio tab accepted design direction | `docs/design/STUDIO_TAB_PRODUCT_DIRECTION.md`, `docs/design/control_center_north_star/renders/target-v3/06-studio-unified-v7.png` |
 | Workspace UI wiring truth matrix | `docs/design/control_center_north_star/UI_WIRING_MATRIX.md`, `docs/design/control_center_north_star/SURFACE_COVERAGE.md`, `docs/control_center/UI_WIRING_REPORT.md` |
 | Social Media Intelligence planning | `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`, `docs/design/control_center_north_star/renders/social-media-v1/README.md`, `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`, `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md` |
+| Finance & Compliance planning and queue | `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`, `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`, `docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`, `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`, `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py` |
 | CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |
 | Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, `docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `docs/control_center/PROVIDER_DRAFT_SUMMARIZE_MICRO_LANE.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`, `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`, `docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/control_plane.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/draft_summarize.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_model_provider_control_plane.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_draft_summarize_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/inspect_exact_approved_provider_fallback.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_model_provider_control_plane.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py`, `scripts/verify_background_autonomous_provider_plan.py`, `scripts/verify_provider_billing_authority_boundary.py` |
@@ -499,6 +515,7 @@ provider payload export, or no-secret-output regression.
 | Operator Runtime Excellence | `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` |
 | Founder Command Center product-loop planning | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/architecture/TARGET_PRODUCT_ARCHITECTURE.md`, `docs/metrics/NORTH_STAR_METRICS.md`, `docs/codex/CODEX_EXECUTION_PROMPTS.md` |
 | Social Media Intelligence deferred lane | `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`, `docs/design/control_center_north_star/renders/social-media-v1/README.md`, `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`, `docs/backlog/codex_recommendation_log.md`, `docs/kanban/founder_command_center_board.md` |
+| Finance & Compliance deferred lane | `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`, `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`, `docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`, `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`, `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md`, `docs/kanban/current_board.md`, `docs/kanban/founder_command_center_board.md` |
 | Agent runtime compatibility | `docs/architecture/UAA_P2_AGENT_RUNTIME_COMPATIBILITY.md`, `docs/codex/UAA_P2_AGENT_RUNTIME_COMPATIBILITY_PROMPTS.md` |
 | Runtime parity baseline | `docs/runtime/UAA_RUNTIME_PARITY_SCORECARD.md`, `docs/runtime/UAA_GOATCITADEL_PARITY_MATRIX.md`, `docs/runtime/UAA_RUNTIME_ROUTE_DECISION_BINDING.md`, `docs/runtime/UAA_RUNTIME_TURN_RUN_APPROVAL_CHAIN.md`, `docs/runtime/UAA_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md`, `docs/runtime/UAA_RUNTIME_PREPARED_TURN_LOOP.md`, `docs/runtime/UAA_RUNTIME_ROLE_PROVIDER_EVIDENCE.md`, `docs/runtime/UAA_RUNTIME_ACTION_SIGNED_EVIDENCE.md`, `docs/runtime/UAA_RUNTIME_PARITY_FINAL_HARDENING.md`, `docs/runtime/UAA_HERMES_RUNTIME_DELEGATION_ADAPTER.md`, `docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md`, `docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md`, `docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md`, `docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md`, `docs/runtime/UAA_HERMES_RUNTIME_PROFILE_ISOLATION.md`, `docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md`, `docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md`, `docs/runtime/UAA_HERMES_INTERFACE_MODE.md`, `docs/prompts/uaa_runtime_parity/00_execute_runtime_parity_end_to_end.prompt.md`, `scripts/verify_uaa_runtime_parity_scorecard.py`, `scripts/verify_uaa_runtime_route_decision_binding.py`, `scripts/verify_uaa_runtime_turn_run_approval_chain.py`, `scripts/verify_uaa_runtime_staged_orchestration.py`, `scripts/verify_uaa_runtime_prepared_turn.py`, `scripts/verify_uaa_runtime_role_provider_evidence.py`, `scripts/verify_uaa_runtime_action_signed_evidence.py`, `scripts/verify_uaa_runtime_parity_final.py`, `scripts/verify_hermes_runtime_adoption_phase_01.py`, `scripts/verify_hermes_runtime_adoption_phase_02.py`, `scripts/verify_hermes_runtime_adoption_phase_03.py`, `scripts/verify_hermes_runtime_adoption_phase_04.py`, `scripts/verify_hermes_runtime_adoption_phase_05.py`, `scripts/verify_hermes_runtime_adoption_phase_06.py`, `scripts/verify_hermes_runtime_adoption_phase_07.py`, `scripts/verify_hermes_runtime_adoption_phase_08.py`, `scripts/verify_hermes_interface_mode.py` |
 | Durable run lifecycle inspection | `docs/architecture/DURABLE_RUN_LIFECYCLE_EVENT_LOG.md`, `docs/execution/DURABLE_RUN_SPINE.md`, `docs/execution/APPEND_FIRST_RUN_STORAGE.md` |

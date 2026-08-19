@@ -102,6 +102,26 @@ SYSTEM_MAP_FEATURE_CATALOG = (
         source_refs=("source-ref:workspace-invariants",),
     ),
     SystemMapFeatureDeclaration(
+        feature_ref="feature:finance-compliance-program",
+        name="Finance and Compliance Program",
+        safe_summary=(
+            "Planning-only local books, review, reconciliation, readiness, and "
+            "sourced-obligation product contract with all runtime authority blocked."
+        ),
+        truth_status=SystemMapTruthStatus.planned,
+        related_node_ids=(
+            "surface:today",
+            "surface:inbox",
+            "surface:plans",
+            "surface:action_inbox",
+            "surface:memory",
+            "surface:evidence",
+            "boundary:policy-engine",
+            "boundary:local-approval-authority",
+        ),
+        source_refs=("source-ref:finance-compliance-fin000",),
+    ),
+    SystemMapFeatureDeclaration(
         feature_ref="feature:durable-system-capability-map",
         name="Durable System Capability Map",
         safe_summary=(
