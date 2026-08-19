@@ -546,6 +546,31 @@ def test_python_launcher_preserves_virtual_environment_identity() -> None:
     assert launcher.resolve().is_file()
 
 
+def test_site_package_roots_use_explicit_venv_scheme(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    site_packages = tmp_path / "lib" / "python" / "site-packages"
+    site_packages.mkdir(parents=True)
+    calls: list[tuple[str, str | None]] = []
+
+    def venv_path(
+        name: str,
+        *,
+        scheme: str | None = None,
+        vars: dict[str, str] | None = None,
+    ) -> str:
+        calls.append((name, scheme))
+        assert vars == {"base": str(tmp_path), "platbase": str(tmp_path)}
+        return str(site_packages)
+
+    monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
+    monkeypatch.setattr(runner.sysconfig, "get_path", venv_path)
+
+    assert runner._active_site_package_roots() == (site_packages,)
+    assert calls == [("purelib", "venv"), ("platlib", "venv")]
+
+
 def test_python_child_disables_site_initialization(tmp_path: Path) -> None:
     result = subprocess.run(
         [

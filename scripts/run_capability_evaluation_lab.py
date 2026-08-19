@@ -363,7 +363,9 @@ def _active_site_package_roots() -> tuple[Path, ...]:
     variables = {"base": str(prefix), "platbase": str(prefix)}
     roots: list[Path] = []
     for name in ("purelib", "platlib"):
-        root = Path(sysconfig.get_path(name, vars=variables)).resolve(strict=True)
+        root = Path(sysconfig.get_path(name, scheme="venv", vars=variables)).resolve(
+            strict=True
+        )
         if not root.is_dir() or not root.is_relative_to(prefix):
             raise ValueError("capability lab site-packages root is unsafe")
         if root not in roots:
