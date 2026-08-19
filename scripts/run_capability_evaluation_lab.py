@@ -137,6 +137,7 @@ def evaluation_lab_source_paths() -> tuple[str, ...]:
         "src/ultimate_ai_agent/core/evals/capability_lab.py",
         "src/ultimate_ai_agent/core/evals/capability_metrics.py",
         "tests/test_agent_capability_evaluation.py",
+        "tests/test_capability_evaluation_lab.py",
     }
     for scenario in SCENARIOS:
         if scenario.pinned_evidence_path is not None:
