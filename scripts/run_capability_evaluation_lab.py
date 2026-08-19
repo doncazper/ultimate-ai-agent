@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import time
 
@@ -38,6 +39,11 @@ from ultimate_ai_agent.core.evals.capability_lab import (  # noqa: E402
 
 DEFAULT_MANIFEST = ROOT / "docs/evals/capability_evaluation_lab_v1.json"
 ISOLATED_CONTROLLER_COMMIT_ENV = "UAA_CAPABILITY_LAB_CONTROLLER_COMMIT"
+
+
+class RedactedArgumentParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> None:
+        raise ValueError("capability lab arguments are invalid")
 
 
 @dataclass(frozen=True)
@@ -395,6 +401,39 @@ def _installed_distribution_bindings() -> tuple[tuple[str, str, str], ...]:
     return tuple(sorted(bindings))
 
 
+def _standard_library_digest(root: Path | None = None) -> str:
+    stdlib_root = (
+        root
+        if root is not None
+        else Path(sysconfig.get_path("stdlib")).resolve(strict=True)
+    )
+    if not stdlib_root.is_dir() or stdlib_root.is_symlink():
+        raise ValueError("capability lab standard library root is unsafe")
+    digest = hashlib.sha256()
+    file_count = 0
+    for path in sorted(stdlib_root.rglob("*")):
+        relative = path.relative_to(stdlib_root)
+        if any(
+            part in {"__pycache__", "site-packages", "dist-packages"}
+            for part in relative.parts
+        ):
+            continue
+        if path.is_symlink():
+            raise ValueError(
+                "capability lab standard library contains an unsafe symlink"
+            )
+        if not path.is_file() or path.suffix == ".pyc":
+            continue
+        digest.update(b"\n--UAA-CAPABILITY-LAB-STDLIB-FILE--\n")
+        digest.update(str(relative).encode("utf-8"))
+        digest.update(b"\n")
+        _hash_file_into(digest, path)
+        file_count += 1
+    if file_count == 0:
+        raise ValueError("capability lab standard library inventory is empty")
+    return f"sha256:{digest.hexdigest()}"
+
+
 def evaluator_environment_digest() -> str:
     executable = Path(bounded_runner._trusted_executable("{python}"))
     if not executable.is_file() or executable.is_symlink():
@@ -404,6 +443,7 @@ def evaluator_environment_digest() -> str:
         "python_cache_tag": sys.implementation.cache_tag,
         "python_version": sys.version,
         "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "standard_library_digest": _standard_library_digest(),
         "distributions": _installed_distribution_bindings(),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -714,7 +754,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = RedactedArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
@@ -722,8 +762,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Validate the versioned registry without executing its local verifiers.",
     )
-    args = parser.parse_args(active_argv)
     try:
+        args = parser.parse_args(active_argv)
         manifest = load_manifest(args.manifest)
         if args.validate_only:
             payload = {

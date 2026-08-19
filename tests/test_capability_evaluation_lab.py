@@ -321,6 +321,16 @@ def test_dependency_binding_rejects_record_hash_drift(
         runner._installed_distribution_bindings()
 
 
+def test_standard_library_binding_hashes_file_bytes(tmp_path: Path) -> None:
+    module = tmp_path / "example.py"
+    module.write_text("VALUE = 1\n", encoding="utf-8")
+    first = runner._standard_library_digest(tmp_path)
+    module.write_text("VALUE = 2\n", encoding="utf-8")
+    second = runner._standard_library_digest(tmp_path)
+
+    assert first != second
+
+
 def test_environment_digest_changes_case_and_run_evidence() -> None:
     manifest = runner.load_manifest()
     first = _passing_results(manifest)
@@ -536,6 +546,18 @@ def test_subprocess_timeout_uses_fixed_redacted_cli_error(
     assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in captured.err
     assert "Traceback" not in captured.err
     assert str(Path(__file__).resolve().parents[1]) not in captured.err
+
+
+def test_argument_parser_failure_uses_fixed_redacted_cli_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    secret_marker = "secret-marker-must-not-appear"
+
+    assert runner.main(["--validate-only", f"--api-token={secret_marker}"]) == 1
+    captured = capsys.readouterr()
+    assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in captured.err
+    assert secret_marker not in captured.err
+    assert "unrecognized arguments" not in captured.err
 
 
 def test_validate_only_cli_is_revision_safe_and_performs_no_benchmark() -> None:

@@ -90,12 +90,13 @@ primitives through a lab-local Python-only child environment. It disables user
 site packages, bytecode writes, and third-party pytest plugin autoloading. The
 receipt binds the Python executable plus the bytes of every inventoried
 installed distribution file, and hashed RECORD entries must match those bytes;
-non-project editable dependencies fail closed. That environment digest is
-rechecked before and after every case.
+it also binds the standard-library file tree. Non-project editable dependencies
+fail closed. That environment digest is rechecked before and after every case.
 The complete controller relaunches from an isolated checkout before loading the
 manifest, and the cases execute from a second isolated checkout of the same
 recorded evaluator revision. Commands are fixed in the repository registry;
-the manifest cannot provide arbitrary argv.
+the manifest cannot provide arbitrary argv. Invalid CLI arguments fail with a
+fixed error code and never echo rejected argument content.
 
 ## Authority Boundary
 

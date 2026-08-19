@@ -21,7 +21,8 @@ OpenClaw-contract, and GoatCitadel-comparison evidence cases with exact
 revision/digest binding, explicit unknown failure attribution, and fail-closed
 missing-case claim gates. Fixed scenario evidence/seed/revision bindings,
 isolated exact-revision controller and verifier execution, and a digest of
-installed dependency bytes close the local provenance boundary. A pass proves
+installed dependency and standard-library bytes close the local provenance
+boundary. A pass proves
 only the named pinned repository
 contract; it does not run a live external benchmark, establish a product
 winner, graduate a score, or grant runtime or production authority. Evidence:
