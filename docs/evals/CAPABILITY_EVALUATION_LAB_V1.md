@@ -32,8 +32,9 @@ wrong commit.
 | OpenClaw | `evaluation-case-ref:capability-lab:openclaw-parity-pack:v1` | The pinned parity-gap prompt-pack contract remains deterministic and intact. | It does not claim OpenClaw parity or inspect a live/current OpenClaw source tree. |
 | GoatCitadel | `evaluation-case-ref:capability-lab:goat-comparison-contract:v1` | The pinned bounded comparison artifact passes its local evidence gate. | It does not refresh GoatCitadel, perform a live comparison, or alter the recorded scores. |
 
-The manifest is closed: executable case refs, verifier refs, subject refs, and
-claim refs must agree exactly. Pinned evidence file drift fails validation.
+The manifest is closed: every executable registry entry fixes its case,
+verifier, subject, and claim refs, and the manifest must agree exactly. Pinned
+evidence file drift fails validation.
 Every case belongs to a claim gate, and all four declared subjects must remain
 covered.
 
@@ -80,8 +81,9 @@ PYTHONPATH=src .venv/bin/python scripts/run_capability_evaluation_lab.py --json
 ```
 
 The runner uses the existing bounded macOS no-network verifier process
-boundary. Commands are fixed in the repository registry; the manifest cannot
-provide arbitrary argv.
+primitives through a lab-local Python-only child environment. Third-party
+pytest plugin autoloading is disabled. Commands are fixed in the repository
+registry; the manifest cannot provide arbitrary argv.
 
 ## Authority Boundary
 

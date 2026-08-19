@@ -87,6 +87,23 @@ def test_pinned_source_digest_drift_fails_registry_validation() -> None:
         runner._validate_registry(drifted)
 
 
+def test_executable_registry_rejects_relabelled_subjects_and_claims() -> None:
+    payload = runner.load_manifest().model_dump(mode="json")
+    for key in ("subject_ref", "claim_ref"):
+        payload["cases"][1][key], payload["cases"][2][key] = (
+            payload["cases"][2][key],
+            payload["cases"][1][key],
+        )
+        payload["claims"][1][key], payload["claims"][2][key] = (
+            payload["claims"][2][key],
+            payload["claims"][1][key],
+        )
+    relabelled = CapabilityEvaluationLabManifest.model_validate(payload)
+
+    with pytest.raises(ValueError, match="subject or claim binding drift"):
+        runner._validate_registry(relabelled)
+
+
 def test_run_receipt_binds_revisions_without_granting_score_authority() -> None:
     manifest = runner.load_manifest()
     receipt = build_capability_evaluation_run_receipt(
@@ -207,8 +224,8 @@ def test_runner_projects_a_content_free_pass_receipt(
         lambda _: f"sha256:{'d' * 64}",
     )
     monkeypatch.setattr(
-        runner.bounded_runner,
-        "_run_command",
+        runner,
+        "_run_python_scenario",
         lambda *args, **kwargs: runner.bounded_runner.ScenarioCommandResult(
             0, 1, "none"
         ),
@@ -275,7 +292,27 @@ def test_python_only_child_environment_does_not_require_node(
     environment = runner._python_only_child_environment(tmp_path)
 
     assert environment["UAA_AGENT_EVAL_OFFLINE"] == "1"
+    assert environment["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
     assert "node" not in environment["PATH"].lower()
+
+
+def test_subprocess_timeout_uses_fixed_redacted_cli_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired("git", 10)
+        ),
+    )
+
+    assert runner.main(["--json"]) == 1
+    captured = capsys.readouterr()
+    assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in captured.err
+    assert "Traceback" not in captured.err
+    assert str(Path(__file__).resolve().parents[1]) not in captured.err
 
 
 def test_validate_only_cli_is_revision_safe_and_performs_no_benchmark() -> None:

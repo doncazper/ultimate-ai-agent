@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +40,8 @@ DEFAULT_MANIFEST = ROOT / "docs/evals/capability_evaluation_lab_v1.json"
 @dataclass(frozen=True)
 class CapabilityLabScenario:
     case_ref: str
+    subject_ref: str
+    claim_ref: str
     verifier_ref: str
     command: tuple[str, ...]
     pinned_evidence_path: str | None
@@ -47,6 +50,8 @@ class CapabilityLabScenario:
 SCENARIOS = (
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:uaa-native-contracts:v1",
+        subject_ref="subject-ref:uaa-native",
+        claim_ref="claim-ref:uaa-native:bounded-capability-evaluation",
         verifier_ref="verifier-ref:capability-lab:uaa-native-contracts",
         command=(
             "{python}",
@@ -62,18 +67,24 @@ SCENARIOS = (
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:hermes-trajectory-contract:v1",
+        subject_ref="subject-ref:hermes",
+        claim_ref="claim-ref:hermes:trajectory-evidence-contract",
         verifier_ref="verifier-ref:capability-lab:hermes-trajectory-contract",
         command=("{python}", "scripts/verify_hermes_runtime_adoption_phase_40.py"),
         pinned_evidence_path="docs/runtime/hermes_runtime_trajectory_eval_manifest.json",
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:openclaw-parity-pack:v1",
+        subject_ref="subject-ref:openclaw",
+        claim_ref="claim-ref:openclaw:parity-evidence-contract",
         verifier_ref="verifier-ref:capability-lab:openclaw-parity-pack",
         command=("{python}", "scripts/verify_uaa_parity_gap_closure_prompt_pack.py"),
         pinned_evidence_path="docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:goat-comparison-contract:v1",
+        subject_ref="subject-ref:goatcitadel",
+        claim_ref="claim-ref:goatcitadel:bounded-comparison-evidence",
         verifier_ref="verifier-ref:capability-lab:goat-comparison-contract",
         command=("{python}", "scripts/verify_goat_comparison_findings.py"),
         pinned_evidence_path="docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json",
@@ -108,6 +119,11 @@ def _validate_registry(manifest: CapabilityEvaluationLabManifest) -> None:
         raise ValueError("capability lab executable registry coverage drift")
     for case in manifest.cases:
         scenario = scenario_by_ref[case.case_ref]
+        if (
+            case.subject_ref != scenario.subject_ref
+            or case.claim_ref != scenario.claim_ref
+        ):
+            raise ValueError("capability lab subject or claim binding drift")
         if case.verifier_ref != scenario.verifier_ref:
             raise ValueError("capability lab verifier binding drift")
         if scenario.command[0] != "{python}":
@@ -239,6 +255,7 @@ def _python_only_child_environment(temp_root: Path) -> dict[str, str]:
         "PYTHONPATH": os.pathsep.join(("src", *site_packages)),
         "VIRTUAL_ENV": sys.prefix,
         "UAA_AGENT_EVAL_OFFLINE": "1",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "HTTP_PROXY": "http://127.0.0.1:9",
@@ -255,16 +272,38 @@ def _run_python_scenario(
 ) -> bounded_runner.ScenarioCommandResult:
     if command[0] != "{python}":
         raise ValueError("capability lab supports exact Python verifiers only")
-    original_environment = bounded_runner._child_environment
-    bounded_runner._child_environment = _python_only_child_environment
     try:
-        return bounded_runner._run_command(
-            command,
-            basetemp=basetemp,
-            timeout_seconds=180,
+        executable = bounded_runner._trusted_executable(command[0])
+        resolved = [
+            executable,
+            *(part.format(python=sys.executable) for part in command[1:]),
+        ]
+        if "pytest" in resolved:
+            resolved.extend(("--basetemp", str(basetemp)))
+        process = subprocess.Popen(
+            (*bounded_runner._sandbox_prefix(), *resolved),
+            cwd=ROOT,
+            env=_python_only_child_environment(basetemp.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
-    finally:
-        bounded_runner._child_environment = original_environment
+    except OSError:
+        return bounded_runner.ScenarioCommandResult(127, 0, "spawn_failed")
+    started = time.monotonic()
+    try:
+        return_code = process.wait(timeout=180)
+        failure_code = "none" if return_code == 0 else "assertion_failed"
+    except subprocess.TimeoutExpired:
+        bounded_runner._terminate(process)
+        return_code = 124
+        failure_code = "timeout"
+    duration_ms = max(1, round((time.monotonic() - started) * 1000))
+    return bounded_runner.ScenarioCommandResult(
+        return_code,
+        duration_ms,
+        failure_code,
+    )
 
 
 def _failure_posture(
@@ -431,7 +470,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
             return 0
         receipt = run_capability_evaluation_lab(manifest)
-    except (OSError, RuntimeError, ValueError):
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
         print(
             "capability evaluation lab failed closed: "
             "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED",
