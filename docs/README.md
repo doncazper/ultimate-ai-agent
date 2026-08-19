@@ -289,6 +289,14 @@ Boards/Calendar/Today/Action Inbox/ChangeSet foundation. Live financial and
 compliance adapters, accountant access, payment, filing, advice, and production
 authority remain separate later lanes.
 
+Capability Evaluation Lab V1 is documented in
+`docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`. Its four fixed local cases bind
+UAA-native, Hermes, OpenClaw-contract, and GoatCitadel-comparison evidence to
+exact revisions and content-free digests, preserve missing cases in the
+regression denominator, and attribute ambiguous failures as unknown. It adds
+no live provider benchmark, score authority, runtime route, or product
+authority.
+
 Connector draft-only proposals are backend-owned safe-ref review artifacts in
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,
 `src/ultimate_ai_agent/core/connectors/connector_draft_proposals.py`,
