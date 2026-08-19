@@ -52,8 +52,9 @@ Implementation does not become the active product lane until:
   boundaries are accepted;
 - `ECO-003` first-class Boards/Kanban ownership and migration are accepted;
 - `ECO-004` Calendar projections and source ownership are accepted;
-- `ECO-006` Today/Briefing and `ECO-007` Action Inbox projection contracts are
-  stable;
+- `ECO-006` Today/Briefing and `ECO-007` Inbox/source-artifact workbench
+  contracts are stable;
+- `FCC-INBOX-001` Action Inbox and approval-envelope UX is stable;
 - `ECO-008` cross-app ChangeSets, receipts, conflicts, and undo are accepted;
 - the current Founder Loop/Action Inbox priority remains healthy and the board
   explicitly promotes the Finance lane.

@@ -108,7 +108,7 @@ SYSTEM_MAP_FEATURE_CATALOG = (
             "Planning-only local books, review, reconciliation, readiness, and "
             "sourced-obligation product contract with all runtime authority blocked."
         ),
-        truth_status=SystemMapTruthStatus.declared,
+        truth_status=SystemMapTruthStatus.planned,
         related_node_ids=(
             "surface:today",
             "surface:inbox",
