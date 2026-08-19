@@ -140,4 +140,5 @@ backup/restore, exact deletion, connector credentials, accountant access,
 payments, filings, signatures, and professional collaboration are unimplemented.
 FIN-000 records their boundaries only. No financial, accounting, tax, legal,
 compliance, payment, filing, connector, provider, model, browser, background,
-public-release, or production authority is granted.
+or public-release authority is granted. FIN-000 does not grant production
+authority.
