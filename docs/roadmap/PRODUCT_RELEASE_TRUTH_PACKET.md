@@ -15,6 +15,18 @@ post-merge verified before that comparison begins. The plan preserves the
 configured local model and grants no runtime authority; it is not shipped
 product evidence.
 
+Capability Evaluation Lab V1 is implemented as a deterministic local
+verification contract. It checks four fixed UAA-native, Hermes,
+OpenClaw-contract, and GoatCitadel-comparison evidence cases with exact
+revision/digest binding, explicit unknown failure attribution, and fail-closed
+missing-case claim gates. A pass proves only the named pinned repository
+contract; it does not run a live external benchmark, establish a product
+winner, graduate a score, or grant runtime or production authority. Evidence:
+`docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`,
+`src/ultimate_ai_agent/core/evals/capability_lab.py`,
+`scripts/run_capability_evaluation_lab.py`, and
+`tests/test_capability_evaluation_lab.py`.
+
 This packet is the repo-owned product truth and gap matrix for the Operator
 Runtime Excellence Program. It is a release-claim discipline artifact, not a
 runtime implementation plan by itself.

@@ -1,0 +1,135 @@
+{
+  "schema_version": "uaa-capability-evaluation-lab.v1",
+  "contract_ref": "contract-ref:capability-evaluation-lab:v1",
+  "manifest_ref": "evaluation-manifest-ref:capability-lab:v1",
+  "manifest_version": "1",
+  "case_refs": [
+    "evaluation-case-ref:capability-lab:uaa-native-contracts:v1",
+    "evaluation-case-ref:capability-lab:hermes-trajectory-contract:v1",
+    "evaluation-case-ref:capability-lab:openclaw-parity-pack:v1",
+    "evaluation-case-ref:capability-lab:goat-comparison-contract:v1"
+  ],
+  "cases": [
+    {
+      "case_ref": "evaluation-case-ref:capability-lab:uaa-native-contracts:v1",
+      "case_version": "1",
+      "subject_ref": "subject-ref:uaa-native",
+      "claim_ref": "claim-ref:uaa-native:bounded-capability-evaluation",
+      "source_revision_binding": "evaluator_revision",
+      "source_revision_ref": null,
+      "source_evidence_digest_ref": null,
+      "expected_status": "passed",
+      "verifier_ref": "verifier-ref:capability-lab:uaa-native-contracts",
+      "evidence_refs": [
+        "repo-ref:tests/test_agent_capability_evaluation.py",
+        "repo-ref:src/ultimate_ai_agent/core/evals/capability_metrics.py"
+      ],
+      "deterministic_seed_ref": "seed-ref:capability-lab:uaa-native:v1",
+      "bounded_variance": false,
+      "live_provider_benchmark_performed": false,
+      "raw_content_persisted": false,
+      "score_authority_granted": false
+    },
+    {
+      "case_ref": "evaluation-case-ref:capability-lab:hermes-trajectory-contract:v1",
+      "case_version": "1",
+      "subject_ref": "subject-ref:hermes",
+      "claim_ref": "claim-ref:hermes:trajectory-evidence-contract",
+      "source_revision_binding": "pinned",
+      "source_revision_ref": "source-revision-ref:hermes-phase-40:sha256:ea7ac693587d1e84ed882fae3fdef39299ae03476ee84d2408f6e73b77f3827d",
+      "source_evidence_digest_ref": "sha256:ea7ac693587d1e84ed882fae3fdef39299ae03476ee84d2408f6e73b77f3827d",
+      "expected_status": "passed",
+      "verifier_ref": "verifier-ref:capability-lab:hermes-trajectory-contract",
+      "evidence_refs": [
+        "repo-ref:docs/runtime/hermes_runtime_trajectory_eval_manifest.json",
+        "repo-ref:scripts/verify_hermes_runtime_adoption_phase_40.py"
+      ],
+      "deterministic_seed_ref": "seed-ref:capability-lab:hermes:v1",
+      "bounded_variance": false,
+      "live_provider_benchmark_performed": false,
+      "raw_content_persisted": false,
+      "score_authority_granted": false
+    },
+    {
+      "case_ref": "evaluation-case-ref:capability-lab:openclaw-parity-pack:v1",
+      "case_version": "1",
+      "subject_ref": "subject-ref:openclaw",
+      "claim_ref": "claim-ref:openclaw:parity-evidence-contract",
+      "source_revision_binding": "pinned",
+      "source_revision_ref": "source-revision-ref:openclaw-parity-pack:sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
+      "source_evidence_digest_ref": "sha256:cd28b739f900078e4973153fcf2db95b9d43fc7f2e73f1769454fa4a820b6fa1",
+      "expected_status": "passed",
+      "verifier_ref": "verifier-ref:capability-lab:openclaw-parity-pack",
+      "evidence_refs": [
+        "repo-ref:docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
+        "repo-ref:scripts/verify_uaa_parity_gap_closure_prompt_pack.py"
+      ],
+      "deterministic_seed_ref": "seed-ref:capability-lab:openclaw:v1",
+      "bounded_variance": false,
+      "live_provider_benchmark_performed": false,
+      "raw_content_persisted": false,
+      "score_authority_granted": false
+    },
+    {
+      "case_ref": "evaluation-case-ref:capability-lab:goat-comparison-contract:v1",
+      "case_version": "1",
+      "subject_ref": "subject-ref:goatcitadel",
+      "claim_ref": "claim-ref:goatcitadel:bounded-comparison-evidence",
+      "source_revision_binding": "pinned",
+      "source_revision_ref": "git-sha:91775e6905c8ca6c5083444f64eb3457b2d0aaa0",
+      "source_evidence_digest_ref": "sha256:e5145cb1c1cbd92aa222d0d4fa19ca1def82b54e1593cc673cf8db433a97b751",
+      "expected_status": "passed",
+      "verifier_ref": "verifier-ref:capability-lab:goat-comparison-contract",
+      "evidence_refs": [
+        "repo-ref:docs/benchmarks/runtime_capability_foundation/goat_comparison_20260712.json",
+        "repo-ref:scripts/verify_goat_comparison_findings.py"
+      ],
+      "deterministic_seed_ref": "seed-ref:capability-lab:goatcitadel:v1",
+      "bounded_variance": false,
+      "live_provider_benchmark_performed": false,
+      "raw_content_persisted": false,
+      "score_authority_granted": false
+    }
+  ],
+  "claims": [
+    {
+      "claim_ref": "claim-ref:uaa-native:bounded-capability-evaluation",
+      "subject_ref": "subject-ref:uaa-native",
+      "required_case_refs": [
+        "evaluation-case-ref:capability-lab:uaa-native-contracts:v1"
+      ],
+      "score_authority_granted": false
+    },
+    {
+      "claim_ref": "claim-ref:hermes:trajectory-evidence-contract",
+      "subject_ref": "subject-ref:hermes",
+      "required_case_refs": [
+        "evaluation-case-ref:capability-lab:hermes-trajectory-contract:v1"
+      ],
+      "score_authority_granted": false
+    },
+    {
+      "claim_ref": "claim-ref:openclaw:parity-evidence-contract",
+      "subject_ref": "subject-ref:openclaw",
+      "required_case_refs": [
+        "evaluation-case-ref:capability-lab:openclaw-parity-pack:v1"
+      ],
+      "score_authority_granted": false
+    },
+    {
+      "claim_ref": "claim-ref:goatcitadel:bounded-comparison-evidence",
+      "subject_ref": "subject-ref:goatcitadel",
+      "required_case_refs": [
+        "evaluation-case-ref:capability-lab:goat-comparison-contract:v1"
+      ],
+      "score_authority_granted": false
+    }
+  ],
+  "deterministic_only": true,
+  "local_only": true,
+  "content_free": true,
+  "live_provider_benchmark_enabled": false,
+  "model_judgment_enabled": false,
+  "score_authority_enabled": false,
+  "authority_granted": false
+}

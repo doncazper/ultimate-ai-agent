@@ -21,6 +21,18 @@ The exact intervening item order, pre-Goat insertion boundary, and
 machine-readable no-new-authority declaration are pinned in
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.
 
+Queue-of-Record V2 Q05 implements Capability Evaluation Lab V1 as a local,
+read-only verification lane. Four versioned UAA-native, Hermes,
+OpenClaw-contract, and GoatCitadel-comparison cases bind exact source and
+evaluator revisions, content-free evidence digests, explicit unknown failure
+attribution, and missing-case-safe regression gates. This is contract evidence,
+not a live external benchmark, product winner, score promotion, or authority
+grant. Evidence: `docs/evals/CAPABILITY_EVALUATION_LAB_V1.md`,
+`docs/evals/capability_evaluation_lab_v1.json`,
+`src/ultimate_ai_agent/core/evals/capability_lab.py`,
+`scripts/run_capability_evaluation_lab.py`, and
+`tests/test_capability_evaluation_lab.py`.
+
 Product hardening implementation is ready for review: strict no-mock
 production Control Center mode, memory-only launcher bearer handoff, real
 Founder Loop SQLite/JSONL recovery, unknown-schema protection, build identity,
