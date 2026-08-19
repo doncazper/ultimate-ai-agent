@@ -80,6 +80,12 @@ class _KnowledgeModel(BaseModel):
         hide_input_in_errors=True,
     )
 
+    def model_copy(
+        self, *, update: dict[str, object] | None = None, deep: bool = False
+    ):  # type: ignore[no-untyped-def]
+        copied = super().model_copy(update=update, deep=deep)
+        return self.__class__.model_validate(copied.model_dump(mode="python"))
+
 
 class KnowledgeIngestPlan(_KnowledgeModel):
     contract_ref: str = KNOWLEDGE_DUMP_CONTRACT_REF
@@ -94,6 +100,7 @@ class KnowledgeIngestPlan(_KnowledgeModel):
     rights_basis: KnowledgeRightsBasis
     rights_evidence_ref: str = Field(..., min_length=8, max_length=200)
     catalog_source_id: str | None = None
+    catalog_citation_locator_refs: tuple[str, ...] = Field(default_factory=tuple)
     source_kind: KnowledgeSourceKind = KnowledgeSourceKind.reference
     category: str = "uncategorized"
     collection: str | None = None
@@ -124,6 +131,18 @@ class KnowledgeIngestPlan(_KnowledgeModel):
     @classmethod
     def validate_operator_refs(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]
         return _validate_safe_ref(value, info.field_name)
+
+    @field_validator("catalog_citation_locator_refs")
+    @classmethod
+    def validate_catalog_citation_locator_refs(
+        cls, values: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        if len(values) > 16:
+            raise ValueError("catalog citation locator refs are limited to 16")
+        return tuple(
+            _validate_safe_ref(value, "catalog_citation_locator_ref")
+            for value in values
+        )
 
     @field_validator("collection")
     @classmethod
@@ -201,6 +220,7 @@ class KnowledgeDocument(_KnowledgeModel):
     rights_basis: KnowledgeRightsBasis
     rights_evidence_ref: str
     catalog_source_id: str | None = None
+    catalog_citation_locator_refs: tuple[str, ...] = Field(default_factory=tuple)
     source_kind: KnowledgeSourceKind = KnowledgeSourceKind.reference
     category: str = "uncategorized"
     collection: str | None = None
@@ -219,6 +239,16 @@ class KnowledgeDocument(_KnowledgeModel):
     @classmethod
     def validate_rights_evidence_ref(cls, value: str) -> str:
         return _validate_safe_ref(value, "rights_evidence_ref")
+
+    @field_validator("catalog_citation_locator_refs")
+    @classmethod
+    def validate_catalog_citation_locator_refs(
+        cls, values: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        return tuple(
+            _validate_safe_ref(value, "catalog_citation_locator_ref")
+            for value in values
+        )
 
     @field_validator("category")
     @classmethod
@@ -373,11 +403,23 @@ class KnowledgeCitation(_KnowledgeModel):
     source_content_ref: str
     title: str
     locator: str
+    catalog_source_id: str | None = None
+    catalog_citation_locator_refs: tuple[str, ...] = Field(default_factory=tuple)
 
     @field_validator("title")
     @classmethod
     def validate_title(cls, value: str) -> str:
         return _validate_safe_title(value)
+
+    @field_validator("catalog_citation_locator_refs")
+    @classmethod
+    def validate_catalog_citation_locator_refs(
+        cls, values: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        return tuple(
+            _validate_safe_ref(value, "catalog_citation_locator_ref")
+            for value in values
+        )
 
 
 class KnowledgeHit(_KnowledgeModel):
@@ -403,7 +445,7 @@ class KnowledgeContextPack(_KnowledgeModel):
     contract_ref: str = KNOWLEDGE_DUMP_CONTRACT_REF
     context_pack_ref: str
     query_ref: str
-    hits: list[KnowledgeHit]
+    hits: tuple[KnowledgeHit, ...]
     used_characters: int = Field(..., ge=0)
     max_characters: int = Field(..., ge=1)
     safety_instruction: str = (
@@ -425,4 +467,8 @@ class KnowledgeContextPack(_KnowledgeModel):
             )
         ):
             raise ValueError("KNOWLEDGE_CONTEXT_AUTOMATIC_AUTHORITY_DENIED")
+        if self.used_characters != sum(len(hit.text) for hit in self.hits):
+            raise ValueError("KNOWLEDGE_CONTEXT_CHARACTER_BUDGET_MISMATCH")
+        if self.used_characters > self.max_characters:
+            raise ValueError("KNOWLEDGE_CONTEXT_CHARACTER_BUDGET_EXCEEDED")
         return self

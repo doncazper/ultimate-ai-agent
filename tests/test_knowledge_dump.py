@@ -198,15 +198,11 @@ def test_ingest_plan_binds_exact_chunks_and_persisted_metadata(tmp_path: Path) -
             run_id="run:knowledge-dump:tampered-plan",
         )
 
-    authority_expanded = replace(
-        prepared,
-        plan=prepared.plan.model_copy(update={"network_access_enabled": True}),
-    )
-    with pytest.raises(ValueError, match="KNOWLEDGE_INGEST_PLAN_INTEGRITY_MISMATCH"):
-        store.approval_request_for_ingest(
-            authority_expanded,
-            actor_context=_actor(),
-            run_id="run:knowledge-dump:expanded-authority",
+    with pytest.raises(
+        ValidationError, match="KNOWLEDGE_INGEST_UNSCOPED_AUTHORITY_DENIED"
+    ):
+        prepared.plan.model_copy(
+            update={"network_access_enabled": True},
         )
 
     altered_contract = replace(
@@ -290,6 +286,22 @@ def test_store_enforces_private_directory_and_database_permissions(
         assert connection.execute("SELECT 1").fetchone()[0] == 1
     with pytest.raises(sqlite3.ProgrammingError, match="closed database"):
         connection.execute("SELECT 1")
+
+    root.chmod(0o755)
+    with pytest.raises(
+        PermissionError, match="KNOWLEDGE_STORE_PERMISSIONS_UNSAFE"
+    ):
+        store.list_documents()
+    assert stat.S_IMODE(root.stat().st_mode) == 0o755
+    root.chmod(0o700)
+
+    store.database_path.chmod(0o644)
+    with pytest.raises(
+        PermissionError, match="KNOWLEDGE_STORE_PERMISSIONS_UNSAFE"
+    ):
+        store.list_audit_records()
+    assert stat.S_IMODE(store.database_path.stat().st_mode) == 0o644
+    store.database_path.chmod(0o600)
 
 
 def test_cli_binds_operator_confirmation_to_printed_exact_scope(
@@ -431,6 +443,12 @@ def test_ingest_search_and_context_pack_are_cited_and_idempotent(
     assert context.used_characters <= context.max_characters
     with pytest.raises(ValidationError):
         context.explicit_operator_use_required = False
+    with pytest.raises(ValidationError):
+        hits[0].model_copy(update={"source_content_is_instruction": True})
+    with pytest.raises(ValidationError):
+        context.model_copy(update={"automatic_chat_injection_performed": True})
+    with pytest.raises(AttributeError):
+        context.hits.append(hits[0])  # type: ignore[attr-defined]
 
     audit_records = store.list_audit_records()
     assert len(audit_records) == 1
@@ -577,13 +595,42 @@ def test_proprietary_catalog_source_requires_retrieval_rights(tmp_path: Path) ->
     ):
         _prepare(store, source, catalog_source_id="apa_dsm_5_tr")
 
+    with pytest.raises(
+        ValueError, match="KNOWLEDGE_MEDICAL_CITATION_LOCATORS_REQUIRED"
+    ):
+        _prepare(
+            store,
+            source,
+            catalog_source_id="apa_dsm_5_tr",
+            rights_basis=KnowledgeRightsBasis.licensed_for_local_retrieval,
+        )
+
+    locator_refs = [
+        "medical-locator-ref:dsm5tr-edition",
+        "medical-locator-ref:dsm5tr-supplement",
+        "medical-locator-ref:dsm5tr-section",
+        "medical-locator-ref:dsm5tr-page",
+    ]
     prepared = _prepare(
         store,
         source,
         catalog_source_id="apa_dsm_5_tr",
+        catalog_citation_locator_refs=locator_refs,
         rights_basis=KnowledgeRightsBasis.licensed_for_local_retrieval,
     )
     assert prepared.plan.catalog_source_id == "apa_dsm_5_tr"
+    assert prepared.plan.catalog_citation_locator_refs == tuple(locator_refs)
+    actor, authority, approval_ref = _approve(store, prepared)
+    store.ingest(
+        prepared,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-dump:test",
+    )
+    citation = store.search("Synthetic notes")[0].citation
+    assert citation.catalog_source_id == "apa_dsm_5_tr"
+    assert citation.catalog_citation_locator_refs == tuple(locator_refs)
 
 
 def test_epub_html_text_is_extracted_without_storing_archive_path(
@@ -756,7 +803,7 @@ def test_inventory_filters_sorting_and_recategorization(tmp_path: Path) -> None:
     assert document.tags == ["cardiology", "diagnostics"]
     assert store.inventory().by_category == {"clinical_reference": 1}
     assert store.prepare_context("cardiology", collection="medical_core").hits
-    assert store.prepare_context("cardiology", collection="clinical_library").hits == []
+    assert store.prepare_context("cardiology", collection="clinical_library").hits == ()
     assert [record.operation for record in store.list_audit_records()] == [
         "ingest",
         "metadata_update",
@@ -873,3 +920,18 @@ def test_search_limit_is_strictly_bounded(tmp_path: Path, limit: int) -> None:
     store = KnowledgeDumpStore(tmp_path / "dump")
     with pytest.raises(ValueError, match="KNOWLEDGE_QUERY_OUT_OF_BOUNDS"):
         store.search("bounded query", limit=limit)
+
+
+def test_oversized_query_is_rejected_before_tokenization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ultimate_ai_agent.core.knowledge_dump import store as store_module
+
+    class UnexpectedTokenizer:
+        def findall(self, value: str) -> list[str]:
+            raise AssertionError(f"unexpected tokenization of {len(value)} characters")
+
+    monkeypatch.setattr(store_module, "_TOKEN_RE", UnexpectedTokenizer())
+
+    with pytest.raises(ValueError, match="KNOWLEDGE_QUERY_OUT_OF_BOUNDS"):
+        KnowledgeDumpStore(tmp_path / "dump").search("x" * 501)

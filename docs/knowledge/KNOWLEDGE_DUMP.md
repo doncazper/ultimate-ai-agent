@@ -60,7 +60,10 @@ the registered medical textbooks and DSM material, require
 treated as corpus, embedding, or AI permission. The exact source content hash,
 content-free chunk-manifest hash, title, format, size, store ref, rights
 basis/evidence ref, catalog source ID, navigation metadata, and idempotency key
-are bound into the approval scope. Ingest revalidates those bindings immediately
+are bound into the approval scope. A catalog source also requires one ordered,
+safe citation-locator ref for every locator requirement registered by that
+source; those refs are persisted with the document and returned with every
+retrieval citation. Ingest revalidates those bindings immediately
 before mutation; changed chunks or plan fields fail closed.
 Rights-evidence, approval, and idempotency identifiers must be bounded safe refs,
 not local paths, URLs, credentials, or free-form content. Durable titles also
@@ -81,7 +84,11 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   --category medicine \
   --collection medical_core \
   --tag internal_medicine \
-  --catalog-source-id replace_with_registered_source_id
+  --catalog-source-id apa_dsm_5_tr \
+  --citation-locator-ref medical-locator-ref:dsm5tr-edition \
+  --citation-locator-ref medical-locator-ref:dsm5tr-supplement \
+  --citation-locator-ref medical-locator-ref:dsm5tr-section \
+  --citation-locator-ref medical-locator-ref:dsm5tr-page
 ```
 
 After reviewing the content-free plan, apply only that exact scope:
@@ -99,7 +106,11 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   --category medicine \
   --collection medical_core \
   --tag internal_medicine \
-  --catalog-source-id replace_with_registered_source_id \
+  --catalog-source-id apa_dsm_5_tr \
+  --citation-locator-ref medical-locator-ref:dsm5tr-edition \
+  --citation-locator-ref medical-locator-ref:dsm5tr-supplement \
+  --citation-locator-ref medical-locator-ref:dsm5tr-section \
+  --citation-locator-ref medical-locator-ref:dsm5tr-page \
   --approve-exact-scope knowledge-ingest-scope-ref:replace-with-plan-ref
 ```
 

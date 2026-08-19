@@ -122,6 +122,9 @@ def _chunk_manifest_ref(chunks: tuple[_PreparedChunk, ...]) -> str:
 
 def _ingest_scope_ref(plan: KnowledgeIngestPlan) -> str:
     material = {
+        "catalog_citation_locator_refs": list(
+            plan.catalog_citation_locator_refs
+        ),
         "catalog_source_id": plan.catalog_source_id,
         "category": plan.category,
         "chunk_manifest_ref": plan.chunk_manifest_ref,
@@ -208,6 +211,7 @@ class KnowledgeDumpStore:
         rights_evidence_ref: str,
         idempotency_key: str,
         catalog_source_id: str | None = None,
+        catalog_citation_locator_refs: list[str] | None = None,
         source_kind: KnowledgeSourceKind = KnowledgeSourceKind.reference,
         category: str = "uncategorized",
         collection: str | None = None,
@@ -242,16 +246,12 @@ class KnowledgeDumpStore:
             contains_obvious_secret({"content": section.text}) for section in sections
         ):
             raise ValueError("KNOWLEDGE_SOURCE_CONTAINS_SECRET_LIKE_CONTENT")
-        if catalog_source_id:
-            catalog_source = get_medical_knowledge_source(catalog_source_id)
-            if (
-                _enum_value(catalog_source.access_class)
-                == MedicalSourceAccessClass.licensed_proprietary.value
-                and rights_basis != KnowledgeRightsBasis.licensed_for_local_retrieval
-            ):
-                raise ValueError(
-                    "KNOWLEDGE_PROPRIETARY_SOURCE_REQUIRES_LICENSED_RETRIEVAL_RIGHTS"
-                )
+        locator_refs = tuple(catalog_citation_locator_refs or ())
+        self._validate_catalog_binding(
+            catalog_source_id=catalog_source_id,
+            catalog_citation_locator_refs=locator_refs,
+            rights_basis=rights_basis,
+        )
         source_content_ref = _hash_ref("knowledge-content-ref", source_bytes, 40)
         chunks = tuple(self._chunk_sections(source_content_ref, sections))
         character_count = sum(len(chunk.text) for chunk in chunks)
@@ -267,6 +267,7 @@ class KnowledgeDumpStore:
             rights_basis=rights_basis,
             rights_evidence_ref=rights_evidence_ref,
             catalog_source_id=catalog_source_id,
+            catalog_citation_locator_refs=locator_refs,
             source_kind=source_kind,
             category=category,
             collection=collection,
@@ -409,9 +410,10 @@ class KnowledgeDumpStore:
                 connection.execute(
                     """INSERT INTO documents
                     (document_ref, source_content_ref, exact_scope_ref, title, source_format, rights_basis,
-                     rights_evidence_ref, catalog_source_id, chunk_count, character_count,
-                     idempotency_key, created_at, source_kind, category, collection, tags_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                     rights_evidence_ref, catalog_source_id, catalog_citation_locator_refs_json,
+                     chunk_count, character_count, idempotency_key, created_at, source_kind,
+                     category, collection, tags_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         document_ref,
                         plan.source_content_ref,
@@ -421,6 +423,10 @@ class KnowledgeDumpStore:
                         plan.rights_basis,
                         plan.rights_evidence_ref,
                         plan.catalog_source_id,
+                        json.dumps(
+                            plan.catalog_citation_locator_refs,
+                            separators=(",", ":"),
+                        ),
                         len(prepared.chunks),
                         plan.planned_character_count,
                         plan.idempotency_key,
@@ -559,7 +565,6 @@ class KnowledgeDumpStore:
     def list_audit_records(self) -> list[KnowledgeAuditRecord]:
         if not self.database_path.exists():
             return []
-        self._initialize()
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT * FROM audit_records ORDER BY created_at, audit_ref"
@@ -810,8 +815,10 @@ class KnowledgeDumpStore:
         collection: str | None = None,
         tag: str | None = None,
     ) -> list[KnowledgeHit]:
+        if len(query) > MAX_QUERY_CHARACTERS or limit < 1 or limit > 50:
+            raise ValueError("KNOWLEDGE_QUERY_OUT_OF_BOUNDS")
         tokens = list(dict.fromkeys(_TOKEN_RE.findall(query.casefold())))
-        if not tokens or len(query) > MAX_QUERY_CHARACTERS or limit < 1 or limit > 50:
+        if not tokens:
             raise ValueError("KNOWLEDGE_QUERY_OUT_OF_BOUNDS")
         if contains_obvious_secret({"query": query}):
             raise ValueError("KNOWLEDGE_QUERY_SECRET_LIKE")
@@ -868,9 +875,20 @@ class KnowledgeDumpStore:
                     "ON a.document_ref = c.document_ref"
                 )
                 fts_table = "filtered_chunks_fts"
+            document_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+            }
+            catalog_locator_expression = (
+                "d.catalog_citation_locator_refs_json"
+                if "catalog_citation_locator_refs_json" in document_columns
+                else "'[]'"
+            )
             rows = connection.execute(
                 f"""SELECT c.chunk_ref, c.locator, c.text, c.text_ref,
                           d.document_ref, d.source_content_ref, d.title,
+                          d.catalog_source_id,
+                          {catalog_locator_expression} AS catalog_citation_locator_refs_json,
                           bm25({fts_table}) AS rank
                    FROM {fts_table}
                    JOIN chunks c ON c.chunk_ref = {fts_table}.chunk_ref
@@ -888,6 +906,10 @@ class KnowledgeDumpStore:
                     source_content_ref=row["source_content_ref"],
                     title=row["title"],
                     locator=row["locator"],
+                    catalog_source_id=row["catalog_source_id"],
+                    catalog_citation_locator_refs=tuple(
+                        json.loads(row["catalog_citation_locator_refs_json"])
+                    ),
                 ),
                 text=row["text"],
                 score=max(0.0, -float(row["rank"])),
@@ -930,7 +952,7 @@ class KnowledgeDumpStore:
                 "knowledge-context-pack-ref", f"{query_ref}|{selection_refs}"
             ),
             query_ref=query_ref,
-            hits=selected,
+            hits=tuple(selected),
             used_characters=used,
             max_characters=max_characters,
         )
@@ -961,6 +983,11 @@ class KnowledgeDumpStore:
                 raise ValueError("KNOWLEDGE_INGEST_CHUNK_MANIFEST_MISMATCH")
         if plan.chunk_manifest_ref != _chunk_manifest_ref(chunks):
             raise ValueError("KNOWLEDGE_INGEST_CHUNK_MANIFEST_MISMATCH")
+        self._validate_catalog_binding(
+            catalog_source_id=plan.catalog_source_id,
+            catalog_citation_locator_refs=plan.catalog_citation_locator_refs,
+            rights_basis=plan.rights_basis,
+        )
         if (
             plan.contract_ref != KNOWLEDGE_DUMP_CONTRACT_REF
             or plan.exact_scope_ref != _ingest_scope_ref(plan)
@@ -1030,6 +1057,7 @@ class KnowledgeDumpStore:
                     rights_basis TEXT NOT NULL,
                     rights_evidence_ref TEXT NOT NULL,
                     catalog_source_id TEXT,
+                    catalog_citation_locator_refs_json TEXT NOT NULL DEFAULT '[]',
                     chunk_count INTEGER NOT NULL,
                     character_count INTEGER NOT NULL,
                     idempotency_key TEXT NOT NULL UNIQUE,
@@ -1082,6 +1110,7 @@ class KnowledgeDumpStore:
                 "category": "TEXT NOT NULL DEFAULT 'uncategorized'",
                 "collection": "TEXT",
                 "tags_json": "TEXT NOT NULL DEFAULT '[]'",
+                "catalog_citation_locator_refs_json": "TEXT NOT NULL DEFAULT '[]'",
             }
             for name, declaration in additions.items():
                 if name not in existing_columns:
@@ -1238,12 +1267,12 @@ class KnowledgeDumpStore:
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         if self.root.exists() and stat.S_IMODE(self.root.stat().st_mode) != 0o700:
-            os.chmod(self.root, 0o700)
+            raise PermissionError("KNOWLEDGE_STORE_PERMISSIONS_UNSAFE")
         if self.database_path.exists():
             if self.database_path.is_symlink() or not self.database_path.is_file():
                 raise ValueError("KNOWLEDGE_STORE_PATH_UNSAFE")
             if stat.S_IMODE(self.database_path.stat().st_mode) != 0o600:
-                os.chmod(self.database_path, 0o600)
+                raise PermissionError("KNOWLEDGE_STORE_PERMISSIONS_UNSAFE")
         connection = sqlite3.connect(self.database_path)
         try:
             connection.row_factory = sqlite3.Row
@@ -1289,6 +1318,34 @@ class KnowledgeDumpStore:
                 start = max(start + 1, end - CHUNK_OVERLAP_CHARACTERS)
 
     @staticmethod
+    def _validate_catalog_binding(
+        *,
+        catalog_source_id: str | None,
+        catalog_citation_locator_refs: tuple[str, ...],
+        rights_basis: KnowledgeRightsBasis | str,
+    ) -> None:
+        if catalog_source_id is None:
+            if catalog_citation_locator_refs:
+                raise ValueError(
+                    "KNOWLEDGE_CITATION_LOCATORS_REQUIRE_CATALOG_SOURCE"
+                )
+            return
+        catalog_source = get_medical_knowledge_source(catalog_source_id)
+        if (
+            _enum_value(catalog_source.access_class)
+            == MedicalSourceAccessClass.licensed_proprietary.value
+            and _enum_value(rights_basis)
+            != KnowledgeRightsBasis.licensed_for_local_retrieval.value
+        ):
+            raise ValueError(
+                "KNOWLEDGE_PROPRIETARY_SOURCE_REQUIRES_LICENSED_RETRIEVAL_RIGHTS"
+            )
+        if len(catalog_citation_locator_refs) != len(
+            catalog_source.citation_locator_requirements
+        ):
+            raise ValueError("KNOWLEDGE_MEDICAL_CITATION_LOCATORS_REQUIRED")
+
+    @staticmethod
     def _document_from_row(row: sqlite3.Row) -> KnowledgeDocument:
         keys = set(row.keys())
         return KnowledgeDocument(
@@ -1299,6 +1356,11 @@ class KnowledgeDumpStore:
             rights_basis=row["rights_basis"],
             rights_evidence_ref=row["rights_evidence_ref"],
             catalog_source_id=row["catalog_source_id"],
+            catalog_citation_locator_refs=tuple(
+                json.loads(row["catalog_citation_locator_refs_json"])
+                if "catalog_citation_locator_refs_json" in keys
+                else []
+            ),
             source_kind=row["source_kind"] if "source_kind" in keys else "reference",
             category=row["category"] if "category" in keys else "uncategorized",
             collection=row["collection"] if "collection" in keys else None,

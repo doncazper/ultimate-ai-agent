@@ -45,6 +45,7 @@ def _prepare(store: KnowledgeDumpStore, args: argparse.Namespace):  # type: igno
         rights_evidence_ref=args.rights_evidence_ref,
         idempotency_key=args.idempotency_key,
         catalog_source_id=args.catalog_source_id,
+        catalog_citation_locator_refs=args.citation_locator_ref,
         source_kind=KnowledgeSourceKind(args.source_kind),
         category=args.category,
         collection=args.collection,
@@ -70,6 +71,15 @@ def build_parser() -> argparse.ArgumentParser:
     shared.add_argument("--rights-evidence-ref", required=True)
     shared.add_argument("--idempotency-key", required=True)
     shared.add_argument("--catalog-source-id")
+    shared.add_argument(
+        "--citation-locator-ref",
+        action="append",
+        default=[],
+        help=(
+            "Ordered safe reference for one registered catalog citation locator "
+            "requirement; repeat once per requirement."
+        ),
+    )
     shared.add_argument(
         "--source-kind",
         choices=[item.value for item in KnowledgeSourceKind],
