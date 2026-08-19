@@ -55,10 +55,11 @@ covered.
 - missing and unexpected case refs; and
 - the final claim-gate and run evidence digests.
 
-Persisted receipt validation recomputes the canonical final evidence digest and
-requires the run ref to contain that exact digest. It also requires complete,
-unique claim-gate coverage for all four subjects and recomputes every gate from
-its bound case results.
+Untrusted persisted receipts must be loaded through
+`verify_capability_evaluation_run_receipt(...)` with the canonical manifest.
+That path recomputes the canonical case, claim-gate, final evidence, and run-ref
+bindings and rejects manifest drift. Structural model validation alone is not
+the persisted-evidence trust boundary.
 
 Missing cases remain in `case_count` and make their claim gate fail. They are
 never removed from a complete-case denominator. Duplicate and unexpected case
@@ -95,13 +96,16 @@ primitives through a lab-local Python-only child environment. It disables user
 site packages, bytecode writes, and third-party pytest plugin autoloading. The
 receipt binds the Python executable plus the bytes of every inventoried
 installed distribution file, and hashed RECORD entries must match those bytes;
-it also binds standard-library source, extension, cached bytecode, and safe
-in-toolchain symlink target bytes. Importable files not owned by an installed
-distribution are separately inventoried and byte-bound.
+it also binds the interpreter framework or shared library, standard-library
+source, extension, cached bytecode, and safe in-toolchain symlink target bytes.
+Importable files not owned by an installed distribution are separately
+inventoried and byte-bound; symlinks anywhere inside active site-packages fail
+closed.
 Non-project editable dependencies fail closed. Python site initialization is
 disabled for controller and verifier children, so environment `.pth` startup
-hooks cannot execute; the verified venv site-packages roots are supplied
-explicitly and their distribution bytes remain bound. That environment digest
+hooks cannot execute; the verified virtual-environment site-packages roots are
+derived with Python 3.10-compatible platform prefix schemes and supplied
+explicitly. Their executable bytes remain bound. That environment digest
 is rechecked before and after every case.
 The complete controller relaunches from an isolated checkout before loading the
 manifest, and the cases execute from a second isolated checkout of the same

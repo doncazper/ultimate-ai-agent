@@ -58,6 +58,7 @@ from ultimate_ai_agent.core.evals.capability_lab import (
     build_capability_evaluation_run_receipt,
     capability_evaluation_case_evidence_digest,
     capability_evaluation_manifest_digest,
+    verify_capability_evaluation_run_receipt,
 )
 
 __all__ = [
@@ -112,6 +113,7 @@ __all__ = [
     "capability_maturity_report_digest",
     "capability_evaluation_case_evidence_digest",
     "capability_evaluation_manifest_digest",
+    "verify_capability_evaluation_run_receipt",
     "validate_agent_eval_harness_policy",
     "validate_agent_eval_regression_request",
 ]

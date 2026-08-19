@@ -566,6 +566,32 @@ def build_capability_evaluation_run_receipt(
     )
 
 
+def verify_capability_evaluation_run_receipt(
+    payload: object,
+    *,
+    manifest: CapabilityEvaluationLabManifest,
+) -> CapabilityEvaluationRunReceipt:
+    """Verify an untrusted persisted receipt against its canonical manifest."""
+
+    receipt = CapabilityEvaluationRunReceipt.model_validate(payload)
+    if receipt.manifest_ref != manifest.manifest_ref or (
+        receipt.manifest_digest_ref != capability_evaluation_manifest_digest(manifest)
+    ):
+        raise ValueError("receipt manifest binding drift")
+    if receipt.unexpected_case_refs:
+        raise ValueError("persisted receipt contains unverifiable unexpected cases")
+    expected = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=receipt.evaluator_revision_ref,
+        evaluator_source_digest_ref=receipt.evaluator_source_digest_ref,
+        evaluator_environment_digest_ref=receipt.evaluator_environment_digest_ref,
+        results=receipt.results,
+    )
+    if receipt != expected:
+        raise ValueError("persisted receipt canonical case binding drift")
+    return receipt
+
+
 __all__ = [
     "CAPABILITY_EVALUATION_LAB_CONTRACT_REF",
     "CAPABILITY_EVALUATION_LAB_SCHEMA_VERSION",
@@ -583,4 +609,5 @@ __all__ = [
     "build_capability_evaluation_run_receipt",
     "capability_evaluation_case_evidence_digest",
     "capability_evaluation_manifest_digest",
+    "verify_capability_evaluation_run_receipt",
 ]

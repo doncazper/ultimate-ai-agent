@@ -362,10 +362,11 @@ def _trusted_python_prefix() -> Path:
 
 def _active_site_package_roots() -> tuple[Path, ...]:
     prefix = _trusted_python_prefix()
+    scheme = "nt" if os.name == "nt" else "posix_prefix"
     variables = {"base": str(prefix), "platbase": str(prefix)}
     roots: list[Path] = []
     for name in ("purelib", "platlib"):
-        root = Path(sysconfig.get_path(name, scheme="venv", vars=variables)).resolve(
+        root = Path(sysconfig.get_path(name, scheme=scheme, vars=variables)).resolve(
             strict=True
         )
         if not root.is_dir() or not root.is_relative_to(prefix):
@@ -451,12 +452,12 @@ def _unowned_importable_site_files_digest(owned_files: frozenset[Path]) -> str:
     digest = hashlib.sha256()
     for root_index, root in enumerate(_active_site_package_roots()):
         for path in sorted(root.rglob("*")):
-            if not path.name.endswith(importable_suffixes):
-                continue
             if path.is_symlink():
                 raise ValueError(
-                    "capability lab unowned importable file is an unsafe symlink"
+                    "capability lab site-packages contains an unsafe symlink"
                 )
+            if not path.name.endswith(importable_suffixes):
+                continue
             resolved = path.resolve(strict=True)
             if not resolved.is_file() or not resolved.is_relative_to(prefix):
                 raise ValueError("capability lab importable site file is unsafe")
@@ -467,6 +468,34 @@ def _unowned_importable_site_files_digest(owned_files: frozenset[Path]) -> str:
             digest.update(b"\n")
             _hash_file_into(digest, resolved)
     return f"sha256:{digest.hexdigest()}"
+
+
+def _interpreter_runtime_bindings() -> tuple[tuple[str, str], ...]:
+    base_prefix = Path(sys.base_prefix).resolve(strict=True)
+    framework_name = sysconfig.get_config_var("PYTHONFRAMEWORK")
+    shared_enabled = bool(sysconfig.get_config_var("PY_ENABLE_SHARED"))
+    candidates: list[tuple[str, Path]] = []
+    if isinstance(framework_name, str) and framework_name:
+        candidates.append(("python-framework", base_prefix / framework_name))
+    elif shared_enabled:
+        library_dir = sysconfig.get_config_var("LIBDIR")
+        library_name = sysconfig.get_config_var("LDLIBRARY")
+        if (
+            not isinstance(library_dir, str)
+            or not library_dir
+            or not isinstance(library_name, str)
+            or not library_name
+        ):
+            raise ValueError("capability lab Python shared library is unavailable")
+        candidates.append(("python-shared-library", Path(library_dir) / library_name))
+
+    bindings: list[tuple[str, str]] = []
+    for role, candidate in candidates:
+        resolved = candidate.resolve(strict=True)
+        if not resolved.is_file() or not resolved.is_relative_to(base_prefix):
+            raise ValueError("capability lab Python runtime library is unsafe")
+        bindings.append((role, hashlib.sha256(resolved.read_bytes()).hexdigest()))
+    return tuple(bindings)
 
 
 def _standard_library_digest(root: Path | None = None) -> str:
@@ -529,6 +558,7 @@ def evaluator_environment_digest() -> str:
         "python_cache_tag": sys.implementation.cache_tag,
         "python_version": sys.version,
         "python_executable_digest": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "python_runtime_bindings": _interpreter_runtime_bindings(),
         "python_site_initialization_enabled": False,
         "standard_library_digest": _standard_library_digest(),
         "distributions": distributions,
@@ -850,7 +880,13 @@ def main(argv: list[str] | None = None) -> int:
     ):
         try:
             return _relaunch_from_isolated_controller(active_argv)
-        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+        except (
+            KeyError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            subprocess.SubprocessError,
+        ):
             print(
                 "capability evaluation lab failed closed: "
                 "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED",
@@ -885,7 +921,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(payload, indent=2, sort_keys=True))
             return 0
         receipt = run_capability_evaluation_lab(manifest)
-    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+    except (KeyError, OSError, RuntimeError, ValueError, subprocess.SubprocessError):
         print(
             "capability evaluation lab failed closed: "
             "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED",

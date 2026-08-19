@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.evals import (
     CapabilityLabObservedStatus,
     build_capability_evaluation_run_receipt,
     capability_evaluation_manifest_digest,
+    verify_capability_evaluation_run_receipt,
 )
 
 
@@ -368,6 +369,53 @@ def test_unowned_importable_site_files_are_environment_bound(
     assert first != second
 
 
+def test_unowned_package_directory_symlink_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    site_packages = tmp_path / "lib" / "python" / "site-packages"
+    site_packages.mkdir(parents=True)
+    external_package = tmp_path / "external-package"
+    external_package.mkdir()
+    (external_package / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (site_packages / "loose_package").symlink_to(
+        external_package, target_is_directory=True
+    )
+    monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
+    monkeypatch.setattr(
+        runner,
+        "_active_site_package_roots",
+        lambda: (site_packages,),
+    )
+
+    with pytest.raises(ValueError, match="unsafe symlink"):
+        runner._unowned_importable_site_files_digest(frozenset())
+
+
+def test_interpreter_runtime_binding_hashes_framework_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = tmp_path / "Python"
+    runtime.write_bytes(b"runtime-v1")
+    values: dict[str, object] = {
+        "PYTHONFRAMEWORK": "Python",
+        "PY_ENABLE_SHARED": 0,
+    }
+    monkeypatch.setattr(runner.sys, "base_prefix", str(tmp_path))
+    monkeypatch.setattr(
+        runner.sysconfig,
+        "get_config_var",
+        lambda name: values.get(name),
+    )
+
+    first = runner._interpreter_runtime_bindings()
+    runtime.write_bytes(b"runtime-v2")
+    second = runner._interpreter_runtime_bindings()
+
+    assert first != second
+
+
 def test_standard_library_binding_hashes_file_bytes(tmp_path: Path) -> None:
     module = tmp_path / "example.py"
     module.write_text("VALUE = 1\n", encoding="utf-8")
@@ -430,6 +478,12 @@ def test_persisted_receipt_recomputes_evidence_digest_and_run_ref() -> None:
         evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
         results=_passing_results(manifest),
     )
+    assert (
+        verify_capability_evaluation_run_receipt(
+            receipt.model_dump(mode="json"), manifest=manifest
+        )
+        == receipt
+    )
     payload = receipt.model_dump(mode="json")
     payload["evidence_digest_ref"] = f"sha256:{'0' * 64}"
     with pytest.raises(ValueError, match="receipt evidence digest binding drift"):
@@ -456,6 +510,39 @@ def test_persisted_receipt_requires_complete_claim_gates() -> None:
 
     with pytest.raises(ValidationError, match="claim_gates"):
         CapabilityEvaluationRunReceipt.model_validate(payload)
+
+
+def test_persisted_receipt_verification_is_manifest_aware() -> None:
+    manifest = runner.load_manifest()
+    receipt = build_capability_evaluation_run_receipt(
+        manifest=manifest,
+        evaluator_revision_ref=EVALUATOR_REVISION_REF,
+        evaluator_source_digest_ref=EVALUATOR_SOURCE_DIGEST_REF,
+        evaluator_environment_digest_ref=EVALUATOR_ENVIRONMENT_DIGEST_REF,
+        results=_passing_results(manifest),
+    )
+    payload = receipt.model_dump(mode="json")
+    for result, gate in zip(payload["results"], payload["claim_gates"], strict=True):
+        tampered_ref = f"{result['case_ref']}:tampered"
+        result["case_ref"] = tampered_ref
+        gate["required_case_refs"] = [tampered_ref]
+        gate_payload = {
+            "claim_ref": gate["claim_ref"],
+            "subject_ref": gate["subject_ref"],
+            "required_case_refs": gate["required_case_refs"],
+            "result_evidence_refs": [result["evidence_digest_ref"]],
+            "status": gate["status"],
+        }
+        gate["evidence_digest_ref"] = capability_lab_contract._canonical_digest(
+            gate_payload
+        )
+    _rebind_receipt_payload(payload)
+
+    assert (
+        CapabilityEvaluationRunReceipt.model_validate(payload).status.value == "passed"
+    )
+    with pytest.raises(ValueError, match="canonical case binding drift"):
+        verify_capability_evaluation_run_receipt(payload, manifest=manifest)
 
 
 def test_runner_projects_a_content_free_pass_receipt(
@@ -583,6 +670,24 @@ def test_main_relaunches_before_loading_the_manifest(
     assert runner.main(["--json"]) == 0
 
 
+def test_environment_scheme_failure_uses_fixed_redacted_cli_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv(runner.ISOLATED_CONTROLLER_COMMIT_ENV, raising=False)
+    monkeypatch.setattr(
+        runner,
+        "_relaunch_from_isolated_controller",
+        lambda _argv: (_ for _ in ()).throw(KeyError("secret-local-scheme")),
+    )
+
+    assert runner.main(["--json"]) == 1
+    captured = capsys.readouterr()
+    assert "CAPABILITY_EVALUATION_LAB_VALIDATION_FAILED" in captured.err
+    assert "secret-local-scheme" not in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_python_only_child_environment_does_not_require_node(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -609,7 +714,7 @@ def test_python_launcher_preserves_virtual_environment_identity() -> None:
     assert launcher.resolve().is_file()
 
 
-def test_site_package_roots_use_explicit_venv_scheme(
+def test_site_package_roots_use_python_310_compatible_prefix_scheme(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -617,7 +722,7 @@ def test_site_package_roots_use_explicit_venv_scheme(
     site_packages.mkdir(parents=True)
     calls: list[tuple[str, str | None]] = []
 
-    def venv_path(
+    def prefix_path(
         name: str,
         *,
         scheme: str | None = None,
@@ -628,10 +733,11 @@ def test_site_package_roots_use_explicit_venv_scheme(
         return str(site_packages)
 
     monkeypatch.setattr(runner, "_trusted_python_prefix", lambda: tmp_path)
-    monkeypatch.setattr(runner.sysconfig, "get_path", venv_path)
+    monkeypatch.setattr(runner.sysconfig, "get_path", prefix_path)
 
     assert runner._active_site_package_roots() == (site_packages,)
-    assert calls == [("purelib", "venv"), ("platlib", "venv")]
+    expected_scheme = "nt" if runner.os.name == "nt" else "posix_prefix"
+    assert calls == [("purelib", expected_scheme), ("platlib", expected_scheme)]
 
 
 def test_python_child_disables_site_initialization(tmp_path: Path) -> None:
