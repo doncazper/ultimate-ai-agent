@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 952,
+  "timed_file_count": 954,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1716,6 +1716,11 @@
       "source": "shard-elapsed-fallback"
     },
     {
+      "path": "tests/test_knowledge_dump.py",
+      "seconds": 0.48,
+      "source": "operator-supplied-advisory"
+    },
+    {
       "path": "tests/test_launcher_auth_handoff.py",
       "seconds": 0.267744,
       "source": "shard-elapsed-fallback"
@@ -3306,6 +3311,11 @@
       "source": "shard-elapsed-fallback"
     },
     {
+      "path": "tests/test_medical_knowledge_catalog.py",
+      "seconds": 0.12,
+      "source": "operator-supplied-advisory"
+    },
+    {
       "path": "tests/test_memory_api_routes.py",
       "seconds": 0.01,
       "source": "pytest-duration-summary"
@@ -4156,11 +4166,6 @@
       "source": "shard-elapsed-fallback"
     },
     {
-      "path": "tests/test_self_hosted_macos_ci.py",
-      "seconds": 0.02,
-      "source": "pytest-duration-summary"
-    },
-    {
       "path": "tests/test_session_logging.py",
       "seconds": 0.06,
       "source": "pytest-duration-summary"
@@ -4209,6 +4214,11 @@
       "path": "tests/test_supply_chain_workflow.py",
       "seconds": 0.2587,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_system_map.py",
+      "seconds": 9.04,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_task_decomposition_capability_registry.py",
