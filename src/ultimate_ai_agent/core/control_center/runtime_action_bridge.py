@@ -28,9 +28,7 @@ RUNTIME_ACTION_INBOX_BRIDGE_CONTRACT_REF = (
 RUNTIME_ACTION_INBOX_BRIDGE_SOURCE = (
     "python_core_runtime_gateway_action_inbox_bridge_read_model"
 )
-RUNTIME_ACTION_INBOX_BRIDGE_CLI_REF = (
-    "uaa runtime inspect-action-inbox-bridge"
-)
+RUNTIME_ACTION_INBOX_BRIDGE_CLI_REF = "uaa runtime inspect-action-inbox-bridge"
 RUNTIME_ACTION_INBOX_BRIDGE_ROUTE_REF = "GET /control-center/actions/inbox"
 RUNTIME_PARITY_LOOP_API_ROUTE_REF = "GET /api/runtime/parity-loop"
 RUNTIME_PARITY_LOOP_CLI_REF = "uaa runtime inspect-parity-loop"
@@ -167,7 +165,10 @@ class RuntimeActionInboxBridgeItem(BaseModel):
                 self.authority_operator_message or "authority-message:none",
                 "authority_operator_message",
             ),
-            (self.signed_evidence_verification_status, "signed_evidence_verification_status"),
+            (
+                self.signed_evidence_verification_status,
+                "signed_evidence_verification_status",
+            ),
             (self.receipt_status, "receipt_status"),
             (self.safe_summary, "safe_summary"),
         ]:
@@ -229,9 +230,7 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     cli_ref: str = RUNTIME_ACTION_INBOX_BRIDGE_CLI_REF
     runtime_parity_loop_api_ref: str = RUNTIME_PARITY_LOOP_API_ROUTE_REF
     runtime_parity_loop_cli_ref: str = RUNTIME_PARITY_LOOP_CLI_REF
-    runtime_parity_loop_status: str = (
-        "backend_owned_runtime_parity_loop_available"
-    )
+    runtime_parity_loop_status: str = "backend_owned_runtime_parity_loop_available"
     runtime_parity_loop_stage_refs: list[str] = Field(
         default_factory=lambda: list(RUNTIME_PARITY_LOOP_STAGE_REFS)
     )
@@ -265,12 +264,19 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     signed_evidence_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     items: list[RuntimeActionInboxBridgeItem] = Field(default_factory=list)
-    evidence_timeline: list[RuntimeActionInboxBridgeEvidenceItem] = Field(default_factory=list)
-    blocked_authority_refs: list[str] = Field(default_factory=list)
-    next_safe_action: str = (
-        "Inspect exact runtime approval envelopes and receipts; broad runtime authority remains blocked."
+    evidence_timeline: list[RuntimeActionInboxBridgeEvidenceItem] = Field(
+        default_factory=list
     )
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    next_safe_action: str = "Inspect exact runtime approval envelopes and receipts; broad runtime authority remains blocked."
     operator_summary: str = Field(..., min_length=1, max_length=700)
+    control_center_exact_runtime_mutations_enabled: bool = True
+    control_center_mints_authority: bool = False
+    local_model_call_control_enabled: bool = True
+    command_request_control_enabled: bool = True
+    approval_decision_control_enabled: bool = True
+    exact_envelope_execution_control_enabled: bool = True
+    safe_disable_control_enabled: bool = True
     action_execution_enabled: bool = False
     arbitrary_command_execution_enabled: bool = False
     provider_model_call_enabled: bool = False
@@ -288,7 +294,11 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
             raise ValueError("Runtime Action Inbox bridge contract drift")
         if self.source != RUNTIME_ACTION_INBOX_BRIDGE_SOURCE:
             raise ValueError("Runtime Action Inbox bridge source drift")
-        if not self.backend_owned or not self.safe_refs_only or self.raw_content_included:
+        if (
+            not self.backend_owned
+            or not self.safe_refs_only
+            or self.raw_content_included
+        ):
             raise ValueError("Runtime Action Inbox bridge must stay safe-ref only")
         if self.item_count != len(self.items):
             raise ValueError("Runtime Action Inbox bridge item count drift")
@@ -346,6 +356,20 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
         ):
             if getattr(self, flag):
                 raise ValueError(f"Runtime Action Inbox bridge must not enable {flag}")
+        for flag in (
+            "control_center_exact_runtime_mutations_enabled",
+            "local_model_call_control_enabled",
+            "command_request_control_enabled",
+            "approval_decision_control_enabled",
+            "exact_envelope_execution_control_enabled",
+            "safe_disable_control_enabled",
+        ):
+            if not getattr(self, flag):
+                raise ValueError(
+                    f"Runtime Action Inbox bridge must expose the exact governed control: {flag}"
+                )
+        if self.control_center_mints_authority:
+            raise ValueError("Runtime Action Inbox bridge must not mint authority")
         return self
 
 
@@ -354,14 +378,23 @@ def build_runtime_action_inbox_bridge_read_model(
     *,
     entries: list[Any] | None = None,
 ) -> dict[str, Any]:
-    items = [_item_for_record(record) for record in records if record.action_inbox_envelope]
-    receipt_refs = list(dict.fromkeys(ref for item in items for ref in item.receipt_refs))
+    items = [
+        _item_for_record(record) for record in records if record.action_inbox_envelope
+    ]
+    receipt_refs = list(
+        dict.fromkeys(ref for item in items for ref in item.receipt_refs)
+    )
     signed_evidence_refs = list(
         dict.fromkeys(
-            ref for item in items for ref in [item.signed_evidence_ref] if ref is not None
+            ref
+            for item in items
+            for ref in [item.signed_evidence_ref]
+            if ref is not None
         )
     )
-    evidence_refs = list(dict.fromkeys(ref for item in items for ref in item.evidence_refs))
+    evidence_refs = list(
+        dict.fromkeys(ref for item in items for ref in item.evidence_refs)
+    )
     execution_result_refs = list(
         dict.fromkeys(
             ref
@@ -396,11 +429,15 @@ def build_runtime_action_inbox_bridge_read_model(
         safe_disable_active=bool(safe_disable.active),
         safe_disable_summary=safe_disable.safe_summary,
         item_count=len(items),
-        pending_approval_count=sum(1 for item in items if item.status == "pending_approval"),
+        pending_approval_count=sum(
+            1 for item in items if item.status == "pending_approval"
+        ),
         approved_pending_execution_count=sum(
             1 for item in items if item.status == "approved_pending_execution"
         ),
-        receipt_recorded_count=sum(1 for item in items if item.status == "receipt_recorded"),
+        receipt_recorded_count=sum(
+            1 for item in items if item.status == "receipt_recorded"
+        ),
         blocked_count=blocked_count,
         item_refs=[item.invocation_ref for item in items],
         approval_envelope_refs=[item.action_envelope_ref for item in items],
@@ -446,7 +483,9 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
         receipt_ref = record.receipt.receipt_ref
         receipt_status = str(_runtime_value(record.receipt.invocation_status))
         receipt_refs = list(dict.fromkeys([*receipt_refs, record.receipt.receipt_ref]))
-        evidence_refs = list(dict.fromkeys([*evidence_refs, *record.receipt.evidence_refs]))
+        evidence_refs = list(
+            dict.fromkeys([*evidence_refs, *record.receipt.evidence_refs])
+        )
         if record.receipt.command_receipt_metadata is not None:
             metadata = record.receipt.command_receipt_metadata
             execution_result_ref = metadata.redacted_output_ref
@@ -512,7 +551,9 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
     )
 
 
-def _signed_evidence_for_record(record: RuntimeInvocationRecord) -> dict[str, str] | None:
+def _signed_evidence_for_record(
+    record: RuntimeInvocationRecord,
+) -> dict[str, str] | None:
     if record.receipt is None:
         return None
     try:
@@ -527,7 +568,9 @@ def _signed_evidence_for_record(record: RuntimeInvocationRecord) -> dict[str, st
     }
 
 
-def _safe_disable_state(records: list[RuntimeInvocationRecord]) -> RuntimeSafeDisableState:
+def _safe_disable_state(
+    records: list[RuntimeInvocationRecord],
+) -> RuntimeSafeDisableState:
     for record in reversed(records):
         if record.safe_disable.active:
             return record.safe_disable
@@ -836,7 +879,9 @@ def _append_receipt_events(
             summary = "Governed runtime command execution completed with redacted output refs."
         else:
             outcome_event = "execution_failed"
-            summary = "Governed runtime command execution failed with redacted output refs."
+            summary = (
+                "Governed runtime command execution failed with redacted output refs."
+            )
         _append_timeline_event_once(
             timeline,
             seen,

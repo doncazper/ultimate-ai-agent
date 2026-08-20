@@ -521,8 +521,10 @@ adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
 exact approval scope, blocked/degraded/partial operator labels, CostGovernor
 posture for paid/frontier use, CLI/UI inspection, and verifier evidence.
 
-UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
-runtime authority WIP lane. Phase 07 preserves the Phase 01 verified baseline at
+UAA-P1-091 v0.105.0 Governed Runtime Pilot is a completed scoped internal
+runtime authority lane, recorded by annotated tag
+`v0.105.0-governed-runtime-pilot` at Phase 07 merge commit
+`eacd4340fda89448fa94ef02cac76d11179500b1`. Phase 07 preserves the Phase 01 verified baseline at
 `uaa-governed-runtime-baseline-2026-07-04`, keeps runtime profiles `sealed`,
 `local-runtime`, and `operator-approved`, and adds receipt-backed governed
 runtime evidence for configured loopback local-model calls, one exact
@@ -530,7 +532,10 @@ allowlisted argv-only read-only command status lane, and exact Action Inbox
 approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution
 plus CLI/Control Center/evidence timeline parity for status, capabilities,
 invocation, receipt, safe-disable,
-and approval decision inspection. Phase 07 also pins command execution to the
+and approval decisions. Control Center now calls the exact backend local-model,
+command-request, approval/deny, execute, refresh, and safe-disable APIs while
+remaining unable to mint an AuthorityLease or enable broad action execution.
+Phase 07 also pins command execution to the
 approved repo root, requires configured local-model endpoint matching, mirrors
 receipt execution truth on receipt detail, adds CLI approval preflight, and
 reconciles release verification hygiene.

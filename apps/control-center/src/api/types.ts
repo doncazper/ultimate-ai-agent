@@ -3324,6 +3324,13 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   blocked_authority_refs: string[];
   next_safe_action: string;
   operator_summary: string;
+  control_center_exact_runtime_mutations_enabled: boolean;
+  control_center_mints_authority: boolean;
+  local_model_call_control_enabled: boolean;
+  command_request_control_enabled: boolean;
+  approval_decision_control_enabled: boolean;
+  exact_envelope_execution_control_enabled: boolean;
+  safe_disable_control_enabled: boolean;
   action_execution_enabled: boolean;
   arbitrary_command_execution_enabled: boolean;
   provider_model_call_enabled: boolean;

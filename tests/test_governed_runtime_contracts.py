@@ -989,9 +989,7 @@ def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admissi
         store.list_invocations_locked()
 
     assert exchanged is True
-    assert (
-        preserved_dir / runtime_storage.RUNTIME_GATEWAY_LOCK
-    ).is_file()
+    assert (preserved_dir / runtime_storage.RUNTIME_GATEWAY_LOCK).is_file()
     assert not (state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK).exists()
 
 
@@ -1025,19 +1023,13 @@ def test_runtime_store_uses_pinned_state_root_descriptor_for_first_ledger_write(
 
         assert exchanged is True
         assert result.active is True
+        assert (preserved_dir / runtime_storage.RUNTIME_GATEWAY_JSONL).is_file()
         assert (
-            preserved_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
+            preserved_dir / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
         ).is_file()
-        assert (
-            preserved_dir
-            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
-        ).is_file()
+        assert not (state_dir / runtime_storage.RUNTIME_GATEWAY_JSONL).exists()
         assert not (
-            state_dir / runtime_storage.RUNTIME_GATEWAY_JSONL
-        ).exists()
-        assert not (
-            state_dir
-            / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
+            state_dir / runtime_storage.RUNTIME_GATEWAY_SAFE_DISABLE_STATE_JSON
         ).exists()
     finally:
         if state_dir.exists():
@@ -2669,6 +2661,14 @@ def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
         is False
     )
     read_model = build_runtime_action_inbox_bridge_read_model([result.record])
+    assert read_model["control_center_exact_runtime_mutations_enabled"] is True
+    assert read_model["local_model_call_control_enabled"] is True
+    assert read_model["command_request_control_enabled"] is True
+    assert read_model["approval_decision_control_enabled"] is True
+    assert read_model["exact_envelope_execution_control_enabled"] is True
+    assert read_model["safe_disable_control_enabled"] is True
+    assert read_model["control_center_mints_authority"] is False
+    assert read_model["action_execution_enabled"] is False
     event_kinds = {event["event_kind"] for event in read_model["evidence_timeline"]}
     assert "receipt_recorded" in event_kinds
     assert "execution_started" not in event_kinds
@@ -5263,13 +5263,16 @@ def test_runtime_gateway_inflight_marker_preserves_execution_policy_provenance(
     assert persisted_during_attempt.status == marker.status
     assert persisted_during_attempt.policy_decision == marker.policy_decision
     assert persisted_during_attempt.receipt == marker.receipt
-    assert gateway.goal_runtime_service.sync_runtime_invocations(
-        store.list_invocations(),
-        invocation_store=store,
-    ) == []
-    assert gateway.goal_runtime_service.events.replay(
-        marker.invocation_ref
-    ).events == []
+    assert (
+        gateway.goal_runtime_service.sync_runtime_invocations(
+            store.list_invocations(),
+            invocation_store=store,
+        )
+        == []
+    )
+    assert (
+        gateway.goal_runtime_service.events.replay(marker.invocation_ref).events == []
+    )
 
     release_transport.set()
     first.join(timeout=5)
@@ -5982,9 +5985,7 @@ def test_local_model_terminal_projection_refresh_failure_preserves_unknown_marke
         nonlocal refresh_count
         refresh_count += 1
         if refresh_count == 2:
-            raise GoalRuntimeCorruptionError(
-                "RUN_EVENT_PROJECTION_REFRESH_REJECTED"
-            )
+            raise GoalRuntimeCorruptionError("RUN_EVENT_PROJECTION_REFRESH_REJECTED")
         original_refresh(*args, **kwargs)
 
     monkeypatch.setattr(
@@ -5998,9 +5999,7 @@ def test_local_model_terminal_projection_refresh_failure_preserves_unknown_marke
     ):
         gateway.invoke_local_model(
             request,
-            idempotency_ref=(
-                "idempotency-ref:local-model-terminal-refresh-rejected"
-            ),
+            idempotency_ref=("idempotency-ref:local-model-terminal-refresh-rejected"),
         )
 
     assert refresh_count == 2
@@ -6024,9 +6023,7 @@ def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> Non
         runtime_command_invocation_request(request),
         idempotency_ref=idempotency_ref,
         command_gateway_validated=True,
-        adapter_dispatch_protocol_ref=(
-            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
-        ),
+        adapter_dispatch_protocol_ref=(runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF),
     )
     marker_idempotency_ref = "idempotency-ref:adapter-dispatch-owner:marker"
     barrier = threading.Barrier(2)
@@ -6053,9 +6050,7 @@ def test_adapter_dispatch_marker_grants_exactly_one_owner(tmp_path: Path) -> Non
     assert all(not thread.is_alive() for thread in threads)
     assert sorted(claim.acquired for claim in claims) == [False, True]
     assert adapter_calls == [created.record.invocation_ref]
-    assert all(
-        claim.record.adapter_dispatch_started is True for claim in claims
-    )
+    assert all(claim.record.adapter_dispatch_started is True for claim in claims)
 
 
 def test_started_readonly_command_retry_preserves_unknown_attempt_without_receipt(
@@ -6163,8 +6158,7 @@ def test_command_dispatch_rejects_missing_required_durable_approval_envelope(
         )
     monkeypatch.setattr(store, "get_invocation", original_get_invocation)
     assert (
-        store.get_invocation(prepared.invocation_ref).adapter_dispatch_started
-        is False
+        store.get_invocation(prepared.invocation_ref).adapter_dispatch_started is False
     )
 
 
@@ -6182,9 +6176,7 @@ def test_command_dispatch_revalidates_current_authority_under_store_lock(
         runtime_command_invocation_request(request),
         idempotency_ref="idempotency-ref:dispatch-current-authority",
         command_gateway_validated=True,
-        adapter_dispatch_protocol_ref=(
-            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
-        ),
+        adapter_dispatch_protocol_ref=(runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF),
     )
     if posture == "safe-disable":
         store.safe_disable(
@@ -6203,9 +6195,7 @@ def test_command_dispatch_revalidates_current_authority_under_store_lock(
         store.mark_adapter_dispatch_started(
             created.record.invocation_ref,
             protocol_ref=runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF,
-            idempotency_ref=(
-                "idempotency-ref:dispatch-current-authority:marker"
-            ),
+            idempotency_ref=("idempotency-ref:dispatch-current-authority:marker"),
             command_gateway_validated=True,
         )
     assert (
@@ -6339,8 +6329,7 @@ def test_overlapping_approved_command_retry_reports_in_progress_without_receipt(
         assert duplicate.replayed is True
         assert duplicate.record.receipt is None
         assert (
-            duplicate.error_category
-            == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
+            duplicate.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_IN_PROGRESS"
         )
         assert store.get_invocation(approved.invocation_ref).receipt is None
         assert calls == 1
@@ -6435,9 +6424,7 @@ def test_overlapping_action_inbox_retry_links_only_the_terminal_receipt(
     terminal = owner_results[0].record
     assert terminal.receipt is not None
     assert terminal.action_inbox_envelope is not None
-    assert terminal.action_inbox_envelope.receipt_refs == [
-        terminal.receipt.receipt_ref
-    ]
+    assert terminal.action_inbox_envelope.receipt_refs == [terminal.receipt.receipt_ref]
     assert calls == 1
 
 
@@ -6493,16 +6480,12 @@ def test_legacy_protocol_accepts_only_immutable_receipt_replay(
     assert replay.record.receipt == completed.receipt
     assert calls == 1
 
-    receiptless_store = _runtime_store_with_workspace_execute(
-        tmp_path / "receiptless"
-    )
+    receiptless_store = _runtime_store_with_workspace_execute(tmp_path / "receiptless")
     pending = receiptless_store.create_invocation(
         invocation_request,
         idempotency_ref="idempotency-ref:legacy-receiptless-protocol",
         command_gateway_validated=True,
-        adapter_dispatch_protocol_ref=(
-            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
-        ),
+        adapter_dispatch_protocol_ref=(runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF),
     ).record
     with receiptless_store._exclusive_mutation():  # noqa: SLF001
         receiptless_store._records[pending.invocation_ref] = (  # noqa: SLF001
@@ -6514,9 +6497,7 @@ def test_legacy_protocol_accepts_only_immutable_receipt_replay(
         ):
             receiptless_store._create_invocation_loaded(  # noqa: SLF001
                 invocation_request,
-                idempotency_ref=(
-                    "idempotency-ref:legacy-receiptless-protocol"
-                ),
+                idempotency_ref=("idempotency-ref:legacy-receiptless-protocol"),
                 command_gateway_validated=True,
                 adapter_dispatch_protocol_ref=(
                     runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
@@ -6550,9 +6531,7 @@ def test_legacy_readonly_pre_dispatch_retry_migrates_requirement_and_executes_on
         invocation_request,
         idempotency_ref=idempotency_ref,
         command_gateway_validated=True,
-        adapter_dispatch_protocol_ref=(
-            runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF
-        ),
+        adapter_dispatch_protocol_ref=(runtime_command.ADAPTER_DISPATCH_PROTOCOL_REF),
     ).record
     assert legacy.approval_requirement.action_inbox_envelope_required is True
     assert legacy.adapter_dispatch_started is False
@@ -6573,10 +6552,7 @@ def test_legacy_readonly_pre_dispatch_retry_migrates_requirement_and_executes_on
 
     assert calls == 1
     assert completed.receipt is not None
-    assert (
-        completed.approval_requirement.action_inbox_envelope_required
-        is False
-    )
+    assert completed.approval_requirement.action_inbox_envelope_required is False
     durable = _runtime_store_with_workspace_execute(tmp_path).get_invocation(
         legacy.invocation_ref
     )

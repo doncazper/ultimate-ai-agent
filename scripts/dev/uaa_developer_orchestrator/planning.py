@@ -256,14 +256,26 @@ def build_developer_planning_catalog(
                     ),
                 )
             )
+        authority_conveyor_block = ""
         if relative_path == "docs/kanban/current_board.md" and "UAA-P1-091" in text:
+            authority_index = text.index("UAA-P1-091")
+            block_start = text.rfind("\n\n", 0, authority_index) + 2
+            block_end = text.find("\n\n", authority_index)
+            authority_conveyor_block = text[
+                block_start : block_end if block_end >= 0 else len(text)
+            ]
+        authority_conveyor_status = _source_status(
+            section="",
+            block=authority_conveyor_block,
+        )
+        if authority_conveyor_status in {"active", "queued"}:
             candidates.append(
                 DeveloperPlanningCandidate(
                     planning_item_ref="planning-item-ref:docs-kanban-current-board/authority-conveyor-1",
                     canonical_task_ref="canonical-task-ref:uaa-p1-091",
                     title="UAA-P1-091 governed local runtime pilot",
                     priority="p1",
-                    source_status="active",
+                    source_status=authority_conveyor_status,
                     canonical_source_ref=document_ref,
                     canonical_source_fingerprint_ref=_fingerprint_ref(text),
                     source_anchor_ref="canonical-anchor-ref:docs-kanban-current-board/authority-conveyor-1",

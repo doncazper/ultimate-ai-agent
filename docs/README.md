@@ -485,14 +485,17 @@ Machine, completed FCC-V1-003 Founder Loop V1 Vertical Slice, completed
 FCC-V1-004 Chat Durable Receipt And Handoff, completed FCC-V1-005 Memory
 Review Decisions, completed FCC-V1-006 Evidence Timeline Productization, and
 completed FCC-V1-007 Promotion And Proof Lane.
-UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
+UAA-P1-091 v0.105.0 Governed Runtime Pilot is a completed scoped internal
 runtime-authority capability set. Phase 07 release truth keeps v0.104.0 as the active
-product/package baseline while the governed runtime milestone is tag-eligible
-only after green PR review and verification: configured loopback local-model
+product/package baseline while annotated tag `v0.105.0-governed-runtime-pilot`
+records the green Phase 07 merge: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
 focused pytest, repo-verifier, frontend-check, and repo-doctor execution may produce
 RuntimeGateway receipts only under active `workspace/execute` AuthorityLease
-scope plus exact Action Inbox approval; browser
+scope plus exact Action Inbox approval. Control Center calls the same exact
+backend local-model, command-request, approval/deny, execute, refresh, and
+safe-disable APIs while remaining unable to mint an AuthorityLease or enable
+broad action execution; browser
 automation, connector writes, plugin import, remote execution, arbitrary
 shell/subprocess work outside exact approved capabilities, public
 beta, public release, production authority, and broad autonomy remain blocked.
