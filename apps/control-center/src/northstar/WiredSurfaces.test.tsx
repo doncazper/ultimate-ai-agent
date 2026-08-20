@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import type { FounderLoopActionInboxDecisionLaneReadModel } from "../api/types";
+import type { FounderLoopActionInboxDecisionLaneReadModel, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
@@ -213,6 +213,134 @@ function attachExactDecisionLane(
   data.founderActionsInbox.action_inbox_decision_lane_read_model = readModel;
 }
 
+function attachExactPlansBridge(
+  data: ReturnType<typeof cloneData>,
+  itemRef: string,
+) {
+  const actionItem = data.founderActionsInbox.items.find((candidate) => candidate.item_ref === itemRef);
+  if (!actionItem?.action_envelope_ref || !actionItem.action_scope_ref) {
+    throw new Error(`Missing exact test action envelope ${itemRef}`);
+  }
+  const expectedReceiptRefs = actionItem.action_expected_receipt_refs ?? [];
+  const bridgeItem: FounderLoopPlansToActionsBridgeReadModel["items"][number] = {
+    item_ref: `plans-to-actions-item-ref:test:${itemRef}`,
+    source_plan_ref: "plan-ref:test:founder-priority",
+    linked_action_item_ref: itemRef,
+    plan_title: "Ship the founder priority",
+    plan_status: "proposal_ready_for_review",
+    safe_summary: "A backend-owned plan proposal is linked to this exact review envelope.",
+    why_proposed: "The selected plan step requires an operator decision.",
+    risk_class: actionItem.risk_class,
+    action_envelope_ref: actionItem.action_envelope_ref,
+    action_scope_ref: actionItem.action_scope_ref,
+    approval_requirement_ref: "approval-requirement-ref:test:exact-scope",
+    task_decomposition_proposal_ref: null,
+    task_decomposition_review_envelope_ref: null,
+    task_decomposition_action_inbox_bridge_ref: null,
+    review_receipt_labels: ["approve", "edit", "reject", "defer"],
+    expected_receipt_refs: expectedReceiptRefs,
+    receipt_refs: [],
+    rollback_ref: actionItem.action_rollback_ref ?? "rollback-ref:test:action",
+    safe_disable_ref: actionItem.action_safe_disable_ref ?? "safe-disable-ref:test:action",
+    evidence_refs: ["evidence-ref:test:plans-bridge"],
+    step_refs: ["plan-step-ref:test:review"],
+    risk_refs: ["risk-ref:test:bounded-local-review"],
+    ambiguity_refs: [],
+    missing_evidence_refs: [],
+    blocked_authority_refs: [
+      "blocked-state:test:no-action-execution",
+      "blocked-state:test:no-provider-model-call",
+    ],
+    next_safe_action: "Review the exact action envelope.",
+    backend_owned: true,
+    review_only: true,
+    proposal_only: true,
+    exact_scope_required: true,
+    expected_receipts_required: true,
+    rollback_required: true,
+    safe_disable_required: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+  };
+  const readModel: FounderLoopPlansToActionsBridgeReadModel = {
+    schema_version: "product-loop-006-plans-to-actions.v1",
+    contract_ref: "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+    status: "implemented_backend_owned_review_bridge",
+    source: "python_core_plans_to_actions_bridge_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    item_count: 1,
+    items: [bridgeItem],
+    plan_refs: [bridgeItem.source_plan_ref],
+    action_inbox_item_refs: [itemRef],
+    task_decomposition_proposal_refs: [],
+    expected_receipt_refs: expectedReceiptRefs,
+    rollback_refs: [bridgeItem.rollback_ref],
+    safe_disable_refs: [bridgeItem.safe_disable_ref],
+    blocked_state_refs: bridgeItem.blocked_authority_refs,
+    next_safe_action: bridgeItem.next_safe_action,
+    authority_boundary: actionItem.authority_boundary,
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+  };
+  data.founderActionsInbox.plans_to_actions_bridge_contract_ref = readModel.contract_ref;
+  data.founderActionsInbox.plans_to_actions_bridge_read_model = readModel;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -328,6 +456,70 @@ describe("North Star backend wiring", () => {
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the backend-owned plan, action, decision, receipt, and blocked-state review path", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      action_review_actions: ["reject"],
+      receipt_refs: [],
+      action_blocked_state_refs: [],
+      blocked_state: null,
+    });
+    attachExactDecisionLane(data, item.item_ref);
+    if (item.receipt_visibility) {
+      item.receipt_visibility.decision_receipt_ref = "decision_receipt_ref:pending";
+    }
+    attachExactPlansBridge(data, item.item_ref);
+
+    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+
+    const reviewPath = screen.getByRole("region", { name: "Review path" });
+    expect(reviewPath).toHaveTextContent("Ship the founder priority");
+    expect(reviewPath).toHaveTextContent("proposal ready for review");
+    expect(reviewPath).toHaveTextContent(item.title);
+    expect(reviewPath).toHaveTextContent("Needs approval");
+    expect(reviewPath).toHaveTextContent("1 receipt expected");
+    expect(reviewPath).toHaveTextContent("2 authority limits enforced");
+    expect(reviewPath).toHaveTextContent("Approval alone does not execute");
+  });
+
+  it("fails the plan link closed when the backend bridge claims execution authority", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, { action_review_actions: ["reject"] });
+    attachExactDecisionLane(data, item.item_ref);
+    attachExactPlansBridge(data, item.item_ref);
+    if (!data.founderActionsInbox.plans_to_actions_bridge_read_model) {
+      throw new Error("Expected exact plans bridge fixture");
+    }
+    data.founderActionsInbox.plans_to_actions_bridge_read_model.execution_authorized = true;
+
+    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+
+    const reviewPath = screen.getByRole("region", { name: "Review path" });
+    expect(reviewPath).toHaveTextContent("Plan link unavailable");
+    expect(reviewPath).not.toHaveTextContent("Ship the founder priority");
+  });
+
+  it("fails the readable decision stage closed when its lane claims execution authority", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, { action_review_actions: ["reject"] });
+    attachExactDecisionLane(data, item.item_ref);
+    const laneItem = data.founderActionsInbox.action_inbox_decision_lane_read_model?.items[0];
+    if (!laneItem) throw new Error("Expected exact decision-lane fixture");
+    laneItem.action_execution_enabled = true;
+
+    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+
+    const reviewPath = screen.getByRole("region", { name: "Review path" });
+    expect(reviewPath).toHaveTextContent("Lane unavailable");
+    expect(screen.getByRole("button", { name: "Record reject" })).toBeDisabled();
   });
 
   it("does not infer Action Inbox mutation eligibility from group or action kind", () => {
