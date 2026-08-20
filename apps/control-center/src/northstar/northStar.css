@@ -284,6 +284,10 @@
 .ns-list-row strong, .ns-list-row small { display: block; min-width: 0; }
 .ns-list-row strong { font-size: 12px; font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ns-list-row small { color: #476696; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ns-list-row-button { width: 100%; border: 0; border-bottom: 1px solid #e4e9f0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ns-list-row-button:hover { background: #f7faff; }
+.ns-list-row-button.selected { background: #eef5ff; box-shadow: inset 3px 0 0 #1463ff; }
+.ns-list-row-button:focus-visible { position: relative; z-index: 1; outline: 2px solid #1463ff; outline-offset: -2px; }
 .ns-list.roomy .ns-list-row { min-height: 76px; }
 .ns-list.compact .ns-list-row { min-height: 42px; }
 .ns-panel-link { display: flex; min-height: 40px; align-items: center; gap: 5px; padding: 7px 13px; border-top: 1px solid #e6ebf1; font-size: 11px; }

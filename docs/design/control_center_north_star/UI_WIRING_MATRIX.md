@@ -29,7 +29,7 @@ Python Core remains the state and authority owner.
 
 | Product surface | Review route | Primary code location | Backend owner / canonical route | Workspace UI status | Truth / remaining gap |
 |---|---|---|---|---|---|
-| Today | `/workspace/today` | `apps/control-center/src/northstar/PrimarySurfaces.tsx` | `GET /control-center/today/summary`; `/today` | Partial | Briefing, action, plan, memory-review, and evidence counts/rows now use backend data. Add-to-Day-Plan and Ask UAA remain unavailable. |
+| Today | `/workspace/today` | `apps/control-center/src/northstar/PrimarySurfaces.tsx` | `GET /control-center/today/summary`; `/today` | Partial | The accepted briefing, attention, selected-item, Day Plan, News, Business pulse, and activity composition uses backend Today data or explicit unavailable states. Attention selection is local presentation state only. Internal read-model labels are removed from the primary operator copy; Add-to-Day-Plan and Ask UAA remain unavailable. |
 | Communications | `/workspace/communications` | `PrimarySurfaces.tsx` | Source posture only from `GET /control-center/founder-loop/source-readiness` | Fixture only | Messages and summaries are explicitly synthetic render fixtures. Search and selection are local. No account read, draft, CRM, follow-up, calendar, send, or assistant action occurs. |
 | Messenger | `/messenger` (also reached from `/workspace/messenger`) | `apps/control-center/src/components/messenger/MessengerShell.tsx` | No Matrix account/sync/send contract | Preview only | The canonical 15-state Messenger shell remains the sole desktop representation; the workspace path is an alias, not a competing client. No auth, sync, encryption runtime, room mutation, send, media, or call authority exists. |
 | Work Board | `/workspace/work-board` | `PrimarySurfaces.tsx` | `GET /control-center/work-board`; `/work-board` | Partial | Backend columns/cards and local search are wired read-only. Card/task mutation controls remain unavailable because this surface has no exact prepared approval envelope; task execution and completion remain unavailable. |
@@ -54,7 +54,7 @@ Python Core remains the state and authority owner.
 
 | Surface / control | Operation | API/core contract | State | Receipt / refresh behavior | Reason or remaining gap | Focused evidence |
 |---|---|---|---|---|---|---|
-| Today — briefing, attention, plans, counts | Read | `GET /control-center/today/summary` | Wired | Read-only on initial app data load | Uses safe summaries and refs only | `NorthStarControlCenter.test.tsx`; frontend typecheck |
+| Today — briefing, attention, selected detail, plans, counts | Read plus local selection | `GET /control-center/today/summary` | Wired | Read-only on initial app data load; item selection is non-durable presentation state | Uses safe summaries and evidence counts while keeping internal refs out of the primary experience | `WiredSurfaces.test.tsx`; accepted Today target render; frontend full suite and typecheck |
 | Today — Review decisions | Navigation | `/workspace/decisions` | Wired | Preserves backend app state; opens review surface | Navigation only | North-star route tests |
 | Today — Add to Day Plan | Mutation | None eligible | Missing | None | No exact Day Plan mutation/receipt contract | Disabled with an explicit reason |
 | Today — Ask UAA | Proposal/handoff | No Today-to-assistant contract connected | Skipped | None | Sidecar/handoff ownership is unresolved | Listed for later sidecar wiring |

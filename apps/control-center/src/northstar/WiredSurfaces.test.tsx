@@ -223,6 +223,34 @@ afterEach(() => {
 });
 
 describe("North Star backend wiring", () => {
+  it("renders Today as an operator workspace and keeps selection presentation-only", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/today");
+    const [first, second] = data.founderToday.actions;
+    if (!first || !second) throw new Error("Expected at least two Today attention items");
+
+    render(<NorthStarControlCenter activePath="/workspace/today" data={data} />);
+
+    expect(screen.getByRole("heading", { name: "Morning Briefing" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Needs your attention" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Why this matters" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Day Plan" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "News" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Business pulse" })).toBeVisible();
+    expect(screen.getByText("Since your last check")).toBeVisible();
+    expect(screen.getByRole("link", { name: /Open briefing/ })).toHaveAttribute("href", "/briefing");
+    expect(screen.queryByText("Mixed representation", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Backend-owned daily posture/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Backend-owned Today read model/)).not.toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { name: first.title })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: `Show ${second.title}` }));
+    expect(screen.getByRole("heading", { name: second.title })).toBeVisible();
+    expect(screen.getByText(second.next_safe_action)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add to Day Plan" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ask UAA" })).toBeDisabled();
+  });
+
   it("keeps Work Board mutations unavailable without an exact prepared envelope", () => {
     const data = cloneData();
     data.routeStates["/work-board"].state = "backend_owned";

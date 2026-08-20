@@ -92,6 +92,12 @@ backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
 explicit: contract refs are defined, while approval-alone availability,
 execution, rehearsal proof, and restore proof remain false. The surface stays
 read-only and performs no probe or setup state change.
+The Queue-of-Record V2 Q08 Today render-fidelity slice now restores the
+accepted six-panel operator composition with backend Today summaries, readable
+current/preview states, selectable attention detail, a real Briefing path, and
+explicit unavailable News and Business pulse states. Selection remains local
+presentation state; Add-to-Day-Plan, Ask UAA, and all new authority remain
+blocked.
 The Queue03 Phase03 Setup lifecycle foundation now adds the complete typed
 state sequence and plan/status/install/verify/repair/stop/rollback/receipts
 contracts across Python Core, the existing Setup summary API, repo-local CLI,
