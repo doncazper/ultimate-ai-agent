@@ -4,6 +4,9 @@ import pytest
 from ultimate_ai_agent.core.macos_setup_assistant import (
     MacOSSetupApprovalEnvelope,
     MacOSSetupApprovalEnvelopeStatus,
+    MacOSSetupDiagnostic,
+    MacOSSetupDiagnosticStatus,
+    MacOSSetupRollbackPlan,
     MacOSSetupStep,
     MacOSSetupStepKind,
     MacOSSetupStepStatus,
@@ -127,8 +130,75 @@ def test_plan_exposes_approval_receipt_latency_and_rollback_refs() -> None:
     assert rollback_step.rollback_ref.startswith("rollback-plan:")
     assert plan.receipt_plan.raw_log_stored is False
     assert plan.receipt_plan.credential_material_stored is False
-    assert plan.rollback_plan.rollback_available_after_approval is True
+    assert plan.rollback_plan.rollback_available_after_approval is False
+    assert plan.rollback_plan.rollback_contract_defined is True
+    assert plan.rollback_plan.rollback_execution_available is False
+    assert plan.rollback_plan.rollback_rehearsal_completed is False
+    assert plan.rollback_plan.restore_proof_available is False
+    assert plan.rollback_plan.blocked_reason_refs == [
+        "blocked-ref:macos-setup-rollback-authority-missing",
+        "blocked-ref:macos-setup-rollback-rehearsal-missing",
+    ]
     assert plan.rollback_plan.rollback_executed is False
+
+
+def test_default_plan_diagnostics_distinguish_ready_missing_and_blocked() -> None:
+    plan = build_default_macos_setup_assistant_plan()
+    diagnostics = {diagnostic.diagnostic_ref: diagnostic for diagnostic in plan.diagnostics}
+
+    assert {diagnostic.status for diagnostic in plan.diagnostics} == {
+        "ready",
+        "missing",
+        "blocked",
+    }
+    assert diagnostics["macos-setup-diagnostic:read-only-plan"].status == "ready"
+    assert diagnostics["macos-setup-diagnostic:native-app"].status == "missing"
+    assert diagnostics["macos-setup-diagnostic:live-health-proof"].status == "blocked"
+    assert diagnostics["macos-setup-diagnostic:rollback-proof"].status == "blocked"
+    assert all(diagnostic.read_only is True for diagnostic in plan.diagnostics)
+    assert all(diagnostic.live_probe_performed is False for diagnostic in plan.diagnostics)
+    assert all(diagnostic.state_change_performed is False for diagnostic in plan.diagnostics)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "reason"),
+    [
+        ("read_only", "MACOS_SETUP_DIAGNOSTIC_READ_ONLY_REQUIRED"),
+        ("live_probe_performed", "MACOS_SETUP_DIAGNOSTIC_LIVE_PROBE_DENIED"),
+        ("state_change_performed", "MACOS_SETUP_DIAGNOSTIC_STATE_CHANGE_DENIED"),
+    ],
+)
+def test_setup_diagnostic_rejects_side_effect_claims(
+    field_name: str,
+    reason: str,
+) -> None:
+    payload: dict[str, Any] = {
+        "diagnostic_ref": "macos-setup-diagnostic:test",
+        "label": "Test diagnostic",
+        "status": MacOSSetupDiagnosticStatus.blocked,
+        "safe_summary": "Read-only test diagnostic.",
+        "source_refs": ["test-ref:macos-setup-diagnostic"],
+        "reason_codes": ["MACOS_SETUP_TEST_DIAGNOSTIC"],
+        "next_safe_action": "inspect-setup-plan",
+    }
+    payload[field_name] = False if field_name == "read_only" else True
+
+    with pytest.raises(ValueError, match=reason):
+        MacOSSetupDiagnostic(**payload)
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "rollback_available_after_approval",
+        "rollback_execution_available",
+        "rollback_rehearsal_completed",
+        "restore_proof_available",
+    ],
+)
+def test_rollback_plan_rejects_unproven_readiness_claims(field_name: str) -> None:
+    with pytest.raises(ValueError, match="MACOS_SETUP_ROLLBACK_"):
+        MacOSSetupRollbackPlan(**{field_name: True})
 
 
 def test_default_plan_exposes_dry_run_setup_approval_envelopes() -> None:

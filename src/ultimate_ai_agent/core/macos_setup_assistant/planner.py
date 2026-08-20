@@ -6,6 +6,8 @@ from ultimate_ai_agent.core.macos_setup_assistant.contracts import (
     MacOSSetupApprovalEnvelopeStatus,
     MacOSSetupAssistantPlan,
     MacOSSetupBridgePreview,
+    MacOSSetupDiagnostic,
+    MacOSSetupDiagnosticStatus,
     MacOSSetupHardwareProfile,
     MacOSSetupModelRecommendation,
     MacOSSetupStep,
@@ -77,6 +79,7 @@ def build_default_macos_setup_assistant_plan(
     steps = _default_steps()
     return MacOSSetupAssistantPlan(
         lifecycle=build_macos_setup_lifecycle_contract(),
+        diagnostics=_setup_diagnostics(),
         steps=steps,
         model_recommendations=recommend_local_model_options(hardware_profile),
         bridge_previews=_bridge_previews(),
@@ -115,6 +118,68 @@ def build_default_macos_setup_assistant_plan(
             "local_package_proof_refs_bound": True,
         },
     )
+
+
+def _setup_diagnostics() -> list[MacOSSetupDiagnostic]:
+    return [
+        MacOSSetupDiagnostic(
+            diagnostic_ref="macos-setup-diagnostic:read-only-plan",
+            label="Read-only setup plan",
+            status=MacOSSetupDiagnosticStatus.ready,
+            safe_summary=(
+                "The backend-owned plan, lifecycle contract, and bounded preview are ready "
+                "for local inspection."
+            ),
+            source_refs=[
+                "api-surface:control-center-setup-summary",
+                "repo-local-command:macos-setup-lifecycle",
+            ],
+            reason_codes=["MACOS_SETUP_READ_ONLY_PLAN_READY"],
+            next_safe_action="inspect-setup-plan",
+        ),
+        MacOSSetupDiagnostic(
+            diagnostic_ref="macos-setup-diagnostic:native-app",
+            label="Native macOS application",
+            status=MacOSSetupDiagnosticStatus.missing,
+            safe_summary=(
+                "A native macOS application is not implemented; the current Control Center "
+                "surface is a local read-only preview."
+            ),
+            source_refs=["control-center:setup-assistant-preview"],
+            reason_codes=["MACOS_SETUP_NATIVE_APP_MISSING"],
+            next_safe_action="review-native-shell-scope",
+        ),
+        MacOSSetupDiagnostic(
+            diagnostic_ref="macos-setup-diagnostic:live-health-proof",
+            label="Live health proof",
+            status=MacOSSetupDiagnosticStatus.blocked,
+            safe_summary=(
+                "Live process, version, loopback, compatibility, and forbidden-authority "
+                "checks remain blocked because this lane cannot run probes."
+            ),
+            source_refs=["health-contract:macos-setup-lifecycle-v1"],
+            reason_codes=["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
+            next_safe_action="scope-read-only-health-probe-authority",
+        ),
+        MacOSSetupDiagnostic(
+            diagnostic_ref="macos-setup-diagnostic:rollback-proof",
+            label="Rollback readiness",
+            status=MacOSSetupDiagnosticStatus.blocked,
+            safe_summary=(
+                "Rollback refs exist, but execution, rehearsal, and restore proof remain "
+                "blocked until an exact mutation lane is separately accepted."
+            ),
+            source_refs=[
+                "macos-setup-rollback-plan:foundation",
+                "rollback-contract:macos-setup-lifecycle-v1",
+            ],
+            reason_codes=[
+                "MACOS_SETUP_ROLLBACK_AUTHORITY_MISSING",
+                "MACOS_SETUP_ROLLBACK_REHEARSAL_MISSING",
+            ],
+            next_safe_action="define-and-rehearse-exact-rollback-lane",
+        ),
+    ]
 
 
 def _default_steps() -> list[MacOSSetupStep]:

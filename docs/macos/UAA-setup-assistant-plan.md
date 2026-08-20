@@ -34,6 +34,14 @@ background-service installation/load/start, bridge enablement, provider/model
 calls, credential capture, shell/subprocess execution, receipt persistence,
 audit persistence, rollback execution, or production authority.
 
+Queue-of-Record V2 Q07 hardens that preview with backend-owned readiness
+diagnostics that explicitly separate `ready`, `missing`, and `blocked` setup
+posture. It also corrects rollback language: rollback contract refs are defined,
+but approval alone cannot make rollback executable. Rollback execution,
+rehearsal proof, and restore proof remain false and visibly blocked pending a
+separately accepted exact mutation lane. Diagnostics are safe-ref-only and do
+not run live probes or change setup state.
+
 The separate M167 CLI setup mutation lanes remain parity contracts beneath any
 future macOS shell: they show the exact preview and require the exact
 interactive operator confirmation. Deprecated unattended `--yes` and setup
@@ -55,6 +63,8 @@ Implemented:
 - human-readable CLI output plus safe-ref JSON inspection;
 - Control Center lifecycle, health-check, authority, receipt, rollback, and
   safe-disable visibility without execution buttons; and
+- read-only readiness diagnostics for the implemented plan, missing native app,
+  blocked live health proof, and blocked rollback proof;
 - required future health proof for exact process identity, API
   manifest/version, loopback bind, Control Center compatibility, and absence of
   forbidden broad authority.

@@ -529,6 +529,18 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
         "promotion_path_refs"
     ]
 
+    diagnostics = {item["diagnostic_ref"]: item for item in data["diagnostics"]}
+    assert diagnostics["macos-setup-diagnostic:read-only-plan"]["status"] == "ready"
+    assert diagnostics["macos-setup-diagnostic:native-app"]["status"] == "missing"
+    assert diagnostics["macos-setup-diagnostic:live-health-proof"]["status"] == "blocked"
+    assert diagnostics["macos-setup-diagnostic:rollback-proof"]["status"] == "blocked"
+    for diagnostic in diagnostics.values():
+        assert diagnostic["read_only"] is True
+        assert diagnostic["live_probe_performed"] is False
+        assert diagnostic["state_change_performed"] is False
+        assert diagnostic["source_refs"]
+        assert diagnostic["reason_codes"]
+
     for step in data["steps"]:
         assert step["state_change_allowed"] is False
         assert step["state_change_performed"] is False
@@ -631,7 +643,12 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
     assert receipt_plan["credential_material_stored"] is False
 
     rollback_plan = data["rollback_plan"]
-    assert rollback_plan["rollback_available_after_approval"] is True
+    assert rollback_plan["rollback_available_after_approval"] is False
+    assert rollback_plan["rollback_contract_defined"] is True
+    assert rollback_plan["rollback_execution_available"] is False
+    assert rollback_plan["rollback_rehearsal_completed"] is False
+    assert rollback_plan["restore_proof_available"] is False
+    assert rollback_plan["blocked_reason_refs"]
     assert rollback_plan["rollback_executed"] is False
     assert rollback_plan["launch_agent_removed"] is False
     assert rollback_plan["model_files_removed"] is False
