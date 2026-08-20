@@ -7,8 +7,8 @@ Status: accepted bounded foundation on 2026-08-20.
 ECO-001 selects application-layer authenticated encryption over SQLite for the
 first shared application-data primitive. `EcosystemLocalDataPlatform` supplies:
 
-- an explicit versioned schema with column, primary-key, foreign-key, and
-  constraint-shape validation plus a fail-closed future-schema check;
+- an explicit versioned schema with a canonical shape fingerprint, transactional
+  initialization, and a fail-closed future-schema check;
 - module-owned record metadata and workspace-scoped private payloads;
 - injected key lifecycle with create, probe, rotation, loss, and locked states;
 - AES-GCM private-value envelopes whose associated data binds workspace,
@@ -16,7 +16,7 @@ first shared application-data primitive. `EcosystemLocalDataPlatform` supplies:
 - workspace-keyed blind-index search with deterministic rebuild;
 - exact `LocalApprovalAuthority` validation for every exposed write primitive,
   with action, resource, subject, risk, and classification scope checked before
-  mutation;
+  mutation and expiry evaluated against a core-owned clock;
 - optimistic version conflicts, permanent deletion tombstones, encrypted
   replay material, workspace-keyed request fingerprints, and atomic local
   change sets of at most 64 operations;
@@ -26,9 +26,11 @@ first shared application-data primitive. `EcosystemLocalDataPlatform` supplies:
   archived and expired, with deletion remaining a separate exact operation;
 - canonical UTC retention timestamps plus SQLite and deep encrypted-content,
   replay-receipt, search-index, and reference-integrity inspection;
-- retry-safe key rotation with a durable pending-cleanup phase;
+- retry-safe key rotation with a durable pending-cleanup phase, permanent
+  historical key-version refs, and reader/rotation coordination;
 - size-bounded encrypted full backup, deep authenticated restore preview, and
-  atomic no-replace restore to a new destination with directory durability; and
+  atomic no-replace restore to a new destination resolved from a trusted,
+  immutable safe-ref mapping with directory durability; and
 - a size-bounded, read-only legacy JSON inventory preview that records only a
   source fingerprint and candidate count.
 
@@ -49,8 +51,9 @@ replay, stale version, or attempt to reuse a deleted record ref fails closed.
 Fault tests prove that an interruption after an intermediate operation rolls
 back the complete unit.
 
-Backups use SQLite's online backup API, validate schema shape, decrypt every
-private and replay envelope, and verify every blind-index token before
+Backups use SQLite's online backup API, validate the canonical schema shape,
+probe every workspace key, decrypt every private and replay envelope, validate
+complete receipt/event bindings, and verify every blind-index token before
 encrypting the complete snapshot into an authenticated container. Backup and
 restore publication use atomic no-replace links and fsync the destination
 directory. Restore preview decrypts only into a temporary location and performs
@@ -86,6 +89,9 @@ The focused suite covers ciphertext-at-rest, WAL posture, workspace isolation,
 exact approval denial, locked and lost keys, atomic rollback, encrypted exact
 replay, stale conflicts, deletion tombstones, archive/delete, search rebuild,
 retry-safe key cleanup, canonical retention timestamps, deep backup integrity,
-backup and JSON size limits, single-open no-replace restore, directory fsync,
-schema-shape counterfeits, unsupported schemas, ciphertext tampering, unsafe
-governance refs, and read-only migration preview.
+backup and JSON size limits, single-open no-replace restore, trusted destination
+bindings, directory fsync, transactional initialization rollback, schema-shape
+counterfeits, strict JSON numbers, caller-time expiry bypass, active-reader key
+rotation, historical key reuse, fractional retention precision, unsupported
+schemas, ciphertext tampering, unsafe governance refs, and read-only migration
+preview.

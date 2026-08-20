@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.ecosystem.local_data import (
     ECO_LOCAL_DATA_SCHEMA_REF,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
+    InMemoryLocalDataPathResolver,
     PutRecord,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
@@ -109,6 +110,7 @@ def verify() -> list[str]:
                 database_path=database_path,
                 crypto_backend=backend,
                 approval_authority=authority,
+                path_resolver=InMemoryLocalDataPathResolver(),
             )
             workspace_ref = "workspace-ref:verification"
             key_version_ref = "key-version-ref:v1"

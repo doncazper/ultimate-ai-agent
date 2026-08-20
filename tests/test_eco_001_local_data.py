@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import sqlite3
+import threading
 from datetime import timedelta
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from ultimate_ai_agent.core.ecosystem.local_data import (
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
+    InMemoryLocalDataPathResolver,
     JsonCompatibilityReader,
     PutRecord,
 )
@@ -47,8 +49,13 @@ class AuthorizedTestStore(EcosystemLocalDataPlatform):
 
     def __init__(self, **kwargs):
         self.test_authority = LocalApprovalAuthority()
+        self.test_path_resolver = InMemoryLocalDataPathResolver()
         self._approval_counter = 0
-        super().__init__(approval_authority=self.test_authority, **kwargs)
+        super().__init__(
+            approval_authority=self.test_authority,
+            path_resolver=self.test_path_resolver,
+            **kwargs,
+        )
 
     def _approval(self, action: str, resource_refs: tuple[str, ...]):
         self._approval_counter += 1
@@ -135,8 +142,10 @@ class AuthorizedTestStore(EcosystemLocalDataPlatform):
         key_version_ref: str,
     ):
         destination_ref = "destination-ref:test-backup"
+        self.test_path_resolver.bind(
+            destination_ref=destination_ref, destination=destination
+        )
         return super().create_backup(
-            destination=destination,
             destination_ref=destination_ref,
             backup_ref=backup_ref,
             key_item_ref=key_item_ref,
@@ -149,9 +158,11 @@ class AuthorizedTestStore(EcosystemLocalDataPlatform):
 
     def restore_to_new(self, *, backup_path: Path, destination: Path):
         destination_ref = "destination-ref:test-restore"
+        self.test_path_resolver.bind(
+            destination_ref=destination_ref, destination=destination
+        )
         return super().restore_to_new(
             backup_path=backup_path,
-            destination=destination,
             destination_ref=destination_ref,
             approval=self._approval(
                 "ecosystem.local_data.restore_to_new",
@@ -807,3 +818,258 @@ def test_backup_publication_fsyncs_parent_directory(
         key_version_ref="key-version-ref:backup-v1",
     )
     assert destination.parent in fsynced
+
+
+def test_approval_expiry_uses_core_time_not_caller_time(tmp_path: Path) -> None:
+    store, _ = _store(tmp_path)
+    operation = _put()
+    resources = (
+        WORKSPACE_A,
+        "idempotency-ref:expired-approval",
+        operation.operation_ref,
+        operation.record_ref,
+    )
+    now = utc_now()
+    request = ApprovalRequest(
+        approval_request_id="approval_request_expired",
+        run_id="run_eco_001_tests",
+        subject_type=ApprovalSubjectType.kernel_task,
+        subject_id="subject_eco_001_expired",
+        actor_context=ActorContext(
+            actor_type=ActorType.human_user,
+            actor_id="actor_eco_001_test",
+            authority_source=AuthoritySource.foundation_test,
+        ),
+        requested_action="ecosystem.local_data.apply",
+        purpose="Prove caller time cannot revive an expired grant.",
+        risk_level=ApprovalRiskLevel.high,
+        data_classification=DataClassification(
+            classification=ClassificationValue.user_private,
+            source="source-ref:eco-001-test",
+            requires_redaction=True,
+        ),
+        resource_refs=list(resources),
+        expires_at=now - timedelta(seconds=1),
+    )
+    store.test_authority.create_request(request)
+    grant = store.test_authority.create_test_grant(request.approval_request_id)
+    approval = request.to_validation_request(grant.approval_ref).model_copy(
+        update={"current_time": now - timedelta(hours=1)}
+    )
+    with pytest.raises(EcosystemLocalDataError, match="ECO_APPROVAL_REQUIRED"):
+        EcosystemLocalDataPlatform.apply(
+            store,
+            workspace_ref=WORKSPACE_A,
+            idempotency_ref="idempotency-ref:expired-approval",
+            operations=(operation,),
+            approval=approval,
+        )
+
+
+def test_integrity_authenticates_receipts_and_empty_workspace_keys(
+    tmp_path: Path,
+) -> None:
+    store, backend = _store(tmp_path)
+    store.create_workspace(workspace_ref=WORKSPACE_B)
+    store.apply(
+        workspace_ref=WORKSPACE_A,
+        idempotency_ref="idempotency-ref:receipt-integrity",
+        operations=(_put(),),
+    )
+    connection = sqlite3.connect(tmp_path / "ecosystem.sqlite3")
+    original_approval_ref = connection.execute(
+        "SELECT approval_ref FROM eco_uow_receipts"
+    ).fetchone()[0]
+    connection.execute(
+        "UPDATE eco_uow_receipts SET approval_ref = 'approval-ref:tampered'"
+    )
+    connection.commit()
+    connection.close()
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_UOW_RECEIPT_INTEGRITY_FAILED"
+    ):
+        store.integrity_check()
+
+    connection = sqlite3.connect(tmp_path / "ecosystem.sqlite3")
+    connection.execute(
+        "UPDATE eco_uow_receipts SET approval_ref = ?, "
+        "operation_receipt_refs_json = 'not-json'",
+        (original_approval_ref,),
+    )
+    connection.commit()
+    connection.close()
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_UOW_RECEIPT_INTEGRITY_FAILED"
+    ):
+        store.integrity_check()
+
+    connection = sqlite3.connect(tmp_path / "ecosystem.sqlite3")
+    connection.execute(
+        "DELETE FROM eco_uow_receipts WHERE workspace_ref = ?", (WORKSPACE_A,)
+    )
+    key_item_ref, key_version_ref = connection.execute(
+        "SELECT key_item_ref, key_version_ref FROM eco_workspaces "
+        "WHERE workspace_ref = ?",
+        (WORKSPACE_B,),
+    ).fetchone()
+    connection.commit()
+    connection.close()
+    backend.delete(key_item_ref=key_item_ref, key_version_ref=key_version_ref)
+    with pytest.raises(EcosystemKeyUnavailable, match="ECO_KEY_NOT_FOUND"):
+        store.integrity_check()
+
+
+def test_rotation_waits_for_active_key_readers(tmp_path: Path) -> None:
+    class BlockingDecryptBackend(InMemoryLocalDataCryptoBackend):
+        entered = threading.Event()
+        release = threading.Event()
+        block_reads = False
+
+        def decrypt(self, **kwargs):
+            if self.block_reads and kwargs["key_version_ref"] == "key-version-ref:v1":
+                self.entered.set()
+                assert self.release.wait(timeout=5)
+            return super().decrypt(**kwargs)
+
+    backend = BlockingDecryptBackend()
+    store, _ = _store(tmp_path, backend=backend)
+    store.apply(
+        workspace_ref=WORKSPACE_A,
+        idempotency_ref="idempotency-ref:reader-lock",
+        operations=(_put(),),
+    )
+    backend.block_reads = True
+    read_result: list[object] = []
+    rotation_result: list[object] = []
+    reader = threading.Thread(
+        target=lambda: read_result.append(
+            store.read(workspace_ref=WORKSPACE_A, record_ref="record-ref:one")
+        )
+    )
+    rotator = threading.Thread(
+        target=lambda: rotation_result.append(
+            store.rotate_workspace_key(
+                workspace_ref=WORKSPACE_A,
+                new_key_version_ref="key-version-ref:v2",
+            )
+        )
+    )
+    reader.start()
+    assert backend.entered.wait(timeout=5)
+    rotator.start()
+    connection = sqlite3.connect(tmp_path / "ecosystem.sqlite3")
+    key_item_ref = connection.execute(
+        "SELECT key_item_ref FROM eco_workspaces WHERE workspace_ref = ?",
+        (WORKSPACE_A,),
+    ).fetchone()[0]
+    connection.close()
+    backend.probe(key_item_ref=key_item_ref, key_version_ref="key-version-ref:v1")
+    backend.release.set()
+    reader.join(timeout=5)
+    rotator.join(timeout=5)
+    assert len(read_result) == 1
+    assert len(rotation_result) == 1
+    with pytest.raises(EcosystemKeyUnavailable, match="ECO_KEY_NOT_FOUND"):
+        backend.probe(key_item_ref=key_item_ref, key_version_ref="key-version-ref:v1")
+
+
+def test_destination_refs_are_immutable_trusted_bindings(tmp_path: Path) -> None:
+    resolver = InMemoryLocalDataPathResolver()
+    resolver.bind(
+        destination_ref="destination-ref:one",
+        destination=(tmp_path / "one.sqlite3").resolve(),
+    )
+    with pytest.raises(EcosystemConflict, match="ECO_DESTINATION_REF_CONFLICT"):
+        resolver.bind(
+            destination_ref="destination-ref:one",
+            destination=(tmp_path / "two.sqlite3").resolve(),
+        )
+
+
+def test_failed_version_zero_initialization_rolls_back_all_changes(
+    tmp_path: Path,
+) -> None:
+    database_path = (tmp_path / "partial.sqlite3").resolve()
+    connection = sqlite3.connect(database_path)
+    connection.execute("CREATE TABLE eco_workspaces (workspace_ref TEXT)")
+    connection.commit()
+    connection.close()
+    with pytest.raises(EcosystemLocalDataError, match="ECO_SCHEMA_SHAPE_INVALID"):
+        AuthorizedTestStore(
+            database_path=database_path,
+            crypto_backend=InMemoryLocalDataCryptoBackend(),
+        )
+    connection = sqlite3.connect(database_path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        assert tables == {"eco_workspaces"}
+    finally:
+        connection.close()
+
+
+def test_private_payload_rejects_non_finite_json_numbers(tmp_path: Path) -> None:
+    store, _ = _store(tmp_path)
+    operation = PutRecord(
+        **{**vars(_put()), "private_payload": {"invalid": float("nan")}}
+    )
+    with pytest.raises(ValueError, match="ECO_PRIVATE_PAYLOAD_JSON_REQUIRED"):
+        store.apply(
+            workspace_ref=WORKSPACE_A,
+            idempotency_ref="idempotency-ref:non-finite",
+            operations=(operation,),
+        )
+
+
+def test_schema_fingerprint_rejects_constraint_comments(tmp_path: Path) -> None:
+    store, _ = _store(tmp_path)
+    del store
+    database_path = tmp_path / "ecosystem.sqlite3"
+    connection = sqlite3.connect(database_path)
+    connection.execute("PRAGMA writable_schema = ON")
+    original_sql = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE name = 'eco_records'"
+    ).fetchone()[0]
+    counterfeit = original_sql.replace(
+        "CHECK(version >= 1)", "/* CHECK(version >= 1) */"
+    )
+    connection.execute(
+        "UPDATE sqlite_master SET sql = ? WHERE name = 'eco_records'",
+        (counterfeit,),
+    )
+    connection.execute("PRAGMA writable_schema = OFF")
+    connection.commit()
+    connection.close()
+    with pytest.raises(EcosystemLocalDataError, match="ECO_SCHEMA_SHAPE_INVALID"):
+        AuthorizedTestStore(
+            database_path=database_path.resolve(),
+            crypto_backend=InMemoryLocalDataCryptoBackend(),
+        )
+
+
+def test_rotation_rejects_every_historical_key_version(tmp_path: Path) -> None:
+    store, _ = _store(tmp_path)
+    store.rotate_workspace_key(
+        workspace_ref=WORKSPACE_A, new_key_version_ref="key-version-ref:v2"
+    )
+    with pytest.raises(EcosystemConflict, match="ECO_KEY_VERSION_REUSE_DENIED"):
+        store.rotate_workspace_key(
+            workspace_ref=WORKSPACE_A, new_key_version_ref="key-version-ref:v1"
+        )
+
+
+def test_retention_timestamp_preserves_fractional_precision(tmp_path: Path) -> None:
+    store, _ = _store(tmp_path)
+    operation = PutRecord(**{**vars(_put()), "expires_at": "2026-08-20T12:00:00.999Z"})
+    store.apply(
+        workspace_ref=WORKSPACE_A,
+        idempotency_ref="idempotency-ref:fractional-expiry",
+        operations=(operation,),
+    )
+    record = store.read(workspace_ref=WORKSPACE_A, record_ref="record-ref:one")
+    assert record.expires_at == "2026-08-20T12:00:00.999000Z"

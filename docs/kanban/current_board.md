@@ -886,7 +886,9 @@ indexes, supports atomic/idempotent change sets, stale-version conflicts,
 approval-bound archive/delete, deletion tombstones, search rebuild, retry-safe
 key rotation, deep integrity checks, encrypted size-bounded full backup,
 single-open no-replace restore preview/restore-to-new, canonical read-only
-retention candidate selection, and bounded read-only legacy JSON inventory
+retention candidate selection, trusted safe-ref destination resolution, strict
+JSON payloads, transactional schema initialization, reader-safe key cleanup,
+and bounded read-only legacy JSON inventory
 preview. Replay equality material is encrypted and its visible fingerprint is
 workspace-keyed. Focused adversarial tests and a repo-local verifier are
 present.

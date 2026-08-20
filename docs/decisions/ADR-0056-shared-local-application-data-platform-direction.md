@@ -15,10 +15,11 @@ AES-GCM envelopes, injected keys, and workspace-keyed blind indexes for the
 shared primitive. Exact writes validate existing `LocalApprovalAuthority`
 grants before mutation; replay equality material is encrypted and visible
 fingerprints are keyed. Deleted record refs are tombstoned, key cleanup is
-retry-safe, and backup/restore runs the same deep integrity boundary with
-bounded, atomic no-replace publication. It adds no ORM or search extension. The
-production macOS key backend remains unselected; the included in-memory backend
-is test-only.
+retry-safe and reader-coordinated, schema initialization is atomic, and
+backup/restore runs the same complete receipt/data integrity boundary with
+bounded, trusted-ref, atomic no-replace publication. It adds no ORM or search
+extension. The production macOS key and destination-path backends remain
+unselected; the included in-memory backends are test-only.
 
 The accepted implementation and its bounded non-goals are recorded in
 `docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md`.

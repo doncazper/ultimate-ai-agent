@@ -276,8 +276,9 @@ generic encrypted SQLite repository primitive, atomic workspace-scoped units
 of work behind exact local approval validation, encrypted replay equality,
 blind-index search and rebuild, deletion tombstones, deep integrity checks,
 encrypted size-bounded full backup and restore preview, atomic no-replace
-restore-to-new, archive/delete, and bounded read-only legacy JSON inventory
-preview. It does not select a production Keychain
+restore-to-new through trusted destination refs, reader-safe key rotation,
+strict JSON payloads, archive/delete, and bounded read-only legacy JSON
+inventory preview. It does not select a production Keychain or path resolver
 backend, cut over any existing store, add routes or UI, enable cloud sync, or
 grant external/background/production authority.
 
