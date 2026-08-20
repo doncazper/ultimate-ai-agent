@@ -16129,6 +16129,19 @@ export interface MacOSSetupAssistantStep {
   nextSafeAction: string;
 }
 
+export interface MacOSSetupDiagnostic {
+  diagnosticRef: string;
+  label: string;
+  status: "ready" | "missing" | "blocked";
+  safeSummary: string;
+  sourceRefs: string[];
+  reasonCodes: string[];
+  nextSafeAction: string;
+  readOnly: boolean;
+  liveProbePerformed: boolean;
+  stateChangePerformed: boolean;
+}
+
 export interface MacOSSetupModelRecommendation {
   recommendationRef: string;
   modelRef: string;
@@ -16202,6 +16215,12 @@ export interface MacOSSetupRollbackPlan {
   uninstallRef: string;
   safeSummary: string;
   rollbackAvailableAfterApproval: boolean;
+  rollbackContractDefined: boolean;
+  rollbackExecutionAvailable: boolean;
+  rollbackRehearsalCompleted: boolean;
+  restoreProofAvailable: boolean;
+  blockedReasonRefs: string[];
+  nextSafeAction: string;
   rollbackExecuted: boolean;
 }
 
@@ -16225,6 +16244,7 @@ export interface MacOSSetupAssistantData {
   localPackageProofRefs: string[];
   promotionPathRefs: string[];
   lifecycle: MacOSSetupLifecycleContract;
+  diagnostics: MacOSSetupDiagnostic[];
   steps: MacOSSetupAssistantStep[];
   modelRecommendations: MacOSSetupModelRecommendation[];
   bridgePreviews: MacOSSetupBridgePreview[];

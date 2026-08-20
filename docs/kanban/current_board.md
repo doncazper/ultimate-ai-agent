@@ -87,6 +87,11 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
+backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
+explicit: contract refs are defined, while approval-alone availability,
+execution, rehearsal proof, and restore proof remain false. The surface stays
+read-only and performs no probe or setup state change.
 The Queue03 Phase03 Setup lifecycle foundation now adds the complete typed
 state sequence and plan/status/install/verify/repair/stop/rollback/receipts
 contracts across Python Core, the existing Setup summary API, repo-local CLI,

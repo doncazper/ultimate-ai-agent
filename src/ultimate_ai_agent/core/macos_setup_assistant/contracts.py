@@ -52,6 +52,12 @@ class MacOSSetupApprovalEnvelopeStatus(str, Enum):
     not_scoped = "not_scoped"
 
 
+class MacOSSetupDiagnosticStatus(str, Enum):
+    ready = "ready"
+    missing = "missing"
+    blocked = "blocked"
+
+
 class MacOSSetupLifecycleState(str, Enum):
     prerequisites = "prerequisites"
     ready_to_install = "ready_to_install"
@@ -575,6 +581,35 @@ class MacOSSetupLifecycleContract(_MacOSSetupModel):
         return self
 
 
+class MacOSSetupDiagnostic(_MacOSSetupModel):
+    diagnostic_ref: str
+    label: str
+    status: MacOSSetupDiagnosticStatus
+    safe_summary: str
+    source_refs: list[str]
+    reason_codes: list[str]
+    next_safe_action: str
+    read_only: bool = True
+    live_probe_performed: bool = False
+    state_change_performed: bool = False
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> Any:
+        _validate_ref(self.diagnostic_ref, "diagnostic_ref")
+        _validate_ref(self.next_safe_action, "next_safe_action")
+        _validate_safe_text(self.label, "label", 120)
+        _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
+        self.source_refs = _validate_ref_list(self.source_refs, "source_ref")
+        self.reason_codes = _validate_ref_list(self.reason_codes, "reason_code")
+        if not self.read_only:
+            raise ValueError("MACOS_SETUP_DIAGNOSTIC_READ_ONLY_REQUIRED")
+        if self.live_probe_performed:
+            raise ValueError("MACOS_SETUP_DIAGNOSTIC_LIVE_PROBE_DENIED")
+        if self.state_change_performed:
+            raise ValueError("MACOS_SETUP_DIAGNOSTIC_STATE_CHANGE_DENIED")
+        return self
+
+
 class MacOSSetupReceiptPlan(_MacOSSetupModel):
     receipt_plan_ref: str = "macos-setup-receipt-plan:foundation"
     audit_ref: str = "macos-setup-audit:foundation"
@@ -612,8 +647,22 @@ class MacOSSetupReceiptPlan(_MacOSSetupModel):
 class MacOSSetupRollbackPlan(_MacOSSetupModel):
     rollback_plan_ref: str = "macos-setup-rollback-plan:foundation"
     uninstall_ref: str = "macos-setup-uninstall:foundation"
-    safe_summary: str = "Rollback is represented as planned refs only until a reviewed installer milestone exists."
-    rollback_available_after_approval: bool = True
+    safe_summary: str = (
+        "Rollback has contract refs only; approval alone cannot make rollback "
+        "executable without a separately accepted mutation lane and rehearsal proof."
+    )
+    rollback_available_after_approval: bool = False
+    rollback_contract_defined: bool = True
+    rollback_execution_available: bool = False
+    rollback_rehearsal_completed: bool = False
+    restore_proof_available: bool = False
+    blocked_reason_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-ref:macos-setup-rollback-authority-missing",
+            "blocked-ref:macos-setup-rollback-rehearsal-missing",
+        ]
+    )
+    next_safe_action: str = "define-and-rehearse-exact-rollback-lane"
     rollback_executed: bool = False
     launch_agent_removed: bool = False
     model_files_removed: bool = False
@@ -624,10 +673,22 @@ class MacOSSetupRollbackPlan(_MacOSSetupModel):
         for value, field_name in [
             (self.rollback_plan_ref, "rollback_plan_ref"),
             (self.uninstall_ref, "uninstall_ref"),
+            (self.next_safe_action, "next_safe_action"),
         ]:
             _validate_ref(value, field_name)
+        self.blocked_reason_refs = _validate_ref_list(
+            self.blocked_reason_refs,
+            "blocked_reason_ref",
+        )
         _validate_safe_text(self.safe_summary, "safe_summary", MAX_DETAIL_PREVIEW_CHARS)
+        if self.rollback_available_after_approval:
+            raise ValueError("MACOS_SETUP_ROLLBACK_APPROVAL_ALONE_DENIED")
+        if not self.rollback_contract_defined:
+            raise ValueError("MACOS_SETUP_ROLLBACK_CONTRACT_REQUIRED")
         for field_name, reason in [
+            ("rollback_execution_available", "MACOS_SETUP_ROLLBACK_EXECUTION_AVAILABLE_DENIED"),
+            ("rollback_rehearsal_completed", "MACOS_SETUP_ROLLBACK_REHEARSAL_CLAIM_DENIED"),
+            ("restore_proof_available", "MACOS_SETUP_ROLLBACK_RESTORE_PROOF_CLAIM_DENIED"),
             ("rollback_executed", "MACOS_SETUP_ROLLBACK_EXECUTION_DENIED"),
             ("launch_agent_removed", "MACOS_SETUP_LAUNCH_AGENT_MUTATION_DENIED"),
             ("model_files_removed", "MACOS_SETUP_MODEL_FILE_MUTATION_DENIED"),
@@ -693,6 +754,7 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
         min_length=1,
     )
     lifecycle: MacOSSetupLifecycleContract
+    diagnostics: list[MacOSSetupDiagnostic]
     native_macos_app_ready: bool = False
     control_center_preview_ready: bool = True
     setup_question_assistant_enabled: bool = False
@@ -748,6 +810,8 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
                 raise ValueError(reason)
         if not self.steps:
             raise ValueError("MACOS_SETUP_STEPS_REQUIRED")
+        if not self.diagnostics:
+            raise ValueError("MACOS_SETUP_DIAGNOSTICS_REQUIRED")
         if not self.model_recommendations:
             raise ValueError("MACOS_SETUP_MODEL_RECOMMENDATIONS_REQUIRED")
         _validate_approval_envelope_step_bindings(self.steps, self.approval_envelopes)

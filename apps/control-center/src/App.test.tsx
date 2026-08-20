@@ -16322,8 +16322,8 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("ready_to_install")).toBeInTheDocument();
     expect(screen.getByText("rollback_required")).toBeInTheDocument();
     expect(
-      screen.getByText("repo-local-command:macos-setup-lifecycle"),
-    ).toBeInTheDocument();
+      screen.getAllByText("repo-local-command:macos-setup-lifecycle").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("python-core-service:macos-setup-lifecycle"),
     ).toBeInTheDocument();
@@ -16450,8 +16450,8 @@ describe("Web Control Center shell", () => {
       screen.getByText(/macos-setup-receipt-plan:foundation/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/macos-setup-rollback-plan:foundation/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/macos-setup-rollback-plan:foundation/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/OpenWebUI bridge/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/Mattermost Agent Rooms/i).length,
@@ -19488,8 +19488,8 @@ describe("Web Control Center shell", () => {
     expect(await screen.findByText("Backend online")).toBeInTheDocument();
     expect(screen.getByText("Backend API setup timeline")).toBeInTheDocument();
     expect(
-      screen.getByText("control-center:setup-assistant-api-test"),
-    ).toBeInTheDocument();
+      screen.getAllByText("control-center:setup-assistant-api-test").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("macos-setup-approval-envelope:api-summary").length,
     ).toBeGreaterThan(0);
@@ -19505,6 +19505,13 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("loop-ref:setup-to-daily-loop:v1"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Setup readiness diagnostics")).toBeInTheDocument();
+    expect(screen.getByText("API plan diagnostic")).toBeInTheDocument();
+    expect(screen.getByText("API native application diagnostic")).toBeInTheDocument();
+    expect(screen.getByText("API rollback diagnostic")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("define-and-rehearse-exact-rollback-lane").length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows degraded local backend state when only part of the read set succeeds", async () => {
@@ -22555,6 +22562,44 @@ const mockApiData = {
       "promotion-path-ref:setup:local-rehearsal-receipt",
       "promotion-path-ref:setup:exact-approved-mutation-pr",
     ],
+    diagnostics: [
+      {
+        diagnostic_ref: "macos-setup-diagnostic:api-plan",
+        label: "API plan diagnostic",
+        status: "ready",
+        safe_summary: "Backend setup plan is ready for read-only inspection.",
+        source_refs: ["api-surface:control-center-setup-summary"],
+        reason_codes: ["MACOS_SETUP_READ_ONLY_PLAN_READY"],
+        next_safe_action: "inspect-setup-plan",
+        read_only: true,
+        live_probe_performed: false,
+        state_change_performed: false,
+      },
+      {
+        diagnostic_ref: "macos-setup-diagnostic:api-native-app",
+        label: "API native application diagnostic",
+        status: "missing",
+        safe_summary: "Native macOS application remains missing.",
+        source_refs: ["control-center:setup-assistant-api-test"],
+        reason_codes: ["MACOS_SETUP_NATIVE_APP_MISSING"],
+        next_safe_action: "review-native-shell-scope",
+        read_only: true,
+        live_probe_performed: false,
+        state_change_performed: false,
+      },
+      {
+        diagnostic_ref: "macos-setup-diagnostic:api-rollback",
+        label: "API rollback diagnostic",
+        status: "blocked",
+        safe_summary: "Rollback execution and proof remain blocked.",
+        source_refs: ["macos-setup-rollback-plan:api-test"],
+        reason_codes: ["MACOS_SETUP_ROLLBACK_AUTHORITY_MISSING"],
+        next_safe_action: "define-and-rehearse-exact-rollback-lane",
+        read_only: true,
+        live_probe_performed: false,
+        state_change_performed: false,
+      },
+    ],
     steps: [
       {
         step_id: "macos-setup-step:api-summary",
@@ -22649,8 +22694,16 @@ const mockApiData = {
     rollback_plan: {
       rollback_plan_ref: "macos-setup-rollback-plan:api-test",
       uninstall_ref: "macos-setup-uninstall:api-test",
-      safe_summary: "Rollback preview only.",
-      rollback_available_after_approval: true,
+      safe_summary: "Rollback refs exist, but execution remains blocked.",
+      rollback_available_after_approval: false,
+      rollback_contract_defined: true,
+      rollback_execution_available: false,
+      rollback_rehearsal_completed: false,
+      restore_proof_available: false,
+      blocked_reason_refs: [
+        "blocked-ref:macos-setup-rollback-authority-missing",
+      ],
+      next_safe_action: "define-and-rehearse-exact-rollback-lane",
       rollback_executed: false,
     },
     blocked_capabilities: ["macos-setup-model-download"],

@@ -270,6 +270,66 @@ describe("macOS Setup Assistant normalization provenance", () => {
     });
   });
 
+  it("fails closed on tampered setup diagnostic side-effect claims", () => {
+    const normalized = normalizeMacOSSetupAssistant(
+      {
+        diagnostics: [
+          {
+            diagnostic_ref: "macos-setup-diagnostic:tampered",
+            label: "Tampered diagnostic",
+            status: "ready",
+            safe_summary: "Untrusted diagnostic payload.",
+            source_refs: ["api-surface:control-center-setup-summary"],
+            reason_codes: ["MACOS_SETUP_TAMPERED_DIAGNOSTIC"],
+            next_safe_action: "inspect-setup-plan",
+            read_only: false,
+            live_probe_performed: true,
+            state_change_performed: true,
+          },
+        ],
+      },
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value.diagnostics[0]).toMatchObject({
+      readOnly: true,
+      liveProbePerformed: false,
+      stateChangePerformed: false,
+    });
+  });
+
+  it("fails closed on tampered rollback readiness claims", () => {
+    const normalized = normalizeMacOSSetupAssistant(
+      {
+        rollback_plan: {
+          rollback_plan_ref: "macos-setup-rollback-plan:tampered",
+          uninstall_ref: "macos-setup-uninstall:tampered",
+          safe_summary: "Untrusted rollback payload.",
+          rollback_available_after_approval: true,
+          rollback_contract_defined: true,
+          rollback_execution_available: true,
+          rollback_rehearsal_completed: true,
+          restore_proof_available: true,
+          blocked_reason_refs: ["blocked-ref:macos-setup-rollback-test"],
+          next_safe_action: "inspect-setup-plan",
+          rollback_executed: true,
+        },
+      },
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value.rollbackPlan).toMatchObject({
+      rollbackAvailableAfterApproval: false,
+      rollbackContractDefined: true,
+      rollbackExecutionAvailable: false,
+      rollbackRehearsalCompleted: false,
+      restoreProofAvailable: false,
+      rollbackExecuted: false,
+    });
+  });
+
   it.each(["plan", "status", "receipts"] as const)(
     "pins %s lifecycle inspection to passive proof flags",
     (operationName) => {

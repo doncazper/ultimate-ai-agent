@@ -25543,6 +25543,69 @@ export const mockControlCenterData: ControlCenterData = {
       "promotion-path-ref:setup:exact-approved-mutation-pr",
     ],
     lifecycle: mockMacOSSetupLifecycle,
+    diagnostics: [
+      {
+        diagnosticRef: "macos-setup-diagnostic:read-only-plan",
+        label: "Read-only setup plan",
+        status: "ready",
+        safeSummary:
+          "The backend-owned plan, lifecycle contract, and bounded preview are ready for local inspection.",
+        sourceRefs: [
+          "api-surface:control-center-setup-summary",
+          "repo-local-command:macos-setup-lifecycle",
+        ],
+        reasonCodes: ["MACOS_SETUP_READ_ONLY_PLAN_READY"],
+        nextSafeAction: "inspect-setup-plan",
+        readOnly: true,
+        liveProbePerformed: false,
+        stateChangePerformed: false,
+      },
+      {
+        diagnosticRef: "macos-setup-diagnostic:native-app",
+        label: "Native macOS application",
+        status: "missing",
+        safeSummary:
+          "A native macOS application is not implemented; the current Control Center surface is a local read-only preview.",
+        sourceRefs: ["control-center:setup-assistant-preview"],
+        reasonCodes: ["MACOS_SETUP_NATIVE_APP_MISSING"],
+        nextSafeAction: "review-native-shell-scope",
+        readOnly: true,
+        liveProbePerformed: false,
+        stateChangePerformed: false,
+      },
+      {
+        diagnosticRef: "macos-setup-diagnostic:live-health-proof",
+        label: "Live health proof",
+        status: "blocked",
+        safeSummary:
+          "Live checks remain blocked because this lane cannot run probes.",
+        sourceRefs: ["health-contract:macos-setup-lifecycle-v1"],
+        reasonCodes: ["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
+        nextSafeAction: "scope-read-only-health-probe-authority",
+        readOnly: true,
+        liveProbePerformed: false,
+        stateChangePerformed: false,
+      },
+      {
+        diagnosticRef: "macos-setup-diagnostic:rollback-proof",
+        label: "Rollback readiness",
+        status: "blocked",
+        safeSummary:
+          "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked.",
+        sourceRefs: [
+          "macos-setup-rollback-plan:foundation",
+          "rollback-contract:macos-setup-lifecycle-v1",
+        ],
+        reasonCodes: [
+          "MACOS_SETUP_ROLLBACK_AUTHORITY_MISSING",
+          "MACOS_SETUP_ROLLBACK_REHEARSAL_MISSING",
+        ],
+        nextSafeAction: "define-and-rehearse-exact-rollback-lane",
+        readOnly: true,
+        liveProbePerformed: false,
+        stateChangePerformed: false,
+      },
+    ],
     steps: [
       {
         stepId: "macos-setup-step:first-launch",
@@ -26014,8 +26077,17 @@ export const mockControlCenterData: ControlCenterData = {
       rollbackPlanRef: "macos-setup-rollback-plan:foundation",
       uninstallRef: "macos-setup-uninstall:foundation",
       safeSummary:
-        "Rollback is represented as planned refs only until a reviewed installer milestone exists.",
-      rollbackAvailableAfterApproval: true,
+        "Rollback has contract refs only; approval alone cannot make rollback executable without a separately accepted mutation lane and rehearsal proof.",
+      rollbackAvailableAfterApproval: false,
+      rollbackContractDefined: true,
+      rollbackExecutionAvailable: false,
+      rollbackRehearsalCompleted: false,
+      restoreProofAvailable: false,
+      blockedReasonRefs: [
+        "blocked-ref:macos-setup-rollback-authority-missing",
+        "blocked-ref:macos-setup-rollback-rehearsal-missing",
+      ],
+      nextSafeAction: "define-and-rehearse-exact-rollback-lane",
       rollbackExecuted: false,
     },
     blockedCapabilities: [

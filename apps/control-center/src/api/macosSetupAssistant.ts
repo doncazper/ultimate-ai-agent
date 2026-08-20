@@ -4,6 +4,7 @@ import type {
   MacOSSetupApprovalEnvelope,
   MacOSSetupBridgePreview,
   MacOSSetupHealthContract,
+  MacOSSetupDiagnostic,
   MacOSSetupLifecycleContract,
   MacOSSetupLifecycleOperation,
   MacOSSetupLifecycleOperationName,
@@ -81,6 +82,7 @@ function normalizeMacOSSetupAssistantValue(
   const recommendations = recordsValue(value, "model_recommendations");
   const bridges = recordsValue(value, "bridge_previews");
   const envelopes = recordsValue(value, "approval_envelopes");
+  const diagnostics = recordsValue(value, "diagnostics");
   return {
     planRef: stringValue(value, "plan_ref", fallback.planRef),
     status: setupStatusValue(value, "status", fallback.status),
@@ -156,6 +158,15 @@ function normalizeMacOSSetupAssistantValue(
       recordValue(value, "lifecycle"),
       fallback.lifecycle,
     ),
+    diagnostics:
+      diagnostics.length > 0
+        ? diagnostics.map((diagnostic, index) =>
+            normalizeMacOSSetupDiagnostic(
+              diagnostic,
+              fallbackItem(fallback.diagnostics, index),
+            ),
+          )
+        : fallback.diagnostics,
     steps:
       steps.length > 0
         ? steps.map((step, index) =>
@@ -208,6 +219,36 @@ function normalizeMacOSSetupAssistantValue(
       "morning_review_checklist",
       fallback.morningReviewChecklist,
     ),
+  };
+}
+
+function normalizeMacOSSetupDiagnostic(
+  value: Record<string, unknown>,
+  fallback: MacOSSetupDiagnostic,
+): MacOSSetupDiagnostic {
+  const status = stringValue(value, "status", fallback.status);
+  return {
+    diagnosticRef: stringValue(
+      value,
+      "diagnostic_ref",
+      fallback.diagnosticRef,
+    ),
+    label: stringValue(value, "label", fallback.label),
+    status:
+      status === "ready" || status === "missing" || status === "blocked"
+        ? status
+        : fallback.status,
+    safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
+    sourceRefs: stringArrayValue(value, "source_refs", fallback.sourceRefs),
+    reasonCodes: stringArrayValue(value, "reason_codes", fallback.reasonCodes),
+    nextSafeAction: stringValue(
+      value,
+      "next_safe_action",
+      fallback.nextSafeAction,
+    ),
+    readOnly: true,
+    liveProbePerformed: false,
+    stateChangePerformed: false,
   };
 }
 
@@ -827,16 +868,26 @@ function normalizeMacOSSetupRollbackPlan(
     ),
     uninstallRef: stringValue(value, "uninstall_ref", fallback.uninstallRef),
     safeSummary: stringValue(value, "safe_summary", fallback.safeSummary),
-    rollbackAvailableAfterApproval: booleanValue(
+    rollbackAvailableAfterApproval: false,
+    rollbackContractDefined: booleanValue(
       value,
-      "rollback_available_after_approval",
-      fallback.rollbackAvailableAfterApproval,
+      "rollback_contract_defined",
+      fallback.rollbackContractDefined,
     ),
-    rollbackExecuted: booleanValue(
+    rollbackExecutionAvailable: false,
+    rollbackRehearsalCompleted: false,
+    restoreProofAvailable: false,
+    blockedReasonRefs: stringArrayValue(
       value,
-      "rollback_executed",
-      fallback.rollbackExecuted,
+      "blocked_reason_refs",
+      fallback.blockedReasonRefs,
     ),
+    nextSafeAction: stringValue(
+      value,
+      "next_safe_action",
+      fallback.nextSafeAction,
+    ),
+    rollbackExecuted: false,
   };
 }
 

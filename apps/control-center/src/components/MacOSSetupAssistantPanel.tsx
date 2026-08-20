@@ -26,6 +26,13 @@ export function MacOSSetupAssistantPanel({
       envelope,
     ]),
   );
+  const diagnosticCounts = setup.diagnostics.reduce(
+    (counts, diagnostic) => ({
+      ...counts,
+      [diagnostic.status]: counts[diagnostic.status] + 1,
+    }),
+    { ready: 0, missing: 0, blocked: 0 },
+  );
 
   return (
     <section className="page-section" aria-labelledby="macos-setup-heading">
@@ -36,6 +43,65 @@ export function MacOSSetupAssistantPanel({
         </div>
         <span className="status-pill">{setup.status}</span>
       </div>
+
+      <article className="panel setup-diagnostics-panel">
+        <div className="panel-heading">
+          <h3>Setup readiness diagnostics</h3>
+          <span>read-only</span>
+        </div>
+        <p>
+          Backend-owned diagnostics distinguish what is ready, what is missing,
+          and what remains blocked without running probes or changing setup
+          state.
+        </p>
+        <div className="setup-summary-grid" aria-label="Setup diagnostic counts">
+          <div className="setup-flag" role="status">
+            <span>Ready</span>
+            <strong>{diagnosticCounts.ready}</strong>
+          </div>
+          <div className="setup-flag" role="status">
+            <span>Missing</span>
+            <strong>{diagnosticCounts.missing}</strong>
+          </div>
+          <div className="setup-flag" role="status">
+            <span>Blocked</span>
+            <strong>{diagnosticCounts.blocked}</strong>
+          </div>
+        </div>
+        <div className="stacked-list">
+          {setup.diagnostics.map((diagnostic) => (
+            <article
+              className={`trace-row ${diagnostic.status}`}
+              key={diagnostic.diagnosticRef}
+            >
+              <div className="review-card-heading">
+                <h3>{diagnostic.label}</h3>
+                <span>{diagnostic.status}</span>
+              </div>
+              <p>{diagnostic.safeSummary}</p>
+              <dl className="metadata-list">
+                <div>
+                  <dt>Next safe action</dt>
+                  <dd>{diagnostic.nextSafeAction}</dd>
+                </div>
+                <div>
+                  <dt>Live probe</dt>
+                  <dd>
+                    {diagnostic.liveProbePerformed
+                      ? "performed"
+                      : "not performed"}
+                  </dd>
+                </div>
+              </dl>
+              <div className="note-list">
+                {diagnostic.sourceRefs.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </article>
       <p className="section-copy">
         Visual setup preview for a future native macOS first-launch flow. This
         surface shows planned setup state, bounded terminal-style details,
@@ -303,10 +369,51 @@ export function MacOSSetupAssistantPanel({
                 <dt>Uninstall ref</dt>
                 <dd>{setup.rollbackPlan.uninstallRef}</dd>
               </div>
+              <div>
+                <dt>Rollback contract</dt>
+                <dd>
+                  {setup.rollbackPlan.rollbackContractDefined
+                    ? "defined"
+                    : "missing"}
+                </dd>
+              </div>
+              <div>
+                <dt>Execution</dt>
+                <dd>
+                  {setup.rollbackPlan.rollbackExecutionAvailable
+                    ? "available"
+                    : "blocked"}
+                </dd>
+              </div>
+              <div>
+                <dt>Rehearsal proof</dt>
+                <dd>
+                  {setup.rollbackPlan.rollbackRehearsalCompleted
+                    ? "complete"
+                    : "missing"}
+                </dd>
+              </div>
+              <div>
+                <dt>Restore proof</dt>
+                <dd>
+                  {setup.rollbackPlan.restoreProofAvailable
+                    ? "available"
+                    : "missing"}
+                </dd>
+              </div>
+              <div>
+                <dt>Next safe action</dt>
+                <dd>{setup.rollbackPlan.nextSafeAction}</dd>
+              </div>
             </dl>
             <p className="safe-copy">
               {setup.receiptPlan.safeSummary} {setup.rollbackPlan.safeSummary}
             </p>
+            <div className="note-list" aria-label="Rollback blockers">
+              {setup.rollbackPlan.blockedReasonRefs.map((ref) => (
+                <span key={ref}>{ref}</span>
+              ))}
+            </div>
           </article>
         </div>
       </div>
