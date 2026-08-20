@@ -98,6 +98,13 @@ current/preview states, selectable attention detail, a real Briefing path, and
 explicit unavailable News and Business pulse states. Selection remains local
 presentation state; Add-to-Day-Plan, Ask UAA, and all new authority remain
 blocked.
+The Queue-of-Record V2 Q09 review-stage readability slice now connects each
+selected Action Inbox item to a compact Plan -> Action -> Decision -> Receipt
+path when the existing backend-owned Plans-to-Actions and decision-lane
+contracts agree on the exact envelope, scope, and expected receipts. Missing or
+authority-claiming links fail closed as unavailable, blocked authority remains
+readable, and the existing Python Core decision receipt controls retain their
+unchanged eligibility gates. This adds no React authority or policy bypass.
 The Queue03 Phase03 Setup lifecycle foundation now adds the complete typed
 state sequence and plan/status/install/verify/repair/stop/rollback/receipts
 contracts across Python Core, the existing Setup summary API, repo-local CLI,
