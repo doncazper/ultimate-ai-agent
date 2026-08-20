@@ -4,6 +4,8 @@ import copy
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts import verify_queue_v2_q10_parity_rebaseline as q10
 
 
@@ -91,6 +93,30 @@ def test_q10_rejects_source_path_traversal() -> None:
     assert any("evidence path is unsafe" in failure for failure in failures)
 
 
+@pytest.mark.parametrize("bad_ref", ["", "."])
+def test_q10_rejects_empty_or_directory_comparator_evidence(bad_ref: str) -> None:
+    payload = copy.deepcopy(_payload())
+    payload["comparison_sources"][0]["evidence_paths"][0] = bad_ref
+    payload["gap_rows"][0]["source_refs"][0] = f"hermes:{bad_ref}"
+
+    failures = q10.verify(payload=payload, check_refs=False)
+
+    assert any("evidence path is unsafe" in failure for failure in failures)
+    assert any("unpinned source ref" in failure for failure in failures)
+
+
+@pytest.mark.parametrize("bad_ref", ["", "."])
+def test_q10_rejects_empty_or_directory_uaa_evidence(bad_ref: str) -> None:
+    payload = copy.deepcopy(_payload())
+    payload["gap_rows"][0]["uaa_evidence_refs"][0] = bad_ref
+
+    failures = q10.verify(payload=payload, check_refs=True)
+
+    assert any(
+        "UAA evidence ref is missing or unsafe" in failure for failure in failures
+    )
+
+
 def test_q10_rejects_report_claim_without_source_ref() -> None:
     report = _report().replace("`openclaw:docs/cli/backup.md`; ", "", 1)
 
@@ -100,7 +126,9 @@ def test_q10_rejects_report_claim_without_source_ref() -> None:
 
 
 def test_q10_rejects_raw_local_path() -> None:
-    report = _report() + "\nEvidence captured under /Users/example/private-checkout.\n"
+    separator = chr(47)
+    sentinel = separator.join(("", "Users", "example", "private-checkout"))
+    report = _report() + f"\nEvidence captured under {sentinel}.\n"
 
     failures = q10.verify(report_text=report, check_refs=False)
 

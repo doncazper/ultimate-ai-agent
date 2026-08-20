@@ -9,7 +9,7 @@
   "comparison_sources": [
     {
       "source_id": "hermes",
-      "repository_url": "https://github.com/NousResearch/hermes-agent",
+      "repository_ref": "external-source-ref:hermes-agent:canonical-public-repository",
       "revision": "4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb",
       "commit_time": "2026-08-20T14:07:53-05:00",
       "evidence_paths": [
@@ -27,7 +27,7 @@
     },
     {
       "source_id": "openclaw",
-      "repository_url": "https://github.com/openclaw/openclaw",
+      "repository_ref": "external-source-ref:openclaw:canonical-public-repository",
       "revision": "15f33d9edc697cf879cce48e3a5f1f64e6493981",
       "commit_time": "2026-08-21T03:16:22+08:00",
       "evidence_paths": [

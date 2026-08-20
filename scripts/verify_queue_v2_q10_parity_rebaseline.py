@@ -27,9 +27,9 @@ EXPECTED_SOURCE_REVISIONS = {
     "hermes": "4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb",
     "openclaw": "15f33d9edc697cf879cce48e3a5f1f64e6493981",
 }
-EXPECTED_REPOSITORIES = {
-    "hermes": "https://github.com/NousResearch/hermes-agent",
-    "openclaw": "https://github.com/openclaw/openclaw",
+EXPECTED_REPOSITORY_REFS = {
+    "hermes": "external-source-ref:hermes-agent:canonical-public-repository",
+    "openclaw": "external-source-ref:openclaw:canonical-public-repository",
 }
 EXPECTED_GAPS = tuple(f"Q10-G{number:02d}" for number in range(1, 19))
 EXPECTED_DISPOSITIONS = {
@@ -102,14 +102,18 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _repo_path(ref: str) -> Path | None:
+    if not ref.strip():
+        return None
     pure = PurePosixPath(ref)
-    if pure.is_absolute() or ".." in pure.parts or "\\" in ref:
+    if not pure.parts or pure.is_absolute() or ".." in pure.parts or "\\" in ref:
         return None
     candidate = ROOT.joinpath(*pure.parts)
     try:
         resolved = candidate.resolve(strict=True)
         resolved.relative_to(ROOT.resolve())
     except (FileNotFoundError, RuntimeError, ValueError):
+        return None
+    if not resolved.is_file():
         return None
     return resolved
 
@@ -156,8 +160,8 @@ def verify(
             str(source.get("revision", ""))
         ):
             failures.append(f"{source_id} source revision drifted")
-        if source.get("repository_url") != EXPECTED_REPOSITORIES[source_id]:
-            failures.append(f"{source_id} repository URL drifted")
+        if source.get("repository_ref") != EXPECTED_REPOSITORY_REFS[source_id]:
+            failures.append(f"{source_id} repository safe ref drifted")
         evidence_paths = source.get("evidence_paths", [])
         if not isinstance(evidence_paths, list) or not evidence_paths:
             failures.append(f"{source_id} has no evidence path allowlist")
@@ -165,7 +169,14 @@ def verify(
             failures.append(f"{source_id} evidence paths are duplicated")
         for path in evidence_paths:
             pure = PurePosixPath(str(path))
-            if pure.is_absolute() or ".." in pure.parts or "\\" in str(path):
+            if (
+                not str(path).strip()
+                or not pure.parts
+                or pure.is_absolute()
+                or ".." in pure.parts
+                or "\\" in str(path)
+                or not pure.suffix
+            ):
                 failures.append(f"{source_id} evidence path is unsafe: {path}")
 
     if set(data.get("allowed_dispositions", [])) != ALLOWED_DISPOSITIONS:
@@ -230,8 +241,15 @@ def verify(
         for source_ref in source_refs:
             source_id, separator, path = str(source_ref).partition(":")
             source = source_by_id.get(source_id)
+            pure_path = PurePosixPath(path)
             if (
                 not separator
+                or not path.strip()
+                or not pure_path.parts
+                or pure_path.is_absolute()
+                or ".." in pure_path.parts
+                or "\\" in path
+                or not pure_path.suffix
                 or source is None
                 or path not in source.get("evidence_paths", [])
             ):

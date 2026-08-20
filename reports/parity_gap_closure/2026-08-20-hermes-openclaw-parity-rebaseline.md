@@ -15,15 +15,16 @@ record of its earlier repository state.
 
 ## Pinned Comparison Sources
 
-| Source | Exact revision | Commit time | Reproducible source view |
+| Source | Repository safe ref | Exact revision | Commit time |
 |---|---|---|---|
-| Hermes Agent | `4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb` | `2026-08-20T14:07:53-05:00` | [Hermes tree at the audited revision](https://github.com/NousResearch/hermes-agent/tree/4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb) |
-| OpenClaw | `15f33d9edc697cf879cce48e3a5f1f64e6493981` | `2026-08-21T03:16:22+08:00` | [OpenClaw tree at the audited revision](https://github.com/openclaw/openclaw/tree/15f33d9edc697cf879cce48e3a5f1f64e6493981) |
+| Hermes Agent | `external-source-ref:hermes-agent:canonical-public-repository` | `4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb` | `2026-08-20T14:07:53-05:00` |
+| OpenClaw | `external-source-ref:openclaw:canonical-public-repository` | `15f33d9edc697cf879cce48e3a5f1f64e6493981` | `2026-08-21T03:16:22+08:00` |
 
 Source refs in the ledger resolve as
 `<source-id>:<repository-relative-path>` against these exact revisions. The
-canonical JSON records the complete audited path allowlist. UAA refs resolve
-against the inventory-base commit above. Mutable repository home pages,
+canonical JSON records the complete audited file allowlist. UAA refs resolve
+against the inventory-base commit above. Raw host/account strings are not
+persisted in this durable evidence. Mutable repository home pages,
 marketing claims, plans, mocks, and unmerged branches do not upgrade UAA truth.
 
 ## Method And Finite Boundary
