@@ -4805,6 +4805,8 @@ export interface GovernedRuntimeControlMutationResult {
   safeMessage: string;
 }
 
+const GOVERNED_RUNTIME_MUTATION_METHOD = "POST" as const;
+
 async function governedRuntimeMutationIdempotencyRef(
   operation: string,
   payload: unknown,
@@ -4831,7 +4833,7 @@ async function postGovernedRuntimeControlMutation(
     request,
   );
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
-    method: "POST",
+    method: GOVERNED_RUNTIME_MUTATION_METHOD,
     headers: withLocalApiAuthHeaders(
       withBackendTruthMutationHeaders(
         {
