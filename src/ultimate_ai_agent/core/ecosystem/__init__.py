@@ -1,7 +1,8 @@
-"""ECO-000 coherent-app ecosystem contracts.
+"""Coherent-app ecosystem contracts and shared local-data foundation.
 
-This package defines additive planning and acceptance vocabulary. It does not
-provide repositories, routes, connector runtime, execution, or authority.
+The package provides additive planning vocabulary plus the ECO-001 encrypted
+repository primitive. It does not provide routes, connector runtime, external
+execution, or authority.
 """
 
 from ultimate_ai_agent.core.ecosystem.contracts import (
@@ -40,12 +41,36 @@ from ultimate_ai_agent.core.ecosystem.ownership import (
     canonical_owner_for,
     validate_unique_canonical_ownership,
 )
+from ultimate_ai_agent.core.ecosystem.local_data import (
+    ECO_LOCAL_DATA_SCHEMA_REF,
+    ECO_LOCAL_DATA_SCHEMA_VERSION,
+    ArchiveRecord,
+    BackupReceipt,
+    DeleteRecord,
+    EcosystemConflict,
+    EcosystemKeyUnavailable,
+    EcosystemLocalDataError,
+    EcosystemLocalDataPlatform,
+    InMemoryLocalDataCryptoBackend,
+    IntegrityReport,
+    JsonCompatibilityReader,
+    LocalDataCryptoBackend,
+    LocalRecord,
+    MigrationPreview,
+    PutRecord,
+    RestorePreview,
+    UnitOfWorkReceipt,
+)
 
 __all__ = [
     "ECO_000_CONTRACT_VERSION",
+    "ECO_LOCAL_DATA_SCHEMA_REF",
+    "ECO_LOCAL_DATA_SCHEMA_VERSION",
     "AppId",
+    "ArchiveRecord",
     "AtomicityPosture",
     "BoardProjection",
+    "BackupReceipt",
     "CardSubject",
     "CANONICAL_OWNER_BY_ENTITY_KIND",
     "CANONICAL_OWNERSHIP_REGISTRY",
@@ -62,15 +87,29 @@ __all__ = [
     "EntityLink",
     "EntityLinkKind",
     "EntityVersion",
+    "DeleteRecord",
+    "EcosystemConflict",
+    "EcosystemKeyUnavailable",
+    "EcosystemLocalDataError",
+    "EcosystemLocalDataPlatform",
+    "InMemoryLocalDataCryptoBackend",
+    "IntegrityReport",
+    "JsonCompatibilityReader",
+    "LocalDataCryptoBackend",
+    "LocalRecord",
+    "MigrationPreview",
     "OperationResultStatus",
     "PrivacyScope",
     "ProductAcceptanceStatus",
     "ProductRenderAcceptance",
     "Projection",
+    "PutRecord",
+    "RestorePreview",
     "RollbackPlan",
     "SourceProvenance",
     "StandaloneAppMaturity",
     "TimelineProjection",
+    "UnitOfWorkReceipt",
     "WorkspaceScope",
     "canonical_owner_for",
     "validate_unique_canonical_ownership",

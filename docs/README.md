@@ -270,6 +270,15 @@ render sets, cross-app workflows, connectors, AI proposals, exact writes,
 automation, collaboration, packaging, accessibility, performance, recovery,
 and dogfood gates. It grants no new runtime or production authority.
 
+The bounded ECO-001 implementation is documented in
+`docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md`. It accepts a
+generic encrypted SQLite repository primitive, atomic workspace-scoped units
+of work, blind-index search and rebuild, integrity checks, encrypted full
+backup and restore preview, restore-to-new, archive/delete, and read-only
+legacy JSON inventory preview. It does not select a production Keychain
+backend, cut over any existing store, add routes or UI, enable cloud sync, or
+grant external/background/production authority.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

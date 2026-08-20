@@ -1,7 +1,7 @@
 # ADR-0056: Shared Local Application Data Platform Direction
 
-Status: Direction accepted; dependency and implementation selection deferred to
-ECO-001.
+Status: Accepted for the bounded ECO-001 foundation; production key backend and
+application cutovers remain deferred.
 
 ## Decision
 
@@ -10,11 +10,15 @@ module-owned schemas, explicit migrations, referential integrity, versioned
 projections, a unit of work, workspace/sensitivity metadata, search rebuild,
 backup/restore, archive/delete, and a distinct redacted governance plane.
 
-SQLite is the architectural baseline because UAA already uses local SQLite,
-but ECO-000 does not select an encryption package, key backend, ORM, migration
-framework, or search extension.
+SQLite remains the architectural baseline. ECO-001 selects application-layer
+AES-GCM envelopes, injected keys, and workspace-keyed blind indexes for the
+shared primitive. It adds no ORM or search extension. The production macOS key
+backend remains unselected; the included in-memory backend is test-only.
 
-## Required proof before selection
+The accepted implementation and its bounded non-goals are recorded in
+`docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md`.
+
+## Proof required before production or application cutover
 
 - macOS-first key lifecycle: create, unlock, rotate, revoke, recover, and lose.
 - Encryption of database, WAL, journal, temporary files, indexes, and backups.
