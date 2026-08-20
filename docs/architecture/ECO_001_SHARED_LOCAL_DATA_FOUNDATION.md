@@ -7,23 +7,30 @@ Status: accepted bounded foundation on 2026-08-20.
 ECO-001 selects application-layer authenticated encryption over SQLite for the
 first shared application-data primitive. `EcosystemLocalDataPlatform` supplies:
 
-- an explicit versioned schema and fail-closed future-schema check;
+- an explicit versioned schema with column, primary-key, foreign-key, and
+  constraint-shape validation plus a fail-closed future-schema check;
 - module-owned record metadata and workspace-scoped private payloads;
 - injected key lifecycle with create, probe, rotation, loss, and locked states;
 - AES-GCM private-value envelopes whose associated data binds workspace,
   record, key version, and record version;
 - workspace-keyed blind-index search with deterministic rebuild;
-- optimistic version conflicts, exact idempotency replay, and atomic local
+- exact `LocalApprovalAuthority` validation for every exposed write primitive,
+  with action, resource, subject, risk, and classification scope checked before
+  mutation;
+- optimistic version conflicts, permanent deletion tombstones, encrypted
+  replay material, workspace-keyed request fingerprints, and atomic local
   change sets of at most 64 operations;
 - archive and exact delete primitives that remove private ciphertext and search
   entries in the same local transaction;
 - read-only retention candidate selection limited to records that are both
   archived and expired, with deletion remaining a separate exact operation;
-- SQLite and reference-integrity inspection;
-- encrypted full backup, authenticated restore preview, and restore to a new
-  destination without overwriting an existing store; and
-- a read-only legacy JSON inventory preview that records only a source
-  fingerprint and candidate count.
+- canonical UTC retention timestamps plus SQLite and deep encrypted-content,
+  replay-receipt, search-index, and reference-integrity inspection;
+- retry-safe key rotation with a durable pending-cleanup phase;
+- size-bounded encrypted full backup, deep authenticated restore preview, and
+  atomic no-replace restore to a new destination with directory durability; and
+- a size-bounded, read-only legacy JSON inventory preview that records only a
+  source fingerprint and candidate count.
 
 The SQLite governance plane stores safe references, hashes, versions, bounded
 timestamps, and status metadata. Private JSON and private search terms appear
@@ -33,18 +40,24 @@ in-memory backend is explicitly test-only and is not a macOS keychain claim.
 
 ## Transaction and recovery boundary
 
-A unit of work uses `BEGIN IMMEDIATE`, enforces one workspace, validates each
-record version, and persists its content-free operation receipts in the same
-commit. A conflicting idempotency replay or stale record version fails closed.
+A unit of work holds the local approval validation lock across the exact grant
+check and `BEGIN IMMEDIATE` transaction, enforces one workspace, validates each
+record version, and persists its approval-bound, content-free operation receipt
+in the same commit. Private request equality material is authenticated and
+encrypted; the visible replay fingerprint is keyed. A conflicting idempotency
+replay, stale version, or attempt to reuse a deleted record ref fails closed.
 Fault tests prove that an interruption after an intermediate operation rolls
 back the complete unit.
 
-Backups use SQLite's online backup API, run an integrity check, then encrypt the
-complete snapshot into an authenticated container before publication. Restore
-preview decrypts only into a temporary location and performs no cutover.
-Restore-to-new refuses an existing destination. Existing Founder Loop, Work
-Board, CRM, task receipt, evidence, memory, and connector stores remain their
-historical truth until separately previewed and accepted cutovers.
+Backups use SQLite's online backup API, validate schema shape, decrypt every
+private and replay envelope, and verify every blind-index token before
+encrypting the complete snapshot into an authenticated container. Backup and
+restore publication use atomic no-replace links and fsync the destination
+directory. Restore preview decrypts only into a temporary location and performs
+no cutover; restore-to-new authenticates and validates one in-memory snapshot
+before publishing those same bytes. Existing Founder Loop, Work Board, CRM,
+task receipt, evidence, memory, and connector stores remain their historical
+truth until separately previewed and accepted cutovers.
 
 ## Explicitly not accepted
 
@@ -70,7 +83,9 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_eco_001_local_data.py
 ```
 
 The focused suite covers ciphertext-at-rest, WAL posture, workspace isolation,
-locked and lost keys, atomic rollback, exact replay, stale conflicts,
-archive/delete, search rebuild, key rotation, backup corruption, restore
-preview, restore-to-new, unsupported schemas, ciphertext tampering, unsafe
+exact approval denial, locked and lost keys, atomic rollback, encrypted exact
+replay, stale conflicts, deletion tombstones, archive/delete, search rebuild,
+retry-safe key cleanup, canonical retention timestamps, deep backup integrity,
+backup and JSON size limits, single-open no-replace restore, directory fsync,
+schema-shape counterfeits, unsupported schemas, ciphertext tampering, unsafe
 governance refs, and read-only migration preview.

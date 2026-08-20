@@ -12,8 +12,13 @@ backup/restore, archive/delete, and a distinct redacted governance plane.
 
 SQLite remains the architectural baseline. ECO-001 selects application-layer
 AES-GCM envelopes, injected keys, and workspace-keyed blind indexes for the
-shared primitive. It adds no ORM or search extension. The production macOS key
-backend remains unselected; the included in-memory backend is test-only.
+shared primitive. Exact writes validate existing `LocalApprovalAuthority`
+grants before mutation; replay equality material is encrypted and visible
+fingerprints are keyed. Deleted record refs are tombstoned, key cleanup is
+retry-safe, and backup/restore runs the same deep integrity boundary with
+bounded, atomic no-replace publication. It adds no ORM or search extension. The
+production macOS key backend remains unselected; the included in-memory backend
+is test-only.
 
 The accepted implementation and its bounded non-goals are recorded in
 `docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md`.

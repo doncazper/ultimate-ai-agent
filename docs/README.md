@@ -273,9 +273,11 @@ and dogfood gates. It grants no new runtime or production authority.
 The bounded ECO-001 implementation is documented in
 `docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md`. It accepts a
 generic encrypted SQLite repository primitive, atomic workspace-scoped units
-of work, blind-index search and rebuild, integrity checks, encrypted full
-backup and restore preview, restore-to-new, archive/delete, and read-only
-legacy JSON inventory preview. It does not select a production Keychain
+of work behind exact local approval validation, encrypted replay equality,
+blind-index search and rebuild, deletion tombstones, deep integrity checks,
+encrypted size-bounded full backup and restore preview, atomic no-replace
+restore-to-new, archive/delete, and bounded read-only legacy JSON inventory
+preview. It does not select a production Keychain
 backend, cut over any existing store, add routes or UI, enable cloud sync, or
 grant external/background/production authority.
 

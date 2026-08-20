@@ -24,6 +24,8 @@ from typing import Any, Callable, Iterable, Literal, Protocol
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
+from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
 from ultimate_ai_agent.core.safe_contract_text import validate_safe_contract_text_shape
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
@@ -34,6 +36,7 @@ _BACKUP_MAGIC = b"UAA-ECO-LOCAL-BACKUP-V1\x00"
 _NONCE_BYTES = 12
 _MAX_PRIVATE_PAYLOAD_BYTES = 1024 * 1024
 _MAX_BACKUP_BYTES = 512 * 1024 * 1024
+_MAX_MIGRATION_SOURCE_BYTES = 64 * 1024 * 1024
 _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
@@ -245,6 +248,14 @@ class BackupReceipt:
 
 
 @dataclass(frozen=True)
+class KeyRotationReceipt:
+    receipt_ref: str
+    cleanup_ref: str
+    cleanup_pending: bool
+    replayed: bool = False
+
+
+@dataclass(frozen=True)
 class RestorePreview:
     backup_ref: str
     schema_ref: str
@@ -290,7 +301,25 @@ def _stable_ref(prefix: str, value: Any) -> str:
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
+
+
+def _canonical_utc_timestamp(
+    value: str, *, invalid_code: str, timezone_code: str
+) -> str:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(invalid_code) from exc
+    if parsed.tzinfo is None:
+        raise ValueError(timezone_code)
+    return (
+        parsed.astimezone(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _normalized_terms(terms: Iterable[str]) -> tuple[str, ...]:
@@ -319,6 +348,40 @@ def _record_aad(
     )
 
 
+def _receipt_aad(
+    *, workspace_ref: str, idempotency_ref: str, key_version_ref: str
+) -> bytes:
+    return _canonical_json(
+        {
+            "schema_ref": ECO_LOCAL_DATA_SCHEMA_REF,
+            "workspace_ref": workspace_ref,
+            "idempotency_ref": idempotency_ref,
+            "key_version_ref": key_version_ref,
+            "envelope_ref": "envelope-ref:ecosystem-uow-request:v1",
+        }
+    )
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _publish_new_file(stage: Path, destination: Path, *, exists_code: str) -> None:
+    """Atomically publish a complete staged file without replacing any target."""
+
+    try:
+        os.link(stage, destination, follow_symlinks=False)
+    except FileExistsError as exc:
+        raise EcosystemConflict(exists_code) from exc
+    _fsync_directory(destination.parent)
+    stage.unlink()
+    _fsync_directory(destination.parent)
+
+
 class EcosystemLocalDataPlatform:
     """Versioned SQLite data plane with an encrypted private-value boundary."""
 
@@ -327,6 +390,7 @@ class EcosystemLocalDataPlatform:
         *,
         database_path: Path,
         crypto_backend: LocalDataCryptoBackend,
+        approval_authority: LocalApprovalAuthority,
         fault_hook: Callable[[str], None] | None = None,
     ) -> None:
         if not database_path.is_absolute() or database_path == Path(
@@ -335,6 +399,7 @@ class EcosystemLocalDataPlatform:
             raise ValueError("ECO_DATABASE_PATH_UNSAFE")
         self.database_path = database_path
         self.crypto_backend = crypto_backend
+        self.approval_authority = approval_authority
         self._fault_hook = fault_hook
         database_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._initialize()
@@ -399,10 +464,30 @@ class EcosystemLocalDataPlatform:
                         workspace_ref TEXT NOT NULL,
                         idempotency_ref TEXT NOT NULL,
                         request_fingerprint_ref TEXT NOT NULL,
+                        key_version_ref TEXT NOT NULL,
+                        request_ciphertext BLOB NOT NULL,
+                        approval_ref TEXT NOT NULL,
                         receipt_ref TEXT NOT NULL,
                         operation_receipt_refs_json TEXT NOT NULL,
                         created_at TEXT NOT NULL,
                         PRIMARY KEY (workspace_ref, idempotency_ref),
+                        FOREIGN KEY (workspace_ref) REFERENCES eco_workspaces(workspace_ref)
+                    );
+                    CREATE TABLE IF NOT EXISTS eco_record_tombstones (
+                        workspace_ref TEXT NOT NULL,
+                        record_ref TEXT NOT NULL,
+                        deleted_version INTEGER NOT NULL CHECK(deleted_version >= 1),
+                        deleted_at TEXT NOT NULL,
+                        PRIMARY KEY (workspace_ref, record_ref),
+                        FOREIGN KEY (workspace_ref) REFERENCES eco_workspaces(workspace_ref)
+                    );
+                    CREATE TABLE IF NOT EXISTS eco_key_cleanup (
+                        workspace_ref TEXT NOT NULL,
+                        old_key_version_ref TEXT NOT NULL,
+                        new_key_version_ref TEXT NOT NULL,
+                        cleanup_ref TEXT NOT NULL UNIQUE,
+                        completed_at TEXT,
+                        PRIMARY KEY (workspace_ref, old_key_version_ref, new_key_version_ref),
                         FOREIGN KEY (workspace_ref) REFERENCES eco_workspaces(workspace_ref)
                     );
                     CREATE TABLE IF NOT EXISTS eco_events (
@@ -443,8 +528,10 @@ class EcosystemLocalDataPlatform:
         required_tables = {
             "eco_events",
             "eco_records",
+            "eco_record_tombstones",
             "eco_schema_migrations",
             "eco_search_tokens",
+            "eco_key_cleanup",
             "eco_uow_receipts",
             "eco_workspaces",
         }
@@ -456,6 +543,120 @@ class EcosystemLocalDataPlatform:
         }
         if not required_tables.issubset(actual_tables):
             raise EcosystemLocalDataError("ECO_SCHEMA_INCOMPLETE")
+        expected_columns = {
+            "eco_workspaces": (
+                ("workspace_ref", "TEXT", 0, 1),
+                ("key_item_ref", "TEXT", 1, 0),
+                ("key_version_ref", "TEXT", 1, 0),
+                ("created_at", "TEXT", 1, 0),
+            ),
+            "eco_schema_migrations": (
+                ("schema_version", "INTEGER", 0, 1),
+                ("schema_ref", "TEXT", 1, 0),
+                ("applied_at", "TEXT", 1, 0),
+            ),
+            "eco_records": (
+                ("workspace_ref", "TEXT", 1, 1),
+                ("module_ref", "TEXT", 1, 0),
+                ("record_ref", "TEXT", 1, 2),
+                ("record_kind_ref", "TEXT", 1, 0),
+                ("safe_summary_ref", "TEXT", 1, 0),
+                ("version", "INTEGER", 1, 0),
+                ("key_version_ref", "TEXT", 1, 0),
+                ("ciphertext", "BLOB", 1, 0),
+                ("archived", "INTEGER", 1, 0),
+                ("retention_ref", "TEXT", 1, 0),
+                ("expires_at", "TEXT", 0, 0),
+                ("updated_at", "TEXT", 1, 0),
+            ),
+            "eco_search_tokens": (
+                ("workspace_ref", "TEXT", 1, 1),
+                ("record_ref", "TEXT", 1, 2),
+                ("token_hash", "TEXT", 1, 3),
+            ),
+            "eco_uow_receipts": (
+                ("workspace_ref", "TEXT", 1, 1),
+                ("idempotency_ref", "TEXT", 1, 2),
+                ("request_fingerprint_ref", "TEXT", 1, 0),
+                ("key_version_ref", "TEXT", 1, 0),
+                ("request_ciphertext", "BLOB", 1, 0),
+                ("approval_ref", "TEXT", 1, 0),
+                ("receipt_ref", "TEXT", 1, 0),
+                ("operation_receipt_refs_json", "TEXT", 1, 0),
+                ("created_at", "TEXT", 1, 0),
+            ),
+            "eco_events": (
+                ("event_ref", "TEXT", 0, 1),
+                ("workspace_ref", "TEXT", 1, 0),
+                ("record_ref", "TEXT", 1, 0),
+                ("operation_ref", "TEXT", 1, 0),
+                ("event_kind_ref", "TEXT", 1, 0),
+                ("version", "INTEGER", 1, 0),
+                ("created_at", "TEXT", 1, 0),
+            ),
+            "eco_record_tombstones": (
+                ("workspace_ref", "TEXT", 1, 1),
+                ("record_ref", "TEXT", 1, 2),
+                ("deleted_version", "INTEGER", 1, 0),
+                ("deleted_at", "TEXT", 1, 0),
+            ),
+            "eco_key_cleanup": (
+                ("workspace_ref", "TEXT", 1, 1),
+                ("old_key_version_ref", "TEXT", 1, 2),
+                ("new_key_version_ref", "TEXT", 1, 3),
+                ("cleanup_ref", "TEXT", 1, 0),
+                ("completed_at", "TEXT", 0, 0),
+            ),
+        }
+        for table, expected in expected_columns.items():
+            actual = tuple(
+                (row[1], row[2].upper(), row[3], row[5])
+                for row in connection.execute(f"PRAGMA table_info({table})")
+            )
+            if actual != expected:
+                raise EcosystemLocalDataError("ECO_SCHEMA_SHAPE_INVALID")
+        expected_foreign_keys = {
+            "eco_records": {
+                ("workspace_ref", "workspace_ref", "eco_workspaces", "NO ACTION")
+            },
+            "eco_search_tokens": {
+                ("workspace_ref", "workspace_ref", "eco_records", "CASCADE"),
+                ("record_ref", "record_ref", "eco_records", "CASCADE"),
+            },
+            "eco_uow_receipts": {
+                ("workspace_ref", "workspace_ref", "eco_workspaces", "NO ACTION")
+            },
+            "eco_events": {
+                ("workspace_ref", "workspace_ref", "eco_workspaces", "NO ACTION")
+            },
+            "eco_record_tombstones": {
+                ("workspace_ref", "workspace_ref", "eco_workspaces", "NO ACTION")
+            },
+            "eco_key_cleanup": {
+                ("workspace_ref", "workspace_ref", "eco_workspaces", "NO ACTION")
+            },
+        }
+        for table, expected in expected_foreign_keys.items():
+            actual = {
+                (row[3], row[4], row[2], row[6])
+                for row in connection.execute(f"PRAGMA foreign_key_list({table})")
+            }
+            if actual != expected:
+                raise EcosystemLocalDataError("ECO_SCHEMA_SHAPE_INVALID")
+        constraint_fragments = {
+            "eco_records": ("CHECK(VERSION >= 1)", "CHECK(ARCHIVED IN (0, 1))"),
+            "eco_record_tombstones": ("CHECK(DELETED_VERSION >= 1)",),
+            "eco_workspaces": ("KEY_ITEM_REF TEXT NOT NULL UNIQUE",),
+            "eco_key_cleanup": ("CLEANUP_REF TEXT NOT NULL UNIQUE",),
+        }
+        for table, fragments in constraint_fragments.items():
+            row = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+                (table,),
+            ).fetchone()
+            normalized_sql = " ".join(str(row[0]).upper().split()) if row else ""
+            if any(fragment not in normalized_sql for fragment in fragments):
+                raise EcosystemLocalDataError("ECO_SCHEMA_SHAPE_INVALID")
         migration = connection.execute(
             "SELECT schema_ref FROM eco_schema_migrations WHERE schema_version = ?",
             (ECO_LOCAL_DATA_SCHEMA_VERSION,),
@@ -465,39 +666,82 @@ class EcosystemLocalDataPlatform:
         if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise EcosystemLocalDataError("ECO_REF_INTEGRITY_FAILED")
 
+    def _authorize(
+        self,
+        approval: ApprovalValidationRequest,
+        *,
+        action: str,
+        resource_refs: tuple[str, ...],
+    ) -> str:
+        if (
+            approval.requested_action != action
+            or set(approval.resource_refs) != set(resource_refs)
+            or approval.subject_type != "kernel_task"
+            or approval.risk_level != "high"
+            or approval.data_classification.classification != "user_private"
+        ):
+            raise EcosystemLocalDataError("ECO_APPROVAL_SCOPE_INVALID")
+        decision = self.approval_authority.validate(approval)
+        if not decision.allowed:
+            raise EcosystemLocalDataError("ECO_APPROVAL_REQUIRED")
+        return approval.approval_ref
+
     def create_workspace(
-        self, *, workspace_ref: str, key_version_ref: str = "key-version-ref:v1"
+        self,
+        *,
+        workspace_ref: str,
+        approval: ApprovalValidationRequest,
+        key_version_ref: str = "key-version-ref:v1",
     ) -> str:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(key_version_ref, field_name="key_version_ref")
         key_item_ref = _stable_ref("key-item-ref:ecosystem", workspace_ref)
-        receipt_ref = self.crypto_backend.create(
-            key_item_ref=key_item_ref, key_version_ref=key_version_ref
-        )
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT key_item_ref, key_version_ref FROM eco_workspaces WHERE workspace_ref = ?",
-                (workspace_ref,),
-            ).fetchone()
-            if row is None:
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action="ecosystem.local_data.create_workspace",
+                resource_refs=(workspace_ref, key_version_ref),
+            )
+            connection = self._connect()
+            created_key = False
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                row = connection.execute(
+                    "SELECT key_item_ref, key_version_ref FROM eco_workspaces WHERE workspace_ref = ?",
+                    (workspace_ref,),
+                ).fetchone()
+                if row is not None:
+                    if (row["key_item_ref"], row["key_version_ref"]) != (
+                        key_item_ref,
+                        key_version_ref,
+                    ):
+                        raise EcosystemConflict("ECO_WORKSPACE_KEY_CONFLICT")
+                    receipt_ref = self.crypto_backend.probe(
+                        key_item_ref=key_item_ref,
+                        key_version_ref=key_version_ref,
+                    )
+                    connection.rollback()
+                    return receipt_ref
+                receipt_ref = self.crypto_backend.create(
+                    key_item_ref=key_item_ref, key_version_ref=key_version_ref
+                )
+                created_key = True
                 connection.execute(
                     "INSERT INTO eco_workspaces VALUES (?, ?, ?, ?)",
                     (workspace_ref, key_item_ref, key_version_ref, _utc_now()),
                 )
-            elif (row["key_item_ref"], row["key_version_ref"]) != (
-                key_item_ref,
-                key_version_ref,
-            ):
-                raise EcosystemConflict("ECO_WORKSPACE_KEY_CONFLICT")
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
-        return receipt_ref
+                connection.commit()
+                return receipt_ref
+            except Exception:
+                connection.rollback()
+                if created_key:
+                    self.crypto_backend.delete(
+                        key_item_ref=key_item_ref,
+                        key_version_ref=key_version_ref,
+                    )
+                raise
+            finally:
+                connection.close()
 
     def _workspace_key(
         self, connection: sqlite3.Connection, workspace_ref: str
@@ -519,6 +763,7 @@ class EcosystemLocalDataPlatform:
         workspace_ref: str,
         idempotency_ref: str,
         operations: tuple[LocalMutation, ...],
+        approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(idempotency_ref, field_name="idempotency_ref")
@@ -530,97 +775,151 @@ class EcosystemLocalDataPlatform:
         ]
         if len(operation_refs) != len(set(operation_refs)):
             raise ValueError("ECO_UOW_DUPLICATE_OPERATION_REF")
-        fingerprint_ref = self._request_fingerprint(workspace_ref, operations)
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            key_item_ref, key_version_ref = self._workspace_key(
-                connection, workspace_ref
+        resource_refs = tuple(
+            dict.fromkeys(
+                (workspace_ref, idempotency_ref)
+                + tuple(operation_refs)
+                + tuple(operation.record_ref for operation in operations)
             )
-            replay = connection.execute(
-                "SELECT * FROM eco_uow_receipts WHERE workspace_ref = ? AND idempotency_ref = ?",
-                (workspace_ref, idempotency_ref),
-            ).fetchone()
-            if replay is not None:
-                if replay["request_fingerprint_ref"] != fingerprint_ref:
-                    raise EcosystemConflict("ECO_IDEMPOTENCY_REPLAY_CONFLICT")
-                connection.rollback()
+        )
+        with self.approval_authority.hold_validation_lock():
+            approval_ref = self._authorize(
+                approval,
+                action="ecosystem.local_data.apply",
+                resource_refs=resource_refs,
+            )
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                key_item_ref, key_version_ref = self._workspace_key(
+                    connection, workspace_ref
+                )
+                request_material = self._request_material(workspace_ref, operations)
+                fingerprint_ref = self._request_fingerprint(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=key_version_ref,
+                    request_material=request_material,
+                )
+                replay = connection.execute(
+                    "SELECT * FROM eco_uow_receipts WHERE workspace_ref = ? AND idempotency_ref = ?",
+                    (workspace_ref, idempotency_ref),
+                ).fetchone()
+                if replay is not None:
+                    previous_material = self.crypto_backend.decrypt(
+                        key_item_ref=key_item_ref,
+                        key_version_ref=replay["key_version_ref"],
+                        ciphertext=replay["request_ciphertext"],
+                        aad=_receipt_aad(
+                            workspace_ref=workspace_ref,
+                            idempotency_ref=idempotency_ref,
+                            key_version_ref=replay["key_version_ref"],
+                        ),
+                    )
+                    if not hmac.compare_digest(previous_material, request_material):
+                        raise EcosystemConflict("ECO_IDEMPOTENCY_REPLAY_CONFLICT")
+                    connection.rollback()
+                    return UnitOfWorkReceipt(
+                        workspace_ref=workspace_ref,
+                        idempotency_ref=idempotency_ref,
+                        request_fingerprint_ref=replay["request_fingerprint_ref"],
+                        receipt_ref=replay["receipt_ref"],
+                        operation_receipt_refs=tuple(
+                            json.loads(replay["operation_receipt_refs_json"])
+                        ),
+                        replayed=True,
+                    )
+                receipts: list[str] = []
+                for index, operation in enumerate(operations):
+                    receipt = self._apply_one(
+                        connection,
+                        workspace_ref=workspace_ref,
+                        key_item_ref=key_item_ref,
+                        key_version_ref=key_version_ref,
+                        operation=operation,
+                    )
+                    receipts.append(receipt)
+                    if self._fault_hook:
+                        self._fault_hook(f"operation-applied:{index}")
+                receipt_ref = _stable_ref(
+                    "uow-receipt-ref:ecosystem",
+                    {
+                        "workspace_ref": workspace_ref,
+                        "idempotency_ref": idempotency_ref,
+                        "request_fingerprint_ref": fingerprint_ref,
+                        "approval_ref": approval_ref,
+                        "operation_receipt_refs": receipts,
+                    },
+                )
+                request_ciphertext = self.crypto_backend.encrypt(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=key_version_ref,
+                    plaintext=request_material,
+                    aad=_receipt_aad(
+                        workspace_ref=workspace_ref,
+                        idempotency_ref=idempotency_ref,
+                        key_version_ref=key_version_ref,
+                    ),
+                )
+                connection.execute(
+                    "INSERT INTO eco_uow_receipts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        workspace_ref,
+                        idempotency_ref,
+                        fingerprint_ref,
+                        key_version_ref,
+                        request_ciphertext,
+                        approval_ref,
+                        receipt_ref,
+                        json.dumps(receipts, separators=(",", ":")),
+                        _utc_now(),
+                    ),
+                )
+                connection.commit()
                 return UnitOfWorkReceipt(
                     workspace_ref=workspace_ref,
                     idempotency_ref=idempotency_ref,
                     request_fingerprint_ref=fingerprint_ref,
-                    receipt_ref=replay["receipt_ref"],
-                    operation_receipt_refs=tuple(
-                        json.loads(replay["operation_receipt_refs_json"])
-                    ),
-                    replayed=True,
+                    receipt_ref=receipt_ref,
+                    operation_receipt_refs=tuple(receipts),
                 )
-            receipts: list[str] = []
-            for index, operation in enumerate(operations):
-                receipt = self._apply_one(
-                    connection,
-                    workspace_ref=workspace_ref,
-                    key_item_ref=key_item_ref,
-                    key_version_ref=key_version_ref,
-                    operation=operation,
-                )
-                receipts.append(receipt)
-                if self._fault_hook:
-                    self._fault_hook(f"operation-applied:{index}")
-            receipt_ref = _stable_ref(
-                "uow-receipt-ref:ecosystem",
-                {
-                    "workspace_ref": workspace_ref,
-                    "idempotency_ref": idempotency_ref,
-                    "request_fingerprint_ref": fingerprint_ref,
-                    "operation_receipt_refs": receipts,
-                },
-            )
-            connection.execute(
-                "INSERT INTO eco_uow_receipts VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    workspace_ref,
-                    idempotency_ref,
-                    fingerprint_ref,
-                    receipt_ref,
-                    json.dumps(receipts, separators=(",", ":")),
-                    _utc_now(),
-                ),
-            )
-            connection.commit()
-            return UnitOfWorkReceipt(
-                workspace_ref=workspace_ref,
-                idempotency_ref=idempotency_ref,
-                request_fingerprint_ref=fingerprint_ref,
-                receipt_ref=receipt_ref,
-                operation_receipt_refs=tuple(receipts),
-            )
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
 
-    def _request_fingerprint(
+    def _request_material(
         self, workspace_ref: str, operations: tuple[LocalMutation, ...]
-    ) -> str:
+    ) -> bytes:
         encoded: list[dict[str, Any]] = []
         for operation in operations:
             item = dict(vars(operation))
             if isinstance(operation, PutRecord):
-                item["private_payload"] = hashlib.sha256(
-                    _canonical_json(operation.private_payload)
-                ).hexdigest()
-                item["search_terms"] = [
-                    hashlib.sha256(term.encode()).hexdigest()
-                    for term in _normalized_terms(operation.search_terms)
-                ]
+                item["search_terms"] = _normalized_terms(operation.search_terms)
+                if operation.expires_at is not None:
+                    item["expires_at"] = _canonical_utc_timestamp(
+                        operation.expires_at,
+                        invalid_code="ECO_EXPIRY_TIMESTAMP_INVALID",
+                        timezone_code="ECO_EXPIRY_TIMESTAMP_TIMEZONE_REQUIRED",
+                    )
             item["operation_type"] = type(operation).__name__
             encoded.append(item)
-        return _stable_ref(
-            "request-fingerprint-ref:ecosystem",
-            {"workspace_ref": workspace_ref, "operations": encoded},
+        return _canonical_json({"workspace_ref": workspace_ref, "operations": encoded})
+
+    def _request_fingerprint(
+        self,
+        *,
+        key_item_ref: str,
+        key_version_ref: str,
+        request_material: bytes,
+    ) -> str:
+        material_digest = hashlib.sha256(request_material).hexdigest()
+        digest = self.crypto_backend.blind_index(
+            key_item_ref=key_item_ref,
+            key_version_ref=key_version_ref,
+            normalized_term=f"uow-request-v1:{material_digest}",
         )
+        return f"request-fingerprint-ref:ecosystem-keyed:{digest}"
 
     def _apply_one(
         self,
@@ -691,6 +990,10 @@ class EcosystemLocalDataPlatform:
                 "DELETE FROM eco_records WHERE workspace_ref = ? AND record_ref = ?",
                 (workspace_ref, operation.record_ref),
             )
+            connection.execute(
+                "INSERT INTO eco_record_tombstones VALUES (?, ?, ?, ?)",
+                (workspace_ref, operation.record_ref, next_version, _utc_now()),
+            )
             event_kind_ref = "event-kind-ref:record-deleted"
         return self._event(
             connection,
@@ -718,13 +1021,22 @@ class EcosystemLocalDataPlatform:
             "retention_ref",
         ):
             _validate_ref(getattr(operation, field_name), field_name=field_name)
-        if operation.expires_at is not None:
-            try:
-                expiry = datetime.fromisoformat(operation.expires_at)
-            except ValueError as exc:
-                raise ValueError("ECO_EXPIRY_TIMESTAMP_INVALID") from exc
-            if expiry.tzinfo is None:
-                raise ValueError("ECO_EXPIRY_TIMESTAMP_TIMEZONE_REQUIRED")
+        expires_at = (
+            _canonical_utc_timestamp(
+                operation.expires_at,
+                invalid_code="ECO_EXPIRY_TIMESTAMP_INVALID",
+                timezone_code="ECO_EXPIRY_TIMESTAMP_TIMEZONE_REQUIRED",
+            )
+            if operation.expires_at is not None
+            else None
+        )
+        tombstone = connection.execute(
+            "SELECT deleted_version FROM eco_record_tombstones "
+            "WHERE workspace_ref = ? AND record_ref = ?",
+            (workspace_ref, operation.record_ref),
+        ).fetchone()
+        if tombstone is not None:
+            raise EcosystemConflict("ECO_DELETED_RECORD_REF_REUSE_DENIED")
         row = connection.execute(
             "SELECT version FROM eco_records WHERE workspace_ref = ? AND record_ref = ?",
             (workspace_ref, operation.record_ref),
@@ -764,7 +1076,7 @@ class EcosystemLocalDataPlatform:
             ciphertext,
             0,
             operation.retention_ref,
-            operation.expires_at,
+            expires_at,
             _utc_now(),
         )
         connection.execute(
@@ -914,12 +1226,11 @@ class EcosystemLocalDataPlatform:
         """Return archived, expired safe refs without performing deletion."""
 
         _validate_ref(workspace_ref, field_name="workspace_ref")
-        try:
-            parsed = datetime.fromisoformat(as_of)
-        except ValueError as exc:
-            raise ValueError("ECO_RETENTION_TIMESTAMP_INVALID") from exc
-        if parsed.tzinfo is None:
-            raise ValueError("ECO_RETENTION_TIMESTAMP_TIMEZONE_REQUIRED")
+        canonical_as_of = _canonical_utc_timestamp(
+            as_of,
+            invalid_code="ECO_RETENTION_TIMESTAMP_INVALID",
+            timezone_code="ECO_RETENTION_TIMESTAMP_TIMEZONE_REQUIRED",
+        )
         connection = self._connect()
         try:
             self._workspace_key(connection, workspace_ref)
@@ -928,360 +1239,562 @@ class EcosystemLocalDataPlatform:
                 "AND archived = 1 AND expires_at IS NOT NULL "
                 "AND julianday(expires_at) <= julianday(?) "
                 "ORDER BY record_ref",
-                (workspace_ref, as_of),
+                (workspace_ref, canonical_as_of),
             ).fetchall()
             return tuple(row["record_ref"] for row in rows)
         finally:
             connection.close()
 
-    def rebuild_search(self, *, workspace_ref: str) -> str:
+    def rebuild_search(
+        self, *, workspace_ref: str, approval: ApprovalValidationRequest
+    ) -> str:
         """Rebuild one workspace's blind index from encrypted record envelopes."""
 
         _validate_ref(workspace_ref, field_name="workspace_ref")
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            key_item_ref, key_version_ref = self._workspace_key(
-                connection, workspace_ref
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action="ecosystem.local_data.rebuild_search",
+                resource_refs=(workspace_ref,),
             )
-            rows = connection.execute(
-                "SELECT record_ref, version, key_version_ref, ciphertext "
-                "FROM eco_records WHERE workspace_ref = ? ORDER BY record_ref",
-                (workspace_ref,),
-            ).fetchall()
-            rebuilt: list[tuple[str, str]] = []
-            for row in rows:
-                plaintext = self.crypto_backend.decrypt(
-                    key_item_ref=key_item_ref,
-                    key_version_ref=row["key_version_ref"],
-                    ciphertext=row["ciphertext"],
-                    aad=_record_aad(
-                        workspace_ref=workspace_ref,
-                        record_ref=row["record_ref"],
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                key_item_ref, key_version_ref = self._workspace_key(
+                    connection, workspace_ref
+                )
+                rows = connection.execute(
+                    "SELECT record_ref, version, key_version_ref, ciphertext "
+                    "FROM eco_records WHERE workspace_ref = ? ORDER BY record_ref",
+                    (workspace_ref,),
+                ).fetchall()
+                rebuilt: list[tuple[str, str]] = []
+                for row in rows:
+                    plaintext = self.crypto_backend.decrypt(
+                        key_item_ref=key_item_ref,
                         key_version_ref=row["key_version_ref"],
-                        version=row["version"],
+                        ciphertext=row["ciphertext"],
+                        aad=_record_aad(
+                            workspace_ref=workspace_ref,
+                            record_ref=row["record_ref"],
+                            key_version_ref=row["key_version_ref"],
+                            version=row["version"],
+                        ),
+                    )
+                    envelope = json.loads(plaintext)
+                    terms = (
+                        envelope.get("search_terms")
+                        if isinstance(envelope, dict)
+                        else None
+                    )
+                    if not isinstance(terms, list) or not all(
+                        isinstance(term, str) for term in terms
+                    ):
+                        raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
+                    for term in _normalized_terms(terms):
+                        rebuilt.append(
+                            (
+                                row["record_ref"],
+                                self.crypto_backend.blind_index(
+                                    key_item_ref=key_item_ref,
+                                    key_version_ref=key_version_ref,
+                                    normalized_term=term,
+                                ),
+                            )
+                        )
+                connection.execute(
+                    "DELETE FROM eco_search_tokens WHERE workspace_ref = ?",
+                    (workspace_ref,),
+                )
+                connection.executemany(
+                    "INSERT INTO eco_search_tokens VALUES (?, ?, ?)",
+                    (
+                        (workspace_ref, record_ref, token_hash)
+                        for record_ref, token_hash in rebuilt
                     ),
                 )
-                envelope = json.loads(plaintext)
-                terms = (
-                    envelope.get("search_terms") if isinstance(envelope, dict) else None
+                connection.commit()
+                return _stable_ref(
+                    "search-rebuild-receipt-ref:ecosystem",
+                    {
+                        "workspace_ref": workspace_ref,
+                        "record_count": len(rows),
+                        "search_entry_count": len(rebuilt),
+                    },
                 )
-                if not isinstance(terms, list) or not all(
-                    isinstance(term, str) for term in terms
-                ):
-                    raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
-                for term in _normalized_terms(terms):
-                    rebuilt.append(
-                        (
-                            row["record_ref"],
-                            self.crypto_backend.blind_index(
-                                key_item_ref=key_item_ref,
-                                key_version_ref=key_version_ref,
-                                normalized_term=term,
-                            ),
-                        )
-                    )
-            connection.execute(
-                "DELETE FROM eco_search_tokens WHERE workspace_ref = ?",
-                (workspace_ref,),
-            )
-            connection.executemany(
-                "INSERT INTO eco_search_tokens VALUES (?, ?, ?)",
-                (
-                    (workspace_ref, record_ref, token_hash)
-                    for record_ref, token_hash in rebuilt
-                ),
-            )
-            connection.commit()
-            return _stable_ref(
-                "search-rebuild-receipt-ref:ecosystem",
-                {
-                    "workspace_ref": workspace_ref,
-                    "record_count": len(rows),
-                    "search_entry_count": len(rebuilt),
-                },
-            )
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
 
     def rotate_workspace_key(
-        self, *, workspace_ref: str, new_key_version_ref: str
-    ) -> str:
+        self,
+        *,
+        workspace_ref: str,
+        new_key_version_ref: str,
+        approval: ApprovalValidationRequest,
+    ) -> KeyRotationReceipt:
         """Atomically re-encrypt one workspace and rebuild its blind index."""
 
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(new_key_version_ref, field_name="new_key_version_ref")
-        connection = self._connect()
-        new_key_created = False
-        committed = False
-        old_key_version_ref = ""
-        key_item_ref = ""
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            key_item_ref, old_key_version_ref = self._workspace_key(
-                connection, workspace_ref
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action="ecosystem.local_data.rotate_workspace_key",
+                resource_refs=(workspace_ref, new_key_version_ref),
             )
-            if old_key_version_ref == new_key_version_ref:
-                raise EcosystemConflict("ECO_KEY_VERSION_REUSE_DENIED")
-            self.crypto_backend.create(
-                key_item_ref=key_item_ref, key_version_ref=new_key_version_ref
-            )
-            new_key_created = True
-            rows = connection.execute(
-                "SELECT record_ref, version, ciphertext FROM eco_records "
-                "WHERE workspace_ref = ? ORDER BY record_ref",
-                (workspace_ref,),
-            ).fetchall()
-            rebuilt: list[tuple[str, str]] = []
-            for row in rows:
-                plaintext = self.crypto_backend.decrypt(
-                    key_item_ref=key_item_ref,
-                    key_version_ref=old_key_version_ref,
-                    ciphertext=row["ciphertext"],
-                    aad=_record_aad(
-                        workspace_ref=workspace_ref,
-                        record_ref=row["record_ref"],
-                        key_version_ref=old_key_version_ref,
-                        version=row["version"],
-                    ),
+            connection = self._connect()
+            new_key_created = False
+            committed = False
+            old_key_version_ref = ""
+            key_item_ref = ""
+            cleanup_ref = ""
+            replayed = False
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                key_item_ref, current_key_version_ref = self._workspace_key(
+                    connection, workspace_ref
                 )
-                envelope = json.loads(plaintext)
-                terms = (
-                    envelope.get("search_terms") if isinstance(envelope, dict) else None
-                )
-                if not isinstance(terms, list) or not all(
-                    isinstance(term, str) for term in terms
-                ):
-                    raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
-                ciphertext = self.crypto_backend.encrypt(
-                    key_item_ref=key_item_ref,
-                    key_version_ref=new_key_version_ref,
-                    plaintext=plaintext,
-                    aad=_record_aad(
-                        workspace_ref=workspace_ref,
-                        record_ref=row["record_ref"],
+                pending = connection.execute(
+                    "SELECT * FROM eco_key_cleanup WHERE workspace_ref = ? "
+                    "AND new_key_version_ref = ? AND completed_at IS NULL",
+                    (workspace_ref, new_key_version_ref),
+                ).fetchone()
+                if current_key_version_ref == new_key_version_ref:
+                    if pending is None:
+                        raise EcosystemConflict("ECO_KEY_VERSION_REUSE_DENIED")
+                    old_key_version_ref = pending["old_key_version_ref"]
+                    cleanup_ref = pending["cleanup_ref"]
+                    replayed = True
+                    connection.rollback()
+                else:
+                    old_key_version_ref = current_key_version_ref
+                    self.crypto_backend.create(
+                        key_item_ref=key_item_ref,
                         key_version_ref=new_key_version_ref,
-                        version=row["version"],
-                    ),
-                )
-                connection.execute(
-                    "UPDATE eco_records SET key_version_ref = ?, ciphertext = ?, "
-                    "updated_at = ? WHERE workspace_ref = ? AND record_ref = ?",
-                    (
-                        new_key_version_ref,
-                        ciphertext,
-                        _utc_now(),
-                        workspace_ref,
-                        row["record_ref"],
-                    ),
-                )
-                for term in _normalized_terms(terms):
-                    rebuilt.append(
-                        (
-                            row["record_ref"],
-                            self.crypto_backend.blind_index(
-                                key_item_ref=key_item_ref,
-                                key_version_ref=new_key_version_ref,
-                                normalized_term=term,
+                    )
+                    new_key_created = True
+                    rows = connection.execute(
+                        "SELECT record_ref, version, ciphertext FROM eco_records "
+                        "WHERE workspace_ref = ? ORDER BY record_ref",
+                        (workspace_ref,),
+                    ).fetchall()
+                    rebuilt: list[tuple[str, str]] = []
+                    for row in rows:
+                        plaintext = self.crypto_backend.decrypt(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=old_key_version_ref,
+                            ciphertext=row["ciphertext"],
+                            aad=_record_aad(
+                                workspace_ref=workspace_ref,
+                                record_ref=row["record_ref"],
+                                key_version_ref=old_key_version_ref,
+                                version=row["version"],
                             ),
                         )
+                        envelope = json.loads(plaintext)
+                        terms = (
+                            envelope.get("search_terms")
+                            if isinstance(envelope, dict)
+                            else None
+                        )
+                        if not isinstance(terms, list) or not all(
+                            isinstance(term, str) for term in terms
+                        ):
+                            raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
+                        ciphertext = self.crypto_backend.encrypt(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=new_key_version_ref,
+                            plaintext=plaintext,
+                            aad=_record_aad(
+                                workspace_ref=workspace_ref,
+                                record_ref=row["record_ref"],
+                                key_version_ref=new_key_version_ref,
+                                version=row["version"],
+                            ),
+                        )
+                        connection.execute(
+                            "UPDATE eco_records SET key_version_ref = ?, ciphertext = ?, "
+                            "updated_at = ? WHERE workspace_ref = ? AND record_ref = ?",
+                            (
+                                new_key_version_ref,
+                                ciphertext,
+                                _utc_now(),
+                                workspace_ref,
+                                row["record_ref"],
+                            ),
+                        )
+                        for term in _normalized_terms(terms):
+                            rebuilt.append(
+                                (
+                                    row["record_ref"],
+                                    self.crypto_backend.blind_index(
+                                        key_item_ref=key_item_ref,
+                                        key_version_ref=new_key_version_ref,
+                                        normalized_term=term,
+                                    ),
+                                )
+                            )
+                    receipts = connection.execute(
+                        "SELECT idempotency_ref, key_version_ref, request_ciphertext "
+                        "FROM eco_uow_receipts WHERE workspace_ref = ?",
+                        (workspace_ref,),
+                    ).fetchall()
+                    for receipt in receipts:
+                        material = self.crypto_backend.decrypt(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=receipt["key_version_ref"],
+                            ciphertext=receipt["request_ciphertext"],
+                            aad=_receipt_aad(
+                                workspace_ref=workspace_ref,
+                                idempotency_ref=receipt["idempotency_ref"],
+                                key_version_ref=receipt["key_version_ref"],
+                            ),
+                        )
+                        fingerprint_ref = self._request_fingerprint(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=new_key_version_ref,
+                            request_material=material,
+                        )
+                        ciphertext = self.crypto_backend.encrypt(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=new_key_version_ref,
+                            plaintext=material,
+                            aad=_receipt_aad(
+                                workspace_ref=workspace_ref,
+                                idempotency_ref=receipt["idempotency_ref"],
+                                key_version_ref=new_key_version_ref,
+                            ),
+                        )
+                        connection.execute(
+                            "UPDATE eco_uow_receipts SET request_fingerprint_ref = ?, "
+                            "key_version_ref = ?, request_ciphertext = ? "
+                            "WHERE workspace_ref = ? AND idempotency_ref = ?",
+                            (
+                                fingerprint_ref,
+                                new_key_version_ref,
+                                ciphertext,
+                                workspace_ref,
+                                receipt["idempotency_ref"],
+                            ),
+                        )
+                    connection.execute(
+                        "DELETE FROM eco_search_tokens WHERE workspace_ref = ?",
+                        (workspace_ref,),
                     )
-            connection.execute(
-                "DELETE FROM eco_search_tokens WHERE workspace_ref = ?",
-                (workspace_ref,),
-            )
-            connection.executemany(
-                "INSERT INTO eco_search_tokens VALUES (?, ?, ?)",
-                (
-                    (workspace_ref, record_ref, token_hash)
-                    for record_ref, token_hash in rebuilt
-                ),
-            )
-            connection.execute(
-                "UPDATE eco_workspaces SET key_version_ref = ? WHERE workspace_ref = ?",
-                (new_key_version_ref, workspace_ref),
-            )
-            connection.commit()
-            committed = True
-        except Exception:
-            connection.rollback()
-            if new_key_created and not committed:
-                self.crypto_backend.delete(
-                    key_item_ref=key_item_ref, key_version_ref=new_key_version_ref
+                    connection.executemany(
+                        "INSERT INTO eco_search_tokens VALUES (?, ?, ?)",
+                        (
+                            (workspace_ref, record_ref, token_hash)
+                            for record_ref, token_hash in rebuilt
+                        ),
+                    )
+                    connection.execute(
+                        "UPDATE eco_workspaces SET key_version_ref = ? "
+                        "WHERE workspace_ref = ?",
+                        (new_key_version_ref, workspace_ref),
+                    )
+                    cleanup_ref = _stable_ref(
+                        "key-cleanup-ref:ecosystem",
+                        {
+                            "workspace_ref": workspace_ref,
+                            "old_key_version_ref": old_key_version_ref,
+                            "new_key_version_ref": new_key_version_ref,
+                        },
+                    )
+                    connection.execute(
+                        "INSERT INTO eco_key_cleanup VALUES (?, ?, ?, ?, NULL)",
+                        (
+                            workspace_ref,
+                            old_key_version_ref,
+                            new_key_version_ref,
+                            cleanup_ref,
+                        ),
+                    )
+                    connection.commit()
+                    committed = True
+            except Exception:
+                connection.rollback()
+                if new_key_created and not committed:
+                    self.crypto_backend.delete(
+                        key_item_ref=key_item_ref,
+                        key_version_ref=new_key_version_ref,
+                    )
+                raise
+            finally:
+                connection.close()
+
+            cleanup_pending = False
+            try:
+                old_key_delete_receipt = self.crypto_backend.delete(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=old_key_version_ref,
                 )
-            raise
-        finally:
-            connection.close()
-        old_key_delete_receipt = self.crypto_backend.delete(
-            key_item_ref=key_item_ref, key_version_ref=old_key_version_ref
-        )
-        return _stable_ref(
-            "key-rotation-receipt-ref:ecosystem",
-            {
-                "workspace_ref": workspace_ref,
-                "new_key_version_ref": new_key_version_ref,
-                "old_key_delete_receipt": old_key_delete_receipt,
-            },
-        )
+            except EcosystemKeyUnavailable:
+                cleanup_pending = True
+                old_key_delete_receipt = "key-receipt-ref:ecosystem:delete-pending"
+            if not cleanup_pending:
+                cleanup = self._connect()
+                try:
+                    cleanup.execute("BEGIN IMMEDIATE")
+                    cleanup.execute(
+                        "UPDATE eco_key_cleanup SET completed_at = ? "
+                        "WHERE cleanup_ref = ?",
+                        (_utc_now(), cleanup_ref),
+                    )
+                    cleanup.commit()
+                except Exception:
+                    cleanup.rollback()
+                    raise
+                finally:
+                    cleanup.close()
+            receipt_ref = _stable_ref(
+                "key-rotation-receipt-ref:ecosystem",
+                {
+                    "workspace_ref": workspace_ref,
+                    "new_key_version_ref": new_key_version_ref,
+                    "old_key_delete_receipt": old_key_delete_receipt,
+                    "cleanup_ref": cleanup_ref,
+                },
+            )
+            return KeyRotationReceipt(
+                receipt_ref=receipt_ref,
+                cleanup_ref=cleanup_ref,
+                cleanup_pending=cleanup_pending,
+                replayed=replayed,
+            )
 
     def integrity_check(self) -> IntegrityReport:
         connection = self._connect()
         try:
-            self._validate_schema(connection)
-            result = connection.execute("PRAGMA quick_check").fetchone()[0]
-            if result != "ok":
-                raise EcosystemLocalDataError("ECO_DATABASE_INTEGRITY_FAILED")
-            orphan_count = connection.execute(
-                "SELECT COUNT(*) FROM eco_search_tokens s LEFT JOIN eco_records r "
-                "ON r.workspace_ref=s.workspace_ref AND r.record_ref=s.record_ref "
-                "WHERE r.record_ref IS NULL"
-            ).fetchone()[0]
-            if orphan_count:
-                raise EcosystemLocalDataError("ECO_REF_INTEGRITY_FAILED")
-            records = connection.execute(
-                "SELECT * FROM eco_records ORDER BY workspace_ref, record_ref"
-            ).fetchall()
-            expected_tokens: set[tuple[str, str, str]] = set()
-            workspace_keys: dict[str, tuple[str, str]] = {}
-            for row in records:
-                key_item_ref, current_key_version_ref = workspace_keys.setdefault(
-                    row["workspace_ref"],
-                    self._workspace_key(connection, row["workspace_ref"]),
-                )
-                if row["key_version_ref"] != current_key_version_ref:
-                    raise EcosystemLocalDataError("ECO_RECORD_KEY_VERSION_STALE")
-                plaintext = self.crypto_backend.decrypt(
-                    key_item_ref=key_item_ref,
-                    key_version_ref=row["key_version_ref"],
-                    ciphertext=row["ciphertext"],
-                    aad=_record_aad(
-                        workspace_ref=row["workspace_ref"],
-                        record_ref=row["record_ref"],
-                        key_version_ref=row["key_version_ref"],
-                        version=row["version"],
-                    ),
-                )
-                envelope = json.loads(plaintext)
-                if not isinstance(envelope, dict) or not isinstance(
-                    envelope.get("search_terms"), list
-                ):
-                    raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
-                for term in _normalized_terms(envelope["search_terms"]):
-                    expected_tokens.add(
-                        (
-                            row["workspace_ref"],
-                            row["record_ref"],
-                            self.crypto_backend.blind_index(
-                                key_item_ref=key_item_ref,
-                                key_version_ref=current_key_version_ref,
-                                normalized_term=term,
-                            ),
-                        )
-                    )
-            actual_tokens = {
-                tuple(row)
-                for row in connection.execute(
-                    "SELECT workspace_ref, record_ref, token_hash FROM eco_search_tokens"
-                )
-            }
-            if actual_tokens != expected_tokens:
-                raise EcosystemLocalDataError("ECO_SEARCH_INDEX_INTEGRITY_FAILED")
-            workspace_count = connection.execute(
-                "SELECT COUNT(*) FROM eco_workspaces"
-            ).fetchone()[0]
-            record_count = len(records)
-            search_count = connection.execute(
-                "SELECT COUNT(*) FROM eco_search_tokens"
-            ).fetchone()[0]
-            report_ref = _stable_ref(
-                "integrity-report-ref:ecosystem",
-                {
-                    "schema_ref": ECO_LOCAL_DATA_SCHEMA_REF,
-                    "workspace_count": workspace_count,
-                    "record_count": record_count,
-                    "search_count": search_count,
-                    "orphan_count": orphan_count,
-                },
-            )
-            return IntegrityReport(
-                schema_ref=ECO_LOCAL_DATA_SCHEMA_REF,
-                status="ok",
-                workspace_count=workspace_count,
-                record_count=record_count,
-                search_entry_count=search_count,
-                orphan_count=orphan_count,
-                report_ref=report_ref,
-            )
+            return self._deep_snapshot_integrity(connection)
         finally:
             connection.close()
+
+    def _deep_snapshot_integrity(
+        self, connection: sqlite3.Connection
+    ) -> IntegrityReport:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        self._validate_schema(connection)
+        if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+            raise EcosystemLocalDataError("ECO_BACKUP_INTEGRITY_FAILED")
+        records = connection.execute(
+            "SELECT * FROM eco_records ORDER BY workspace_ref, record_ref"
+        ).fetchall()
+        workspace_rows = connection.execute(
+            "SELECT workspace_ref, key_item_ref, key_version_ref FROM eco_workspaces"
+        ).fetchall()
+        workspace_keys = {
+            row["workspace_ref"]: (row["key_item_ref"], row["key_version_ref"])
+            for row in workspace_rows
+        }
+        expected_tokens: set[tuple[str, str, str]] = set()
+        for row in records:
+            try:
+                key_item_ref, current_key_version_ref = workspace_keys[
+                    row["workspace_ref"]
+                ]
+            except KeyError as exc:
+                raise EcosystemLocalDataError("ECO_REF_INTEGRITY_FAILED") from exc
+            if row["key_version_ref"] != current_key_version_ref:
+                raise EcosystemLocalDataError("ECO_RECORD_KEY_VERSION_STALE")
+            self.crypto_backend.probe(
+                key_item_ref=key_item_ref,
+                key_version_ref=current_key_version_ref,
+            )
+            plaintext = self.crypto_backend.decrypt(
+                key_item_ref=key_item_ref,
+                key_version_ref=row["key_version_ref"],
+                ciphertext=row["ciphertext"],
+                aad=_record_aad(
+                    workspace_ref=row["workspace_ref"],
+                    record_ref=row["record_ref"],
+                    key_version_ref=row["key_version_ref"],
+                    version=row["version"],
+                ),
+            )
+            try:
+                envelope = json.loads(plaintext)
+            except Exception as exc:
+                raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID") from exc
+            if (
+                not isinstance(envelope, dict)
+                or set(envelope) != {"private_payload", "search_terms"}
+                or not isinstance(envelope["private_payload"], dict)
+                or not isinstance(envelope["search_terms"], list)
+            ):
+                raise EcosystemLocalDataError("ECO_PRIVATE_PAYLOAD_INVALID")
+            for term in _normalized_terms(envelope["search_terms"]):
+                expected_tokens.add(
+                    (
+                        row["workspace_ref"],
+                        row["record_ref"],
+                        self.crypto_backend.blind_index(
+                            key_item_ref=key_item_ref,
+                            key_version_ref=current_key_version_ref,
+                            normalized_term=term,
+                        ),
+                    )
+                )
+        actual_tokens = {
+            tuple(row)
+            for row in connection.execute(
+                "SELECT workspace_ref, record_ref, token_hash FROM eco_search_tokens"
+            )
+        }
+        if actual_tokens != expected_tokens:
+            raise EcosystemLocalDataError("ECO_SEARCH_INDEX_INTEGRITY_FAILED")
+        for receipt in connection.execute(
+            "SELECT workspace_ref, idempotency_ref, request_fingerprint_ref, "
+            "key_version_ref, request_ciphertext FROM eco_uow_receipts"
+        ):
+            try:
+                key_item_ref, _ = workspace_keys[receipt["workspace_ref"]]
+            except KeyError as exc:
+                raise EcosystemLocalDataError("ECO_REF_INTEGRITY_FAILED") from exc
+            material = self.crypto_backend.decrypt(
+                key_item_ref=key_item_ref,
+                key_version_ref=receipt["key_version_ref"],
+                ciphertext=receipt["request_ciphertext"],
+                aad=_receipt_aad(
+                    workspace_ref=receipt["workspace_ref"],
+                    idempotency_ref=receipt["idempotency_ref"],
+                    key_version_ref=receipt["key_version_ref"],
+                ),
+            )
+            expected_fingerprint = self._request_fingerprint(
+                key_item_ref=key_item_ref,
+                key_version_ref=receipt["key_version_ref"],
+                request_material=material,
+            )
+            if not hmac.compare_digest(
+                receipt["request_fingerprint_ref"], expected_fingerprint
+            ):
+                raise EcosystemLocalDataError("ECO_UOW_RECEIPT_INTEGRITY_FAILED")
+        orphan_count = connection.execute(
+            "SELECT COUNT(*) FROM eco_search_tokens s LEFT JOIN eco_records r "
+            "ON r.workspace_ref=s.workspace_ref AND r.record_ref=s.record_ref "
+            "WHERE r.record_ref IS NULL"
+        ).fetchone()[0]
+        if orphan_count:
+            raise EcosystemLocalDataError("ECO_REF_INTEGRITY_FAILED")
+        search_count = len(actual_tokens)
+        report_ref = _stable_ref(
+            "integrity-report-ref:ecosystem",
+            {
+                "schema_ref": ECO_LOCAL_DATA_SCHEMA_REF,
+                "workspace_count": len(workspace_rows),
+                "record_count": len(records),
+                "search_count": search_count,
+                "orphan_count": orphan_count,
+            },
+        )
+        return IntegrityReport(
+            schema_ref=ECO_LOCAL_DATA_SCHEMA_REF,
+            status="ok",
+            workspace_count=len(workspace_rows),
+            record_count=len(records),
+            search_entry_count=search_count,
+            orphan_count=orphan_count,
+            report_ref=report_ref,
+        )
 
     def create_backup(
         self,
         *,
         destination: Path,
+        destination_ref: str,
         backup_ref: str,
         key_item_ref: str,
         key_version_ref: str,
+        approval: ApprovalValidationRequest,
     ) -> BackupReceipt:
         _validate_ref(backup_ref, field_name="backup_ref")
         _validate_ref(key_item_ref, field_name="key_item_ref")
         _validate_ref(key_version_ref, field_name="key_version_ref")
+        _validate_ref(destination_ref, field_name="destination_ref")
         if not destination.is_absolute() or destination.exists():
             raise ValueError("ECO_BACKUP_DESTINATION_INVALID")
-        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self.crypto_backend.probe(
-            key_item_ref=key_item_ref, key_version_ref=key_version_ref
-        )
-        with tempfile.TemporaryDirectory(dir=destination.parent) as stage_dir:
-            snapshot = Path(stage_dir) / "snapshot.sqlite3"
-            source = self._connect()
-            target = sqlite3.connect(snapshot)
-            try:
-                source.backup(target)
-            finally:
-                target.close()
-                source.close()
-            check = sqlite3.connect(f"file:{snapshot}?mode=ro", uri=True)
-            try:
-                if check.execute("PRAGMA quick_check").fetchone()[0] != "ok":
-                    raise EcosystemLocalDataError("ECO_BACKUP_INTEGRITY_FAILED")
-            finally:
-                check.close()
-            plaintext = snapshot.read_bytes()
-            header = _canonical_json(
-                {
-                    "backup_ref": backup_ref,
-                    "schema_ref": ECO_LOCAL_DATA_SCHEMA_REF,
-                    "key_item_ref": key_item_ref,
-                    "key_version_ref": key_version_ref,
-                }
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action="ecosystem.local_data.create_backup",
+                resource_refs=(
+                    backup_ref,
+                    destination_ref,
+                    key_item_ref,
+                    key_version_ref,
+                ),
             )
-            ciphertext = self.crypto_backend.encrypt(
-                key_item_ref=key_item_ref,
-                key_version_ref=key_version_ref,
-                plaintext=plaintext,
-                aad=header,
+            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self.crypto_backend.probe(
+                key_item_ref=key_item_ref, key_version_ref=key_version_ref
             )
-            container = (
-                _BACKUP_MAGIC + struct.pack(">I", len(header)) + header + ciphertext
-            )
-            stage = Path(stage_dir) / "backup.stage"
-            descriptor = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            try:
-                view = memoryview(container)
-                while view:
-                    written = os.write(descriptor, view)
-                    if written <= 0:
-                        raise EcosystemLocalDataError("ECO_BACKUP_WRITE_FAILED")
-                    view = view[written:]
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
-            os.replace(stage, destination)
-            os.chmod(destination, 0o600)
+            with tempfile.TemporaryDirectory(dir=destination.parent) as stage_dir:
+                snapshot = Path(stage_dir) / "snapshot.sqlite3"
+                source = self._connect()
+                target = sqlite3.connect(snapshot)
+                try:
+                    source.backup(target)
+                finally:
+                    target.close()
+                    source.close()
+                check = sqlite3.connect(f"file:{snapshot}?mode=ro", uri=True)
+                try:
+                    self._deep_snapshot_integrity(check)
+                finally:
+                    check.close()
+                header = _canonical_json(
+                    {
+                        "backup_ref": backup_ref,
+                        "schema_ref": ECO_LOCAL_DATA_SCHEMA_REF,
+                        "key_item_ref": key_item_ref,
+                        "key_version_ref": key_version_ref,
+                    }
+                )
+                max_plaintext_bytes = (
+                    _MAX_BACKUP_BYTES
+                    - len(_BACKUP_MAGIC)
+                    - 4
+                    - len(header)
+                    - _NONCE_BYTES
+                    - 16
+                )
+                if snapshot.stat().st_size > max_plaintext_bytes:
+                    raise EcosystemLocalDataError("ECO_BACKUP_SIZE_LIMIT_EXCEEDED")
+                plaintext = snapshot.read_bytes()
+                ciphertext = self.crypto_backend.encrypt(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=key_version_ref,
+                    plaintext=plaintext,
+                    aad=header,
+                )
+                container = (
+                    _BACKUP_MAGIC + struct.pack(">I", len(header)) + header + ciphertext
+                )
+                if len(container) > _MAX_BACKUP_BYTES:
+                    raise EcosystemLocalDataError("ECO_BACKUP_SIZE_LIMIT_EXCEEDED")
+                stage = Path(stage_dir) / "backup.stage"
+                descriptor = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                try:
+                    view = memoryview(container)
+                    while view:
+                        written = os.write(descriptor, view)
+                        if written <= 0:
+                            raise EcosystemLocalDataError("ECO_BACKUP_WRITE_FAILED")
+                        view = view[written:]
+                    os.fsync(descriptor)
+                finally:
+                    os.close(descriptor)
+                _publish_new_file(
+                    stage,
+                    destination,
+                    exists_code="ECO_BACKUP_DESTINATION_EXISTS",
+                )
+                os.chmod(destination, 0o600)
         fingerprint = hashlib.sha256(container).hexdigest()
         return BackupReceipt(
             backup_ref=backup_ref,
@@ -1292,65 +1805,83 @@ class EcosystemLocalDataPlatform:
 
     def restore_preview(self, *, backup_path: Path) -> RestorePreview:
         header, plaintext = self._open_backup(backup_path)
+        return self._validate_backup_plaintext(header, plaintext)
+
+    def _validate_backup_plaintext(
+        self, header: dict[str, str], plaintext: bytes
+    ) -> RestorePreview:
         with tempfile.TemporaryDirectory() as stage_dir:
             snapshot = Path(stage_dir) / "preview.sqlite3"
             snapshot.write_bytes(plaintext)
             connection = sqlite3.connect(f"file:{snapshot}?mode=ro", uri=True)
             try:
-                if connection.execute("PRAGMA quick_check").fetchone()[0] != "ok":
-                    raise EcosystemLocalDataError("ECO_BACKUP_INTEGRITY_FAILED")
                 version = connection.execute("PRAGMA user_version").fetchone()[0]
                 if version != ECO_LOCAL_DATA_SCHEMA_VERSION:
                     raise EcosystemLocalDataError("ECO_BACKUP_SCHEMA_UNSUPPORTED")
-                workspaces = connection.execute(
-                    "SELECT COUNT(*) FROM eco_workspaces"
-                ).fetchone()[0]
-                records = connection.execute(
-                    "SELECT COUNT(*) FROM eco_records"
-                ).fetchone()[0]
+                report = self._deep_snapshot_integrity(connection)
             finally:
                 connection.close()
         return RestorePreview(
             backup_ref=header["backup_ref"],
             schema_ref=header["schema_ref"],
             integrity_status="ok",
-            workspace_count=workspaces,
-            record_count=records,
+            workspace_count=report.workspace_count,
+            record_count=report.record_count,
         )
 
-    def restore_to_new(self, *, backup_path: Path, destination: Path) -> str:
+    def restore_to_new(
+        self,
+        *,
+        backup_path: Path,
+        destination: Path,
+        destination_ref: str,
+        approval: ApprovalValidationRequest,
+    ) -> str:
         """Restore a verified snapshot to a new path; existing stores are untouched."""
 
+        _validate_ref(destination_ref, field_name="destination_ref")
         if not destination.is_absolute() or destination.exists():
             raise ValueError("ECO_RESTORE_DESTINATION_INVALID")
-        preview = self.restore_preview(backup_path=backup_path)
-        _, plaintext = self._open_backup(backup_path)
-        destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        stage = destination.with_name(
-            f".{destination.name}.stage-{secrets.token_hex(8)}"
-        )
-        descriptor = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        try:
-            view = memoryview(plaintext)
-            while view:
-                written = os.write(descriptor, view)
-                if written <= 0:
-                    raise EcosystemLocalDataError("ECO_RESTORE_WRITE_FAILED")
-                view = view[written:]
-            os.fsync(descriptor)
-        except Exception:
-            os.close(descriptor)
-            stage.unlink(missing_ok=True)
-            raise
-        else:
-            os.close(descriptor)
-        os.replace(stage, destination)
-        os.chmod(destination, 0o600)
-        directory_descriptor = os.open(destination.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_descriptor)
-        finally:
-            os.close(directory_descriptor)
+        header, plaintext = self._open_backup(backup_path)
+        preview = self._validate_backup_plaintext(header, plaintext)
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action="ecosystem.local_data.restore_to_new",
+                resource_refs=(
+                    preview.backup_ref,
+                    preview.schema_ref,
+                    destination_ref,
+                ),
+            )
+            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            stage = destination.with_name(
+                f".{destination.name}.stage-{secrets.token_hex(8)}"
+            )
+            descriptor = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                view = memoryview(plaintext)
+                while view:
+                    written = os.write(descriptor, view)
+                    if written <= 0:
+                        raise EcosystemLocalDataError("ECO_RESTORE_WRITE_FAILED")
+                    view = view[written:]
+                os.fsync(descriptor)
+            except Exception:
+                os.close(descriptor)
+                stage.unlink(missing_ok=True)
+                raise
+            else:
+                os.close(descriptor)
+            try:
+                _publish_new_file(
+                    stage,
+                    destination,
+                    exists_code="ECO_RESTORE_DESTINATION_EXISTS",
+                )
+                os.chmod(destination, 0o600)
+            finally:
+                stage.unlink(missing_ok=True)
         return _stable_ref(
             "restore-receipt-ref:ecosystem",
             {
@@ -1361,9 +1892,16 @@ class EcosystemLocalDataPlatform:
         )
 
     def _open_backup(self, backup_path: Path) -> tuple[dict[str, str], bytes]:
-        if backup_path.stat().st_size > _MAX_BACKUP_BYTES:
+        try:
+            size = backup_path.stat().st_size
+        except OSError as exc:
+            raise EcosystemLocalDataError("ECO_BACKUP_CONTAINER_INVALID") from exc
+        if size > _MAX_BACKUP_BYTES:
             raise EcosystemLocalDataError("ECO_BACKUP_SIZE_LIMIT_EXCEEDED")
-        container = backup_path.read_bytes()
+        with backup_path.open("rb") as source:
+            container = source.read(_MAX_BACKUP_BYTES + 1)
+        if len(container) > _MAX_BACKUP_BYTES:
+            raise EcosystemLocalDataError("ECO_BACKUP_SIZE_LIMIT_EXCEEDED")
         prefix = len(_BACKUP_MAGIC)
         if not container.startswith(_BACKUP_MAGIC) or len(container) < prefix + 4:
             raise EcosystemLocalDataError("ECO_BACKUP_CONTAINER_INVALID")
@@ -1403,7 +1941,16 @@ class JsonCompatibilityReader:
     source_format_ref = "source-format-ref:legacy-json"
 
     def preview(self, source_path: Path) -> MigrationPreview:
-        raw = source_path.read_bytes()
+        try:
+            size = source_path.stat().st_size
+        except OSError as exc:
+            raise EcosystemLocalDataError("ECO_MIGRATION_SOURCE_INVALID") from exc
+        if size > _MAX_MIGRATION_SOURCE_BYTES:
+            raise EcosystemLocalDataError("ECO_MIGRATION_SOURCE_SIZE_LIMIT_EXCEEDED")
+        with source_path.open("rb") as source:
+            raw = source.read(_MAX_MIGRATION_SOURCE_BYTES + 1)
+        if len(raw) > _MAX_MIGRATION_SOURCE_BYTES:
+            raise EcosystemLocalDataError("ECO_MIGRATION_SOURCE_SIZE_LIMIT_EXCEEDED")
         try:
             payload = json.loads(raw)
         except Exception as exc:

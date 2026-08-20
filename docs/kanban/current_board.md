@@ -883,10 +883,13 @@ Status: accepted for bounded foundation scope on 2026-08-20. A versioned SQLite
 repository now keeps private payloads and private search terms inside
 workspace-bound AES-GCM envelopes, uses injected keys and workspace-keyed blind
 indexes, supports atomic/idempotent change sets, stale-version conflicts,
-archive/delete, search rebuild, key rotation, integrity checks, encrypted full
-backup, restore preview, restore-to-new, read-only retention candidate selection,
-and read-only legacy JSON inventory preview. Focused adversarial tests and a
-repo-local verifier are present.
+approval-bound archive/delete, deletion tombstones, search rebuild, retry-safe
+key rotation, deep integrity checks, encrypted size-bounded full backup,
+single-open no-replace restore preview/restore-to-new, canonical read-only
+retention candidate selection, and bounded read-only legacy JSON inventory
+preview. Replay equality material is encrypted and its visible fingerprint is
+workspace-keyed. Focused adversarial tests and a repo-local verifier are
+present.
 Scope: `docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md` and
 `src/ultimate_ai_agent/core/ecosystem/local_data.py`. The in-memory key backend
 is test-only. No production Keychain backend, existing-store cutover,
