@@ -1,0 +1,341 @@
+{
+  "schema_version": "uaa-queue-v2-q10-parity-rebaseline.v1",
+  "report_ref": "reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md",
+  "inventory_base": {
+    "repository_ref": "repo-ref:ultimate-ai-agent",
+    "revision": "eaa89916c5b2198bb48d63219b59e3f2b07cbbc8",
+    "observed_date": "2026-08-20"
+  },
+  "comparison_sources": [
+    {
+      "source_id": "hermes",
+      "repository_ref": "external-source-ref:hermes-agent:canonical-public-repository",
+      "revision": "4a5b6dd4512a10c3c18da3e5b9e5c7fb681cbfbb",
+      "commit_time": "2026-08-20T14:07:53-05:00",
+      "evidence_paths": [
+        "README.md",
+        "cron/scheduler.py",
+        "gateway/platform_registry.py",
+        "gateway/session_state.py",
+        "tools/browser_tool.py",
+        "tools/memory_tool.py",
+        "tools/session_search_tool.py",
+        "tools/skill_manager_tool.py",
+        "tools/subagent_worktree.py",
+        "web/src/pages/CronPage.tsx"
+      ]
+    },
+    {
+      "source_id": "openclaw",
+      "repository_ref": "external-source-ref:openclaw:canonical-public-repository",
+      "revision": "15f33d9edc697cf879cce48e3a5f1f64e6493981",
+      "commit_time": "2026-08-21T03:16:22+08:00",
+      "evidence_paths": [
+        "README.md",
+        "docs/automation/cron-jobs.md",
+        "docs/automation/standing-orders.md",
+        "docs/automation/tasks.md",
+        "docs/channels/index.md",
+        "docs/cli/backup.md",
+        "docs/cli/workboard.md",
+        "docs/concepts/delegate-architecture.md",
+        "docs/concepts/managed-worktrees.md",
+        "docs/concepts/memory.md",
+        "docs/concepts/session-search.md",
+        "docs/gateway/operator-scopes.md",
+        "docs/gateway/sandboxing.md",
+        "docs/tools/browser.md",
+        "docs/tools/skills.md",
+        "docs/web/control-ui.md"
+      ]
+    }
+  ],
+  "allowed_dispositions": [
+    "close",
+    "defer",
+    "intentionally_exclude"
+  ],
+  "gap_rows": [
+    {
+      "gap_id": "Q10-G01",
+      "capability": "cross-platform setup and operator recovery",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has a macOS-first setup lifecycle and truthful diagnostics, but it does not claim the comparator projects' cross-platform installation breadth or unattended setup mutation.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:README.md", "openclaw:README.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/macos_setup_assistant/lifecycle.py",
+        "tests/test_macos_setup_assistant.py",
+        "docs/control_center/UI_WIRING_REPORT.md"
+      ],
+      "boundary_refs": ["boundary-ref:macos-first", "boundary-ref:no-setup-mutation-authority"]
+    },
+    {
+      "gap_id": "Q10-G02",
+      "capability": "first-class tasks, projects, recurrence, dependencies, and work boards",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has durable goals and reviewable plan/action links, but it lacks one complete task and board product model with recurrence, dependencies, projections, and reconciliation.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q12", "queue-item-ref:Q13"],
+      "source_refs": ["hermes:web/src/pages/CronPage.tsx", "openclaw:docs/automation/tasks.md", "openclaw:docs/cli/workboard.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/runtime_gateway/goal_runtime.py",
+        "src/ultimate_ai_agent/core/control_center/plans_to_actions.py",
+        "tests/test_goal_runtime_durable_events.py"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q12/tasks-core", "scope-ref:queue-v2/Q13/boards-core"]
+    },
+    {
+      "gap_id": "Q10-G03",
+      "capability": "durable task, run, event, and session recovery lifecycle",
+      "uaa_state": "partial",
+      "gap_summary": "UAA proves durable goals, bounded event cursor replay, and safe-ref session search, while delegated mission recovery and a complete operator recovery experience remain incomplete.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q12", "queue-item-ref:Q21"],
+      "source_refs": ["hermes:gateway/session_state.py", "hermes:tools/session_search_tool.py", "openclaw:docs/automation/tasks.md", "openclaw:docs/concepts/session-search.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/runtime_gateway/run_events.py",
+        "src/ultimate_ai_agent/core/runtime_gateway/session_search.py",
+        "tests/test_goal_runtime_durable_events.py",
+        "tests/test_hermes_runtime_session_search.py"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q12/durable-missions", "scope-ref:queue-v2/Q21/private-dogfood"]
+    },
+    {
+      "gap_id": "Q10-G04",
+      "capability": "reviewed memory, search, and cited knowledge context",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has governed memory review and rights-gated cited lexical retrieval, but the unified library lifecycle and cited chat-context workflow are not yet complete.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q18"],
+      "source_refs": ["hermes:tools/memory_tool.py", "hermes:tools/session_search_tool.py", "openclaw:docs/concepts/memory.md", "openclaw:docs/concepts/session-search.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/memory/workbench.py",
+        "docs/knowledge/KNOWLEDGE_DUMP.md",
+        "docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q18/library-lifecycle", "scope-ref:queue-v2/Q18/no-uncited-context"]
+    },
+    {
+      "gap_id": "Q10-G05",
+      "capability": "reviewable self-improvement proposals",
+      "uaa_state": "planned",
+      "gap_summary": "Hermes exposes a learning and skill-improvement loop; UAA intentionally limits the target to evidence-backed proposals and outcome receipts rather than autonomous code or skill promotion.",
+      "disposition": "defer",
+      "owner_refs": ["queue-item-ref:Q29"],
+      "source_refs": ["hermes:README.md", "hermes:tools/skill_manager_tool.py", "openclaw:docs/tools/skills.md"],
+      "uaa_evidence_refs": [
+        "docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md",
+        "docs/prompts/governed_self_improvement_intake.md",
+        "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q29/no-self-modifying-code", "scope-ref:queue-v2/Q29/no-unreviewed-promotion"]
+    },
+    {
+      "gap_id": "Q10-G06",
+      "capability": "exact scheduled briefing source refresh",
+      "uaa_state": "blocked",
+      "gap_summary": "The comparators implement broad scheduled or standing background work; UAA's narrower product-relevant target is an exact briefing source-refresh lane, which remains proposal/read posture without accepted worker authority.",
+      "disposition": "defer",
+      "owner_refs": ["queue-item-ref:Q16", "queue-item-ref:Q23", "authority-gate-ref:background-autonomy-scoped"],
+      "source_refs": ["hermes:cron/scheduler.py", "hermes:web/src/pages/CronPage.tsx", "openclaw:docs/automation/cron-jobs.md", "openclaw:docs/automation/standing-orders.md"],
+      "uaa_evidence_refs": [
+        "docs/runtime/UAA_HERMES_RUNTIME_BACKGROUND_JOBS.md",
+        "src/ultimate_ai_agent/core/runtime_gateway/background_jobs.py",
+        "tests/test_hermes_runtime_background_jobs.py"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q16/no-hidden-ranking-authority", "boundary-ref:no-background-authority"]
+    },
+    {
+      "gap_id": "Q10-G07",
+      "capability": "operator messaging product and delivery lifecycle",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has bounded local communications and Matrix evidence, but it does not have the comparators' broad channel coverage or a generally available send and delivery product.",
+      "disposition": "defer",
+      "owner_refs": ["queue-item-ref:Q20"],
+      "source_refs": ["hermes:README.md", "hermes:gateway/platform_registry.py", "openclaw:README.md", "openclaw:docs/channels/index.md"],
+      "uaa_evidence_refs": [
+        "docs/connectors/MESSENGER_MATRIX_ACCEPTANCE_PACKET.md",
+        "src/ultimate_ai_agent/core/communications/contracts.py",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q20/no-broad-message-send", "scope-ref:queue-v2/Q20/external-blocker-truth"]
+    },
+    {
+      "gap_id": "Q10-G08",
+      "capability": "exact read-only account and source connectors",
+      "uaa_state": "planned",
+      "gap_summary": "UAA currently shows source-readiness metadata rather than live account data; exact read-only adapters with provenance and revocation remain a later lane.",
+      "disposition": "defer",
+      "owner_refs": ["queue-item-ref:Q23"],
+      "source_refs": ["hermes:gateway/platform_registry.py", "openclaw:README.md", "openclaw:docs/channels/index.md"],
+      "uaa_evidence_refs": [
+        "docs/control_center/UI_WIRING_REPORT.md",
+        "docs/control_center/route_status_manifest.json",
+        "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q23/no-connector-writes", "scope-ref:queue-v2/Q23/no-standing-account-authority"]
+    },
+    {
+      "gap_id": "Q10-G09",
+      "capability": "broad provider and model routing",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has narrow exact-approved provider experiments and read-only routing evidence, but broad provider fan-out, standing credentials, and provider-output authority are not parity targets.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:README.md", "openclaw:README.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/providers/invocation.py",
+        "tests/test_tiny_provider_invocation_lane.py",
+        "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md"
+      ],
+      "boundary_refs": ["boundary-ref:no-broad-provider-authority", "boundary-ref:model-output-not-authority"]
+    },
+    {
+      "gap_id": "Q10-G10",
+      "capability": "tool-aware cognition and uncertainty",
+      "uaa_state": "partial",
+      "gap_summary": "UAA has governed capability metadata and decomposition proposals, but ordinary chat does not yet provide the planned tool familiarity, uncertainty, and bounded routing behavior.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q22"],
+      "source_refs": ["hermes:README.md", "hermes:tools/skill_manager_tool.py", "openclaw:docs/tools/skills.md"],
+      "uaa_evidence_refs": [
+        "docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md",
+        "src/ultimate_ai_agent/core/system_map/catalog.py",
+        "src/ultimate_ai_agent/core/task_decomposition/proposals.py"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q22/no-second-model-call-on-ordinary-chat", "scope-ref:queue-v2/Q22/no-tool-authority-escalation"]
+    },
+    {
+      "gap_id": "Q10-G11",
+      "capability": "live browser control and general shell execution",
+      "uaa_state": "blocked",
+      "gap_summary": "The comparators expose browser and host-tool execution; UAA's browser contracts remain inactive or exact-read-only and unrestricted shell execution remains outside the accepted product boundary.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:tools/browser_tool.py", "openclaw:docs/tools/browser.md", "openclaw:docs/gateway/sandboxing.md"],
+      "uaa_evidence_refs": [
+        "docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md",
+        "docs/network/WEB_ACCESS_GATEWAY.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "boundary_refs": ["boundary-ref:no-unrestricted-browser", "boundary-ref:no-unrestricted-shell"]
+    },
+    {
+      "gap_id": "Q10-G12",
+      "capability": "autonomous delegation, subagents, and managed worktrees",
+      "uaa_state": "blocked",
+      "gap_summary": "UAA models subagent isolation and worktree posture but does not adopt broad autonomous delegation or treat a worktree as execution authority.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:README.md", "hermes:tools/subagent_worktree.py", "openclaw:docs/concepts/delegate-architecture.md", "openclaw:docs/concepts/managed-worktrees.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/runtime_gateway/subagent_isolation.py",
+        "src/ultimate_ai_agent/core/runtime_gateway/worktree_per_agent.py",
+        "tests/test_hermes_runtime_subagent_isolation.py"
+      ],
+      "boundary_refs": ["boundary-ref:no-broad-autonomy", "boundary-ref:worktree-is-not-authority"]
+    },
+    {
+      "gap_id": "Q10-G13",
+      "capability": "remote execution and device companion actions",
+      "uaa_state": "blocked",
+      "gap_summary": "Hermes advertises remote terminal backends and OpenClaw exposes device nodes and companion apps; UAA retains remote and device capabilities as blocked maps without execution authority.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:README.md", "openclaw:README.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/runtime_gateway/remote_execution_posture.py",
+        "docs/runtime/UAA_HERMES_RUNTIME_REMOTE_EXECUTION_POSTURE.md",
+        "tests/test_hermes_runtime_remote_execution_posture.py"
+      ],
+      "boundary_refs": ["boundary-ref:no-remote-execution", "boundary-ref:no-device-control-runtime"]
+    },
+    {
+      "gap_id": "Q10-G14",
+      "capability": "complete local data backup, verification, restore, and integrity",
+      "uaa_state": "partial",
+      "gap_summary": "UAA verifies offline Founder Loop snapshots, but the full shared local data plane, migrations, retention, atomic units of work, and complete-store recovery are not yet unified.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q11"],
+      "source_refs": ["hermes:README.md", "openclaw:docs/cli/backup.md"],
+      "uaa_evidence_refs": [
+        "src/ultimate_ai_agent/core/storage/founder_loop_recovery.py",
+        "tests/test_founder_loop_recovery.py",
+        "docs/production/BACKUP_RESTORE_VERIFICATION.md"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q11/integrity-and-recovery", "scope-ref:queue-v2/Q11/no-cloud-sync"]
+    },
+    {
+      "gap_id": "Q10-G15",
+      "capability": "readable operator cockpit and complete daily loop",
+      "uaa_state": "partial",
+      "gap_summary": "Q08 and Q09 make Today and review transitions readable, but the complete Today, Morning Briefing, source, carry-forward, Weekly Review, and private dogfood loop remains incomplete.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q16", "queue-item-ref:Q21"],
+      "source_refs": ["hermes:README.md", "openclaw:README.md", "openclaw:docs/web/control-ui.md"],
+      "uaa_evidence_refs": [
+        "apps/control-center/src/northstar/SecondarySurfaces.tsx",
+        "apps/control-center/src/northstar/WiredSurfaces.test.tsx",
+        "docs/control_center/UI_WIRING_REPORT.md"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q16/no-fixture-primary-truth", "scope-ref:queue-v2/Q21/no-production-readiness-claim"]
+    },
+    {
+      "gap_id": "Q10-G16",
+      "capability": "plugin and skill marketplace installation or runtime import",
+      "uaa_state": "intentionally_absent",
+      "gap_summary": "The comparators expose large installable skill or plugin ecosystems; UAA keeps discovery metadata reviewable and rejects marketplace content as automatic runtime authority.",
+      "disposition": "intentionally_exclude",
+      "owner_refs": ["owner-ref:none-intentional"],
+      "source_refs": ["hermes:tools/skill_manager_tool.py", "openclaw:docs/tools/skills.md"],
+      "uaa_evidence_refs": [
+        "docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md",
+        "docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md",
+        "docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md"
+      ],
+      "boundary_refs": ["boundary-ref:no-plugin-runtime-import", "boundary-ref:no-unreviewed-skill-install"]
+    },
+    {
+      "gap_id": "Q10-G17",
+      "capability": "local calendar and source-artifact intake products",
+      "uaa_state": "planned",
+      "gap_summary": "UAA shows source readiness but lacks the complete local calendar, import/export/undo, and manual source-artifact triage products needed before live account adapters.",
+      "disposition": "close",
+      "owner_refs": ["queue-item-ref:Q14", "queue-item-ref:Q17"],
+      "source_refs": ["hermes:README.md", "openclaw:README.md", "openclaw:docs/channels/index.md"],
+      "uaa_evidence_refs": [
+        "docs/control_center/UI_WIRING_REPORT.md",
+        "docs/control_center/route_status_manifest.json",
+        "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q14/no-live-account-adapter", "scope-ref:queue-v2/Q17/no-connector-required"]
+    },
+    {
+      "gap_id": "Q10-G18",
+      "capability": "publishing proposals and dry-run evidence",
+      "uaa_state": "planned",
+      "gap_summary": "Comparator tool and channel ecosystems can support external publishing; UAA's accepted target is limited to reviewable proposals and dry-run receipts, while live publishing remains excluded.",
+      "disposition": "defer",
+      "owner_refs": ["queue-item-ref:Q30"],
+      "source_refs": ["hermes:README.md", "hermes:gateway/platform_registry.py", "openclaw:README.md", "openclaw:docs/channels/index.md"],
+      "uaa_evidence_refs": [
+        "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json",
+        "docs/browser/GOVERNED_EXTERNAL_ACTIONS_QUEUE_01.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+      ],
+      "boundary_refs": ["scope-ref:queue-v2/Q30/no-live-publish", "scope-ref:queue-v2/Q30/no-platform-write"]
+    }
+  ],
+  "authority_non_grants": [
+    "runtime model or broad provider calls",
+    "live unrestricted web or browser execution",
+    "connector writes or broad message sends",
+    "unrestricted shell or remote execution",
+    "plugin runtime import or unreviewed skill installation",
+    "background autonomy or standing execution authority",
+    "public beta, public release, production readiness, or production authority"
+  ],
+  "rebaseline_trigger": "Repeat the pinned-source audit before Q31 or when an accepted queue owner changes one of these dispositions; do not reopen Q10 for ordinary upstream churn."
+}

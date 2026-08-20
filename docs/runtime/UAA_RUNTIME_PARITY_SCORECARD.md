@@ -1,6 +1,8 @@
 # UAA Runtime Parity Scorecard
 
-Status: Phase 01 baseline for the UAA runtime parity pack.
+Status: historical Phase 01 runtime-focused baseline. Queue V2 Q10's pinned
+current-source product comparison and owner routing now live in
+`reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md`.
 Scope: code-evidenced comparison and implementation lane map only.
 
 This scorecard records where UAA stands against the external comparison runtime

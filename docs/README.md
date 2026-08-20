@@ -15,6 +15,10 @@ product-surface, and one verification/read-only claim, and keeps eleven
 authority-heavy programs visible but gated. The immutable remaining-queue
 manifest and its local recovery source set remain historical evidence; their
 legacy admission path is disabled so they cannot recreate duplicate work.
+Queue V2 Q10's current-source Hermes/OpenClaw rebaseline is recorded in
+`reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md`;
+it routes a finite gap ledger to later owners without importing competitor
+code, bundling fixes, inflating parity, or granting authority.
 
 This is the active documentation entrypoint. Start with UAA as the
 Founder Command Center product path: a local-first professional AI command
