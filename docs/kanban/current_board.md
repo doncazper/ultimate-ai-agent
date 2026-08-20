@@ -105,6 +105,13 @@ contracts agree on the exact envelope, scope, and expected receipts. Missing or
 authority-claiming links fail closed as unavailable, blocked authority remains
 readable, and the existing Python Core decision receipt controls retain their
 unchanged eligibility gates. This adds no React authority or policy bypass.
+The Queue-of-Record V2 Q10 Hermes/OpenClaw parity rebaseline pins exact current
+public-source revisions and classifies eighteen grouped product gaps as seven
+later-lane closures, five authority/dependency deferrals, and six intentional
+exclusions. Every non-excluded gap is routed to a later Queue V2 owner or an
+explicit authority gate. Q10 adds no gap fix, runtime behavior, imported
+competitor code, parity score, or authority grant; the next refresh is bounded
+to pre-Q31 acceptance or an accepted owner-disposition change.
 The Queue03 Phase03 Setup lifecycle foundation now adds the complete typed
 state sequence and plan/status/install/verify/repair/stop/rollback/receipts
 contracts across Python Core, the existing Setup summary API, repo-local CLI,
