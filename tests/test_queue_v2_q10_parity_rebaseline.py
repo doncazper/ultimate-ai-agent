@@ -44,6 +44,17 @@ def test_q10_rejects_source_revision_drift() -> None:
     assert "hermes source revision drifted" in failures
 
 
+def test_q10_rejects_duplicate_comparison_sources() -> None:
+    payload = copy.deepcopy(_payload())
+    payload["comparison_sources"].append(
+        copy.deepcopy(payload["comparison_sources"][0])
+    )
+
+    failures = q10.verify(payload=payload, check_refs=False)
+
+    assert "comparison source records are duplicated or extra" in failures
+
+
 def test_q10_rejects_unpinned_source_ref() -> None:
     payload = copy.deepcopy(_payload())
     payload["gap_rows"][0]["source_refs"][0] = "hermes:future-feature.md"
@@ -51,6 +62,16 @@ def test_q10_rejects_unpinned_source_ref() -> None:
     failures = q10.verify(payload=payload, check_refs=False)
 
     assert any("unpinned source ref" in failure for failure in failures)
+
+
+def test_q10_rejects_external_evidence_file_set_drift() -> None:
+    payload = copy.deepcopy(_payload())
+    payload["comparison_sources"][0]["evidence_paths"][0] = "future-feature.md"
+    payload["gap_rows"][0]["source_refs"][0] = "hermes:future-feature.md"
+
+    failures = q10.verify(payload=payload, check_refs=False)
+
+    assert "hermes evidence file set drifted" in failures
 
 
 def test_q10_rejects_disposition_or_owner_inflation() -> None:
@@ -62,6 +83,15 @@ def test_q10_rejects_disposition_or_owner_inflation() -> None:
 
     assert "Q10-G01 disposition drifted" in failures
     assert "Q10-G01 owner routing drifted" in failures
+
+
+def test_q10_rejects_uaa_state_inflation() -> None:
+    payload = copy.deepcopy(_payload())
+    payload["gap_rows"][5]["uaa_state"] = "implemented"
+
+    failures = q10.verify(payload=payload, check_refs=False)
+
+    assert "Q10-G06 UAA state drifted" in failures
 
 
 def test_q10_rejects_backward_queue_routing() -> None:
@@ -81,6 +111,18 @@ def test_q10_rejects_missing_uaa_evidence() -> None:
 
     assert any(
         "UAA evidence ref is missing or unsafe" in failure for failure in failures
+    )
+
+
+def test_q10_rejects_uaa_evidence_added_after_inventory_revision() -> None:
+    payload = copy.deepcopy(_payload())
+    payload["gap_rows"][0]["uaa_evidence_refs"][0] = q10.REPORT_REF
+
+    failures = q10.verify(payload=payload, check_refs=True)
+
+    assert any(
+        "UAA evidence ref is missing or unsafe at the inventory revision" in failure
+        for failure in failures
     )
 
 
@@ -122,12 +164,51 @@ def test_q10_rejects_report_claim_without_source_ref() -> None:
 
     failures = q10.verify(report_text=report, check_refs=False)
 
-    assert any("source ref missing from report" in failure for failure in failures)
+    assert any(
+        "source ref missing from its report row" in failure for failure in failures
+    )
 
 
-def test_q10_rejects_raw_local_path() -> None:
+def test_q10_binds_repeated_source_refs_to_each_report_row() -> None:
+    lines = _report().splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("| `Q10-G01`"):
+            lines[index] = line.replace("`hermes:README.md`; ", "").replace(
+                "`openclaw:README.md`; ", ""
+            )
+            break
+
+    failures = q10.verify(report_text="\n".join(lines), check_refs=False)
+
+    assert any(
+        failure.startswith("Q10-G01 source ref missing from its report row")
+        for failure in failures
+    )
+
+
+def test_q10_rejects_boundary_ref_drift() -> None:
+    payload = copy.deepcopy(_payload())
+    payload["gap_rows"][0]["boundary_refs"][0] = "boundary-ref:not-accepted"
+
+    failures = q10.verify(payload=payload, check_refs=False)
+
+    assert "Q10-G01 boundary refs drifted" in failures
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        ("Users", "example", "private-checkout"),
+        ("workspace", "private-checkout"),
+        ("root", "private-checkout"),
+        ("tmp", "private-checkout"),
+        ("var", "private-checkout"),
+        ("opt", "private-checkout"),
+    ],
+)
+def test_q10_rejects_raw_local_path(parts: tuple[str, ...]) -> None:
     separator = chr(47)
-    sentinel = separator.join(("", "Users", "example", "private-checkout"))
+    sentinel = separator.join(("", *parts))
     report = _report() + f"\nEvidence captured under {sentinel}.\n"
 
     failures = q10.verify(report_text=report, check_refs=False)

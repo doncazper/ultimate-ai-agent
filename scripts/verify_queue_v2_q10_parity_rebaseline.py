@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -30,6 +31,38 @@ EXPECTED_SOURCE_REVISIONS = {
 EXPECTED_REPOSITORY_REFS = {
     "hermes": "external-source-ref:hermes-agent:canonical-public-repository",
     "openclaw": "external-source-ref:openclaw:canonical-public-repository",
+}
+EXPECTED_SOURCE_FILES = {
+    "hermes": {
+        "README.md",
+        "cron/scheduler.py",
+        "gateway/platform_registry.py",
+        "gateway/session_state.py",
+        "tools/browser_tool.py",
+        "tools/memory_tool.py",
+        "tools/session_search_tool.py",
+        "tools/skill_manager_tool.py",
+        "tools/subagent_worktree.py",
+        "web/src/pages/CronPage.tsx",
+    },
+    "openclaw": {
+        "README.md",
+        "docs/automation/cron-jobs.md",
+        "docs/automation/standing-orders.md",
+        "docs/automation/tasks.md",
+        "docs/channels/index.md",
+        "docs/cli/backup.md",
+        "docs/cli/workboard.md",
+        "docs/concepts/delegate-architecture.md",
+        "docs/concepts/managed-worktrees.md",
+        "docs/concepts/memory.md",
+        "docs/concepts/session-search.md",
+        "docs/gateway/operator-scopes.md",
+        "docs/gateway/sandboxing.md",
+        "docs/tools/browser.md",
+        "docs/tools/skills.md",
+        "docs/web/control-ui.md",
+    },
 }
 EXPECTED_GAPS = tuple(f"Q10-G{number:02d}" for number in range(1, 19))
 EXPECTED_DISPOSITIONS = {
@@ -76,6 +109,100 @@ EXPECTED_OWNERS = {
     "Q10-G17": {"queue-item-ref:Q14", "queue-item-ref:Q17"},
     "Q10-G18": {"queue-item-ref:Q30"},
 }
+EXPECTED_UAA_STATES = {
+    "Q10-G01": "partial",
+    "Q10-G02": "partial",
+    "Q10-G03": "partial",
+    "Q10-G04": "partial",
+    "Q10-G05": "planned",
+    "Q10-G06": "blocked",
+    "Q10-G07": "partial",
+    "Q10-G08": "planned",
+    "Q10-G09": "partial",
+    "Q10-G10": "partial",
+    "Q10-G11": "blocked",
+    "Q10-G12": "blocked",
+    "Q10-G13": "blocked",
+    "Q10-G14": "partial",
+    "Q10-G15": "partial",
+    "Q10-G16": "intentionally_absent",
+    "Q10-G17": "planned",
+    "Q10-G18": "planned",
+}
+EXPECTED_BOUNDARIES = {
+    "Q10-G01": {
+        "boundary-ref:macos-first",
+        "boundary-ref:no-setup-mutation-authority",
+    },
+    "Q10-G02": {
+        "scope-ref:queue-v2/Q12/tasks-core",
+        "scope-ref:queue-v2/Q13/boards-core",
+    },
+    "Q10-G03": {
+        "scope-ref:queue-v2/Q12/durable-missions",
+        "scope-ref:queue-v2/Q21/private-dogfood",
+    },
+    "Q10-G04": {
+        "scope-ref:queue-v2/Q18/library-lifecycle",
+        "scope-ref:queue-v2/Q18/no-uncited-context",
+    },
+    "Q10-G05": {
+        "scope-ref:queue-v2/Q29/no-self-modifying-code",
+        "scope-ref:queue-v2/Q29/no-unreviewed-promotion",
+    },
+    "Q10-G06": {
+        "scope-ref:queue-v2/Q16/no-hidden-ranking-authority",
+        "boundary-ref:no-background-authority",
+    },
+    "Q10-G07": {
+        "scope-ref:queue-v2/Q20/no-broad-message-send",
+        "scope-ref:queue-v2/Q20/external-blocker-truth",
+    },
+    "Q10-G08": {
+        "scope-ref:queue-v2/Q23/no-connector-writes",
+        "scope-ref:queue-v2/Q23/no-standing-account-authority",
+    },
+    "Q10-G09": {
+        "boundary-ref:no-broad-provider-authority",
+        "boundary-ref:model-output-not-authority",
+    },
+    "Q10-G10": {
+        "scope-ref:queue-v2/Q22/no-second-model-call-on-ordinary-chat",
+        "scope-ref:queue-v2/Q22/no-tool-authority-escalation",
+    },
+    "Q10-G11": {
+        "boundary-ref:no-unrestricted-browser",
+        "boundary-ref:no-unrestricted-shell",
+    },
+    "Q10-G12": {
+        "boundary-ref:no-broad-autonomy",
+        "boundary-ref:worktree-is-not-authority",
+    },
+    "Q10-G13": {
+        "boundary-ref:no-remote-execution",
+        "boundary-ref:no-device-control-runtime",
+    },
+    "Q10-G14": {
+        "scope-ref:queue-v2/Q11/integrity-and-recovery",
+        "scope-ref:queue-v2/Q11/no-cloud-sync",
+    },
+    "Q10-G15": {
+        "scope-ref:queue-v2/Q16/no-fixture-primary-truth",
+        "scope-ref:queue-v2/Q21/no-production-readiness-claim",
+    },
+    "Q10-G16": {
+        "boundary-ref:no-plugin-runtime-import",
+        "boundary-ref:no-unreviewed-skill-install",
+    },
+    "Q10-G17": {
+        "scope-ref:queue-v2/Q14/no-live-account-adapter",
+        "scope-ref:queue-v2/Q17/no-connector-required",
+    },
+    "Q10-G18": {
+        "scope-ref:queue-v2/Q30/no-live-publish",
+        "scope-ref:queue-v2/Q30/no-platform-write",
+    },
+}
 ALLOWED_DISPOSITIONS = {"close", "defer", "intentionally_exclude"}
 ALLOWED_UAA_STATES = {
     "implemented",
@@ -93,29 +220,47 @@ EXPECTED_AUTHORITY_NON_GRANTS = {
     "background autonomy or standing execution authority",
     "public beta, public release, production readiness, or production authority",
 }
-RAW_LOCAL_PATH = re.compile(r"(?:file://|/Users/|/home/|[A-Za-z]:\\)")
+RAW_LOCAL_PATH = re.compile(
+    r"(?<![A-Za-z0-9_.:/~-])(?:"
+    r"file:(?://)?/|"
+    r"/(?!control-center(?:/|\b)|runtime(?:/|\b)|api(?:/|\b)|v1(?:/|\b))"
+    r"[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*|"
+    r"~/|[A-Za-z]:\\|\\\\"
+    r")",
+    re.IGNORECASE | re.MULTILINE,
+)
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
+REPORT_ROW = re.compile(r"^\| `(?P<gap_id>Q10-G\d{2})`.*\|$", re.MULTILINE)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _repo_path(ref: str) -> Path | None:
+def _safe_relative_file_ref(ref: str) -> bool:
     if not ref.strip():
-        return None
+        return False
     pure = PurePosixPath(ref)
-    if not pure.parts or pure.is_absolute() or ".." in pure.parts or "\\" in ref:
-        return None
-    candidate = ROOT.joinpath(*pure.parts)
-    try:
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(ROOT.resolve())
-    except (FileNotFoundError, RuntimeError, ValueError):
-        return None
-    if not resolved.is_file():
-        return None
-    return resolved
+    return bool(
+        pure.parts
+        and not pure.is_absolute()
+        and ".." not in pure.parts
+        and "\\" not in ref
+        and pure.suffix
+    )
+
+
+def _repo_blob_at_revision(ref: str) -> bool:
+    if not _safe_relative_file_ref(ref):
+        return False
+    result = subprocess.run(
+        ["git", "cat-file", "-t", f"{EXPECTED_BASE_REVISION}:{ref}"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and result.stdout.strip() == "blob"
 
 
 def _queue_items() -> dict[str, dict[str, Any]]:
@@ -147,6 +292,13 @@ def verify(
         failures.append("inventory date drifted")
 
     sources = data.get("comparison_sources", [])
+    source_ids = [
+        source.get("source_id") for source in sources if isinstance(source, dict)
+    ]
+    if len(sources) != len(EXPECTED_SOURCE_REVISIONS) or len(source_ids) != len(
+        set(source_ids)
+    ):
+        failures.append("comparison source records are duplicated or extra")
     source_by_id = {
         source.get("source_id"): source
         for source in sources
@@ -167,6 +319,8 @@ def verify(
             failures.append(f"{source_id} has no evidence path allowlist")
         elif len(evidence_paths) != len(set(evidence_paths)):
             failures.append(f"{source_id} evidence paths are duplicated")
+        if set(evidence_paths) != EXPECTED_SOURCE_FILES[source_id]:
+            failures.append(f"{source_id} evidence file set drifted")
         for path in evidence_paths:
             pure = PurePosixPath(str(path))
             if (
@@ -188,6 +342,11 @@ def verify(
         failures.append("gap ledger must contain Q10-G01 through Q10-G18 exactly once")
 
     queue_items = _queue_items() if check_refs else {}
+    report_rows = {
+        match.group("gap_id"): match.group(0) for match in REPORT_ROW.finditer(markdown)
+    }
+    if set(report_rows) != set(EXPECTED_GAPS):
+        failures.append("report gap-row set drifted")
     disposition_counts = {key: 0 for key in ALLOWED_DISPOSITIONS}
     for row in rows:
         if not isinstance(row, dict):
@@ -201,8 +360,16 @@ def verify(
             disposition_counts[disposition] += 1
         if EXPECTED_DISPOSITIONS.get(gap_id) != disposition:
             failures.append(f"{gap_id} disposition drifted")
-        if row.get("uaa_state") not in ALLOWED_UAA_STATES:
+        uaa_state = row.get("uaa_state")
+        if uaa_state not in ALLOWED_UAA_STATES:
             failures.append(f"{gap_id} has invalid UAA state")
+        if EXPECTED_UAA_STATES.get(gap_id) != uaa_state:
+            failures.append(f"{gap_id} UAA state drifted")
+        report_row = report_rows.get(gap_id, "")
+        if f"`{uaa_state}`" not in report_row:
+            failures.append(f"{gap_id} UAA state is missing from its report row")
+        if f"`{disposition}`" not in report_row:
+            failures.append(f"{gap_id} disposition is missing from its report row")
         for field in ("capability", "gap_summary"):
             if not isinstance(row.get(field), str) or not row[field].strip():
                 failures.append(f"{gap_id} is missing {field}")
@@ -254,27 +421,42 @@ def verify(
                 or path not in source.get("evidence_paths", [])
             ):
                 failures.append(f"{gap_id} has unpinned source ref: {source_ref}")
-            if source_ref not in markdown:
+            if source_ref not in report_row:
                 failures.append(
-                    f"{gap_id} source ref missing from report: {source_ref}"
+                    f"{gap_id} source ref missing from its report row: {source_ref}"
                 )
 
         evidence_refs = row.get("uaa_evidence_refs", [])
         if not evidence_refs:
             failures.append(f"{gap_id} lacks UAA evidence refs")
         for evidence_ref in evidence_refs:
-            if check_refs and _repo_path(str(evidence_ref)) is None:
+            if check_refs and not _repo_blob_at_revision(str(evidence_ref)):
                 failures.append(
-                    f"{gap_id} UAA evidence ref is missing or unsafe: {evidence_ref}"
+                    f"{gap_id} UAA evidence ref is missing or unsafe at the inventory revision: {evidence_ref}"
                 )
         if evidence_refs and not any(
-            str(evidence_ref) in markdown for evidence_ref in evidence_refs
+            str(evidence_ref) in report_row for evidence_ref in evidence_refs
         ):
-            failures.append(f"{gap_id} lacks UAA evidence in the report")
+            failures.append(f"{gap_id} lacks UAA evidence in its report row")
 
         boundary_refs = row.get("boundary_refs", [])
-        if not boundary_refs:
-            failures.append(f"{gap_id} lacks a boundary ref")
+        if set(boundary_refs) != EXPECTED_BOUNDARIES.get(gap_id, set()):
+            failures.append(f"{gap_id} boundary refs drifted")
+        for boundary_ref in boundary_refs:
+            if not str(boundary_ref).startswith("scope-ref:queue-v2/"):
+                continue
+            parts = str(boundary_ref).split("/")
+            item_id = parts[1] if len(parts) > 1 else ""
+            item = queue_items.get(item_id)
+            declared_refs = (
+                set(item.get("scope_refs", [])) | set(item.get("guardrail_refs", []))
+                if item
+                else set()
+            )
+            if check_refs and boundary_ref not in declared_refs:
+                failures.append(
+                    f"{gap_id} boundary ref is absent from {item_id}: {boundary_ref}"
+                )
         if markdown.count(f"`{gap_id}`") != 1:
             failures.append(f"{gap_id} must appear exactly once in the report ledger")
 
