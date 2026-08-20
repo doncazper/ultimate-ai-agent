@@ -138,9 +138,9 @@ context injection, beta release, public distribution, or production authority.
 v0.105.0 Governed Runtime Pilot is the scoped internal runtime-authority
 milestone for the governed runtime pilot. It does not change the active
 product/package baseline, public beta posture, distribution posture, or
-production authority. The milestone is eligible for the annotated
-`v0.105.0-governed-runtime-pilot` tag only after Phase 07 hardening, PR review,
-and release-truth checks are merged green.
+production authority. Phase 07 hardening, PR review, and release-truth checks
+merged green at commit `eacd4340fda89448fa94ef02cac76d11179500b1`; the
+annotated `v0.105.0-governed-runtime-pilot` tag records that scoped milestone.
 The clean baseline audit point for the pilot is
 `uaa-governed-runtime-baseline-2026-07-04` at commit
 `bd35e04426958dfb9b5993e99b0a5a62342f1fd1`; historical tags remain

@@ -171,8 +171,9 @@ Product Loop 011 Settings and kill-switch clarity is backend-owned read-only pos
 
 Product Loop 012 Private product loop trial script is a local/private, safe-ref-only manual operator review artifact for Boot, Today, Morning Briefing, Follow-Ups, Memory, Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings. `scripts/inspect_product_loop_trial_script.py` provides CLI parity for the same checklist and acceptance ledger posture. It adds no public beta, no public distribution, no telemetry export, no connector runtime, no connector reads/writes, no provider/model calls, no live web, no shell/browser execution, no production readiness claims, and no production authority.
 
-UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is a scoped internal
-RuntimeGateway milestone, not a public/package baseline change. It may describe
+UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is a completed scoped
+internal RuntimeGateway milestone recorded by annotated tag
+`v0.105.0-governed-runtime-pilot`, not a public/package baseline change. It may describe
 configured loopback local-model receipts, one exact read-only status command,
 and exact Action Inbox approved focused pytest, repo verifier, and frontend check receipts with CLI/API/Control
 Center parity. It must keep browser automation, connector writes, plugin import,

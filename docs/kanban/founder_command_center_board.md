@@ -34,8 +34,9 @@ call, provider/model authority, or production authority. It now names the
 Optional Local Model Stack: Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM, with
 Ollama and MLX-LM as read-only readiness and inventory evidence surfaces only.
 
-UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
-runtime-authority lane on the Operator Runtime Excellence board. It is relevant
+UAA-P1-091 v0.105.0 Governed Runtime Pilot is a completed scoped internal
+runtime-authority lane on the Operator Runtime Excellence board, recorded by
+annotated tag `v0.105.0-governed-runtime-pilot`. It is relevant
 to the Founder Command Center only as backend-owned Action Inbox/runtime receipt
 truth: configured loopback local-model receipts, one exact read-only status
 command, and exact Action Inbox approved focused pytest, repo-verifier,

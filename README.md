@@ -187,7 +187,7 @@ Morning Briefing
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
-| Governed runtime pilot | **UAA-P1-091 / v0.105.0** scoped internal milestone; Phase 07 hardening keeps `v0.104.0` active baseline until the milestone tag is created from green release truth |
+| Governed runtime pilot | **UAA-P1-091 / v0.105.0** completed scoped internal milestone; annotated tag `v0.105.0-governed-runtime-pilot` points to the green Phase 07 merge while `v0.104.0` remains the active product/package baseline |
 | API boundary | FastAPI route contract with generated OpenAPI and manifest route-operation inventory |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal capabilities; Phase 6.1 is internal Action proposal receipts only |
@@ -489,7 +489,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is the active scoped internal runtime-authority capability set: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps for those exact utility capabilities are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work outside exact approved capabilities, public beta, public release, production authority, and broad autonomy remain blocked.
+- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is complete and recorded by annotated tag `v0.105.0-governed-runtime-pilot` at merge commit `eacd4340fda89448fa94ef02cac76d11179500b1`: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps for those exact utility capabilities are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work outside exact approved capabilities, public beta, public release, production authority, and broad autonomy remain blocked.
 - UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, model pulls, model calls, runtime adapters, provider/model authority, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.
