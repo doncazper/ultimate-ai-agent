@@ -40,7 +40,7 @@ export function NorthStarShell({
   const routeBacked = routeState?.state === "backend_owned";
   const previewOnly = !routeBacked;
   const fixtureSurface = activeSurface === "communications" || activeSurface === "calendar";
-  const mixedSurface = activeSurface === "today" || activeSurface === "news" || activeSurface === "studio";
+  const mixedSurface = activeSurface === "news" || activeSurface === "studio";
   const representationNonAuthoritative = previewOnly || fixtureSurface || mixedSurface;
   const safeRefCount = new Set([
     ...data.founderAgentLoopThread.evidence.evidence_refs,

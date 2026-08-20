@@ -13,38 +13,41 @@ export function TodaySurface({ data }: { data: ControlCenterData }) {
   const attention = today.actions.slice(0, 5);
   const plans = today.plans.slice(0, 3);
   const evidenceCount = today.evidence_timeline.length;
-  const selectedAttention = attention[0];
+  const [selectedAttentionRef, setSelectedAttentionRef] = useState(
+    attention[0]?.item_ref ?? "",
+  );
+  const selectedAttention =
+    attention.find((item) => item.item_ref === selectedAttentionRef) ?? attention[0];
   return (
     <div className="ns-surface ns-today">
-      <Toolbar title="Today" subtitle="Backend-owned daily posture · weather source not connected">
+      <Toolbar title="Today" subtitle="Your local founder loop">
         <a className="ns-button primary" href={`${WORKSPACE_PREFIX}/decisions`}>
           <Icon name="scale" size={17} /> Review {actionCount} decisions
         </a>
       </Toolbar>
       <div className="ns-today-grid">
-        <Panel title="Morning Briefing" icon="sun" action={<Badge tone={backendOwned ? "green" : "orange"}>{backendOwned ? "Backend-owned" : "Preview"}</Badge>}>
+        <Panel title="Morning Briefing" icon="sun" action={<Badge tone={backendOwned ? "green" : "orange"}>{backendOwned ? "Current" : "Preview only"}</Badge>}>
           <div className="ns-list roomy">
             {briefingItems.map((item, index) => <ListRow detail={item.safe_summary} icon={index === 1 ? "triangle-alert" : index === 2 ? "file-text" : "target"} key={item.briefing_ref} title={item.title} />)}
-            {briefingItems.length === 0 ? <p className="ns-help-copy">No backend briefing items are currently reported.</p> : null}
+            {briefingItems.length === 0 ? <p className="ns-help-copy">No briefing items are ready yet.</p> : null}
           </div>
-          <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/today`}>Open briefing <Icon name="external-link" size={13} /></a>
+          <a className="ns-panel-link" href="/briefing">Open briefing <Icon name="external-link" size={13} /></a>
         </Panel>
         <Panel title="Needs your attention" icon="bell">
           <div className="ns-list attention-list">
-            {attention.map((item) => <ListRow badge={item.approval_required ? "Approval required" : item.status} detail={item.safe_summary} icon="scale" key={item.item_ref} title={item.title} tone={item.approval_required ? "orange" : "blue"} />)}
-            {attention.length === 0 ? <p className="ns-help-copy">No backend attention items are currently reported.</p> : null}
+            {attention.map((item) => <ListRow ariaLabel={`Show ${item.title}`} badge={item.approval_required ? "Approval required" : item.status} detail={item.safe_summary} icon="scale" key={item.item_ref} onSelect={() => setSelectedAttentionRef(item.item_ref)} selected={selectedAttention?.item_ref === item.item_ref} title={item.title} tone={item.approval_required ? "orange" : "blue"} />)}
+            {attention.length === 0 ? <p className="ns-help-copy">Nothing needs your attention right now.</p> : null}
           </div>
           <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/decisions`}>Review all {actionCount}</a>
         </Panel>
-        <Panel title="Selected item" icon="info">
+        <Panel title="Why this matters" icon="info">
           {selectedAttention ? <div className="ns-selected-item">
             <small>{selectedAttention.surface} · selected from Needs your attention</small>
             <h3>{selectedAttention.title}</h3>
-            <strong>Safe summary</strong>
             <p>{selectedAttention.safe_summary}</p>
-            <MetaRow icon="file-text" label="Item ref" value={selectedAttention.item_ref} />
-            <MetaRow icon="globe-2" label="Safe evidence" value={`${selectedAttention.evidence_refs.length} refs`} tone="green" />
-            <MetaRow icon="shield-check" label="Authority boundary" value={selectedAttention.authority_boundary} />
+            <MetaRow icon="globe-2" label="Evidence" value={`${selectedAttention.evidence_refs.length} safe refs`} tone="green" />
+            <MetaRow icon="shield-check" label="What can happen" value={selectedAttention.authority_boundary} />
+            <MetaRow icon="clock" label="Next safe step" value={selectedAttention.next_safe_action} />
             <div className="ns-inline-actions">
               <a href={`${WORKSPACE_PREFIX}/work-board`}>Open Work Board</a>
               <Button disabled title="No exact Day Plan mutation contract is connected">Add to Day Plan</Button>
@@ -53,10 +56,10 @@ export function TodaySurface({ data }: { data: ControlCenterData }) {
           </div> : <p className="ns-help-copy">Select an attention item when the backend reports one.</p>}
         </Panel>
         <Panel title="Day Plan" icon="calendar-check">
-          <div className="ns-plan-context"><Badge tone="blue">Backend read</Badge> {today.status.replaceAll("_", " ")} <Badge tone="neutral">Plans</Badge> {today.sections.plan_count}</div>
+          <div className="ns-plan-context"><Badge tone={backendOwned ? "green" : "orange"}>{backendOwned ? "Current" : "Preview only"}</Badge> <Badge tone="neutral">Plans</Badge> {today.sections.plan_count}</div>
           <div className="ns-list compact">
             {plans.map((plan, index) => <NumberedRow active={index === 0} key={plan.plan_ref} number={index + 1} text={plan.title} />)}
-            {plans.length === 0 ? <p className="ns-help-copy">No backend plans are currently reported.</p> : null}
+            {plans.length === 0 ? <p className="ns-help-copy">No plans are scheduled for today.</p> : null}
           </div>
           <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/work-board`}>Open full plan</a>
         </Panel>
@@ -69,31 +72,48 @@ export function TodaySurface({ data }: { data: ControlCenterData }) {
           <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/activity-trust`}>View business pulse</a>
         </Panel>
       </div>
-      <div className="ns-receipt-band"><Icon name="circle-check" size={18} tone={backendOwned ? "success" : "warning"} /> {backendOwned ? "Backend-owned Today read model" : "Non-authoritative preview fallback"} · {evidenceCount} evidence events · {today.sections.memory_review_count} memory reviews <a href={`${WORKSPACE_PREFIX}/activity-trust`}>View activity</a></div>
+      <div className="ns-receipt-band"><Icon name="circle-check" size={18} tone={backendOwned ? "success" : "warning"} /> <strong>{backendOwned ? "Since your last check" : "Preview only"}</strong> · {evidenceCount} evidence updates · {today.sections.memory_review_count} memory reviews <a href={`${WORKSPACE_PREFIX}/activity-trust`}>View activity</a></div>
     </div>
   );
 }
 
 function ListRow({
+  ariaLabel,
   badge,
   detail,
   icon,
+  onSelect,
+  selected = false,
   title,
   tone = "blue",
 }: {
+  ariaLabel?: string;
   badge?: string;
   detail?: string;
   icon: Parameters<typeof Icon>[0]["name"];
+  onSelect?: () => void;
+  selected?: boolean;
   title: string;
   tone?: "blue" | "orange" | "red" | "green";
 }) {
-  return (
-    <div className="ns-list-row">
+  const content = (
+    <>
       <Icon name={icon} size={18} />
       <span><strong>{title}</strong>{detail ? <small>{detail}</small> : null}</span>
       {badge ? <Badge tone={tone}>{badge}</Badge> : null}
-    </div>
+    </>
   );
+  return onSelect ? (
+    <button
+      aria-label={ariaLabel}
+      aria-pressed={selected}
+      className={`ns-list-row ns-list-row-button ${selected ? "selected" : ""}`}
+      onClick={onSelect}
+      type="button"
+    >
+      {content}
+    </button>
+  ) : <div className="ns-list-row">{content}</div>;
 }
 
 function NumberedRow({ active, number, text }: { active?: boolean; number: number; text: string }) {
