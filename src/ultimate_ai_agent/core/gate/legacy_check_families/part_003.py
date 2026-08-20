@@ -1418,6 +1418,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
             "API_ENDPOINTS.turnRouterPreview",
             "postRuntimeGoalMutation",
+            "postGovernedRuntimeControlMutation",
             "prepareRuntimeGoalMutationApproval",
             "decideRuntimeGoalMutationApproval",
             "revokeRuntimeGoalMutationApproval",
@@ -1441,12 +1442,11 @@ class FoundationGateLegacyChecksPart003Mixin:
             failures.append(f"unexpected frontend POST declaration count: {post_count}")
         exact_goal_post_bindings = {
             "prepareRuntimeGoalMutationApproval": (
-                "constendpoint=material.operation===\"create\""
+                'constendpoint=material.operation==="create"'
                 "?API_ENDPOINTS.runtimeGoalApprovalPrepareCreate"
                 ":runtimeGoalApprovalPrepareEndpoint("
                 "material.operation,material.goalRef,);",
-                "fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,"
-                '{method:"POST"',
+                'fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,{method:"POST"',
             ),
             "decideRuntimeGoalMutationApproval": (
                 "fetch(`${API_BASE_POLICY.baseUrl}"
@@ -1459,8 +1459,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 '{method:"POST"',
             ),
             "postRuntimeGoalMutation": (
-                "fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,"
-                '{method:"POST"',
+                'fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`,{method:"POST"',
             ),
             "createRuntimeGoal": (
                 "postRuntimeGoalMutation(API_ENDPOINTS.runtimeGoals,request,",
