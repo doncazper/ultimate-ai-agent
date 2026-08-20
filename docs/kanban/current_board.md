@@ -875,6 +875,32 @@ migration evidence slice; CRM-FC-000 may now finalize CRM-specific product and
 render acceptance without changing the accepted shared Event, Task, Board,
 Source, or ChangeSet ownership.
 
+ECO-001 Shared Local Data Foundation
+Goal: accept the smallest reusable storage, transaction, search, and recovery
+foundation needed by the application cores without prematurely cutting over
+historical stores.
+Status: accepted for bounded foundation scope on 2026-08-20. A versioned SQLite
+repository now keeps private payloads and private search terms inside
+workspace-bound AES-GCM envelopes, uses injected keys and workspace-keyed blind
+indexes, supports atomic/idempotent change sets, stale-version conflicts,
+approval-bound archive/delete, deletion tombstones, search rebuild, retry-safe
+key rotation, deep integrity checks, encrypted size-bounded full backup,
+single-open no-replace restore preview/restore-to-new, canonical read-only
+retention candidate selection, trusted safe-ref destination resolution, strict
+JSON payloads, transactional schema initialization, reader-safe key cleanup,
+and bounded read-only legacy JSON inventory
+preview. Replay equality material is encrypted and its visible fingerprint is
+workspace-keyed. Focused adversarial tests and a repo-local verifier are
+present.
+Scope: `docs/architecture/ECO_001_SHARED_LOCAL_DATA_FOUNDATION.md` and
+`src/ultimate_ai_agent/core/ecosystem/local_data.py`. The in-memory key backend
+is test-only. No production Keychain backend, existing-store cutover,
+incremental backup, route, UI, connector, cloud sync, background retention,
+external transaction, public release, or production authority is accepted.
+Next: ECO-002 may implement canonical local Tasks and durable mission ownership
+against this repository boundary. Each historical-store cutover still requires
+its own read-only preview, backup, recovery, authority, and acceptance evidence.
+
 ECO-003A First-Class Local Boards Product Contract And Render Acceptance
 Goal: refine the accepted reusable Boards direction into the best local UAA
 Kanban and visual-work product: familiar Trello/kan.bn fundamentals with UAA
