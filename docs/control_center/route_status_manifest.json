@@ -225,6 +225,41 @@
         },
         {
           "method": "POST",
+          "path": "/api/runtime/local-model/call",
+          "operation_id": "post_api_runtime_local_model_call",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/command/run",
+          "operation_id": "post_api_runtime_command_run",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/invocations/{id}/approve",
+          "operation_id": "post_api_runtime_invocations_id_approve",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/invocations/{id}/execute",
+          "operation_id": "post_api_runtime_invocations_id_execute",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/safe-disable",
+          "operation_id": "post_api_runtime_safe_disable",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
           "path": "/control-center/actions/{action_id}/approve",
           "operation_id": "post_control_center_actions_action_id_approve",
           "side_effect_class": "local_dev_workspace_only",
