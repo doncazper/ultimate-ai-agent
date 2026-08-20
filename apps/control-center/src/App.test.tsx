@@ -1997,6 +1997,13 @@ function runtimeActionInboxBridgeFixture(
       "Inspect exact runtime approval envelopes; broad runtime authority remains blocked.",
     operator_summary:
       "One governed runtime approval envelope is visible with receipt refs.",
+    control_center_exact_runtime_mutations_enabled: true,
+    control_center_mints_authority: false,
+    local_model_call_control_enabled: true,
+    command_request_control_enabled: true,
+    approval_decision_control_enabled: true,
+    exact_envelope_execution_control_enabled: true,
+    safe_disable_control_enabled: true,
     action_execution_enabled: false,
     arbitrary_command_execution_enabled: false,
     provider_model_call_enabled: false,
@@ -7234,10 +7241,124 @@ describe("Web Control Center shell", () => {
       "blocked-authority:runtime-unrestricted-command-execution",
     );
     expect(
-      within(bridge).queryByRole("button", {
-        name: /execute|run|apply|commit/i,
+      within(bridge).getByRole("button", {
+        name: "Request local model proposal",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeEnabled();
+    expect(
+      within(bridge).getByRole("button", {
+        name: "Prepare or run exact command lane",
+      }),
+    ).toBeEnabled();
+    expect(
+      within(bridge).getByRole("button", {
+        name: "Safe-disable governed runtime",
+      }),
+    ).toBeEnabled();
+    expect(bridge).toHaveTextContent(
+      "These controls do not mint an AuthorityLease or broaden the allowlist.",
+    );
+  });
+
+  it("posts an exact runtime approval decision and refreshes backend truth", async () => {
+    const pendingBridge = runtimeActionInboxBridgeFixture({
+      pending_approval_count: 1,
+      receipt_recorded_count: 0,
+      pending_runtime_approval_refs: ["approval-ref:runtime-app-test"],
+      items: [
+        {
+          ...runtimeActionInboxBridgeFixture().items[0],
+          status: "pending_approval",
+          approval_validated: false,
+          execution_performed: false,
+          receipt_ref: null,
+          execution_result_ref: null,
+          signed_evidence_ref: null,
+          signed_evidence_verifier_ref: null,
+          signed_evidence_verification_status: "not_available",
+          receipt_status: "receipt_not_recorded",
+          receipt_refs: [],
+          evidence_refs: [],
+        },
+      ],
+      receipt_refs: [],
+      execution_result_refs: [],
+      signed_evidence_refs: [],
+      evidence_refs: [],
+    });
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      runtime_action_inbox_bridge_contract_ref:
+        "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+      runtime_action_inbox_bridge_read_model: pendingBridge,
+    };
+    let inboxReadCount = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/api/runtime/invocations/runtime-invocation%3Aapp-test/approve")) {
+        expect(init?.method).toBe("POST");
+        expect(new Headers(init?.headers).get("X-UAA-Idempotency-Key")).toMatch(
+          /^idempotency-ref:control-center-governed-runtime:approve-invocation:sha256:/,
+        );
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        expect(body).toMatchObject({
+          decision: "approve",
+          approval_ref: "approval-ref:runtime-app-test",
+          action_envelope_ref: "action-envelope:runtime-app-test",
+          exact_scope_ref: "scope-ref:runtime-app-test",
+          expected_payload_fingerprint_ref:
+            "payload-fingerprint:runtime-app-test",
+          expected_policy_decision_ref: "policy-decision:runtime-app-test",
+        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              record: { invocation_ref: "runtime-invocation:app-test" },
+              execution_performed: false,
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReadCount += 1;
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    const bridge = await screen.findByLabelText(
+      "Runtime Action Inbox execution bridge",
+    );
+    fireEvent.click(
+      within(bridge).getByRole("button", { name: "Approve exact envelope" }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "/api/runtime/invocations/runtime-invocation%3Aapp-test/approve",
+        ),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(inboxReadCount).toBeGreaterThan(1);
+    });
+    expect(bridge).toHaveTextContent(
+      "The backend recorded the exact governed runtime request.",
+    );
   });
 
   it("renders the Action Tool Code catalog from backend data without execution controls", async () => {

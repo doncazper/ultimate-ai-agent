@@ -532,7 +532,10 @@ allowlisted argv-only read-only command status lane, and exact Action Inbox
 approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution
 plus CLI/Control Center/evidence timeline parity for status, capabilities,
 invocation, receipt, safe-disable,
-and approval decision inspection. Phase 07 also pins command execution to the
+and approval decisions. Control Center now calls the exact backend local-model,
+command-request, approval/deny, execute, refresh, and safe-disable APIs while
+remaining unable to mint an AuthorityLease or enable broad action execution.
+Phase 07 also pins command execution to the
 approved repo root, requires configured local-model endpoint matching, mirrors
 receipt execution truth on receipt detail, adds CLI approval preflight, and
 reconciles release verification hygiene.

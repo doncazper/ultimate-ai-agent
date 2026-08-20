@@ -94,6 +94,9 @@ export const API_ENDPOINTS = {
   runtimeCapabilityDiscovery: "/api/runtime/capability-discovery",
   runtimeRunEvents: "/api/runtime/run-events",
   runtimeGoals: "/api/runtime/goals",
+  runtimeLocalModelCall: "/api/runtime/local-model/call",
+  runtimeCommandRun: "/api/runtime/command/run",
+  runtimeSafeDisable: "/api/runtime/safe-disable",
   runtimeGoalApprovalPrepareCreate:
     "/api/runtime/goals/approval-requests/create",
   runtimeGoalApprovalRevoke:
@@ -212,6 +215,14 @@ export function communicationsReceiptEndpoint(receiptRef: string): string {
 
 export function runtimeGoalEndpoint(goalRef: string): string {
   return `/api/runtime/goals/${encodeURIComponent(goalRef)}`;
+}
+
+export function runtimeInvocationDecisionEndpoint(invocationRef: string): string {
+  return `/api/runtime/invocations/${encodeURIComponent(invocationRef)}/approve`;
+}
+
+export function runtimeInvocationExecuteEndpoint(invocationRef: string): string {
+  return `/api/runtime/invocations/${encodeURIComponent(invocationRef)}/execute`;
 }
 
 export function runtimeGoalEditEndpoint(goalRef: string): string {

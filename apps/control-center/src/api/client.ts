@@ -171,6 +171,8 @@ import {
   memoryContextPackActionProposalEndpoint,
   memoryReviewDecisionEndpoint,
   memoryReviewReceiptEndpoint,
+  runtimeInvocationDecisionEndpoint,
+  runtimeInvocationExecuteEndpoint,
   runtimeGoalEditEndpoint,
   runtimeGoalApprovalDecisionEndpoint,
   runtimeGoalApprovalPrepareEndpoint,
@@ -4763,6 +4765,241 @@ export async function fetchFounderActionsInbox(
     binding,
   );
   return inbox;
+}
+
+export type GovernedRuntimeCommandIntent =
+  | "git_status"
+  | "focused_pytest"
+  | "repo_verifier"
+  | "frontend_check"
+  | "repo_doctor";
+
+export interface GovernedRuntimeLocalModelControlRequest {
+  base_url: string;
+  model_ref: string;
+  messages: Array<{ role: "user"; content: string }>;
+  requested_profile: "local-runtime";
+  safe_summary: string;
+  allow_bounded_preview: false;
+  max_preview_chars: 0;
+  timeout_seconds: number;
+  max_response_bytes: number;
+  metadata_refs: string[];
+}
+
+export interface GovernedRuntimeCommandControlRequest {
+  intent: GovernedRuntimeCommandIntent;
+  requested_profile: "local-runtime" | "operator-approved";
+  target_refs: string[];
+  safe_summary: string;
+  timeout_seconds: number;
+  output_byte_limit: number;
+  metadata_refs: string[];
+}
+
+export interface GovernedRuntimeControlMutationResult {
+  operation: string;
+  status: "recorded" | "blocked";
+  invocationRef?: string;
+  receiptRef?: string;
+  safeMessage: string;
+}
+
+async function governedRuntimeMutationIdempotencyRef(
+  operation: string,
+  payload: unknown,
+): Promise<string> {
+  const digest = await sha256Hex(portableCanonicalJson({ operation, payload }));
+  return `idempotency-ref:control-center-governed-runtime:${operation}:sha256:${digest}`;
+}
+
+function safeRuntimeMutationRef(value: unknown): string | undefined {
+  return isSafeActionWorkQueueRef(value) ? value : undefined;
+}
+
+async function postGovernedRuntimeControlMutation(
+  endpoint: string,
+  operation: string,
+  request: object,
+  binding: BackendTruthReadBinding | null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const idempotencyRef = await governedRuntimeMutationIdempotencyRef(
+    operation,
+    request,
+  );
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders(
+      withBackendTruthMutationHeaders(
+        {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyRef,
+        },
+        binding,
+      ),
+    ),
+    body: JSON.stringify(request),
+  });
+  const envelope = (await readJsonSafely(response)) as ResultEnvelope<unknown>;
+  if (!response.ok) {
+    throw new Error(
+      safeApiErrorMessage(
+        envelope,
+        "The governed runtime request failed closed without changing authority.",
+      ),
+    );
+  }
+  const payload = envelope.result ?? envelope.data;
+  if (!isPlainRecord(payload)) {
+    throw new Error(
+      "The governed runtime response did not include a safe backend receipt projection.",
+    );
+  }
+  const record = isPlainRecord(payload.record) ? payload.record : undefined;
+  const receipt = isPlainRecord(payload.receipt) ? payload.receipt : undefined;
+  const invocationRef = safeRuntimeMutationRef(record?.invocation_ref);
+  const receiptRef =
+    safeRuntimeMutationRef(payload.receipt_ref) ??
+    safeRuntimeMutationRef(receipt?.receipt_ref) ??
+    safeRuntimeMutationRef(record?.receipt_ref);
+  const recorded = (envelope.success ?? envelope.ok) === true;
+  return {
+    operation,
+    status: recorded ? "recorded" : "blocked",
+    invocationRef,
+    receiptRef,
+    safeMessage: recorded
+      ? "The backend recorded the exact governed runtime request. Refreshing receipt truth now."
+      : safeApiErrorMessage(
+          envelope,
+          "The backend blocked the governed runtime request; no broader authority was granted.",
+        ),
+  };
+}
+
+export async function requestGovernedRuntimeLocalModelProposal(
+  request: GovernedRuntimeLocalModelControlRequest,
+  binding: BackendTruthReadBinding | null = null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  return postGovernedRuntimeControlMutation(
+    API_ENDPOINTS.runtimeLocalModelCall,
+    "local-model-call",
+    request,
+    binding,
+  );
+}
+
+export async function requestGovernedRuntimeCommand(
+  request: GovernedRuntimeCommandControlRequest,
+  binding: BackendTruthReadBinding | null = null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  return postGovernedRuntimeControlMutation(
+    API_ENDPOINTS.runtimeCommandRun,
+    `command-${request.intent}`,
+    request,
+    binding,
+  );
+}
+
+export async function decideGovernedRuntimeInvocation(
+  invocationRef: string,
+  decision: "approve" | "deny",
+  exactEnvelope: {
+    approval_ref: string;
+    action_envelope_ref: string;
+    exact_scope_ref: string;
+    payload_fingerprint_ref: string;
+    policy_decision_ref: string;
+    adapter_id: string;
+    command_intent?: GovernedRuntimeCommandIntent | null;
+    rollback_ref: string;
+    safe_disable_ref: string;
+    safe_disable_posture_ref: string;
+  },
+  binding: BackendTruthReadBinding | null = null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  return postGovernedRuntimeControlMutation(
+    runtimeInvocationDecisionEndpoint(invocationRef),
+    `${decision}-invocation`,
+    {
+      approval_ref: exactEnvelope.approval_ref,
+      approval_scope_ref: "approval-scope-ref:governed-runtime-exact-envelope",
+      decision,
+      action_envelope_ref: exactEnvelope.action_envelope_ref,
+      exact_scope_ref: exactEnvelope.exact_scope_ref,
+      expected_payload_fingerprint_ref: exactEnvelope.payload_fingerprint_ref,
+      expected_policy_decision_ref: exactEnvelope.policy_decision_ref,
+      adapter_id: exactEnvelope.adapter_id,
+      command_intent: exactEnvelope.command_intent ?? undefined,
+      rollback_ref: exactEnvelope.rollback_ref,
+      safe_disable_ref: exactEnvelope.safe_disable_ref,
+      safe_disable_posture_ref: exactEnvelope.safe_disable_posture_ref,
+      safe_summary: `Operator recorded an exact ${decision} decision from the Control Center.`,
+      metadata_refs: ["metadata-ref:control-center-governed-runtime-decision"],
+    },
+    binding,
+  );
+}
+
+export async function executeGovernedRuntimeInvocation(
+  invocationRef: string,
+  exactEnvelope: {
+    approval_ref: string;
+    action_envelope_ref: string;
+    payload_fingerprint_ref: string;
+    policy_decision_ref: string;
+    command_intent?: GovernedRuntimeCommandIntent | null;
+  },
+  binding: BackendTruthReadBinding | null = null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  const commandRequest = exactEnvelope.command_intent
+    ? {
+        intent: exactEnvelope.command_intent,
+        requested_profile: "operator-approved",
+        target_refs: [
+          `target-ref:control-center-governed-runtime:${exactEnvelope.command_intent}`,
+        ],
+        approval_ref: exactEnvelope.approval_ref,
+        safe_summary: "Run one exact approved governed runtime command lane.",
+        timeout_seconds: 30,
+        output_byte_limit: 4096,
+        metadata_refs: ["metadata-ref:control-center-governed-runtime-execute"],
+      }
+    : undefined;
+  return postGovernedRuntimeControlMutation(
+    runtimeInvocationExecuteEndpoint(invocationRef),
+    "execute-invocation",
+    {
+      approval_ref: exactEnvelope.approval_ref,
+      action_envelope_ref: exactEnvelope.action_envelope_ref,
+      expected_payload_fingerprint_ref: exactEnvelope.payload_fingerprint_ref,
+      expected_policy_decision_ref: exactEnvelope.policy_decision_ref,
+      command_request: commandRequest,
+      safe_summary:
+        "Execute one exact approval-bound governed runtime envelope and record redacted evidence.",
+      metadata_refs: ["metadata-ref:control-center-governed-runtime-execute"],
+    },
+    binding,
+  );
+}
+
+export async function safeDisableGovernedRuntime(
+  binding: BackendTruthReadBinding | null = null,
+): Promise<GovernedRuntimeControlMutationResult> {
+  return postGovernedRuntimeControlMutation(
+    API_ENDPOINTS.runtimeSafeDisable,
+    "safe-disable",
+    {
+      reason_ref: "reason-ref:control-center-governed-runtime-safe-disable",
+      safe_summary: "Operator requested governed runtime safe-disable from the Control Center.",
+      metadata_refs: ["metadata-ref:control-center-governed-runtime-safe-disable"],
+    },
+    binding,
+  );
 }
 
 export async function submitTodayActionEnvelope(
@@ -17889,6 +18126,7 @@ const ACTION_WORK_QUEUE_DENIED_FLAGS = [
 ] as const;
 
 const RUNTIME_ACTION_INBOX_BRIDGE_DENIED_FLAGS = [
+  "control_center_mints_authority",
   "action_execution_enabled",
   "arbitrary_command_execution_enabled",
   "provider_model_call_enabled",
@@ -18074,6 +18312,12 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
   const blockedAuthorityRefs = value.blocked_authority_refs as unknown[];
   return (
     value.item_count === items.length &&
+    value.control_center_exact_runtime_mutations_enabled === true &&
+    value.local_model_call_control_enabled === true &&
+    value.command_request_control_enabled === true &&
+    value.approval_decision_control_enabled === true &&
+    value.exact_envelope_execution_control_enabled === true &&
+    value.safe_disable_control_enabled === true &&
     itemRefs.length === items.length &&
     itemRefs.every(
       (ref, index) =>

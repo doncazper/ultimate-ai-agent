@@ -156,8 +156,10 @@ RuntimeGateway. Runtime profiles are:
   exact focused pytest command execution only after a validated
   `operator-approved` Action Inbox approval envelope. Phase 06 makes the same
   runtime truth inspectable through `uaa runtime ...`, `uaa actions
-  approve|deny ...`, Control Center status/readiness cards, and safe receipt
-  timeline refs without broadening command/provider/browser authority. Phase
+  approve|deny ...`, Control Center status/readiness cards, exact backend-owned
+  local-model, command-request, approval/deny, execute, and safe-disable
+  controls, plus safe receipt timeline refs without minting authority or
+  broadening command/provider/browser authority. Phase
   07 hardens command root pinning, configured endpoint matching, receipt-detail
   truth, approval preflight, and release verification without adding broader
   authority.

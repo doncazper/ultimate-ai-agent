@@ -41,7 +41,9 @@ to the Founder Command Center only as backend-owned Action Inbox/runtime receipt
 truth: configured loopback local-model receipts, one exact read-only status
 command, and exact Action Inbox approved focused pytest, repo-verifier,
 frontend-check, and repo-doctor execution through
-RuntimeGateway. It does not grant browser automation, connector writes, plugin
+RuntimeGateway. Its Action Inbox surface calls the exact backend local-model,
+command-request, approval/deny, execute, refresh, and safe-disable APIs without
+minting an AuthorityLease or enabling broad action execution. It does not grant browser automation, connector writes, plugin
 import, remote execution, arbitrary shell/subprocess work outside exact
 approved lanes, public beta, public release,
 production authority, or broad autonomy.

@@ -900,6 +900,25 @@ def test_catalog_keeps_queued_follow_up_queued_when_status_mentions_current() ->
     assert candidate.source_status == "queued"
 
 
+def test_catalog_does_not_emit_completed_authority_conveyor_as_active(
+    tmp_path: Path,
+) -> None:
+    board = tmp_path / "docs" / "kanban" / "current_board.md"
+    board.parent.mkdir(parents=True)
+    board.write_text(
+        "## Runtime lane\n\n"
+        "UAA-P1-091 Governed Runtime Pilot is a completed scoped internal lane.\n",
+        encoding="utf-8",
+    )
+
+    catalog = build_developer_planning_catalog(tmp_path)
+
+    assert all(
+        candidate.canonical_task_ref != "canonical-task-ref:uaa-p1-091"
+        for candidate in catalog.candidates
+    )
+
+
 class _FixedRunner:
     def __init__(self) -> None:
         self.commands: list[tuple[str, ...]] = []

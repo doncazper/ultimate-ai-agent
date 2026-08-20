@@ -492,7 +492,10 @@ records the green Phase 07 merge: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
 focused pytest, repo-verifier, frontend-check, and repo-doctor execution may produce
 RuntimeGateway receipts only under active `workspace/execute` AuthorityLease
-scope plus exact Action Inbox approval; browser
+scope plus exact Action Inbox approval. Control Center calls the same exact
+backend local-model, command-request, approval/deny, execute, refresh, and
+safe-disable APIs while remaining unable to mint an AuthorityLease or enable
+broad action execution; browser
 automation, connector writes, plugin import, remote execution, arbitrary
 shell/subprocess work outside exact approved capabilities, public
 beta, public release, production authority, and broad autonomy remain blocked.

@@ -176,7 +176,9 @@ internal RuntimeGateway milestone recorded by annotated tag
 `v0.105.0-governed-runtime-pilot`, not a public/package baseline change. It may describe
 configured loopback local-model receipts, one exact read-only status command,
 and exact Action Inbox approved focused pytest, repo verifier, and frontend check receipts with CLI/API/Control
-Center parity. It must keep browser automation, connector writes, plugin import,
+Center parity. Control Center parity includes exact backend local-model,
+command-request, approval/deny, execute, refresh, and safe-disable controls;
+it does not mint an AuthorityLease or enable broad action execution. It must keep browser automation, connector writes, plugin import,
 remote execution, arbitrary shell/subprocess work, repo verifier/frontend-check
 runtime execution outside named exact lanes, public beta, public release, production authority, and broad
 autonomy blocked.

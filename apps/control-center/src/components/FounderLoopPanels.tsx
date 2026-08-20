@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   commitLocalTask,
+  decideGovernedRuntimeInvocation,
+  executeGovernedRuntimeInvocation,
   fetchActionReceipt,
   fetchFounderActionsInbox,
   fetchFounderMemoryContextPacks,
@@ -8,9 +10,13 @@ import {
   recordMemoryFeedback,
   recordMemoryContextPackActionProposal,
   recordMemoryReviewDecision,
+  requestGovernedRuntimeCommand,
+  requestGovernedRuntimeLocalModelProposal,
+  safeDisableGovernedRuntime,
   submitActionDecision,
   submitTodayActionEnvelope,
 } from "../api/client";
+import type { GovernedRuntimeCommandIntent } from "../api/client";
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import type {
@@ -1098,11 +1104,15 @@ function ActionInboxOperatorOverview({
 
 function RuntimeActionInboxBridgePanel({
   contractRef,
-  readModel,
+  readModel: initialReadModel,
 }: {
   contractRef?: string;
   readModel?: FounderLoopRuntimeActionInboxBridgeReadModel;
 }) {
+  const [readModel, setDisplayedReadModel] = useState(initialReadModel);
+  useEffect(() => {
+    setDisplayedReadModel(initialReadModel);
+  }, [initialReadModel]);
   if (!readModel) {
     return (
       <article
@@ -1173,7 +1183,15 @@ function RuntimeActionInboxBridgePanel({
         />
         <DetailTerm label="Safe-disable ref" value={readModel.safe_disable_ref} />
         <DetailTerm
-          label="Control Center execution controls"
+          label="Exact governed controls"
+          value={
+            readModel.control_center_exact_runtime_mutations_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Broad action execution"
           value={readModel.action_execution_enabled ? "enabled" : "blocked"}
         />
         <DetailTerm
@@ -1226,6 +1244,10 @@ function RuntimeActionInboxBridgePanel({
         <DetailTerm label="Safe-disable CLI" value={readModel.safe_disable_cli_ref} />
       </dl>
       <p className="muted">{readModel.safe_disable_summary}</p>
+      <GovernedRuntimeControlPanel
+        onReadModel={setDisplayedReadModel}
+        readModel={readModel}
+      />
       <div className="review-grid">
         {readModel.items.map((item) => (
           <article className="review-card" key={item.invocation_ref}>
@@ -1422,6 +1444,357 @@ function RuntimeActionInboxBridgePanel({
         refs={readModel.blocked_authority_refs}
       />
     </article>
+  );
+}
+
+const governedRuntimeCommandIntents: GovernedRuntimeCommandIntent[] = [
+  "git_status",
+  "focused_pytest",
+  "repo_verifier",
+  "frontend_check",
+  "repo_doctor",
+];
+
+function governedRuntimeCommandIntent(
+  value: string | null | undefined,
+): GovernedRuntimeCommandIntent | null {
+  return governedRuntimeCommandIntents.includes(
+    value as GovernedRuntimeCommandIntent,
+  )
+    ? (value as GovernedRuntimeCommandIntent)
+    : null;
+}
+
+function GovernedRuntimeControlPanel({
+  onReadModel,
+  readModel,
+}: {
+  onReadModel: (readModel: FounderLoopRuntimeActionInboxBridgeReadModel) => void;
+  readModel: FounderLoopRuntimeActionInboxBridgeReadModel;
+}) {
+  const mutationBinding = useBackendTruthMutationBinding();
+  const [localModelBaseUrl, setLocalModelBaseUrl] = useState(
+    "http://127.0.0.1:8080",
+  );
+  const [localModelRef, setLocalModelRef] = useState("uaa-local-runtime");
+  const [localModelPrompt, setLocalModelPrompt] = useState(
+    "Summarize the current governed runtime posture as an untrusted proposal.",
+  );
+  const [commandIntent, setCommandIntent] =
+    useState<GovernedRuntimeCommandIntent>("git_status");
+  const [state, setState] = useState<{
+    status: "idle" | "pending" | "recorded" | "blocked" | "failed";
+    operation?: string;
+    message?: string;
+    invocationRef?: string;
+    receiptRef?: string;
+  }>({ status: "idle" });
+  const pending = state.status === "pending";
+  const exactControlsEnabled =
+    readModel.control_center_exact_runtime_mutations_enabled &&
+    !readModel.control_center_mints_authority &&
+    mutationBinding !== null;
+
+  async function runMutation(
+    operation: string,
+    mutation: () => Promise<{
+      status: "recorded" | "blocked";
+      safeMessage: string;
+      invocationRef?: string;
+      receiptRef?: string;
+    }>,
+  ) {
+    setState({ status: "pending", operation });
+    try {
+      const result = await mutation();
+      setState({
+        status: result.status,
+        operation,
+        message: result.safeMessage,
+        invocationRef: result.invocationRef,
+        receiptRef: result.receiptRef,
+      });
+      const refreshedInbox = await fetchFounderActionsInbox(mutationBinding);
+      const refreshedBridge =
+        refreshedInbox.runtime_action_inbox_bridge_read_model;
+      if (refreshedBridge) {
+        onReadModel(refreshedBridge);
+      }
+    } catch (error) {
+      setState({
+        status: "failed",
+        operation,
+        message:
+          error instanceof Error
+            ? error.message
+            : "The governed runtime request failed closed.",
+      });
+    }
+  }
+
+  function requestLocalModelProposal() {
+    return runMutation("local model proposal", () =>
+      requestGovernedRuntimeLocalModelProposal(
+        {
+          base_url: localModelBaseUrl.trim(),
+          model_ref: localModelRef.trim(),
+          messages: [{ role: "user", content: localModelPrompt.trim() }],
+          requested_profile: "local-runtime",
+          safe_summary:
+            "Use the configured loopback local model as an untrusted proposal.",
+          allow_bounded_preview: false,
+          max_preview_chars: 0,
+          timeout_seconds: 10,
+          max_response_bytes: 16000,
+          metadata_refs: [
+            "metadata-ref:control-center-governed-runtime-local-model",
+          ],
+        },
+        mutationBinding,
+      ),
+    );
+  }
+
+  function requestCommand() {
+    return runMutation(`command ${commandIntent}`, () =>
+      requestGovernedRuntimeCommand(
+        {
+          intent: commandIntent,
+          requested_profile:
+            commandIntent === "git_status" ? "local-runtime" : "operator-approved",
+          target_refs: [
+            `target-ref:control-center-governed-runtime:${commandIntent}`,
+          ],
+          safe_summary:
+            commandIntent === "git_status"
+              ? "Inspect the approved repository with the exact read-only git status lane."
+              : "Prepare one exact governed utility command for approval-bound execution.",
+          timeout_seconds: commandIntent === "git_status" ? 10 : 30,
+          output_byte_limit: 4096,
+          metadata_refs: [
+            "metadata-ref:control-center-governed-runtime-command",
+          ],
+        },
+        mutationBinding,
+      ),
+    );
+  }
+
+  return (
+    <section
+      aria-label="Governed runtime operator controls"
+      className="decision-controls"
+    >
+      <div className="status-card-header">
+        <div>
+          <h4>Exact governed controls</h4>
+          <p className="muted">
+            Backend APIs own every mutation, policy check, approval envelope,
+            execution receipt, and safe-disable transition. These controls do
+            not mint an AuthorityLease or broaden the allowlist.
+          </p>
+        </div>
+        <span>{state.status}</span>
+      </div>
+      <label className="field-label">
+        Loopback model endpoint
+        <input
+          className="text-input"
+          disabled={pending || readModel.safe_disable_active}
+          onChange={(event) => setLocalModelBaseUrl(event.target.value)}
+          spellCheck={false}
+          value={localModelBaseUrl}
+        />
+      </label>
+      <label className="field-label">
+        Local model ref
+        <input
+          className="text-input"
+          disabled={pending || readModel.safe_disable_active}
+          onChange={(event) => setLocalModelRef(event.target.value)}
+          spellCheck={false}
+          value={localModelRef}
+        />
+      </label>
+      <label className="field-label">
+        Transient bounded prompt
+        <textarea
+          className="text-input"
+          disabled={pending || readModel.safe_disable_active}
+          maxLength={16000}
+          onChange={(event) => setLocalModelPrompt(event.target.value)}
+          rows={3}
+          value={localModelPrompt}
+        />
+      </label>
+      <button
+        className="secondary-button"
+        disabled={
+          pending ||
+          readModel.safe_disable_active ||
+          !exactControlsEnabled ||
+          !readModel.local_model_call_control_enabled ||
+          !localModelBaseUrl.trim() ||
+          !localModelRef.trim() ||
+          !localModelPrompt.trim()
+        }
+        onClick={() => void requestLocalModelProposal()}
+        type="button"
+      >
+        Request local model proposal
+      </button>
+      <label className="field-label">
+        Exact command lane
+        <select
+          className="text-input"
+          disabled={pending || readModel.safe_disable_active}
+          onChange={(event) =>
+            setCommandIntent(event.target.value as GovernedRuntimeCommandIntent)
+          }
+          value={commandIntent}
+        >
+          {governedRuntimeCommandIntents.map((intent) => (
+            <option key={intent} value={intent}>
+              {intent}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        className="secondary-button"
+        disabled={
+          pending ||
+          readModel.safe_disable_active ||
+          !exactControlsEnabled ||
+          !readModel.command_request_control_enabled
+        }
+        onClick={() => void requestCommand()}
+        type="button"
+      >
+        Prepare or run exact command lane
+      </button>
+      <div className="review-grid">
+        {readModel.items.map((item) => {
+          const exactCommandIntent = governedRuntimeCommandIntent(
+            item.command_intent,
+          );
+          const exactEnvelope = {
+            approval_ref: item.approval_ref,
+            action_envelope_ref: item.action_envelope_ref,
+            exact_scope_ref: item.exact_scope_ref,
+            payload_fingerprint_ref: item.payload_fingerprint_ref,
+            policy_decision_ref: item.policy_decision_ref,
+            adapter_id: item.adapter_id,
+            command_intent: exactCommandIntent,
+            rollback_ref: item.rollback_ref,
+            safe_disable_ref: item.safe_disable_ref,
+            safe_disable_posture_ref: item.safe_disable_posture_ref,
+          };
+          return (
+            <article className="review-card" key={`controls-${item.invocation_ref}`}>
+              <div className="review-card-heading">
+                <h5>{item.command_intent ?? item.adapter_id}</h5>
+                <span>{item.status}</span>
+              </div>
+              <p className="muted">{item.exact_scope_ref}</p>
+              <div className="decision-button-row">
+                {item.status === "pending_approval" ? (
+                  <>
+                    <button
+                      className="secondary-button"
+                      disabled={
+                        pending ||
+                        readModel.safe_disable_active ||
+                        !readModel.approval_decision_control_enabled
+                      }
+                      onClick={() =>
+                        void runMutation("approve exact envelope", () =>
+                          decideGovernedRuntimeInvocation(
+                            item.invocation_ref,
+                            "approve",
+                            exactEnvelope,
+                            mutationBinding,
+                          ),
+                        )
+                      }
+                      type="button"
+                    >
+                      Approve exact envelope
+                    </button>
+                    <button
+                      className="secondary-button"
+                      disabled={pending || !readModel.approval_decision_control_enabled}
+                      onClick={() =>
+                        void runMutation("deny exact envelope", () =>
+                          decideGovernedRuntimeInvocation(
+                            item.invocation_ref,
+                            "deny",
+                            exactEnvelope,
+                            mutationBinding,
+                          ),
+                        )
+                      }
+                      type="button"
+                    >
+                      Deny exact envelope
+                    </button>
+                  </>
+                ) : null}
+                {item.status === "approved_pending_execution" ? (
+                  <button
+                    className="secondary-button"
+                    disabled={
+                      pending ||
+                      readModel.safe_disable_active ||
+                      !readModel.exact_envelope_execution_control_enabled
+                    }
+                    onClick={() =>
+                      void runMutation("execute exact envelope", () =>
+                        executeGovernedRuntimeInvocation(
+                          item.invocation_ref,
+                          exactEnvelope,
+                          mutationBinding,
+                        ),
+                      )
+                    }
+                    type="button"
+                  >
+                    Execute exact envelope
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <button
+        className="secondary-button"
+        disabled={
+          pending ||
+          readModel.safe_disable_active ||
+          !exactControlsEnabled ||
+          !readModel.safe_disable_control_enabled
+        }
+        onClick={() =>
+          void runMutation("safe-disable", () =>
+            safeDisableGovernedRuntime(mutationBinding),
+          )
+        }
+        type="button"
+      >
+        Safe-disable governed runtime
+      </button>
+      {state.message ? <p className="muted">{state.message}</p> : null}
+      {state.invocationRef || state.receiptRef ? (
+        <dl className="detail-list">
+          <DetailTerm
+            label="Invocation"
+            value={state.invocationRef ?? "not returned"}
+          />
+          <DetailTerm label="Receipt" value={state.receiptRef ?? "pending"} />
+        </dl>
+      ) : null}
+    </section>
   );
 }
 
