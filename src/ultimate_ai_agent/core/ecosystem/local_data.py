@@ -35,7 +35,8 @@ ECO_LOCAL_DATA_SCHEMA_VERSION = 1
 ECO_LOCAL_DATA_SCHEMA_REF = "schema-ref:ecosystem-local-data:v1"
 _BACKUP_MAGIC = b"UAA-ECO-LOCAL-BACKUP-V1\x00"
 _NONCE_BYTES = 12
-_MAX_PRIVATE_PAYLOAD_BYTES = 1024 * 1024
+ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES = 1024 * 1024
+_MAX_PRIVATE_PAYLOAD_BYTES = ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES
 _MAX_BACKUP_BYTES = 512 * 1024 * 1024
 _MAX_MIGRATION_SOURCE_BYTES = 64 * 1024 * 1024
 _EXPECTED_SCHEMA_SHAPE_FINGERPRINT = (
@@ -45,6 +46,15 @@ _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.boards.apply": (
+        "module-ref:boards",
+        frozenset(
+            {
+                "record-kind-ref:canonical-board",
+                "record-kind-ref:board-template",
+            }
+        ),
+    ),
     "ecosystem.tasks.apply": (
         "module-ref:tasks",
         frozenset(
@@ -62,10 +72,10 @@ _SCOPED_MUTATION_ACTIONS = {
         frozenset({"record-kind-ref:task"}),
     ),
 }
-_REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset({"ecosystem.tasks.apply"})
-_EXISTING_ONLY_MUTATION_ACTIONS = frozenset(
-    {"ecosystem.tasks.legacy_local_data.apply"}
+_REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
+    {"ecosystem.boards.apply", "ecosystem.tasks.apply"}
 )
+_EXISTING_ONLY_MUTATION_ACTIONS = frozenset({"ecosystem.tasks.legacy_local_data.apply"})
 _DOMAIN_VALIDATION_TOKEN = object()
 
 
@@ -1092,9 +1102,7 @@ class EcosystemLocalDataPlatform:
                     request_ciphertext=replay["request_ciphertext"],
                     approval_ref=replay["approval_ref"],
                     receipt_ref=replay["receipt_ref"],
-                    operation_receipt_refs_json=replay[
-                        "operation_receipt_refs_json"
-                    ],
+                    operation_receipt_refs_json=replay["operation_receipt_refs_json"],
                     created_at=replay["created_at"],
                 )
                 if not hmac.compare_digest(
