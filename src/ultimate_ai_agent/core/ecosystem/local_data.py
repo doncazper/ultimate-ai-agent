@@ -46,6 +46,10 @@ _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.crm.apply": (
+        "module-ref:crm",
+        frozenset({"record-kind-ref:crm-private-portfolio"}),
+    ),
     "ecosystem.calendar.apply": (
         "module-ref:calendar",
         frozenset({"record-kind-ref:calendar-set"}),
@@ -80,6 +84,7 @@ _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
     {
         "ecosystem.boards.apply",
         "ecosystem.calendar.apply",
+        "ecosystem.crm.apply",
         "ecosystem.tasks.apply",
     }
 )
