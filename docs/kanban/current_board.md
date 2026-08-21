@@ -948,6 +948,27 @@ Accepted core scope: `docs/architecture/ECO_003_REUSABLE_BOARDS_AND_TASK_PROJECT
 Next: add route/CLI parity and approval-preview UX in a separately scoped lane;
 retain the current Work Board until its compatibility migration is accepted.
 
+ECO-004 Standalone Local Calendar
+Goal: establish useful manual/local Calendar behavior before any live account
+adapter or external calendar write.
+Status: accepted for bounded core scope on 2026-08-21. Encrypted Calendar Sets
+now support local calendars and events, daily/weekly/monthly recurrence, bounded
+occurrences, IANA time zones and DST normalization, day/week/month/agenda views,
+overlap conflicts, intent-only reminders, structured quick create, event CRUD,
+typed import/export, optimistic concurrency, receipts, protected undo, and
+ref-only canonical Task time blocks.
+Scope: `docs/architecture/ECO_004_STANDALONE_LOCAL_CALENDAR.md`,
+`docs/decisions/ADR-0066-standalone-local-calendar.md`,
+`src/ultimate_ai_agent/core/ecosystem/calendar.py`,
+`scripts/verify_eco_004_calendar.py`, `tests/test_eco_004_calendar.py`, and
+`tests/test_eco_004_verifier.py`. No API/CLI/UI, notification delivery,
+background scheduler, account adapter, external calendar write, production
+key/path backend, public release, or production authority is accepted.
+Next: dependent app cores may consume Calendar refs and projections. Product
+cutover still requires route/CLI parity, approval-preview UX, migration and
+recovery evidence, accessibility and interaction proof, packaging, and any
+adapter as a separate exact authority lane.
+
 FIN-000 Finance & Compliance Product Contract And Render Acceptance
 Goal: preserve and refine the first-party UAA Finance vision before runtime:
 continuous local books, review-and-learn categorization, receipt/context
