@@ -14,6 +14,7 @@ import json
 import re
 from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
+from math import gcd
 from typing import Any, Callable, Iterator, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -151,6 +152,32 @@ def _localize(day: date, wall_time: time, zone: ZoneInfo) -> datetime:
     if normalized.replace(tzinfo=None) != naive:
         return normalized
     return candidate
+
+
+def _monthly_valid_count_before(
+    *,
+    anchor: datetime,
+    target_day: int,
+    interval: int,
+    sequence_index: int,
+) -> int:
+    """Count valid monthly candidates before one sequence index in O(4800)."""
+    if sequence_index <= 0:
+        return 0
+    anchor_month = anchor.year * 12 + anchor.month - 1
+    period = 4_800 // gcd(4_800, interval)
+
+    def valid(index: int) -> bool:
+        absolute_month = anchor_month + index * interval
+        year, zero_based_month = divmod(absolute_month, 12)
+        return target_day <= month_calendar.monthrange(year, zero_based_month + 1)[1]
+
+    cycles, remainder = divmod(sequence_index, period)
+    valid_per_cycle = sum(valid(index) for index in range(period))
+    total = cycles * valid_per_cycle + sum(valid(index) for index in range(remainder))
+    if target_day < anchor.day and valid(0):
+        total -= 1
+    return total
 
 
 class LocalCalendar(_CalendarModel):
@@ -533,6 +560,11 @@ class CalendarRepository:
         if calendar_set.version != expected_version + 1:
             raise CalendarConflict("ECO_CALENDAR_NEXT_VERSION_INVALID")
         desired = calendar_set.snapshot()
+
+        def transform(current: CalendarSet) -> CalendarSetSnapshot:
+            self._validate_save_lifecycle(current=current, desired=desired)
+            return desired
+
         return self._mutate(
             workspace_ref=calendar_set.workspace_ref,
             calendar_set_ref=calendar_set.calendar_set_ref,
@@ -542,7 +574,7 @@ class CalendarRepository:
             approval=approval,
             mutation_kind="save",
             mutation_material={"desired": desired.model_dump(mode="json")},
-            transform=lambda _current: desired,
+            transform=transform,
         )
 
     def add_calendar(
@@ -590,11 +622,18 @@ class CalendarRepository:
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         def transform(current: CalendarSet) -> CalendarSetSnapshot:
-            if not any(
-                item.calendar_ref == calendar_item.calendar_ref
-                for item in current.calendars
-            ):
+            current_item = next(
+                (
+                    item
+                    for item in current.calendars
+                    if item.calendar_ref == calendar_item.calendar_ref
+                ),
+                None,
+            )
+            if current_item is None:
                 raise CalendarConflict("ECO_CALENDAR_NOT_FOUND")
+            if current_item.archived != calendar_item.archived:
+                raise CalendarConflict("ECO_CALENDAR_LIFECYCLE_REQUIRES_EXACT_ACTION")
             calendars = tuple(
                 calendar_item
                 if item.calendar_ref == calendar_item.calendar_ref
@@ -612,6 +651,70 @@ class CalendarRepository:
             approval=approval,
             mutation_kind="update_calendar",
             mutation_material={"calendar": calendar_item.model_dump(mode="json")},
+            transform=transform,
+        )
+
+    def archive_calendar(self, **kwargs: Any) -> UnitOfWorkReceipt:
+        return self._set_calendar_archive_state(archived=True, **kwargs)
+
+    def restore_calendar(self, **kwargs: Any) -> UnitOfWorkReceipt:
+        return self._set_calendar_archive_state(archived=False, **kwargs)
+
+    def _set_calendar_archive_state(
+        self,
+        *,
+        workspace_ref: str,
+        calendar_set_ref: str,
+        calendar_ref: str,
+        archived: bool,
+        expected_version: int,
+        operation_ref: str,
+        idempotency_ref: str,
+        approval: ApprovalValidationRequest,
+    ) -> UnitOfWorkReceipt:
+        _validate_ref(calendar_ref, "calendar_ref")
+
+        def transform(current: CalendarSet) -> CalendarSetSnapshot:
+            calendar_item = next(
+                (
+                    item
+                    for item in current.calendars
+                    if item.calendar_ref == calendar_ref
+                ),
+                None,
+            )
+            if calendar_item is None:
+                raise CalendarConflict("ECO_CALENDAR_NOT_FOUND")
+            if calendar_item.archived == archived:
+                code = (
+                    "ECO_CALENDAR_ALREADY_ARCHIVED"
+                    if archived
+                    else "ECO_CALENDAR_NOT_ARCHIVED"
+                )
+                raise CalendarConflict(code)
+            if archived and any(
+                event.calendar_ref == calendar_ref and not event.archived
+                for event in current.events
+            ):
+                raise CalendarConflict("ECO_CALENDAR_ARCHIVE_REQUIRES_NO_ACTIVE_EVENTS")
+            updated = LocalCalendar.model_validate(
+                {**calendar_item.model_dump(mode="json"), "archived": archived}
+            )
+            calendars = tuple(
+                updated if item.calendar_ref == calendar_ref else item
+                for item in current.calendars
+            )
+            return self._snapshot(current, calendars=calendars)
+
+        return self._mutate(
+            workspace_ref=workspace_ref,
+            calendar_set_ref=calendar_set_ref,
+            expected_version=expected_version,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            mutation_kind="archive_calendar" if archived else "restore_calendar",
+            mutation_material={"calendar_ref": calendar_ref},
             transform=transform,
         )
 
@@ -724,8 +827,16 @@ class CalendarRepository:
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         def transform(current: CalendarSet) -> CalendarSetSnapshot:
-            if not any(item.event_ref == event.event_ref for item in current.events):
+            current_event = next(
+                (item for item in current.events if item.event_ref == event.event_ref),
+                None,
+            )
+            if current_event is None:
                 raise CalendarConflict("ECO_CALENDAR_EVENT_NOT_FOUND")
+            if current_event.archived != event.archived:
+                raise CalendarConflict(
+                    "ECO_CALENDAR_EVENT_LIFECYCLE_REQUIRES_EXACT_ACTION"
+                )
             events = tuple(
                 event if item.event_ref == event.event_ref else item
                 for item in current.events
@@ -1013,6 +1124,9 @@ class CalendarRepository:
             end_day = start_day + timedelta(days=30)
         range_start = _localize(start_day, time.min, zone)
         range_end = _localize(end_day, time.min, zone)
+        calendar_set_before = self.read(
+            workspace_ref=workspace_ref, calendar_set_ref=calendar_set_ref
+        )
         occurrence_items = self.occurrences(
             workspace_ref=workspace_ref,
             calendar_set_ref=calendar_set_ref,
@@ -1020,6 +1134,11 @@ class CalendarRepository:
             ends_at=range_end,
             calendar_refs=calendar_refs,
         )
+        calendar_set_after = self.read(
+            workspace_ref=workspace_ref, calendar_set_ref=calendar_set_ref
+        )
+        if calendar_set_before.version != calendar_set_after.version:
+            raise CalendarConflict("ECO_CALENDAR_VIEW_CONCURRENT_MODIFICATION")
         conflict_items = self.detect_conflicts(occurrence_items)
         return CalendarViewResult(
             view=view,
@@ -1032,6 +1151,7 @@ class CalendarRepository:
                 "calendar-view-result-ref",
                 {
                     "calendar_set_ref": calendar_set_ref,
+                    "calendar_set_summary_ref": calendar_set_after.safe_summary_ref,
                     "view": view.value,
                     "timezone": timezone_name,
                     "range_start": range_start.isoformat(),
@@ -1201,6 +1321,31 @@ class CalendarRepository:
                 raise CalendarConflict("ECO_CALENDAR_PRIVATE_PAYLOAD_LIMIT_EXCEEDED")
             history.pop(0)
 
+    @staticmethod
+    def _validate_save_lifecycle(
+        *, current: CalendarSet, desired: CalendarSetSnapshot
+    ) -> None:
+        if current.archived != desired.archived:
+            raise CalendarConflict("ECO_CALENDAR_SET_LIFECYCLE_REQUIRES_EXACT_ACTION")
+        current_calendars = {item.calendar_ref: item for item in current.calendars}
+        desired_calendars = {item.calendar_ref: item for item in desired.calendars}
+        if current_calendars.keys() != desired_calendars.keys():
+            raise CalendarConflict("ECO_CALENDAR_SAVE_CALENDAR_IDENTITY_CHANGE_DENIED")
+        if any(
+            item.archived != desired_calendars[calendar_ref].archived
+            for calendar_ref, item in current_calendars.items()
+        ):
+            raise CalendarConflict("ECO_CALENDAR_LIFECYCLE_REQUIRES_EXACT_ACTION")
+        current_events = {item.event_ref: item for item in current.events}
+        desired_events = {item.event_ref: item for item in desired.events}
+        if current_events.keys() != desired_events.keys():
+            raise CalendarConflict("ECO_CALENDAR_SAVE_EVENT_IDENTITY_CHANGE_DENIED")
+        if any(
+            item.archived != desired_events[event_ref].archived
+            for event_ref, item in current_events.items()
+        ):
+            raise CalendarConflict("ECO_CALENDAR_EVENT_LIFECYCLE_REQUIRES_EXACT_ACTION")
+
     def _validate_task_refs(self, calendar_set: CalendarSet) -> None:
         task_events = [
             event
@@ -1279,12 +1424,37 @@ class CalendarRepository:
     def _event_occurrences(
         event: CalendarEvent, starts_at: datetime, ends_at: datetime
     ) -> Iterator[CalendarOccurrence]:
-        duration = event.ends_at - event.starts_at
+        zone = _zone(event.timezone)
+        if event.all_day:
+            day_span = (
+                event.ends_at.astimezone(zone).date()
+                - event.starts_at.astimezone(zone).date()
+            ).days
+            search_margin = timedelta(days=day_span + 1)
+
+            def occurrence_end(candidate: datetime) -> datetime:
+                return _localize(
+                    candidate.astimezone(zone).date() + timedelta(days=day_span),
+                    time.min,
+                    zone,
+                )
+
+        else:
+            elapsed_duration = _utc(event.ends_at) - _utc(event.starts_at)
+            search_margin = elapsed_duration
+
+            def occurrence_end(candidate: datetime) -> datetime:
+                return (_utc(candidate) + elapsed_duration).astimezone(zone)
+
         for index, candidate in enumerate(
-            CalendarRepository._recurrence_starts(event, starts_at - duration, ends_at)
+            CalendarRepository._recurrence_starts(
+                event, starts_at - search_margin, ends_at
+            )
         ):
-            occurrence_end = candidate + duration
-            if occurrence_end <= starts_at or candidate >= ends_at:
+            candidate_end = occurrence_end(candidate)
+            if _utc(candidate_end) <= _utc(starts_at) or _utc(candidate) >= _utc(
+                ends_at
+            ):
                 continue
             yield CalendarOccurrence(
                 occurrence_ref=_stable_ref(
@@ -1294,7 +1464,7 @@ class CalendarRepository:
                 event_ref=event.event_ref,
                 calendar_ref=event.calendar_ref,
                 starts_at=candidate,
-                ends_at=occurrence_end,
+                ends_at=candidate_end,
                 timezone=event.timezone,
             )
             if index >= _MAX_OCCURRENCES:
@@ -1313,7 +1483,7 @@ class CalendarRepository:
         wall_time = anchor.timetz()
 
         def acceptable(candidate: datetime) -> bool:
-            return rule.until is None or candidate <= rule.until
+            return rule.until is None or _utc(candidate) <= _utc(rule.until)
 
         if rule.frequency == CalendarRecurrenceFrequency.daily:
             query_day = query_start.astimezone(zone).date()
@@ -1326,7 +1496,7 @@ class CalendarRepository:
                 candidate = _localize(
                     anchor.date() + timedelta(days=offset), wall_time, zone
                 )
-                if candidate >= query_end or not acceptable(candidate):
+                if _utc(candidate) >= _utc(query_end) or not acceptable(candidate):
                     return
                 yield candidate
                 sequence_index += 1
@@ -1355,15 +1525,31 @@ class CalendarRepository:
                     candidate = _localize(
                         week_start + timedelta(days=weekday), wall_time, zone
                     )
-                    if candidate >= query_end or not acceptable(candidate):
+                    if _utc(candidate) >= _utc(query_end) or not acceptable(candidate):
                         return
                     yield candidate
                 sequence_week += 1
         else:
-            month_offset = 0
             target_day = rule.month_day or anchor.day
-            emitted = 0
+            query_local = query_start.astimezone(zone)
+            anchor_month = anchor.year * 12 + anchor.month - 1
+            query_month = query_local.year * 12 + query_local.month - 1
+            elapsed_months = max(0, query_month - anchor_month - rule.interval)
+            sequence_index = elapsed_months // rule.interval
+            emitted = (
+                _monthly_valid_count_before(
+                    anchor=anchor,
+                    target_day=target_day,
+                    interval=rule.interval,
+                    sequence_index=sequence_index,
+                )
+                if rule.count is not None
+                else 0
+            )
             while True:
+                if rule.count is not None and emitted >= rule.count:
+                    return
+                month_offset = sequence_index * rule.interval
                 month_index = anchor.month - 1 + month_offset
                 year = anchor.year + month_index // 12
                 month = month_index % 12 + 1
@@ -1371,15 +1557,14 @@ class CalendarRepository:
                     candidate = _localize(
                         date(year, month, target_day), wall_time, zone
                     )
-                    if candidate >= query_end or not acceptable(candidate):
+                    if _utc(candidate) < _utc(anchor):
+                        sequence_index += 1
+                        continue
+                    if _utc(candidate) >= _utc(query_end) or not acceptable(candidate):
                         return
                     yield candidate
                     emitted += 1
-                    if rule.count is not None and emitted >= rule.count:
-                        return
-                month_offset += rule.interval
-                if month_offset > 12 * 100:
-                    raise CalendarError("ECO_CALENDAR_RECURRENCE_SCAN_LIMIT_EXCEEDED")
+                sequence_index += 1
 
     def _ensure_missing(self, workspace_ref: str, record_ref: str) -> None:
         try:

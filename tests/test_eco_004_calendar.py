@@ -567,6 +567,234 @@ def test_nonexistent_dst_wall_time_moves_forward_without_losing_series(
     assert [item.occurrence.starts_at.minute for item in occurrences] == [30, 30, 30]
 
 
+def test_fold_aware_event_duration_uses_elapsed_instants(tmp_path: Path) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    _create_set(repository, authority)
+    zone = ZoneInfo("America/Los_Angeles")
+    event = CalendarEvent(
+        event_ref="event-ref:fall-fold",
+        calendar_ref=CALENDAR_REF,
+        title="Fall fold",
+        starts_at=datetime(2026, 11, 1, 1, 30, tzinfo=zone, fold=0),
+        ends_at=datetime(2026, 11, 1, 1, 30, tzinfo=zone, fold=1),
+        timezone="America/Los_Angeles",
+    )
+    _add_event(repository, authority, event)
+    occurrence = repository.occurrences(
+        workspace_ref=WORKSPACE,
+        calendar_set_ref=SET_REF,
+        starts_at=datetime(2026, 11, 1, tzinfo=zone),
+        ends_at=datetime(2026, 11, 2, tzinfo=zone),
+    )[0].occurrence
+    assert occurrence.ends_at.astimezone(
+        timezone.utc
+    ) - occurrence.starts_at.astimezone(timezone.utc) == timedelta(hours=1)
+    assert occurrence.ends_at.fold == 1
+
+
+def test_monthly_recurrence_starts_after_anchor_and_seeks_century_old_series(
+    tmp_path: Path,
+) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    _create_set(repository, authority)
+    zone = ZoneInfo("America/Los_Angeles")
+    starts_at = datetime(2026, 1, 20, 9, tzinfo=zone)
+    offset_event = CalendarEvent(
+        event_ref="event-ref:monthly-offset",
+        calendar_ref=CALENDAR_REF,
+        title="Monthly offset",
+        starts_at=starts_at,
+        ends_at=starts_at + timedelta(hours=1),
+        timezone="America/Los_Angeles",
+        recurrence=CalendarRecurrenceRule(
+            frequency=CalendarRecurrenceFrequency.monthly,
+            month_day=15,
+            count=2,
+            timezone="America/Los_Angeles",
+        ),
+    )
+    _add_event(repository, authority, offset_event)
+    old_start = datetime(1900, 1, 15, 9, tzinfo=zone)
+    old_event = CalendarEvent(
+        event_ref="event-ref:century-old",
+        calendar_ref=CALENDAR_REF,
+        title="Century old",
+        starts_at=old_start,
+        ends_at=old_start + timedelta(hours=1),
+        timezone="America/Los_Angeles",
+        recurrence=CalendarRecurrenceRule(
+            frequency=CalendarRecurrenceFrequency.monthly,
+            month_day=15,
+            timezone="America/Los_Angeles",
+        ),
+    )
+    _add_event(repository, authority, old_event, expected_version=2)
+    occurrences = repository.occurrences(
+        workspace_ref=WORKSPACE,
+        calendar_set_ref=SET_REF,
+        starts_at=datetime(2026, 1, 1, tzinfo=zone),
+        ends_at=datetime(2026, 4, 1, tzinfo=zone),
+    )
+    offset_dates = [
+        item.occurrence.starts_at.date()
+        for item in occurrences
+        if item.event.event_ref == offset_event.event_ref
+    ]
+    old_dates = [
+        item.occurrence.starts_at.date()
+        for item in occurrences
+        if item.event.event_ref == old_event.event_ref
+    ]
+    assert offset_dates == [datetime(2026, 2, 15).date(), datetime(2026, 3, 15).date()]
+    assert old_dates == [
+        datetime(2026, 1, 15).date(),
+        datetime(2026, 2, 15).date(),
+        datetime(2026, 3, 15).date(),
+    ]
+
+
+def test_save_and_update_cannot_bypass_exact_lifecycle_actions(tmp_path: Path) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    _create_set(repository, authority)
+    event = _event()
+    _add_event(repository, authority, event)
+    current = repository.read(workspace_ref=WORKSPACE, calendar_set_ref=SET_REF)
+
+    removed_event_set = CalendarSet.model_validate(
+        {
+            **current.model_dump(mode="json"),
+            "events": [],
+            "version": 3,
+            "undo_stack": [],
+        }
+    )
+    operation_ref = "operation-ref:bypass-save-remove"
+    idempotency_ref = "idempotency-ref:bypass-save-remove"
+    with pytest.raises(
+        CalendarConflict, match="ECO_CALENDAR_SAVE_EVENT_IDENTITY_CHANGE_DENIED"
+    ):
+        repository.save(
+            calendar_set=removed_event_set,
+            expected_version=2,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_calendar_approval(
+                authority,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+
+    archived_event = CalendarEvent.model_validate(
+        {**event.model_dump(mode="json"), "archived": True}
+    )
+    archived_event_set = CalendarSet.model_validate(
+        {
+            **current.model_dump(mode="json"),
+            "events": [archived_event.model_dump(mode="json")],
+            "version": 3,
+            "undo_stack": [],
+        }
+    )
+    operation_ref = "operation-ref:bypass-save-archive"
+    idempotency_ref = "idempotency-ref:bypass-save-archive"
+    with pytest.raises(
+        CalendarConflict,
+        match="ECO_CALENDAR_EVENT_LIFECYCLE_REQUIRES_EXACT_ACTION",
+    ):
+        repository.save(
+            calendar_set=archived_event_set,
+            expected_version=2,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_calendar_approval(
+                authority,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+
+    operation_ref = "operation-ref:bypass-update-archive"
+    idempotency_ref = "idempotency-ref:bypass-update-archive"
+    with pytest.raises(
+        CalendarConflict,
+        match="ECO_CALENDAR_EVENT_LIFECYCLE_REQUIRES_EXACT_ACTION",
+    ):
+        repository.update_event(
+            workspace_ref=WORKSPACE,
+            calendar_set_ref=SET_REF,
+            event=archived_event,
+            expected_version=2,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_calendar_approval(
+                authority,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+
+    operation_ref = "operation-ref:archive-calendar-with-event"
+    idempotency_ref = "idempotency-ref:archive-calendar-with-event"
+    with pytest.raises(
+        CalendarConflict, match="ECO_CALENDAR_ARCHIVE_REQUIRES_NO_ACTIVE_EVENTS"
+    ):
+        repository.archive_calendar(
+            workspace_ref=WORKSPACE,
+            calendar_set_ref=SET_REF,
+            calendar_ref=CALENDAR_REF,
+            expected_version=2,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_calendar_approval(
+                authority,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+
+
+def test_view_result_ref_changes_with_local_calendar_content(tmp_path: Path) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    _create_set(repository, authority)
+    event = _event()
+    _add_event(repository, authority, event)
+    before = repository.view(
+        workspace_ref=WORKSPACE,
+        calendar_set_ref=SET_REF,
+        view=CalendarView.day,
+        anchor=datetime(2026, 3, 7, 20, tzinfo=timezone.utc),
+        timezone_name="America/Los_Angeles",
+    )
+    updated = CalendarEvent.model_validate(
+        {**event.model_dump(mode="json"), "title": "Updated local title"}
+    )
+    operation_ref = "operation-ref:update-local-event"
+    idempotency_ref = "idempotency-ref:update-local-event"
+    repository.update_event(
+        workspace_ref=WORKSPACE,
+        calendar_set_ref=SET_REF,
+        event=updated,
+        expected_version=2,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=_calendar_approval(
+            authority,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    after = repository.view(
+        workspace_ref=WORKSPACE,
+        calendar_set_ref=SET_REF,
+        view=CalendarView.day,
+        anchor=datetime(2026, 3, 7, 20, tzinfo=timezone.utc),
+        timezone_name="America/Los_Angeles",
+    )
+    assert after.result_ref != before.result_ref
+    assert after.occurrence_items[0].event.title == "Updated local title"
+
+
 def test_task_time_block_keeps_ref_only_and_resolves_canonical_truth(
     tmp_path: Path,
 ) -> None:
