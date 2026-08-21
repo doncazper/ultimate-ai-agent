@@ -40,7 +40,9 @@ The Task-specific action and a content-free request-context ref are included in
 encrypted replay material. Exact retries can therefore return their durable
 receipt after later mutations without allowing a create, save, complete,
 reopen, archive, restore, or delete receipt to satisfy a different lifecycle
-operation. The local-data plane binds registered domain actions to their exact
+operation. Caller-controlled create inputs cannot override that context, and an
+already-current mutation without its matching receipt fails at the Task
+boundary. The local-data plane binds registered domain actions to their exact
 module and record kinds, checks both proposed and existing ownership on upsert,
 and rejects generic writes to protected domain modules. Canonical Task writes
 also require the internal repository-validation handoff; a raw local-data call

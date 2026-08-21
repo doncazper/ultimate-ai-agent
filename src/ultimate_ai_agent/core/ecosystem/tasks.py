@@ -13,6 +13,7 @@ import json
 import re
 import sqlite3
 import stat
+from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from pathlib import Path
@@ -48,6 +49,9 @@ _ALL_TASKS_SEARCH_TERM = "entity-kind:canonical-task"
 _MAX_LEGACY_DATABASE_BYTES = 64 * 1024 * 1024
 _MAX_LEGACY_CANDIDATES = 10_000
 _SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{2,190}$")
+_INTERNAL_CREATE_CONTEXT_REF: ContextVar[str | None] = ContextVar(
+    "eco_task_internal_create_context_ref", default=None
+)
 
 
 class TaskError(RuntimeError):
@@ -594,15 +598,16 @@ class TaskRepository:
         operation_ref: str,
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
-        _request_context_ref: str | None = None,
     ) -> UnitOfWorkReceipt:
-        request_context_ref = _request_context_ref or self._request_context_ref(
-            "create",
-            {
-                "task": task.model_dump(mode="json"),
-                "operation_ref": operation_ref,
-            },
-        )
+        request_context_ref = _INTERNAL_CREATE_CONTEXT_REF.get()
+        if request_context_ref is None:
+            request_context_ref = self._request_context_ref(
+                "create",
+                {
+                    "task": task.model_dump(mode="json"),
+                    "operation_ref": operation_ref,
+                },
+            )
         return self._create(
             task=task,
             operation_ref=operation_ref,
@@ -708,14 +713,7 @@ class TaskRepository:
                 task, operation_ref, expected_version=expected_version
             )
             if current.version == task.version:
-                return self.platform._apply_registered_domain(
-                    workspace_ref=task.workspace_ref,
-                    idempotency_ref=idempotency_ref,
-                    operations=(operation,),
-                    approval=approval,
-                    requested_action=ECO_TASK_MUTATION_ACTION,
-                    request_context_ref=request_context_ref,
-                )
+                raise TaskConflict("ECO_TASK_STALE_VERSION")
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
             if current.archived != task.archived:
@@ -1234,13 +1232,16 @@ class TaskRepository:
             )
             if parent.version != plan.parent_version:
                 raise TaskConflict("ECO_TASK_RECURRENCE_PLAN_STALE")
-            return self.create(
-                task=plan.occurrence,
-                operation_ref=plan.operation_ref,
-                idempotency_ref=plan.idempotency_ref,
-                approval=approval,
-                _request_context_ref=request_context_ref,
-            )
+            context_token = _INTERNAL_CREATE_CONTEXT_REF.set(request_context_ref)
+            try:
+                return self.create(
+                    task=plan.occurrence,
+                    operation_ref=plan.operation_ref,
+                    idempotency_ref=plan.idempotency_ref,
+                    approval=approval,
+                )
+            finally:
+                _INTERNAL_CREATE_CONTEXT_REF.reset(context_token)
 
     def _put(
         self,

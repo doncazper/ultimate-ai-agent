@@ -668,6 +668,44 @@ def test_raw_task_action_cannot_bypass_repository_lifecycle_validation(
     assert current == task
 
 
+def test_already_current_task_rejects_at_the_task_boundary(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:already-current")
+    _create(repository, authority, task, "already-current-create")
+    updated = CanonicalTask.model_validate(
+        {
+            **task.model_dump(mode="json"),
+            "title": "Private updated title",
+            "version": 2,
+        }
+    )
+    _save(repository, authority, updated, "already-current-save")
+
+    with pytest.raises(TaskConflict, match="ECO_TASK_STALE_VERSION"):
+        _save(repository, authority, updated, "already-current-save-new-key")
+
+    ready_task = _task("task-ref:already-ready")
+    _create(repository, authority, ready_task, "already-ready-create")
+    operation_ref = "operation-ref:already-ready-reopen"
+    idempotency_ref = "idempotency-ref:already-ready-reopen"
+    with pytest.raises(TaskConflict, match="ECO_TASK_STALE_VERSION"):
+        repository.reopen(
+            workspace_ref=WORKSPACE,
+            task_ref=ready_task.task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_approval(
+                authority,
+                action=ECO_TASK_MUTATION_ACTION,
+                resources=_mutation_refs(
+                    task_ref=ready_task.task_ref,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                ),
+            ),
+        )
+
+
 def test_quick_capture_complete_reopen_and_exact_replay(tmp_path: Path) -> None:
     repository, authority, _ = _repository(tmp_path)
     task_ref = "task-ref:captured"
