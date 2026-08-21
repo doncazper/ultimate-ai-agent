@@ -901,6 +901,27 @@ Next: ECO-002 may implement canonical local Tasks and durable mission ownership
 against this repository boundary. Each historical-store cutover still requires
 its own read-only preview, backup, recovery, authority, and acceptance evidence.
 
+ECO-002 Canonical Tasks And Mission Ownership
+Goal: establish one governed local Task truth while retaining Plans ownership of
+projects and the durable mission subsystem's ownership of execution state.
+Status: accepted for bounded core scope on 2026-08-20. Canonical encrypted Task
+records now support quick capture, lifecycle transitions, Inbox/Today/Upcoming/
+Anytime/Waiting/Flagged/Completed/Overdue views, same-workspace dependencies and
+hierarchies, explicit recurrence materialization, archive/restore/delete safety,
+and one active safe-ref Task binding per mission. Exact Task mutations are bound
+to `ecosystem.tasks.apply`; replay material includes that action. A bounded
+immutable Founder Loop compatibility reader previews safe refs only and performs
+no cutover.
+Scope: `docs/architecture/ECO_002_CANONICAL_TASKS_AND_MISSION_OWNERSHIP.md`,
+`docs/decisions/ADR-0064-canonical-tasks-and-mission-ownership.md`,
+`src/ultimate_ai_agent/core/ecosystem/tasks.py`, and focused verifier/tests. No
+production key/path backend, Tasks route/UI, historical-store mutation, project
+ownership, mission execution, external task integration, scheduler/background
+work, public release, or production authority is accepted.
+Next: dependent app cores may consume this contract. Product cutover still
+requires production key/path backends, accepted migration and recovery evidence,
+route/CLI parity, UI states, performance evidence, and packaging acceptance.
+
 ECO-003A First-Class Local Boards Product Contract And Render Acceptance
 Goal: refine the accepted reusable Boards direction into the best local UAA
 Kanban and visual-work product: familiar Trello/kan.bn fundamentals with UAA

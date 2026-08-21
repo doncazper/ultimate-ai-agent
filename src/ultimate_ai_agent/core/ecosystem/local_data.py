@@ -804,9 +804,11 @@ class EcosystemLocalDataPlatform:
         idempotency_ref: str,
         operations: tuple[LocalMutation, ...],
         approval: ApprovalValidationRequest,
+        requested_action: str = "ecosystem.local_data.apply",
     ) -> UnitOfWorkReceipt:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(idempotency_ref, field_name="idempotency_ref")
+        _validate_ref(requested_action, field_name="requested_action")
         if not operations or len(operations) > 64:
             raise ValueError("ECO_UOW_OPERATION_COUNT_INVALID")
         operation_refs = [
@@ -825,7 +827,7 @@ class EcosystemLocalDataPlatform:
         with self.approval_authority.hold_validation_lock():
             approval_ref = self._authorize(
                 approval,
-                action="ecosystem.local_data.apply",
+                action=requested_action,
                 resource_refs=resource_refs,
             )
             connection = self._connect()
@@ -834,7 +836,9 @@ class EcosystemLocalDataPlatform:
                 key_item_ref, key_version_ref = self._workspace_key(
                     connection, workspace_ref
                 )
-                request_material = self._request_material(workspace_ref, operations)
+                request_material = self._request_material(
+                    workspace_ref, operations, requested_action=requested_action
+                )
                 fingerprint_ref = self._request_fingerprint(
                     key_item_ref=key_item_ref,
                     key_version_ref=key_version_ref,
@@ -963,7 +967,11 @@ class EcosystemLocalDataPlatform:
                 connection.close()
 
     def _request_material(
-        self, workspace_ref: str, operations: tuple[LocalMutation, ...]
+        self,
+        workspace_ref: str,
+        operations: tuple[LocalMutation, ...],
+        *,
+        requested_action: str,
     ) -> bytes:
         encoded: list[dict[str, Any]] = []
         for operation in operations:
@@ -978,7 +986,15 @@ class EcosystemLocalDataPlatform:
                     )
             item["operation_type"] = type(operation).__name__
             encoded.append(item)
-        return _canonical_json({"workspace_ref": workspace_ref, "operations": encoded})
+        material: dict[str, Any] = {
+            "workspace_ref": workspace_ref,
+            "operations": encoded,
+        }
+        # Preserve exact replay compatibility for pre-ECO-002 receipts while
+        # binding every non-default authority lane into new request material.
+        if requested_action != "ecosystem.local_data.apply":
+            material["requested_action"] = requested_action
+        return _canonical_json(material)
 
     def _request_fingerprint(
         self,
