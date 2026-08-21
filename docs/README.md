@@ -301,6 +301,15 @@ only the Task ref; no Boards API route, CLI command, or UI, Work Board cutover,
 mapped Task mutation, cloud collaboration, external runtime, public release, or
 production authority is added.
 
+The bounded ECO-004 standalone local Calendar core is documented in
+`docs/architecture/ECO_004_STANDALONE_LOCAL_CALENDAR.md`. It adds encrypted
+Calendar Sets, local calendars and events, recurrence and occurrence expansion,
+IANA time-zone and DST handling, day/week/month/agenda views, deterministic
+conflicts, intent-only reminders, ref-only Task time blocks, typed portability,
+optimistic concurrency, receipts, and protected undo. No Calendar API route,
+CLI command, UI, notification scheduler, account adapter, external calendar
+write, public release, or production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

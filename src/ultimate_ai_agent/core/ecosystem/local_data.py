@@ -46,6 +46,10 @@ _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.calendar.apply": (
+        "module-ref:calendar",
+        frozenset({"record-kind-ref:calendar-set"}),
+    ),
     "ecosystem.boards.apply": (
         "module-ref:boards",
         frozenset(
@@ -73,7 +77,11 @@ _SCOPED_MUTATION_ACTIONS = {
     ),
 }
 _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
-    {"ecosystem.boards.apply", "ecosystem.tasks.apply"}
+    {
+        "ecosystem.boards.apply",
+        "ecosystem.calendar.apply",
+        "ecosystem.tasks.apply",
+    }
 )
 _EXISTING_ONLY_MUTATION_ACTIONS = frozenset({"ecosystem.tasks.legacy_local_data.apply"})
 _DOMAIN_VALIDATION_TOKEN = object()
