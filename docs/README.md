@@ -292,6 +292,15 @@ historical rows. No Tasks route/UI, production key backend, scheduler, external
 task integration, project ownership, mission execution, public release, or
 production authority is added.
 
+The bounded ECO-003 reusable Boards core is documented in
+`docs/architecture/ECO_003_REUSABLE_BOARDS_AND_TASK_PROJECTIONS.md`. It adds
+encrypted versioned Board aggregates, reusable lanes and standalone cards,
+deterministic ordering, WIP limits, saved filters, templates, protected undo,
+and live canonical Task projections over ECO-001 and ECO-002. Task cards retain
+only the Task ref; no Boards route/UI, Work Board cutover, mapped Task mutation,
+cloud collaboration, external runtime, public release, or production authority
+is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

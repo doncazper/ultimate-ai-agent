@@ -927,8 +927,11 @@ Goal: refine the accepted reusable Boards direction into the best local UAA
 Kanban and visual-work product: familiar Trello/kan.bn fundamentals with UAA
 canonical projections, exact governed mutations, recovery, and cross-app
 integration.
-Status: proposed planning-only implementation plan ready for review; no Boards
-implementation or new authority is accepted by this card.
+Status: product plan remains proposed. A bounded reusable Boards core was
+accepted on 2026-08-21: encrypted versioned aggregates, lanes, standalone
+cards, ordering, WIP, saved filters, templates, protected undo, and ref-only
+canonical Task projections. No route, UI, cutover, or production authority is
+accepted.
 Scope: `docs/implementation/UAA_FIRST_CLASS_BOARDS_IMPLEMENTATION_PLAN.md`
 defines the local parity and exclusion contract, public-reference clean-room
 boundary, current Work Board gap, rich-card/deep-link design, canonical field
@@ -937,8 +940,11 @@ import/export, migration, accessibility/performance gates, verification matrix,
 and focused PR sequence. It adds no new route, storage, dependency, model or
 provider call, web fetch, browser automation, connector, collaboration, cloud
 service, public distribution, or production authority.
-Next: review and accept `ECO-003A`, then implement no storage until `ECO-001`
-is accepted. Canonical Task projections also remain dependent on `ECO-002`.
+Accepted core scope: `docs/architecture/ECO_003_REUSABLE_BOARDS_AND_TASK_PROJECTIONS.md`,
+`docs/decisions/ADR-0065-reusable-boards-and-task-projections.md`,
+`src/ultimate_ai_agent/core/ecosystem/boards.py`, and focused verifier/tests.
+Next: add route/CLI parity and approval-preview UX in a separately scoped lane;
+retain the current Work Board until its compatibility migration is accepted.
 
 FIN-000 Finance & Compliance Product Contract And Render Acceptance
 Goal: preserve and refine the first-party UAA Finance vision before runtime:
