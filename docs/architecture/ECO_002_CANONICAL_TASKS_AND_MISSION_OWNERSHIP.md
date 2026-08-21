@@ -35,9 +35,12 @@ execution state.
 
 Every mutation passes through the same ECO-001 atomic encrypted unit of work.
 The Task-specific action is included in encrypted replay material so a receipt
-cannot be replayed under a different authority lane. Archive is a reversible
-Task-domain state transition; permanent deletion requires an archived,
-unreferenced Task and leaves the ECO-001 tombstone.
+cannot be replayed under a different authority lane. The local-data plane also
+binds registered domain actions to their exact module and record kinds, and
+rejects generic writes to protected domain modules. Archive is a reversible
+Task-domain state transition available only through the lifecycle operation;
+permanent deletion requires an archived, unreferenced Task and leaves the
+ECO-001 tombstone.
 
 Recurrence planning is read-only and deterministic. Materialization is a
 separate approved mutation bound to the generated occurrence, operation, and

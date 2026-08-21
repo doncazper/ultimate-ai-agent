@@ -474,21 +474,25 @@ class FounderLoopLocalTaskCompatibilityReader:
             raise ValueError("ECO_TASK_MIGRATION_SOURCE_PATH_INVALID")
         try:
             stat_before = database_path.stat()
-        except OSError as exc:
-            raise TaskError("ECO_TASK_MIGRATION_SOURCE_UNAVAILABLE") from exc
+        except OSError:
+            raise TaskError("ECO_TASK_MIGRATION_SOURCE_UNAVAILABLE") from None
         if not stat.S_ISREG(stat_before.st_mode):
             raise ValueError("ECO_TASK_MIGRATION_SOURCE_PATH_INVALID")
         if stat_before.st_size > _MAX_LEGACY_DATABASE_BYTES:
             raise TaskError("ECO_TASK_MIGRATION_SOURCE_SIZE_LIMIT_EXCEEDED")
-        with database_path.open("rb") as source:
-            source_bytes = source.read(_MAX_LEGACY_DATABASE_BYTES + 1)
+        try:
+            with database_path.open("rb") as source:
+                source_bytes = source.read(_MAX_LEGACY_DATABASE_BYTES + 1)
+        except OSError:
+            raise TaskError("ECO_TASK_MIGRATION_SOURCE_UNAVAILABLE") from None
         if len(source_bytes) > _MAX_LEGACY_DATABASE_BYTES:
             raise TaskError("ECO_TASK_MIGRATION_SOURCE_SIZE_LIMIT_EXCEEDED")
         fingerprint = hashlib.sha256(source_bytes).hexdigest()
-        connection = sqlite3.connect(
-            f"file:{database_path}?mode=ro&immutable=1", uri=True
-        )
+        connection: sqlite3.Connection | None = None
         try:
+            connection = sqlite3.connect(
+                f"{database_path.as_uri()}?mode=ro&immutable=1", uri=True
+            )
             columns = {
                 row[1] for row in connection.execute("PRAGMA table_info(local_tasks)")
             }
@@ -500,11 +504,15 @@ class FounderLoopLocalTaskCompatibilityReader:
                 "FROM local_tasks ORDER BY local_task_ref LIMIT ?",
                 (_MAX_LEGACY_CANDIDATES + 1,),
             ).fetchall()
-        except sqlite3.Error as exc:
-            raise TaskError("ECO_TASK_MIGRATION_SOURCE_SCHEMA_INVALID") from exc
+        except sqlite3.Error:
+            raise TaskError("ECO_TASK_MIGRATION_SOURCE_SCHEMA_INVALID") from None
         finally:
-            connection.close()
-        stat_after = database_path.stat()
+            if connection is not None:
+                connection.close()
+        try:
+            stat_after = database_path.stat()
+        except OSError:
+            raise TaskError("ECO_TASK_MIGRATION_SOURCE_UNAVAILABLE") from None
         if (
             stat_before.st_ino != stat_after.st_ino
             or stat_before.st_size != stat_after.st_size
@@ -615,21 +623,54 @@ class TaskRepository:
         expected_version: int,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        return self._save(
+            task=task,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            expected_version=expected_version,
+            approval=approval,
+            allow_archive_transition=False,
+        )
+
+    def _save(
+        self,
+        *,
+        task: CanonicalTask,
+        operation_ref: str,
+        idempotency_ref: str,
+        expected_version: int,
+        approval: ApprovalValidationRequest,
+        allow_archive_transition: bool,
+    ) -> UnitOfWorkReceipt:
         if task.version != expected_version + 1:
             raise TaskConflict("ECO_TASK_NEXT_VERSION_INVALID")
         with self.platform.approval_authority.hold_validation_lock():
             current = self.read(
                 workspace_ref=task.workspace_ref, task_ref=task.task_ref
             )
+            operation = self._put(
+                task, operation_ref, expected_version=expected_version
+            )
+            if current.version == task.version:
+                return self.platform.apply(
+                    workspace_ref=task.workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    operations=(operation,),
+                    approval=approval,
+                    requested_action=ECO_TASK_MUTATION_ACTION,
+                )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
+            if current.archived != task.archived:
+                if not allow_archive_transition:
+                    raise TaskConflict("ECO_TASK_ARCHIVE_TRANSITION_REQUIRES_LIFECYCLE")
+                if task.archived:
+                    self._ensure_no_active_references(task.workspace_ref, task.task_ref)
             self._validate_candidate(task, replacing_ref=task.task_ref)
             return self.platform.apply(
                 workspace_ref=task.workspace_ref,
                 idempotency_ref=idempotency_ref,
-                operations=(
-                    self._put(task, operation_ref, expected_version=expected_version),
-                ),
+                operations=(operation,),
                 approval=approval,
                 requested_action=ECO_TASK_MUTATION_ACTION,
             )
@@ -644,6 +685,7 @@ class TaskRepository:
             task.workspace_ref != workspace_ref
             or task.task_ref != task_ref
             or task.version != record.version
+            or record.module_ref != ECO_TASK_MODULE_REF
             or task.record_kind_ref != record.record_kind_ref
             or task.safe_summary_ref != record.safe_summary_ref
         ):
@@ -737,6 +779,19 @@ class TaskRepository:
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
+        canonical_completed_at = _canonical_timestamp(
+            completed_at, "ECO_TASK_COMPLETED_AT_INVALID"
+        )
+        if current.status == TaskStatus.completed:
+            if current.completed_at != canonical_completed_at:
+                raise TaskConflict("ECO_TASK_COMPLETE_TIMESTAMP_CONFLICT")
+            return self.save(
+                task=current,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                expected_version=current.version - 1,
+                approval=approval,
+            )
         updated = CanonicalTask.model_validate(
             {
                 **current.model_dump(mode="json"),
@@ -764,7 +819,13 @@ class TaskRepository:
     ) -> UnitOfWorkReceipt:
         current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
         if current.status != TaskStatus.completed:
-            raise TaskConflict("ECO_TASK_REOPEN_STATUS_INVALID")
+            return self.save(
+                task=current,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                expected_version=current.version - 1,
+                approval=approval,
+            )
         updated = CanonicalTask.model_validate(
             {
                 **current.model_dump(mode="json"),
@@ -792,8 +853,16 @@ class TaskRepository:
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         with self.platform.approval_authority.hold_validation_lock():
-            self._ensure_no_active_references(workspace_ref, task_ref)
             current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
+            if current.archived and current.version == expected_version + 1:
+                return self._save(
+                    task=current,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                    expected_version=expected_version,
+                    approval=approval,
+                    allow_archive_transition=True,
+                )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
             if current.archived:
@@ -805,12 +874,13 @@ class TaskRepository:
                     "version": current.version + 1,
                 }
             )
-            return self.save(
+            return self._save(
                 task=updated,
                 operation_ref=operation_ref,
                 idempotency_ref=idempotency_ref,
                 expected_version=expected_version,
                 approval=approval,
+                allow_archive_transition=True,
             )
 
     def restore(
@@ -823,25 +893,36 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
-        current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
-        if current.version != expected_version:
-            raise TaskConflict("ECO_TASK_STALE_VERSION")
-        if not current.archived:
-            raise TaskConflict("ECO_TASK_NOT_ARCHIVED")
-        updated = CanonicalTask.model_validate(
-            {
-                **current.model_dump(mode="json"),
-                "archived": False,
-                "version": current.version + 1,
-            }
-        )
-        return self.save(
-            task=updated,
-            operation_ref=operation_ref,
-            idempotency_ref=idempotency_ref,
-            expected_version=expected_version,
-            approval=approval,
-        )
+        with self.platform.approval_authority.hold_validation_lock():
+            current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
+            if not current.archived and current.version == expected_version + 1:
+                return self._save(
+                    task=current,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                    expected_version=expected_version,
+                    approval=approval,
+                    allow_archive_transition=True,
+                )
+            if current.version != expected_version:
+                raise TaskConflict("ECO_TASK_STALE_VERSION")
+            if not current.archived:
+                raise TaskConflict("ECO_TASK_NOT_ARCHIVED")
+            updated = CanonicalTask.model_validate(
+                {
+                    **current.model_dump(mode="json"),
+                    "archived": False,
+                    "version": current.version + 1,
+                }
+            )
+            return self._save(
+                task=updated,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                expected_version=expected_version,
+                approval=approval,
+                allow_archive_transition=True,
+            )
 
     def delete(
         self,
@@ -855,7 +936,23 @@ class TaskRepository:
     ) -> UnitOfWorkReceipt:
         with self.platform.approval_authority.hold_validation_lock():
             self._ensure_no_active_references(workspace_ref, task_ref)
-            current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
+            operation = DeleteRecord(
+                operation_ref=operation_ref,
+                record_ref=task_ref,
+                expected_version=expected_version,
+            )
+            try:
+                current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
+            except EcosystemLocalDataError as exc:
+                if str(exc) != "ECO_RECORD_NOT_FOUND":
+                    raise
+                return self.platform.apply(
+                    workspace_ref=workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    operations=(operation,),
+                    approval=approval,
+                    requested_action=ECO_TASK_MUTATION_ACTION,
+                )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
             if not current.archived:
@@ -863,13 +960,7 @@ class TaskRepository:
             return self.platform.apply(
                 workspace_ref=workspace_ref,
                 idempotency_ref=idempotency_ref,
-                operations=(
-                    DeleteRecord(
-                        operation_ref=operation_ref,
-                        record_ref=task_ref,
-                        expected_version=expected_version,
-                    ),
-                ),
+                operations=(operation,),
                 approval=approval,
                 requested_action=ECO_TASK_MUTATION_ACTION,
             )
@@ -950,18 +1041,19 @@ class TaskRepository:
         plan: TaskOccurrencePlan,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
-        parent = self.read(
-            workspace_ref=plan.occurrence.workspace_ref,
-            task_ref=plan.parent_task_ref,
-        )
-        if parent.version != plan.parent_version:
-            raise TaskConflict("ECO_TASK_RECURRENCE_PLAN_STALE")
-        return self.create(
-            task=plan.occurrence,
-            operation_ref=plan.operation_ref,
-            idempotency_ref=plan.idempotency_ref,
-            approval=approval,
-        )
+        with self.platform.approval_authority.hold_validation_lock():
+            parent = self.read(
+                workspace_ref=plan.occurrence.workspace_ref,
+                task_ref=plan.parent_task_ref,
+            )
+            if parent.version != plan.parent_version:
+                raise TaskConflict("ECO_TASK_RECURRENCE_PLAN_STALE")
+            return self.create(
+                task=plan.occurrence,
+                operation_ref=plan.operation_ref,
+                idempotency_ref=plan.idempotency_ref,
+                approval=approval,
+            )
 
     def _put(
         self,
@@ -1042,6 +1134,18 @@ class TaskRepository:
             if existing != item.task_ref:
                 raise TaskConflict("ECO_TASK_MISSION_ALREADY_OWNED")
         dependencies = {ref: set(item.dependency_refs) for ref, item in tasks.items()}
+        self._ensure_acyclic(
+            dependencies, conflict_code="ECO_TASK_DEPENDENCY_CYCLE_DENIED"
+        )
+        parents = {
+            ref: set() if item.parent_task_ref is None else {item.parent_task_ref}
+            for ref, item in tasks.items()
+        }
+        self._ensure_acyclic(parents, conflict_code="ECO_TASK_PARENT_CYCLE_DENIED")
+
+    @staticmethod
+    def _ensure_acyclic(edges: dict[str, set[str]], *, conflict_code: str) -> None:
+        dependencies = {ref: set(required) for ref, required in edges.items()}
         ready = sorted(ref for ref, refs in dependencies.items() if not refs)
         visited: list[str] = []
         while ready:
@@ -1053,8 +1157,8 @@ class TaskRepository:
                     if not unresolved and ref not in visited + ready:
                         ready.append(ref)
                         ready.sort()
-        if len(visited) != len(tasks):
-            raise TaskConflict("ECO_TASK_DEPENDENCY_CYCLE_DENIED")
+        if len(visited) != len(dependencies):
+            raise TaskConflict(conflict_code)
 
     def _ensure_no_active_references(self, workspace_ref: str, task_ref: str) -> None:
         for item in self._all_tasks(workspace_ref):
@@ -1147,7 +1251,9 @@ class TaskRepository:
             .isoformat(timespec="auto")
             .replace("+00:00", "Z")
         )
-        if rule.end_at is not None and result > rule.end_at:
+        if rule.end_at is not None and datetime.fromisoformat(
+            result
+        ) > datetime.fromisoformat(rule.end_at):
             raise TaskConflict("ECO_TASK_RECURRENCE_ENDED")
         return result
 

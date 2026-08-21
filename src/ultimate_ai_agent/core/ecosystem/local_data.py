@@ -44,6 +44,17 @@ _EXPECTED_SCHEMA_SHAPE_FINGERPRINT = (
 _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
+_SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.tasks.apply": (
+        "module-ref:tasks",
+        frozenset(
+            {
+                "record-kind-ref:canonical-task",
+                "record-kind-ref:task-occurrence",
+            }
+        ),
+    )
+}
 
 
 class EcosystemLocalDataError(RuntimeError):
@@ -892,6 +903,12 @@ class EcosystemLocalDataPlatform:
                         ),
                         replayed=True,
                     )
+                self._validate_requested_action_scope(
+                    connection,
+                    workspace_ref=workspace_ref,
+                    requested_action=requested_action,
+                    operations=operations,
+                )
                 receipts: list[str] = []
                 for index, operation in enumerate(operations):
                     receipt = self._apply_one(
@@ -1048,6 +1065,62 @@ class EcosystemLocalDataPlatform:
             normalized_term=f"uow-receipt-v1:{material_digest}",
         )
         return f"receipt-authenticator-ref:ecosystem-keyed:{digest}"
+
+    @staticmethod
+    def _validate_requested_action_scope(
+        connection: sqlite3.Connection,
+        *,
+        workspace_ref: str,
+        requested_action: str,
+        operations: tuple[LocalMutation, ...],
+    ) -> None:
+        if requested_action == "ecosystem.local_data.apply":
+            protected_modules = {
+                module_ref
+                for module_ref, _record_kinds in _SCOPED_MUTATION_ACTIONS.values()
+            }
+            for operation in operations:
+                if isinstance(operation, PutRecord):
+                    if operation.module_ref in protected_modules:
+                        raise EcosystemLocalDataError(
+                            "ECO_MUTATION_REQUIRES_DOMAIN_ACTION"
+                        )
+                    continue
+                row = connection.execute(
+                    "SELECT module_ref FROM eco_records "
+                    "WHERE workspace_ref = ? AND record_ref = ?",
+                    (workspace_ref, operation.record_ref),
+                ).fetchone()
+                if row is not None and row["module_ref"] in protected_modules:
+                    raise EcosystemLocalDataError("ECO_MUTATION_REQUIRES_DOMAIN_ACTION")
+            return
+        scope = _SCOPED_MUTATION_ACTIONS.get(requested_action)
+        if scope is None:
+            raise EcosystemLocalDataError("ECO_MUTATION_ACTION_UNREGISTERED")
+        module_ref, record_kind_refs = scope
+        for operation in operations:
+            if isinstance(operation, PutRecord):
+                if (
+                    operation.module_ref != module_ref
+                    or operation.record_kind_ref not in record_kind_refs
+                ):
+                    raise EcosystemLocalDataError(
+                        "ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+                    )
+                continue
+            row = connection.execute(
+                "SELECT module_ref, record_kind_ref FROM eco_records "
+                "WHERE workspace_ref = ? AND record_ref = ?",
+                (workspace_ref, operation.record_ref),
+            ).fetchone()
+            if (
+                row is None
+                or row["module_ref"] != module_ref
+                or row["record_kind_ref"] not in record_kind_refs
+            ):
+                raise EcosystemLocalDataError(
+                    "ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+                )
 
     def _apply_one(
         self,

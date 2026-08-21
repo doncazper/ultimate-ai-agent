@@ -4,6 +4,7 @@ import itertools
 import sqlite3
 from datetime import timedelta
 from pathlib import Path
+from threading import Event, Thread
 
 import pytest
 
@@ -14,17 +15,20 @@ from ultimate_ai_agent.core.approvals.enums import (
 )
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    DeleteRecord,
     EcosystemConflict,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
     InMemoryLocalDataPathResolver,
+    PutRecord,
 )
 from ultimate_ai_agent.core.ecosystem.tasks import (
     ECO_TASK_MUTATION_ACTION,
     CanonicalTask,
     FounderLoopLocalTaskCompatibilityReader,
     TaskConflict,
+    TaskError,
     TaskMissionBinding,
     TaskPriority,
     TaskQuery,
@@ -234,6 +238,143 @@ def test_wrong_task_action_cannot_mutate(tmp_path: Path) -> None:
         repository.read(workspace_ref=WORKSPACE, task_ref=task.task_ref)
 
 
+def test_task_action_cannot_mutate_another_domain(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:generic-action-denied")
+    task_operation = repository._put(
+        task, "operation-ref:generic-action-denied", expected_version=0
+    )
+    task_idempotency_ref = "idempotency-ref:generic-action-denied"
+    task_resources = (
+        WORKSPACE,
+        task_idempotency_ref,
+        task_operation.operation_ref,
+        task_operation.record_ref,
+    )
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_MUTATION_REQUIRES_DOMAIN_ACTION"
+    ):
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=task_idempotency_ref,
+            operations=(task_operation,),
+            approval=_approval(
+                authority,
+                action="ecosystem.local_data.apply",
+                resources=task_resources,
+            ),
+        )
+
+    operation = PutRecord(
+        operation_ref="operation-ref:foreign-domain",
+        module_ref="module-ref:foreign",
+        record_ref="record-ref:foreign",
+        record_kind_ref="record-kind-ref:foreign",
+        safe_summary_ref="summary-ref:foreign",
+        private_payload={"value": "private"},
+    )
+    idempotency_ref = "idempotency-ref:foreign-domain"
+    resources = (
+        WORKSPACE,
+        idempotency_ref,
+        operation.operation_ref,
+        operation.record_ref,
+    )
+
+    with pytest.raises(
+        EcosystemLocalDataError,
+        match="ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID",
+    ):
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=idempotency_ref,
+            operations=(operation,),
+            approval=_approval(
+                authority,
+                action=ECO_TASK_MUTATION_ACTION,
+                resources=resources,
+            ),
+            requested_action=ECO_TASK_MUTATION_ACTION,
+        )
+
+    create_idempotency_ref = "idempotency-ref:foreign-domain-create"
+    create_resources = (
+        WORKSPACE,
+        create_idempotency_ref,
+        operation.operation_ref,
+        operation.record_ref,
+    )
+    repository.platform.apply(
+        workspace_ref=WORKSPACE,
+        idempotency_ref=create_idempotency_ref,
+        operations=(operation,),
+        approval=_approval(
+            authority,
+            action="ecosystem.local_data.apply",
+            resources=create_resources,
+        ),
+    )
+    delete = DeleteRecord(
+        operation_ref="operation-ref:foreign-domain-delete",
+        record_ref=operation.record_ref,
+        expected_version=1,
+    )
+    delete_idempotency_ref = "idempotency-ref:foreign-domain-delete"
+    delete_resources = (
+        WORKSPACE,
+        delete_idempotency_ref,
+        delete.operation_ref,
+        delete.record_ref,
+    )
+    with pytest.raises(
+        EcosystemLocalDataError,
+        match="ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID",
+    ):
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=delete_idempotency_ref,
+            operations=(delete,),
+            approval=_approval(
+                authority,
+                action=ECO_TASK_MUTATION_ACTION,
+                resources=delete_resources,
+            ),
+            requested_action=ECO_TASK_MUTATION_ACTION,
+        )
+
+
+def test_task_read_rejects_another_module_owner(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:foreign-owner")
+    operation = repository._put(task, "operation-ref:foreign-owner", expected_version=0)
+    foreign = PutRecord(
+        **{
+            **vars(operation),
+            "module_ref": "module-ref:foreign",
+        }
+    )
+    idempotency_ref = "idempotency-ref:foreign-owner"
+    resources = (
+        WORKSPACE,
+        idempotency_ref,
+        foreign.operation_ref,
+        foreign.record_ref,
+    )
+    repository.platform.apply(
+        workspace_ref=WORKSPACE,
+        idempotency_ref=idempotency_ref,
+        operations=(foreign,),
+        approval=_approval(
+            authority,
+            action="ecosystem.local_data.apply",
+            resources=resources,
+        ),
+    )
+
+    with pytest.raises(TaskError, match="ECO_TASK_RECORD_BINDING_INVALID"):
+        repository.read(workspace_ref=WORKSPACE, task_ref=task.task_ref)
+
+
 def test_quick_capture_complete_reopen_and_exact_replay(tmp_path: Path) -> None:
     repository, authority, _ = _repository(tmp_path)
     task_ref = "task-ref:captured"
@@ -269,43 +410,64 @@ def test_quick_capture_complete_reopen_and_exact_replay(tmp_path: Path) -> None:
 
     complete_operation = "operation-ref:complete"
     complete_idempotency = "idempotency-ref:complete"
-    repository.complete(
+    complete_approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task_ref,
+            operation_ref=complete_operation,
+            idempotency_ref=complete_idempotency,
+        ),
+    )
+    completed_receipt = repository.complete(
         workspace_ref=WORKSPACE,
         task_ref=task_ref,
         completed_at="2026-08-20T12:00:00-07:00",
         operation_ref=complete_operation,
         idempotency_ref=complete_idempotency,
-        approval=_approval(
-            authority,
-            action=ECO_TASK_MUTATION_ACTION,
-            resources=_mutation_refs(
-                task_ref=task_ref,
-                operation_ref=complete_operation,
-                idempotency_ref=complete_idempotency,
-            ),
-        ),
+        approval=complete_approval,
     )
+    completed_replay = repository.complete(
+        workspace_ref=WORKSPACE,
+        task_ref=task_ref,
+        completed_at="2026-08-20T19:00:00Z",
+        operation_ref=complete_operation,
+        idempotency_ref=complete_idempotency,
+        approval=complete_approval,
+    )
+    assert completed_replay.replayed is True
+    assert completed_replay.receipt_ref == completed_receipt.receipt_ref
     completed = repository.read(workspace_ref=WORKSPACE, task_ref=task_ref)
     assert completed.status == TaskStatus.completed
     assert completed.completed_at == "2026-08-20T19:00:00Z"
 
     reopen_operation = "operation-ref:reopen"
     reopen_idempotency = "idempotency-ref:reopen"
-    repository.reopen(
+    reopen_approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task_ref,
+            operation_ref=reopen_operation,
+            idempotency_ref=reopen_idempotency,
+        ),
+    )
+    reopen_receipt = repository.reopen(
         workspace_ref=WORKSPACE,
         task_ref=task_ref,
         operation_ref=reopen_operation,
         idempotency_ref=reopen_idempotency,
-        approval=_approval(
-            authority,
-            action=ECO_TASK_MUTATION_ACTION,
-            resources=_mutation_refs(
-                task_ref=task_ref,
-                operation_ref=reopen_operation,
-                idempotency_ref=reopen_idempotency,
-            ),
-        ),
+        approval=reopen_approval,
     )
+    reopen_replay = repository.reopen(
+        workspace_ref=WORKSPACE,
+        task_ref=task_ref,
+        operation_ref=reopen_operation,
+        idempotency_ref=reopen_idempotency,
+        approval=reopen_approval,
+    )
+    assert reopen_replay.replayed is True
+    assert reopen_replay.receipt_ref == reopen_receipt.receipt_ref
     reopened = repository.read(workspace_ref=WORKSPACE, task_ref=task_ref)
     assert reopened.status == TaskStatus.ready
     assert reopened.completed_at is None
@@ -425,6 +587,20 @@ def test_dependency_graph_rejects_missing_and_cycles(tmp_path: Path) -> None:
         repository.read(workspace_ref=WORKSPACE, task_ref=first.task_ref).version == 1
     )
 
+    parent = _task("task-ref:parent")
+    child = _task("task-ref:child", parent_task_ref=parent.task_ref)
+    _create(repository, authority, parent, "parent-cycle-parent")
+    _create(repository, authority, child, "parent-cycle-child")
+    cyclic_parent = CanonicalTask.model_validate(
+        {
+            **parent.model_dump(mode="json"),
+            "parent_task_ref": child.task_ref,
+            "version": 2,
+        }
+    )
+    with pytest.raises(TaskConflict, match="ECO_TASK_PARENT_CYCLE_DENIED"):
+        _save(repository, authority, cyclic_parent, "parent-cycle")
+
 
 def test_one_task_owns_each_mission_without_copying_execution_state(
     tmp_path: Path,
@@ -532,6 +708,66 @@ def test_recurrence_is_explicit_and_materializes_distinct_occurrence(
     assert occurrence.mission_binding is None
 
 
+def test_recurrence_end_boundary_compares_instants_not_strings() -> None:
+    rule = TaskRecurrenceRule(
+        cadence=TaskRecurrenceCadence.daily,
+        anchor_at="2026-01-01T00:00:00.500Z",
+        timezone_name="UTC",
+        end_at="2026-01-02T00:00:00Z",
+    )
+
+    with pytest.raises(TaskConflict, match="ECO_TASK_RECURRENCE_ENDED"):
+        TaskRepository._next_occurrence(rule, "2026-01-01T00:00:00.500Z")
+
+
+def test_materialization_holds_parent_validation_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    parent = _task(
+        "task-ref:locked-recurring",
+        recurrence=TaskRecurrenceRule(
+            cadence=TaskRecurrenceCadence.daily,
+            anchor_at="2026-08-20T12:00:00Z",
+            timezone_name="UTC",
+        ),
+    )
+    _create(repository, authority, parent, "locked-recurring")
+    plan = repository.plan_next_occurrence(
+        workspace_ref=WORKSPACE,
+        parent_task_ref=parent.task_ref,
+        after="2026-08-20T12:00:00Z",
+        idempotency_ref="idempotency-ref:locked-materialize",
+    )
+    entered = Event()
+    worker: list[Thread] = []
+
+    def probe_lock() -> None:
+        with authority.hold_validation_lock():
+            entered.set()
+
+    def guarded_create(**_kwargs):
+        thread = Thread(target=probe_lock)
+        worker.append(thread)
+        thread.start()
+        assert entered.wait(0.05) is False
+        return "receipt-sentinel"
+
+    monkeypatch.setattr(repository, "create", guarded_create)
+    result = repository.materialize_occurrence(
+        plan=plan,
+        approval=_approval(
+            authority,
+            action=ECO_TASK_MUTATION_ACTION,
+            resources=plan.resource_refs,
+        ),
+    )
+
+    assert result == "receipt-sentinel"
+    assert entered.wait(1)
+    worker[0].join(timeout=1)
+
+
 def test_archive_restore_delete_and_active_reference_safety(tmp_path: Path) -> None:
     repository, authority, _ = _repository(tmp_path)
     parent = _task("task-ref:archive-parent")
@@ -617,6 +853,83 @@ def test_archive_restore_delete_and_active_reference_safety(tmp_path: Path) -> N
     assert restored.version == 3
 
 
+def test_archive_restore_replay_and_direct_save_guard(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:archive-replay")
+    _create(repository, authority, task, "archive-replay-create")
+    direct_archive = CanonicalTask.model_validate(
+        {
+            **task.model_dump(mode="json"),
+            "archived": True,
+            "version": 2,
+        }
+    )
+    with pytest.raises(
+        TaskConflict, match="ECO_TASK_ARCHIVE_TRANSITION_REQUIRES_LIFECYCLE"
+    ):
+        _save(repository, authority, direct_archive, "archive-direct-save")
+
+    archive_operation = "operation-ref:archive-replay"
+    archive_idempotency = "idempotency-ref:archive-replay"
+    archive_approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task.task_ref,
+            operation_ref=archive_operation,
+            idempotency_ref=archive_idempotency,
+        ),
+    )
+    archive_receipt = repository.archive(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=1,
+        operation_ref=archive_operation,
+        idempotency_ref=archive_idempotency,
+        approval=archive_approval,
+    )
+    archive_replay = repository.archive(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=1,
+        operation_ref=archive_operation,
+        idempotency_ref=archive_idempotency,
+        approval=archive_approval,
+    )
+    assert archive_replay.replayed is True
+    assert archive_replay.receipt_ref == archive_receipt.receipt_ref
+
+    restore_operation = "operation-ref:restore-replay"
+    restore_idempotency = "idempotency-ref:restore-replay"
+    restore_approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task.task_ref,
+            operation_ref=restore_operation,
+            idempotency_ref=restore_idempotency,
+        ),
+    )
+    restore_receipt = repository.restore(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=2,
+        operation_ref=restore_operation,
+        idempotency_ref=restore_idempotency,
+        approval=restore_approval,
+    )
+    restore_replay = repository.restore(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=2,
+        operation_ref=restore_operation,
+        idempotency_ref=restore_idempotency,
+        approval=restore_approval,
+    )
+    assert restore_replay.replayed is True
+    assert restore_replay.receipt_ref == restore_receipt.receipt_ref
+
+
 def test_delete_requires_archived_task(tmp_path: Path) -> None:
     repository, authority, _ = _repository(tmp_path)
     task = _task("task-ref:delete")
@@ -641,11 +954,61 @@ def test_delete_requires_archived_task(tmp_path: Path) -> None:
             ),
         )
 
+    archive_operation = "operation-ref:delete-archive"
+    archive_idempotency = "idempotency-ref:delete-archive"
+    repository.archive(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=1,
+        operation_ref=archive_operation,
+        idempotency_ref=archive_idempotency,
+        approval=_approval(
+            authority,
+            action=ECO_TASK_MUTATION_ACTION,
+            resources=_mutation_refs(
+                task_ref=task.task_ref,
+                operation_ref=archive_operation,
+                idempotency_ref=archive_idempotency,
+            ),
+        ),
+    )
+    operation_ref = "operation-ref:delete"
+    idempotency_ref = "idempotency-ref:delete"
+    approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task.task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    receipt = repository.delete(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=2,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=approval,
+    )
+    replay = repository.delete(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=2,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=approval,
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
+
 
 def test_legacy_local_task_preview_is_read_only_and_requires_private_title(
     tmp_path: Path,
 ) -> None:
-    source = (tmp_path / "founder-loop.sqlite3").resolve()
+    special_directory = tmp_path / "folder?#%encoded"
+    special_directory.mkdir()
+    source = (special_directory / "founder-loop.sqlite3").resolve()
     connection = sqlite3.connect(source)
     connection.execute(
         "CREATE TABLE local_tasks (local_task_ref TEXT PRIMARY KEY, item_ref TEXT, "
@@ -682,3 +1045,20 @@ def test_legacy_local_task_preview_is_read_only_and_requires_private_title(
         "item-ref:one",
         "receipt-ref:one",
     )
+
+
+def test_legacy_preview_redacts_filesystem_errors(tmp_path: Path, monkeypatch) -> None:
+    source = (tmp_path / "founder-loop.sqlite3").resolve()
+    source.touch()
+    reader = FounderLoopLocalTaskCompatibilityReader()
+
+    def unavailable(*_args, **_kwargs):
+        raise OSError(f"sensitive path: {source}")
+
+    monkeypatch.setattr(Path, "open", unavailable)
+    with pytest.raises(TaskError) as error:
+        reader.preview(source)
+
+    assert str(error.value) == "ECO_TASK_MIGRATION_SOURCE_UNAVAILABLE"
+    assert error.value.__cause__ is None
+    assert str(source) not in str(error.value)

@@ -200,7 +200,7 @@ def _put(
 ) -> PutRecord:
     return PutRecord(
         operation_ref=operation_ref,
-        module_ref="module-ref:tasks",
+        module_ref="module-ref:eco-001-test-records",
         record_ref=record_ref,
         record_kind_ref="record-kind-ref:task",
         safe_summary_ref="summary-ref:task-record",
