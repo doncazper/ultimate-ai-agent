@@ -95,11 +95,14 @@ latest embedded UAA source SHA was produced on a pre-squash branch and is not
 reachable from fresh `main`; it is retained only as historical provenance. The
 separate proof binds the ledger's exact bytes to reachable `main` source with
 the same evaluator-envelope digest, then bounds the current contract transition
-to this verifier and its direct test. The default verifier fails closed on
-artifact replacement, source substitution, extra proof generations, or any
-other evaluator-source drift. It remains repository-local and does not open a
-sibling benchmark checkout. GoatCitadel evidence-line revalidation is still an
-explicit opt-in operation requiring a caller-supplied read-only root.
+to this verifier, its direct test, and the security-only package-installer lock
+refresh from `pip` 26.1.2 to 26.2.1. That installer transition does not change
+the runtime evaluator contract, stored projection, or scores. The default
+verifier fails closed on artifact replacement, source substitution, extra proof
+generations, or any other evaluator-source drift. It remains repository-local
+and does not open a sibling benchmark checkout. GoatCitadel evidence-line
+revalidation is still an explicit opt-in operation requiring a caller-supplied
+read-only root.
 
 ## Reciprocal learning
 

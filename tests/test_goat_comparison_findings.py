@@ -72,6 +72,15 @@ def test_provenance_replacement_preserves_the_historical_artifact() -> None:
     assert proof["contract_transition"]["comparison_findings_changed"] is False
     assert proof["contract_transition"]["score_changed"] is False
     assert proof["contract_transition"]["report_projection_changed"] is False
+    assert proof["contract_transition"]["changed_source_refs"] == [
+        "repo-ref:uaa:apps/control-center/src/App.test.tsx",
+        "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
+        "repo-ref:uaa:tests/test_goat_comparison_findings.py",
+        "repo-ref:uaa:uv.lock",
+    ]
+    assert proof["contract_transition"]["posture"] == (
+        "provenance_and_installer_only_no_runtime_evaluator_contract_change"
+    )
     assert proof["authority_granted"] is False
 
 

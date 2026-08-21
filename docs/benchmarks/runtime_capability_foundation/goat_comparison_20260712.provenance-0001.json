@@ -19,14 +19,15 @@
     "posture": "reachable_ancestor_digest_equivalent"
   },
   "contract_transition": {
-    "current_evaluator_source_digest": "sha256:33d517bec94945d71a86b9f26959db0b78f79c7faa07476a1d29eb26bf06c88e",
+    "current_evaluator_source_digest": "sha256:275b1d593d8740095b90dbb787bb465ef7c9bb8831d0beb6e972db5ab621dd87",
     "current_evaluator_source_file_count": 53,
     "changed_source_refs": [
       "repo-ref:uaa:apps/control-center/src/App.test.tsx",
       "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
-      "repo-ref:uaa:tests/test_goat_comparison_findings.py"
+      "repo-ref:uaa:tests/test_goat_comparison_findings.py",
+      "repo-ref:uaa:uv.lock"
     ],
-    "posture": "provenance_verifier_only_no_runtime_evaluator_change",
+    "posture": "provenance_and_installer_only_no_runtime_evaluator_contract_change",
     "comparison_findings_changed": false,
     "score_changed": false,
     "report_projection_changed": false
