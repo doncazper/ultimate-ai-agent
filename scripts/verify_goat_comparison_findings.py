@@ -73,6 +73,7 @@ PROVENANCE_TRANSITION_SOURCE_REFS = (
     "repo-ref:uaa:apps/control-center/src/App.test.tsx",
     "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
     "repo-ref:uaa:tests/test_goat_comparison_findings.py",
+    "repo-ref:uaa:uv.lock",
 )
 COMPONENT_IDS = (
     "reasoning_task_understanding",
@@ -547,7 +548,7 @@ def _validate_provenance_replacement(
     if transition.get("changed_source_refs") != list(expected_changed_refs):
         raise VerificationError("comparison provenance source substitution")
     if transition.get("posture") != (
-        "provenance_verifier_only_no_runtime_evaluator_change"
+        "provenance_and_installer_only_no_runtime_evaluator_contract_change"
     ):
         raise VerificationError("comparison provenance transition posture drift")
     for field in (
