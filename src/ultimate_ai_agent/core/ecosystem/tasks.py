@@ -597,7 +597,24 @@ class TaskRepository:
     ) -> UnitOfWorkReceipt:
         if task.version != 1:
             raise TaskConflict("ECO_TASK_CREATE_VERSION_INVALID")
+        request_context_ref = self._request_context_ref(
+            "create",
+            {
+                "task": task.model_dump(mode="json"),
+                "operation_ref": operation_ref,
+            },
+        )
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=task.workspace_ref,
+                task_ref=task.task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             try:
                 self.platform.read(
                     workspace_ref=task.workspace_ref, record_ref=task.task_ref
@@ -612,6 +629,7 @@ class TaskRepository:
                 operations=(self._put(task, operation_ref, expected_version=0),),
                 approval=approval,
                 requested_action=ECO_TASK_MUTATION_ACTION,
+                request_context_ref=request_context_ref,
             )
 
     def save(
@@ -623,6 +641,14 @@ class TaskRepository:
         expected_version: int,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "save",
+            {
+                "task": task.model_dump(mode="json"),
+                "operation_ref": operation_ref,
+                "expected_version": expected_version,
+            },
+        )
         return self._save(
             task=task,
             operation_ref=operation_ref,
@@ -630,6 +656,7 @@ class TaskRepository:
             expected_version=expected_version,
             approval=approval,
             allow_archive_transition=False,
+            request_context_ref=request_context_ref,
         )
 
     def _save(
@@ -641,10 +668,21 @@ class TaskRepository:
         expected_version: int,
         approval: ApprovalValidationRequest,
         allow_archive_transition: bool,
+        request_context_ref: str,
     ) -> UnitOfWorkReceipt:
         if task.version != expected_version + 1:
             raise TaskConflict("ECO_TASK_NEXT_VERSION_INVALID")
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=task.workspace_ref,
+                task_ref=task.task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             current = self.read(
                 workspace_ref=task.workspace_ref, task_ref=task.task_ref
             )
@@ -658,6 +696,7 @@ class TaskRepository:
                     operations=(operation,),
                     approval=approval,
                     requested_action=ECO_TASK_MUTATION_ACTION,
+                    request_context_ref=request_context_ref,
                 )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
@@ -673,6 +712,7 @@ class TaskRepository:
                 operations=(operation,),
                 approval=approval,
                 requested_action=ECO_TASK_MUTATION_ACTION,
+                request_context_ref=request_context_ref,
             )
 
     def read(self, *, workspace_ref: str, task_ref: str) -> CanonicalTask:
@@ -778,19 +818,40 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
-        current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
         canonical_completed_at = _canonical_timestamp(
             completed_at, "ECO_TASK_COMPLETED_AT_INVALID"
         )
+        request_context_ref = self._request_context_ref(
+            "complete",
+            {
+                "workspace_ref": workspace_ref,
+                "task_ref": task_ref,
+                "completed_at": canonical_completed_at,
+                "operation_ref": operation_ref,
+            },
+        )
+        replay = self._replay(
+            workspace_ref=workspace_ref,
+            task_ref=task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            request_context_ref=request_context_ref,
+        )
+        if replay is not None:
+            return replay
+        current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
         if current.status == TaskStatus.completed:
             if current.completed_at != canonical_completed_at:
                 raise TaskConflict("ECO_TASK_COMPLETE_TIMESTAMP_CONFLICT")
-            return self.save(
+            return self._save(
                 task=current,
                 operation_ref=operation_ref,
                 idempotency_ref=idempotency_ref,
                 expected_version=current.version - 1,
                 approval=approval,
+                allow_archive_transition=False,
+                request_context_ref=request_context_ref,
             )
         updated = CanonicalTask.model_validate(
             {
@@ -800,12 +861,14 @@ class TaskRepository:
                 "version": current.version + 1,
             }
         )
-        return self.save(
+        return self._save(
             task=updated,
             operation_ref=operation_ref,
             idempotency_ref=idempotency_ref,
             expected_version=current.version,
             approval=approval,
+            allow_archive_transition=False,
+            request_context_ref=request_context_ref,
         )
 
     def reopen(
@@ -817,14 +880,34 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "reopen",
+            {
+                "workspace_ref": workspace_ref,
+                "task_ref": task_ref,
+                "operation_ref": operation_ref,
+            },
+        )
+        replay = self._replay(
+            workspace_ref=workspace_ref,
+            task_ref=task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            request_context_ref=request_context_ref,
+        )
+        if replay is not None:
+            return replay
         current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
         if current.status != TaskStatus.completed:
-            return self.save(
+            return self._save(
                 task=current,
                 operation_ref=operation_ref,
                 idempotency_ref=idempotency_ref,
                 expected_version=current.version - 1,
                 approval=approval,
+                allow_archive_transition=False,
+                request_context_ref=request_context_ref,
             )
         updated = CanonicalTask.model_validate(
             {
@@ -834,12 +917,14 @@ class TaskRepository:
                 "version": current.version + 1,
             }
         )
-        return self.save(
+        return self._save(
             task=updated,
             operation_ref=operation_ref,
             idempotency_ref=idempotency_ref,
             expected_version=current.version,
             approval=approval,
+            allow_archive_transition=False,
+            request_context_ref=request_context_ref,
         )
 
     def archive(
@@ -852,7 +937,26 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "archive",
+            {
+                "workspace_ref": workspace_ref,
+                "task_ref": task_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+            },
+        )
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=workspace_ref,
+                task_ref=task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
             if current.archived and current.version == expected_version + 1:
                 return self._save(
@@ -862,6 +966,7 @@ class TaskRepository:
                     expected_version=expected_version,
                     approval=approval,
                     allow_archive_transition=True,
+                    request_context_ref=request_context_ref,
                 )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
@@ -881,6 +986,7 @@ class TaskRepository:
                 expected_version=expected_version,
                 approval=approval,
                 allow_archive_transition=True,
+                request_context_ref=request_context_ref,
             )
 
     def restore(
@@ -893,7 +999,26 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "restore",
+            {
+                "workspace_ref": workspace_ref,
+                "task_ref": task_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+            },
+        )
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=workspace_ref,
+                task_ref=task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             current = self.read(workspace_ref=workspace_ref, task_ref=task_ref)
             if not current.archived and current.version == expected_version + 1:
                 return self._save(
@@ -903,6 +1028,7 @@ class TaskRepository:
                     expected_version=expected_version,
                     approval=approval,
                     allow_archive_transition=True,
+                    request_context_ref=request_context_ref,
                 )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
@@ -922,6 +1048,7 @@ class TaskRepository:
                 expected_version=expected_version,
                 approval=approval,
                 allow_archive_transition=True,
+                request_context_ref=request_context_ref,
             )
 
     def delete(
@@ -934,7 +1061,26 @@ class TaskRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "delete",
+            {
+                "workspace_ref": workspace_ref,
+                "task_ref": task_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+            },
+        )
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=workspace_ref,
+                task_ref=task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             self._ensure_no_active_references(workspace_ref, task_ref)
             operation = DeleteRecord(
                 operation_ref=operation_ref,
@@ -952,6 +1098,7 @@ class TaskRepository:
                     operations=(operation,),
                     approval=approval,
                     requested_action=ECO_TASK_MUTATION_ACTION,
+                    request_context_ref=request_context_ref,
                 )
             if current.version != expected_version:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
@@ -963,6 +1110,7 @@ class TaskRepository:
                 operations=(operation,),
                 approval=approval,
                 requested_action=ECO_TASK_MUTATION_ACTION,
+                request_context_ref=request_context_ref,
             )
 
     def plan_next_occurrence(
@@ -1073,6 +1221,37 @@ class TaskRepository:
             search_terms=self._search_terms(task),
             retention_ref=ECO_TASK_RETENTION_REF,
             expires_at=None,
+        )
+
+    @staticmethod
+    def _request_context_ref(kind: str, material: dict[str, Any]) -> str:
+        return _stable_ref(
+            "task-request-context-ref",
+            {"kind": kind, "material": material},
+        )
+
+    def _replay(
+        self,
+        *,
+        workspace_ref: str,
+        task_ref: str,
+        operation_ref: str,
+        idempotency_ref: str,
+        approval: ApprovalValidationRequest,
+        request_context_ref: str,
+    ) -> UnitOfWorkReceipt | None:
+        return self.platform.replay_receipt(
+            workspace_ref=workspace_ref,
+            idempotency_ref=idempotency_ref,
+            resource_refs=self.mutation_resource_refs(
+                workspace_ref=workspace_ref,
+                idempotency_ref=idempotency_ref,
+                operation_ref=operation_ref,
+                task_ref=task_ref,
+            ),
+            approval=approval,
+            requested_action=ECO_TASK_MUTATION_ACTION,
+            request_context_ref=request_context_ref,
         )
 
     @staticmethod

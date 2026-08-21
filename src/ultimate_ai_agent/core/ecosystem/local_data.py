@@ -53,7 +53,14 @@ _SCOPED_MUTATION_ACTIONS = {
                 "record-kind-ref:task-occurrence",
             }
         ),
-    )
+    ),
+    # Exact compatibility lane for ECO-001 records that used the Tasks module
+    # before ECO-002 reserved it for canonical Task kinds. This keeps those
+    # records maintainable without reopening the generic mutation action.
+    "ecosystem.tasks.legacy_local_data.apply": (
+        "module-ref:tasks",
+        frozenset({"record-kind-ref:task"}),
+    ),
 }
 
 
@@ -816,10 +823,13 @@ class EcosystemLocalDataPlatform:
         operations: tuple[LocalMutation, ...],
         approval: ApprovalValidationRequest,
         requested_action: str = "ecosystem.local_data.apply",
+        request_context_ref: str | None = None,
     ) -> UnitOfWorkReceipt:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(idempotency_ref, field_name="idempotency_ref")
         _validate_ref(requested_action, field_name="requested_action")
+        if request_context_ref is not None:
+            _validate_ref(request_context_ref, field_name="request_context_ref")
         if not operations or len(operations) > 64:
             raise ValueError("ECO_UOW_OPERATION_COUNT_INVALID")
         operation_refs = [
@@ -848,7 +858,10 @@ class EcosystemLocalDataPlatform:
                     connection, workspace_ref
                 )
                 request_material = self._request_material(
-                    workspace_ref, operations, requested_action=requested_action
+                    workspace_ref,
+                    operations,
+                    requested_action=requested_action,
+                    request_context_ref=request_context_ref,
                 )
                 fingerprint_ref = self._request_fingerprint(
                     key_item_ref=key_item_ref,
@@ -983,12 +996,113 @@ class EcosystemLocalDataPlatform:
             finally:
                 connection.close()
 
+    def replay_receipt(
+        self,
+        *,
+        workspace_ref: str,
+        idempotency_ref: str,
+        resource_refs: tuple[str, ...],
+        approval: ApprovalValidationRequest,
+        requested_action: str,
+        request_context_ref: str,
+    ) -> UnitOfWorkReceipt | None:
+        """Return an exact durable replay without reconstructing stale payload state."""
+
+        _validate_ref(workspace_ref, field_name="workspace_ref")
+        _validate_ref(idempotency_ref, field_name="idempotency_ref")
+        _validate_ref(requested_action, field_name="requested_action")
+        _validate_ref(request_context_ref, field_name="request_context_ref")
+        validated_resources = tuple(
+            dict.fromkeys(
+                _validate_ref(resource_ref, field_name="resource_ref")
+                for resource_ref in resource_refs
+            )
+        )
+        with self.approval_authority.hold_validation_lock():
+            self._authorize(
+                approval,
+                action=requested_action,
+                resource_refs=validated_resources,
+            )
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN")
+                key_item_ref, _key_version_ref = self._workspace_key(
+                    connection, workspace_ref
+                )
+                replay = connection.execute(
+                    "SELECT * FROM eco_uow_receipts "
+                    "WHERE workspace_ref = ? AND idempotency_ref = ?",
+                    (workspace_ref, idempotency_ref),
+                ).fetchone()
+                if replay is None:
+                    connection.rollback()
+                    return None
+                previous_material = self.crypto_backend.decrypt(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=replay["key_version_ref"],
+                    ciphertext=replay["request_ciphertext"],
+                    aad=_receipt_aad(
+                        workspace_ref=workspace_ref,
+                        idempotency_ref=idempotency_ref,
+                        key_version_ref=replay["key_version_ref"],
+                    ),
+                )
+                expected_authenticator = self._receipt_authenticator(
+                    key_item_ref=key_item_ref,
+                    key_version_ref=replay["key_version_ref"],
+                    workspace_ref=workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    request_fingerprint_ref=replay["request_fingerprint_ref"],
+                    request_ciphertext=replay["request_ciphertext"],
+                    approval_ref=replay["approval_ref"],
+                    receipt_ref=replay["receipt_ref"],
+                    operation_receipt_refs_json=replay[
+                        "operation_receipt_refs_json"
+                    ],
+                    created_at=replay["created_at"],
+                )
+                if not hmac.compare_digest(
+                    replay["receipt_authenticator_ref"], expected_authenticator
+                ):
+                    raise EcosystemLocalDataError("ECO_UOW_RECEIPT_INTEGRITY_FAILED")
+                try:
+                    material = json.loads(previous_material)
+                except (TypeError, ValueError) as exc:
+                    raise EcosystemLocalDataError(
+                        "ECO_UOW_RECEIPT_REQUEST_INVALID"
+                    ) from exc
+                if (
+                    not isinstance(material, dict)
+                    or material.get("workspace_ref") != workspace_ref
+                    or material.get("requested_action") != requested_action
+                    or material.get("request_context_ref") != request_context_ref
+                ):
+                    raise EcosystemConflict("ECO_IDEMPOTENCY_REPLAY_CONFLICT")
+                connection.rollback()
+                return UnitOfWorkReceipt(
+                    workspace_ref=workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    request_fingerprint_ref=replay["request_fingerprint_ref"],
+                    receipt_ref=replay["receipt_ref"],
+                    operation_receipt_refs=tuple(
+                        json.loads(replay["operation_receipt_refs_json"])
+                    ),
+                    replayed=True,
+                )
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
+
     def _request_material(
         self,
         workspace_ref: str,
         operations: tuple[LocalMutation, ...],
         *,
         requested_action: str,
+        request_context_ref: str | None = None,
     ) -> bytes:
         encoded: list[dict[str, Any]] = []
         for operation in operations:
@@ -1011,6 +1125,8 @@ class EcosystemLocalDataPlatform:
         # binding every non-default authority lane into new request material.
         if requested_action != "ecosystem.local_data.apply":
             material["requested_action"] = requested_action
+        if request_context_ref is not None:
+            material["request_context_ref"] = request_context_ref
         return _canonical_json(material)
 
     def _request_fingerprint(
@@ -1081,7 +1197,14 @@ class EcosystemLocalDataPlatform:
             }
             for operation in operations:
                 if isinstance(operation, PutRecord):
-                    if operation.module_ref in protected_modules:
+                    row = connection.execute(
+                        "SELECT module_ref FROM eco_records "
+                        "WHERE workspace_ref = ? AND record_ref = ?",
+                        (workspace_ref, operation.record_ref),
+                    ).fetchone()
+                    if operation.module_ref in protected_modules or (
+                        row is not None and row["module_ref"] in protected_modules
+                    ):
                         raise EcosystemLocalDataError(
                             "ECO_MUTATION_REQUIRES_DOMAIN_ACTION"
                         )
@@ -1100,9 +1223,21 @@ class EcosystemLocalDataPlatform:
         module_ref, record_kind_refs = scope
         for operation in operations:
             if isinstance(operation, PutRecord):
+                row = connection.execute(
+                    "SELECT module_ref, record_kind_ref FROM eco_records "
+                    "WHERE workspace_ref = ? AND record_ref = ?",
+                    (workspace_ref, operation.record_ref),
+                ).fetchone()
                 if (
                     operation.module_ref != module_ref
                     or operation.record_kind_ref not in record_kind_refs
+                    or (
+                        row is not None
+                        and (
+                            row["module_ref"] != module_ref
+                            or row["record_kind_ref"] not in record_kind_refs
+                        )
+                    )
                 ):
                     raise EcosystemLocalDataError(
                         "ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"

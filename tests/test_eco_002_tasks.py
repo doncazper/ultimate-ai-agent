@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.approvals.enums import (
 )
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    ArchiveRecord,
     DeleteRecord,
     EcosystemConflict,
     EcosystemLocalDataError,
@@ -373,6 +374,244 @@ def test_task_read_rejects_another_module_owner(tmp_path: Path) -> None:
 
     with pytest.raises(TaskError, match="ECO_TASK_RECORD_BINDING_INVALID"):
         repository.read(workspace_ref=WORKSPACE, task_ref=task.task_ref)
+
+
+def test_put_cannot_reassign_existing_record_domain_ownership(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    foreign_ref = "record-ref:foreign-owned"
+    foreign_create = PutRecord(
+        operation_ref="operation-ref:foreign-owned-create",
+        module_ref="module-ref:foreign",
+        record_ref=foreign_ref,
+        record_kind_ref="record-kind-ref:foreign",
+        safe_summary_ref="summary-ref:foreign",
+        private_payload={"value": "private"},
+    )
+    foreign_create_idempotency = "idempotency-ref:foreign-owned-create"
+    repository.platform.apply(
+        workspace_ref=WORKSPACE,
+        idempotency_ref=foreign_create_idempotency,
+        operations=(foreign_create,),
+        approval=_approval(
+            authority,
+            action="ecosystem.local_data.apply",
+            resources=(
+                WORKSPACE,
+                foreign_create_idempotency,
+                foreign_create.operation_ref,
+                foreign_ref,
+            ),
+        ),
+    )
+    claimed_task = _task(foreign_ref)
+    claimed_put = repository._put(
+        claimed_task, "operation-ref:foreign-owned-claim", expected_version=1
+    )
+    claimed_idempotency = "idempotency-ref:foreign-owned-claim"
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+    ):
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=claimed_idempotency,
+            operations=(claimed_put,),
+            approval=_approval(
+                authority,
+                action=ECO_TASK_MUTATION_ACTION,
+                resources=_mutation_refs(
+                    task_ref=foreign_ref,
+                    operation_ref=claimed_put.operation_ref,
+                    idempotency_ref=claimed_idempotency,
+                ),
+            ),
+            requested_action=ECO_TASK_MUTATION_ACTION,
+        )
+
+    task = _task("task-ref:task-owned")
+    _create(repository, authority, task, "task-owned-create")
+    foreign_claim = PutRecord(
+        operation_ref="operation-ref:task-owned-claim",
+        module_ref="module-ref:foreign",
+        record_ref=task.task_ref,
+        record_kind_ref="record-kind-ref:foreign",
+        safe_summary_ref="summary-ref:foreign",
+        private_payload={"value": "private"},
+        expected_version=1,
+    )
+    foreign_claim_idempotency = "idempotency-ref:task-owned-claim"
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_MUTATION_REQUIRES_DOMAIN_ACTION"
+    ):
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=foreign_claim_idempotency,
+            operations=(foreign_claim,),
+            approval=_approval(
+                authority,
+                action="ecosystem.local_data.apply",
+                resources=(
+                    WORKSPACE,
+                    foreign_claim_idempotency,
+                    foreign_claim.operation_ref,
+                    task.task_ref,
+                ),
+            ),
+        )
+
+
+def test_legacy_task_module_records_have_an_exact_maintenance_lane(
+    tmp_path: Path,
+) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    action = "ecosystem.tasks.legacy_local_data.apply"
+    record_ref = "record-ref:legacy-task"
+
+    def apply_legacy(operation, suffix: str):
+        idempotency_ref = f"idempotency-ref:{suffix}"
+        return repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=idempotency_ref,
+            operations=(operation,),
+            approval=_approval(
+                authority,
+                action=action,
+                resources=(
+                    WORKSPACE,
+                    idempotency_ref,
+                    operation.operation_ref,
+                    record_ref,
+                ),
+            ),
+            requested_action=action,
+        )
+
+    apply_legacy(
+        PutRecord(
+            operation_ref="operation-ref:legacy-task-create",
+            module_ref="module-ref:tasks",
+            record_ref=record_ref,
+            record_kind_ref="record-kind-ref:task",
+            safe_summary_ref="summary-ref:legacy-task",
+            private_payload={"title": "private legacy task"},
+        ),
+        "legacy-task-create",
+    )
+    apply_legacy(
+        PutRecord(
+            operation_ref="operation-ref:legacy-task-update",
+            module_ref="module-ref:tasks",
+            record_ref=record_ref,
+            record_kind_ref="record-kind-ref:task",
+            safe_summary_ref="summary-ref:legacy-task",
+            private_payload={"title": "private updated legacy task"},
+            expected_version=1,
+        ),
+        "legacy-task-update",
+    )
+    apply_legacy(
+        ArchiveRecord(
+            operation_ref="operation-ref:legacy-task-archive",
+            record_ref=record_ref,
+            expected_version=2,
+        ),
+        "legacy-task-archive",
+    )
+    apply_legacy(
+        DeleteRecord(
+            operation_ref="operation-ref:legacy-task-delete",
+            record_ref=record_ref,
+            expected_version=3,
+        ),
+        "legacy-task-delete",
+    )
+    with pytest.raises(EcosystemLocalDataError, match="ECO_RECORD_NOT_FOUND"):
+        repository.platform.read(workspace_ref=WORKSPACE, record_ref=record_ref)
+
+
+def test_lifecycle_replay_survives_later_task_mutations(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:durable-lifecycle-replay")
+    _create(repository, authority, task, "durable-lifecycle-create")
+    complete_operation = "operation-ref:durable-complete"
+    complete_idempotency = "idempotency-ref:durable-complete"
+    complete_approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task.task_ref,
+            operation_ref=complete_operation,
+            idempotency_ref=complete_idempotency,
+        ),
+    )
+    complete_receipt = repository.complete(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        completed_at="2026-08-20T19:00:00Z",
+        operation_ref=complete_operation,
+        idempotency_ref=complete_idempotency,
+        approval=complete_approval,
+    )
+    reopen_operation = "operation-ref:durable-reopen"
+    reopen_idempotency = "idempotency-ref:durable-reopen"
+    repository.reopen(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        operation_ref=reopen_operation,
+        idempotency_ref=reopen_idempotency,
+        approval=_approval(
+            authority,
+            action=ECO_TASK_MUTATION_ACTION,
+            resources=_mutation_refs(
+                task_ref=task.task_ref,
+                operation_ref=reopen_operation,
+                idempotency_ref=reopen_idempotency,
+            ),
+        ),
+    )
+
+    replay = repository.complete(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        completed_at="2026-08-20T12:00:00-07:00",
+        operation_ref=complete_operation,
+        idempotency_ref=complete_idempotency,
+        approval=complete_approval,
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == complete_receipt.receipt_ref
+    current = repository.read(workspace_ref=WORKSPACE, task_ref=task.task_ref)
+    assert current.status == TaskStatus.ready
+    assert current.version == 3
+
+
+def test_lifecycle_replay_is_bound_to_the_public_operation(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:lifecycle-binding")
+    operation_ref = "operation-ref:lifecycle-binding"
+    idempotency_ref = "idempotency-ref:lifecycle-binding"
+    approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=_mutation_refs(
+            task_ref=task.task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    repository.create(
+        task=task,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=approval,
+    )
+    with pytest.raises(EcosystemConflict, match="ECO_IDEMPOTENCY_REPLAY_CONFLICT"):
+        repository.reopen(
+            workspace_ref=WORKSPACE,
+            task_ref=task.task_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+        )
 
 
 def test_quick_capture_complete_reopen_and_exact_replay(tmp_path: Path) -> None:

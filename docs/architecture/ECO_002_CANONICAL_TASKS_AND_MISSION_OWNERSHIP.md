@@ -13,7 +13,8 @@ data plane. `TaskRepository` supplies:
   and archive-before-delete operations;
 - exact `LocalApprovalAuthority` binding to `ecosystem.tasks.apply`, including
   workspace, operation, idempotency, and task refs;
-- encrypted exact retry semantics and fail-closed changed-payload conflicts;
+- encrypted exact retry semantics that survive later Task mutations, bind the
+  public lifecycle operation, and fail closed on changed request context;
 - Inbox, Today, Upcoming, Anytime, Waiting, Flagged, Completed, Overdue, project,
   and tag queries;
 - same-workspace dependency and hierarchy validation, cycle denial, and active
@@ -34,13 +35,21 @@ execution state.
 ## Authority and recovery boundary
 
 Every mutation passes through the same ECO-001 atomic encrypted unit of work.
-The Task-specific action is included in encrypted replay material so a receipt
-cannot be replayed under a different authority lane. The local-data plane also
-binds registered domain actions to their exact module and record kinds, and
-rejects generic writes to protected domain modules. Archive is a reversible
-Task-domain state transition available only through the lifecycle operation;
-permanent deletion requires an archived, unreferenced Task and leaves the
-ECO-001 tombstone.
+The Task-specific action and a content-free request-context ref are included in
+encrypted replay material. Exact retries can therefore return their durable
+receipt after later mutations without allowing a create, save, complete,
+reopen, archive, restore, or delete receipt to satisfy a different lifecycle
+operation. The local-data plane binds registered domain actions to their exact
+module and record kinds, checks both proposed and existing ownership on upsert,
+and rejects generic writes to protected domain modules.
+
+Pre-ECO-002 `module-ref:tasks` / `record-kind-ref:task` records remain
+maintainable only through the separately approved
+`ecosystem.tasks.legacy_local_data.apply` compatibility lane. That lane cannot
+mutate canonical Task kinds, and the canonical Task lane cannot claim legacy or
+foreign records. Archive is a reversible Task-domain state transition available
+only through the lifecycle operation; permanent deletion requires an archived,
+unreferenced Task and leaves the ECO-001 tombstone.
 
 Recurrence planning is read-only and deterministic. Materialization is a
 separate approved mutation bound to the generated occurrence, operation, and
@@ -71,7 +80,8 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_eco_002_tasks.py tests/test
 ```
 
 The focused suite covers ciphertext at rest, action-scoped authorization,
-encrypted exact replay, quick capture and lifecycle transitions, all canonical
-views, dependency resolution and cycle denial, unique mission ownership,
-explicit recurrence, archive/restore/delete safety, and bounded read-only
-legacy preview.
+existing-record ownership, the exact legacy maintenance lane, encrypted durable
+lifecycle replay and collision denial, quick capture and lifecycle transitions,
+all canonical views, dependency resolution and cycle denial, unique mission
+ownership, explicit recurrence, archive/restore/delete safety, and bounded
+read-only legacy preview.
