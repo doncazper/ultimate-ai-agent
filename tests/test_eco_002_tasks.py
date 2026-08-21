@@ -8,6 +8,7 @@ from threading import Event, Thread
 
 import pytest
 
+import ultimate_ai_agent.core.ecosystem.local_data as local_data_module
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import (
     ApprovalRiskLevel,
@@ -461,6 +462,7 @@ def test_put_cannot_reassign_existing_record_domain_ownership(tmp_path: Path) ->
 
 def test_legacy_task_module_records_have_an_exact_maintenance_lane(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     repository, authority, _ = _repository(tmp_path)
     action = "ecosystem.tasks.legacy_local_data.apply"
@@ -479,23 +481,53 @@ def test_legacy_task_module_records_have_an_exact_maintenance_lane(
                     WORKSPACE,
                     idempotency_ref,
                     operation.operation_ref,
-                    record_ref,
+                    operation.record_ref,
                 ),
             ),
             requested_action=action,
         )
 
-    apply_legacy(
-        PutRecord(
-            operation_ref="operation-ref:legacy-task-create",
-            module_ref="module-ref:tasks",
-            record_ref=record_ref,
-            record_kind_ref="record-kind-ref:task",
-            safe_summary_ref="summary-ref:legacy-task",
-            private_payload={"title": "private legacy task"},
-        ),
-        "legacy-task-create",
+    legacy_create = PutRecord(
+        operation_ref="operation-ref:legacy-task-create",
+        module_ref="module-ref:tasks",
+        record_ref=record_ref,
+        record_kind_ref="record-kind-ref:task",
+        safe_summary_ref="summary-ref:legacy-task",
+        private_payload={"title": "private legacy task"},
     )
+    create_idempotency_ref = "idempotency-ref:legacy-task-create"
+    with monkeypatch.context() as legacy_environment:
+        legacy_environment.setattr(local_data_module, "_SCOPED_MUTATION_ACTIONS", {})
+        repository.platform.apply(
+            workspace_ref=WORKSPACE,
+            idempotency_ref=create_idempotency_ref,
+            operations=(legacy_create,),
+            approval=_approval(
+                authority,
+                action="ecosystem.local_data.apply",
+                resources=(
+                    WORKSPACE,
+                    create_idempotency_ref,
+                    legacy_create.operation_ref,
+                    record_ref,
+                ),
+            ),
+        )
+
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+    ):
+        apply_legacy(
+            PutRecord(
+                operation_ref="operation-ref:legacy-task-new-create",
+                module_ref="module-ref:tasks",
+                record_ref="record-ref:legacy-task-new",
+                record_kind_ref="record-kind-ref:task",
+                safe_summary_ref="summary-ref:legacy-task-new",
+                private_payload={"title": "private new legacy task"},
+            ),
+            "legacy-task-new-create",
+        )
     apply_legacy(
         PutRecord(
             operation_ref="operation-ref:legacy-task-update",

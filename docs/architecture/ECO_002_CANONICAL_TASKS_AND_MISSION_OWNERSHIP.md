@@ -51,10 +51,11 @@ cannot use Task approval to bypass schema, archive, reference, or delete checks.
 Pre-ECO-002 `module-ref:tasks` / `record-kind-ref:task` records remain
 maintainable only through the separately approved
 `ecosystem.tasks.legacy_local_data.apply` compatibility lane. That lane cannot
-mutate canonical Task kinds, and the canonical Task lane cannot claim legacy or
-foreign records. Archive is a reversible Task-domain state transition available
-only through the lifecycle operation; permanent deletion requires an archived,
-unreferenced Task and leaves the ECO-001 tombstone.
+create new deprecated records or mutate canonical Task kinds, and the canonical
+Task lane cannot claim legacy or foreign records. Archive is a reversible
+Task-domain state transition available only through the lifecycle operation;
+permanent deletion requires an archived, unreferenced Task and leaves the
+ECO-001 tombstone.
 
 Recurrence planning is read-only and deterministic. Materialization is a
 separate approved mutation bound to the generated occurrence, operation, and

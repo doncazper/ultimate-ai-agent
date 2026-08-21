@@ -63,6 +63,9 @@ _SCOPED_MUTATION_ACTIONS = {
     ),
 }
 _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset({"ecosystem.tasks.apply"})
+_EXISTING_ONLY_MUTATION_ACTIONS = frozenset(
+    {"ecosystem.tasks.legacy_local_data.apply"}
+)
 _DOMAIN_VALIDATION_TOKEN = object()
 
 
@@ -1261,7 +1264,11 @@ class EcosystemLocalDataPlatform:
                     (workspace_ref, operation.record_ref),
                 ).fetchone()
                 if (
-                    operation.module_ref != module_ref
+                    (
+                        requested_action in _EXISTING_ONLY_MUTATION_ACTIONS
+                        and row is None
+                    )
+                    or operation.module_ref != module_ref
                     or operation.record_kind_ref not in record_kind_refs
                     or (
                         row is not None
