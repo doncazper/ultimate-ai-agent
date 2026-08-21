@@ -623,7 +623,7 @@ class TaskRepository:
                 if str(exc) != "ECO_RECORD_NOT_FOUND":
                     raise
                 self._validate_candidate(task, replacing_ref=None)
-            return self.platform.apply(
+            return self.platform._apply_registered_domain(
                 workspace_ref=task.workspace_ref,
                 idempotency_ref=idempotency_ref,
                 operations=(self._put(task, operation_ref, expected_version=0),),
@@ -690,7 +690,7 @@ class TaskRepository:
                 task, operation_ref, expected_version=expected_version
             )
             if current.version == task.version:
-                return self.platform.apply(
+                return self.platform._apply_registered_domain(
                     workspace_ref=task.workspace_ref,
                     idempotency_ref=idempotency_ref,
                     operations=(operation,),
@@ -706,7 +706,7 @@ class TaskRepository:
                 if task.archived:
                     self._ensure_no_active_references(task.workspace_ref, task.task_ref)
             self._validate_candidate(task, replacing_ref=task.task_ref)
-            return self.platform.apply(
+            return self.platform._apply_registered_domain(
                 workspace_ref=task.workspace_ref,
                 idempotency_ref=idempotency_ref,
                 operations=(operation,),
@@ -1092,7 +1092,7 @@ class TaskRepository:
             except EcosystemLocalDataError as exc:
                 if str(exc) != "ECO_RECORD_NOT_FOUND":
                     raise
-                return self.platform.apply(
+                return self.platform._apply_registered_domain(
                     workspace_ref=workspace_ref,
                     idempotency_ref=idempotency_ref,
                     operations=(operation,),
@@ -1104,7 +1104,7 @@ class TaskRepository:
                 raise TaskConflict("ECO_TASK_STALE_VERSION")
             if not current.archived:
                 raise TaskConflict("ECO_TASK_DELETE_REQUIRES_ARCHIVE")
-            return self.platform.apply(
+            return self.platform._apply_registered_domain(
                 workspace_ref=workspace_ref,
                 idempotency_ref=idempotency_ref,
                 operations=(operation,),
@@ -1189,7 +1189,24 @@ class TaskRepository:
         plan: TaskOccurrencePlan,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        request_context_ref = self._request_context_ref(
+            "create",
+            {
+                "task": plan.occurrence.model_dump(mode="json"),
+                "operation_ref": plan.operation_ref,
+            },
+        )
         with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=plan.occurrence.workspace_ref,
+                task_ref=plan.occurrence.task_ref,
+                operation_ref=plan.operation_ref,
+                idempotency_ref=plan.idempotency_ref,
+                approval=approval,
+                request_context_ref=request_context_ref,
+            )
+            if replay is not None:
+                return replay
             parent = self.read(
                 workspace_ref=plan.occurrence.workspace_ref,
                 task_ref=plan.parent_task_ref,
@@ -1316,11 +1333,17 @@ class TaskRepository:
         self._ensure_acyclic(
             dependencies, conflict_code="ECO_TASK_DEPENDENCY_CYCLE_DENIED"
         )
-        parents = {
-            ref: set() if item.parent_task_ref is None else {item.parent_task_ref}
+        hierarchy = {
+            ref: {
+                related_ref
+                for related_ref in (item.parent_task_ref, item.occurrence_of_ref)
+                if related_ref is not None
+            }
             for ref, item in tasks.items()
         }
-        self._ensure_acyclic(parents, conflict_code="ECO_TASK_PARENT_CYCLE_DENIED")
+        self._ensure_acyclic(
+            hierarchy, conflict_code="ECO_TASK_PARENT_CYCLE_DENIED"
+        )
 
     @staticmethod
     def _ensure_acyclic(edges: dict[str, set[str]], *, conflict_code: str) -> None:

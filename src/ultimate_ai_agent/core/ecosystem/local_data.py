@@ -62,6 +62,8 @@ _SCOPED_MUTATION_ACTIONS = {
         frozenset({"record-kind-ref:task"}),
     ),
 }
+_REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset({"ecosystem.tasks.apply"})
+_DOMAIN_VALIDATION_TOKEN = object()
 
 
 class EcosystemLocalDataError(RuntimeError):
@@ -824,6 +826,7 @@ class EcosystemLocalDataPlatform:
         approval: ApprovalValidationRequest,
         requested_action: str = "ecosystem.local_data.apply",
         request_context_ref: str | None = None,
+        _domain_validation_token: object | None = None,
     ) -> UnitOfWorkReceipt:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(idempotency_ref, field_name="idempotency_ref")
@@ -922,6 +925,13 @@ class EcosystemLocalDataPlatform:
                     requested_action=requested_action,
                     operations=operations,
                 )
+                if (
+                    requested_action in _REPOSITORY_ONLY_MUTATION_ACTIONS
+                    and _domain_validation_token is not _DOMAIN_VALIDATION_TOKEN
+                ):
+                    raise EcosystemLocalDataError(
+                        "ECO_MUTATION_REQUIRES_REPOSITORY_VALIDATION"
+                    )
                 receipts: list[str] = []
                 for index, operation in enumerate(operations):
                     receipt = self._apply_one(
@@ -995,6 +1005,28 @@ class EcosystemLocalDataPlatform:
                 raise
             finally:
                 connection.close()
+
+    def _apply_registered_domain(
+        self,
+        *,
+        workspace_ref: str,
+        idempotency_ref: str,
+        operations: tuple[LocalMutation, ...],
+        approval: ApprovalValidationRequest,
+        requested_action: str,
+        request_context_ref: str,
+    ) -> UnitOfWorkReceipt:
+        """Internal handoff for a domain repository after its invariant checks."""
+
+        return self.apply(
+            workspace_ref=workspace_ref,
+            idempotency_ref=idempotency_ref,
+            operations=operations,
+            approval=approval,
+            requested_action=requested_action,
+            request_context_ref=request_context_ref,
+            _domain_validation_token=_DOMAIN_VALIDATION_TOKEN,
+        )
 
     def replay_receipt(
         self,

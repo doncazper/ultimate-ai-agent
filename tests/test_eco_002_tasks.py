@@ -614,6 +614,60 @@ def test_lifecycle_replay_is_bound_to_the_public_operation(tmp_path: Path) -> No
         )
 
 
+def test_raw_task_action_cannot_bypass_repository_lifecycle_validation(
+    tmp_path: Path,
+) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    task = _task("task-ref:repository-only")
+    _create(repository, authority, task, "repository-only-create")
+    operations = (
+        repository._put(
+            CanonicalTask.model_validate(
+                {
+                    **task.model_dump(mode="json"),
+                    "title": "Private bypass attempt",
+                    "version": 2,
+                }
+            ),
+            "operation-ref:repository-only-put",
+            expected_version=1,
+        ),
+        ArchiveRecord(
+            operation_ref="operation-ref:repository-only-archive",
+            record_ref=task.task_ref,
+            expected_version=1,
+        ),
+        DeleteRecord(
+            operation_ref="operation-ref:repository-only-delete",
+            record_ref=task.task_ref,
+            expected_version=1,
+        ),
+    )
+    for index, operation in enumerate(operations):
+        idempotency_ref = f"idempotency-ref:repository-only-{index}"
+        with pytest.raises(
+            EcosystemLocalDataError,
+            match="ECO_MUTATION_REQUIRES_REPOSITORY_VALIDATION",
+        ):
+            repository.platform.apply(
+                workspace_ref=WORKSPACE,
+                idempotency_ref=idempotency_ref,
+                operations=(operation,),
+                approval=_approval(
+                    authority,
+                    action=ECO_TASK_MUTATION_ACTION,
+                    resources=_mutation_refs(
+                        task_ref=task.task_ref,
+                        operation_ref=operation.operation_ref,
+                        idempotency_ref=idempotency_ref,
+                    ),
+                ),
+                requested_action=ECO_TASK_MUTATION_ACTION,
+            )
+    current = repository.read(workspace_ref=WORKSPACE, task_ref=task.task_ref)
+    assert current == task
+
+
 def test_quick_capture_complete_reopen_and_exact_replay(tmp_path: Path) -> None:
     repository, authority, _ = _repository(tmp_path)
     task_ref = "task-ref:captured"
@@ -841,6 +895,25 @@ def test_dependency_graph_rejects_missing_and_cycles(tmp_path: Path) -> None:
         _save(repository, authority, cyclic_parent, "parent-cycle")
 
 
+def test_hierarchy_cycle_detection_includes_occurrence_links(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    parent = _task("task-ref:occurrence-cycle-parent")
+    occurrence = _task(
+        "task-ref:occurrence-cycle-child", occurrence_of_ref=parent.task_ref
+    )
+    _create(repository, authority, parent, "occurrence-cycle-parent")
+    _create(repository, authority, occurrence, "occurrence-cycle-child")
+    cyclic_parent = CanonicalTask.model_validate(
+        {
+            **parent.model_dump(mode="json"),
+            "parent_task_ref": occurrence.task_ref,
+            "version": 2,
+        }
+    )
+    with pytest.raises(TaskConflict, match="ECO_TASK_PARENT_CYCLE_DENIED"):
+        _save(repository, authority, cyclic_parent, "occurrence-cycle-save")
+
+
 def test_one_task_owns_each_mission_without_copying_execution_state(
     tmp_path: Path,
 ) -> None:
@@ -945,6 +1018,43 @@ def test_recurrence_is_explicit_and_materializes_distinct_occurrence(
     assert occurrence.occurrence_of_ref == parent.task_ref
     assert occurrence.recurrence is None
     assert occurrence.mission_binding is None
+
+
+def test_occurrence_replay_survives_later_parent_mutation(tmp_path: Path) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    parent = _task(
+        "task-ref:recurrence-replay-parent",
+        recurrence=TaskRecurrenceRule(
+            cadence=TaskRecurrenceCadence.daily,
+            anchor_at="2026-08-20T12:00:00Z",
+            timezone_name="UTC",
+        ),
+    )
+    _create(repository, authority, parent, "recurrence-replay-parent")
+    plan = repository.plan_next_occurrence(
+        workspace_ref=WORKSPACE,
+        parent_task_ref=parent.task_ref,
+        after="2026-08-20T12:00:00Z",
+        idempotency_ref="idempotency-ref:recurrence-replay-occurrence",
+    )
+    approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=plan.resource_refs,
+    )
+    first = repository.materialize_occurrence(plan=plan, approval=approval)
+    updated_parent = CanonicalTask.model_validate(
+        {
+            **parent.model_dump(mode="json"),
+            "title": "Private changed recurring title",
+            "version": 2,
+        }
+    )
+    _save(repository, authority, updated_parent, "recurrence-replay-parent-save")
+
+    replay = repository.materialize_occurrence(plan=plan, approval=approval)
+    assert replay.replayed is True
+    assert replay.receipt_ref == first.receipt_ref
 
 
 def test_recurrence_end_boundary_compares_instants_not_strings() -> None:

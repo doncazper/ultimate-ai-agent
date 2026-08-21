@@ -18,7 +18,8 @@ data plane. `TaskRepository` supplies:
 - Inbox, Today, Upcoming, Anytime, Waiting, Flagged, Completed, Overdue, project,
   and tag queries;
 - same-workspace dependency and hierarchy validation, cycle denial, and active
-  reference protection during archive/delete;
+  reference protection during archive/delete, including cycles spanning parent
+  and occurrence links;
 - deterministic explicit recurrence plans and distinct occurrence records, with
   no scheduler or background execution;
 - exact safe-ref mission, run, plan, owner, evidence, handoff, and recovery
@@ -41,7 +42,9 @@ receipt after later mutations without allowing a create, save, complete,
 reopen, archive, restore, or delete receipt to satisfy a different lifecycle
 operation. The local-data plane binds registered domain actions to their exact
 module and record kinds, checks both proposed and existing ownership on upsert,
-and rejects generic writes to protected domain modules.
+and rejects generic writes to protected domain modules. Canonical Task writes
+also require the internal repository-validation handoff; a raw local-data call
+cannot use Task approval to bypass schema, archive, reference, or delete checks.
 
 Pre-ECO-002 `module-ref:tasks` / `record-kind-ref:task` records remain
 maintainable only through the separately approved
@@ -53,8 +56,10 @@ unreferenced Task and leaves the ECO-001 tombstone.
 
 Recurrence planning is read-only and deterministic. Materialization is a
 separate approved mutation bound to the generated occurrence, operation, and
-idempotency refs. The result explicitly records that no scheduler or background
-work was started.
+idempotency refs. An exact materialization retry resolves its durable receipt
+before checking the parent's current version; a first execution still fails on
+a stale plan. The result explicitly records that no scheduler or background work
+was started.
 
 ## Explicitly not accepted
 
