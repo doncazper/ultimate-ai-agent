@@ -594,16 +594,34 @@ class TaskRepository:
         operation_ref: str,
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
+        _request_context_ref: str | None = None,
     ) -> UnitOfWorkReceipt:
-        if task.version != 1:
-            raise TaskConflict("ECO_TASK_CREATE_VERSION_INVALID")
-        request_context_ref = self._request_context_ref(
+        request_context_ref = _request_context_ref or self._request_context_ref(
             "create",
             {
                 "task": task.model_dump(mode="json"),
                 "operation_ref": operation_ref,
             },
         )
+        return self._create(
+            task=task,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            request_context_ref=request_context_ref,
+        )
+
+    def _create(
+        self,
+        *,
+        task: CanonicalTask,
+        operation_ref: str,
+        idempotency_ref: str,
+        approval: ApprovalValidationRequest,
+        request_context_ref: str,
+    ) -> UnitOfWorkReceipt:
+        if task.version != 1:
+            raise TaskConflict("ECO_TASK_CREATE_VERSION_INVALID")
         with self.platform.approval_authority.hold_validation_lock():
             replay = self._replay(
                 workspace_ref=task.workspace_ref,
@@ -1190,8 +1208,11 @@ class TaskRepository:
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
         request_context_ref = self._request_context_ref(
-            "create",
+            "materialize_occurrence",
             {
+                "plan_ref": plan.plan_ref,
+                "parent_task_ref": plan.parent_task_ref,
+                "parent_version": plan.parent_version,
                 "task": plan.occurrence.model_dump(mode="json"),
                 "operation_ref": plan.operation_ref,
             },
@@ -1218,6 +1239,7 @@ class TaskRepository:
                 operation_ref=plan.operation_ref,
                 idempotency_ref=plan.idempotency_ref,
                 approval=approval,
+                _request_context_ref=request_context_ref,
             )
 
     def _put(

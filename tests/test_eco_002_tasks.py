@@ -1057,6 +1057,49 @@ def test_occurrence_replay_survives_later_parent_mutation(tmp_path: Path) -> Non
     assert replay.receipt_ref == first.receipt_ref
 
 
+def test_materialization_replay_cannot_reuse_a_direct_create_receipt(
+    tmp_path: Path,
+) -> None:
+    repository, authority, _ = _repository(tmp_path)
+    parent = _task(
+        "task-ref:materialization-context-parent",
+        recurrence=TaskRecurrenceRule(
+            cadence=TaskRecurrenceCadence.daily,
+            anchor_at="2026-08-20T12:00:00Z",
+            timezone_name="UTC",
+        ),
+    )
+    _create(repository, authority, parent, "materialization-context-parent")
+    plan = repository.plan_next_occurrence(
+        workspace_ref=WORKSPACE,
+        parent_task_ref=parent.task_ref,
+        after="2026-08-20T12:00:00Z",
+        idempotency_ref="idempotency-ref:materialization-context",
+    )
+    approval = _approval(
+        authority,
+        action=ECO_TASK_MUTATION_ACTION,
+        resources=plan.resource_refs,
+    )
+    repository.create(
+        task=plan.occurrence,
+        operation_ref=plan.operation_ref,
+        idempotency_ref=plan.idempotency_ref,
+        approval=approval,
+    )
+    updated_parent = CanonicalTask.model_validate(
+        {
+            **parent.model_dump(mode="json"),
+            "title": "Private stale parent",
+            "version": 2,
+        }
+    )
+    _save(repository, authority, updated_parent, "materialization-context-save")
+
+    with pytest.raises(EcosystemConflict, match="ECO_IDEMPOTENCY_REPLAY_CONFLICT"):
+        repository.materialize_occurrence(plan=plan, approval=approval)
+
+
 def test_recurrence_end_boundary_compares_instants_not_strings() -> None:
     rule = TaskRecurrenceRule(
         cadence=TaskRecurrenceCadence.daily,

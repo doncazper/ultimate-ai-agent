@@ -56,10 +56,11 @@ unreferenced Task and leaves the ECO-001 tombstone.
 
 Recurrence planning is read-only and deterministic. Materialization is a
 separate approved mutation bound to the generated occurrence, operation, and
-idempotency refs. An exact materialization retry resolves its durable receipt
-before checking the parent's current version; a first execution still fails on
-a stale plan. The result explicitly records that no scheduler or background work
-was started.
+idempotency refs plus the plan identity and parent version. Its replay context is
+distinct from direct Task creation. An exact materialization retry resolves its
+durable receipt before checking the parent's current version; a first execution
+still fails on a stale plan. The result explicitly records that no scheduler or
+background work was started.
 
 ## Explicitly not accepted
 
