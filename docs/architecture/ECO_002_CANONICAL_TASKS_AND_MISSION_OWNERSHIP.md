@@ -1,0 +1,74 @@
+# ECO-002 Canonical Tasks And Mission Ownership
+
+Status: accepted bounded core on 2026-08-20.
+
+## Accepted implementation
+
+ECO-002 establishes one canonical local Task object on the encrypted ECO-001
+data plane. `TaskRepository` supplies:
+
+- encrypted private titles, notes, and checklist text with safe-ref-only public
+  metadata and keyed search terms;
+- quick capture plus versioned create, save, complete, reopen, archive, restore,
+  and archive-before-delete operations;
+- exact `LocalApprovalAuthority` binding to `ecosystem.tasks.apply`, including
+  workspace, operation, idempotency, and task refs;
+- encrypted exact retry semantics and fail-closed changed-payload conflicts;
+- Inbox, Today, Upcoming, Anytime, Waiting, Flagged, Completed, Overdue, project,
+  and tag queries;
+- same-workspace dependency and hierarchy validation, cycle denial, and active
+  reference protection during archive/delete;
+- deterministic explicit recurrence plans and distinct occurrence records, with
+  no scheduler or background execution;
+- exact safe-ref mission, run, plan, owner, evidence, handoff, and recovery
+  bindings, with one active Task owner per mission; and
+- a size-bounded, immutable, read-only Founder Loop `local_tasks` compatibility
+  preview. Historical rows have no private title, so migration candidates require
+  an operator-supplied title and no cutover occurs.
+
+Tasks owns task and commitment truth. Plans owns projects. The existing durable
+mission subsystem owns mission execution state and receipts. Task mission
+bindings are cross-object references, never a second mission program or copied
+execution state.
+
+## Authority and recovery boundary
+
+Every mutation passes through the same ECO-001 atomic encrypted unit of work.
+The Task-specific action is included in encrypted replay material so a receipt
+cannot be replayed under a different authority lane. Archive is a reversible
+Task-domain state transition; permanent deletion requires an archived,
+unreferenced Task and leaves the ECO-001 tombstone.
+
+Recurrence planning is read-only and deterministic. Materialization is a
+separate approved mutation bound to the generated occurrence, operation, and
+idempotency refs. The result explicitly records that no scheduler or background
+work was started.
+
+## Explicitly not accepted
+
+- No production Keychain/path backend or application-store cutover.
+- No Tasks API route, Control Center surface, or product-completeness claim.
+- No external task-provider read/write, sync, import, or collaboration.
+- No scheduler, notification, reminder, or background recurrence authority.
+- No project ownership, mission execution, model/provider call, web fetch,
+  browser runtime, public release, or production authority.
+
+The accepted core is sufficient for later Tasks surfaces to use one governed
+contract. A product cutover still needs a production key/path implementation,
+backup and recovery drill, migration acceptance, route/CLI parity, UI states,
+performance evidence, and packaging acceptance.
+
+## Verification
+
+Run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/verify_eco_002_tasks.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_eco_002_tasks.py tests/test_eco_002_verifier.py
+```
+
+The focused suite covers ciphertext at rest, action-scoped authorization,
+encrypted exact replay, quick capture and lifecycle transitions, all canonical
+views, dependency resolution and cycle denial, unique mission ownership,
+explicit recurrence, archive/restore/delete safety, and bounded read-only
+legacy preview.

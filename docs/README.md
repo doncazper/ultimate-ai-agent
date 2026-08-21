@@ -282,6 +282,16 @@ inventory preview. It does not select a production Keychain or path resolver
 backend, cut over any existing store, add routes or UI, enable cloud sync, or
 grant external/background/production authority.
 
+The bounded ECO-002 canonical Tasks core is documented in
+`docs/architecture/ECO_002_CANONICAL_TASKS_AND_MISSION_OWNERSHIP.md`. It adds
+encrypted local task truth, lifecycle operations, core task views, dependency
+and hierarchy validation, explicit recurrence materialization, and exact
+safe-ref bindings to mission-owned execution evidence on the ECO-001 data
+plane. The read-only Founder Loop compatibility preview does not cut over
+historical rows. No Tasks route/UI, production key backend, scheduler, external
+task integration, project ownership, mission execution, public release, or
+production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

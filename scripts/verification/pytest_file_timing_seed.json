@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 957,
+  "timed_file_count": 959,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -854,6 +854,16 @@
       "path": "tests/test_eco_001_verifier.py",
       "seconds": 0.08,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_eco_002_tasks.py",
+      "seconds": 0.55,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_eco_002_verifier.py",
+      "seconds": 0.16,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_event_ledger_append_only.py",
