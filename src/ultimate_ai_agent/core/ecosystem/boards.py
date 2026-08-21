@@ -17,6 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationRequest
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES,
+    EcosystemConflict,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     PutRecord,
@@ -92,6 +94,13 @@ def _stable_ref(prefix: str, payload: Any) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return f"{prefix}:sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _board_validation_code(exc: ValueError) -> str:
+    match = re.search(r"ECO_BOARD_[A-Z0-9_]+", str(exc))
+    return (
+        match.group(0) if match is not None else "ECO_BOARD_MUTATION_INVARIANT_DENIED"
+    )
 
 
 class BoardLane(_BoardModel):
@@ -507,13 +516,7 @@ class BoardRepository:
         if current.version != expected_version:
             raise BoardConflict("ECO_BOARD_STALE_VERSION")
         snapshot = transform(current)
-        updated = Board(
-            workspace_ref=current.workspace_ref,
-            board_ref=current.board_ref,
-            version=current.version + 1,
-            undo_stack=(current.undo_stack + (current.snapshot(),))[-_MAX_UNDO_DEPTH:],
-            **snapshot.model_dump(mode="json"),
-        )
+        updated = self._with_bounded_undo(current=current, snapshot=snapshot)
         self._validate_new_task_refs(current=current, updated=updated)
         return self._apply(
             workspace_ref=workspace_ref,
@@ -774,11 +777,14 @@ class BoardRepository:
             if target is None or target.archived:
                 raise BoardConflict("ECO_BOARD_CARD_NOT_FOUND")
             remaining = [card for card in board.cards if card.card_ref != card_ref]
-            target_lane = [
-                card
-                for card in remaining
-                if card.lane_ref == lane_ref and not card.archived
-            ]
+            target_lane = sorted(
+                (
+                    card
+                    for card in remaining
+                    if card.lane_ref == lane_ref and not card.archived
+                ),
+                key=lambda item: item.position,
+            )
             if position < 0 or position > len(target_lane):
                 raise BoardConflict("ECO_BOARD_TARGET_POSITION_INVALID")
             target_lane.insert(
@@ -856,14 +862,18 @@ class BoardRepository:
         if not current.undo_stack:
             raise BoardConflict("ECO_BOARD_UNDO_EMPTY")
         prior = current.undo_stack[-1]
-        updated = Board(
+        updated = self._build_board(
             workspace_ref=workspace_ref,
             board_ref=board_ref,
             version=current.version + 1,
             undo_stack=current.undo_stack[:-1],
-            **prior.model_dump(mode="json"),
+            snapshot=prior,
         )
-        self._validate_new_task_refs(current=current, updated=updated)
+        if (
+            self._record_plaintext_size(updated)
+            > ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES
+        ):
+            raise BoardConflict("ECO_BOARD_PRIVATE_PAYLOAD_LIMIT_EXCEEDED")
         return self._apply(
             workspace_ref=workspace_ref,
             record=updated,
@@ -975,6 +985,60 @@ class BoardRepository:
         return BoardSnapshot.model_validate(material)
 
     @staticmethod
+    def _build_board(
+        *,
+        workspace_ref: str,
+        board_ref: str,
+        version: int,
+        undo_stack: tuple[BoardSnapshot, ...],
+        snapshot: BoardSnapshot,
+    ) -> Board:
+        try:
+            return Board(
+                workspace_ref=workspace_ref,
+                board_ref=board_ref,
+                version=version,
+                undo_stack=undo_stack,
+                **snapshot.model_dump(mode="json"),
+            )
+        except ValueError as exc:
+            raise BoardConflict(_board_validation_code(exc)) from exc
+
+    @staticmethod
+    def _record_plaintext_size(board: Board) -> int:
+        return len(
+            json.dumps(
+                {
+                    "private_payload": board.model_dump(mode="json"),
+                    "search_terms": [_ALL_BOARDS_SEARCH_TERM],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        )
+
+    def _with_bounded_undo(self, *, current: Board, snapshot: BoardSnapshot) -> Board:
+        history = list((*current.undo_stack, current.snapshot())[-_MAX_UNDO_DEPTH:])
+        while True:
+            updated = self._build_board(
+                workspace_ref=current.workspace_ref,
+                board_ref=current.board_ref,
+                version=current.version + 1,
+                undo_stack=tuple(history),
+                snapshot=snapshot,
+            )
+            if (
+                self._record_plaintext_size(updated)
+                <= ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES
+            ):
+                return updated
+            if not history:
+                raise BoardConflict("ECO_BOARD_PRIVATE_PAYLOAD_LIMIT_EXCEEDED")
+            history.pop(0)
+
+    @staticmethod
     def _matches_filter(card: BoardCard, saved_filter: SavedBoardFilter | None) -> bool:
         if saved_filter is None:
             return not card.archived
@@ -1082,26 +1146,35 @@ class BoardRepository:
         approval: ApprovalValidationRequest,
         request_context_ref: str,
     ) -> UnitOfWorkReceipt:
-        return self.platform._apply_registered_domain(
-            workspace_ref=workspace_ref,
-            idempotency_ref=idempotency_ref,
-            operations=(
-                PutRecord(
-                    operation_ref=operation_ref,
-                    module_ref=ECO_BOARD_MODULE_REF,
-                    record_ref=record_ref,
-                    record_kind_ref=record_kind_ref,
-                    safe_summary_ref=safe_summary_ref,
-                    private_payload=record.model_dump(mode="json"),
-                    search_terms=search_terms,
-                    expected_version=expected_version,
-                    retention_ref=ECO_BOARD_RETENTION_REF,
+        try:
+            return self.platform._apply_registered_domain(
+                workspace_ref=workspace_ref,
+                idempotency_ref=idempotency_ref,
+                operations=(
+                    PutRecord(
+                        operation_ref=operation_ref,
+                        module_ref=ECO_BOARD_MODULE_REF,
+                        record_ref=record_ref,
+                        record_kind_ref=record_kind_ref,
+                        safe_summary_ref=safe_summary_ref,
+                        private_payload=record.model_dump(mode="json"),
+                        search_terms=search_terms,
+                        expected_version=expected_version,
+                        retention_ref=ECO_BOARD_RETENTION_REF,
+                    ),
                 ),
-            ),
-            approval=approval,
-            requested_action=ECO_BOARD_MUTATION_ACTION,
-            request_context_ref=request_context_ref,
-        )
+                approval=approval,
+                requested_action=ECO_BOARD_MUTATION_ACTION,
+                request_context_ref=request_context_ref,
+            )
+        except EcosystemConflict as exc:
+            if str(exc) == "ECO_STALE_RECORD_VERSION":
+                raise BoardConflict("ECO_BOARD_STALE_VERSION") from exc
+            raise
+        except ValueError as exc:
+            if str(exc) == "ECO_PRIVATE_PAYLOAD_LIMIT_EXCEEDED":
+                raise BoardConflict("ECO_BOARD_PRIVATE_PAYLOAD_LIMIT_EXCEEDED") from exc
+            raise
 
     def _replay(
         self,

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import tempfile
 from datetime import timedelta
 from pathlib import Path
@@ -44,13 +45,57 @@ REQUIRED_FILES = (
     "docs/architecture/ECO_003_REUSABLE_BOARDS_AND_TASK_PROJECTIONS.md",
     "docs/decisions/ADR-0065-reusable-boards-and-task-projections.md",
 )
-FORBIDDEN_SOURCE_MARKERS = (
-    "requests.",
-    "httpx.",
+PROHIBITED_RUNTIME_IMPORTS = (
+    "http.client",
+    "httpx",
+    "requests",
+    "schedule",
+    "subprocess",
     "urllib.request",
-    "subprocess.",
-    "schedule.run_pending",
+    "urllib3",
 )
+
+
+def _qualified_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    if isinstance(node, ast.Name):
+        return aliases.get(node.id, node.id)
+    if isinstance(node, ast.Attribute):
+        parent = _qualified_name(node.value, aliases)
+        return None if parent is None else f"{parent}.{node.attr}"
+    return None
+
+
+def _forbidden_runtime_refs(source: str) -> tuple[str, ...]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return ("invalid-python-source",)
+    aliases: dict[str, str] = {}
+    findings: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for item in node.names:
+                local_name = item.asname or item.name.split(".", 1)[0]
+                aliases[local_name] = item.name
+                if item.name in PROHIBITED_RUNTIME_IMPORTS:
+                    findings.add(item.name)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            for item in node.names:
+                qualified = f"{node.module}.{item.name}"
+                aliases[item.asname or item.name] = qualified
+            if node.module in PROHIBITED_RUNTIME_IMPORTS:
+                findings.add(node.module)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Call, ast.Attribute)):
+            continue
+        target = node.func if isinstance(node, ast.Call) else node
+        qualified = _qualified_name(target, aliases)
+        if qualified is None:
+            continue
+        for prohibited in PROHIBITED_RUNTIME_IMPORTS:
+            if qualified == prohibited or qualified.startswith(f"{prohibited}."):
+                findings.add(prohibited)
+    return tuple(sorted(findings))
 
 
 def _approval(
@@ -97,9 +142,8 @@ def verify() -> list[str]:
     if not source_path.is_file():
         return failures
     source = source_path.read_text(encoding="utf-8")
-    for marker in FORBIDDEN_SOURCE_MARKERS:
-        if marker in source:
-            failures.append(f"forbidden ECO-003 runtime marker: {marker}")
+    for runtime_ref in _forbidden_runtime_refs(source):
+        failures.append(f"forbidden ECO-003 runtime ref: {runtime_ref}")
 
     private_marker = "synthetic-private-marker-eco003"
     try:

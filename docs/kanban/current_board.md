@@ -942,7 +942,9 @@ provider call, web fetch, browser automation, connector, collaboration, cloud
 service, public distribution, or production authority.
 Accepted core scope: `docs/architecture/ECO_003_REUSABLE_BOARDS_AND_TASK_PROJECTIONS.md`,
 `docs/decisions/ADR-0065-reusable-boards-and-task-projections.md`,
-`src/ultimate_ai_agent/core/ecosystem/boards.py`, and focused verifier/tests.
+`src/ultimate_ai_agent/core/ecosystem/boards.py`,
+`scripts/verify_eco_003_boards.py`, `tests/test_eco_003_boards.py`, and
+`tests/test_eco_003_verifier.py`.
 Next: add route/CLI parity and approval-preview UX in a separately scoped lane;
 retain the current Work Board until its compatibility migration is accepted.
 

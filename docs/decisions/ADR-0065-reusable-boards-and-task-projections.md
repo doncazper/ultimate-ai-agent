@@ -17,9 +17,11 @@ title or description. Tasks therefore remains the sole owner of Task truth and
 continues to work without Boards.
 
 Board order is represented as validated contiguous lane-local positions. Each
-successful mutation retains the prior protected snapshot in a bounded stack.
-Explicit undo restores one snapshot at a new version. No private before-state
-is emitted to the evidence plane.
+successful mutation retains the prior protected snapshot in a stack bounded by
+both 20 entries and the ECO-001 encrypted plaintext limit; oldest snapshots are
+trimmed first so an accepted Board remains mutable. Explicit undo restores one
+retained snapshot at a new version. No private before-state is emitted to the
+evidence plane.
 
 ## Explicitly deferred
 

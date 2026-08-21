@@ -35,10 +35,12 @@ or expected-version validation.
 
 Board mutations compare the exact current version before writing. Lane and card
 positions are normalized to contiguous, deterministic indices, and a stale
-writer fails closed. The prior Board snapshot is retained inside the encrypted
-aggregate for at most 20 mutations. Undo is an explicit approved mutation that
-restores the latest snapshot at a new monotonic version; private before-state is
-never written to governance events, receipts, logs, or default CLI output.
+writer fails closed. Prior Board snapshots are retained inside the encrypted
+aggregate for at most 20 mutations and oldest-first trimmed sooner when needed
+to remain within the ECO-001 one-mebibyte encrypted plaintext limit. Undo is an
+explicit approved mutation that restores the latest retained snapshot at a new
+monotonic version; private before-state is never written to governance events,
+receipts, logs, or default CLI output.
 
 Templates retain lanes and saved-filter configuration only. Instantiation
 creates a separate Board aggregate with its own identity, version, and future

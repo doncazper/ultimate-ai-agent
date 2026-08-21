@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.ecosystem.boards import (
     SavedBoardFilter,
 )
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    EcosystemConflict,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
@@ -749,5 +750,278 @@ def test_wip_and_contiguous_order_invariants_fail_closed() -> None:
                     position=1,
                     title="Two",
                 ),
+            ),
+        )
+
+
+def test_large_board_trims_undo_history_and_remains_mutable(tmp_path: Path) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    board = Board(
+        workspace_ref=WORKSPACE,
+        board_ref="board-ref:large-undo",
+        name="Large undo board",
+        lanes=(BoardLane(lane_ref="lane-ref:large", name="Large", position=0),),
+        cards=(
+            BoardCard(
+                card_ref="card-ref:large",
+                subject_kind=BoardSubjectKind.board_item,
+                subject_ref="board-item-ref:large",
+                lane_ref="lane-ref:large",
+                position=0,
+                title="Large item",
+                description="x" * 65_536,
+            ),
+        ),
+    )
+    _create_board(repository, authority, board)
+
+    for index in range(1, 23):
+        current = repository.read(workspace_ref=WORKSPACE, board_ref=board.board_ref)
+        desired = current.model_copy(
+            update={"name": f"Large undo board {index}", "version": current.version + 1}
+        )
+        operation_ref = f"operation-ref:large-save-{index}"
+        idempotency_ref = f"idempotency-ref:large-save-{index}"
+        repository.save(
+            board=desired,
+            expected_version=current.version,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_board_approval(
+                authority,
+                record_ref=board.board_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+
+    current = repository.read(workspace_ref=WORKSPACE, board_ref=board.board_ref)
+    assert current.version == 23
+    assert 0 < len(current.undo_stack) < 20
+
+
+def test_undo_restores_a_task_projection_after_task_deletion(tmp_path: Path) -> None:
+    repository, tasks, authority, _database_path = _repositories(tmp_path)
+    task = CanonicalTask(
+        workspace_ref=WORKSPACE,
+        task_ref="task-ref:undo-deleted",
+        title="Task deleted before undo",
+    )
+    tasks.create(
+        task=task,
+        operation_ref="operation-ref:create-undo-task",
+        idempotency_ref="idempotency-ref:create-undo-task",
+        approval=_task_approval(
+            authority,
+            task_ref=task.task_ref,
+            operation_ref="operation-ref:create-undo-task",
+            idempotency_ref="idempotency-ref:create-undo-task",
+        ),
+    )
+    _create_board(repository, authority)
+    repository.add_task_projection(
+        workspace_ref=WORKSPACE,
+        board_ref="board-ref:one",
+        card_ref="card-ref:undo-deleted",
+        task_ref=task.task_ref,
+        lane_ref="lane-ref:todo",
+        expected_version=1,
+        operation_ref="operation-ref:add-undo-task",
+        idempotency_ref="idempotency-ref:add-undo-task",
+        approval=_board_approval(
+            authority,
+            record_ref="board-ref:one",
+            operation_ref="operation-ref:add-undo-task",
+            idempotency_ref="idempotency-ref:add-undo-task",
+        ),
+    )
+    current = repository.read(workspace_ref=WORKSPACE, board_ref="board-ref:one")
+    repository.save(
+        board=current.model_copy(update={"cards": (), "version": 3}),
+        expected_version=2,
+        operation_ref="operation-ref:remove-undo-task",
+        idempotency_ref="idempotency-ref:remove-undo-task",
+        approval=_board_approval(
+            authority,
+            record_ref="board-ref:one",
+            operation_ref="operation-ref:remove-undo-task",
+            idempotency_ref="idempotency-ref:remove-undo-task",
+        ),
+    )
+    tasks.archive(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=1,
+        operation_ref="operation-ref:archive-undo-task",
+        idempotency_ref="idempotency-ref:archive-undo-task",
+        approval=_task_approval(
+            authority,
+            task_ref=task.task_ref,
+            operation_ref="operation-ref:archive-undo-task",
+            idempotency_ref="idempotency-ref:archive-undo-task",
+        ),
+    )
+    tasks.delete(
+        workspace_ref=WORKSPACE,
+        task_ref=task.task_ref,
+        expected_version=2,
+        operation_ref="operation-ref:delete-undo-task",
+        idempotency_ref="idempotency-ref:delete-undo-task",
+        approval=_task_approval(
+            authority,
+            task_ref=task.task_ref,
+            operation_ref="operation-ref:delete-undo-task",
+            idempotency_ref="idempotency-ref:delete-undo-task",
+        ),
+    )
+    repository.undo(
+        workspace_ref=WORKSPACE,
+        board_ref="board-ref:one",
+        expected_version=3,
+        operation_ref="operation-ref:undo-deleted-task",
+        idempotency_ref="idempotency-ref:undo-deleted-task",
+        approval=_board_approval(
+            authority,
+            record_ref="board-ref:one",
+            operation_ref="operation-ref:undo-deleted-task",
+            idempotency_ref="idempotency-ref:undo-deleted-task",
+        ),
+    )
+    projection = repository.read_model(
+        workspace_ref=WORKSPACE, board_ref="board-ref:one"
+    ).cards[0]
+    assert projection.card.subject_ref == task.task_ref
+    assert projection.projection_state == "missing"
+
+
+def test_move_preserves_declared_target_lane_order(tmp_path: Path) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    board = Board(
+        workspace_ref=WORKSPACE,
+        board_ref="board-ref:unordered-tuple",
+        name="Logical order",
+        lanes=(
+            BoardLane(lane_ref="lane-ref:source", name="Source", position=0),
+            BoardLane(lane_ref="lane-ref:target", name="Target", position=1),
+        ),
+        cards=(
+            BoardCard(
+                card_ref="card-ref:moving",
+                subject_kind=BoardSubjectKind.board_item,
+                subject_ref="board-item-ref:moving",
+                lane_ref="lane-ref:source",
+                position=0,
+                title="Moving",
+            ),
+            BoardCard(
+                card_ref="card-ref:target-second",
+                subject_kind=BoardSubjectKind.board_item,
+                subject_ref="board-item-ref:target-second",
+                lane_ref="lane-ref:target",
+                position=1,
+                title="Second",
+            ),
+            BoardCard(
+                card_ref="card-ref:target-first",
+                subject_kind=BoardSubjectKind.board_item,
+                subject_ref="board-item-ref:target-first",
+                lane_ref="lane-ref:target",
+                position=0,
+                title="First",
+            ),
+        ),
+    )
+    _create_board(repository, authority, board)
+    repository.move_card(
+        workspace_ref=WORKSPACE,
+        board_ref=board.board_ref,
+        card_ref="card-ref:moving",
+        lane_ref="lane-ref:target",
+        position=2,
+        expected_version=1,
+        operation_ref="operation-ref:move-logical-order",
+        idempotency_ref="idempotency-ref:move-logical-order",
+        approval=_board_approval(
+            authority,
+            record_ref=board.board_ref,
+            operation_ref="operation-ref:move-logical-order",
+            idempotency_ref="idempotency-ref:move-logical-order",
+        ),
+    )
+    moved = repository.read(workspace_ref=WORKSPACE, board_ref=board.board_ref)
+    assert tuple(card.card_ref for card in moved.cards) == (
+        "card-ref:target-first",
+        "card-ref:target-second",
+        "card-ref:moving",
+    )
+
+
+def test_mutation_validation_and_atomic_stale_write_use_board_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository, _tasks, authority, _database_path = _repositories(tmp_path)
+    board = Board(
+        workspace_ref=WORKSPACE,
+        board_ref="board-ref:wip-mutation",
+        name="WIP mutation",
+        lanes=(
+            BoardLane(
+                lane_ref="lane-ref:limited",
+                name="Limited",
+                position=0,
+                wip_limit=1,
+            ),
+        ),
+        cards=(
+            BoardCard(
+                card_ref="card-ref:existing",
+                subject_kind=BoardSubjectKind.board_item,
+                subject_ref="board-item-ref:existing",
+                lane_ref="lane-ref:limited",
+                position=0,
+                title="Existing",
+            ),
+        ),
+    )
+    _create_board(repository, authority, board)
+    with pytest.raises(BoardConflict, match="ECO_BOARD_WIP_LIMIT_EXCEEDED"):
+        repository.add_board_item(
+            workspace_ref=WORKSPACE,
+            board_ref=board.board_ref,
+            card_ref="card-ref:overflow",
+            board_item_ref="board-item-ref:overflow",
+            lane_ref="lane-ref:limited",
+            title="Overflow",
+            expected_version=1,
+            operation_ref="operation-ref:wip-overflow",
+            idempotency_ref="idempotency-ref:wip-overflow",
+            approval=_board_approval(
+                authority,
+                record_ref=board.board_ref,
+                operation_ref="operation-ref:wip-overflow",
+                idempotency_ref="idempotency-ref:wip-overflow",
+            ),
+        )
+
+    def reject_atomic_write(**_kwargs):
+        raise EcosystemConflict("ECO_STALE_RECORD_VERSION")
+
+    monkeypatch.setattr(
+        repository.platform, "_apply_registered_domain", reject_atomic_write
+    )
+    with pytest.raises(BoardConflict, match="ECO_BOARD_STALE_VERSION"):
+        repository.add_lane(
+            workspace_ref=WORKSPACE,
+            board_ref=board.board_ref,
+            lane_ref="lane-ref:later",
+            name="Later",
+            expected_version=1,
+            operation_ref="operation-ref:atomic-stale",
+            idempotency_ref="idempotency-ref:atomic-stale",
+            approval=_board_approval(
+                authority,
+                record_ref=board.board_ref,
+                operation_ref="operation-ref:atomic-stale",
+                idempotency_ref="idempotency-ref:atomic-stale",
             ),
         )
