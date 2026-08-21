@@ -313,7 +313,7 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_
     _mutate(
         repository,
         authority,
-        "add_pipeline",
+        "add_pipeline_record",
         version=version,
         item=PrivateCrmPipeline(
             pipeline_ref="pipeline-ref:sales",
@@ -443,7 +443,7 @@ def test_pipeline_requires_existing_board_and_exact_card_binding(tmp_path: Path)
         _mutate(
             repository,
             authority,
-            "add_pipeline",
+            "add_pipeline_record",
             version=2,
             item=PrivateCrmPipeline(
                 pipeline_ref="pipeline-ref:missing",
@@ -458,7 +458,7 @@ def test_pipeline_requires_existing_board_and_exact_card_binding(tmp_path: Path)
     _mutate(
         repository,
         authority,
-        "add_pipeline",
+        "add_pipeline_record",
         version=2,
         item=PrivateCrmPipeline(
             pipeline_ref="pipeline-ref:sales",

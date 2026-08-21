@@ -376,7 +376,7 @@ class PrivateCrmPipeline(_PrivateCrmModel):
     archived: bool = False
 
     @model_validator(mode="after")
-    def validate_pipeline(self) -> "PrivateCrmPipeline":
+    def validate_record(self) -> "PrivateCrmPipeline":
         for field_name in ("pipeline_ref", "crm_workspace_ref", "board_ref"):
             _validate_ref(getattr(self, field_name), field_name)
         _private_text(self.name, maximum=512, code="ECO_CRM_PIPELINE_NAME_INVALID")
@@ -735,7 +735,9 @@ class PrivateCrmRepository:
     def add_follow_up(self, *, item: PrivateCrmFollowUp, **kwargs: Any) -> UnitOfWorkReceipt:
         return self._append(collection="follow_ups", identity_field="follow_up_ref", item=item, **kwargs)
 
-    def add_pipeline(self, *, item: PrivateCrmPipeline, **kwargs: Any) -> UnitOfWorkReceipt:
+    def add_pipeline_record(
+        self, *, item: PrivateCrmPipeline, **kwargs: Any
+    ) -> UnitOfWorkReceipt:
         return self._append(collection="pipelines", identity_field="pipeline_ref", item=item, **kwargs)
 
     def add_pipeline_object(self, *, item: PrivateCrmPipelineObject, **kwargs: Any) -> UnitOfWorkReceipt:
