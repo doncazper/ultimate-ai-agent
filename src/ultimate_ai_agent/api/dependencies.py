@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.control_center.founder_loop_mission import (
     FounderLoopFilesystemTarget,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from ultimate_ai_agent.core.news_signals import NewsSignalsRepository
 from ultimate_ai_agent.core.tools.runtime import (
     FilesystemSafeRoot,
     filesystem_opaque_path_ref,
@@ -33,6 +34,17 @@ def get_founder_loop_repository() -> FounderLoopRepository:
 
 def get_founder_loop_service() -> FounderLoopControlCenterService:
     return FounderLoopControlCenterService(get_founder_loop_repository())
+
+
+def get_news_signals_repository() -> NewsSignalsRepository:
+    """Return the local safe-ref News and Signals repository.
+
+    The repository contains only normalized artifacts supplied by separately
+    admitted source lanes. Creating it performs no external read or account
+    connection.
+    """
+
+    return NewsSignalsRepository.from_env()
 
 
 def get_founder_attention_workflow() -> FounderLoopAttentionWorkflow:

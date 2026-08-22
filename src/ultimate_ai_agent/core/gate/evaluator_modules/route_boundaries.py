@@ -2298,6 +2298,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
             "/control-center/evidence/timeline",
             "/control-center/memory/review",
             "/control-center/morning-briefing/summary",
+            "/control-center/news-signals/summary",
             "/control-center/sources/readiness",
             "/control-center/storage/status",
             "/control-center/today/summary",
@@ -2332,6 +2333,11 @@ CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES = {
     "/control-center/local-models/status",
     "/control-center/settings/status",
 }
+CONTROL_CENTER_NEWS_SIGNALS_ROUTES = frozenset(
+    {
+        "/control-center/news-signals/summary",
+    }
+)
 CONTROL_CENTER_PROOF_START_TRUST_ROUTES = frozenset(
     {
         "/control-center/proof/index",
@@ -2672,6 +2678,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
+    "control_center_news_signals": CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
     "control_center_proof_start_trust": CONTROL_CENTER_PROOF_START_TRUST_ROUTES,
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
     "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
@@ -2717,6 +2724,13 @@ def _historical_openapi_path_set(paths: Iterable[str]) -> set[str]:
     path_set = _post_m151_route_boundary_path_set(paths)
     if len(path_set) > EXPECTED_M36_OPENAPI_PATH_COUNT:
         path_set.discard(M37_ALLOWED_CAPTURE_ROUTE)
+    return path_set
+
+
+def _historical_control_center_path_set(paths: Iterable[str]) -> set[str]:
+    """Normalize exact post-M13 Control Center additions for count guards."""
+    path_set = {path for path in paths if path.startswith("/control-center")}
+    path_set.difference_update(CONTROL_CENTER_NEWS_SIGNALS_ROUTES)
     return path_set
 
 

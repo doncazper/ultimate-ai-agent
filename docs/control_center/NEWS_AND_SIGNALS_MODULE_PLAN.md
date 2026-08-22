@@ -1,15 +1,17 @@
 # News & Signals Module Plan
 
-Status: accepted front-page design target; implemented sample UI remains partial
+Status: Q24 backend-owned bounded read model implemented; live sources remain blocked
 Baseline: v0.104.0 / 0.104.0
 Reviewed: 2026-07-13
 
-This plan refines the existing News destination into **News & Signals**. It
-records product ownership and the intended operator experience. The current
-`/news` Control Center surface is an illustrative, sample-record-only preview.
-It does not add a backend route, source ingestion, account access, storage,
-background polling, model summarization, connector runtime, browser automation,
-external action, public release, or production authority.
+This plan refines the existing News destination into **News & Signals**. Q24
+replaces the sample-record-only preview with a backend-owned local read model,
+durable storage for already-redacted source artifacts, repo-local CLI
+inspection, a read-only API, and bounded Today and Morning Briefing projections.
+The default state is honestly empty and blocked until a separately graduated
+read-only news source supplies artifacts. It adds no live source access,
+account access, background polling, model summarization, connector write,
+browser automation, external action, public release, or production authority.
 
 ## Executive Decision
 
@@ -113,22 +115,32 @@ Its detailed truth and interaction contract is recorded in:
 
 ## Current Preview And Accepted Target
 
-### Implemented sample preview
+### Implemented Q24 read model
 
-The sample `/news` surface demonstrates:
+The `/news` surface now renders only Python-owned Q24 state and demonstrates:
 
 - `For you`, `Brief candidates`, `Official sources`, and `Community` filters;
 - source type, freshness, topic, relevance, and coverage count on every row;
 - an explicit Morning Briefing candidate label;
 - selected-signal quick take, why-it-matters, selection reasons, coverage, and
   a safe preview ref;
-- sample data that spans an official update, a followed Discord announcement,
-  a curated community discussion, an RSS cluster, and monitored public
-  commentary;
-- honest disclosure that no live source or summarization capability is active.
+- explicit fresh, stale, conflicting, unknown, blocked, and empty posture;
+- no invented fallback stories when the backend or a graduated source is absent;
+- honest disclosure that external content remains untrusted evidence and no
+  live source, authentication, background polling, model summarization, write,
+  or action capability is active.
 
-Only filter and selection state are held in React. They are presentation state,
-not product authority or durable workflow state.
+Only filter and selection state are held in React. Artifact, source-readiness,
+clustering, rank reasons, and briefing candidacy are backend-owned. Ingestion is
+a Python-core-only boundary for already-redacted artifacts; Q24 exposes no
+mutation route and grants no source adapter or account authority.
+
+The durable boundary caps source readiness at 24 entries, binds artifact updates
+to the expected current source revision, and reads sources and artifacts from one
+SQLite snapshot. Artifacts from blocked, unknown, revoked, or safe-disabled
+sources remain stored but are withheld from ranking and projections. Today and
+Morning Briefing select their own bounded candidates from the full deduplicated
+ranking rather than from the currently displayed page.
 
 ### Accepted target composition
 
@@ -159,12 +171,12 @@ shown per exact adapter.
 Any implementation after this preview must be separately accepted and should
 progress in this order:
 
-1. Define a backend-owned `SignalRecord`, source-readiness, provenance,
+1. Q24 implemented a backend-owned artifact, source-readiness, provenance,
    clustering, preference, ranking, and Morning Briefing candidate contract.
-2. Add deterministic fixture and CLI inspection paths with redacted safe refs.
-3. Add read-only local storage and API/OpenAPI/manifest contracts with focused
-   tests and route-side-effect classification.
-4. Graduate exact source adapters one at a time through `WebAccessGateway`,
+2. Q24 implemented deterministic synthetic CLI inspection with redacted safe refs.
+3. Q24 implemented read-only local storage and API/OpenAPI/manifest contracts
+   with focused tests and route-side-effect classification.
+4. Graduate exact live source adapters one at a time through `WebAccessGateway`,
    policy, audit, terms/permission review, safe-disable posture, and bounded
    retention. An adapter for one source grants no authority for another.
 5. Add backend-owned review decisions only with idempotency, receipts, CLI/API

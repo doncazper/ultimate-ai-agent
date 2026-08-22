@@ -3826,44 +3826,31 @@ describe("Web Control Center shell", () => {
       expect(
         screen.getByRole("heading", { name: "News & Signals" }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Illustrative preview")).toBeInTheDocument();
+      expect(screen.getByText("Backend-owned read model")).toBeInTheDocument();
       expect(
-        screen.getByText(/Sample records only. No live fetching/i),
+        screen.getByText(/Loading local backend truth/i),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("link", { name: "Open Morning Briefing" }),
       ).toHaveAttribute("href", "/briefing");
 
-      const briefFilter = screen.getByRole("button", {
-        name: "Brief candidates",
-      });
-      fireEvent.click(briefFilter);
-      expect(briefFilter).toHaveAttribute("aria-pressed", "true");
-      const stream = screen.getByLabelText("Curated signal stream");
       expect(
-        within(stream).getAllByRole("button", { name: /Inspect signal:/i }),
-      ).toHaveLength(3);
-
-      const communityFilter = screen.getByRole("button", { name: "Community" });
-      fireEvent.click(communityFilter);
-      const discordSignal = within(stream).getByRole("button", {
-        name: "Inspect signal: Founder community announces a local-first workflow track",
-      });
-      fireEvent.click(discordSignal);
-      const inspector = screen.getByLabelText("Signal detail");
-      expect(
-        within(inspector).getByRole("heading", {
-          name: "Founder community announces a local-first workflow track",
-        }),
+        await screen.findByText(/Backend read unavailable. No sample stories/i),
       ).toBeInTheDocument();
-      expect(within(inspector).getByText("Discord")).toBeInTheDocument();
+      expect(screen.getByText("Backend read unavailable")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Inspect signal:/i }),
+      ).not.toBeInTheDocument();
 
       for (const unavailableCommand of ["Save", "Dismiss", "Mute", "Propose action"]) {
         expect(
           screen.queryByRole("button", { name: unavailableCommand }),
         ).not.toBeInTheDocument();
       }
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/control-center/news-signals/summary",
+        expect.any(Object),
+      );
     } finally {
       view.unmount();
       cleanup();

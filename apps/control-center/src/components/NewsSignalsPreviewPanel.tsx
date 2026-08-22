@@ -1,149 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadNewsSignalsSummary } from "../api/client";
+import type {
+  NewsSignalReadItem,
+  NewsSignalSourceKind,
+  NewsSignalsSummary,
+} from "../api/types";
 import { NorthStarIcon, type IconReference } from "./NorthStarIcon";
 
-type SignalSourceKind = "official" | "community" | "discord" | "rss" | "social";
 type SignalFilter = "for-you" | "brief" | "official" | "community";
-
-type NewsSignalPreviewItem = {
-  id: string;
-  title: string;
-  summary: string;
-  quickTake: string;
-  whyItMatters: string;
-  sourceLabel: string;
-  sourceKind: SignalSourceKind;
-  freshness: string;
-  relevance: string;
-  topic: string;
-  coverage: string[];
-  whyShown: string[];
-  briefCandidate: boolean;
-  briefLabel: string;
-  safeRef: string;
-};
-
-const SIGNAL_ITEMS: NewsSignalPreviewItem[] = [
-  {
-    id: "agent-control-release",
-    title: "Agent platform update tightens tool-call controls",
-    summary:
-      "An official release note and two developer discussions point to safer approval boundaries becoming a baseline expectation.",
-    quickTake:
-      "The useful signal is not the feature list; it is the convergence around explicit tool scope, inspectable approvals, and safer defaults.",
-    whyItMatters:
-      "This overlaps directly with UAA's governed action model and may change how founders evaluate agent platforms this quarter.",
-    sourceLabel: "Official product update",
-    sourceKind: "official",
-    freshness: "12m",
-    relevance: "Very high",
-    topic: "AI & agents",
-    coverage: ["Official blog", "Developer forum", "Reddit"],
-    whyShown: [
-      "Matches your AI agent infrastructure watchlist",
-      "Primary source is included",
-      "Corroborated across three source types",
-    ],
-    briefCandidate: true,
-    briefLabel: "Morning brief candidate",
-    safeRef: "signal-ref:preview:agent-control-release",
-  },
-  {
-    id: "discord-announcement",
-    title: "Founder community announces a local-first workflow track",
-    summary:
-      "A followed Discord announcement introduces a focused discussion series on private, locally operated founder tooling.",
-    quickTake:
-      "The announcement is useful as a demand signal: local-first workflows are becoming a community topic rather than a niche implementation detail.",
-    whyItMatters:
-      "It may create a timely venue for positioning UAA, gathering language, and learning which founder workflows resonate most.",
-    sourceLabel: "Followed Discord channel",
-    sourceKind: "discord",
-    freshness: "28m",
-    relevance: "High",
-    topic: "Founder systems",
-    coverage: ["Discord announcement", "Event page"],
-    whyShown: [
-      "Channel is on your explicit follow list",
-      "Matches local-first and founder-operator interests",
-      "Announcement is new since your last review",
-    ],
-    briefCandidate: true,
-    briefLabel: "Morning brief candidate",
-    safeRef: "signal-ref:preview:discord-local-first-track",
-  },
-  {
-    id: "reddit-migration-pattern",
-    title: "Developers surface a repeated migration failure pattern",
-    summary:
-      "A high-signal Reddit thread groups several reports of configuration drift after an otherwise routine agent framework upgrade.",
-    quickTake:
-      "This is an early community signal, not verified product truth. The repeated failure shape is worth watching for release and migration design.",
-    whyItMatters:
-      "UAA's setup and upgrade experience should make configuration ownership and rollback posture more legible than the pattern described here.",
-    sourceLabel: "Curated developer community",
-    sourceKind: "community",
-    freshness: "1h",
-    relevance: "High",
-    topic: "Developer experience",
-    coverage: ["Reddit", "Issue tracker", "Community reply"],
-    whyShown: [
-      "Discussion crossed your minimum quality threshold",
-      "Matches setup and migration interests",
-      "Marked as community evidence, not a primary source",
-    ],
-    briefCandidate: true,
-    briefLabel: "Morning brief candidate",
-    safeRef: "signal-ref:preview:reddit-migration-pattern",
-  },
-  {
-    id: "market-brief",
-    title: "Enterprise buyers emphasize auditability in agent pilots",
-    summary:
-      "A small cluster of industry articles frames audit trails and operator control as purchasing criteria for new agent deployments.",
-    quickTake:
-      "The coverage is directional rather than conclusive, but its vocabulary closely matches UAA's proof and evidence posture.",
-    whyItMatters:
-      "This may help sharpen product language around governance as an operator benefit instead of presenting it only as a safety constraint.",
-    sourceLabel: "Industry RSS cluster",
-    sourceKind: "rss",
-    freshness: "3h",
-    relevance: "Medium",
-    topic: "Market watch",
-    coverage: ["Industry journal", "Analyst blog", "Company newsroom"],
-    whyShown: [
-      "Matches your company and market watchlist",
-      "Three independent articles share the same theme",
-      "Lower urgency; retained for trend context",
-    ],
-    briefCandidate: false,
-    briefLabel: "Watch",
-    safeRef: "signal-ref:preview:enterprise-auditability",
-  },
-  {
-    id: "social-commentary",
-    title: "Operator discussion shifts from autonomy to dependable handoffs",
-    summary:
-      "Several monitored social posts focus less on hands-off agents and more on reviewable delegation, continuity, and recovery.",
-    quickTake:
-      "The conversation is noisy, but the wording shift is notable and aligns with UAA's human-governed product direction.",
-    whyItMatters:
-      "This can influence messaging and the examples used to explain UAA's operator loop without treating social commentary as authority.",
-    sourceLabel: "Monitored public accounts",
-    sourceKind: "social",
-    freshness: "5h",
-    relevance: "Medium",
-    topic: "Product language",
-    coverage: ["Public post", "Quoted discussion"],
-    whyShown: [
-      "Accounts are on your explicit watchlist",
-      "Matches product language interests",
-      "Shown as commentary with limited confidence",
-    ],
-    briefCandidate: false,
-    briefLabel: "Background",
-    safeRef: "signal-ref:preview:dependable-handoffs",
-  },
-];
 
 const FILTERS: Array<{ id: SignalFilter; label: string }> = [
   { id: "for-you", label: "For you" },
@@ -152,35 +16,58 @@ const FILTERS: Array<{ id: SignalFilter; label: string }> = [
   { id: "community", label: "Community" },
 ];
 
-const SOURCE_ICONS: Record<SignalSourceKind, IconReference> = {
+const SOURCE_ICONS: Record<NewsSignalSourceKind, IconReference> = {
   official: "badge-check",
   community: "message-circle",
-  discord: "message-square",
   rss: "rss",
-  social: "signal",
+  public_social: "signal",
+  local: "database",
 };
 
 export function NewsSignalsPreviewPanel() {
+  const [summary, setSummary] = useState<NewsSignalsSummary | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">(
+    "loading",
+  );
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("for-you");
-  const [selectedId, setSelectedId] = useState(SIGNAL_ITEMS[0].id);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadNewsSignalsSummary()
+      .then((value) => {
+        if (!active) return;
+        setSummary(value);
+        setSelectedRef(value.items[0]?.signal_ref ?? null);
+        setLoadState("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setSummary(null);
+        setLoadState("failed");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const visibleItems = useMemo(
     () =>
-      SIGNAL_ITEMS.filter((item) => {
-        if (activeFilter === "brief") return item.briefCandidate;
-        if (activeFilter === "official") return item.sourceKind === "official";
+      (summary?.items ?? []).filter((item) => {
+        if (activeFilter === "brief") return item.briefing_candidate;
+        if (activeFilter === "official") return item.source_kind === "official";
         if (activeFilter === "community") {
-          return item.sourceKind === "community" || item.sourceKind === "discord";
+          return item.source_kind === "community";
         }
         return true;
       }),
-    [activeFilter],
+    [activeFilter, summary],
   );
   const selectedItem =
-    visibleItems.find((item) => item.id === selectedId) ?? visibleItems[0];
-  const briefCandidateCount = SIGNAL_ITEMS.filter(
-    (item) => item.briefCandidate,
-  ).length;
+    visibleItems.find((item) => item.signal_ref === selectedRef) ??
+    visibleItems[0];
+  const briefCandidateCount =
+    summary?.morning_briefing_projection.candidate_refs.length ?? 0;
 
   return (
     <section className="news-signals-preview" aria-labelledby="news-signals-heading">
@@ -192,30 +79,29 @@ export function NewsSignalsPreviewPanel() {
           <div>
             <div className="news-signals-kicker-row">
               <p className="eyebrow">Curated intelligence</p>
-              <span className="news-preview-badge">Illustrative preview</span>
+              <span className="news-preview-badge">Backend-owned read model</span>
             </div>
             <h1 id="news-signals-heading">News &amp; Signals</h1>
             <p>
-              A calm stream of sourced context, ranked for you and distilled into
-              the best items for Morning Briefing.
+              Redacted source artifacts ranked with visible freshness,
+              confidence, and provenance boundaries.
             </p>
           </div>
         </div>
-        <div className="news-signals-metrics" aria-label="Preview stream summary">
-          <PreviewMetric label="Signals" value={String(SIGNAL_ITEMS.length)} />
-          <PreviewMetric label="Source types" value="5" />
+        <div className="news-signals-metrics" aria-label="Signal stream summary">
+          <PreviewMetric label="Signals" value={String(summary?.items.length ?? 0)} />
+          <PreviewMetric
+            label="Ready sources"
+            value={String(
+              summary?.source_readiness.filter((source) => source.state === "ready")
+                .length ?? 0,
+            )}
+          />
           <PreviewMetric label="Brief picks" value={String(briefCandidateCount)} />
         </div>
       </header>
 
-      <div className="news-preview-notice" role="status">
-        <NorthStarIcon name="shield-check" />
-        <span>
-          Sample records only. No live fetching, account access, background polling,
-          model summarization, or external action is enabled.
-        </span>
-        <a href="/briefing">Open Morning Briefing</a>
-      </div>
+      <AuthorityNotice loadState={loadState} summary={summary} />
 
       <div className="news-signals-toolbar">
         <div className="news-filter-group" aria-label="News and Signals filters">
@@ -232,7 +118,7 @@ export function NewsSignalsPreviewPanel() {
           ))}
         </div>
         <p>
-          <span className="news-freshness-dot" /> Preview refreshed with sample data
+          <span className="news-freshness-dot" /> {freshnessLabel(summary)}
         </p>
       </div>
 
@@ -245,44 +131,85 @@ export function NewsSignalsPreviewPanel() {
             </div>
             <span>{visibleItems.length} items</span>
           </div>
-          <div className="news-story-list">
-            {visibleItems.map((item) => (
-              <button
-                aria-label={`Inspect signal: ${item.title}`}
-                aria-pressed={selectedItem?.id === item.id}
-                className={`news-story-row source-${item.sourceKind}`}
-                key={item.id}
-                onClick={() => setSelectedId(item.id)}
-                type="button"
-              >
-                <span className="news-story-source-icon" aria-hidden="true">
-                  <NorthStarIcon name={SOURCE_ICONS[item.sourceKind]} />
-                </span>
-                <span className="news-story-copy">
-                  <span className="news-story-meta">
-                    <strong>{item.sourceLabel}</strong>
-                    <span>{item.freshness}</span>
-                    <span>{item.coverage.length} sources</span>
+          {loadState === "loading" ? (
+            <EmptyStream title="Loading backend read model" />
+          ) : visibleItems.length === 0 ? (
+            <EmptyStream title={emptyStateLabel(summary, activeFilter)} />
+          ) : (
+            <div className="news-story-list">
+              {visibleItems.map((item) => (
+                <button
+                  aria-label={`Inspect signal: ${item.title}`}
+                  aria-pressed={selectedItem?.signal_ref === item.signal_ref}
+                  className={`news-story-row source-${item.source_kind}`}
+                  key={item.signal_ref}
+                  onClick={() => setSelectedRef(item.signal_ref)}
+                  type="button"
+                >
+                  <span className="news-story-source-icon" aria-hidden="true">
+                    <NorthStarIcon name={SOURCE_ICONS[item.source_kind]} />
                   </span>
-                  <strong className="news-story-title">{item.title}</strong>
-                  <span className="news-story-summary">{item.summary}</span>
-                  <span className="news-story-footer">
-                    <span>{item.topic}</span>
-                    <span>{item.relevance} relevance</span>
-                    <span className={item.briefCandidate ? "brief-ready" : "watch"}>
-                      {item.briefLabel}
+                  <span className="news-story-copy">
+                    <span className="news-story-meta">
+                      <strong>{item.source_label}</strong>
+                      <span>{item.freshness_state}</span>
+                      <span>{item.coverage_count} sources</span>
+                    </span>
+                    <strong className="news-story-title">{item.title}</strong>
+                    <span className="news-story-summary">{item.safe_summary}</span>
+                    <span className="news-story-footer">
+                      <span>{safeRefLabel(item.topic_ref)}</span>
+                      <span>{item.confidence_percent}% confidence</span>
+                      <span className={item.briefing_candidate ? "brief-ready" : "watch"}>
+                        {item.briefing_candidate ? "Brief candidate" : "Review only"}
+                      </span>
                     </span>
                   </span>
-                </span>
-                <NorthStarIcon className="news-story-chevron" name="chevron-right" />
-              </button>
-            ))}
-          </div>
+                  <NorthStarIcon className="news-story-chevron" name="chevron-right" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {selectedItem ? <SignalInspector item={selectedItem} /> : null}
+        {selectedItem ? (
+          <SignalInspector item={selectedItem} />
+        ) : (
+          <aside className="news-signal-inspector" aria-label="Signal detail">
+            <p className="eyebrow">No selected signal</p>
+            <h2>No source artifact is available for review</h2>
+            <p className="news-inspector-summary">
+              The UI does not substitute sample stories when backend evidence is
+              missing, stale, blocked, or unavailable.
+            </p>
+          </aside>
+        )}
       </div>
     </section>
+  );
+}
+
+function AuthorityNotice({
+  loadState,
+  summary,
+}: {
+  loadState: "loading" | "ready" | "failed";
+  summary: NewsSignalsSummary | null;
+}) {
+  let message = "Loading local backend truth. No source access is being attempted.";
+  if (loadState === "failed") {
+    message = "Backend read unavailable. No sample stories are shown as a fallback.";
+  } else if (summary?.status === "blocked_no_graduated_source") {
+    message = "No graduated news source. The stream remains empty until a separately accepted read-only lane supplies redacted artifacts.";
+  } else if (summary) {
+    message = "Read-only local artifacts only; external content is untrusted. No live fetch, account access, model summary, write, or action authority is enabled.";
+  }
+  return (
+    <div className="news-preview-notice" role="status">
+      <NorthStarIcon name="shield-check" />
+      <span>{message}</span>
+      <a href="/briefing">Open Morning Briefing</a>
+    </div>
   );
 }
 
@@ -295,36 +222,46 @@ function PreviewMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SignalInspector({ item }: { item: NewsSignalPreviewItem }) {
+function EmptyStream({ title }: { title: string }) {
+  return (
+    <div className="news-deferred-controls">
+      <strong>{title}</strong>
+      <span>
+        Review source readiness and blocked-state refs before relying on this
+        surface.
+      </span>
+    </div>
+  );
+}
+
+function SignalInspector({ item }: { item: NewsSignalReadItem }) {
   return (
     <aside className="news-signal-inspector" aria-label="Signal detail">
       <div className="news-inspector-heading">
         <div>
           <p className="eyebrow">Selected signal</p>
-          <span className={item.briefCandidate ? "brief-ready" : "watch"}>
-            {item.briefLabel}
+          <span className={item.briefing_candidate ? "brief-ready" : "watch"}>
+            {item.briefing_candidate ? "Brief candidate" : "Review only"}
           </span>
         </div>
-        <span className="news-source-kind">{sourceKindLabel(item.sourceKind)}</span>
+        <span className="news-source-kind">{sourceKindLabel(item.source_kind)}</span>
       </div>
       <h2>{item.title}</h2>
-      <p className="news-inspector-summary">{item.summary}</p>
+      <p className="news-inspector-summary">{item.safe_summary}</p>
 
-      <section className="news-inspector-section">
-        <h3>Quick take</h3>
-        <p>{item.quickTake}</p>
-      </section>
       <section className="news-inspector-section emphasized">
-        <h3>Why it matters</h3>
-        <p>{item.whyItMatters}</p>
+        <h3>Truth posture</h3>
+        <p>
+          {item.evidence_class} evidence · {item.freshness_state} · {item.conflict_state}
+        </p>
       </section>
       <section className="news-inspector-section">
         <h3>Why this was selected</h3>
         <ul>
-          {item.whyShown.map((reason) => (
+          {item.rank_reason_refs.map((reason) => (
             <li key={reason}>
               <NorthStarIcon name="circle-check" />
-              <span>{reason}</span>
+              <span>{safeRefLabel(reason)}</span>
             </li>
           ))}
         </ul>
@@ -332,26 +269,26 @@ function SignalInspector({ item }: { item: NewsSignalPreviewItem }) {
       <section className="news-inspector-section">
         <h3>Coverage</h3>
         <div className="news-coverage-list">
-          {item.coverage.map((source) => (
-            <span key={source}>{source}</span>
+          {item.coverage_source_refs.map((sourceRef) => (
+            <span key={sourceRef}>{sourceRef}</span>
           ))}
         </div>
       </section>
       <dl className="news-signal-provenance">
         <div>
           <dt>Freshness</dt>
-          <dd>{item.freshness}</dd>
+          <dd>{item.freshness_state}</dd>
         </div>
         <div>
           <dt>Safe ref</dt>
-          <dd>{item.safeRef}</dd>
+          <dd>{item.signal_ref}</dd>
         </div>
       </dl>
       <div className="news-deferred-controls">
-        <strong>Review controls are intentionally deferred</strong>
+        <strong>External content is untrusted evidence</strong>
         <span>
-          Save, dismiss, mute, and action-proposal controls require backend-owned
-          contracts and receipt behavior before they appear here.
+          This read model cannot save, dismiss, recommend, execute, or mint source
+          authority.
         </span>
       </div>
     </aside>
@@ -365,13 +302,37 @@ function filterHeading(filter: SignalFilter): string {
   return "For you";
 }
 
-function sourceKindLabel(kind: SignalSourceKind): string {
-  const labels: Record<SignalSourceKind, string> = {
+function sourceKindLabel(kind: NewsSignalSourceKind): string {
+  const labels: Record<NewsSignalSourceKind, string> = {
     official: "Primary source",
     community: "Community",
-    discord: "Discord",
-    rss: "RSS cluster",
-    social: "Public commentary",
+    rss: "RSS artifact",
+    public_social: "Public commentary",
+    local: "Local artifact",
   };
   return labels[kind];
+}
+
+function freshnessLabel(summary: NewsSignalsSummary | null): string {
+  if (!summary) return "Backend freshness unknown";
+  return `${summary.freshness_counts.fresh} fresh · ${summary.freshness_counts.stale} stale · ${summary.freshness_counts.unknown} unknown`;
+}
+
+function emptyStateLabel(
+  summary: NewsSignalsSummary | null,
+  filter: SignalFilter,
+): string {
+  if (!summary) return "Backend read unavailable";
+  if (summary.status === "blocked_no_graduated_source") {
+    return "No graduated news source";
+  }
+  if (summary.status === "blocked_source_unavailable") {
+    return "Configured sources are blocked or unavailable";
+  }
+  if (filter !== "for-you") return "No items match this filter";
+  return "Ready source lanes have no current artifacts";
+}
+
+function safeRefLabel(ref: string): string {
+  return ref.split(":").at(-1)?.replaceAll("-", " ") ?? ref;
 }

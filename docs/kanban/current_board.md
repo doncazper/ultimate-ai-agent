@@ -1559,6 +1559,23 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+Q24 News And Signals — Backend Read Model
+Goal: replace invented preview stories with provenance-first backend truth.
+Status: accepted locally on 2026-08-22. Python Core stores only bounded,
+already-redacted source artifacts and owns readiness, freshness, clustering,
+conflict, explainable ranking, and bounded Today and Morning Briefing
+projections. The read-only API, repo-local CLI, and Control Center share the
+same truth; missing backend or source evidence yields an empty blocked state,
+not fixture fallback.
+Scope: `docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md`,
+`src/ultimate_ai_agent/core/news_signals/read_model.py`,
+`scripts/inspect_news_signals.py`,
+`scripts/verify_queue_v2_q24_news_signals.py`, and
+`tests/test_queue_v2_q24_news_signals.py`. External content remains untrusted.
+No live fetch, account auth, background poll, model summary, connector write,
+recommendation, action, public release, or production authority is accepted.
+Next: admit any live source only as its own exact Q23-compatible authority lane.
+
 ECO-009 Exact Read-Only Connector Platform — First Lane
 Goal: establish the shared exact connector-read contract without inventing
 live provider or account authority.

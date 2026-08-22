@@ -7,7 +7,10 @@ from typing import Literal
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel
 
-from ultimate_ai_agent.api.dependencies import get_founder_loop_service
+from ultimate_ai_agent.api.dependencies import (
+    get_founder_loop_service,
+    get_news_signals_repository,
+)
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
@@ -131,6 +134,8 @@ def get_control_center_backend_truth() -> ResultEnvelope:
 @router.get("/today/summary", response_model=ResultEnvelope)
 def get_control_center_today_summary() -> ResultEnvelope:
     data = get_founder_loop_service().today_summary()
+    news_signals = get_news_signals_repository().summary(limit=20)
+    data["news_signals_projection"] = news_signals["today_projection"]
     return ResultEnvelope(
         success=True,
         operation="control_center_today_summary",
@@ -2037,6 +2042,10 @@ def post_control_center_action_local_task_commit(
 @router.get("/morning-briefing/summary", response_model=ResultEnvelope)
 def get_control_center_morning_briefing_summary() -> ResultEnvelope:
     data = get_founder_loop_service().morning_briefing_summary()
+    news_signals = get_news_signals_repository().summary(limit=20)
+    data["news_signals_projection"] = news_signals[
+        "morning_briefing_projection"
+    ]
     return ResultEnvelope(
         success=True,
         operation="control_center_morning_briefing_summary",
@@ -2048,6 +2057,31 @@ def get_control_center_morning_briefing_summary() -> ResultEnvelope:
             "safe_refs_only",
             "bounded_summaries_only",
             "raw_content_omitted",
+        ],
+    )
+
+
+@router.get("/news-signals/summary", response_model=ResultEnvelope)
+def get_control_center_news_signals_summary(
+    limit: int = Query(default=20, ge=1, le=100),
+) -> ResultEnvelope:
+    data = get_news_signals_repository().summary(limit=limit)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_news_signals_summary",
+        service="NewsSignalsControlCenterAPI",
+        trace_id="news-signals:summary",
+        data=data,
+        evidence=[
+            {"evidence_ref": "evidence-ref:q24:news-signals-read-model"}
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_source_content_omitted",
+            "raw_paths_omitted",
+            "external_content_untrusted",
+            "read_only_control_center_projection",
         ],
     )
 

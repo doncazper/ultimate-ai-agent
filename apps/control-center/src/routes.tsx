@@ -91,7 +91,7 @@ export const navItems: NavItem[] = [
   { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
   { path: "/messenger", label: "Messenger", group: "Founder Loop", status: "fixture-only desktop content with backend-owned sync, crypto, messaging, rooms/media, partial intelligence, and partial hardening posture; synthetic controls remain disabled", releaseStatus: "experimental", role: "primary" },
-  { path: "/news", label: "News & Signals", group: "Founder Loop", status: "illustrative read-only preview", releaseStatus: "experimental", role: "primary" },
+  { path: "/news", label: "News & Signals", group: "Founder Loop", status: "backend-owned redacted artifact read model", releaseStatus: "partial", role: "primary" },
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/work-board", label: "Work Board", group: "Founder Loop", status: "backend-owned kanban", releaseStatus: "partial", role: "primary" },
