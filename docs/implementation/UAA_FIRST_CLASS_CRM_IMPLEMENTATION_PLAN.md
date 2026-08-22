@@ -5,16 +5,19 @@ Baseline: v0.104.0 / 0.104.0
 Date: 2026-07-12
 Builds on: `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`
 Current implementation truth: `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`
+and `docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md`
+Threat review: `docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`
 Suite ownership plan:
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`
 
 ## Decision Summary
 
 ECO-000 was accepted on 2026-07-12 for shared ownership and planning contracts.
-CRM must use the ECO-000 Identity, Calendar Event, Task, Boards projection,
-Inbox Source, Governance ChangeSet, and Memory-recall boundaries. This does not
-accept CRM-FC-000 renders or authorize CRM-FC-001 storage; CRM-specific private
-schema, key lifecycle, and threat-review decisions remain open.
+The bounded ECO-005 core was accepted on 2026-08-21: encrypted private CRM
+portfolio persistence, strict workspace context, exact local mutations, and
+live Board-owned pipeline projections now exist. This does not accept product
+cutover, M2 migration, API/CLI/UI parity, production key/path backends, or any
+connector/provider/browser/background authority; those plan phases remain open.
 
 UAA CRM will become a first-class local relationship operating system, not a
 sales-only database and not a collection of unrelated vertical skins. The
@@ -320,8 +323,10 @@ Deliver:
 - Write an ADR for private CRM storage, encryption, keys, backup, recovery,
   and local API exposure.
 
-Gate: no private-data persistence or new mutation routes until the ADR and
-threat model are accepted. This is the immediate next milestone.
+Gate: satisfied only for the bounded encrypted ECO-005 repository by accepted
+ADR-0067 and `docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`. New mutation
+routes, migration/cutover, production key/path backends, import/export, or
+external data movement require later exact acceptance.
 
 ### `CRM-FC-001` Private local repository and migrations
 

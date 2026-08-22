@@ -990,16 +990,25 @@ CRM-FC-000 First-Class CRM Product Contract And Render Acceptance
 Goal: evolve the implemented CRM M2 baseline into one relationship-first local
 CRM foundation with Sales, Real Estate, Professional Network, Personal Network,
 and Private Relationships workspaces.
-Scope: planning and acceptance work in
-`docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md`: versioned
-domain nouns, private-data versus governance-plane boundary, workspace
-isolation, storage/encryption ADR and threat model, nested route map, and CRM
-north-star render revision pack. No private-data persistence, new backend
-route, connector runtime, account sync, send, calendar write, external CRM
-write, provider/model call, browser runtime, background autonomy, public
-release, or production authority is authorized by the plan.
-Next: accept `ECO-000`, then accept `CRM-FC-000` before implementing
-`CRM-FC-001` private local repository and migrations.
+Status: accepted for bounded ECO-005 core scope on 2026-08-21. One encrypted,
+versioned portfolio now shares private identities across the five CRM workspace
+presets and owns contexts, relationships, activities, follow-ups, pipeline
+identity, and opportunity metadata. Private Relationships fails closed from
+global search, Today, Briefing, Memory, and general export. Reusable Boards is
+the only owner of pipeline lanes, placement, ordering, and WIP; CRM stores exact
+Board/card refs and projects live stage truth without duplicating Kanban state.
+Scope: `docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md`,
+`docs/decisions/ADR-0067-first-class-private-crm.md`,
+`src/ultimate_ai_agent/core/crm/private_repository.py`,
+`scripts/verify_eco_005_private_crm.py`, `tests/test_eco_005_private_crm.py`,
+and `tests/test_eco_005_verifier.py`. Existing CRM M0/M1 remains compatibility
+and read-only truth; M2 retains its governed local JSONL mutation route and is
+not cut over to this encrypted portfolio. No migration/cutover, new API/CLI/UI, external CRM
+or account sync, connector read/write, send, calendar write, provider/model or
+browser runtime, background worker, production key/path backend, public
+release, or production authority is accepted.
+Next: separately scope migration plus route/CLI parity and approval-preview UX;
+do not cut over M2 until compatibility and recovery evidence is accepted.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and

@@ -310,6 +310,22 @@ optimistic concurrency, receipts, and protected undo. No Calendar API route,
 CLI command, UI, notification scheduler, account adapter, external calendar
 write, public release, or production authority is added.
 
+The bounded ECO-005 first-class private CRM foundation is documented in
+`docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md`. It adds one encrypted,
+versioned portfolio with shared private identities; five isolated CRM workspace
+presets; relationship, activity, follow-up, and opportunity metadata; exact
+approval/replay; and protected undo. Reusable Boards exclusively owns pipeline
+lanes, card placement, ordering, and WIP; CRM resolves current placement from
+exact card bindings and does not copy stage truth. Private Relationships is
+excluded from global search, Today, Briefing, Memory, and general export by
+default. Existing CRM M0-M2 remains a compatibility surface. No migration,
+route/CLI/UI, connector/account sync, send/write, model/browser/background
+runtime, public release, or production authority is added.
+The accepted bounded persistence threat review is
+`docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`; production key/path
+backends, migration/export, external data movement, and product cutover remain
+blocked.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,
