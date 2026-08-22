@@ -1,6 +1,7 @@
 # ADR-0060: Local Atomicity, External Partial Completion, And Compensation
 
-Status: Accepted semantics; external execution remains blocked.
+Status: Accepted. ADR-0071 implements the bounded local-atomic subset;
+external execution remains blocked.
 
 ## Decision
 
@@ -9,7 +10,7 @@ Only operations committed by one proven local unit of work may claim
 operations use `external_compensating`, never claim atomicity, and require a
 compensation plan before review.
 
-Future execution records per-operation durable start and terminal truth.
+External execution must record per-operation durable start and terminal truth.
 Partial completion is an explicit product state. Compensation is a new exact
 operation subject to current authority; it is neither guaranteed nor silently
 performed. Unknown external execution truth becomes recovery-required and is

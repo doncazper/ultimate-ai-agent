@@ -105,6 +105,11 @@ Maintainers treat these as non-negotiable:
   volume. Plans, approvals, receipts, audit rows, and removal tombstones must
   remain content-free. Archived, rights-ineligible, and OCR-pending sources
   must not enter search or cited context.
+- ECO-008 ChangeSet replacement and rollback payloads remain inside encrypted
+  ECO-001 envelopes. Review diffs use keyed fingerprints, and exact approvals
+  bind every local persistence attribute. The local-atomic lane may update only
+  existing Task, Board, and Calendar aggregates plus its ledger; it grants no
+  CRM/Inbox mutation or external write authority.
 - User-facing claims must match implementation evidence.
 
 ## Local Control Center Browser Threat Model

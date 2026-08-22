@@ -358,6 +358,17 @@ automatic restore, application-level encryption, model/provider call, training,
 automatic Chat injection, network acquisition, public release, or production
 authority is added.
 
+The bounded ECO-008 EntityLink and ChangeSet engine is documented in
+`docs/architecture/ECO_008_ENTITY_LINK_AND_CHANGESET_ENGINE.md`. It persists
+typed privacy/provenance-bound links and prepares content-free field diffs over
+exact existing Task, Board, and Calendar versions. Exact-approved local updates
+and their encrypted rollback ledger commit in one ECO-001 transaction; replay,
+conflict, injected-failure rollback, restart, and separately approved undo are
+covered. External outcomes and compensation remain projection-only. No
+CRM/Inbox mutation adapter, create/delete/lifecycle ChangeSet, route/CLI/UI,
+connector/external write, provider/model/browser/background runtime, public
+release, or production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

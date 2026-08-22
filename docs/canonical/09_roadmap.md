@@ -20,7 +20,11 @@ rights/OCR review, removal, truthful encryption posture, and operator-selected
 cited context on the Q03 corpus baseline. It grants no PDF/automatic OCR,
 application-level encryption, automatic Chat injection, model/provider,
 training, network, connector, public-release, or production authority. Q19
-cross-app EntityLink/ChangeSet work remains the next distinct authority lane.
+ECO-008 is accepted for bounded typed-link persistence and exact existing-record
+Task/Board/Calendar local ChangeSets with encrypted replay and separately
+approved rollback. External outcomes remain projection-only; CRM/Inbox
+mutation adapters, routes/UI, connectors, external execution, and production
+authority remain later distinct lanes.
 
 Current planning overlay: the active product/package baseline is v0.104.0 /
 0.104.0. UAA-P1-065 is complete, UAA-P1-067 is complete for Today-spine

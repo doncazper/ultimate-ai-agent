@@ -46,6 +46,10 @@ _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.changesets.apply": (
+        "module-ref:changesets",
+        frozenset({"record-kind-ref:entity-link"}),
+    ),
     "ecosystem.crm.apply": (
         "module-ref:crm",
         frozenset(
@@ -96,10 +100,29 @@ _SCOPED_MUTATION_ACTIONS = {
         frozenset({"record-kind-ref:task"}),
     ),
 }
+_CHANGESET_LOCAL_ATOMIC_ACTION = "ecosystem.changesets.local_atomic.apply"
+_CHANGESET_LOCAL_ATOMIC_SCOPE = {
+    "module-ref:changesets": frozenset({"record-kind-ref:change-set-execution"}),
+    "module-ref:tasks": frozenset(
+        {
+            "record-kind-ref:canonical-task",
+            "record-kind-ref:task-occurrence",
+        }
+    ),
+    "module-ref:boards": frozenset(
+        {
+            "record-kind-ref:canonical-board",
+            "record-kind-ref:board-template",
+        }
+    ),
+    "module-ref:calendar": frozenset({"record-kind-ref:calendar-set"}),
+}
 _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
     {
         "ecosystem.boards.apply",
         "ecosystem.calendar.apply",
+        _CHANGESET_LOCAL_ATOMIC_ACTION,
+        "ecosystem.changesets.apply",
         "ecosystem.crm.apply",
         "ecosystem.inbox.apply",
         "ecosystem.tasks.apply",
@@ -305,6 +328,7 @@ class LocalRecord:
     version: int
     key_version_ref: str
     private_payload: dict[str, Any] = field(repr=False)
+    search_terms: tuple[str, ...] = field(default=(), repr=False)
     archived: bool = False
     retention_ref: str = "retention-ref:workspace-default"
     expires_at: str | None = None
@@ -1303,6 +1327,38 @@ class EcosystemLocalDataPlatform:
                 if row is not None and row["module_ref"] in protected_modules:
                     raise EcosystemLocalDataError("ECO_MUTATION_REQUIRES_DOMAIN_ACTION")
             return
+        if requested_action == _CHANGESET_LOCAL_ATOMIC_ACTION:
+            for operation in operations:
+                if isinstance(operation, PutRecord):
+                    row = connection.execute(
+                        "SELECT module_ref, record_kind_ref FROM eco_records "
+                        "WHERE workspace_ref = ? AND record_ref = ?",
+                        (workspace_ref, operation.record_ref),
+                    ).fetchone()
+                    allowed_kinds = _CHANGESET_LOCAL_ATOMIC_SCOPE.get(
+                        operation.module_ref
+                    )
+                    if (
+                        allowed_kinds is None
+                        or operation.record_kind_ref not in allowed_kinds
+                        or (
+                            operation.module_ref != "module-ref:changesets"
+                            and row is None
+                        )
+                        or (
+                            row is not None
+                            and (
+                                row["module_ref"] != operation.module_ref
+                                or row["record_kind_ref"] != operation.record_kind_ref
+                            )
+                        )
+                    ):
+                        raise EcosystemLocalDataError(
+                            "ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+                        )
+                    continue
+                raise EcosystemLocalDataError("ECO_CHANGESET_LOCAL_ATOMIC_PUT_REQUIRED")
+            return
         scope = _SCOPED_MUTATION_ACTIONS.get(requested_action)
         if scope is None:
             raise EcosystemLocalDataError("ECO_MUTATION_ACTION_UNREGISTERED")
@@ -1325,7 +1381,7 @@ class EcosystemLocalDataPlatform:
                         row is not None
                         and (
                             row["module_ref"] != module_ref
-                            or row["record_kind_ref"] not in record_kind_refs
+                            or row["record_kind_ref"] != operation.record_kind_ref
                         )
                     )
                 ):
@@ -1618,6 +1674,7 @@ class EcosystemLocalDataPlatform:
                 version=row["version"],
                 key_version_ref=row["key_version_ref"],
                 private_payload=envelope["private_payload"],
+                search_terms=tuple(envelope["search_terms"]),
                 archived=bool(row["archived"]),
                 retention_ref=row["retention_ref"],
                 expires_at=row["expires_at"],
