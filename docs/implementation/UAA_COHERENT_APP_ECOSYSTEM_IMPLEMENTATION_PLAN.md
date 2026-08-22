@@ -865,11 +865,15 @@ Kanban engine.
 
 ### `ECO-006` Today and Briefing ecosystem home
 
-- Replace disconnected summaries with backend-owned projections of canonical
-  Events, Tasks, Plan milestones, CRM follow-ups, source proposals, and recent
-  receipts.
-- Add time-block and daily-plan proposals, carry-forward, why-shown, privacy,
-  stale data, and missing evidence.
+- Accepted bounded projection core on 2026-08-21: deterministic backend-owned
+  projections of canonical Events, Tasks, Plan milestones, CRM follow-ups,
+  source proposals, blockers, and recent receipts.
+- Accepted: explicit why-shown and ordering factors, per-surface CRM privacy,
+  current/stale/missing/blocked source posture, evidence posture, and
+  proposal-only carry-forward. Existing Founder Loop Today/Briefing remains the
+  compatibility product surface.
+- Deferred: route/CLI/UI cutover, source refresh, notifications, time-block or
+  daily-plan mutation, connectors, and all external/background runtime.
 
 Gate: every Today item traces to an owner app and canonical ref.
 

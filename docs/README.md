@@ -326,6 +326,17 @@ The accepted bounded persistence threat review is
 backends, migration/export, external data movement, and product cutover remain
 blocked.
 
+The bounded ECO-006 Today and Morning Briefing projection core is documented in
+`docs/architecture/ECO_006_TODAY_AND_MORNING_BRIEFING.md`. It deterministically
+assembles canonical Task, Calendar, CRM follow-up, Plan milestone, Inbox source
+proposal, blocker, and recent-receipt refs with visible ordering factors,
+why-shown refs, freshness, missing-evidence posture, and proposal-only
+carry-forward. CRM privacy is evaluated per surface and Private Relationships
+leaves no projection trace. Existing Founder Loop Today/Briefing remains the
+compatibility product surface. No storage, cutover, route/CLI/UI, source refresh,
+connector, notification, mutation, provider/model/browser/background runtime,
+public release, or production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,
