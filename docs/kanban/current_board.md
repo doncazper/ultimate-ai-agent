@@ -1559,6 +1559,25 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+ECO-010 Deterministic Proposal Intelligence — First Lane
+Goal: create cited review-only candidates without allowing source or model
+output to become authority.
+Status: accepted locally on 2026-08-22 for bounded Python Core scope. Already-
+normalized safe facts produce event, task, person, commitment, and meeting
+candidates with canonical owner, privacy, confidence, ambiguity, evidence-gap,
+and current-source-revision posture. The validation-only API and repo-local CLI
+share the same contract.
+Scope: `docs/architecture/ECO_010_PROPOSAL_INTELLIGENCE.md`,
+`src/ultimate_ai_agent/core/ecosystem/proposals.py`,
+`scripts/inspect_eco_010_proposals.py`,
+`scripts/verify_queue_v2_q27_proposal_intelligence.py`, and
+`tests/test_queue_v2_q27_proposal_intelligence.py`. No source read, model call,
+approval, ChangeSet, target record, direct commit, external write, public
+release, or production authority is accepted.
+Next: add durable review UX or source-specific normalization only as separately
+scoped lanes; model-assisted candidates remain proposal-only and separately
+gated.
+
 Q24 News And Signals — Backend Read Model
 Goal: replace invented preview stories with provenance-first backend truth.
 Status: accepted locally on 2026-08-22. Python Core stores only bounded,

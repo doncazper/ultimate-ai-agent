@@ -953,12 +953,19 @@ background sync, raw-content ingestion, or connector write.
 
 ### `ECO-010` Proposal intelligence and meeting workflows
 
-- Add deterministic extraction first, then separately accepted model-assisted
-  candidate generation for events, tasks, commitments, people, CRM updates,
-  meeting decisions, and follow-ups.
+- Accepted first lane: deterministic extraction maps already-normalized,
+  redacted, source-revision-bound facts into cited event, task, person,
+  commitment, and meeting candidates with canonical owner, privacy,
+  confidence, ambiguity, missing-evidence, and stale-source posture. Python
+  Core, a validation-only API, and the repo-local inspection CLI share the same
+  contract.
+- Deferred: source-specific prose normalization, durable proposal review UX,
+  target-app bridges, ChangeSet creation, CRM-update/meeting-decision/follow-up
+  expansion, and separately accepted model-assisted candidate generation.
 
 Gate: candidates remain cited, uncertain, reviewable, private-scope aware, and
-non-authoritative.
+non-authoritative. The first lane creates no target record, approval, ChangeSet,
+or direct commit.
 
 ### `ECO-011` Exact external write program
 

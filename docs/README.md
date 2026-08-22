@@ -369,6 +369,16 @@ CRM/Inbox mutation adapter, create/delete/lifecycle ChangeSet, route/CLI/UI,
 connector/external write, provider/model/browser/background runtime, public
 release, or production authority is added.
 
+The bounded ECO-010 deterministic proposal-intelligence baseline is documented
+in `docs/architecture/ECO_010_PROPOSAL_INTELLIGENCE.md`. It maps only already-
+normalized, redacted, source-revision-bound facts into cited event, task,
+person, commitment, and meeting candidates with canonical ownership, privacy,
+confidence, ambiguity, evidence-gap, stale-source, and review posture. The
+Python Core, validation-only API, and repo-local CLI share one proposal-only
+contract. No source read, model/provider call, approval, ChangeSet, target
+record, direct commit, external write, public release, or production authority
+is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,
