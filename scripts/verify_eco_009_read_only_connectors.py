@@ -31,13 +31,14 @@ REQUIRED_FILES = (
     "docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "apps/control-center/src/api/types.ts",
+    "apps/control-center/src/components/ConnectorReadPlatformCard.tsx",
     "apps/control-center/src/components/SourceInboxSurfacePanel.tsx",
 )
 REQUIRED_MARKERS = {
     "src/ultimate_ai_agent/core/storage/founder_loop.py": (
         '"connector_read_platform": connector_read_platform',
     ),
-    "apps/control-center/src/components/SourceInboxSurfacePanel.tsx": (
+    "apps/control-center/src/components/ConnectorReadPlatformCard.tsx": (
         "ECO-009 connector read platform",
         "caller-supplied redacted snapshot only",
         "Live account",
@@ -48,6 +49,8 @@ REQUIRED_MARKERS = {
     ),
 }
 PROHIBITED_IMPORTS = {
+    "browserbase",
+    "firecrawl",
     "http.client",
     "httpx",
     "playwright",
@@ -63,6 +66,8 @@ DENIED_AUTHORITY_FRAGMENTS = (
     "account_auth_performed: Literal[True]",
     "connector_write_performed: Literal[True]",
     "raw_content_included: Literal[True]",
+    "model_call_enabled: Literal[True]",
+    "model_call_performed: Literal[True]",
     "production_authority_granted: Literal[True]",
 )
 
@@ -174,9 +179,7 @@ def verify() -> list[str]:
         content = path.read_text(encoding="utf-8")
         for marker in markers:
             if marker not in content:
-                failures.append(
-                    f"missing ECO-009 marker in {relative_path}: {marker}"
-                )
+                failures.append(f"missing ECO-009 marker in {relative_path}: {marker}")
     failures.extend(_operational_failures())
     return failures
 

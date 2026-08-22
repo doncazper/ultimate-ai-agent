@@ -127,6 +127,7 @@ def test_cursor_is_bound_and_expires() -> None:
         now=NOW + timedelta(minutes=16),
     )
     assert expired.status == ConnectorReadStatus.invalid_cursor
+    assert first.next_cursor_ref not in platform._cursor_state
 
 
 def test_request_ref_is_idempotent_and_conflicts_fail_closed() -> None:
@@ -144,6 +145,37 @@ def test_request_ref_is_idempotent_and_conflicts_fail_closed() -> None:
     assert conflict.status == ConnectorReadStatus.invalid_scope
     assert conflict.items == ()
     assert conflict.reason_refs == ("reason-ref:eco-009:request-ref-conflict",)
+
+
+def test_request_binding_is_only_committed_with_an_outcome(monkeypatch) -> None:
+    platform = ConnectorReadPlatform()
+    request = _request()
+    original_blocked = platform._blocked
+
+    def fail_before_outcome(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("simulated outcome construction failure")
+
+    monkeypatch.setattr(platform, "_blocked", fail_before_outcome)
+    with pytest.raises(RuntimeError, match="simulated outcome construction failure"):
+        platform.read(request, now=NOW)
+
+    monkeypatch.setattr(platform, "_blocked", original_blocked)
+    retry = platform.read(request, now=NOW)
+    assert retry.status == ConnectorReadStatus.source_not_configured
+
+
+def test_request_replay_cache_is_bounded() -> None:
+    platform = _platform(policy=ConnectorReadPolicy(max_cached_requests=1))
+
+    platform.read(_request(), now=NOW)
+    platform.read(
+        _request("request-ref:eco-009:test-2"),
+        now=NOW + timedelta(seconds=1),
+    )
+
+    assert tuple(platform._request_order) == ("request-ref:eco-009:test-2",)
+    assert set(platform._request_bindings) == {"request-ref:eco-009:test-2"}
+    assert set(platform._request_cache) == {"request-ref:eco-009:test-2"}
 
 
 @pytest.mark.parametrize(
@@ -201,9 +233,10 @@ def test_revocation_and_safe_disable_fail_closed() -> None:
     disabled_outcome = disabled.read(_request(), now=NOW)
     assert disabled_outcome.status == ConnectorReadStatus.safe_disabled
     assert disabled_outcome.items == ()
-    assert build_eco009_connector_read_platform_posture(disabled)[
-        "safe_disable_active"
-    ] is True
+    assert (
+        build_eco009_connector_read_platform_posture(disabled)["safe_disable_active"]
+        is True
+    )
 
 
 def test_rate_limit_is_exact_and_bounded() -> None:
@@ -228,7 +261,7 @@ def test_request_and_snapshot_schema_exclude_raw_content_and_unsafe_refs() -> No
             starts_at=NOW,
             ends_at=NOW + timedelta(hours=1),
             availability_ref="availability-ref:busy",
-            provenance_ref="/Users/example/private.json",
+            provenance_ref="not a safe ref",
             source_revision_ref="source-revision-ref:test",
         )
 

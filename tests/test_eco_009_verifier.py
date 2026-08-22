@@ -28,6 +28,8 @@ def test_eco_009_verifier_passes() -> None:
         ("from urllib import request as fetch\n", "urllib.request"),
         ("from http import client as transport\n", "http.client"),
         ("from subprocess import run\n", "subprocess"),
+        ("import firecrawl\n", "firecrawl"),
+        ("from browserbase import Browserbase\n", "browserbase"),
     ),
 )
 def test_eco_009_verifier_rejects_runtime_imports(
@@ -40,11 +42,19 @@ def test_eco_009_verifier_rejects_runtime_imports(
     assert f"forbidden ECO-009 runtime import: {runtime_ref}" in verifier.verify()
 
 
+@pytest.mark.parametrize(
+    "fragment",
+    (
+        "network_access_performed: Literal[True]",
+        "model_call_enabled: Literal[True]",
+        "model_call_performed: Literal[True]",
+    ),
+)
 def test_eco_009_verifier_rejects_authority_promotion(
     monkeypatch,
     tmp_path: Path,
+    fragment: str,
 ) -> None:
-    fragment = "network_access_performed: Literal[True]"
     _temporary_source(monkeypatch, tmp_path, fragment)
     assert f"denied ECO-009 authority fragment: {fragment}" in verifier.verify()
 

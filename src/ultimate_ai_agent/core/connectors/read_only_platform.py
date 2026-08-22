@@ -114,6 +114,7 @@ class ConnectorReadPolicy(_ECO009Model):
     max_time_window_days: int = Field(default=31, ge=1, le=31)
     max_reads_per_minute: int = Field(default=60, ge=1, le=60)
     cursor_ttl_seconds: int = Field(default=900, ge=60, le=3600)
+    max_cached_requests: int = Field(default=1000, ge=1, le=10000)
     safe_refs_only: Literal[True] = True
     provenance_required: Literal[True] = True
     retention_required: Literal[True] = True
@@ -360,6 +361,7 @@ class ConnectorReadPlatform:
         self._cursor_state: dict[str, _CursorState] = {}
         self._request_bindings: dict[str, str] = {}
         self._request_cache: dict[str, ConnectorReadOutcome] = {}
+        self._request_order: deque[str] = deque()
         self._read_times: dict[str, deque[datetime]] = defaultdict(deque)
         self._safe_disable_ref: str | None = None
 
@@ -410,6 +412,7 @@ class ConnectorReadPlatform:
         now: datetime | None = None,
     ) -> ConnectorReadOutcome:
         observed_at = _utc(now or datetime.now(timezone.utc), "ECO009_NOW")
+        self._purge_expired_cursors(observed_at)
         binding_ref = self._request_binding_ref(request)
         previous_binding = self._request_bindings.get(request.request_ref)
         if previous_binding is not None:
@@ -434,8 +437,6 @@ class ConnectorReadPlatform:
                     evidence_refs=(self._safe_disable_ref,),
                 )
             return self._request_cache[request.request_ref]
-        self._request_bindings[request.request_ref] = binding_ref
-
         adapter = self._sources.get(request.source_ref)
         if adapter is None:
             return self._remember(
@@ -445,6 +446,7 @@ class ConnectorReadPlatform:
                     ConnectorReadStatus.source_not_configured,
                     "reason-ref:eco-009:source-not-configured",
                 ),
+                binding_ref,
             )
         if adapter.descriptor.workspace_ref != request.workspace_ref:
             return self._remember(
@@ -454,6 +456,7 @@ class ConnectorReadPlatform:
                     ConnectorReadStatus.invalid_scope,
                     "reason-ref:eco-009:workspace-binding-mismatch",
                 ),
+                binding_ref,
             )
         if request.source_ref in self._revocations:
             return self._remember(
@@ -464,6 +467,7 @@ class ConnectorReadPlatform:
                     "reason-ref:eco-009:source-revoked",
                     evidence_refs=(self._revocations[request.source_ref],),
                 ),
+                binding_ref,
             )
         if self._safe_disable_ref is not None:
             return self._remember(
@@ -474,6 +478,7 @@ class ConnectorReadPlatform:
                     "reason-ref:eco-009:safe-disable-active",
                     evidence_refs=(self._safe_disable_ref,),
                 ),
+                binding_ref,
             )
         if request.limit > self.policy.max_page_size or (
             _utc(request.ends_at, "ECO009_END")
@@ -486,6 +491,7 @@ class ConnectorReadPlatform:
                     ConnectorReadStatus.invalid_scope,
                     "reason-ref:eco-009:request-bounds-exceeded",
                 ),
+                binding_ref,
             )
         if not set(request.field_refs) <= set(adapter.descriptor.supported_field_refs):
             return self._remember(
@@ -495,6 +501,7 @@ class ConnectorReadPlatform:
                     ConnectorReadStatus.invalid_scope,
                     "reason-ref:eco-009:field-scope-not-allowed",
                 ),
+                binding_ref,
             )
         if self._rate_limited(request.source_ref, observed_at):
             return self._remember(
@@ -504,6 +511,7 @@ class ConnectorReadPlatform:
                     ConnectorReadStatus.rate_limited,
                     "reason-ref:eco-009:rate-limit-reached",
                 ),
+                binding_ref,
             )
 
         offset = 0
@@ -522,6 +530,7 @@ class ConnectorReadPlatform:
                         ConnectorReadStatus.invalid_cursor,
                         "reason-ref:eco-009:cursor-invalid-or-expired",
                     ),
+                    binding_ref,
                 )
             offset = cursor.offset
 
@@ -575,7 +584,7 @@ class ConnectorReadPlatform:
                 "with exact field, time, page, provenance, and retention limits."
             ),
         )
-        return self._remember(request, outcome)
+        return self._remember(request, outcome, binding_ref)
 
     def _project_row(
         self,
@@ -611,12 +620,28 @@ class ConnectorReadPlatform:
         history.append(now)
         return False
 
+    def _purge_expired_cursors(self, now: datetime) -> None:
+        expired_refs = [
+            cursor_ref
+            for cursor_ref, cursor in self._cursor_state.items()
+            if _utc(cursor.expires_at, "ECO009_CURSOR_EXPIRY") <= now
+        ]
+        for cursor_ref in expired_refs:
+            del self._cursor_state[cursor_ref]
+
     def _remember(
         self,
         request: ConnectorReadRequest,
         outcome: ConnectorReadOutcome,
+        binding_ref: str,
     ) -> ConnectorReadOutcome:
         self._request_cache[request.request_ref] = outcome
+        self._request_bindings[request.request_ref] = binding_ref
+        self._request_order.append(request.request_ref)
+        while len(self._request_order) > self.policy.max_cached_requests:
+            expired_request_ref = self._request_order.popleft()
+            self._request_bindings.pop(expired_request_ref, None)
+            self._request_cache.pop(expired_request_ref, None)
         return outcome
 
     def _blocked(

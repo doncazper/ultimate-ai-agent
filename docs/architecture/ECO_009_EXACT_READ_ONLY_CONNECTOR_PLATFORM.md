@@ -19,7 +19,8 @@ The Python Core owns:
 - a 31-day maximum time window and 100-item maximum page;
 - source-bound, request-bound, expiring in-memory cursors;
 - provenance and retention refs on every projected item;
-- idempotent request refs with conflicting reuse denied;
+- idempotent request refs with conflicting reuse denied inside a bounded
+  in-memory replay cache;
 - per-source rate limiting;
 - source revocation and global safe-disable;
 - content-free outcomes and truthful fail-closed status; and
