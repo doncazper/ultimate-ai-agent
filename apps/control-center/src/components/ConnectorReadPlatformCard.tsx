@@ -1,64 +1,81 @@
 import type { FounderLoopSourceReadiness } from "../api/types";
 
 export function ConnectorReadPlatformCard({
-  posture,
+  sourceReadiness,
 }: {
-  posture: FounderLoopSourceReadiness["connector_read_platform"];
+  sourceReadiness: FounderLoopSourceReadiness;
 }) {
+  const calendarSource = sourceReadiness.source_readiness_items.find(
+    (item) => item.source_kind === "calendar",
+  );
+  const calendarContract = sourceReadiness.read_only_metadata_contracts.find(
+    (contract) => contract.source_kind === "calendar",
+  );
   return (
     <article className="review-card" aria-label="ECO-009 connector read platform">
       <div className="review-card-heading">
         <h3>Exact calendar metadata snapshot</h3>
-        <span>{posture.status}</span>
+        <span>implemented_inactive_no_snapshot_source</span>
       </div>
-      <p>{posture.safe_summary}</p>
+      <p>
+        {calendarSource?.safe_summary ??
+          "Calendar source readiness is unavailable; no live access is claimed."}
+      </p>
       <dl className="detail-list">
-        <DetailTerm label="Adapter" value={posture.adapter_ref} />
         <DetailTerm
-          label="Configured snapshots"
-          value={String(posture.configured_source_count)}
+          label="Adapter"
+          value="connector-adapter-ref:eco-009:calendar-metadata-snapshot-v1"
+        />
+        <DetailTerm
+          label="Backend source state"
+          value={calendarSource?.status ?? "unavailable"}
         />
         <DetailTerm
           label="Input boundary"
           value={
-            posture.fixture_or_caller_supplied_snapshot_only
-              ? "caller-supplied redacted snapshot only"
-              : "unavailable"
+            "caller-supplied redacted snapshot only"
           }
         />
         <DetailTerm
           label="Live account"
-          value={posture.live_account_connected ? "connected" : "not connected"}
+          value={
+            calendarContract?.account_auth_enabled ? "connected" : "not connected"
+          }
         />
         <DetailTerm
           label="Network access"
-          value={posture.network_access_enabled ? "enabled" : "blocked"}
+          value={calendarContract?.runtime_read_enabled ? "enabled" : "blocked"}
         />
         <DetailTerm
           label="Account auth"
-          value={posture.account_auth_enabled ? "enabled" : "blocked"}
+          value={calendarContract?.account_auth_enabled ? "enabled" : "blocked"}
         />
         <DetailTerm
           label="Background sync"
-          value={posture.background_sync_enabled ? "enabled" : "blocked"}
+          value={
+            calendarContract?.background_collection_enabled ? "enabled" : "blocked"
+          }
         />
-        <DetailTerm
-          label="Safe disable"
-          value={posture.safe_disable_active ? "active" : "available"}
-        />
+        <DetailTerm label="Safe disable" value="available" />
         <DetailTerm
           label="Raw content"
-          value={posture.raw_content_enabled ? "enabled" : "blocked"}
+          value={calendarContract?.raw_content_enabled ? "enabled" : "blocked"}
         />
         <DetailTerm
           label="Connector writes"
-          value={posture.connector_write_enabled ? "enabled" : "blocked"}
+          value={calendarContract?.write_enabled ? "enabled" : "blocked"}
         />
-        <DetailTerm label="Next safe action" value={posture.next_safe_action} />
+        <DetailTerm
+          label="Next safe action"
+          value={calendarSource?.next_safe_action ?? sourceReadiness.next_safe_action}
+        />
       </dl>
       <RefListWithFallback
         emptyLabel="Configured snapshot refs: none"
-        refs={posture.source_refs}
+        refs={[
+          "contract-ref:eco-009-read-only-connector-platform:v1",
+          ...(calendarSource?.source_refs ?? []),
+        ]}
       />
     </article>
   );

@@ -5992,7 +5992,7 @@ function SourceReadinessCards({
             refs={sourceReadiness.blocked_authority_refs}
           />
           <ConnectorReadPlatformCard
-            posture={sourceReadiness.connector_read_platform}
+            sourceReadiness={sourceReadiness}
           />
           <SourceReadinessProposalCards
             proposals={sourceReadiness.source_readiness_proposal_candidates ?? []}

@@ -33,12 +33,15 @@ already supplied.
 
 ## Product truth
 
-The Source Readiness route exposes the exact adapter as
-`implemented_inactive_no_snapshot_source` when no snapshot has been registered.
-The broad connector-runtime flag remains false. The UI says that the input is
-an already-redacted caller-supplied snapshot and that live account, network,
-authentication, background sync, raw content, and connector writes are
-blocked.
+The exact adapter posture is available through the repo-local inspection CLI;
+it reports `implemented_inactive_no_snapshot_source` when no snapshot has been
+registered. The existing backend Source Readiness route remains the authority
+for calendar source and metadata-contract failure state. The UI combines that
+backend-owned failure truth with the static ECO-009 contract label; it does not
+register a snapshot or invent a second backend state. The broad
+connector-runtime flag remains false, and the UI says that live account,
+network, authentication, background sync, raw content, and connector writes
+are blocked.
 
 ## Deferred lanes
 

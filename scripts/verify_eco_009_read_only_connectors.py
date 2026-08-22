@@ -35,14 +35,12 @@ REQUIRED_FILES = (
     "apps/control-center/src/components/SourceInboxSurfacePanel.tsx",
 )
 REQUIRED_MARKERS = {
-    "src/ultimate_ai_agent/core/storage/founder_loop.py": (
-        '"connector_read_platform": connector_read_platform',
-    ),
     "apps/control-center/src/components/ConnectorReadPlatformCard.tsx": (
         "ECO-009 connector read platform",
         "caller-supplied redacted snapshot only",
         "Live account",
         "Connector writes",
+        "source_readiness_items",
     ),
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": (
         "ECO-009 accepts one exact local calendar metadata snapshot adapter",

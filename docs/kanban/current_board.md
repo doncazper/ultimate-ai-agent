@@ -1566,8 +1566,10 @@ Status: accepted as an implemented-inactive caller-supplied calendar metadata
 snapshot adapter on 2026-08-22. Python Core enforces workspace/source binding,
 allowlisted fields, time/page bounds, expiring cursors, provenance, retention,
 idempotent request refs, rate limits, revocation, and safe-disable. Source
-Readiness shows the exact lane and its failure posture without changing the
-broad connector-runtime flag.
+Readiness UI derives its failure posture from the existing backend calendar
+item and metadata contract without adding a second Founder Loop read-model
+field or changing the broad connector-runtime flag. Exact adapter posture is
+available through the repo-local inspection CLI.
 Scope: `docs/architecture/ECO_009_EXACT_READ_ONLY_CONNECTOR_PLATFORM.md`,
 `src/ultimate_ai_agent/core/connectors/read_only_platform.py`,
 `scripts/inspect_eco_009_read_only_connectors.py`,

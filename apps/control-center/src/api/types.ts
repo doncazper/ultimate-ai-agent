@@ -6728,37 +6728,6 @@ export interface ConnectorDraftProposalReadModel {
   production_authority_enabled: boolean;
 }
 
-export interface ECO009ConnectorReadPlatformPosture {
-  schema_version: "uaa-eco-009-read-only-connector-platform.v1";
-  contract_ref: "contract-ref:eco-009-read-only-connector-platform:v1";
-  source: string;
-  status:
-    | "snapshot_source_ready"
-    | "implemented_inactive_no_snapshot_source";
-  adapter_ref: string;
-  configured_source_count: number;
-  revoked_source_count: number;
-  ready_source_count: number;
-  source_refs: string[];
-  provenance_refs: string[];
-  retention_refs: string[];
-  safe_disable_supported: boolean;
-  safe_disable_active: boolean;
-  revocation_supported: boolean;
-  bounded_cursor_supported: boolean;
-  rate_limit_supported: boolean;
-  fixture_or_caller_supplied_snapshot_only: boolean;
-  live_account_connected: boolean;
-  network_access_enabled: boolean;
-  account_auth_enabled: boolean;
-  background_sync_enabled: boolean;
-  raw_content_enabled: boolean;
-  connector_write_enabled: boolean;
-  production_authority_enabled: boolean;
-  safe_summary: string;
-  next_safe_action: string;
-}
-
 export interface FounderLoopSourceReadiness {
   schema_version: "founder_loop_source_readiness.v1";
   source: string;
@@ -6774,7 +6743,6 @@ export interface FounderLoopSourceReadiness {
   read_only_metadata_contracts: FounderLoopReadOnlyMetadataContract[];
   read_only_metadata_contract_count: number;
   connector_draft_proposals?: ConnectorDraftProposalReadModel;
-  connector_read_platform: ECO009ConnectorReadPlatformPosture;
   supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];
   blocked_state_refs: string[];

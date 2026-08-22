@@ -934,8 +934,10 @@ filing, provider/model, or professional authority.
 - Accepted first lane: one exact, local, caller-supplied or synthetic calendar
   metadata snapshot adapter implements field/time/page bounds, expiring cursors,
   provenance, retention, request replay binding, revocation, safe-disable, rate
-  limits, and truthful failure posture. Source Readiness exposes it as
-  implemented inactive until a redacted snapshot is explicitly registered.
+  limits, and truthful failure posture. The repo-local inspection CLI exposes
+  its registered-snapshot posture. Source Readiness UI reuses the existing
+  backend calendar and metadata-contract failure truth instead of adding a
+  second Founder Loop read-model field.
 - Graduate selected calendar, email, message, CRM, meeting, form, and other
   provider-backed sources one capability at a time; none is accepted by the
   first snapshot lane.
