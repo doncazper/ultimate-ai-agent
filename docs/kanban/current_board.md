@@ -1080,28 +1080,6 @@ public release, or production authority is accepted.
 Next: Q19 may consume only safe refs and reviewed proposal/context evidence;
 do not turn retrieval into action or authority.
 
-ECO-008 EntityLink And ChangeSet Engine
-Goal: connect canonical records and commit bounded local multi-app corrections
-without duplicated truth or distributed-atomicity claims.
-Status: accepted for bounded local Python Core scope on 2026-08-22. Typed
-EntityLinks now persist encrypted workspace/privacy/provenance/deletion
-bindings and remove only the link. Exact existing-record Task, Board, and
-Calendar updates produce content-free keyed field diffs, preserve dependency
-order and domain invariants, and commit with an encrypted rollback ledger in
-one ECO-001 transaction. Exact conflict, failure rollback, restart replay, and
-separately approved undo are covered. External outcomes and compensation are
-projection-only.
-Scope: `docs/architecture/ECO_008_ENTITY_LINK_AND_CHANGESET_ENGINE.md`,
-`docs/decisions/ADR-0071-entitylink-and-changeset-engine.md`,
-`src/ultimate_ai_agent/core/ecosystem/changesets.py`,
-`scripts/verify_eco_008_changesets.py`, `tests/test_eco_008_changesets.py`, and
-`tests/test_eco_008_verifier.py`. No CRM/Inbox mutation adapter,
-create/delete/lifecycle ChangeSet, route/CLI/UI, connector/external write,
-provider/model/browser/subprocess/background runtime, public release, or
-production authority is accepted.
-Next: Q20 may consume only accepted local ChangeSet and link contracts; live
-communications sends/writes remain separately governed and blocked.
-
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
@@ -1670,6 +1648,28 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+ECO-008 EntityLink And ChangeSet Engine
+Goal: connect canonical records and commit bounded local multi-app corrections
+without duplicated truth or distributed-atomicity claims.
+Status: accepted for bounded local Python Core scope on 2026-08-22. Typed
+EntityLinks now persist encrypted workspace/privacy/provenance/deletion
+bindings and remove only the link. Exact existing-record Task, Board, and
+Calendar updates produce content-free keyed field diffs, preserve dependency
+order and domain invariants, and commit with an encrypted rollback ledger in
+one ECO-001 transaction. Exact conflict, failure rollback, restart replay, and
+separately approved undo are covered. External outcomes and compensation are
+projection-only.
+Scope: `docs/architecture/ECO_008_ENTITY_LINK_AND_CHANGESET_ENGINE.md`,
+`docs/decisions/ADR-0071-entitylink-and-changeset-engine.md`,
+`src/ultimate_ai_agent/core/ecosystem/changesets.py`,
+`scripts/verify_eco_008_changesets.py`, `tests/test_eco_008_changesets.py`, and
+`tests/test_eco_008_verifier.py`. No CRM/Inbox mutation adapter,
+create/delete/lifecycle ChangeSet, route/CLI/UI, connector/external write,
+provider/model/browser/subprocess/background runtime, public release, or
+production authority is accepted.
+Next: Q20 may consume only accepted local ChangeSet and link contracts; live
+communications sends/writes remain separately governed and blocked.
+
 UAA-P1-020 PolicyEngine consolidation map
 Gate met: current policy/approval decision paths are mapped by owner, input
 contract, gate, side-effect/risk behavior, evidence/ref behavior, tests, and

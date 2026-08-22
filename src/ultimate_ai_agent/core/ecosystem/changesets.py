@@ -45,6 +45,7 @@ from ultimate_ai_agent.core.ecosystem.contracts import (
     WorkspaceScope,
 )
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES,
     DeleteRecord,
     EcosystemConflict,
     EcosystemLocalDataError,
@@ -296,6 +297,9 @@ class _PreparedMutation:
     previous_fingerprint_ref: str
     previous_safe_summary_ref: str
     search_terms: tuple[str, ...] = field(repr=False)
+    previous_search_terms: tuple[str, ...] = field(repr=False)
+    search_terms_fingerprint_ref: str
+    previous_search_terms_fingerprint_ref: str
     retention_ref: str
     expires_at: str | None
     field_diffs: tuple[FieldDiff, ...]
@@ -376,6 +380,7 @@ class EntityLinkRepository:
     @staticmethod
     def _extra_refs(link: EntityLink) -> tuple[str, ...]:
         return (
+            _stable_ref("entity-link-fingerprint-ref", link.model_dump(mode="json")),
             link.source.entity_ref,
             link.target.entity_ref,
             link.provenance_ref,
@@ -570,7 +575,6 @@ class ChangeSetEngine:
     def _persistence_scope_binding(
         self,
         *,
-        workspace_ref: str,
         operation_ref: str,
         target_ref: str,
         module_ref: str,
@@ -579,7 +583,8 @@ class ChangeSetEngine:
         previous_safe_summary_ref: str,
         replacement_fingerprint_ref: str,
         previous_fingerprint_ref: str,
-        search_terms: tuple[str, ...],
+        search_terms_fingerprint_ref: str,
+        previous_search_terms_fingerprint_ref: str,
         retention_ref: str,
         expires_at: str | None,
     ) -> dict[str, Any]:
@@ -594,8 +599,9 @@ class ChangeSetEngine:
             "previous_safe_summary_ref": previous_safe_summary_ref,
             "replacement_fingerprint_ref": replacement_fingerprint_ref,
             "previous_fingerprint_ref": previous_fingerprint_ref,
-            "search_terms_fingerprint_ref": self._keyed_fingerprint(
-                workspace_ref, search_terms
+            "search_terms_fingerprint_ref": search_terms_fingerprint_ref,
+            "previous_search_terms_fingerprint_ref": (
+                previous_search_terms_fingerprint_ref
             ),
             "retention_ref": retention_ref,
             "expires_at": expires_at,
@@ -604,7 +610,6 @@ class ChangeSetEngine:
     def _prepared_scope_material(
         self,
         *,
-        workspace_ref: str,
         plan: ChangeSetPlan,
         mutations: tuple[_PreparedMutation, ...] | list[_PreparedMutation],
     ) -> dict[str, Any]:
@@ -612,7 +617,6 @@ class ChangeSetEngine:
             "plan": plan.model_dump(mode="json"),
             "persistence_bindings": [
                 self._persistence_scope_binding(
-                    workspace_ref=workspace_ref,
                     operation_ref=item.operation.operation_ref,
                     target_ref=item.operation.target.entity_ref,
                     module_ref=item.module_ref,
@@ -621,7 +625,10 @@ class ChangeSetEngine:
                     previous_safe_summary_ref=item.previous_safe_summary_ref,
                     replacement_fingerprint_ref=item.replacement_fingerprint_ref,
                     previous_fingerprint_ref=item.previous_fingerprint_ref,
-                    search_terms=item.search_terms,
+                    search_terms_fingerprint_ref=item.search_terms_fingerprint_ref,
+                    previous_search_terms_fingerprint_ref=(
+                        item.previous_search_terms_fingerprint_ref
+                    ),
                     retention_ref=item.retention_ref,
                     expires_at=item.expires_at,
                 )
@@ -769,6 +776,87 @@ class ChangeSetEngine:
             return tuple(terms)
         return (spec.required_search_term,)
 
+    def _validate_combined_task_mutations(
+        self,
+        *,
+        workspace_ref: str,
+        mutations: tuple[_PreparedMutation, ...],
+    ) -> None:
+        replacements: dict[str, CanonicalTask] = {}
+        for item in mutations:
+            if item.module_ref != ECO_TASK_MODULE_REF:
+                continue
+            try:
+                task = CanonicalTask.model_validate(json.loads(item.replacement_json))
+            except Exception as exc:
+                raise ChangeSetError(
+                    "ECO_CHANGESET_REPLACEMENT_PAYLOAD_INVALID"
+                ) from exc
+            replacements[task.task_ref] = task
+        if not replacements:
+            return
+        repository = TaskRepository(self.platform)
+        tasks = {
+            task_ref: repository.read(
+                workspace_ref=workspace_ref,
+                task_ref=task_ref,
+            )
+            for task_ref in self.platform.search(
+                workspace_ref=workspace_ref,
+                term="entity-kind:canonical-task",
+            )
+        }
+        tasks.update(replacements)
+        active = {ref: task for ref, task in tasks.items() if not task.archived}
+        for task in replacements.values():
+            for required_ref in (
+                *task.dependency_refs,
+                *(() if task.parent_task_ref is None else (task.parent_task_ref,)),
+                *(() if task.occurrence_of_ref is None else (task.occurrence_of_ref,)),
+            ):
+                if required_ref not in active:
+                    raise ChangeSetConflict("ECO_CHANGESET_TASK_GRAPH_INVALID")
+        mission_owners: dict[str, str] = {}
+        for task in active.values():
+            if task.mission_binding is None:
+                continue
+            owner = mission_owners.setdefault(
+                task.mission_binding.mission_ref,
+                task.task_ref,
+            )
+            if owner != task.task_ref:
+                raise ChangeSetConflict("ECO_CHANGESET_TASK_GRAPH_INVALID")
+        self._assert_acyclic_task_graph(
+            {ref: set(task.dependency_refs) for ref, task in active.items()}
+        )
+        self._assert_acyclic_task_graph(
+            {
+                ref: {
+                    related_ref
+                    for related_ref in (task.parent_task_ref, task.occurrence_of_ref)
+                    if related_ref is not None
+                }
+                for ref, task in active.items()
+            }
+        )
+
+    @staticmethod
+    def _assert_acyclic_task_graph(edges: dict[str, set[str]]) -> None:
+        unresolved = {ref: set(required) for ref, required in edges.items()}
+        ready = sorted(ref for ref, required in unresolved.items() if not required)
+        visited: set[str] = set()
+        while ready:
+            current = ready.pop(0)
+            visited.add(current)
+            for ref, required in unresolved.items():
+                if current in required:
+                    required.remove(current)
+                    if not required and ref not in visited and ref not in ready:
+                        ready.append(ref)
+                        ready.sort()
+        if len(visited) != len(unresolved):
+            raise ChangeSetConflict("ECO_CHANGESET_TASK_GRAPH_INVALID")
+
     def _field_diffs(
         self,
         *,
@@ -843,6 +931,9 @@ class ChangeSetEngine:
         refs = [intent.operation_ref for intent in intents]
         if len(refs) != len(set(refs)):
             raise ChangeSetError("ECO_CHANGESET_DUPLICATE_OPERATION_REF")
+        record_refs = [intent.record_ref for intent in intents]
+        if len(record_refs) != len(set(record_refs)):
+            raise ChangeSetError("ECO_CHANGESET_DUPLICATE_TARGET_REF")
         prepared: list[_PreparedMutation] = []
         operations: list[ChangeOperation] = []
         all_diffs: list[FieldDiff] = []
@@ -948,12 +1039,23 @@ class ChangeSetEngine:
                     previous_fingerprint_ref=current_fingerprint,
                     previous_safe_summary_ref=current.safe_summary_ref,
                     search_terms=tuple(intent.search_terms),
+                    previous_search_terms=current.search_terms,
+                    search_terms_fingerprint_ref=self._keyed_fingerprint(
+                        workspace_ref, tuple(intent.search_terms)
+                    ),
+                    previous_search_terms_fingerprint_ref=self._keyed_fingerprint(
+                        workspace_ref, current.search_terms
+                    ),
                     retention_ref=intent.retention_ref,
                     expires_at=intent.expires_at,
                     field_diffs=diffs,
                 )
             )
             seen_operation_refs.add(intent.operation_ref)
+        self._validate_combined_task_mutations(
+            workspace_ref=workspace_ref,
+            mutations=tuple(prepared),
+        )
         plan_material = {
             "change_set_ref": change_set_ref,
             "workspace": workspace.model_dump(mode="json"),
@@ -977,7 +1079,6 @@ class ChangeSetEngine:
             predicted_result_ref=predicted_result_ref,
         )
         scope_material = self._prepared_scope_material(
-            workspace_ref=workspace_ref,
             plan=plan,
             mutations=prepared,
         )
@@ -1001,7 +1102,7 @@ class ChangeSetEngine:
                 )
             )
         )
-        return PreparedLocalChangeSet(
+        result = PreparedLocalChangeSet(
             plan=plan,
             field_diffs=tuple(all_diffs),
             scope_fingerprint_ref=scope_ref,
@@ -1009,6 +1110,11 @@ class ChangeSetEngine:
             approval_resource_refs=extras,
             _mutations=tuple(prepared),
         )
+        if len(_canonical_json(self._ledger_payload(result))) > (
+            ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES
+        ):
+            raise ChangeSetError("ECO_CHANGESET_ROLLBACK_LEDGER_SIZE_LIMIT_EXCEEDED")
+        return result
 
     @staticmethod
     def mutation_resource_refs(
@@ -1054,6 +1160,11 @@ class ChangeSetEngine:
                     prepared.plan.workspace.workspace_ref, current.private_payload
                 )
                 != expected.fingerprint_ref
+                or current.search_terms != item.previous_search_terms
+                or self._keyed_fingerprint(
+                    prepared.plan.workspace.workspace_ref, current.search_terms
+                )
+                != item.previous_search_terms_fingerprint_ref
             ):
                 raise ChangeSetConflict("ECO_CHANGESET_CONFLICT_PRECONDITION_FAILED")
             spec = _DOMAIN_SPECS.get((item.module_ref, item.record_kind_ref))
@@ -1078,8 +1189,17 @@ class ChangeSetEngine:
                 normalized, spec
             ):
                 raise ChangeSetConflict("ECO_CHANGESET_DOMAIN_PRECONDITION_FAILED")
+        self._validate_combined_task_mutations(
+            workspace_ref=prepared.plan.workspace.workspace_ref,
+            mutations=prepared._mutations,
+        )
 
-    def _assert_prepared_integrity(self, prepared: PreparedLocalChangeSet) -> None:
+    def _assert_prepared_integrity(
+        self,
+        prepared: PreparedLocalChangeSet,
+        *,
+        verify_private_fingerprints: bool = True,
+    ) -> None:
         if (
             tuple(item.operation for item in prepared._mutations)
             != prepared.plan.operations
@@ -1093,7 +1213,7 @@ class ChangeSetEngine:
         for item in prepared._mutations:
             replacement = json.loads(item.replacement_json)
             previous = json.loads(item.previous_json)
-            if (
+            if verify_private_fingerprints and (
                 self._keyed_fingerprint(
                     prepared.plan.workspace.workspace_ref, replacement
                 )
@@ -1143,6 +1263,25 @@ class ChangeSetEngine:
                 )
             if tuple(item.search_terms) != self._canonical_search_terms(model, spec):
                 raise ChangeSetConflict("ECO_CHANGESET_PREPARED_SEARCH_SCOPE_INVALID")
+            if tuple(item.previous_search_terms) != self._canonical_search_terms(
+                previous_model, spec
+            ):
+                raise ChangeSetConflict("ECO_CHANGESET_PREPARED_SEARCH_SCOPE_INVALID")
+            if verify_private_fingerprints and (
+                self._keyed_fingerprint(
+                    prepared.plan.workspace.workspace_ref,
+                    item.search_terms,
+                )
+                != item.search_terms_fingerprint_ref
+                or self._keyed_fingerprint(
+                    prepared.plan.workspace.workspace_ref,
+                    item.previous_search_terms,
+                )
+                != item.previous_search_terms_fingerprint_ref
+            ):
+                raise ChangeSetConflict(
+                    "ECO_CHANGESET_PREPARED_PRIVATE_FINGERPRINT_INVALID"
+                )
         plan_material = {
             "change_set_ref": prepared.plan.change_set_ref,
             "workspace": prepared.plan.workspace.model_dump(mode="json"),
@@ -1159,7 +1298,6 @@ class ChangeSetEngine:
         }
         expected_plan_ref = _stable_ref("change-set-fingerprint-ref", plan_material)
         scope_material = self._prepared_scope_material(
-            workspace_ref=prepared.plan.workspace.workspace_ref,
             plan=prepared.plan,
             mutations=prepared._mutations,
         )
@@ -1200,6 +1338,10 @@ class ChangeSetEngine:
             "change_set_ref": prepared.plan.change_set_ref,
             "change_set_fingerprint_ref": prepared.plan.change_set_fingerprint_ref,
             "scope_fingerprint_ref": prepared.scope_fingerprint_ref,
+            "scope_material": self._prepared_scope_material(
+                plan=prepared.plan,
+                mutations=prepared._mutations,
+            ),
             "state": ChangeSetExecutionState.applied.value,
             "version": 1,
             "plan": prepared.plan.model_dump(mode="json"),
@@ -1214,8 +1356,16 @@ class ChangeSetEngine:
                     "record_kind_ref": item.record_kind_ref,
                     "applied_safe_summary_ref": item.safe_summary_ref,
                     "previous_safe_summary_ref": item.previous_safe_summary_ref,
-                    "private_payload": json.loads(item.previous_json),
-                    "search_terms": list(item.search_terms),
+                    "previous_payload": json.loads(item.previous_json),
+                    "applied_payload": json.loads(item.replacement_json),
+                    "previous_search_terms": list(item.previous_search_terms),
+                    "applied_search_terms": list(item.search_terms),
+                    "previous_search_terms_fingerprint_ref": (
+                        item.previous_search_terms_fingerprint_ref
+                    ),
+                    "applied_search_terms_fingerprint_ref": (
+                        item.search_terms_fingerprint_ref
+                    ),
                     "retention_ref": item.retention_ref,
                     "expires_at": item.expires_at,
                     "previous_payload_fingerprint_ref": item.previous_fingerprint_ref,
@@ -1232,7 +1382,10 @@ class ChangeSetEngine:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> ChangeSetExecutionReceipt:
-        self._assert_prepared_integrity(prepared)
+        self._assert_prepared_integrity(
+            prepared,
+            verify_private_fingerprints=False,
+        )
         if idempotency_ref != prepared.plan.idempotency_ref:
             raise ChangeSetConflict("ECO_CHANGESET_IDEMPOTENCY_BINDING_INVALID")
         workspace_ref = prepared.plan.workspace.workspace_ref
@@ -1249,6 +1402,7 @@ class ChangeSetEngine:
         )
         if replay is not None:
             return self._execution_receipt(prepared, replay, replayed=True)
+        self._assert_prepared_integrity(prepared)
         self._assert_prepared_current(prepared)
         ledger_operation_ref = f"operation-ref:{prepared.plan.change_set_ref}:ledger"
         ledger_payload = self._ledger_payload(prepared)
@@ -1357,6 +1511,7 @@ class ChangeSetEngine:
             or payload.get("state") != ChangeSetExecutionState.applied.value
             or payload.get("version") != record.version
             or not isinstance(payload.get("rollback_mutations"), list)
+            or not isinstance(payload.get("scope_material"), dict)
             or record.safe_summary_ref != self._ledger_summary(payload)
             or record.retention_ref != ECO_CHANGESET_RETENTION_REF
             or record.expires_at is not None
@@ -1404,7 +1559,6 @@ class ChangeSetEngine:
                     raise ValueError("rollback mutation plan binding mismatch")
                 persistence_bindings.append(
                     self._persistence_scope_binding(
-                        workspace_ref=workspace_ref,
                         operation_ref=item["operation_ref"],
                         target_ref=item["target_ref"],
                         module_ref=item["module_ref"],
@@ -1417,7 +1571,12 @@ class ChangeSetEngine:
                         previous_fingerprint_ref=item[
                             "previous_payload_fingerprint_ref"
                         ],
-                        search_terms=tuple(item["search_terms"]),
+                        search_terms_fingerprint_ref=item[
+                            "applied_search_terms_fingerprint_ref"
+                        ],
+                        previous_search_terms_fingerprint_ref=item[
+                            "previous_search_terms_fingerprint_ref"
+                        ],
                         retention_ref=item["retention_ref"],
                         expires_at=item["expires_at"],
                     )
@@ -1426,12 +1585,16 @@ class ChangeSetEngine:
             raise ChangeSetConflict("ECO_CHANGESET_ROLLBACK_LEDGER_INVALID") from exc
         expected_apply_scope = _stable_ref(
             "change-set-scope-ref",
-            {
+            payload["scope_material"],
+        )
+        if (
+            payload["scope_material"]
+            != {
                 "plan": plan.model_dump(mode="json"),
                 "persistence_bindings": persistence_bindings,
-            },
-        )
-        if expected_apply_scope != payload["scope_fingerprint_ref"]:
+            }
+            or expected_apply_scope != payload["scope_fingerprint_ref"]
+        ):
             raise ChangeSetConflict("ECO_CHANGESET_ROLLBACK_LEDGER_INVALID")
         operations: list[PutRecord] = []
         operation_refs: list[str] = []
@@ -1447,20 +1610,18 @@ class ChangeSetEngine:
                 or current.safe_summary_ref != item["applied_safe_summary_ref"]
                 or current.retention_ref != item["retention_ref"]
                 or current.expires_at != item["expires_at"]
-                or self._keyed_fingerprint(workspace_ref, current.private_payload)
-                != item["applied_payload_fingerprint_ref"]
-                or self._keyed_fingerprint(workspace_ref, item["private_payload"])
-                != item["previous_payload_fingerprint_ref"]
+                or current.private_payload != item["applied_payload"]
+                or current.search_terms != tuple(item["applied_search_terms"])
             ):
                 raise ChangeSetConflict("ECO_CHANGESET_ROLLBACK_TARGET_CHANGED")
-            restored = dict(item["private_payload"])
+            restored = dict(item["previous_payload"])
             spec = _DOMAIN_SPECS.get((item["module_ref"], item["record_kind_ref"]))
             if spec is None:
                 raise ChangeSetError("ECO_CHANGESET_DOMAIN_ADAPTER_NOT_REGISTERED")
             if spec.version_field is not None:
                 restored[spec.version_field] = current.version + 1
             try:
-                current_model = spec.model_type.model_validate(current.private_payload)
+                current_model = spec.model_type.model_validate(item["applied_payload"])
                 requested_model = spec.model_type.model_validate(restored)
                 model = self._apply_domain_invariants(
                     current=current_model,
@@ -1468,7 +1629,9 @@ class ChangeSetEngine:
                 )
             except Exception as exc:
                 raise ChangeSetError("ECO_CHANGESET_ROLLBACK_PAYLOAD_INVALID") from exc
-            if tuple(item["search_terms"]) != self._canonical_search_terms(model, spec):
+            if tuple(item["previous_search_terms"]) != self._canonical_search_terms(
+                model, spec
+            ):
                 raise ChangeSetError("ECO_CHANGESET_ROLLBACK_PAYLOAD_INVALID")
             rollback_operation_ref = f"operation-ref:{change_set_ref}:rollback:{index}"
             operations.append(
@@ -1479,7 +1642,7 @@ class ChangeSetEngine:
                     record_kind_ref=item["record_kind_ref"],
                     safe_summary_ref=getattr(model, "safe_summary_ref"),
                     private_payload=model.model_dump(mode="json"),
-                    search_terms=tuple(item["search_terms"]),
+                    search_terms=tuple(item["previous_search_terms"]),
                     expected_version=current.version,
                     retention_ref=item["retention_ref"],
                     expires_at=item["expires_at"],
@@ -1692,7 +1855,8 @@ class ChangeSetEngine:
             if operation.compensation_plan is not None
             and by_ref[operation.operation_ref].status
             in {
-                OperationResultStatus.failed,
+                OperationResultStatus.applied,
+                OperationResultStatus.replayed,
                 OperationResultStatus.compensation_failed,
             }
         )

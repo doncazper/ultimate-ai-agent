@@ -48,12 +48,7 @@ _SAFE_REF_CHARS = frozenset(
 _SCOPED_MUTATION_ACTIONS = {
     "ecosystem.changesets.apply": (
         "module-ref:changesets",
-        frozenset(
-            {
-                "record-kind-ref:entity-link",
-                "record-kind-ref:change-set-execution",
-            }
-        ),
+        frozenset({"record-kind-ref:entity-link"}),
     ),
     "ecosystem.crm.apply": (
         "module-ref:crm",
@@ -333,6 +328,7 @@ class LocalRecord:
     version: int
     key_version_ref: str
     private_payload: dict[str, Any] = field(repr=False)
+    search_terms: tuple[str, ...] = field(default=(), repr=False)
     archived: bool = False
     retention_ref: str = "retention-ref:workspace-default"
     expires_at: str | None = None
@@ -1353,7 +1349,7 @@ class EcosystemLocalDataPlatform:
                             row is not None
                             and (
                                 row["module_ref"] != operation.module_ref
-                                or row["record_kind_ref"] not in allowed_kinds
+                                or row["record_kind_ref"] != operation.record_kind_ref
                             )
                         )
                     ):
@@ -1385,7 +1381,7 @@ class EcosystemLocalDataPlatform:
                         row is not None
                         and (
                             row["module_ref"] != module_ref
-                            or row["record_kind_ref"] not in record_kind_refs
+                            or row["record_kind_ref"] != operation.record_kind_ref
                         )
                     )
                 ):
@@ -1678,6 +1674,7 @@ class EcosystemLocalDataPlatform:
                 version=row["version"],
                 key_version_ref=row["key_version_ref"],
                 private_payload=envelope["private_payload"],
+                search_terms=tuple(envelope["search_terms"]),
                 archived=bool(row["archived"]),
                 retention_ref=row["retention_ref"],
                 expires_at=row["expires_at"],

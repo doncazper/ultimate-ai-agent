@@ -119,7 +119,10 @@ def _prohibited_imports(path: Path) -> set[str]:
         if isinstance(node, ast.Import):
             names = [item.name for item in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
-            names = [node.module]
+            names = [
+                node.module,
+                *(f"{node.module}.{item.name}" for item in node.names),
+            ]
         else:
             continue
         for name in names:
@@ -318,7 +321,7 @@ def verify() -> list[str]:
                 failures.append(f"denied ECO-008 authority fragment: {fragment}")
     try:
         failures.extend(_operational_failures())
-    except Exception as exc:  # pragma: no cover - bounded verifier output
+    except Exception as exc:  # noqa: BLE001  # pragma: no cover
         failures.append(
             f"ECO-008 operational verification failed: {type(exc).__name__}"
         )

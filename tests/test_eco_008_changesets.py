@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.ecosystem.changesets as changesets_module
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import (
     ApprovalRiskLevel,
@@ -58,8 +59,10 @@ from ultimate_ai_agent.core.ecosystem.local_data import (
 )
 from ultimate_ai_agent.core.ecosystem.tasks import (
     ECO_TASK_MODULE_REF,
+    ECO_TASK_OCCURRENCE_RECORD_KIND_REF,
     ECO_TASK_RECORD_KIND_REF,
     CanonicalTask,
+    TaskStatus,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -167,11 +170,20 @@ def _seed(
     )
 
 
-def _task(*, title: str = "Original private task", version: int = 1) -> CanonicalTask:
+def _task(
+    *,
+    task_ref: str = "task-ref:q19",
+    title: str = "Original private task",
+    status: TaskStatus = TaskStatus.inbox,
+    dependency_refs: tuple[str, ...] = (),
+    version: int = 1,
+) -> CanonicalTask:
     return CanonicalTask(
         workspace_ref=WORKSPACE_REF,
-        task_ref="task-ref:q19",
+        task_ref=task_ref,
         title=title,
+        status=status,
+        dependency_refs=dependency_refs,
         version=version,
     )
 
@@ -317,8 +329,11 @@ def test_local_changeset_applies_replays_and_rolls_back_exactly(tmp_path: Path) 
         "field-ref:calendar-set:name",
         "field-ref:canonical-board:name",
     }
-    assert "Updated private" not in repr(prepared)
-    assert "Original private" not in prepared.plan.model_dump_json()
+    prepared_repr = repr(prepared)
+    plan_json = prepared.plan.model_dump_json()
+    for private_fragment in ("Original private", "Updated private"):
+        assert private_fragment not in prepared_repr
+        assert private_fragment not in plan_json
     assert all(not item.raw_value_included for item in prepared.field_diffs)
 
     resources = engine.mutation_resource_refs(
@@ -553,6 +568,14 @@ def test_entity_links_are_typed_removable_and_do_not_mutate_endpoints(
         operation_ref="operation-ref:q19-link-create",
         link=link,
     )
+    altered_link = link.model_copy(update={"link_kind": EntityLinkKind.relates_to})
+    with pytest.raises(EcosystemLocalDataError, match="ECO_APPROVAL_SCOPE_INVALID"):
+        repository.create(
+            link=altered_link,
+            operation_ref="operation-ref:q19-link-create",
+            idempotency_ref=create_idempotency,
+            approval=harness.grant("ecosystem.changesets.apply", create_resources),
+        )
     repository.create(
         link=link,
         operation_ref="operation-ref:q19-link-create",
@@ -716,6 +739,38 @@ def test_prepared_scope_and_domain_boundary_fail_closed(tmp_path: Path) -> None:
             request_context_ref="request-context-ref:q19-unscoped-delete",
         )
 
+    kind_swap = PutRecord(
+        operation_ref="operation-ref:q19-kind-swap",
+        module_ref=ECO_TASK_MODULE_REF,
+        record_ref="task-ref:q19",
+        record_kind_ref=ECO_TASK_OCCURRENCE_RECORD_KIND_REF,
+        safe_summary_ref=_task().safe_summary_ref,
+        private_payload=_task().model_dump(mode="json"),
+        search_terms=("entity-kind:canonical-task", "task-status:inbox"),
+        expected_version=1,
+        retention_ref="retention-ref:tasks-operator-managed",
+    )
+    kind_swap_idempotency = "idempotency-ref:q19-kind-swap"
+    kind_swap_resources = (
+        WORKSPACE_REF,
+        kind_swap_idempotency,
+        kind_swap.operation_ref,
+        kind_swap.record_ref,
+    )
+    with pytest.raises(
+        EcosystemLocalDataError, match="ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+    ):
+        platform._apply_registered_domain(
+            workspace_ref=WORKSPACE_REF,
+            idempotency_ref=kind_swap_idempotency,
+            operations=(kind_swap,),
+            approval=harness.grant(
+                ECO_CHANGESET_LOCAL_ATOMIC_ACTION, kind_swap_resources
+            ),
+            requested_action=ECO_CHANGESET_LOCAL_ATOMIC_ACTION,
+            request_context_ref="request-context-ref:q19-kind-swap",
+        )
+
 
 def test_exact_approval_order_and_no_effect_guards(tmp_path: Path) -> None:
     platform, harness = _platform(tmp_path)
@@ -787,6 +842,175 @@ def test_exact_approval_order_and_no_effect_guards(tmp_path: Path) -> None:
         )
 
 
+def test_duplicate_targets_are_rejected_before_prepare(tmp_path: Path) -> None:
+    platform, harness = _platform(tmp_path)
+    _seed_core_records(platform, harness)
+    engine = ChangeSetEngine(platform)
+    updated = _task(title="Updated private task", version=2)
+
+    with pytest.raises(ChangeSetError, match="ECO_CHANGESET_DUPLICATE_TARGET_REF"):
+        engine.prepare_local(
+            workspace=WORKSPACE,
+            change_set_ref="change-set-ref:q19-duplicate-target",
+            intents=(
+                LocalUpdateIntent(
+                    operation_ref="operation-ref:q19-duplicate-one",
+                    record_ref=updated.task_ref,
+                    entity_kind=EntityKind.task,
+                    module_ref=ECO_TASK_MODULE_REF,
+                    record_kind_ref=ECO_TASK_RECORD_KIND_REF,
+                    capability_ref="capability-ref:q19-task-update",
+                    replacement_payload=updated.model_dump(mode="json"),
+                    search_terms=("entity-kind:canonical-task", "task-status:inbox"),
+                    retention_ref="retention-ref:tasks-operator-managed",
+                ),
+                LocalUpdateIntent(
+                    operation_ref="operation-ref:q19-duplicate-two",
+                    record_ref=updated.task_ref,
+                    entity_kind=EntityKind.task,
+                    module_ref=ECO_TASK_MODULE_REF,
+                    record_kind_ref=ECO_TASK_RECORD_KIND_REF,
+                    capability_ref="capability-ref:q19-task-update",
+                    replacement_payload=updated.model_dump(mode="json"),
+                    search_terms=("entity-kind:canonical-task", "task-status:inbox"),
+                    retention_ref="retention-ref:tasks-operator-managed",
+                ),
+            ),
+            approval_scope_ref="approval-scope-ref:q19-duplicate-target",
+            idempotency_ref="idempotency-ref:q19-duplicate-target",
+            expiry_ref="expiry-ref:q19-duplicate-target",
+            predicted_result_ref="predicted-result-ref:q19-duplicate-target",
+        )
+
+
+def test_combined_task_updates_reject_a_cycle(tmp_path: Path) -> None:
+    platform, harness = _platform(tmp_path)
+    _seed_core_records(platform, harness)
+    second = _task(task_ref="task-ref:q19-second", title="Second private task")
+    _seed(
+        platform,
+        harness,
+        operation=PutRecord(
+            operation_ref="operation-ref:seed-second-task",
+            module_ref=ECO_TASK_MODULE_REF,
+            record_ref=second.task_ref,
+            record_kind_ref=ECO_TASK_RECORD_KIND_REF,
+            safe_summary_ref=second.safe_summary_ref,
+            private_payload=second.model_dump(mode="json"),
+            search_terms=("entity-kind:canonical-task", "task-status:inbox"),
+            retention_ref="retention-ref:tasks-operator-managed",
+        ),
+        action="ecosystem.tasks.apply",
+        idempotency_ref="idempotency-ref:seed-second-task",
+    )
+    first_update = _task(
+        dependency_refs=(second.task_ref,),
+        title="First updated private task",
+        version=2,
+    )
+    second_update = _task(
+        task_ref=second.task_ref,
+        dependency_refs=(first_update.task_ref,),
+        title="Second updated private task",
+        version=2,
+    )
+
+    with pytest.raises(ChangeSetConflict, match="ECO_CHANGESET_TASK_GRAPH_INVALID"):
+        ChangeSetEngine(platform).prepare_local(
+            workspace=WORKSPACE,
+            change_set_ref="change-set-ref:q19-cycle",
+            intents=tuple(
+                LocalUpdateIntent(
+                    operation_ref=f"operation-ref:q19-cycle-{index}",
+                    record_ref=task.task_ref,
+                    entity_kind=EntityKind.task,
+                    module_ref=ECO_TASK_MODULE_REF,
+                    record_kind_ref=ECO_TASK_RECORD_KIND_REF,
+                    capability_ref="capability-ref:q19-task-update",
+                    replacement_payload=task.model_dump(mode="json"),
+                    search_terms=("entity-kind:canonical-task", "task-status:inbox"),
+                    retention_ref="retention-ref:tasks-operator-managed",
+                )
+                for index, task in enumerate((first_update, second_update), start=1)
+            ),
+            approval_scope_ref="approval-scope-ref:q19-cycle",
+            idempotency_ref="idempotency-ref:q19-cycle",
+            expiry_ref="expiry-ref:q19-cycle",
+            predicted_result_ref="predicted-result-ref:q19-cycle",
+        )
+
+
+def test_rollback_restores_prior_search_terms(tmp_path: Path) -> None:
+    platform, harness = _platform(tmp_path)
+    _seed_core_records(platform, harness)
+    engine = ChangeSetEngine(platform)
+    updated = _task(status=TaskStatus.ready, version=2)
+    prepared = engine.prepare_local(
+        workspace=WORKSPACE,
+        change_set_ref="change-set-ref:q19-search-rollback",
+        intents=(
+            LocalUpdateIntent(
+                operation_ref="operation-ref:q19-search-rollback",
+                record_ref=updated.task_ref,
+                entity_kind=EntityKind.task,
+                module_ref=ECO_TASK_MODULE_REF,
+                record_kind_ref=ECO_TASK_RECORD_KIND_REF,
+                capability_ref="capability-ref:q19-task-update",
+                replacement_payload=updated.model_dump(mode="json"),
+                search_terms=("entity-kind:canonical-task", "task-status:ready"),
+                retention_ref="retention-ref:tasks-operator-managed",
+            ),
+        ),
+        approval_scope_ref="approval-scope-ref:q19-search-rollback",
+        idempotency_ref="idempotency-ref:q19-search-rollback",
+        expiry_ref="expiry-ref:q19-search-rollback",
+        predicted_result_ref="predicted-result-ref:q19-search-rollback",
+    )
+    resources = engine.mutation_resource_refs(
+        prepared, idempotency_ref=prepared.plan.idempotency_ref
+    )
+    engine.apply_local(
+        prepared,
+        idempotency_ref=prepared.plan.idempotency_ref,
+        approval=harness.grant(ECO_CHANGESET_LOCAL_ATOMIC_ACTION, resources),
+    )
+    assert platform.search(workspace_ref=WORKSPACE_REF, term="task-status:ready") == (
+        updated.task_ref,
+    )
+    undo = engine.prepare_undo(
+        workspace_ref=WORKSPACE_REF,
+        change_set_ref=prepared.plan.change_set_ref,
+    )
+    rollback_idempotency = "idempotency-ref:q19-search-rollback-undo"
+    rollback_resources = engine.mutation_resource_refs(
+        undo, idempotency_ref=rollback_idempotency
+    )
+    engine.rollback(
+        undo,
+        idempotency_ref=rollback_idempotency,
+        approval=harness.grant(ECO_CHANGESET_LOCAL_ATOMIC_ACTION, rollback_resources),
+    )
+    assert platform.search(workspace_ref=WORKSPACE_REF, term="task-status:inbox") == (
+        updated.task_ref,
+    )
+    assert platform.search(workspace_ref=WORKSPACE_REF, term="task-status:ready") == ()
+
+
+def test_prepare_rejects_oversized_rollback_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    platform, harness = _platform(tmp_path)
+    _seed_core_records(platform, harness)
+    monkeypatch.setattr(
+        changesets_module, "ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES", 1
+    )
+
+    with pytest.raises(
+        ChangeSetError, match="ECO_CHANGESET_ROLLBACK_LEDGER_SIZE_LIMIT_EXCEEDED"
+    ):
+        _prepared(ChangeSetEngine(platform))
+
+
 def test_restart_replays_apply_and_retains_exact_rollback(tmp_path: Path) -> None:
     platform, harness = _platform(tmp_path)
     _seed_core_records(platform, harness)
@@ -799,6 +1023,15 @@ def test_restart_replays_apply_and_retains_exact_rollback(tmp_path: Path) -> Non
         prepared,
         idempotency_ref=prepared.plan.idempotency_ref,
         approval=harness.grant(ECO_CHANGESET_LOCAL_ATOMIC_ACTION, resources),
+    )
+    new_key_version_ref = "key-version-ref:q19-rotated"
+    platform.rotate_workspace_key(
+        workspace_ref=WORKSPACE_REF,
+        new_key_version_ref=new_key_version_ref,
+        approval=harness.grant(
+            "ecosystem.local_data.rotate_workspace_key",
+            (WORKSPACE_REF, new_key_version_ref),
+        ),
     )
 
     reopened_harness = ApprovalHarness()
@@ -895,11 +1128,12 @@ def test_external_outcomes_are_projection_only_with_compensation_refs(
         (
             ExternalOutcomeObservation(
                 operation_ref=first.operation_ref,
-                status=OperationResultStatus.failed,
+                status=OperationResultStatus.applied,
+                observed_receipt_ref="receipt-ref:q19-external-one",
             ),
             ExternalOutcomeObservation(
                 operation_ref=second.operation_ref,
-                status=OperationResultStatus.skipped,
+                status=OperationResultStatus.failed,
             ),
         ),
     )
