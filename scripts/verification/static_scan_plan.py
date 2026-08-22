@@ -17,7 +17,7 @@ DEFAULT_SCAN_MILLISECONDS = 100.0
 # registry is reviewed and this value is intentionally updated.
 APPROVED_PARALLEL_REGISTRY_FINGERPRINT = (
     "static-registry-ref:sha256:"
-    "204e8346c96fede3f2086a8fb3dad1da9084a23d16fd4df69c62a8d4ebd247e7"
+    "c4584384a1b92731482ece829d2b7c7e2a7257b4ae7bbae1a57b72fbaa32b683"
 )
 EXCLUSIVE_SCAN_FUNCTIONS = frozenset(
     {
@@ -50,6 +50,7 @@ PRODUCT_AFFINITY_FUNCTIONS = frozenset(
         "verify_governed_cognitive_memory_spine_v1",
         "verify_fcc_v1_006_evidence_timeline_productization",
         "verify_founder_loop_v1",
+        "verify_product_vision_registry",
     }
 )
 

@@ -151,6 +151,7 @@ SCAN_SEQUENCE = [
     ("morning reconciliation artifact scan", "verify_morning_reconciliation_artifact"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
     ("system capability map currentness scan", "verify_system_map_currentness"),
+    ("product vision registry scan", "verify_product_vision_registry"),
     ("backup/restore verification scan", "verify_backup_restore_verification"),
     ("OpenWebUI bridge contract-only scan", "verify_no_openwebui_runtime_or_config_implementation"),
     ("local model runtime activation contract-only scan", "verify_no_local_runtime_activation_implementation"),
@@ -30619,6 +30620,11 @@ def verify_repo_awareness_benchmark() -> None:
 def verify_system_map_currentness() -> None:
     print("\n[Verifier] Running system capability map currentness verifier...")
     run_cmd([sys.executable, "scripts/verify_system_map_currentness.py"])
+
+
+def verify_product_vision_registry() -> None:
+    print("\n[Verifier] Running product vision registry verifier...")
+    run_cmd([sys.executable, "scripts/verify_product_vision_registry.py"])
 
 
 def verify_operational_maturity() -> None:
