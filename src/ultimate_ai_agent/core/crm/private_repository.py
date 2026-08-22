@@ -758,6 +758,7 @@ class PrivateCrmRepository:
         self, *, workspace_ref: str, portfolio_ref: str, crm_workspace_ref: str
     ) -> PrivateCrmWorkspaceReadModel:
         portfolio = self.read(workspace_ref=workspace_ref, portfolio_ref=portfolio_ref)
+        self._validate_canonical_links(portfolio)
         crm_workspace = next(
             (
                 item
