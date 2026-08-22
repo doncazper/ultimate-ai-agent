@@ -271,7 +271,14 @@ class KnowledgeIngestReceipt(_KnowledgeModel):
         ):
             raise ValueError("KNOWLEDGE_INGEST_RECEIPT_REDACTION_REQUIRED")
         if self.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
-            raise ValueError("KNOWLEDGE_INGEST_EXTRACTION_CLASSIFICATION_REQUIRED")
+            if (
+                self.mutation_performed
+                or self.rights_status != KnowledgeRightsStatus.review_required
+                or self.ocr_review_status != KnowledgeOcrReviewStatus.pending_review
+                or self.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_LEGACY_CLASSIFICATION_REQUIRED")
+            return self
         if self.extraction_method == KnowledgeExtractionMethod.native_text:
             if (
                 self.ocr_review_status != KnowledgeOcrReviewStatus.not_required

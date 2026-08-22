@@ -23,7 +23,8 @@ and storage-posture truth without changing the Python Agent Core boundary.
   must have a reviewed state and evidence ref.
 - Governance changes are exact-scoped, optimistic-revision-bound,
   approval-required, idempotent, audited, and content-free in plans and
-  receipts.
+  receipts. Legacy v1 ingest bindings remain replayable after the scope upgrade,
+  and metadata/governance idempotency bindings survive document removal.
 - Exact removal binds the current document and chunk revision, retention
   decision, external-backup disposition, counts, approval, and idempotency
   key. SQLite secure-delete is enabled for store connections; removal deletes

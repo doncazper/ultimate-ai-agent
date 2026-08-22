@@ -23,6 +23,10 @@ from ultimate_ai_agent.core.knowledge_dump import (
     KnowledgeRightsStatus,
     KnowledgeSourceKind,
 )
+from ultimate_ai_agent.core.knowledge_dump.store import (
+    _hash_ref,
+    _legacy_ingest_scope_ref,
+)
 from scripts.dev import uaa_knowledge
 
 
@@ -93,6 +97,17 @@ def _apply_governance(store: KnowledgeDumpStore, prepared):  # type: ignore[no-u
         approval_ref=approval_ref,
         actor_context=actor,
         run_id="run:knowledge-hardening:governance_update",
+    )
+
+
+def _apply_metadata(store: KnowledgeDumpStore, prepared):  # type: ignore[no-untyped-def]
+    actor, authority, approval_ref = _grant(store, prepared, "metadata_update")
+    return store.update_metadata(
+        prepared,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-hardening:metadata_update",
     )
 
 
@@ -196,9 +211,19 @@ def test_legacy_rows_are_quarantined_until_exact_extraction_classification(
     root = tmp_path / "legacy-dump"
     root.mkdir(mode=0o700)
     database_path = root / "knowledge.sqlite3"
-    document_ref = f"knowledge-document-ref:sha256:{'a' * 24}"
-    chunk_ref = f"knowledge-chunk-ref:sha256:{'b' * 24}"
     text = "Synthetic legacy OCR provenance phrase."
+    source = tmp_path / "legacy-source.txt"
+    source.write_text(text, encoding="utf-8")
+    store = KnowledgeDumpStore(root)
+    prepared = store.prepare_ingest(
+        source,
+        title="Synthetic legacy source",
+        rights_basis=KnowledgeRightsBasis.operator_authored,
+        rights_evidence_ref="rights-evidence-ref:legacy-import",
+        idempotency_key="knowledge-ingest-legacy-001",
+    )
+    document_ref = _hash_ref("knowledge-document-ref", prepared.plan.source_content_ref)
+    chunk_ref = prepared.chunks[0].chunk_ref
     with sqlite3.connect(database_path) as connection:
         connection.executescript(
             """
@@ -242,20 +267,20 @@ def test_legacy_rows_are_quarantined_until_exact_extraction_classification(
                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 document_ref,
-                "knowledge-content-ref:sha256:legacy",
-                "knowledge-ingest-scope-ref:legacy",
-                "Synthetic legacy source",
-                "plain_text",
-                "operator_authored",
-                "rights-evidence-ref:legacy-import",
+                prepared.plan.source_content_ref,
+                _legacy_ingest_scope_ref(prepared.plan),
+                prepared.plan.title,
+                prepared.plan.source_format,
+                prepared.plan.rights_basis,
+                prepared.plan.rights_evidence_ref,
                 None,
                 "[]",
                 1,
                 len(text),
                 "knowledge-ingest-legacy-001",
                 "2026-08-22T00:00:00+00:00",
-                "reference",
-                "uncategorized",
+                prepared.plan.source_kind,
+                prepared.plan.category,
                 None,
                 "[]",
             ),
@@ -266,15 +291,14 @@ def test_legacy_rows_are_quarantined_until_exact_extraction_classification(
                 chunk_ref,
                 document_ref,
                 0,
-                "body#chunk:1",
+                prepared.chunks[0].locator,
                 text,
-                "knowledge-chunk-content-ref:sha256:legacy",
+                prepared.chunks[0].text_ref,
             ),
         )
         connection.execute("INSERT INTO chunks_fts VALUES (?, ?)", (chunk_ref, text))
     os.chmod(database_path, 0o600)
 
-    store = KnowledgeDumpStore(root)
     legacy = store.list_documents()[0]
     assert legacy.extraction_method == KnowledgeExtractionMethod.legacy_unclassified
     assert legacy.rights_status == KnowledgeRightsStatus.review_required
@@ -282,6 +306,19 @@ def test_legacy_rows_are_quarantined_until_exact_extraction_classification(
     assert store.search("provenance phrase") == []
     with pytest.raises(ValueError, match="KNOWLEDGE_CONTEXT_SELECTION_INELIGIBLE"):
         store.prepare_selected_context([chunk_ref])
+    actor, authority, approval_ref = _grant(store, prepared, "ingest")
+    ingest_replay = store.ingest(
+        prepared,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-hardening:ingest",
+    )
+    assert ingest_replay.mutation_performed is False
+    assert (
+        ingest_replay.extraction_method == KnowledgeExtractionMethod.legacy_unclassified
+    )
+    assert ingest_replay.rights_status == KnowledgeRightsStatus.review_required
 
     classification = store.prepare_governance_update(
         document_ref,
@@ -415,6 +452,92 @@ def test_exact_removal_deletes_content_preserves_audit_and_blocks_resurrection(
             store,
             source,
             idempotency_key="knowledge-q18-removal-reingest-002",
+        )
+
+
+def test_removal_retains_metadata_and_governance_idempotency_bindings(
+    tmp_path: Path,
+) -> None:
+    first_source = tmp_path / "first.md"
+    second_source = tmp_path / "second.md"
+    first_source.write_text("Synthetic first durable binding.", encoding="utf-8")
+    second_source.write_text("Synthetic second durable binding.", encoding="utf-8")
+    store = KnowledgeDumpStore(tmp_path / "dump")
+    _, first = _ingest(
+        store, first_source, idempotency_key="knowledge-q18-binding-first"
+    )
+    _, second = _ingest(
+        store, second_source, idempotency_key="knowledge-q18-binding-second"
+    )
+    metadata_key = "knowledge-q18-binding-metadata"
+    governance_key = "knowledge-q18-binding-governance"
+    _apply_metadata(
+        store,
+        store.prepare_metadata_update(
+            first.document_ref,
+            source_kind=KnowledgeSourceKind.reference,
+            category="reviewed",
+            collection=None,
+            tags=[],
+            idempotency_key=metadata_key,
+        ),
+    )
+    _apply_governance(
+        store,
+        store.prepare_governance_update(
+            first.document_ref,
+            lifecycle_state=KnowledgeLifecycleState.archived,
+            rights_status=KnowledgeRightsStatus.current,
+            rights_evidence_ref="rights-evidence-ref:q18-operator-authored",
+            ocr_review_status=KnowledgeOcrReviewStatus.not_required,
+            ocr_review_evidence_ref=None,
+            idempotency_key=governance_key,
+        ),
+    )
+    removal = store.prepare_removal(
+        first.document_ref,
+        retention_decision_ref="retention-decision-ref:q18-binding-remove",
+        backup_disposition_ref="backup-disposition-ref:q18-binding-none",
+        idempotency_key="knowledge-q18-binding-removal",
+    )
+    actor, authority, approval_ref = _grant(store, removal, "removal")
+    store.remove(
+        removal,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor,
+        run_id="run:knowledge-hardening:removal",
+    )
+
+    with sqlite3.connect(store.database_path) as connection:
+        assert (
+            connection.execute("SELECT COUNT(*) FROM metadata_updates").fetchone()[0]
+            == 1
+        )
+        assert (
+            connection.execute("SELECT COUNT(*) FROM governance_updates").fetchone()[0]
+            == 1
+        )
+
+    reused_metadata = store.prepare_metadata_update(
+        second.document_ref,
+        source_kind=KnowledgeSourceKind.reference,
+        category="different",
+        collection=None,
+        tags=[],
+        idempotency_key=metadata_key,
+    )
+    with pytest.raises(ValueError, match="KNOWLEDGE_METADATA_IDEMPOTENCY_CONFLICT"):
+        _apply_metadata(store, reused_metadata)
+    with pytest.raises(ValueError, match="KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT"):
+        store.prepare_governance_update(
+            second.document_ref,
+            lifecycle_state=KnowledgeLifecycleState.archived,
+            rights_status=KnowledgeRightsStatus.current,
+            rights_evidence_ref="rights-evidence-ref:q18-operator-authored",
+            ocr_review_status=KnowledgeOcrReviewStatus.not_required,
+            ocr_review_evidence_ref=None,
+            idempotency_key=governance_key,
         )
 
 

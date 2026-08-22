@@ -169,6 +169,34 @@ def _ingest_scope_ref(plan: KnowledgeIngestPlan) -> str:
     )
 
 
+def _legacy_ingest_scope_ref(plan: KnowledgeIngestPlan) -> str:
+    """Reconstruct the v1 scope so pre-v2 successful ingests remain replayable."""
+
+    material = {
+        "catalog_citation_locator_refs": list(plan.catalog_citation_locator_refs),
+        "catalog_source_id": plan.catalog_source_id,
+        "category": plan.category,
+        "chunk_manifest_ref": plan.chunk_manifest_ref,
+        "collection": plan.collection,
+        "idempotency_key": plan.idempotency_key,
+        "planned_character_count": plan.planned_character_count,
+        "planned_chunk_count": plan.planned_chunk_count,
+        "rights_basis": _enum_value(plan.rights_basis),
+        "rights_evidence_ref": plan.rights_evidence_ref,
+        "source_content_ref": plan.source_content_ref,
+        "source_format": _enum_value(plan.source_format),
+        "source_kind": _enum_value(plan.source_kind),
+        "source_size_bytes": plan.source_size_bytes,
+        "store_ref": plan.store_ref,
+        "tags": sorted(plan.tags),
+        "title": plan.title,
+    }
+    return _hash_ref(
+        "knowledge-ingest-scope-ref",
+        json.dumps(material, sort_keys=True, separators=(",", ":")),
+    )
+
+
 def _metadata_ref(
     source_kind: object,
     category: str,
@@ -496,7 +524,9 @@ class KnowledgeDumpStore:
                 )
             existing_by_idempotency = connection.execute(
                 """SELECT document_ref, source_content_ref, idempotency_key,
-                          exact_scope_ref
+                          exact_scope_ref, rights_basis, rights_evidence_ref,
+                          rights_status, extraction_method, ocr_review_status,
+                          ocr_review_evidence_ref, chunk_count, character_count
                    FROM documents WHERE idempotency_key = ?""",
                 (plan.idempotency_key,),
             ).fetchone()
@@ -506,11 +536,19 @@ class KnowledgeDumpStore:
                    FROM documents WHERE source_content_ref = ?""",
                 (plan.source_content_ref,),
             ).fetchone()
-            if existing_by_idempotency is not None and (
-                existing_by_idempotency["source_content_ref"] != plan.source_content_ref
-                or existing_by_idempotency["exact_scope_ref"] != plan.exact_scope_ref
-            ):
-                raise ValueError("KNOWLEDGE_INGEST_IDEMPOTENCY_CONFLICT")
+            legacy_scope_ref = _legacy_ingest_scope_ref(plan)
+            legacy_replay = False
+            if existing_by_idempotency is not None:
+                legacy_replay = (
+                    existing_by_idempotency["exact_scope_ref"] == legacy_scope_ref
+                )
+                if existing_by_idempotency[
+                    "source_content_ref"
+                ] != plan.source_content_ref or (
+                    existing_by_idempotency["exact_scope_ref"] != plan.exact_scope_ref
+                    and not legacy_replay
+                ):
+                    raise ValueError("KNOWLEDGE_INGEST_IDEMPOTENCY_CONFLICT")
             if (
                 existing_by_content is not None
                 and existing_by_content["idempotency_key"] != plan.idempotency_key
@@ -574,6 +612,19 @@ class KnowledgeDumpStore:
                     )
             else:
                 document_ref = str(existing["document_ref"])
+            receipt_rights_status = (
+                existing["rights_status"] if legacy_replay else plan.rights_status
+            )
+            receipt_extraction_method = (
+                existing["extraction_method"]
+                if legacy_replay
+                else plan.extraction_method
+            )
+            receipt_ocr_status = (
+                existing["ocr_review_status"]
+                if legacy_replay
+                else plan.ocr_review_status
+            )
             receipt = KnowledgeIngestReceipt(
                 receipt_ref=_hash_ref(
                     "knowledge-ingest-receipt-ref", f"{plan.plan_ref}|{document_ref}"
@@ -582,14 +633,32 @@ class KnowledgeDumpStore:
                 exact_scope_ref=plan.exact_scope_ref,
                 document_ref=document_ref,
                 source_content_ref=plan.source_content_ref,
-                chunk_count=len(prepared.chunks),
-                character_count=plan.planned_character_count,
-                rights_basis=plan.rights_basis,
-                rights_evidence_ref=plan.rights_evidence_ref,
-                rights_status=plan.rights_status,
-                extraction_method=plan.extraction_method,
-                ocr_review_status=plan.ocr_review_status,
-                ocr_review_evidence_ref=plan.ocr_review_evidence_ref,
+                chunk_count=(
+                    int(existing["chunk_count"])
+                    if legacy_replay
+                    else len(prepared.chunks)
+                ),
+                character_count=(
+                    int(existing["character_count"])
+                    if legacy_replay
+                    else plan.planned_character_count
+                ),
+                rights_basis=(
+                    existing["rights_basis"] if legacy_replay else plan.rights_basis
+                ),
+                rights_evidence_ref=(
+                    existing["rights_evidence_ref"]
+                    if legacy_replay
+                    else plan.rights_evidence_ref
+                ),
+                rights_status=receipt_rights_status,
+                extraction_method=receipt_extraction_method,
+                ocr_review_status=receipt_ocr_status,
+                ocr_review_evidence_ref=(
+                    existing["ocr_review_evidence_ref"]
+                    if legacy_replay
+                    else plan.ocr_review_evidence_ref
+                ),
                 approval_ref=approval_ref,
                 idempotency_key=plan.idempotency_key,
                 rollback_ref=plan.rollback_ref,
@@ -597,7 +666,13 @@ class KnowledgeDumpStore:
                 reason_codes=[
                     "KNOWLEDGE_SOURCE_INGESTED"
                     if mutation_performed
-                    else "KNOWLEDGE_SOURCE_ALREADY_PRESENT",
+                    else (
+                        "KNOWLEDGE_LEGACY_SOURCE_ALREADY_PRESENT_QUARANTINED"
+                        if legacy_replay
+                        and receipt_extraction_method
+                        == KnowledgeExtractionMethod.legacy_unclassified
+                        else "KNOWLEDGE_SOURCE_ALREADY_PRESENT"
+                    ),
                     "KNOWLEDGE_RIGHTS_ATTESTED",
                     "KNOWLEDGE_EXACT_APPROVAL_VALIDATED",
                 ],
@@ -874,12 +949,20 @@ class KnowledgeDumpStore:
                 "SELECT exact_scope_ref FROM metadata_updates WHERE idempotency_key = ?",
                 (plan.idempotency_key,),
             ).fetchone()
+            audited_replay = self._audit_idempotency_replay(
+                connection,
+                operation="metadata_update",
+                idempotency_key=plan.idempotency_key,
+                exact_scope_ref=plan.exact_scope_ref,
+                subject_ref=plan.document_ref,
+                conflict_code="KNOWLEDGE_METADATA_IDEMPOTENCY_CONFLICT",
+            )
             if (
                 existing is not None
                 and existing["exact_scope_ref"] != plan.exact_scope_ref
             ):
                 raise ValueError("KNOWLEDGE_METADATA_IDEMPOTENCY_CONFLICT")
-            mutation_performed = existing is None
+            mutation_performed = existing is None and not audited_replay
             if mutation_performed:
                 current = connection.execute(
                     """SELECT source_kind, category, collection, tags_json
@@ -1169,12 +1252,20 @@ class KnowledgeDumpStore:
                 "SELECT exact_scope_ref FROM governance_updates WHERE idempotency_key = ?",
                 (plan.idempotency_key,),
             ).fetchone()
+            audited_replay = self._audit_idempotency_replay(
+                connection,
+                operation="governance_update",
+                idempotency_key=plan.idempotency_key,
+                exact_scope_ref=plan.exact_scope_ref,
+                subject_ref=plan.document_ref,
+                conflict_code="KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT",
+            )
             if (
                 existing is not None
                 and existing["exact_scope_ref"] != plan.exact_scope_ref
             ):
                 raise ValueError("KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT")
-            mutation_performed = existing is None
+            mutation_performed = existing is None and not audited_replay
             if mutation_performed:
                 if (
                     self._governance_ref_for_document(document)
@@ -2100,13 +2191,13 @@ class KnowledgeDumpStore:
                 CREATE TABLE IF NOT EXISTS metadata_updates (
                     idempotency_key TEXT PRIMARY KEY,
                     exact_scope_ref TEXT NOT NULL,
-                    document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
+                    document_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS governance_updates (
                     idempotency_key TEXT PRIMARY KEY,
                     exact_scope_ref TEXT NOT NULL,
-                    document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
+                    document_ref TEXT NOT NULL,
                     plan_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -2295,6 +2386,29 @@ class KnowledgeDumpStore:
             mutation_performed=receipt.mutation_performed,
             reason_codes=receipt.reason_codes,
         )
+
+    @staticmethod
+    def _audit_idempotency_replay(
+        connection: sqlite3.Connection,
+        *,
+        operation: str,
+        idempotency_key: str,
+        exact_scope_ref: str,
+        subject_ref: str,
+        conflict_code: str,
+    ) -> bool:
+        rows = connection.execute(
+            """SELECT exact_scope_ref, subject_ref FROM audit_records
+               WHERE operation = ? AND idempotency_key = ?""",
+            (operation, idempotency_key),
+        ).fetchall()
+        if any(
+            row["exact_scope_ref"] != exact_scope_ref
+            or row["subject_ref"] != subject_ref
+            for row in rows
+        ):
+            raise ValueError(conflict_code)
+        return bool(rows)
 
     @staticmethod
     def _insert_audit_record(
