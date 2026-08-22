@@ -2,6 +2,7 @@ import type {
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
 } from "../api/types";
+import { ConnectorReadPlatformCard } from "./ConnectorReadPlatformCard";
 
 export function InboxSurfacePanel({
   sourceReadiness,
@@ -191,6 +192,9 @@ function SourceReadinessCards({
           <RefListWithFallback
             emptyLabel="Blocked source authorities: none"
             refs={sourceReadiness.blocked_authority_refs}
+          />
+          <ConnectorReadPlatformCard
+            sourceReadiness={sourceReadiness}
           />
           <SourceReadinessProposalCards
             proposals={sourceReadiness.source_readiness_proposal_candidates ?? []}

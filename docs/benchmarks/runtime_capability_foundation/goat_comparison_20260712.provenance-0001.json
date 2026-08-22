@@ -19,7 +19,7 @@
     "posture": "reachable_ancestor_digest_equivalent"
   },
   "contract_transition": {
-    "current_evaluator_source_digest": "sha256:275b1d593d8740095b90dbb787bb465ef7c9bb8831d0beb6e972db5ab621dd87",
+    "current_evaluator_source_digest": "sha256:e8d42d643f51d7a91c7c4e80f6963de5f25e87bf9545c30579d5116e4d782e4d",
     "current_evaluator_source_file_count": 53,
     "changed_source_refs": [
       "repo-ref:uaa:apps/control-center/src/App.test.tsx",

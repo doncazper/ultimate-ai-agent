@@ -10341,10 +10341,13 @@ const sourceReadinessItems: FounderLoopSourceReadinessItem[] = [
     source_kind: "calendar",
     status: "not_configured",
     safe_summary:
-      "Calendar source readiness is not configured; commitments remain blocked until a read-only metadata contract exists.",
+      "Mock fallback cannot confirm the backend exact calendar metadata snapshot adapter; no snapshot or live provider account is configured.",
     next_safe_action:
-      "Define calendar metadata refs and stale-state checks before calendar-derived commitments enter Today.",
-    source_refs: ["contract-ref:calendar-read-only-missing"],
+      "Reconnect the local backend before inspecting snapshot-lane truth or planning a separate provider-backed read lane.",
+    source_refs: [
+      "contract-ref:eco-009-read-only-connector-platform:v1",
+      "contract-ref:calendar-read-only-missing",
+    ],
     evidence_refs: ["evidence-ref:source-readiness:calendar"],
     blocked_state_refs: [
       "blocked-state:no-calendar-read-authority",
@@ -10353,7 +10356,7 @@ const sourceReadinessItems: FounderLoopSourceReadinessItem[] = [
       "blocked-state:no-background-polling",
     ],
     authority_boundary:
-      "Calendar state is a readiness label only; no account auth, event read, event write, invite, or connector runtime authority.",
+      "Mock fallback grants no snapshot read, live account auth, external event read, event write, invite, or connector runtime authority.",
   },
   {
     source_ref: "source-ref:tasks:manual-only",

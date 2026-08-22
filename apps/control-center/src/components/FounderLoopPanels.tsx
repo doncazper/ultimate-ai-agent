@@ -19,6 +19,7 @@ import {
 import type { GovernedRuntimeCommandIntent } from "../api/client";
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
+import { ConnectorReadPlatformCard } from "./ConnectorReadPlatformCard";
 import type {
   ActionToolCodeLaneCatalogReadModel,
   ActionToolCodeLaneEntry,
@@ -5989,6 +5990,9 @@ function SourceReadinessCards({
           <RefListWithFallback
             emptyLabel="Blocked source authorities: none"
             refs={sourceReadiness.blocked_authority_refs}
+          />
+          <ConnectorReadPlatformCard
+            sourceReadiness={sourceReadiness}
           />
           <SourceReadinessProposalCards
             proposals={sourceReadiness.source_readiness_proposal_candidates ?? []}

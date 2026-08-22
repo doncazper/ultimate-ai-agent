@@ -11524,6 +11524,35 @@ describe("Web Control Center shell", () => {
     expect(
       within(routePosture).getByText("Write authority").nextElementSibling,
     ).toHaveTextContent("blocked");
+    const connectorPlatform = screen.getByLabelText(
+      "ECO-009 connector read platform",
+    );
+    expect(connectorPlatform).toHaveTextContent(
+      "Exact calendar metadata snapshot",
+    );
+    expect(connectorPlatform).toHaveTextContent(
+      "implemented_inactive_no_snapshot_source",
+    );
+    expect(connectorPlatform).toHaveTextContent(
+      "caller-supplied redacted snapshot only",
+    );
+    expect(
+      within(connectorPlatform).getByText("Live account").nextElementSibling,
+    ).toHaveTextContent("not connected");
+    for (const label of [
+      "Network access",
+      "Account auth",
+      "Background sync",
+      "Raw content",
+      "Connector writes",
+    ]) {
+      expect(
+        within(connectorPlatform).getByText(label).nextElementSibling,
+      ).toHaveTextContent("blocked");
+    }
+    expect(
+      within(connectorPlatform).getByText("Safe disable").nextElementSibling,
+    ).toHaveTextContent("available");
     expect(
       screen.getByText(/live email, calendar, account, polling/i),
     ).toBeInTheDocument();
