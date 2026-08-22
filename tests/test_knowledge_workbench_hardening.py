@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sqlite3
 
@@ -187,6 +188,115 @@ def test_pending_ocr_is_not_retrievable_until_exact_review(
         ValidationError, match="KNOWLEDGE_CONTEXT_AUTOMATIC_AUTHORITY_DENIED"
     ):
         pack.model_copy(update={"uncited_content_included": True})
+
+
+def test_legacy_rows_are_quarantined_until_exact_extraction_classification(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "legacy-dump"
+    root.mkdir(mode=0o700)
+    database_path = root / "knowledge.sqlite3"
+    document_ref = f"knowledge-document-ref:sha256:{'a' * 24}"
+    chunk_ref = f"knowledge-chunk-ref:sha256:{'b' * 24}"
+    text = "Synthetic legacy OCR provenance phrase."
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript(
+            """
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE documents (
+                document_ref TEXT PRIMARY KEY,
+                source_content_ref TEXT NOT NULL UNIQUE,
+                exact_scope_ref TEXT NOT NULL,
+                title TEXT NOT NULL,
+                source_format TEXT NOT NULL,
+                rights_basis TEXT NOT NULL,
+                rights_evidence_ref TEXT NOT NULL,
+                catalog_source_id TEXT,
+                catalog_citation_locator_refs_json TEXT NOT NULL DEFAULT '[]',
+                chunk_count INTEGER NOT NULL,
+                character_count INTEGER NOT NULL,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                source_kind TEXT NOT NULL DEFAULT 'reference',
+                category TEXT NOT NULL DEFAULT 'uncategorized',
+                collection TEXT,
+                tags_json TEXT NOT NULL DEFAULT '[]'
+            );
+            CREATE TABLE chunks (
+                chunk_ref TEXT PRIMARY KEY,
+                document_ref TEXT NOT NULL REFERENCES documents(document_ref)
+                    ON DELETE CASCADE,
+                ordinal INTEGER NOT NULL,
+                locator TEXT NOT NULL,
+                text TEXT NOT NULL,
+                text_ref TEXT NOT NULL
+            );
+            CREATE VIRTUAL TABLE chunks_fts USING fts5(
+                chunk_ref UNINDEXED, text,
+                tokenize='unicode61 remove_diacritics 2'
+            );
+            """
+        )
+        connection.execute(
+            """INSERT INTO documents VALUES
+               (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                document_ref,
+                "knowledge-content-ref:sha256:legacy",
+                "knowledge-ingest-scope-ref:legacy",
+                "Synthetic legacy source",
+                "plain_text",
+                "operator_authored",
+                "rights-evidence-ref:legacy-import",
+                None,
+                "[]",
+                1,
+                len(text),
+                "knowledge-ingest-legacy-001",
+                "2026-08-22T00:00:00+00:00",
+                "reference",
+                "uncategorized",
+                None,
+                "[]",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO chunks VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                chunk_ref,
+                document_ref,
+                0,
+                "body#chunk:1",
+                text,
+                "knowledge-chunk-content-ref:sha256:legacy",
+            ),
+        )
+        connection.execute("INSERT INTO chunks_fts VALUES (?, ?)", (chunk_ref, text))
+    os.chmod(database_path, 0o600)
+
+    store = KnowledgeDumpStore(root)
+    legacy = store.list_documents()[0]
+    assert legacy.extraction_method == KnowledgeExtractionMethod.legacy_unclassified
+    assert legacy.rights_status == KnowledgeRightsStatus.review_required
+    assert legacy.ocr_review_status == KnowledgeOcrReviewStatus.pending_review
+    assert store.search("provenance phrase") == []
+    with pytest.raises(ValueError, match="KNOWLEDGE_CONTEXT_SELECTION_INELIGIBLE"):
+        store.prepare_selected_context([chunk_ref])
+
+    classification = store.prepare_governance_update(
+        document_ref,
+        lifecycle_state=KnowledgeLifecycleState.active,
+        rights_status=KnowledgeRightsStatus.current,
+        rights_evidence_ref="rights-evidence-ref:legacy-reviewed",
+        extraction_method=KnowledgeExtractionMethod.native_text,
+        ocr_review_status=KnowledgeOcrReviewStatus.not_required,
+        ocr_review_evidence_ref=None,
+        idempotency_key="knowledge-governance-legacy-classification",
+    )
+    receipt = _apply_governance(store, classification)
+    assert receipt.extraction_method == KnowledgeExtractionMethod.native_text
+    assert receipt.mutation_performed is True
+    assert len(store.search("provenance phrase")) == 1
 
 
 def test_lifecycle_and_rights_updates_fail_closed_on_stale_revision(

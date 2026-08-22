@@ -231,6 +231,7 @@ def _governance_scope_ref(plan: KnowledgeGovernanceUpdatePlan) -> str:
     material = {
         "document_ref": plan.document_ref,
         "expected_governance_ref": plan.expected_governance_ref,
+        "extraction_method": _enum_value(plan.extraction_method),
         "idempotency_key": plan.idempotency_key,
         "lifecycle_state": _enum_value(plan.lifecycle_state),
         "ocr_review_evidence_ref": plan.ocr_review_evidence_ref,
@@ -957,6 +958,7 @@ class KnowledgeDumpStore:
         lifecycle_state: KnowledgeLifecycleState,
         rights_status: KnowledgeRightsStatus,
         rights_evidence_ref: str,
+        extraction_method: KnowledgeExtractionMethod | None = None,
         ocr_review_status: KnowledgeOcrReviewStatus,
         ocr_review_evidence_ref: str | None,
         idempotency_key: str,
@@ -970,6 +972,9 @@ class KnowledgeDumpStore:
         ):
             raise ValueError("KNOWLEDGE_GOVERNANCE_REF_SECRET_LIKE")
         document = self._require_document(document_ref)
+        target_extraction_method = extraction_method or KnowledgeExtractionMethod(
+            document.extraction_method
+        )
         stored_plan: KnowledgeGovernanceUpdatePlan | None = None
         if self.database_path.exists():
             with self._connect() as connection:
@@ -1002,6 +1007,7 @@ class KnowledgeDumpStore:
                 _enum_value(lifecycle_state),
                 _enum_value(rights_status),
                 rights_evidence_ref,
+                _enum_value(target_extraction_method),
                 _enum_value(ocr_review_status),
                 ocr_review_evidence_ref,
                 idempotency_key,
@@ -1012,6 +1018,7 @@ class KnowledgeDumpStore:
                 _enum_value(stored_plan.lifecycle_state),
                 _enum_value(stored_plan.rights_status),
                 stored_plan.rights_evidence_ref,
+                _enum_value(stored_plan.extraction_method),
                 _enum_value(stored_plan.ocr_review_status),
                 stored_plan.ocr_review_evidence_ref,
                 stored_plan.idempotency_key,
@@ -1031,6 +1038,7 @@ class KnowledgeDumpStore:
             lifecycle_state=lifecycle_state,
             rights_status=rights_status,
             rights_evidence_ref=rights_evidence_ref,
+            extraction_method=target_extraction_method,
             ocr_review_status=ocr_review_status,
             ocr_review_evidence_ref=ocr_review_evidence_ref,
             idempotency_key=idempotency_key,
@@ -1176,12 +1184,14 @@ class KnowledgeDumpStore:
                 connection.execute(
                     """UPDATE documents
                        SET lifecycle_state = ?, rights_status = ?, rights_evidence_ref = ?,
-                           ocr_review_status = ?, ocr_review_evidence_ref = ?
+                           extraction_method = ?, ocr_review_status = ?,
+                           ocr_review_evidence_ref = ?
                        WHERE document_ref = ?""",
                     (
                         plan.lifecycle_state,
                         plan.rights_status,
                         plan.rights_evidence_ref,
+                        plan.extraction_method,
                         plan.ocr_review_status,
                         plan.ocr_review_evidence_ref,
                         plan.document_ref,
@@ -1210,6 +1220,7 @@ class KnowledgeDumpStore:
                 lifecycle_state=plan.lifecycle_state,
                 rights_status=plan.rights_status,
                 rights_evidence_ref=plan.rights_evidence_ref,
+                extraction_method=plan.extraction_method,
                 ocr_review_status=plan.ocr_review_status,
                 ocr_review_evidence_ref=plan.ocr_review_evidence_ref,
                 approval_ref=approval_ref,
@@ -1568,17 +1579,19 @@ class KnowledgeDumpStore:
                 else "'active'"
             )
             rights_expression = (
-                "rights_status" if "rights_status" in document_columns else "'current'"
+                "rights_status"
+                if "rights_status" in document_columns
+                else "'review_required'"
             )
             extraction_expression = (
                 "extraction_method"
                 if "extraction_method" in document_columns
-                else "'native_text'"
+                else "'legacy_unclassified'"
             )
             ocr_expression = (
                 "ocr_review_status"
                 if "ocr_review_status" in document_columns
-                else "'not_required'"
+                else "'pending_review'"
             )
             ocr_evidence_expression = (
                 "ocr_review_evidence_ref"
@@ -1772,9 +1785,9 @@ class KnowledgeDumpStore:
                            d.catalog_source_id,
                            {catalog_locator_expression} AS catalog_citation_locator_refs_json,
                            {column("lifecycle_state", "active")} AS lifecycle_state,
-                           {column("rights_status", "current")} AS rights_status,
-                           {column("extraction_method", "native_text")} AS extraction_method,
-                           {column("ocr_review_status", "not_required")} AS ocr_review_status,
+                           {column("rights_status", "review_required")} AS rights_status,
+                           {column("extraction_method", "legacy_unclassified")} AS extraction_method,
+                           {column("ocr_review_status", "pending_review")} AS ocr_review_status,
                            {ocr_evidence_expression} AS ocr_review_evidence_ref
                     FROM chunks c
                     JOIN documents d ON d.document_ref = c.document_ref
@@ -1941,7 +1954,14 @@ class KnowledgeDumpStore:
             )
         ):
             raise ValueError("KNOWLEDGE_GOVERNANCE_PLAN_INTEGRITY_MISMATCH")
-        if document.extraction_method == KnowledgeExtractionMethod.native_text:
+        if plan.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
+            if (
+                plan.rights_status != KnowledgeRightsStatus.review_required
+                or plan.ocr_review_status != KnowledgeOcrReviewStatus.pending_review
+                or plan.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_LEGACY_CLASSIFICATION_REQUIRED")
+        elif plan.extraction_method == KnowledgeExtractionMethod.native_text:
             if (
                 plan.ocr_review_status != KnowledgeOcrReviewStatus.not_required
                 or plan.ocr_review_evidence_ref is not None
@@ -2050,10 +2070,10 @@ class KnowledgeDumpStore:
                     source_format TEXT NOT NULL,
                     rights_basis TEXT NOT NULL,
                     rights_evidence_ref TEXT NOT NULL,
-                    rights_status TEXT NOT NULL DEFAULT 'current',
+                    rights_status TEXT NOT NULL DEFAULT 'review_required',
                     lifecycle_state TEXT NOT NULL DEFAULT 'active',
-                    extraction_method TEXT NOT NULL DEFAULT 'native_text',
-                    ocr_review_status TEXT NOT NULL DEFAULT 'not_required',
+                    extraction_method TEXT NOT NULL DEFAULT 'legacy_unclassified',
+                    ocr_review_status TEXT NOT NULL DEFAULT 'pending_review',
                     ocr_review_evidence_ref TEXT,
                     catalog_source_id TEXT,
                     catalog_citation_locator_refs_json TEXT NOT NULL DEFAULT '[]',
@@ -2130,10 +2150,10 @@ class KnowledgeDumpStore:
                 "collection": "TEXT",
                 "tags_json": "TEXT NOT NULL DEFAULT '[]'",
                 "catalog_citation_locator_refs_json": "TEXT NOT NULL DEFAULT '[]'",
-                "rights_status": "TEXT NOT NULL DEFAULT 'current'",
+                "rights_status": "TEXT NOT NULL DEFAULT 'review_required'",
                 "lifecycle_state": "TEXT NOT NULL DEFAULT 'active'",
-                "extraction_method": "TEXT NOT NULL DEFAULT 'native_text'",
-                "ocr_review_status": "TEXT NOT NULL DEFAULT 'not_required'",
+                "extraction_method": "TEXT NOT NULL DEFAULT 'legacy_unclassified'",
+                "ocr_review_status": "TEXT NOT NULL DEFAULT 'pending_review'",
                 "ocr_review_evidence_ref": "TEXT",
             }
             for name, declaration in additions.items():
@@ -2394,7 +2414,7 @@ class KnowledgeDumpStore:
             rights_basis=row["rights_basis"],
             rights_evidence_ref=row["rights_evidence_ref"],
             rights_status=(
-                row["rights_status"] if "rights_status" in keys else "current"
+                row["rights_status"] if "rights_status" in keys else "review_required"
             ),
             lifecycle_state=(
                 row["lifecycle_state"] if "lifecycle_state" in keys else "active"
@@ -2402,12 +2422,12 @@ class KnowledgeDumpStore:
             extraction_method=(
                 row["extraction_method"]
                 if "extraction_method" in keys
-                else "native_text"
+                else "legacy_unclassified"
             ),
             ocr_review_status=(
                 row["ocr_review_status"]
                 if "ocr_review_status" in keys
-                else "not_required"
+                else "pending_review"
             ),
             ocr_review_evidence_ref=(
                 row["ocr_review_evidence_ref"]

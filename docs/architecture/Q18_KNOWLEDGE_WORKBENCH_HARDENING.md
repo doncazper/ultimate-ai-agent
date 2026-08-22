@@ -14,6 +14,10 @@ and storage-posture truth without changing the Python Agent Core boundary.
 - Native text is marked `not_required` for OCR review. Operator-supplied OCR is
   either `pending_review` or `reviewed`; reviewed OCR requires a bounded
   evidence ref.
+- Legacy rows without extraction provenance are migrated as
+  `legacy_unclassified` with rights and OCR review required. They remain
+  ineligible for search and context until an exact-approved governance update
+  classifies them as native text or operator-supplied OCR.
 - Search and context preparation admit only active documents with current
   rights. Native text must have the native OCR posture; operator-supplied OCR
   must have a reviewed state and evidence ref.
@@ -59,6 +63,7 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py govern \
   --lifecycle-state active \
   --rights-status current \
   --rights-evidence-ref rights-evidence-ref:reviewed-source \
+  --extraction-method operator_supplied_ocr \
   --ocr-review-status reviewed \
   --ocr-review-evidence-ref ocr-evidence-ref:operator-reviewed \
   --idempotency-key knowledge-governance-reviewed-source

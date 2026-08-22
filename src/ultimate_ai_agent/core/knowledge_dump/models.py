@@ -54,6 +54,7 @@ class KnowledgeRightsStatus(str, Enum):
 
 
 class KnowledgeExtractionMethod(str, Enum):
+    legacy_unclassified = "legacy_unclassified"
     native_text = "native_text"
     operator_supplied_ocr = "operator_supplied_ocr"
 
@@ -205,6 +206,8 @@ class KnowledgeIngestPlan(_KnowledgeModel):
             raise ValueError("KNOWLEDGE_INGEST_UNSCOPED_AUTHORITY_DENIED")
         if self.rights_status != KnowledgeRightsStatus.current:
             raise ValueError("KNOWLEDGE_INGEST_CURRENT_RIGHTS_REQUIRED")
+        if self.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
+            raise ValueError("KNOWLEDGE_INGEST_EXTRACTION_CLASSIFICATION_REQUIRED")
         if self.extraction_method == KnowledgeExtractionMethod.native_text:
             if (
                 self.ocr_review_status != KnowledgeOcrReviewStatus.not_required
@@ -267,6 +270,8 @@ class KnowledgeIngestReceipt(_KnowledgeModel):
             )
         ):
             raise ValueError("KNOWLEDGE_INGEST_RECEIPT_REDACTION_REQUIRED")
+        if self.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
+            raise ValueError("KNOWLEDGE_INGEST_EXTRACTION_CLASSIFICATION_REQUIRED")
         if self.extraction_method == KnowledgeExtractionMethod.native_text:
             if (
                 self.ocr_review_status != KnowledgeOcrReviewStatus.not_required
@@ -326,7 +331,14 @@ class KnowledgeDocument(_KnowledgeModel):
 
     @model_validator(mode="after")
     def validate_governance_posture(self) -> "KnowledgeDocument":
-        if self.extraction_method == KnowledgeExtractionMethod.native_text:
+        if self.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
+            if (
+                self.rights_status != KnowledgeRightsStatus.review_required
+                or self.ocr_review_status != KnowledgeOcrReviewStatus.pending_review
+                or self.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_LEGACY_CLASSIFICATION_REQUIRED")
+        elif self.extraction_method == KnowledgeExtractionMethod.native_text:
             if (
                 self.ocr_review_status != KnowledgeOcrReviewStatus.not_required
                 or self.ocr_review_evidence_ref is not None
@@ -457,6 +469,7 @@ class KnowledgeGovernanceUpdatePlan(_KnowledgeModel):
     lifecycle_state: KnowledgeLifecycleState
     rights_status: KnowledgeRightsStatus
     rights_evidence_ref: str
+    extraction_method: KnowledgeExtractionMethod
     ocr_review_status: KnowledgeOcrReviewStatus
     ocr_review_evidence_ref: str | None = None
     idempotency_key: str = Field(..., min_length=8, max_length=200)
@@ -491,7 +504,22 @@ class KnowledgeGovernanceUpdatePlan(_KnowledgeModel):
             )
         ):
             raise ValueError("KNOWLEDGE_GOVERNANCE_UNSCOPED_AUTHORITY_DENIED")
-        if (self.ocr_review_status == KnowledgeOcrReviewStatus.reviewed) != (
+        if self.extraction_method == KnowledgeExtractionMethod.legacy_unclassified:
+            if (
+                self.rights_status != KnowledgeRightsStatus.review_required
+                or self.ocr_review_status != KnowledgeOcrReviewStatus.pending_review
+                or self.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_LEGACY_CLASSIFICATION_REQUIRED")
+        elif self.extraction_method == KnowledgeExtractionMethod.native_text:
+            if (
+                self.ocr_review_status != KnowledgeOcrReviewStatus.not_required
+                or self.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_OCR_POSTURE_INVALID")
+        elif self.ocr_review_status == KnowledgeOcrReviewStatus.not_required:
+            raise ValueError("KNOWLEDGE_OCR_POSTURE_INVALID")
+        elif (self.ocr_review_status == KnowledgeOcrReviewStatus.reviewed) != (
             self.ocr_review_evidence_ref is not None
         ):
             raise ValueError("KNOWLEDGE_OCR_REVIEW_EVIDENCE_MISMATCH")
@@ -507,6 +535,7 @@ class KnowledgeGovernanceUpdateReceipt(_KnowledgeModel):
     lifecycle_state: KnowledgeLifecycleState
     rights_status: KnowledgeRightsStatus
     rights_evidence_ref: str
+    extraction_method: KnowledgeExtractionMethod
     ocr_review_status: KnowledgeOcrReviewStatus
     ocr_review_evidence_ref: str | None = None
     approval_ref: str

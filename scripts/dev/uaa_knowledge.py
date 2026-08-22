@@ -97,7 +97,10 @@ def build_parser() -> argparse.ArgumentParser:
     shared.add_argument("--tag", action="append", default=[])
     shared.add_argument(
         "--extraction-method",
-        choices=[item.value for item in KnowledgeExtractionMethod],
+        choices=[
+            KnowledgeExtractionMethod.native_text.value,
+            KnowledgeExtractionMethod.operator_supplied_ocr.value,
+        ],
         default=KnowledgeExtractionMethod.native_text.value,
     )
     shared.add_argument(
@@ -181,6 +184,11 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
     governance.add_argument("--rights-evidence-ref", required=True)
+    governance.add_argument(
+        "--extraction-method",
+        choices=[item.value for item in KnowledgeExtractionMethod],
+        help="Exact reviewed classification; required to release legacy rows.",
+    )
     governance.add_argument(
         "--ocr-review-status",
         choices=[item.value for item in KnowledgeOcrReviewStatus],
@@ -378,6 +386,11 @@ def _run(args: argparse.Namespace) -> int:
             lifecycle_state=KnowledgeLifecycleState(args.lifecycle_state),
             rights_status=KnowledgeRightsStatus(args.rights_status),
             rights_evidence_ref=args.rights_evidence_ref,
+            extraction_method=(
+                KnowledgeExtractionMethod(args.extraction_method)
+                if args.extraction_method
+                else None
+            ),
             ocr_review_status=KnowledgeOcrReviewStatus(args.ocr_review_status),
             ocr_review_evidence_ref=args.ocr_review_evidence_ref,
             idempotency_key=args.idempotency_key,
