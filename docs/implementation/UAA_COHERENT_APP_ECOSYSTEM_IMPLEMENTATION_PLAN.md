@@ -879,9 +879,17 @@ Gate: every Today item traces to an owner app and canonical ref.
 
 ### `ECO-007` Inbox and source-artifact workbench
 
-- Deliver source bindings, artifact/thread storage posture, triage, linking,
-  proposal creation, retention, privacy, search, and safe manual import.
-- No live connector read is implied.
+- Accepted bounded local repository on 2026-08-21: encrypted manual/synthetic
+  source bindings, source artifacts and threads; content-free import plans;
+  exact approval/replay; triage, same-workspace links, blind-index search,
+  archive/retention posture, and reviewed downstream proposals.
+- Accepted: Inbox retains canonical ownership of source artifacts and
+  communication drafts while Tasks, Calendar, CRM, and Boards retain their
+  target records. Reviewed proposals may feed ECO-006 but perform no target
+  write and grant no mutation authority.
+- Deferred: live connector/account reads, file picker/read UX, route/CLI/UI
+  integration, source sync, notifications, cross-app execution, and all
+  provider/model/browser/background runtime.
 
 Gate: manual/synthetic artifacts can drive reviewed proposals without raw
 content leaking to evidence or unrelated workspaces.

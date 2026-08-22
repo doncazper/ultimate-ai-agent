@@ -1033,6 +1033,28 @@ Next: separately scope product integration and approved daily-plan mutations;
 do not cut over the existing daily loop until compatibility evidence is
 accepted.
 
+ECO-007 Inbox And Source-Artifact Workbench
+Goal: make manual and synthetic source material locally reviewable without
+granting connector, model, background, or downstream mutation authority.
+Status: accepted for bounded ECO-007 repository scope on 2026-08-21. Encrypted
+source bindings, source artifacts, and threads now support content-free import
+plans, exact approval/replay, triage, same-workspace links, blind-index search,
+archive/retention posture, and reviewed downstream proposals. Generic local
+data mutation cannot bypass the Inbox domain action. Accepted proposals can
+feed ECO-006 as source-proposal candidates while target writes remain false.
+Scope: `docs/architecture/ECO_007_INBOX_SOURCE_ARTIFACT_WORKBENCH.md`,
+`docs/decisions/ADR-0069-inbox-source-artifact-workbench.md`,
+`src/ultimate_ai_agent/core/ecosystem/inbox.py`,
+`scripts/verify_eco_007_inbox.py`, `tests/test_eco_007_inbox.py`, and
+`tests/test_eco_007_verifier.py`. Existing Founder Loop Source Inbox and Action
+Inbox remain compatibility product truth. No connector/account/file read,
+route/CLI/UI, external send/write, cross-app execution,
+provider/model/browser/subprocess/background runtime, public release, or
+production authority is accepted.
+Next: ECO-008 may consume accepted proposal refs through separately reviewed
+ChangeSets; do not add live source acquisition or product cutover without its
+own acceptance evidence.
+
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
