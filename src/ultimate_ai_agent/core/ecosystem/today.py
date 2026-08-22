@@ -35,6 +35,8 @@ from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 ECO_TODAY_SCHEMA_VERSION = "uaa-eco-006-today-briefing.v1"
 ECO_TODAY_ORDERING_CONTRACT_REF = "contract-ref:eco-006-visible-ordering:v1"
 _SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:/-]{2,190}$")
+_RAW_PATH_REF_RE = re.compile(r"^(?:[A-Za-z]:/|(?:file|path):/)", re.IGNORECASE)
+_TASK_FRESHNESS_TOLERANCE = timedelta(minutes=5)
 
 
 class TodayProjectionError(RuntimeError):
@@ -91,7 +93,11 @@ class _TodayModel(BaseModel):
 
 
 def _validate_ref(value: str, field_name: str) -> str:
-    if not _SAFE_REF_RE.fullmatch(value) or contains_obvious_secret(value):
+    if (
+        not _SAFE_REF_RE.fullmatch(value)
+        or _RAW_PATH_REF_RE.match(value)
+        or contains_obvious_secret(value)
+    ):
         raise ValueError(f"ECO_TODAY_{field_name.upper()}_SAFE_REF_REQUIRED")
     return value
 
@@ -180,7 +186,7 @@ class TodaySourceStatus(_TodayModel):
     result_ref: str | None = None
     freshness: TodayFreshness
     why_status_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
-    evidence_refs: tuple[str, ...] = Field(default=(), max_length=32)
+    evidence_refs: tuple[str, ...] = Field(default=(), max_length=64)
     surfaces: tuple[TodaySurface, ...] = (
         TodaySurface.today,
         TodaySurface.briefing,
@@ -280,7 +286,7 @@ class TodayProjectionItem(_TodayModel):
     lane: TodayLane
     source_result_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
     why_shown_refs: tuple[str, ...] = Field(..., min_length=1, max_length=16)
-    evidence_refs: tuple[str, ...] = Field(default=(), max_length=32)
+    evidence_refs: tuple[str, ...] = Field(default=(), max_length=64)
     receipt_refs: tuple[str, ...] = Field(default=(), max_length=32)
     evidence_state: TodayEvidenceState
     freshness: TodayFreshness
@@ -365,7 +371,7 @@ class MorningBriefingProjection(_TodayModel):
     request: TodayProjectionRequest
     items: tuple[TodayProjectionItem, ...]
     source_statuses: tuple[TodaySourceStatus, ...]
-    carry_forward_proposal_refs: tuple[str, ...]
+    carry_forward_proposals: tuple[TodayCarryForwardProposal, ...]
     section_refs: tuple[str, ...]
     result_ref: str
     projection_only: Literal[True] = True
@@ -378,6 +384,10 @@ class MorningBriefingProjection(_TodayModel):
         _validate_refs(self.section_refs, "section_ref")
         _validate_ref(self.result_ref, "result_ref")
         return self
+
+    @property
+    def carry_forward_proposal_refs(self) -> tuple[str, ...]:
+        return tuple(item.proposal_ref for item in self.carry_forward_proposals)
 
 
 class TodayAndBriefingResult(_TodayModel):
@@ -481,10 +491,14 @@ def build_today_and_morning_briefing(
         if source.workspace_ref != request.workspace_ref:
             raise TodayProjectionError("ECO_TODAY_TASK_WORKSPACE_MISMATCH")
         task_as_of = _timestamp(source.result.query.as_of)
-        assert task_as_of is not None
+        if task_as_of is None:
+            raise TodayProjectionError("ECO_TODAY_TASK_SOURCE_AS_OF_REQUIRED")
+        task_age = abs(
+            request.as_of.astimezone(timezone.utc) - task_as_of.astimezone(timezone.utc)
+        )
         task_freshness = (
             TodayFreshness.current
-            if task_as_of >= request.as_of
+            if task_age <= _TASK_FRESHNESS_TOLERANCE
             else TodayFreshness.stale
         )
         status = TodaySourceStatus(
@@ -504,6 +518,8 @@ def build_today_and_morning_briefing(
         )
         add_status(status)
         for task in source.result.tasks:
+            if task.workspace_ref != request.workspace_ref:
+                raise TodayProjectionError("ECO_TODAY_TASK_RECORD_WORKSPACE_MISMATCH")
             if task.archived or task.status == TaskStatus.completed:
                 continue
             due_at = _timestamp(task.due_at)
@@ -535,7 +551,7 @@ def build_today_and_morning_briefing(
             elif start_at is not None and start_at.astimezone(zone).date() == local_day:
                 lane = TodayLane.agenda
                 lane_ordinal = 1
-                urgency = 2
+                urgency = 1
                 why.append("why-shown-ref:eco-006/task-starts-today")
             elif due_at is not None and due_at.astimezone(zone).date() == local_day:
                 urgency = 2
@@ -570,7 +586,11 @@ def build_today_and_morning_briefing(
                     ordering_factors=TodayOrderingFactors(
                         lane_ordinal=lane_ordinal,
                         urgency_ordinal=urgency,
-                        time_ordinal=due_at or start_at,
+                        time_ordinal=(
+                            start_at
+                            if "why-shown-ref:eco-006/task-starts-today" in why
+                            else due_at or start_at
+                        ),
                         canonical_ref=task.task_ref,
                     ),
                 ),
@@ -603,6 +623,8 @@ def build_today_and_morning_briefing(
         )
         add_status(status)
         for projection in source.result.occurrence_items:
+            if projection.projection_state != "current":
+                continue
             occurrence = projection.occurrence
             if not (
                 occurrence.starts_at < local_end and occurrence.ends_at > local_start
@@ -655,12 +677,19 @@ def build_today_and_morning_briefing(
                 "today-source-ref", {"owner": "crm", "result": source.result.result_ref}
             ),
             result_ref=source.result.result_ref,
-            freshness=TodayFreshness.current,
-            why_status_refs=("why-source-status-ref:eco-006/private-crm-result",),
+            freshness=TodayFreshness.stale,
+            why_status_refs=(
+                "why-source-status-ref:eco-006/crm-capture-time-unavailable",
+            ),
             surfaces=surfaces,
         )
         add_status(status)
         for follow_up in source.result.follow_ups:
+            if (
+                follow_up.crm_workspace_ref
+                != source.result.crm_workspace.crm_workspace_ref
+            ):
+                raise TodayProjectionError("ECO_TODAY_CRM_FOLLOW_UP_WORKSPACE_MISMATCH")
             if follow_up.archived or follow_up.state != CrmFollowUpState.open:
                 continue
             due_at = follow_up.due_at
@@ -695,7 +724,7 @@ def build_today_and_morning_briefing(
                     source_result_refs=(source.result.result_ref,),
                     why_shown_refs=tuple(why),
                     evidence_state=TodayEvidenceState.missing,
-                    freshness=TodayFreshness.current,
+                    freshness=TodayFreshness.stale,
                     due_at=due_at,
                     ordering_factors=TodayOrderingFactors(
                         lane_ordinal=lane_ordinal,
@@ -794,9 +823,7 @@ def build_today_and_morning_briefing(
         request=request,
         items=briefing_items_tuple,
         source_statuses=briefing_statuses_tuple,
-        carry_forward_proposal_refs=tuple(
-            item.proposal_ref for item in briefing_proposals_tuple
-        ),
+        carry_forward_proposals=briefing_proposals_tuple,
         section_refs=tuple(
             f"briefing-section-ref:eco-006/{lane.value}"
             for lane in TodayLane

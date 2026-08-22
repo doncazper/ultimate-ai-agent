@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -274,7 +274,10 @@ def test_surface_specific_privacy_and_workspace_scoping_fail_closed() -> None:
     assert not result.today.carry_forward_proposals
     assert len(result.morning_briefing.items) == 1
     assert len(result.morning_briefing.source_statuses) == 1
-    assert len(result.morning_briefing.carry_forward_proposal_refs) == 1
+    assert len(result.morning_briefing.carry_forward_proposals) == 1
+    proposal = result.morning_briefing.carry_forward_proposals[0]
+    assert proposal.proposal_ref in result.morning_briefing.carry_forward_proposal_refs
+    assert proposal.mutation_authorized is False
 
     with pytest.raises(TodayProjectionError, match="ECO_TODAY_CRM_WORKSPACE_MISMATCH"):
         build_today_and_morning_briefing(
@@ -331,4 +334,119 @@ def test_duplicate_items_and_wrong_canonical_owners_fail_closed() -> None:
             item_kind=TodayItemKind.plan_milestone,
             source_result_refs=("plan-result-ref:wrong-owner",),
             why_shown_refs=("why-shown-ref:eco-006/wrong-owner",),
+        )
+
+
+def test_nested_task_and_crm_workspace_membership_fails_closed() -> None:
+    tasks = _tasks()
+    mismatched_task = tasks.result.tasks[0].model_copy(
+        update={"workspace_ref": "workspace-ref:other"}
+    )
+    mismatched_tasks = tasks.model_copy(
+        update={"result": tasks.result.model_copy(update={"tasks": (mismatched_task,)})}
+    )
+    with pytest.raises(
+        TodayProjectionError, match="ECO_TODAY_TASK_RECORD_WORKSPACE_MISMATCH"
+    ):
+        build_today_and_morning_briefing(
+            request=_request(), task_sources=(mismatched_tasks,)
+        )
+
+    crm = _crm()
+    mismatched_follow_up = crm.result.follow_ups[0].model_copy(
+        update={"crm_workspace_ref": "crm-workspace-ref:private"}
+    )
+    mismatched_crm = crm.model_copy(
+        update={
+            "result": crm.result.model_copy(
+                update={"follow_ups": (mismatched_follow_up,)}
+            )
+        }
+    )
+    with pytest.raises(
+        TodayProjectionError, match="ECO_TODAY_CRM_FOLLOW_UP_WORKSPACE_MISMATCH"
+    ):
+        build_today_and_morning_briefing(
+            request=_request(), crm_sources=(mismatched_crm,)
+        )
+
+
+def test_calendar_non_current_projections_are_not_daily_commitments() -> None:
+    calendar = _calendar()
+    archived_projection = calendar.result.occurrence_items[0].model_copy(
+        update={"projection_state": "archived"}
+    )
+    archived_calendar = calendar.model_copy(
+        update={
+            "result": calendar.result.model_copy(
+                update={"occurrence_items": (archived_projection,)}
+            )
+        }
+    )
+
+    result = build_today_and_morning_briefing(
+        request=_request(), calendar_sources=(archived_calendar,)
+    )
+
+    assert not result.today.items
+    assert not result.morning_briefing.items
+    assert len(result.today.source_statuses) == 1
+
+
+def test_scheduled_tasks_order_by_start_and_accept_canonical_evidence_limit() -> None:
+    evidence_refs = tuple(f"evidence-ref:task-{index}" for index in range(64))
+    scheduled = CanonicalTask(
+        workspace_ref=WORKSPACE,
+        task_ref="task-ref:scheduled",
+        title="Private scheduled task marker",
+        start_at="2026-08-22T09:00:00Z",
+        due_at="2026-08-22T18:00:00Z",
+        evidence_refs=evidence_refs,
+    )
+    source = TaskTodaySource(
+        result=TaskListResult(
+            query=TaskQuery(
+                workspace_ref=WORKSPACE,
+                view=TaskView.today,
+                as_of=(AS_OF - timedelta(seconds=1)).isoformat(),
+            ),
+            tasks=(scheduled,),
+            result_ref="task-result-ref:scheduled",
+        )
+    )
+
+    result = build_today_and_morning_briefing(
+        request=_request(), task_sources=(source,), calendar_sources=(_calendar(),)
+    )
+
+    assert [item.canonical_ref for item in result.today.items] == [
+        "task-ref:scheduled",
+        "occurrence-ref:today",
+    ]
+    task_item = result.today.items[0]
+    assert task_item.ordering_factors.time_ordinal == datetime(
+        2026, 8, 22, 9, tzinfo=timezone.utc
+    )
+    assert task_item.evidence_refs == evidence_refs
+    task_status = next(
+        status
+        for status in result.today.source_statuses
+        if status.owner_app == CanonicalOwnerId.tasks
+    )
+    assert task_status.freshness == TodayFreshness.current
+    crm_result = build_today_and_morning_briefing(
+        request=_request(), crm_sources=(_crm(),)
+    )
+    assert crm_result.today.source_statuses[0].freshness == TodayFreshness.stale
+    assert crm_result.today.items[0].freshness == TodayFreshness.stale
+
+
+@pytest.mark.parametrize(
+    "raw_path_ref", ("C:/Users/alice/project", "path:/home/alice/project")
+)
+def test_path_shaped_values_are_not_safe_refs(raw_path_ref: str) -> None:
+    with pytest.raises(ValueError, match="ECO_TODAY_WORKSPACE_REF_SAFE_REF_REQUIRED"):
+        TodayProjectionRequest(
+            workspace_ref=raw_path_ref,
+            as_of=AS_OF,
         )

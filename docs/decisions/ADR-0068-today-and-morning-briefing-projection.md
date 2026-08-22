@@ -26,13 +26,17 @@ Inbox, blocker, and receipt candidates as typed bounded inputs whose owner must
 match the canonical ownership map.
 
 Expose current, stale, missing, and blocked source status without attempting a
-refresh. Reject cross-workspace sources, candidates, and statuses. Reject
+refresh. Use a five-minute tolerance for Task snapshot freshness and report CRM
+stale while its accepted read model has no capture timestamp. Omit archived or
+missing task-backed Calendar projections from daily commitments. Reject
+cross-workspace sources, nested records, candidates, and statuses. Reject
 duplicate owner/ref items and source statuses.
 
 Apply CRM surface privacy before emitting any item, status, proposal, or proof
 ref. A workspace excluded from Today and Briefing leaves no projection trace.
 Keep carry-forward proposal-only, separately compose it for each surface, and
-grant neither mutation nor background-work authority.
+return the bounded proposal objects so each surface can inspect non-authority
+posture. Grant neither mutation nor background-work authority.
 
 Do not cut over the existing Today or Morning Briefing product routes. Add no
 storage, API, CLI, Control Center UI, connector, model/provider, web/browser,

@@ -36,10 +36,15 @@ fixture-owned primary truth.
 
 Each source status is bound to the requested workspace and distinguishes
 `current`, `stale`, `missing`, and `blocked`. Current status requires an exact
-source result ref. Items separately expose `present`, `missing`, or
-`not_applicable` evidence posture. Result refs bind the request, ordered item
-refs, source-status refs, and carry-forward proposal refs, so a source result or
-freshness change changes the projection proof.
+source result ref. Task results within five minutes of the projection request
+are current; older or farther-future snapshots are stale. The accepted CRM read
+model has no capture timestamp, so CRM source statuses and items conservatively
+report stale rather than claiming current freshness. Non-current task-backed
+Calendar projections are omitted from daily commitments. Items separately
+expose `present`, `missing`, or `not_applicable` evidence posture. Result refs
+bind the request, ordered item refs, source-status refs, and carry-forward
+proposal refs, so a source result or freshness change changes the projection
+proof.
 
 ## Privacy and canonical ownership
 
@@ -60,7 +65,8 @@ deterministic carry-forward proposal. The proposal records the canonical owner,
 record ref, original due time, proposed local date, and why-proposed ref. It
 always reports `mutation_authorized=false` and
 `background_work_started=false`. Today and Briefing proposals are composed
-separately so surface-specific CRM privacy cannot leak through proposal refs.
+separately as inspectable bounded objects so surface-specific CRM privacy cannot
+leak through proposal details or refs.
 
 ## Compatibility and deferred work
 
