@@ -280,6 +280,25 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         assert proposal["source_refresh_enabled"] is False
         assert proposal["raw_source_ingestion_enabled"] is False
         assert proposal["write_authority_enabled"] is False
+    connector_read_platform = data["connector_read_platform"]
+    assert connector_read_platform["status"] == (
+        "implemented_inactive_no_snapshot_source"
+    )
+    assert connector_read_platform["configured_source_count"] == 0
+    assert connector_read_platform["ready_source_count"] == 0
+    assert connector_read_platform["fixture_or_caller_supplied_snapshot_only"] is True
+    assert connector_read_platform["safe_disable_active"] is False
+    for field in [
+        "live_account_connected",
+        "network_access_enabled",
+        "account_auth_enabled",
+        "background_sync_enabled",
+        "raw_content_enabled",
+        "connector_write_enabled",
+        "production_authority_enabled",
+    ]:
+        assert connector_read_platform[field] is False
+
     draft_proposals = data["connector_draft_proposals"]
     assert draft_proposals["schema_version"] == "connector_draft_proposal_read_model.v1"
     assert draft_proposals["source"] == "python_core_connector_draft_proposal_read_model"

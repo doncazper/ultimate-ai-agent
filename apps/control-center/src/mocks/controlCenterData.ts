@@ -10341,10 +10341,13 @@ const sourceReadinessItems: FounderLoopSourceReadinessItem[] = [
     source_kind: "calendar",
     status: "not_configured",
     safe_summary:
-      "Calendar source readiness is not configured; commitments remain blocked until a read-only metadata contract exists.",
+      "Mock fallback cannot confirm the backend exact calendar metadata snapshot adapter; no snapshot or live provider account is configured.",
     next_safe_action:
-      "Define calendar metadata refs and stale-state checks before calendar-derived commitments enter Today.",
-    source_refs: ["contract-ref:calendar-read-only-missing"],
+      "Reconnect the local backend before inspecting snapshot-lane truth or planning a separate provider-backed read lane.",
+    source_refs: [
+      "contract-ref:eco-009-read-only-connector-platform:v1",
+      "contract-ref:calendar-read-only-missing",
+    ],
     evidence_refs: ["evidence-ref:source-readiness:calendar"],
     blocked_state_refs: [
       "blocked-state:no-calendar-read-authority",
@@ -10353,7 +10356,7 @@ const sourceReadinessItems: FounderLoopSourceReadinessItem[] = [
       "blocked-state:no-background-polling",
     ],
     authority_boundary:
-      "Calendar state is a readiness label only; no account auth, event read, event write, invite, or connector runtime authority.",
+      "Mock fallback grants no snapshot read, live account auth, external event read, event write, invite, or connector runtime authority.",
   },
   {
     source_ref: "source-ref:tasks:manual-only",
@@ -10472,6 +10475,37 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "Mock source readiness describes UI shape only. It is not backend-owned connector truth and does not grant email, calendar, connector, polling, refresh, notification, or delivery authority.",
   next_safe_action:
     "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
+};
+
+const connectorReadPlatform: FounderLoopSourceReadiness["connector_read_platform"] = {
+  schema_version: "uaa-eco-009-read-only-connector-platform.v1",
+  contract_ref: "contract-ref:eco-009-read-only-connector-platform:v1",
+  source: "mock_fallback_non_authoritative",
+  status: "implemented_inactive_no_snapshot_source",
+  adapter_ref: "connector-adapter-ref:eco-009:calendar-metadata-snapshot-v1",
+  configured_source_count: 0,
+  revoked_source_count: 0,
+  ready_source_count: 0,
+  source_refs: [],
+  provenance_refs: [],
+  retention_refs: [],
+  safe_disable_supported: true,
+  safe_disable_active: false,
+  revocation_supported: true,
+  bounded_cursor_supported: true,
+  rate_limit_supported: true,
+  fixture_or_caller_supplied_snapshot_only: true,
+  live_account_connected: false,
+  network_access_enabled: false,
+  account_auth_enabled: false,
+  background_sync_enabled: false,
+  raw_content_enabled: false,
+  connector_write_enabled: false,
+  production_authority_enabled: false,
+  safe_summary:
+    "Mock ECO-009 shape only; the backend exact calendar metadata snapshot adapter is unavailable.",
+  next_safe_action:
+    "Reconnect the local backend before inspecting an already-redacted caller-supplied snapshot.",
 };
 
 const sourceReadOnlyMetadataContracts: FounderLoopSourceReadiness["read_only_metadata_contracts"] =
@@ -10836,6 +10870,7 @@ const sourceReadiness: FounderLoopSourceReadiness = {
   read_only_metadata_contracts: sourceReadOnlyMetadataContracts,
   read_only_metadata_contract_count: sourceReadOnlyMetadataContracts.length,
   connector_draft_proposals: connectorDraftProposals,
+  connector_read_platform: connectorReadPlatform,
   supported_statuses: sourceReadinessPosture.supported_statuses,
   missing_contract_refs: sourceReadinessPosture.missing_contract_refs,
   blocked_state_refs: sourceReadinessPosture.blocked_state_refs,

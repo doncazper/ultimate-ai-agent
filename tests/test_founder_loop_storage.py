@@ -777,6 +777,21 @@ def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) 
     assert source_readiness["account_auth_enabled"] is False
     assert source_readiness["raw_source_ingestion_enabled"] is False
     assert source_readiness["write_authority_enabled"] is False
+    connector_read_platform = source_readiness["connector_read_platform"]
+    assert connector_read_platform["status"] == (
+        "implemented_inactive_no_snapshot_source"
+    )
+    assert connector_read_platform["configured_source_count"] == 0
+    assert connector_read_platform["ready_source_count"] == 0
+    assert connector_read_platform["fixture_or_caller_supplied_snapshot_only"] is True
+    assert connector_read_platform["safe_disable_active"] is False
+    assert connector_read_platform["live_account_connected"] is False
+    assert connector_read_platform["network_access_enabled"] is False
+    assert connector_read_platform["account_auth_enabled"] is False
+    assert connector_read_platform["background_sync_enabled"] is False
+    assert connector_read_platform["raw_content_enabled"] is False
+    assert connector_read_platform["connector_write_enabled"] is False
+    assert connector_read_platform["production_authority_enabled"] is False
     assert set(source_readiness["supported_statuses"]) >= {
         "ready",
         "blocked",

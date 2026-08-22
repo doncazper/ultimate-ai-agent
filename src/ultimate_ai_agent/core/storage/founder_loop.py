@@ -229,6 +229,9 @@ from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
 from ultimate_ai_agent.core.connectors.founder_loop_read_only_integration_contracts import (
     build_fcc_read_only_integration_contract_pair,
 )
+from ultimate_ai_agent.core.connectors.read_only_platform import (
+    build_eco009_connector_read_platform_posture,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -3396,15 +3399,22 @@ def _source_readiness_items(
             "source_kind": "calendar",
             "status": "not_configured",
             "safe_summary": (
-                "Calendar source readiness is not configured; commitments remain "
-                "blocked until a read-only metadata contract exists."
+                "The exact caller-supplied calendar metadata snapshot adapter is "
+                "implemented but no snapshot is configured; live provider-backed "
+                "calendar access is not present."
             ),
             "next_safe_action": (
-                "Define calendar metadata refs and stale-state checks before "
-                "calendar-derived commitments enter Today."
+                "Register an already-redacted snapshot for bounded local inspection, "
+                "or separately admit one exact provider-backed read lane."
             ),
-            "source_refs": ["contract-ref:calendar-read-only-missing"],
-            "evidence_refs": ["evidence-ref:source-readiness:calendar"],
+            "source_refs": [
+                "contract-ref:eco-009-read-only-connector-platform:v1",
+                "contract-ref:calendar-read-only-missing",
+            ],
+            "evidence_refs": [
+                "evidence-ref:source-readiness:calendar",
+                "evidence-ref:eco-009:calendar-metadata-snapshot-adapter",
+            ],
             "blocked_state_refs": [
                 "blocked-state:no-calendar-read-authority",
                 "blocked-state:no-calendar-write",
@@ -3412,8 +3422,9 @@ def _source_readiness_items(
                 "blocked-state:no-background-polling",
             ],
             "authority_boundary": (
-                "Calendar state is a readiness label only; no account auth, "
-                "event read, event write, invite, or connector runtime authority."
+                "The snapshot lane reads caller-supplied redacted metadata only; "
+                "no live account auth, external event read, event write, invite, "
+                "or broad connector runtime authority."
             ),
         },
         {
@@ -3596,6 +3607,7 @@ def _source_readiness_read_model(
     connector_draft_proposals = (
         build_connector_draft_proposal_read_model().storage_record()
     )
+    connector_read_platform = build_eco009_connector_read_platform_posture()
     blocked_authority_refs = _unique_sorted_refs(
         [
             *source_readiness_posture["blocked_authority_refs"],
@@ -3623,6 +3635,7 @@ def _source_readiness_read_model(
                 for contract in read_only_metadata_contracts
                 for ref in contract.get("evidence_refs", [])
             ],
+            "evidence-ref:eco-009:calendar-metadata-snapshot-adapter",
         ]
     )
     proposal_candidates = _source_readiness_proposal_candidates(
@@ -3652,6 +3665,7 @@ def _source_readiness_read_model(
         "read_only_metadata_contracts": read_only_metadata_contracts,
         "read_only_metadata_contract_count": len(read_only_metadata_contracts),
         "connector_draft_proposals": connector_draft_proposals,
+        "connector_read_platform": connector_read_platform,
         "supported_statuses": source_readiness_posture["supported_statuses"],
         "missing_contract_refs": source_readiness_posture["missing_contract_refs"],
         "blocked_state_refs": source_readiness_posture["blocked_state_refs"],

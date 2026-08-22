@@ -1559,6 +1559,26 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+ECO-009 Exact Read-Only Connector Platform — First Lane
+Goal: establish the shared exact connector-read contract without inventing
+live provider or account authority.
+Status: accepted as an implemented-inactive caller-supplied calendar metadata
+snapshot adapter on 2026-08-22. Python Core enforces workspace/source binding,
+allowlisted fields, time/page bounds, expiring cursors, provenance, retention,
+idempotent request refs, rate limits, revocation, and safe-disable. Source
+Readiness shows the exact lane and its failure posture without changing the
+broad connector-runtime flag.
+Scope: `docs/architecture/ECO_009_EXACT_READ_ONLY_CONNECTOR_PLATFORM.md`,
+`src/ultimate_ai_agent/core/connectors/read_only_platform.py`,
+`scripts/inspect_eco_009_read_only_connectors.py`,
+`scripts/verify_eco_009_read_only_connectors.py`, and
+`tests/test_eco_009_read_only_connectors.py`. No live account, authentication,
+external read, network, background sync, raw content, connector write,
+provider/model call, public release, or production authority is accepted.
+Next: admit at most one separately named provider-backed source adapter after
+its provider/license, credential, exact-scope, test-account, audit, revocation,
+and safe-disable evidence exists.
+
 ECO-008 EntityLink And ChangeSet Engine
 Goal: connect canonical records and commit bounded local multi-app corrections
 without duplicated truth or distributed-atomicity claims.

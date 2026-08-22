@@ -931,15 +931,23 @@ filing, provider/model, or professional authority.
 
 ### `ECO-009` Exact read-only connector program
 
+- Accepted first lane: one exact, local, caller-supplied or synthetic calendar
+  metadata snapshot adapter implements field/time/page bounds, expiring cursors,
+  provenance, retention, request replay binding, revocation, safe-disable, rate
+  limits, and truthful failure posture. Source Readiness exposes it as
+  implemented inactive until a redacted snapshot is explicitly registered.
 - Graduate selected calendar, email, message, CRM, meeting, form, and other
-  sources one capability at a time.
+  provider-backed sources one capability at a time; none is accepted by the
+  first snapshot lane.
 - Add source selection, field/time bounds, sync cursors, provenance, conflict,
   retention, revocation, safe-disable, rate limits, and failure UI.
 - Finance and compliance sources enter only as separately named
   `FIN-CONN-001` and `COMP-CONN-001` adapter milestones after their local-domain,
   license/provider, threat-model, and exact-capability gates.
 
-Gate: connector-specific proof exists; no broad read or account-sync flag.
+Gate: connector-specific proof exists; no broad read or account-sync flag. The
+accepted snapshot adapter performs no external read, account auth, network I/O,
+background sync, raw-content ingestion, or connector write.
 
 ### `ECO-010` Proposal intelligence and meeting workflows
 
