@@ -22,6 +22,10 @@ from ultimate_ai_agent.core.ecosystem.boards import (
     BoardRepository,
     BoardSubjectKind,
 )
+from ultimate_ai_agent.core.ecosystem.calendar import (
+    CalendarError,
+    CalendarRepository,
+)
 from ultimate_ai_agent.core.ecosystem.local_data import (
     ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES,
     EcosystemConflict,
@@ -30,6 +34,7 @@ from ultimate_ai_agent.core.ecosystem.local_data import (
     PutRecord,
     UnitOfWorkReceipt,
 )
+from ultimate_ai_agent.core.ecosystem.tasks import TaskError, TaskRepository
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
 
@@ -324,6 +329,7 @@ class PrivateCrmActivity(_PrivateCrmModel):
     summary: str = Field(..., repr=False)
     notes: str | None = Field(default=None, repr=False)
     task_ref: str | None = None
+    calendar_set_ref: str | None = None
     event_ref: str | None = None
     archived: bool = False
 
@@ -341,12 +347,16 @@ class PrivateCrmActivity(_PrivateCrmModel):
         )
         if self.task_ref is not None:
             _validate_ref(self.task_ref, "task_ref")
+        if self.calendar_set_ref is not None:
+            _validate_ref(self.calendar_set_ref, "calendar_set_ref")
         if self.event_ref is not None:
             _validate_ref(self.event_ref, "event_ref")
         if self.kind == CrmActivityKind.task_link and self.task_ref is None:
             raise ValueError("ECO_CRM_TASK_LINK_REF_REQUIRED")
         if self.kind == CrmActivityKind.event_link and self.event_ref is None:
             raise ValueError("ECO_CRM_EVENT_LINK_REF_REQUIRED")
+        if (self.calendar_set_ref is None) != (self.event_ref is None):
+            raise ValueError("ECO_CRM_EVENT_OWNER_TUPLE_REQUIRED")
         return self
 
 
@@ -634,11 +644,20 @@ class PrivateCrmRepository:
         platform: EcosystemLocalDataPlatform,
         *,
         board_repository: BoardRepository,
+        calendar_repository: CalendarRepository,
+        task_repository: TaskRepository,
     ) -> None:
-        if board_repository.platform is not platform:
-            raise ValueError("ECO_CRM_BOARD_REPOSITORY_PLATFORM_MISMATCH")
+        for repository, code in (
+            (board_repository, "ECO_CRM_BOARD_REPOSITORY_PLATFORM_MISMATCH"),
+            (calendar_repository, "ECO_CRM_CALENDAR_REPOSITORY_PLATFORM_MISMATCH"),
+            (task_repository, "ECO_CRM_TASK_REPOSITORY_PLATFORM_MISMATCH"),
+        ):
+            if repository.platform is not platform:
+                raise ValueError(code)
         self.platform = platform
         self.board_repository = board_repository
+        self.calendar_repository = calendar_repository
+        self.task_repository = task_repository
 
     @staticmethod
     def mutation_resource_refs(
@@ -656,6 +675,12 @@ class PrivateCrmRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        try:
+            portfolio = PrivateCrmPortfolio.model_validate(
+                portfolio.model_dump(mode="json")
+            )
+        except ValueError as exc:
+            raise PrivateCrmConflict(_validation_code(exc)) from exc
         if portfolio.version != 1 or portfolio.undo_stack:
             raise PrivateCrmConflict("ECO_CRM_CREATE_VERSION_INVALID")
         context = self._request_context_ref(
@@ -665,27 +690,34 @@ class PrivateCrmRepository:
                 "operation_ref": operation_ref,
             },
         )
-        replay = self._replay(
-            workspace_ref=portfolio.workspace_ref,
-            record_ref=portfolio.portfolio_ref,
-            operation_ref=operation_ref,
-            idempotency_ref=idempotency_ref,
-            approval=approval,
-            request_context_ref=context,
-        )
-        if replay is not None:
-            return replay
-        self._ensure_missing(portfolio.workspace_ref, portfolio.portfolio_ref)
-        self._validate_board_bindings(portfolio)
-        return self._apply(
-            workspace_ref=portfolio.workspace_ref,
-            record=portfolio,
-            expected_version=0,
-            operation_ref=operation_ref,
-            idempotency_ref=idempotency_ref,
-            approval=approval,
-            request_context_ref=context,
-        )
+        with self.platform.approval_authority.hold_validation_lock():
+            replay = self._replay(
+                workspace_ref=portfolio.workspace_ref,
+                record_ref=portfolio.portfolio_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=context,
+            )
+            if replay is not None:
+                return replay
+            self._ensure_missing(portfolio.workspace_ref, portfolio.portfolio_ref)
+            if self.platform.search(
+                workspace_ref=portfolio.workspace_ref,
+                term=_ALL_CRM_PORTFOLIOS_SEARCH_TERM,
+            ):
+                raise PrivateCrmConflict("ECO_CRM_WORKSPACE_PORTFOLIO_ALREADY_EXISTS")
+            self._validate_canonical_links(portfolio)
+            self._validate_board_bindings(portfolio)
+            return self._apply(
+                workspace_ref=portfolio.workspace_ref,
+                record=portfolio,
+                expected_version=0,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+                approval=approval,
+                request_context_ref=context,
+            )
 
     def read(self, *, workspace_ref: str, portfolio_ref: str) -> PrivateCrmPortfolio:
         record = self.platform.read(
@@ -1095,6 +1127,7 @@ class PrivateCrmRepository:
         updated = self._with_bounded_undo(
             current=current, snapshot=snapshot, drop_last_undo=drop_last_undo
         )
+        self._validate_canonical_links(updated)
         self._validate_board_bindings(updated)
         return self._apply(
             workspace_ref=workspace_ref,
@@ -1217,6 +1250,48 @@ class PrivateCrmRepository:
                 or card.subject_ref != item.pipeline_object_ref
             ):
                 raise PrivateCrmConflict("ECO_CRM_PIPELINE_OBJECT_CARD_BINDING_INVALID")
+
+    def _validate_canonical_links(self, portfolio: PrivateCrmPortfolio) -> None:
+        task_refs = {
+            item.task_ref
+            for item in (*portfolio.activities, *portfolio.follow_ups)
+            if not item.archived and item.task_ref is not None
+        }
+        for task_ref in task_refs:
+            try:
+                task = self.task_repository.read(
+                    workspace_ref=portfolio.workspace_ref, task_ref=task_ref
+                )
+            except (EcosystemLocalDataError, TaskError) as exc:
+                raise PrivateCrmConflict("ECO_CRM_TASK_LINK_NOT_FOUND") from exc
+            if task.archived:
+                raise PrivateCrmConflict("ECO_CRM_TASK_LINK_ARCHIVED")
+
+        event_links = {
+            (item.calendar_set_ref, item.event_ref)
+            for item in portfolio.activities
+            if not item.archived and item.event_ref is not None
+        }
+        for calendar_set_ref, event_ref in event_links:
+            assert calendar_set_ref is not None
+            assert event_ref is not None
+            try:
+                calendar_set = self.calendar_repository.read(
+                    workspace_ref=portfolio.workspace_ref,
+                    calendar_set_ref=calendar_set_ref,
+                )
+            except (CalendarError, EcosystemLocalDataError) as exc:
+                raise PrivateCrmConflict("ECO_CRM_CALENDAR_SET_LINK_NOT_FOUND") from exc
+            if calendar_set.archived:
+                raise PrivateCrmConflict("ECO_CRM_CALENDAR_SET_LINK_ARCHIVED")
+            event = next(
+                (item for item in calendar_set.events if item.event_ref == event_ref),
+                None,
+            )
+            if event is None:
+                raise PrivateCrmConflict("ECO_CRM_EVENT_LINK_NOT_FOUND")
+            if event.archived:
+                raise PrivateCrmConflict("ECO_CRM_EVENT_LINK_ARCHIVED")
 
     def _ensure_missing(self, workspace_ref: str, record_ref: str) -> None:
         try:

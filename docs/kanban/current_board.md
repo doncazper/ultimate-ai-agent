@@ -1001,8 +1001,9 @@ Scope: `docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md`,
 `docs/decisions/ADR-0067-first-class-private-crm.md`,
 `src/ultimate_ai_agent/core/crm/private_repository.py`,
 `scripts/verify_eco_005_private_crm.py`, `tests/test_eco_005_private_crm.py`,
-and `tests/test_eco_005_verifier.py`. Existing CRM M0-M2 remains a
-compatibility/read-only surface. No migration/cutover, API/CLI/UI, external CRM
+and `tests/test_eco_005_verifier.py`. Existing CRM M0/M1 remains compatibility
+and read-only truth; M2 retains its governed local JSONL mutation route and is
+not cut over to this encrypted portfolio. No migration/cutover, new API/CLI/UI, external CRM
 or account sync, connector read/write, send, calendar write, provider/model or
 browser runtime, background worker, production key/path backend, public
 release, or production authority is accepted.

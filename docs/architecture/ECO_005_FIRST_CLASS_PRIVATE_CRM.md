@@ -56,8 +56,10 @@ its result ref to current Board versions. Moving a Board card therefore changes
 the projected pipeline stage without a CRM write or a second Kanban engine.
 
 Tasks remains canonical for task truth and Calendar remains canonical for event
-truth. CRM stores only optional refs; this slice deliberately does not copy or
-mutate those records.
+truth. Active CRM task links must resolve to an active Task in the same ECO-001
+workspace. Event links store and validate the exact same-workspace Calendar Set
+ref plus event ref, preventing ambiguity when separate Calendar Sets reuse an
+event ref. CRM does not copy or mutate those records.
 
 ## Compatibility and deferred work
 

@@ -20,11 +20,13 @@ from ultimate_ai_agent.core.crm.private_repository import (
     PrivateCrmRepository,
 )
 from ultimate_ai_agent.core.ecosystem.boards import BoardRepository
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarRepository
 from ultimate_ai_agent.core.ecosystem.local_data import (
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
     InMemoryLocalDataPathResolver,
 )
+from ultimate_ai_agent.core.ecosystem.tasks import TaskRepository
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -165,8 +167,14 @@ def verify() -> list[str]:
                     resources=(workspace_ref, key_ref),
                 ),
             )
+            task_repository = TaskRepository(platform)
             repository = PrivateCrmRepository(
-                platform, board_repository=BoardRepository(platform)
+                platform,
+                board_repository=BoardRepository(platform),
+                calendar_repository=CalendarRepository(
+                    platform, task_repository=task_repository
+                ),
+                task_repository=task_repository,
             )
             portfolio_ref = "crm-portfolio-ref:verification"
             operation_ref = "operation-ref:create-portfolio"

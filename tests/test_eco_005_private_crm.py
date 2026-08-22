@@ -36,6 +36,13 @@ from ultimate_ai_agent.core.ecosystem.boards import (
     BoardLane,
     BoardRepository,
 )
+from ultimate_ai_agent.core.ecosystem.calendar import (
+    ECO_CALENDAR_MUTATION_ACTION,
+    CalendarEvent,
+    CalendarRepository,
+    CalendarSet,
+    LocalCalendar,
+)
 from ultimate_ai_agent.core.ecosystem.local_data import (
     EcosystemConflict,
     EcosystemLocalDataError,
@@ -43,6 +50,11 @@ from ultimate_ai_agent.core.ecosystem.local_data import (
     InMemoryLocalDataCryptoBackend,
     InMemoryLocalDataPathResolver,
     PutRecord,
+)
+from ultimate_ai_agent.core.ecosystem.tasks import (
+    ECO_TASK_MUTATION_ACTION,
+    CanonicalTask,
+    TaskRepository,
 )
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -117,8 +129,15 @@ def _repositories(
         ),
     )
     boards = BoardRepository(platform)
+    tasks = TaskRepository(platform)
+    calendars = CalendarRepository(platform, task_repository=tasks)
     return (
-        PrivateCrmRepository(platform, board_repository=boards),
+        PrivateCrmRepository(
+            platform,
+            board_repository=boards,
+            calendar_repository=calendars,
+            task_repository=tasks,
+        ),
         boards,
         authority,
         database_path,
@@ -240,6 +259,237 @@ def test_private_relationship_preset_is_excluded_from_shared_surfaces() -> None:
             preset=CrmWorkspacePreset.private_relationships,
             privacy_policy=CrmPrivacyPolicy(included_in_today=True),
         )
+
+
+def test_create_revalidates_models_and_enforces_one_portfolio_per_workspace(
+    tmp_path: Path,
+) -> None:
+    repository, _boards, authority, _database_path = _repositories(tmp_path)
+    invalid = PrivateCrmPortfolio(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        name="Valid before unchecked copy",
+    ).model_copy(update={"name": ""})
+    operation_ref = "operation-ref:create-invalid-crm-portfolio"
+    idempotency_ref = "idempotency-ref:create-invalid-crm-portfolio"
+    with pytest.raises(PrivateCrmConflict, match="ECO_CRM_PORTFOLIO_NAME_INVALID"):
+        repository.create_portfolio(
+            portfolio=invalid,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_approval(
+                authority,
+                action=ECO_CRM_MUTATION_ACTION,
+                resources=_resources(
+                    PrivateCrmRepository,
+                    record_ref=PORTFOLIO,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                ),
+            ),
+        )
+
+    _create_portfolio(repository, authority)
+    second_ref = "crm-portfolio-ref:second"
+    operation_ref = "operation-ref:create-second-crm-portfolio"
+    idempotency_ref = "idempotency-ref:create-second-crm-portfolio"
+    with pytest.raises(
+        PrivateCrmConflict, match="ECO_CRM_WORKSPACE_PORTFOLIO_ALREADY_EXISTS"
+    ):
+        repository.create_portfolio(
+            portfolio=PrivateCrmPortfolio(
+                workspace_ref=WORKSPACE,
+                portfolio_ref=second_ref,
+                name="Second",
+            ),
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_approval(
+                authority,
+                action=ECO_CRM_MUTATION_ACTION,
+                resources=_resources(
+                    PrivateCrmRepository,
+                    record_ref=second_ref,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                ),
+            ),
+        )
+
+
+def test_activity_and_follow_up_links_require_exact_canonical_owners(
+    tmp_path: Path,
+) -> None:
+    repository, _boards, authority, _database_path = _repositories(tmp_path)
+    task_ref = "task-ref:crm-linked"
+    operation_ref = "operation-ref:create-crm-linked-task"
+    idempotency_ref = "idempotency-ref:create-crm-linked-task"
+    repository.task_repository.create(
+        task=CanonicalTask(
+            workspace_ref=WORKSPACE,
+            task_ref=task_ref,
+            title="Synthetic linked task",
+        ),
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=_approval(
+            authority,
+            action=ECO_TASK_MUTATION_ACTION,
+            resources=TaskRepository.mutation_resource_refs(
+                workspace_ref=WORKSPACE,
+                task_ref=task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        ),
+    )
+
+    calendar_set_ref = "calendar-set-ref:crm-linked"
+    calendar_ref = "calendar-ref:crm-linked"
+    event_ref = "event-ref:crm-linked"
+    operation_ref = "operation-ref:create-crm-linked-calendar"
+    idempotency_ref = "idempotency-ref:create-crm-linked-calendar"
+    repository.calendar_repository.create_calendar_set(
+        calendar_set=CalendarSet(
+            workspace_ref=WORKSPACE,
+            calendar_set_ref=calendar_set_ref,
+            name="Synthetic linked calendar set",
+            calendars=(
+                LocalCalendar(
+                    calendar_ref=calendar_ref,
+                    name="Synthetic linked calendar",
+                ),
+            ),
+            events=(
+                CalendarEvent(
+                    event_ref=event_ref,
+                    calendar_ref=calendar_ref,
+                    title="Synthetic linked event",
+                    starts_at=datetime(2026, 8, 22, 16, tzinfo=timezone.utc),
+                    ends_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
+                    timezone="UTC",
+                ),
+            ),
+        ),
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=_approval(
+            authority,
+            action=ECO_CALENDAR_MUTATION_ACTION,
+            resources=_resources(
+                CalendarRepository,
+                record_ref=calendar_set_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        ),
+    )
+
+    _create_portfolio(repository, authority)
+    _mutate(
+        repository,
+        authority,
+        "add_workspace",
+        version=1,
+        item=PrivateCrmWorkspace(
+            crm_workspace_ref=CRM_WORKSPACE,
+            name="Sales",
+            preset=CrmWorkspacePreset.sales,
+        ),
+    )
+    _mutate(
+        repository,
+        authority,
+        "add_person",
+        version=2,
+        item=PrivateCrmPerson(
+            person_ref="person-ref:linked",
+            display_name="Synthetic Linked",
+        ),
+    )
+    _mutate(
+        repository,
+        authority,
+        "add_context",
+        version=3,
+        item=PrivateCrmWorkspaceContext(
+            context_ref="context-ref:linked",
+            crm_workspace_ref=CRM_WORKSPACE,
+            person_ref="person-ref:linked",
+        ),
+    )
+
+    with pytest.raises(PrivateCrmConflict, match="ECO_CRM_TASK_LINK_NOT_FOUND"):
+        _mutate(
+            repository,
+            authority,
+            "add_follow_up",
+            version=4,
+            item=PrivateCrmFollowUp(
+                follow_up_ref="follow-up-ref:missing-task",
+                crm_workspace_ref=CRM_WORKSPACE,
+                context_ref="context-ref:linked",
+                title="Missing task",
+                task_ref="task-ref:missing",
+            ),
+        )
+
+    _mutate(
+        repository,
+        authority,
+        "add_follow_up",
+        version=4,
+        item=PrivateCrmFollowUp(
+            follow_up_ref="follow-up-ref:linked-task",
+            crm_workspace_ref=CRM_WORKSPACE,
+            context_ref="context-ref:linked",
+            title="Linked task",
+            task_ref=task_ref,
+        ),
+    )
+    with pytest.raises(ValueError, match="ECO_CRM_EVENT_OWNER_TUPLE_REQUIRED"):
+        PrivateCrmActivity(
+            activity_ref="activity-ref:ownerless-event",
+            crm_workspace_ref=CRM_WORKSPACE,
+            context_refs=("context-ref:linked",),
+            kind=CrmActivityKind.event_link,
+            occurred_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
+            summary="Ownerless event link",
+            event_ref=event_ref,
+        )
+    with pytest.raises(PrivateCrmConflict, match="ECO_CRM_CALENDAR_SET_LINK_NOT_FOUND"):
+        _mutate(
+            repository,
+            authority,
+            "add_activity",
+            version=5,
+            item=PrivateCrmActivity(
+                activity_ref="activity-ref:wrong-calendar-set",
+                crm_workspace_ref=CRM_WORKSPACE,
+                context_refs=("context-ref:linked",),
+                kind=CrmActivityKind.event_link,
+                occurred_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
+                summary="Wrong calendar set",
+                calendar_set_ref="calendar-set-ref:missing",
+                event_ref=event_ref,
+            ),
+        )
+    _mutate(
+        repository,
+        authority,
+        "add_activity",
+        version=5,
+        item=PrivateCrmActivity(
+            activity_ref="activity-ref:linked-event",
+            crm_workspace_ref=CRM_WORKSPACE,
+            context_refs=("context-ref:linked",),
+            kind=CrmActivityKind.event_link,
+            occurred_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
+            summary="Exact event link",
+            calendar_set_ref=calendar_set_ref,
+            event_ref=event_ref,
+        ),
+    )
 
 
 def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(

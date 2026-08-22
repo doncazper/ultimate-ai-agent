@@ -32,8 +32,13 @@ Reuse ECO-003 Boards for every pipeline. CRM retains a Board ref and an exact
 card binding, but no lane, stage, position, WIP, title, or description copy.
 Read models resolve current Board placement and bind results to Board versions.
 
-Keep CRM M0-M2 intact. Migration and product cutover require later explicit
-acceptance and are not implied by this decision.
+Resolve active Task links through the same-workspace canonical Task repository.
+Bind Calendar event links to an exact Calendar Set ref and event ref tuple and
+validate that active tuple before persistence.
+
+Keep CRM M0/M1 compatibility/read-only contracts and the existing governed M2
+local JSONL mutation lane intact. Migration and product cutover require later
+explicit acceptance and are not implied by this decision.
 
 ## Consequences
 
