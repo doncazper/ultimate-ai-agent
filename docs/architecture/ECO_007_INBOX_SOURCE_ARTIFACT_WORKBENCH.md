@@ -15,7 +15,8 @@ domains.
 The accepted repository supports:
 
 - manual and synthetic source bindings with explicit privacy and retention;
-- content-free import plans followed by exact approval-bound commits;
+- content-free import plans whose digest binds the complete private artifact
+  payload, followed by exact approval-bound commits;
 - encrypted private artifact titles and content on the ECO-001 data plane;
 - triage state, classification, typed same-workspace links, tags, and defer
   posture;
@@ -34,8 +35,11 @@ plans, receipts, evidence, and result refs contain digests and safe refs rather
 than raw content, raw queries, local paths, provider payloads, prompts,
 responses, or logs. Search normalizes the private query, uses keyed blind
 indexes, and returns only a query hash ref plus workspace-bound artifact
-records. A caller already authorized to read that workspace may receive the
-decrypted artifact; unrelated workspaces receive no result.
+records. Because ECO-001 bounds each record to 64 index terms, the repository
+also performs a local decrypt-and-filter pass over that workspace so later
+content terms remain searchable. A caller already authorized to read that
+workspace may receive the decrypted artifact; unrelated workspaces receive no
+result.
 
 Source locators, participant refs, attachment refs, evidence refs, links, and
 other durable identifiers must be safe refs. Raw path-shaped and secret-shaped
@@ -53,8 +57,9 @@ domain.
 
 The proposal permanently reports `mutation_authorized=false`,
 `target_write_performed=false`, `raw_content_included=false`, and
-`model_output_is_authority=false`. Only an accepted proposal can become an
-ECO-006 `source_proposal` candidate, which still grants no target mutation.
+`model_output_is_authority=false`. Only a proposal reloaded from durable
+repository state after accepted review can become an ECO-006 `source_proposal`
+candidate, which still grants no target mutation.
 ECO-008 remains responsible for separately reviewed cross-app ChangeSets.
 
 ## Explicit exclusions

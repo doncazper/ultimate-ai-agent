@@ -18,20 +18,24 @@ Store manual and synthetic source bindings, artifacts, and threads in the
 encrypted ECO-001 data plane under canonical Inbox ownership. Add one exact
 repository-only `ecosystem.inbox.apply` authority lane for four Inbox record
 kinds. Bind every mutation to exact approval resources and encrypted
-idempotent receipts. Keep import plans, safe summaries, result refs, and durable
-evidence content-free.
+idempotent receipts. Bind a digest of the complete private artifact payload
+into each import plan while keeping plans, safe summaries, result refs, and
+durable evidence content-free.
 
 Require one workspace, binding, privacy scope, retention posture, and source
 mode on each artifact. Permit only same-workspace entity links and threads made
-from existing artifacts on the same binding. Use keyed blind-index terms for
-search and exclude archived records. Preserve expiry and retention-candidate
-inspection without implementing deletion policy or a background worker.
+from existing artifacts on the same binding. Use keyed blind-index terms plus
+a workspace-local decrypt-and-filter fallback for complete search beyond the
+per-record term limit, and exclude archived records. Preserve expiry and
+retention-candidate inspection without implementing deletion policy or a
+background worker.
 
 Represent downstream action only as a reviewed source proposal. A proposal can
-name its intended canonical owner and become an ECO-006 Today candidate after
-human review, but it never mutates that owner. Keep mutation, target-write, raw
-content, and model-authority flags permanently false. Defer cross-app execution
-to ECO-008 ChangeSets and separately accepted authority.
+name its intended canonical owner and become an ECO-006 Today candidate only
+after durable repository review state is reloaded, but it never mutates that
+owner. Keep mutation, target-write, raw content, and model-authority flags
+permanently false. Defer cross-app execution to ECO-008 ChangeSets and
+separately accepted authority.
 
 Add no connector, account, OAuth, file-read, route, CLI, UI, external write,
 send, web/browser, provider/model, subprocess, notification, scheduler, or

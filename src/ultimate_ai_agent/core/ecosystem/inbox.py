@@ -160,11 +160,17 @@ def _canonical_timestamp(value: str, code: str) -> str:
         raise ValueError(code) from exc
     if parsed.tzinfo is None:
         raise ValueError(f"{code}_TIMEZONE_REQUIRED")
-    return (
-        parsed.astimezone(timezone.utc)
-        .isoformat(timespec="auto")
-        .replace("+00:00", "Z")
-    )
+    # Keep the explicit UTC offset because Python 3.10's fromisoformat does not
+    # accept the trailing-Z form used by newer interpreters.
+    return parsed.astimezone(timezone.utc).isoformat(timespec="auto")
+
+
+def _timestamps_equal(left: str | None, right: str | None) -> bool:
+    if left is None or right is None:
+        return left is right
+    return datetime.fromisoformat(
+        left.replace("Z", "+00:00")
+    ) == datetime.fromisoformat(right.replace("Z", "+00:00"))
 
 
 def _stable_ref(prefix: str, payload: Any) -> str:
@@ -186,15 +192,24 @@ def _hashed_term(prefix: str, value: str) -> str:
     return f"{prefix}:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
 
 
-def _private_search_terms(*values: str) -> tuple[str, ...]:
-    terms: list[str] = []
+def _private_search_terms(*values: str, maximum: int = 60) -> tuple[str, ...]:
+    terms: dict[str, None] = {}
     for value in values:
         for token in _TOKEN_RE.findall(value.casefold()):
             if 1 < len(token) <= 128:
-                terms.append(token)
-            if len(terms) >= 48:
-                return tuple(dict.fromkeys(terms))
-    return tuple(dict.fromkeys(terms))
+                terms.setdefault(token, None)
+            if len(terms) >= maximum:
+                return tuple(terms)
+    return tuple(terms)
+
+
+def _all_private_tokens(*values: str) -> frozenset[str]:
+    return frozenset(
+        token
+        for value in values
+        for token in _TOKEN_RE.findall(value.casefold())
+        if 1 < len(token) <= 128
+    )
 
 
 class InboxSourceBinding(_InboxModel):
@@ -510,6 +525,7 @@ class InboxManualImportPlan(_InboxModel):
     artifact_ref: str
     source_mode: InboxSourceMode
     content_ref: str
+    artifact_payload_ref: str
     content_byte_count: int = Field(..., ge=1, le=_MAX_CONTENT_BYTES)
     operation_ref: str
     idempotency_ref: str
@@ -528,6 +544,7 @@ class InboxManualImportPlan(_InboxModel):
             "binding_ref",
             "artifact_ref",
             "content_ref",
+            "artifact_payload_ref",
             "operation_ref",
             "idempotency_ref",
             "plan_ref",
@@ -754,6 +771,9 @@ class InboxRepository:
             "binding_ref": binding_ref,
             "content_byte_count": len(content.encode("utf-8")),
             "content_ref": artifact.content_ref,
+            "artifact_payload_ref": _stable_ref(
+                "inbox-artifact-payload-ref", artifact.model_dump(mode="json")
+            ),
             "operation_ref": operation_ref,
             "source_mode": expected_mode.value,
             "workspace_ref": workspace_ref,
@@ -764,6 +784,7 @@ class InboxRepository:
             artifact_ref=artifact_ref,
             source_mode=expected_mode,
             content_ref=artifact.content_ref,
+            artifact_payload_ref=material["artifact_payload_ref"],
             content_byte_count=len(content.encode("utf-8")),
             operation_ref=operation_ref,
             idempotency_ref=idempotency_ref,
@@ -839,7 +860,7 @@ class InboxRepository:
                 "idempotency_ref": idempotency_ref,
                 "links": [link.model_dump(mode="json") for link in links],
                 "operation_ref": operation_ref,
-                "tag_refs": list(tag_refs or ()),
+                "tag_refs": None if tag_refs is None else list(tag_refs),
                 "triage_state": triage_state.value,
                 "workspace_ref": workspace_ref,
             },
@@ -1107,21 +1128,27 @@ class InboxRepository:
         query_terms = _private_search_terms(normalized)
         if not query_terms:
             raise ValueError("ECO_INBOX_SEARCH_QUERY_INVALID")
-        matches = [
+        blind_matches = [
             set(self.platform.search(workspace_ref=workspace_ref, term=term))
             for term in query_terms
         ]
-        record_refs = tuple(sorted(set.intersection(*matches)))
-        artifacts: list[InboxArtifactRecord] = []
-        for record_ref in record_refs:
-            try:
-                item = self.read_artifact(
-                    workspace_ref=workspace_ref, artifact_ref=record_ref
-                )
-            except InboxError:
-                continue
-            if not item.archived:
-                artifacts.append(item)
+        candidate_refs = set.intersection(*blind_matches)
+        artifacts_by_ref = {
+            item.artifact.artifact_ref: item
+            for item in self.list_artifacts(workspace_ref=workspace_ref)
+            if not item.archived
+            and set(query_terms).issubset(
+                _all_private_tokens(item.artifact.title, item.artifact.content)
+            )
+        }
+        # Blind indexes provide the normal lookup path. The bounded local
+        # decrypt-and-filter pass preserves complete search semantics when a
+        # term falls beyond ECO-001's 64-term per-record index limit.
+        ordered_refs = sorted(
+            artifacts_by_ref,
+            key=lambda record_ref: (record_ref not in candidate_refs, record_ref),
+        )
+        artifacts = [artifacts_by_ref[record_ref] for record_ref in ordered_refs]
         query_ref = _stable_ref("inbox-search-query-ref", normalized)
         result_ref = _stable_ref(
             "inbox-search-result-ref",
@@ -1235,10 +1262,16 @@ class InboxRepository:
                 selected.append(record_ref)
         return tuple(selected)
 
-    @staticmethod
     def to_today_candidate(
-        proposal: InboxSourceProposal, *, source_result_ref: str
+        self,
+        *,
+        workspace_ref: str,
+        proposal_ref: str,
+        source_result_ref: str,
     ) -> Any:
+        proposal = self.read_proposal(
+            workspace_ref=workspace_ref, proposal_ref=proposal_ref
+        )
         if proposal.review_state != InboxProposalReviewState.accepted_for_changeset:
             raise InboxConflict("ECO_INBOX_PROPOSAL_NOT_REVIEWED_FOR_TODAY")
         _validate_ref(source_result_ref, "source_result_ref")
@@ -1278,6 +1311,11 @@ class InboxRepository:
         related_refs: tuple[str, ...],
         approval: ApprovalValidationRequest,
     ) -> UnitOfWorkReceipt:
+        private_payload = self._validated_private_payload(
+            record_kind_ref=record_kind_ref,
+            private_payload=private_payload,
+            safe_summary_ref=safe_summary_ref,
+        )
         resources = self.mutation_resource_refs(
             workspace_ref=workspace_ref,
             record_ref=record_ref,
@@ -1343,6 +1381,10 @@ class InboxRepository:
             or plan.artifact_ref != artifact.artifact_ref
             or plan.source_mode != artifact.source_mode
             or plan.content_ref != artifact.content_ref
+            or plan.artifact_payload_ref
+            != _stable_ref(
+                "inbox-artifact-payload-ref", artifact.model_dump(mode="json")
+            )
             or plan.content_byte_count != len(artifact.content.encode("utf-8"))
         ):
             raise InboxConflict("ECO_INBOX_IMPORT_PLAN_BINDING_INVALID")
@@ -1358,6 +1400,7 @@ class InboxRepository:
             "binding_ref": plan.binding_ref,
             "content_byte_count": plan.content_byte_count,
             "content_ref": plan.content_ref,
+            "artifact_payload_ref": plan.artifact_payload_ref,
             "operation_ref": plan.operation_ref,
             "source_mode": plan.source_mode.value,
             "workspace_ref": plan.workspace_ref,
@@ -1367,6 +1410,29 @@ class InboxRepository:
         ):
             raise InboxConflict("ECO_INBOX_IMPORT_PLAN_INTEGRITY_INVALID")
         self._validate_artifact_binding(artifact)
+
+    @staticmethod
+    def _validated_private_payload(
+        *,
+        record_kind_ref: str,
+        private_payload: dict[str, Any],
+        safe_summary_ref: str,
+    ) -> dict[str, Any]:
+        model_type = {
+            ECO_INBOX_BINDING_RECORD_KIND_REF: InboxSourceBinding,
+            ECO_INBOX_ARTIFACT_RECORD_KIND_REF: InboxSourceArtifact,
+            ECO_INBOX_THREAD_RECORD_KIND_REF: InboxConversationThread,
+            ECO_INBOX_PROPOSAL_RECORD_KIND_REF: InboxSourceProposal,
+        }.get(record_kind_ref)
+        if model_type is None:
+            raise InboxError("ECO_INBOX_RECORD_KIND_INVALID")
+        try:
+            validated = model_type.model_validate(private_payload)
+        except Exception as exc:
+            raise InboxError("ECO_INBOX_PRIVATE_PAYLOAD_INVALID") from exc
+        if validated.safe_summary_ref != safe_summary_ref:
+            raise InboxError("ECO_INBOX_SAFE_SUMMARY_BINDING_INVALID")
+        return validated.model_dump(mode="json")
 
     def _validate_artifact_binding(self, artifact: InboxSourceArtifact) -> None:
         binding = self.read_binding(
@@ -1441,7 +1507,7 @@ class InboxRepository:
             or record.record_kind_ref != ECO_INBOX_ARTIFACT_RECORD_KIND_REF
             or record.safe_summary_ref != artifact.safe_summary_ref
             or record.retention_ref != artifact.retention_ref
-            or record.expires_at != artifact.expires_at
+            or not _timestamps_equal(record.expires_at, artifact.expires_at)
         ):
             raise InboxError("ECO_INBOX_ARTIFACT_RECORD_BINDING_INVALID")
         return artifact

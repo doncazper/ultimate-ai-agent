@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from ultimate_ai_agent.core.ecosystem.inbox import (
     InboxConflict,
     InboxConversationThread,
     InboxEntityLink,
+    InboxError,
     InboxProposalKind,
     InboxProposalReviewState,
     InboxRepository,
@@ -31,6 +33,7 @@ from ultimate_ai_agent.core.ecosystem.inbox import (
     InboxTriageState,
 )
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    EcosystemConflict,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
@@ -253,6 +256,57 @@ def test_exact_import_replay_is_idempotent(workbench) -> None:
     assert second.receipt_ref == first.receipt_ref
 
 
+def test_import_plan_binds_complete_artifact_payload(workbench) -> None:
+    repository, authority, _database_path = workbench
+    _create_binding(repository, authority)
+    prepared = _prepare(repository)
+    tampered_artifact = InboxSourceArtifact.model_validate(
+        {
+            **prepared.artifact.model_dump(mode="json"),
+            "title": "Different private title after approval planning",
+        }
+    )
+
+    with pytest.raises(InboxConflict, match="ECO_INBOX_IMPORT_PLAN_BINDING_INVALID"):
+        repository.commit_import(
+            replace(prepared, artifact=tampered_artifact),
+            approval=_approval(
+                authority,
+                action=ECO_INBOX_MUTATION_ACTION,
+                resources=prepared.plan.approval_resource_refs,
+            ),
+        )
+
+
+def test_create_revalidates_copied_model_before_persistence(workbench) -> None:
+    repository, authority, _database_path = workbench
+    binding = InboxSourceBinding(
+        workspace_ref=WORKSPACE,
+        binding_ref="inbox-binding-ref:invalid-copy",
+        source_mode=InboxSourceMode.manual,
+        source_type_ref="source-type-ref:manual",
+        display_name="Private copied source",
+    ).model_copy(update={"external_write_enabled": True})
+    operation_ref = "operation-ref:create-invalid-copy"
+    idempotency_ref = "idempotency-ref:create-invalid-copy"
+
+    with pytest.raises(InboxError, match="ECO_INBOX_PRIVATE_PAYLOAD_INVALID"):
+        repository.create_binding(
+            binding=binding,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=_approval(
+                authority,
+                action=ECO_INBOX_MUTATION_ACTION,
+                resources=_resources(
+                    record_ref=binding.binding_ref,
+                    operation_ref=operation_ref,
+                    idempotency_ref=idempotency_ref,
+                ),
+            ),
+        )
+
+
 def test_source_mode_and_disabled_binding_fail_closed(workbench) -> None:
     repository, authority, _database_path = workbench
     _create_binding(
@@ -372,6 +426,77 @@ def test_triage_links_are_workspace_scoped_and_search_is_content_free(
         )
 
 
+def test_search_fallback_covers_terms_beyond_blind_index_limit(workbench) -> None:
+    repository, authority, _database_path = workbench
+    _create_binding(repository, authority)
+    early_terms = " ".join(f"unique{index:03d}" for index in range(80))
+    prepared = _prepare(
+        repository,
+        artifact_ref="inbox-artifact-ref:late-term",
+        content=f"{early_terms} needleafterlimit",
+    )
+    _commit(repository, authority, prepared)
+
+    result = repository.search_artifacts(
+        workspace_ref=WORKSPACE, query="needleafterlimit"
+    )
+    assert [item.artifact.artifact_ref for item in result.artifacts] == [
+        prepared.artifact.artifact_ref
+    ]
+
+
+def test_triage_replay_distinguishes_preserve_tags_from_clear_tags(workbench) -> None:
+    repository, authority, _database_path = workbench
+    _create_binding(repository, authority)
+    prepared = repository.prepare_manual_import(
+        workspace_ref=WORKSPACE,
+        binding_ref="inbox-binding-ref:manual",
+        artifact_ref="inbox-artifact-ref:tag-replay",
+        artifact_kind=InboxArtifactKind.note,
+        title="Private tagged source",
+        content="Review the tagged source artifact.",
+        source_locator_ref="source-locator-ref:tag-replay",
+        received_at="2026-08-21T17:00:00Z",
+        operation_ref="operation-ref:import-tag-replay",
+        idempotency_ref="idempotency-ref:import-tag-replay",
+        tag_refs=("tag-ref:one",),
+    )
+    _commit(repository, authority, prepared)
+    operation_ref = "operation-ref:triage-tag-replay"
+    idempotency_ref = "idempotency-ref:triage-tag-replay"
+    approval = _approval(
+        authority,
+        action=ECO_INBOX_MUTATION_ACTION,
+        resources=_resources(
+            record_ref=prepared.artifact.artifact_ref,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    repository.triage_artifact(
+        workspace_ref=WORKSPACE,
+        artifact_ref=prepared.artifact.artifact_ref,
+        triage_state=InboxTriageState.review,
+        classification_ref="classification-ref:reviewed",
+        tag_refs=None,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=approval,
+    )
+
+    with pytest.raises(EcosystemConflict, match="ECO_IDEMPOTENCY_REPLAY_CONFLICT"):
+        repository.triage_artifact(
+            workspace_ref=WORKSPACE,
+            artifact_ref=prepared.artifact.artifact_ref,
+            triage_state=InboxTriageState.review,
+            classification_ref="classification-ref:reviewed",
+            tag_refs=(),
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+        )
+
+
 def test_thread_requires_existing_same_binding_artifacts(workbench) -> None:
     repository, authority, _database_path = workbench
     _create_binding(repository, authority)
@@ -472,7 +597,9 @@ def test_reviewed_proposal_is_still_non_mutating_and_can_feed_today(workbench) -
     )
     with pytest.raises(InboxConflict, match="NOT_REVIEWED_FOR_TODAY"):
         repository.to_today_candidate(
-            proposal, source_result_ref="source-result-ref:inbox-review"
+            workspace_ref=WORKSPACE,
+            proposal_ref=proposal.proposal_ref,
+            source_result_ref="source-result-ref:inbox-review",
         )
 
     review_operation = "operation-ref:review-proposal"
@@ -500,7 +627,9 @@ def test_reviewed_proposal_is_still_non_mutating_and_can_feed_today(workbench) -
         workspace_ref=WORKSPACE, proposal_ref=proposal.proposal_ref
     )
     candidate = repository.to_today_candidate(
-        reviewed, source_result_ref="source-result-ref:inbox-review"
+        workspace_ref=WORKSPACE,
+        proposal_ref=reviewed.proposal_ref,
+        source_result_ref="source-result-ref:inbox-review",
     )
 
     assert reviewed.mutation_authorized is False
@@ -511,12 +640,39 @@ def test_reviewed_proposal_is_still_non_mutating_and_can_feed_today(workbench) -
     assert candidate.canonical_ref == proposal.proposal_ref
 
 
+def test_today_candidate_requires_durable_reviewed_proposal_record(workbench) -> None:
+    repository, _authority, _database_path = workbench
+    direct_only = InboxSourceProposal(
+        workspace_ref=WORKSPACE,
+        proposal_ref="inbox-proposal-ref:not-persisted",
+        binding_ref="inbox-binding-ref:not-persisted",
+        artifact_ref="inbox-artifact-ref:not-persisted",
+        proposal_kind=InboxProposalKind.task,
+        target_owner=CanonicalOwnerId.tasks,
+        proposed_target_ref="task-ref:not-persisted",
+        proposal_summary_ref="proposal-summary-ref:not-persisted",
+        evidence_refs=("evidence-ref:not-persisted",),
+        review_state=InboxProposalReviewState.accepted_for_changeset,
+        reviewer_ref="reviewer-ref:human",
+        decision_reason_ref="decision-reason-ref:accepted",
+        reviewed_at="2026-08-21T18:00:00Z",
+    )
+
+    with pytest.raises(EcosystemLocalDataError, match="ECO_RECORD_NOT_FOUND"):
+        repository.to_today_candidate(
+            workspace_ref=direct_only.workspace_ref,
+            proposal_ref=direct_only.proposal_ref,
+            source_result_ref="source-result-ref:direct-only",
+        )
+
+
 def test_archive_removes_search_result_and_preserves_retention_candidate(
     workbench,
 ) -> None:
     repository, authority, _database_path = workbench
     _create_binding(repository, authority)
     prepared = _prepare(repository, expires_at="2026-08-20T00:00:00Z")
+    assert prepared.artifact.expires_at == "2026-08-20T00:00:00+00:00"
     _commit(repository, authority, prepared)
     operation_ref = "operation-ref:archive-artifact"
     idempotency_ref = "idempotency-ref:archive-artifact"
