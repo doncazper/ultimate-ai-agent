@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 350,
+    "api_manifest_route_count": 351,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,

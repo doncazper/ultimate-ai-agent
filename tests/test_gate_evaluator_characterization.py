@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
     CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
+    CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
@@ -275,6 +276,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert CONTROL_CENTER_NEWS_SIGNALS_ROUTES == {
         "/control-center/news-signals/summary",
     }
+    assert CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES == {
+        "/control-center/proposal-intelligence/extract",
+    }
     normalized_control_center_paths = _historical_control_center_path_set(paths)
     assert len(normalized_control_center_paths) == 173
     assert "/control-center/news-signals/summary" not in normalized_control_center_paths
@@ -295,6 +299,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_matrix_rooms_media",
         "control_center_communications_readonly",
         "control_center_news_signals",
+        "control_center_proposal_intelligence",
         "control_center_operational_status",
         "control_center_proof_start_trust",
         "control_center_provider_catalog",

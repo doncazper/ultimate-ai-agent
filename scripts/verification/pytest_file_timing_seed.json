@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 977,
+  "timed_file_count": 979,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -3963,6 +3963,16 @@
     {
       "path": "tests/test_queue_v2_q24_news_signals_verifier.py",
       "seconds": 0.3,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_queue_v2_q27_proposal_intelligence.py",
+      "seconds": 4.55,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_queue_v2_q27_proposal_intelligence_verifier.py",
+      "seconds": 0.03,
       "source": "operator-supplied-advisory"
     },
     {

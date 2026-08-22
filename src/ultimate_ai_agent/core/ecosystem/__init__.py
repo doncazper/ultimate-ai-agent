@@ -173,6 +173,19 @@ from ultimate_ai_agent.core.ecosystem.changesets import (
     PreparedChangeSetRollback,
     PreparedLocalChangeSet,
 )
+from ultimate_ai_agent.core.ecosystem.proposals import (
+    ECO_PROPOSAL_CONTRACT_REF,
+    ECO_PROPOSAL_SCHEMA_VERSION,
+    MAX_PROPOSAL_FACTS,
+    ProposalCandidate,
+    ProposalCandidateKind,
+    ProposalConfidencePosture,
+    ProposalExtractionRequest,
+    ProposalFact,
+    ProposalReviewPosture,
+    ProposalSourceRevisionBinding,
+    extract_proposal_candidates,
+)
 
 __all__ = [
     "ECO_000_CONTRACT_VERSION",
@@ -190,6 +203,8 @@ __all__ = [
     "ECO_ENTITY_LINK_RECORD_KIND_REF",
     "ECO_LOCAL_DATA_SCHEMA_REF",
     "ECO_LOCAL_DATA_SCHEMA_VERSION",
+    "ECO_PROPOSAL_CONTRACT_REF",
+    "ECO_PROPOSAL_SCHEMA_VERSION",
     "ECO_INBOX_MUTATION_ACTION",
     "ECO_INBOX_SCHEMA_VERSION",
     "ECO_TASK_MUTATION_ACTION",
@@ -295,6 +310,7 @@ __all__ = [
     "LegacyLocalTaskCandidate",
     "LegacyLocalTaskMigrationPreview",
     "MigrationPreview",
+    "MAX_PROPOSAL_FACTS",
     "OperationResultStatus",
     "PrivacyScope",
     "ProductAcceptanceStatus",
@@ -303,6 +319,13 @@ __all__ = [
     "PreparedInboxImport",
     "PreparedChangeSetRollback",
     "PreparedLocalChangeSet",
+    "ProposalCandidate",
+    "ProposalCandidateKind",
+    "ProposalConfidencePosture",
+    "ProposalExtractionRequest",
+    "ProposalFact",
+    "ProposalReviewPosture",
+    "ProposalSourceRevisionBinding",
     "PutRecord",
     "RestorePreview",
     "RollbackPlan",
@@ -326,5 +349,6 @@ __all__ = [
     "UnitOfWorkReceipt",
     "WorkspaceScope",
     "canonical_owner_for",
+    "extract_proposal_candidates",
     "validate_unique_canonical_ownership",
 ]

@@ -37,6 +37,10 @@ from ultimate_ai_agent.core.control_center.backend_truth import (
     build_control_center_backend_truth,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
+from ultimate_ai_agent.core.ecosystem.proposals import (
+    ProposalExtractionRequest,
+    extract_proposal_candidates,
+)
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
@@ -2082,6 +2086,28 @@ def get_control_center_news_signals_summary(
             "raw_paths_omitted",
             "external_content_untrusted",
             "read_only_control_center_projection",
+        ],
+    )
+
+
+@router.post("/proposal-intelligence/extract", response_model=ResultEnvelope)
+def post_control_center_proposal_intelligence_extract(
+    request: ProposalExtractionRequest,
+) -> ResultEnvelope:
+    data = extract_proposal_candidates(request)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_proposal_intelligence_extract",
+        service="ProposalIntelligenceControlCenterAPI",
+        trace_id="proposal-intelligence:extract",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:eco-010:deterministic-proposals"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_source_content_omitted",
+            "raw_paths_omitted",
+            "proposal_only_no_commit",
         ],
     )
 
