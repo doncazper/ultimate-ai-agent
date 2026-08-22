@@ -26,8 +26,12 @@ contains only the constant portfolio entity term; it never indexes names,
 contact values, notes, activity summaries, or other private content.
 
 CRM mutation uses the exact repository-only `ecosystem.crm.apply` action with
-approval scope, request-context binding, optimistic version checks, encrypted
-idempotent receipts, a one-megabyte payload cap, and protected bounded undo.
+approval scope that includes the value-bound request-context ref, optimistic
+version checks, encrypted idempotent receipts, a one-megabyte payload cap, and
+protected bounded undo. Creation atomically writes a deterministic encrypted
+workspace claim beside the portfolio, so separate repository processes cannot
+create competing portfolios. A governed archive mutation is the exact
+compensation for mistaken creation, and undo restores that archive.
 Private values stay inside the encrypted payload; safe summaries expose refs,
 versions, counts, and lifecycle state only.
 

@@ -10,7 +10,8 @@ model calls, background work, public release, or production authority.
 The only accepted private-data persistence path is one versioned
 `PrivateCrmPortfolio` stored by the ECO-001 encrypted local-data platform. CRM
 mutations use the repository-only `ecosystem.crm.apply` lane with exact approval
-scope, request-context-bound idempotency, optimistic concurrency, payload
+scope including the value-bound request-context ref, request-context-bound
+idempotency, optimistic concurrency, payload
 bounds, encrypted receipts, and protected undo. Durable governance state may
 contain safe refs, versions, counts, hashes, and lifecycle posture only.
 
@@ -41,6 +42,9 @@ pipeline-object subject ref before exposing placement.
 | Workspace isolation bypass | Dating context appears in Sales or Today | Portfolio validators require exact workspace membership; Private Relationships policy is immutable and fail-closed |
 | Replay confused deputy | Same idempotency ref is retried with a corrected date | Request context includes the exact replacement value; semantic mismatch raises `ECO_IDEMPOTENCY_REPLAY_CONFLICT` |
 | Lost update | Two writers mutate the same portfolio version | Exact expected version and transactional ECO-001 write; stale versions fail closed |
+| Split canonical identity | Separate processes create different portfolio refs in one workspace | Deterministic workspace claim and portfolio insert share one immediate SQLite transaction |
+| Approval substitution | A grant for one CRM change is reused for different first-write material | LocalApprovalAuthority scope includes the exact value-bound request-context ref |
+| Mistaken initial creation | A private aggregate is created but cannot be compensated exactly | Governed portfolio archive plus protected undo; generic delete remains blocked |
 | Duplicate pipeline truth | CRM stores a copied stage that diverges from Boards | CRM schema has no lane, position, or WIP field; read projections resolve live Board state |
 | Stale Board binding | A Board-only write archives or repoints a CRM card | Every CRM mutation and every pipeline projection validates live Board/card subject binding |
 | Evidence leakage | A safe summary includes contact or activity text | Summary is derived only from refs, counts, version, and archive posture; redaction verifier remains mandatory |

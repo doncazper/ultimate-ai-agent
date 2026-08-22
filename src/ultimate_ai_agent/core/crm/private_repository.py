@@ -42,6 +42,9 @@ ECO_CRM_SCHEMA_VERSION = "uaa-eco-005-crm-private-portfolio.v1"
 ECO_CRM_MUTATION_ACTION = "ecosystem.crm.apply"
 ECO_CRM_MODULE_REF = "module-ref:crm"
 ECO_CRM_RECORD_KIND_REF = "record-kind-ref:crm-private-portfolio"
+ECO_CRM_WORKSPACE_CLAIM_RECORD_KIND_REF = (
+    "record-kind-ref:crm-private-portfolio-workspace-claim"
+)
 ECO_CRM_RETENTION_REF = "retention-ref:crm-private-operator-managed"
 _ALL_CRM_PORTFOLIOS_SEARCH_TERM = "entity-kind:crm-private-portfolio"
 _MAX_UNDO_DEPTH = 20
@@ -626,6 +629,19 @@ class PrivateCrmWorkspaceReadModel(_PrivateCrmModel):
     result_ref: str
 
 
+class PrivateCrmApprovalScope(_PrivateCrmModel):
+    request_context_ref: str
+    resource_refs: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "PrivateCrmApprovalScope":
+        _validate_ref(self.request_context_ref, "request_context_ref")
+        _validate_refs(self.resource_refs, "resource_ref")
+        if self.request_context_ref not in self.resource_refs:
+            raise ValueError("ECO_CRM_APPROVAL_CONTEXT_SCOPE_REQUIRED")
+        return self
+
+
 class PrivateCrmPipelineObjectProjection(_PrivateCrmModel):
     pipeline_object: PrivateCrmPipelineObject = Field(..., repr=False)
     lane_ref: str
@@ -661,10 +677,90 @@ class PrivateCrmRepository:
 
     @staticmethod
     def mutation_resource_refs(
-        *, workspace_ref: str, idempotency_ref: str, operation_ref: str, record_ref: str
+        *,
+        workspace_ref: str,
+        idempotency_ref: str,
+        operation_ref: str,
+        record_ref: str,
+        request_context_ref: str,
     ) -> tuple[str, ...]:
         return tuple(
-            dict.fromkeys((workspace_ref, idempotency_ref, operation_ref, record_ref))
+            dict.fromkeys(
+                (
+                    workspace_ref,
+                    idempotency_ref,
+                    operation_ref,
+                    record_ref,
+                    request_context_ref,
+                )
+            )
+        )
+
+    @classmethod
+    def create_approval_scope(
+        cls,
+        *,
+        portfolio: PrivateCrmPortfolio,
+        operation_ref: str,
+        idempotency_ref: str,
+    ) -> PrivateCrmApprovalScope:
+        context = cls._request_context_ref(
+            "create_portfolio",
+            {
+                "portfolio": portfolio.model_dump(mode="json"),
+                "operation_ref": operation_ref,
+            },
+        )
+        claim_ref = cls._workspace_claim_ref(portfolio.workspace_ref)
+        claim_operation_ref = cls._claim_operation_ref(operation_ref)
+        return PrivateCrmApprovalScope(
+            request_context_ref=context,
+            resource_refs=tuple(
+                dict.fromkeys(
+                    (
+                        portfolio.workspace_ref,
+                        idempotency_ref,
+                        claim_operation_ref,
+                        operation_ref,
+                        claim_ref,
+                        portfolio.portfolio_ref,
+                        context,
+                    )
+                )
+            ),
+        )
+
+    @classmethod
+    def mutation_approval_scope(
+        cls,
+        *,
+        workspace_ref: str,
+        portfolio_ref: str,
+        expected_version: int,
+        operation_ref: str,
+        idempotency_ref: str,
+        mutation_kind: str,
+        mutation_material: dict[str, Any],
+    ) -> PrivateCrmApprovalScope:
+        context = cls._request_context_ref(
+            mutation_kind,
+            {
+                "workspace_ref": workspace_ref,
+                "portfolio_ref": portfolio_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+                "mutation": mutation_material,
+            },
+        )
+        return PrivateCrmApprovalScope(
+            request_context_ref=context,
+            resource_refs=cls.mutation_resource_refs(
+                workspace_ref=workspace_ref,
+                idempotency_ref=idempotency_ref,
+                operation_ref=operation_ref,
+                record_ref=portfolio_ref,
+                request_context_ref=context,
+            ),
         )
 
     def create_portfolio(
@@ -683,13 +779,12 @@ class PrivateCrmRepository:
             raise PrivateCrmConflict(_validation_code(exc)) from exc
         if portfolio.version != 1 or portfolio.undo_stack:
             raise PrivateCrmConflict("ECO_CRM_CREATE_VERSION_INVALID")
-        context = self._request_context_ref(
-            "create_portfolio",
-            {
-                "portfolio": portfolio.model_dump(mode="json"),
-                "operation_ref": operation_ref,
-            },
+        scope = self.create_approval_scope(
+            portfolio=portfolio,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
         )
+        context = scope.request_context_ref
         with self.platform.approval_authority.hold_validation_lock():
             replay = self._replay(
                 workspace_ref=portfolio.workspace_ref,
@@ -698,6 +793,7 @@ class PrivateCrmRepository:
                 idempotency_ref=idempotency_ref,
                 approval=approval,
                 request_context_ref=context,
+                resource_refs=scope.resource_refs,
             )
             if replay is not None:
                 return replay
@@ -717,6 +813,7 @@ class PrivateCrmRepository:
                 idempotency_ref=idempotency_ref,
                 approval=approval,
                 request_context_ref=context,
+                include_workspace_claim=True,
             )
 
     def read(self, *, workspace_ref: str, portfolio_ref: str) -> PrivateCrmPortfolio:
@@ -758,7 +855,9 @@ class PrivateCrmRepository:
         self, *, workspace_ref: str, portfolio_ref: str, crm_workspace_ref: str
     ) -> PrivateCrmWorkspaceReadModel:
         portfolio = self.read(workspace_ref=workspace_ref, portfolio_ref=portfolio_ref)
-        self._validate_canonical_links(portfolio)
+        if portfolio.archived:
+            raise PrivateCrmConflict("ECO_CRM_PORTFOLIO_ARCHIVED")
+        self._validate_canonical_links(portfolio, crm_workspace_ref=crm_workspace_ref)
         crm_workspace = next(
             (
                 item
@@ -1000,6 +1099,14 @@ class PrivateCrmRepository:
             drop_last_undo=True,
         )
 
+    def archive_portfolio(self, **kwargs: Any) -> UnitOfWorkReceipt:
+        return self._mutate(
+            mutation_kind="archive_portfolio",
+            mutation_material={"archived": True},
+            transform=lambda portfolio: self._snapshot(portfolio, archived=True),
+            **kwargs,
+        )
+
     def _append(
         self,
         *,
@@ -1124,6 +1231,8 @@ class PrivateCrmRepository:
         current = self.read(workspace_ref=workspace_ref, portfolio_ref=portfolio_ref)
         if current.version != expected_version:
             raise PrivateCrmConflict("ECO_CRM_STALE_VERSION")
+        if current.archived and mutation_kind != "undo":
+            raise PrivateCrmConflict("ECO_CRM_PORTFOLIO_ARCHIVED")
         snapshot = transform(current)
         updated = self._with_bounded_undo(
             current=current, snapshot=snapshot, drop_last_undo=drop_last_undo
@@ -1252,11 +1361,20 @@ class PrivateCrmRepository:
             ):
                 raise PrivateCrmConflict("ECO_CRM_PIPELINE_OBJECT_CARD_BINDING_INVALID")
 
-    def _validate_canonical_links(self, portfolio: PrivateCrmPortfolio) -> None:
+    def _validate_canonical_links(
+        self,
+        portfolio: PrivateCrmPortfolio,
+        *,
+        crm_workspace_ref: str | None = None,
+    ) -> None:
         task_refs = {
             item.task_ref
             for item in (*portfolio.activities, *portfolio.follow_ups)
-            if not item.archived and item.task_ref is not None
+            if not item.archived
+            and item.task_ref is not None
+            and (
+                crm_workspace_ref is None or item.crm_workspace_ref == crm_workspace_ref
+            )
         }
         for task_ref in task_refs:
             try:
@@ -1271,7 +1389,11 @@ class PrivateCrmRepository:
         event_links = {
             (item.calendar_set_ref, item.event_ref)
             for item in portfolio.activities
-            if not item.archived and item.event_ref is not None
+            if not item.archived
+            and item.event_ref is not None
+            and (
+                crm_workspace_ref is None or item.crm_workspace_ref == crm_workspace_ref
+            )
         }
         for calendar_set_ref, event_ref in event_links:
             assert calendar_set_ref is not None
@@ -1313,30 +1435,55 @@ class PrivateCrmRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
         request_context_ref: str,
+        include_workspace_claim: bool = False,
     ) -> UnitOfWorkReceipt:
+        operations: list[PutRecord] = []
+        if include_workspace_claim:
+            claim_ref = self._workspace_claim_ref(workspace_ref)
+            operations.append(
+                PutRecord(
+                    operation_ref=self._claim_operation_ref(operation_ref),
+                    module_ref=ECO_CRM_MODULE_REF,
+                    record_ref=claim_ref,
+                    record_kind_ref=ECO_CRM_WORKSPACE_CLAIM_RECORD_KIND_REF,
+                    safe_summary_ref=_stable_ref(
+                        "crm-workspace-portfolio-claim-summary-ref",
+                        {"workspace_ref": workspace_ref},
+                    ),
+                    private_payload={"portfolio_ref": record.portfolio_ref},
+                    expected_version=0,
+                    retention_ref=ECO_CRM_RETENTION_REF,
+                )
+            )
+        operations.append(
+            PutRecord(
+                operation_ref=operation_ref,
+                module_ref=ECO_CRM_MODULE_REF,
+                record_ref=record.portfolio_ref,
+                record_kind_ref=ECO_CRM_RECORD_KIND_REF,
+                safe_summary_ref=record.safe_summary_ref,
+                private_payload=record.model_dump(mode="json"),
+                search_terms=(_ALL_CRM_PORTFOLIOS_SEARCH_TERM,),
+                expected_version=expected_version,
+                retention_ref=ECO_CRM_RETENTION_REF,
+            )
+        )
         try:
             return self.platform._apply_registered_domain(
                 workspace_ref=workspace_ref,
                 idempotency_ref=idempotency_ref,
-                operations=(
-                    PutRecord(
-                        operation_ref=operation_ref,
-                        module_ref=ECO_CRM_MODULE_REF,
-                        record_ref=record.portfolio_ref,
-                        record_kind_ref=ECO_CRM_RECORD_KIND_REF,
-                        safe_summary_ref=record.safe_summary_ref,
-                        private_payload=record.model_dump(mode="json"),
-                        search_terms=(_ALL_CRM_PORTFOLIOS_SEARCH_TERM,),
-                        expected_version=expected_version,
-                        retention_ref=ECO_CRM_RETENTION_REF,
-                    ),
-                ),
+                operations=tuple(operations),
                 approval=approval,
                 requested_action=ECO_CRM_MUTATION_ACTION,
                 request_context_ref=request_context_ref,
+                approval_resource_refs=(request_context_ref,),
             )
         except EcosystemConflict as exc:
             if str(exc) == "ECO_STALE_RECORD_VERSION":
+                if include_workspace_claim:
+                    raise PrivateCrmConflict(
+                        "ECO_CRM_WORKSPACE_PORTFOLIO_ALREADY_EXISTS"
+                    ) from exc
                 raise PrivateCrmConflict("ECO_CRM_STALE_VERSION") from exc
             raise
         except ValueError as exc:
@@ -1355,15 +1502,21 @@ class PrivateCrmRepository:
         idempotency_ref: str,
         approval: ApprovalValidationRequest,
         request_context_ref: str,
+        resource_refs: tuple[str, ...] | None = None,
     ) -> UnitOfWorkReceipt | None:
         return self.platform.replay_receipt(
             workspace_ref=workspace_ref,
             idempotency_ref=idempotency_ref,
-            resource_refs=self.mutation_resource_refs(
-                workspace_ref=workspace_ref,
-                idempotency_ref=idempotency_ref,
-                operation_ref=operation_ref,
-                record_ref=record_ref,
+            resource_refs=(
+                resource_refs
+                if resource_refs is not None
+                else self.mutation_resource_refs(
+                    workspace_ref=workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    operation_ref=operation_ref,
+                    record_ref=record_ref,
+                    request_context_ref=request_context_ref,
+                )
             ),
             approval=approval,
             requested_action=ECO_CRM_MUTATION_ACTION,
@@ -1376,6 +1529,14 @@ class PrivateCrmRepository:
             "crm-private-request-context-ref", {"kind": kind, "material": material}
         )
 
+    @staticmethod
+    def _workspace_claim_ref(workspace_ref: str) -> str:
+        return _stable_ref("crm-workspace-portfolio-claim-ref", workspace_ref)
+
+    @staticmethod
+    def _claim_operation_ref(operation_ref: str) -> str:
+        return _stable_ref("crm-workspace-claim-operation-ref", operation_ref)
+
 
 __all__ = [
     "ECO_CRM_MUTATION_ACTION",
@@ -1386,6 +1547,7 @@ __all__ = [
     "CrmPrivacyPolicy",
     "CrmWorkspacePreset",
     "PrivateCrmActivity",
+    "PrivateCrmApprovalScope",
     "PrivateCrmConflict",
     "PrivateCrmContactPoint",
     "PrivateCrmError",

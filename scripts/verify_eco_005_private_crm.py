@@ -179,21 +179,21 @@ def verify() -> list[str]:
             portfolio_ref = "crm-portfolio-ref:verification"
             operation_ref = "operation-ref:create-portfolio"
             idempotency_ref = "idempotency-ref:create-portfolio"
-            approval = _approval(
-                authority,
-                suffix="portfolio",
-                action=ECO_CRM_MUTATION_ACTION,
-                resources=PrivateCrmRepository.mutation_resource_refs(
-                    workspace_ref=workspace_ref,
-                    idempotency_ref=idempotency_ref,
-                    operation_ref=operation_ref,
-                    record_ref=portfolio_ref,
-                ),
-            )
             portfolio = PrivateCrmPortfolio(
                 workspace_ref=workspace_ref,
                 portfolio_ref=portfolio_ref,
                 name=private_marker,
+            )
+            scope = repository.create_approval_scope(
+                portfolio=portfolio,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            )
+            approval = _approval(
+                authority,
+                suffix="portfolio",
+                action=ECO_CRM_MUTATION_ACTION,
+                resources=scope.resource_refs,
             )
             first = repository.create_portfolio(
                 portfolio=portfolio,

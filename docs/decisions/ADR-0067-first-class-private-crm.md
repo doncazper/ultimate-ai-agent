@@ -27,6 +27,10 @@ search, Today, Briefing, Memory, and general export.
 Reserve `module-ref:crm`, `record-kind-ref:crm-private-portfolio`, and the
 repository-only `ecosystem.crm.apply` action. Durable governance metadata may
 contain only safe refs, fingerprints, counts, versions, and lifecycle posture.
+Bind every approval to the exact value-bound request-context ref. Create the
+portfolio and one deterministic workspace claim in the same SQLite transaction
+to enforce one portfolio across processes. Archive is the exact creation
+compensation, and protected undo restores an archived portfolio.
 
 Reuse ECO-003 Boards for every pipeline. CRM retains a Board ref and an exact
 card binding, but no lane, stage, position, WIP, title, or description copy.

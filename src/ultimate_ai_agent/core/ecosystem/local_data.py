@@ -48,7 +48,12 @@ _SAFE_REF_CHARS = frozenset(
 _SCOPED_MUTATION_ACTIONS = {
     "ecosystem.crm.apply": (
         "module-ref:crm",
-        frozenset({"record-kind-ref:crm-private-portfolio"}),
+        frozenset(
+            {
+                "record-kind-ref:crm-private-portfolio",
+                "record-kind-ref:crm-private-portfolio-workspace-claim",
+            }
+        ),
     ),
     "ecosystem.calendar.apply": (
         "module-ref:calendar",
@@ -853,6 +858,7 @@ class EcosystemLocalDataPlatform:
         requested_action: str = "ecosystem.local_data.apply",
         request_context_ref: str | None = None,
         _domain_validation_token: object | None = None,
+        _domain_approval_resource_refs: tuple[str, ...] = (),
     ) -> UnitOfWorkReceipt:
         _validate_ref(workspace_ref, field_name="workspace_ref")
         _validate_ref(idempotency_ref, field_name="idempotency_ref")
@@ -867,11 +873,21 @@ class EcosystemLocalDataPlatform:
         ]
         if len(operation_refs) != len(set(operation_refs)):
             raise ValueError("ECO_UOW_DUPLICATE_OPERATION_REF")
+        if (
+            _domain_approval_resource_refs
+            and _domain_validation_token is not _DOMAIN_VALIDATION_TOKEN
+        ):
+            raise EcosystemLocalDataError("ECO_DOMAIN_APPROVAL_SCOPE_TOKEN_REQUIRED")
+        domain_approval_resource_refs = tuple(
+            _validate_ref(value, field_name="domain_approval_resource_ref")
+            for value in _domain_approval_resource_refs
+        )
         resource_refs = tuple(
             dict.fromkeys(
                 (workspace_ref, idempotency_ref)
                 + tuple(operation_refs)
                 + tuple(operation.record_ref for operation in operations)
+                + domain_approval_resource_refs
             )
         )
         with self.approval_authority.hold_validation_lock():
@@ -1041,6 +1057,7 @@ class EcosystemLocalDataPlatform:
         approval: ApprovalValidationRequest,
         requested_action: str,
         request_context_ref: str,
+        approval_resource_refs: tuple[str, ...] = (),
     ) -> UnitOfWorkReceipt:
         """Internal handoff for a domain repository after its invariant checks."""
 
@@ -1052,6 +1069,7 @@ class EcosystemLocalDataPlatform:
             requested_action=requested_action,
             request_context_ref=request_context_ref,
             _domain_validation_token=_DOMAIN_VALIDATION_TOKEN,
+            _domain_approval_resource_refs=approval_resource_refs,
         )
 
     def replay_receipt(

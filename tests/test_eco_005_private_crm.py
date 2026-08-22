@@ -158,6 +158,41 @@ def _resources(
 def _mutate(repository, authority, method: str, *, version: int, **payload):
     operation_ref = f"operation-ref:{method}-{next(_COUNTER)}"
     idempotency_ref = f"idempotency-ref:{method}-{next(_COUNTER)}"
+    if method.startswith("add_"):
+        collection, identity_field = {
+            "add_workspace": ("crm_workspaces", "crm_workspace_ref"),
+            "add_person": ("people", "person_ref"),
+            "add_organization": ("organizations", "organization_ref"),
+            "add_context": ("contexts", "context_ref"),
+            "add_relationship": ("relationships", "relationship_ref"),
+            "add_activity": ("activities", "activity_ref"),
+            "add_follow_up": ("follow_ups", "follow_up_ref"),
+            "add_pipeline_record": ("pipelines", "pipeline_ref"),
+            "add_pipeline_object": ("pipeline_objects", "pipeline_object_ref"),
+        }[method]
+        item = payload["item"]
+        mutation_kind = f"add_{collection}"
+        mutation_material = {
+            "identity_ref": getattr(item, identity_field),
+            "item": item.model_dump(mode="json"),
+        }
+    elif method == "undo":
+        mutation_kind = "undo"
+        mutation_material = {}
+    elif method == "archive_portfolio":
+        mutation_kind = "archive_portfolio"
+        mutation_material = {"archived": True}
+    else:
+        raise AssertionError(f"unsupported CRM test mutation: {method}")
+    scope = repository.mutation_approval_scope(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        expected_version=version,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        mutation_kind=mutation_kind,
+        mutation_material=mutation_material,
+    )
     return getattr(repository, method)(
         workspace_ref=WORKSPACE,
         portfolio_ref=PORTFOLIO,
@@ -167,12 +202,7 @@ def _mutate(repository, authority, method: str, *, version: int, **payload):
         approval=_approval(
             authority,
             action=ECO_CRM_MUTATION_ACTION,
-            resources=_resources(
-                PrivateCrmRepository,
-                record_ref=PORTFOLIO,
-                operation_ref=operation_ref,
-                idempotency_ref=idempotency_ref,
-            ),
+            resources=scope.resource_refs,
         ),
         **payload,
     )
@@ -211,20 +241,20 @@ def _create_portfolio(
 ):
     operation_ref = "operation-ref:create-crm-portfolio"
     idempotency_ref = "idempotency-ref:create-crm-portfolio"
-    approval = _approval(
-        authority,
-        action=ECO_CRM_MUTATION_ACTION,
-        resources=_resources(
-            PrivateCrmRepository,
-            record_ref=PORTFOLIO,
-            operation_ref=operation_ref,
-            idempotency_ref=idempotency_ref,
-        ),
-    )
     portfolio = PrivateCrmPortfolio(
         workspace_ref=WORKSPACE,
         portfolio_ref=PORTFOLIO,
         name="Synthetic private CRM marker",
+    )
+    scope = repository.create_approval_scope(
+        portfolio=portfolio,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    approval = _approval(
+        authority,
+        action=ECO_CRM_MUTATION_ACTION,
+        resources=scope.resource_refs,
     )
     receipt = repository.create_portfolio(
         portfolio=portfolio,
@@ -272,6 +302,11 @@ def test_create_revalidates_models_and_enforces_one_portfolio_per_workspace(
     ).model_copy(update={"name": ""})
     operation_ref = "operation-ref:create-invalid-crm-portfolio"
     idempotency_ref = "idempotency-ref:create-invalid-crm-portfolio"
+    invalid_scope = repository.create_approval_scope(
+        portfolio=invalid,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+    )
     with pytest.raises(PrivateCrmConflict, match="ECO_CRM_PORTFOLIO_NAME_INVALID"):
         repository.create_portfolio(
             portfolio=invalid,
@@ -280,41 +315,99 @@ def test_create_revalidates_models_and_enforces_one_portfolio_per_workspace(
             approval=_approval(
                 authority,
                 action=ECO_CRM_MUTATION_ACTION,
-                resources=_resources(
-                    PrivateCrmRepository,
-                    record_ref=PORTFOLIO,
-                    operation_ref=operation_ref,
-                    idempotency_ref=idempotency_ref,
-                ),
+                resources=invalid_scope.resource_refs,
             ),
         )
 
-    _create_portfolio(repository, authority)
+    create_receipt = _create_portfolio(repository, authority)
+    assert len(create_receipt.operation_receipt_refs) == 2
+    claim = repository.platform.read(
+        workspace_ref=WORKSPACE,
+        record_ref=repository._workspace_claim_ref(WORKSPACE),
+    )
+    assert claim.record_kind_ref == (
+        "record-kind-ref:crm-private-portfolio-workspace-claim"
+    )
     second_ref = "crm-portfolio-ref:second"
     operation_ref = "operation-ref:create-second-crm-portfolio"
     idempotency_ref = "idempotency-ref:create-second-crm-portfolio"
+    second = PrivateCrmPortfolio(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=second_ref,
+        name="Second",
+    )
+    second_scope = repository.create_approval_scope(
+        portfolio=second,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+    )
     with pytest.raises(
         PrivateCrmConflict, match="ECO_CRM_WORKSPACE_PORTFOLIO_ALREADY_EXISTS"
     ):
         repository.create_portfolio(
-            portfolio=PrivateCrmPortfolio(
-                workspace_ref=WORKSPACE,
-                portfolio_ref=second_ref,
-                name="Second",
-            ),
+            portfolio=second,
             operation_ref=operation_ref,
             idempotency_ref=idempotency_ref,
             approval=_approval(
                 authority,
                 action=ECO_CRM_MUTATION_ACTION,
-                resources=_resources(
-                    PrivateCrmRepository,
-                    record_ref=second_ref,
-                    operation_ref=operation_ref,
-                    idempotency_ref=idempotency_ref,
-                ),
+                resources=second_scope.resource_refs,
             ),
         )
+
+    _mutate(repository, authority, "archive_portfolio", version=1)
+    assert repository.read(workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO).archived
+    _mutate(repository, authority, "undo", version=2)
+    assert not repository.read(
+        workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO
+    ).archived
+
+
+def test_approval_scope_binds_exact_first_crm_mutation(tmp_path: Path) -> None:
+    repository, _boards, authority, _database_path = _repositories(tmp_path)
+    _create_portfolio(repository, authority)
+    operation_ref = "operation-ref:add-exact-workspace"
+    idempotency_ref = "idempotency-ref:add-exact-workspace"
+    approved_item = PrivateCrmWorkspace(
+        crm_workspace_ref="crm-workspace-ref:approved",
+        name="Approved",
+        preset=CrmWorkspacePreset.sales,
+    )
+    other_item = PrivateCrmWorkspace(
+        crm_workspace_ref="crm-workspace-ref:other",
+        name="Other",
+        preset=CrmWorkspacePreset.sales,
+    )
+    scope = repository.mutation_approval_scope(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        expected_version=1,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        mutation_kind="add_crm_workspaces",
+        mutation_material={
+            "identity_ref": approved_item.crm_workspace_ref,
+            "item": approved_item.model_dump(mode="json"),
+        },
+    )
+    approval = _approval(
+        authority,
+        action=ECO_CRM_MUTATION_ACTION,
+        resources=scope.resource_refs,
+    )
+    with pytest.raises(EcosystemLocalDataError, match="ECO_APPROVAL_SCOPE_INVALID"):
+        repository.add_workspace(
+            workspace_ref=WORKSPACE,
+            portfolio_ref=PORTFOLIO,
+            expected_version=1,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            item=other_item,
+        )
+    assert not repository.read(
+        workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO
+    ).crm_workspaces
 
 
 def test_activity_and_follow_up_links_require_exact_canonical_owners(
@@ -490,6 +583,51 @@ def test_activity_and_follow_up_links_require_exact_canonical_owners(
             event_ref=event_ref,
         ),
     )
+    other_workspace_ref = "crm-workspace-ref:private-network"
+    _mutate(
+        repository,
+        authority,
+        "add_workspace",
+        version=6,
+        item=PrivateCrmWorkspace(
+            crm_workspace_ref=other_workspace_ref,
+            name="Private network",
+            preset=CrmWorkspacePreset.personal_network,
+        ),
+    )
+    operation_ref = "operation-ref:archive-crm-linked-task"
+    idempotency_ref = "idempotency-ref:archive-crm-linked-task"
+    repository.task_repository.archive(
+        workspace_ref=WORKSPACE,
+        task_ref=task_ref,
+        expected_version=1,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=_approval(
+            authority,
+            action=ECO_TASK_MUTATION_ACTION,
+            resources=TaskRepository.mutation_resource_refs(
+                workspace_ref=WORKSPACE,
+                task_ref=task_ref,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        ),
+    )
+    assert (
+        repository.workspace_read_model(
+            workspace_ref=WORKSPACE,
+            portfolio_ref=PORTFOLIO,
+            crm_workspace_ref=other_workspace_ref,
+        ).crm_workspace.crm_workspace_ref
+        == other_workspace_ref
+    )
+    with pytest.raises(PrivateCrmConflict, match="ECO_CRM_TASK_LINK_ARCHIVED"):
+        repository.workspace_read_model(
+            workspace_ref=WORKSPACE,
+            portfolio_ref=PORTFOLIO,
+            crm_workspace_ref=CRM_WORKSPACE,
+        )
 
 
 def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(
@@ -683,15 +821,23 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(
 
     operation_ref = "operation-ref:complete-follow-up"
     idempotency_ref = "idempotency-ref:complete-follow-up"
+    completed_at = datetime(2026, 8, 22, 17, tzinfo=timezone.utc)
+    scope = repository.mutation_approval_scope(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        expected_version=version,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        mutation_kind="complete_follow_up",
+        mutation_material={
+            "identity_ref": "follow-up-ref:one",
+            "replacement": {"completed_at": completed_at.isoformat()},
+        },
+    )
     approval = _approval(
         authority,
         action=ECO_CRM_MUTATION_ACTION,
-        resources=_resources(
-            PrivateCrmRepository,
-            record_ref=PORTFOLIO,
-            operation_ref=operation_ref,
-            idempotency_ref=idempotency_ref,
-        ),
+        resources=scope.resource_refs,
     )
     repository.complete_follow_up(
         workspace_ref=WORKSPACE,
@@ -701,7 +847,20 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(
         idempotency_ref=idempotency_ref,
         approval=approval,
         follow_up_ref="follow-up-ref:one",
-        completed_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
+        completed_at=completed_at,
+    )
+    changed_completed_at = datetime(2026, 8, 22, 18, tzinfo=timezone.utc)
+    changed_scope = repository.mutation_approval_scope(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        expected_version=version,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        mutation_kind="complete_follow_up",
+        mutation_material={
+            "identity_ref": "follow-up-ref:one",
+            "replacement": {"completed_at": changed_completed_at.isoformat()},
+        },
     )
     with pytest.raises(EcosystemConflict, match="ECO_IDEMPOTENCY_REPLAY_CONFLICT"):
         repository.complete_follow_up(
@@ -710,9 +869,13 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(
             expected_version=version,
             operation_ref=operation_ref,
             idempotency_ref=idempotency_ref,
-            approval=approval,
+            approval=_approval(
+                authority,
+                action=ECO_CRM_MUTATION_ACTION,
+                resources=changed_scope.resource_refs,
+            ),
             follow_up_ref="follow-up-ref:one",
-            completed_at=datetime(2026, 8, 22, 18, tzinfo=timezone.utc),
+            completed_at=changed_completed_at,
         )
     version += 1
     assert (
