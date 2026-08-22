@@ -14,6 +14,14 @@ post-merge verified. This is a planning and comparison-order requirement, not
 completion evidence or runtime authority, and it does not replace the
 configured local model.
 
+Queue-of-Record V2 product-surface truth: Q18 Knowledge Workbench hardening is
+accepted for local Python Core and CLI scope. It adds exact-approved lifecycle,
+rights/OCR review, removal, truthful encryption posture, and operator-selected
+cited context on the Q03 corpus baseline. It grants no PDF/automatic OCR,
+application-level encryption, automatic Chat injection, model/provider,
+training, network, connector, public-release, or production authority. Q19
+cross-app EntityLink/ChangeSet work remains the next distinct authority lane.
+
 Current planning overlay: the active product/package baseline is v0.104.0 /
 0.104.0. UAA-P1-065 is complete, UAA-P1-067 is complete for Today-spine
 beta-readiness planning/currentness, UAA-P1-068 is complete for the Today

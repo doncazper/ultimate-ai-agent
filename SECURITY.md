@@ -100,6 +100,11 @@ Maintainers treat these as non-negotiable:
   prompt content, raw response content, raw provider payload content, raw local
   path content, raw log content, usernames, hostnames, serials, environment
   dumps, credentials, or secret-like values.
+- Knowledge Workbench source chunks are plaintext at the application layer and
+  must remain in an owner-only local store on an operator-controlled encrypted
+  volume. Plans, approvals, receipts, audit rows, and removal tombstones must
+  remain content-free. Archived, rights-ineligible, and OCR-pending sources
+  must not enter search or cited context.
 - User-facing claims must match implementation evidence.
 
 ## Local Control Center Browser Threat Model

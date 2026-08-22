@@ -1,7 +1,8 @@
 # Local Knowledge Dump
 
-Status: implemented local ingestion and lexical retrieval; explicit context
-preparation implemented; automatic Chat injection and model training blocked.
+Status: implemented local ingestion, lifecycle, removal, lexical retrieval,
+and explicit cited-context preparation; automatic Chat injection and model
+training blocked.
 
 The Knowledge Dump is UAA's local corpus for operator-supplied books, manuals,
 papers, notes, and other robust sources. It stores extracted source chunks in a
@@ -30,6 +31,13 @@ the exact document ref, prior metadata fingerprint, and proposed metadata.
 Prepared updates fail closed if another accepted update changes that fingerprint
 before commit.
 
+Q18 adds a separate governance revision for lifecycle, rights, and OCR review.
+Documents may be active or archived; rights may be current, review-required,
+or revoked. Native text is OCR-not-required. Operator-supplied OCR is excluded
+from search and context until an exact-approved update records reviewed status
+and a bounded evidence ref. Archived, rights-ineligible, and OCR-pending
+documents remain inspectable but cannot enter retrieval or context packs.
+
 This is retrieval-augmented context, not model-weight training. It makes a
 source available for cited recall without claiming that the underlying model
 has learned, verified, or internalized it.
@@ -39,6 +47,7 @@ has learned, verified, or internalized it.
 - UTF-8 plain text and Markdown, with line locators
 - HTML, with scripts and styles excluded
 - EPUB, with bounded archive inspection and section locators
+- operator-supplied OCR text, explicitly marked pending or reviewed
 
 PDF parsing remains blocked pending a separately reviewed dependency and parser
 hardening lane; scanned/image-only PDFs additionally require a future governed
@@ -126,6 +135,11 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py search "query terms
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
   prepare-context "query terms" --category medicine --tag cardiology \
   --max-characters 8000
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
+  prepare-selected-context \
+  --chunk-ref knowledge-chunk-ref:sha256:replace \
+  --max-characters 8000
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py encryption-posture
 ```
 
 Recategorize an existing document after reviewing its exact plan:
@@ -144,6 +158,15 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_knowledge.py \
 The approval argument must equal the exact scope ref emitted by the immediately
 preceding plan. A missing or stale value prints the current content-free plan
 and refuses the mutation.
+
+Lifecycle, rights, and OCR posture use the same print-plan-then-approve pattern
+through `govern`. Permanent `remove` additionally binds a retention-decision
+ref, external-backup-disposition ref, and the current document/chunk revision.
+Removal uses SQLite secure-delete and atomically deletes the source, chunks,
+and lexical-index rows while preserving only a redacted tombstone and audit
+receipt. Automatic restore is
+not implemented; recovery requires an operator-managed external backup and a
+new reviewed source revision.
 
 The default local store is `.uaa/knowledge_dump`, which is gitignored. `--store`
 selects another local directory. Plans and receipts contain safe hashes/refs,
@@ -164,10 +187,12 @@ the package spine rather than archive filename order.
 
 ## Chat boundary
 
-`prepare-context` returns the selected source chunks because those chunks are
-the useful knowledge payload. Each chunk is explicitly marked untrusted data,
-not an instruction, and includes its citation locator. The pack also instructs
-the eventual Chat composer to cite sources and disclose uncertainty/conflicts.
+`prepare-context` returns bounded query-ranked source chunks.
+`prepare-selected-context` instead requires an exact ordered operator-selected
+chunk set and fails closed if any selection is missing, ineligible, or over
+budget. Each chunk is explicitly marked untrusted data, not an instruction,
+and includes its citation locator. The pack also instructs the eventual Chat
+composer to cite sources and disclose uncertainty/conflicts.
 
 The current lane does not call a model or provider and does not automatically or
 silently inject the pack into Chat. Connecting an operator-selected pack to the
@@ -180,13 +205,13 @@ and no expansion of provider or model authority.
 - No network fetch, crawler, connector, browser, or provider SDK is used.
 - No embeddings, vector database, semantic search, background indexing, model
   fine-tuning, or training corpus export is enabled.
-- SQLite stores source chunks locally in plaintext. The dump must remain on an
-  operator-controlled encrypted volume; application-level encryption and
-  Keychain-bound keys are future hardening.
+- SQLite stores source chunks locally in plaintext. `encryption-posture`
+  truthfully reports owner-only permissions and that application-level,
+  Keychain-bound, and runtime-verified volume encryption are not implemented.
+  The dump must remain on an operator-controlled encrypted volume.
 - Source content may contain incorrect, malicious, stale, or contradictory
   statements. Retrieval never grants truth, instruction, diagnosis,
   prescribing, action, approval, or production authority.
-- An approved removal/rollback command and Control Center management surface are
-  not implemented in this slice. Until then, operators may safe-disable the
-  entire dump by moving the local store directory out of UAA's configured path;
-  exact per-document lifecycle remains follow-up work.
+- Exact per-document governance and removal are implemented in the Python Core
+  and CLI. A Control Center management surface, automatic backup/restore, and
+  application-level encryption remain follow-up work.
