@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 84,
+    "validation_only": 87,
     "none": 16,
     "local_dev_workspace_only": 196,
     "governed_network_read_only": 6,
@@ -60,19 +60,37 @@ HIGH_RISK_EXPECTATIONS = {
     ("GET", "/observability/session-events"): "local_sensitive",
     ("POST", "/observability/client-errors"): "local_sensitive",
     ("POST", "/task-decomposition/run"): "mutating_requires_authority",
-    ("POST", "/task-decomposition/approvals/grants/capture"): "mutating_requires_authority",
+    (
+        "POST",
+        "/task-decomposition/approvals/grants/capture",
+    ): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/events/message"): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/roles/bind"): "mutating_requires_authority",
-    ("POST", "/control-center/actions/{action_id}/local-task/commit"): "mutating_requires_authority",
-    ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/actions/{action_id}/local-task/commit",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/providers/exact-approved-lanes/tiny",
+    ): "mutating_requires_authority",
     ("POST", "/control-center/providers/router/dry-run"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations"): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-leases"): "mutating_requires_authority",
-    ("POST", "/api/runtime/authority-leases/approve-and-issue"): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/authority-leases/approve-and-issue",
+    ): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-leases/revoke"): "mutating_requires_authority",
-    ("POST", "/api/runtime/authority-missions/approval-decisions"): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/authority-missions/approval-decisions",
+    ): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-missions/cancel"): "mutating_requires_authority",
-    ("POST", "/api/runtime/authority-missions/dead-letter-recovery"): "mutating_requires_authority",
+    (
+        "POST",
+        "/api/runtime/authority-missions/dead-letter-recovery",
+    ): "mutating_requires_authority",
     ("POST", "/api/runtime/command/run"): "mutating_requires_authority",
     ("POST", "/api/runtime/goals"): "mutating_requires_authority",
     (
@@ -112,7 +130,10 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/control-center/work-board/reorder"): "mutating_requires_authority",
     ("POST", "/control-center/work-board/tasks"): "mutating_requires_authority",
     ("POST", "/extensions/disabled-install-records"): "mutating_requires_authority",
-    ("POST", "/extensions/disabled-install-records/rollback"): "mutating_requires_authority",
+    (
+        "POST",
+        "/extensions/disabled-install-records/rollback",
+    ): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
     (
         "POST",
@@ -188,24 +209,38 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         failures.append("route_classification_summary does not match route inventory")
 
     public_metadata_paths = {
-        key for key, route in routes_by_key.items() if route["route_classification"] == "public_metadata"
+        key
+        for key, route in routes_by_key.items()
+        if route["route_classification"] == "public_metadata"
     }
     if public_metadata_paths != EXPECTED_PUBLIC_METADATA_PATHS:
-        failures.append(f"public_metadata routes are too broad or stale: {sorted(public_metadata_paths)}")
+        failures.append(
+            f"public_metadata routes are too broad or stale: {sorted(public_metadata_paths)}"
+        )
     for key, expected in HIGH_RISK_EXPECTATIONS.items():
         actual = routes_by_key.get(key, {}).get("route_classification")
         if actual != expected:
-            failures.append(f"{key[0]} {key[1]} classified as {actual}, expected {expected}")
+            failures.append(
+                f"{key[0]} {key[1]} classified as {actual}, expected {expected}"
+            )
     for route in routes:
         if not route.get("classification_reason"):
-            failures.append(f"{route['method']} {route['path']} missing classification_reason")
+            failures.append(
+                f"{route['method']} {route['path']} missing classification_reason"
+            )
         expected_protected = route["route_classification"] != "public_metadata"
         if route.get("protected_route") is not expected_protected:
-            failures.append(f"{route['method']} {route['path']} protected_route mismatch")
+            failures.append(
+                f"{route['method']} {route['path']} protected_route mismatch"
+            )
         if route.get("requires_auth_future") is not True:
-            failures.append(f"{route['method']} {route['path']} requires_auth_future drifted")
+            failures.append(
+                f"{route['method']} {route['path']} requires_auth_future drifted"
+            )
         if route.get("blocked_from_production") is not True:
-            failures.append(f"{route['method']} {route['path']} blocked_from_production drifted")
+            failures.append(
+                f"{route['method']} {route['path']} blocked_from_production drifted"
+            )
 
     append_route_fixture_mismatches(
         failures,
@@ -224,7 +259,10 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
                 expected = routes_by_key.get(key)
                 if expected is None:
                     continue
-                if route.get("route_classification") != expected["route_classification"]:
+                if (
+                    route.get("route_classification")
+                    != expected["route_classification"]
+                ):
                     failures.append(
                         f"route status manifest {key[0]} {key[1]} classification mismatch"
                     )
@@ -241,9 +279,15 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     ]
     append_forbidden_claims(failures, scan_paths, FORBIDDEN_CLAIMS)
 
-    frontend = read_text("apps/control-center/src/components/ApiRouteInventoryPanel.tsx")
+    frontend = read_text(
+        "apps/control-center/src/components/ApiRouteInventoryPanel.tsx"
+    )
     frontend_compact = " ".join(frontend.split())
-    for snippet in ["Classification", "route_classification", "Classification is posture evidence only"]:
+    for snippet in [
+        "Classification",
+        "route_classification",
+        "Classification is posture evidence only",
+    ]:
         if snippet not in frontend_compact:
             failures.append(f"API Routes panel missing {snippet}")
 

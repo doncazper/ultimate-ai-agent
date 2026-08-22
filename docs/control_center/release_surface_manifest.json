@@ -2092,6 +2092,79 @@
       ]
     },
     {
+      "path": "/autocorrect",
+      "label": "Autocorrect",
+      "group": "Review",
+      "ui_status": "proposal-only",
+      "status": "experimental",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/autocorrect/status",
+          "operation_id": "get_control_center_autocorrect_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/proposals/preview",
+          "operation_id": "post_control_center_autocorrect_proposals_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/reviews/preview",
+          "operation_id": "post_control_center_autocorrect_reviews_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_q28_autocorrect_controls.py",
+        "tests/test_q28_autocorrect_controls.py",
+        "apps/control-center/src/components/AutocorrectControlPanel.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "durable_correction_review_store",
+        "canonical_mutation",
+        "changeset_creation",
+        "approval_grant",
+        "rollback_execution",
+        "model_call",
+        "external_write",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority"
+      ],
+      "evidence_refs": [
+        "docs/architecture/Q28_AUTOCORRECT_CONTROLS.md",
+        "src/ultimate_ai_agent/core/ecosystem/corrections.py",
+        "apps/control-center/src/components/AutocorrectControlPanel.tsx"
+      ],
+      "owner": "ecosystem-governance",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:autocorrect:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; the bounded comparison surface has component tests only.",
+      "promotion_criteria": [
+        "Capture and accept redacted desktop visual proof.",
+        "Add a separately scoped durable local review-receipt lane before claiming durable history.",
+        "Keep canonical ChangeSet application and rollback behind exact ECO-008 approval and authority.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Accept means accepted for separately governed ChangeSet review, not applied.",
+        "Review replay protection is process-local and resets on restart.",
+        "Control Center cannot grant approval, create or apply a ChangeSet, execute rollback, call a model, or perform an external write.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Release status is experimental and is not a public beta, public release, production readiness, or production authority claim."
+      ]
+    },
+    {
       "path": "/action-preview",
       "label": "Action Preview",
       "group": "Review",

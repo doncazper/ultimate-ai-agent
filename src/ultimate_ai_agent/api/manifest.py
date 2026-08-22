@@ -895,6 +895,8 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
+    "/control-center/autocorrect/proposals/preview",
+    "/control-center/autocorrect/reviews/preview",
     "/control-center/proposal-intelligence/extract",
     "/control-center/turn-router/preview",
     "/control-center/communications/matrix-crypto/proposal",
@@ -1075,6 +1077,7 @@ CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS = {
     ),
 }
 LOCAL_READONLY_PATHS = {
+    "/control-center/autocorrect/status",
     "/control-center/dashboard",
     "/control-center/capabilities/availability",
     "/control-center/capabilities/surface",

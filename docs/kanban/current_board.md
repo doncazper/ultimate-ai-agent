@@ -1559,6 +1559,29 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+Q28 Autocorrect Controls — Proposal-Only Review Lane
+Goal: make corrections reviewable without allowing silent or stale mutation.
+Status: accepted locally on 2026-08-22 for bounded proposal-only scope. Python
+Core validates content-free exact field diffs for existing ECO-008 Task, Board,
+and Calendar targets; exact revision, canonical owner, confidence,
+safe-disable, proposal fingerprint, and idempotency payload bindings fail
+closed. Accept, reject, and supersede produce process-local review receipts and
+content-free learning or follow-up refs. The protected validation-only API,
+synthetic-only CLI, and experimental Control Center comparison surface share
+the contract.
+Scope: `docs/architecture/Q28_AUTOCORRECT_CONTROLS.md`,
+`src/ultimate_ai_agent/core/ecosystem/corrections.py`,
+`src/ultimate_ai_agent/api/founder_loop.py`,
+`scripts/inspect_autocorrect_controls.py`,
+`scripts/verify_q28_autocorrect_controls.py`,
+`apps/control-center/src/components/AutocorrectControlPanel.tsx`, and
+`tests/test_q28_autocorrect_controls.py`. No canonical write, ChangeSet
+creation, approval grant, durable review store, rollback execution, model call,
+connector/external write, public release, or production authority is accepted.
+Next: any actual correction must enter a separately approved exact ECO-008
+child ChangeSet lane; durable review history is a later scoped local-storage
+lane.
+
 ECO-010 Deterministic Proposal Intelligence — First Lane
 Goal: create cited review-only candidates without allowing source or model
 output to become authority.

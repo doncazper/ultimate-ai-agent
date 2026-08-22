@@ -10,12 +10,12 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 351,
-    "release_surface_route_count": 43,
-    "visible_action_count": 46,
-    "human_capability_count": 31,
-    "covered_release_route_count": 43,
-    "covered_visible_action_count": 46,
+    "api_manifest_route_count": 354,
+    "release_surface_route_count": 44,
+    "visible_action_count": 47,
+    "human_capability_count": 32,
+    "covered_release_route_count": 44,
+    "covered_visible_action_count": 47,
     "missing_release_routes": [],
     "missing_visible_actions": []
   },
@@ -232,6 +232,67 @@
           "risk_class": "medium",
           "backend_route_count": 1,
           "missing_backend_route_count": 3,
+          "source_truth_status": "current"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "autocorrect_proposal_review_controls",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/autocorrect/status",
+          "operation_id": "get_control_center_autocorrect_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/proposals/preview",
+          "operation_id": "post_control_center_autocorrect_proposals_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/reviews/preview",
+          "operation_id": "post_control_center_autocorrect_reviews_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/autocorrect",
+          "label": "Autocorrect",
+          "group": "Review",
+          "ui_status": "proposal-only",
+          "release_status": "experimental",
+          "owner": "ecosystem-governance",
+          "backend_route_count": 3,
+          "blocked_capability_count": 10,
+          "visual_proof_status": "experimental_no_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-autocorrect",
+          "source": "route_status_manifest",
+          "frontend_route": "/autocorrect",
+          "ui_surface": "Autocorrect",
+          "release_status": "preview_available_not_execution",
+          "side_effect_class": "validation_only",
+          "risk_class": "medium",
+          "backend_route_count": 3,
+          "missing_backend_route_count": 0,
           "source_truth_status": "current"
         }
       ],

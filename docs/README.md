@@ -379,6 +379,17 @@ contract. No source read, model/provider call, approval, ChangeSet, target
 record, direct commit, external write, public release, or production authority
 is added.
 
+Q28 proposal-only Autocorrect Controls are documented in
+`docs/architecture/Q28_AUTOCORRECT_CONTROLS.md`. The Python Core, protected
+validation-only API, repo-local synthetic inspection CLI, and experimental
+Control Center review surface share one content-free exact-diff contract for
+the existing ECO-008 Task, Board, and Calendar targets. Stale revisions,
+safe-disable, low confidence, changed proposal bindings, and idempotency payload
+conflicts fail closed. Accept, reject, and supersede outcomes produce bounded
+review refs only. No canonical mutation, ChangeSet creation, approval grant,
+rollback execution, model/provider call, connector/external write, public
+release, or production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,
