@@ -736,118 +736,6 @@ capabilities and any send/write capability remain blocked behind separate
 AuthorityLease capability evidence, unblock prompts, route contracts, redaction
 tests, safe-disable posture, and rollback-readiness evidence.
 
-<!-- MSG-MX-CURRENT-OVERLAY:START -->
-MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
-Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
-Current phase: `MSG-MX-012`
-Current program status: `partial_acceptance_evidence`
-Current evidence ref: `evidence-ref:msg-mx-012:integrated-acceptance-packet`
-Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
-finite merge-gated milestones without treating design, UI state, generic
-messages authority, or Full Machine Access as Matrix runtime authority.
-Historical baseline status at `d1066c0cdc90a3d882114eab145e235cb8d1ae38`:
-MSG-MX-000 is accepted for a planning audit and subordinate authority map only.
-MSG-MX-001 through MSG-MX-003 are planned with no new runtime authority.
-MSG-MX-004 through MSG-MX-010 are
-`blocked_pending_separate_exact_authority`. MSG-MX-011 and MSG-MX-012 add no
-lane and may exercise only exact previously accepted lanes.
-Scope: `docs/prompts/messenger_matrix/README.md`. The baseline adds no Matrix SDK,
-Synapse service, runtime route, network access, session, account auth,
-credential/key store, sync/read, crypto, send/write, room/media/search,
-provider/model call, UI control, public release, or production authority.
-Authority: every future runtime call must freshly evaluate exact policy,
-approval scope where required, AuthorityLease, capability, adapter, provider,
-target, mission/run, TTL/deadline, budget, readiness, kill switch,
-safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
-stale state fails closed.
-<!-- MSG-MX-CURRENT-OVERLAY:END -->
-
-Historical MSG-MX-004 merge evidence remains
-`evidence-ref:msg-mx-004:local-synapse-harness`.
-MSG-MX-005 implements exact homeserver discovery and authentication-method
-inspection through Python Core and the pinned Matrix adapter. Credential
-authentication, SSO launch/callback, refresh, logout, revoke-all, credential
-rotation, and credential deletion remain blocked pending an authenticated
-one-use handoff or socket-owning SSO broker. Matrix account/session, sync,
-message, crypto, media, and Messenger UI runtime remain unavailable. No
-fixture UI is connected to the session routes.
-MSG-MX-006 declares twelve exact read, protected-cache, and cache-key authority
-lanes. Two GET transports and the protected-cache/key primitives have bounded
-loopback proofs; ten canonical dispatch executors remain uncomposed and fail
-closed. Live account sync
-remains configuration-required pending account enrollment, the one-use
-credential broker, and an unlocked installed macOS cache helper. Messenger
-displays backend readiness only; its room and message data remains synthetic.
-Encrypted-event materialization, sends, room writes, media, public release, and
-production authority remain blocked.
-MSG-MX-007 accepts seventeen exact crypto-store, verification, device,
-cross-signing, backup, recovery, and identity-reset authority bindings plus
-content-free API/CLI/macOS posture and proposal surfaces. Every action is
-request-fingerprint, target, generation, deadline, budget, kill-switch,
-safe-disable, approval, lease, idempotency, and rollback scoped. The approved
-one-shot Node adapter has no persistent IndexedDB Rust-crypto store, so all live
-executors remain adapter-required and blocked. No device trust, key, backup,
-restore, or reset operation ran; Element interoperability is an external
-facility requirement.
-MSG-MX-008 implements fifteen exact human-commanded messaging, encrypted draft/
-outbox, and generic desktop-notification lanes through Python Core, a pinned
-one-use Rust broker, macOS Keychain-backed encrypted stores, protected no-store
-API, human-readable CLI, and strict desktop posture. A disposable local Synapse
-drill proved encrypted outbox persistence across restart, plaintext absence,
-encrypted send/reply/thread/reaction/edit/redaction, typing and read-receipt
-writes, server acknowledgement, remote-echo transition, second-client
-encrypted-event observation, and terminal duplicate replay without a second
-send. The default
-runtime remains `configuration_required`; remote homeservers, autonomous or AI
-sends, uncertain automatic retry, raw durable content, and standing connector
-authority remain denied. Element Desktop was absent, so interoperability is
-`external_facility_required` rather than simulated.
-MSG-MX-009 implements twenty exact request-scoped DM, room, membership,
-administration, Space, encrypted-search, and bounded-media lanes. Python Core
-enforces complete exact bindings, including conjunctive multi-domain media
-leases, room-scoped encrypted local search, app-owned descriptor-relative file
-handling, quarantine-before-use, metadata-only preview, content-free progress,
-cancellation uncertainty, and manual same-idempotency retry. The one-use Rust
-broker implements sixteen exact Matrix network operations. A disposable local
-Synapse drill exercised all sixteen plus materialize, preview, and cleanup, then
-proved zero containers, networks, volumes, and residual resources. Default
-runtime remains `configuration_required`; the Messenger content and controls
-remain synthetic, remote homeservers and broad filesystem access are denied,
-and Element interoperability remains `external_facility_required`.
-MSG-MX-010 accepts six exact request-scoped local room-AI-policy, transient
-context-manifest, and redacted proposal-store lanes. All six re-evaluate exact
-policy, approval, session lease, complete resource scope, budget, deadline,
-readiness, kill switch, safe-disable, idempotency, and rollback/deletion posture
-immediately before start. Context bodies are transient and outputs are
-content-free; proposal records are review-only metadata with no execution path.
-Provider/model invocation and attachment materialize/scan/analyze/cleanup have
-no binding, adapter, route, CLI execution operation, or runtime. Autonomous
-send, action execution, context injection, and automatic Memory remain denied.
-MSG-MX-011 grants no new runtime lane. It caps cumulative protected-cache
-history at 5,000 events, per-room retained refs at 2,000, and encrypted outbox
-records at 256; adds typed content-free low-disk failures; and exposes the same
-twelve-category hardening posture through protected no-store API, CLI, and the
-desktop recovery inspector. Nine categories have bounded local evidence.
-Migration and persistent multi-device ownership remain blocked, localization
-readiness is partial, and Element interoperability remains
-`external_facility_required`. Calls, agent room participants, hosted
-infrastructure, public federation, and production deployment remain denied.
-MSG-MX-012 grants no new runtime lane. Its finite integrated acceptance packet
-reconciles all thirteen milestones, all fifteen desktop surfaces, the required
-failure/recovery scenarios, and API/CLI/macOS posture parity. The packet records
-implemented, partial, blocked, unsupported, configuration-required, and
-external-facility-required truth without promoting fixture, contract, loopback,
-or historical Synapse evidence into enrolled remote, Element, public-release,
-or production acceptance. Persistent crypto, migration/multi-device ownership,
-live backup/recovery/revocation, enrolled remote runtime, and Element
-interoperability remain blocked or externally required.
-The accepted design gate is recorded in
-`docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
-`docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
-`docs/security/UAA_MESSENGER_MATRIX_THREAT_MODEL.md`, and
-`docs/connectors/MESSENGER_MATRIX_DESIGN_AUTHORITY_MATRIX.md`; these artifacts
-grant no runtime authority.
-
 ECO-000 Coherent App Ecosystem Contract And Experience Acceptance
 Goal: lock the complete standalone-quality Calendar, Tasks, Boards, CRM, Inbox,
 Today, Organizer, Evidence, and Memory ecosystem before new private CRM,
@@ -1669,6 +1557,118 @@ provider/model/browser/subprocess/background runtime, public release, or
 production authority is accepted.
 Next: Q20 may consume only accepted local ChangeSet and link contracts; live
 communications sends/writes remain separately governed and blocked.
+
+<!-- MSG-MX-CURRENT-OVERLAY:START -->
+MSG-MX-000 through MSG-MX-012 Messenger Matrix Desktop Program
+Baseline authority map: `docs/connectors/MESSENGER_MATRIX_BASELINE_AUTHORITY_MAP.md`
+Current phase: `MSG-MX-012`
+Current program status: `partial_acceptance_evidence`
+Current evidence ref: `evidence-ref:msg-mx-012:integrated-acceptance-packet`
+Goal: build a clean-room, macOS-first Messenger Matrix client through thirteen
+finite merge-gated milestones without treating design, UI state, generic
+messages authority, or Full Machine Access as Matrix runtime authority.
+Historical baseline status at `d1066c0cdc90a3d882114eab145e235cb8d1ae38`:
+MSG-MX-000 is accepted for a planning audit and subordinate authority map only.
+MSG-MX-001 through MSG-MX-003 are planned with no new runtime authority.
+MSG-MX-004 through MSG-MX-010 are
+`blocked_pending_separate_exact_authority`. MSG-MX-011 and MSG-MX-012 add no
+lane and may exercise only exact previously accepted lanes.
+Scope: `docs/prompts/messenger_matrix/README.md`. The baseline adds no Matrix SDK,
+Synapse service, runtime route, network access, session, account auth,
+credential/key store, sync/read, crypto, send/write, room/media/search,
+provider/model call, UI control, public release, or production authority.
+Authority: every future runtime call must freshly evaluate exact policy,
+approval scope where required, AuthorityLease, capability, adapter, provider,
+target, mission/run, TTL/deadline, budget, readiness, kill switch,
+safe-disable, and idempotency/replay. Approval refs grant nothing; unknown or
+stale state fails closed.
+<!-- MSG-MX-CURRENT-OVERLAY:END -->
+
+Historical MSG-MX-004 merge evidence remains
+`evidence-ref:msg-mx-004:local-synapse-harness`.
+MSG-MX-005 implements exact homeserver discovery and authentication-method
+inspection through Python Core and the pinned Matrix adapter. Credential
+authentication, SSO launch/callback, refresh, logout, revoke-all, credential
+rotation, and credential deletion remain blocked pending an authenticated
+one-use handoff or socket-owning SSO broker. Matrix account/session, sync,
+message, crypto, media, and Messenger UI runtime remain unavailable. No
+fixture UI is connected to the session routes.
+MSG-MX-006 declares twelve exact read, protected-cache, and cache-key authority
+lanes. Two GET transports and the protected-cache/key primitives have bounded
+loopback proofs; ten canonical dispatch executors remain uncomposed and fail
+closed. Live account sync
+remains configuration-required pending account enrollment, the one-use
+credential broker, and an unlocked installed macOS cache helper. Messenger
+displays backend readiness only; its room and message data remains synthetic.
+Encrypted-event materialization, sends, room writes, media, public release, and
+production authority remain blocked.
+MSG-MX-007 accepts seventeen exact crypto-store, verification, device,
+cross-signing, backup, recovery, and identity-reset authority bindings plus
+content-free API/CLI/macOS posture and proposal surfaces. Every action is
+request-fingerprint, target, generation, deadline, budget, kill-switch,
+safe-disable, approval, lease, idempotency, and rollback scoped. The approved
+one-shot Node adapter has no persistent IndexedDB Rust-crypto store, so all live
+executors remain adapter-required and blocked. No device trust, key, backup,
+restore, or reset operation ran; Element interoperability is an external
+facility requirement.
+MSG-MX-008 implements fifteen exact human-commanded messaging, encrypted draft/
+outbox, and generic desktop-notification lanes through Python Core, a pinned
+one-use Rust broker, macOS Keychain-backed encrypted stores, protected no-store
+API, human-readable CLI, and strict desktop posture. A disposable local Synapse
+drill proved encrypted outbox persistence across restart, plaintext absence,
+encrypted send/reply/thread/reaction/edit/redaction, typing and read-receipt
+writes, server acknowledgement, remote-echo transition, second-client
+encrypted-event observation, and terminal duplicate replay without a second
+send. The default
+runtime remains `configuration_required`; remote homeservers, autonomous or AI
+sends, uncertain automatic retry, raw durable content, and standing connector
+authority remain denied. Element Desktop was absent, so interoperability is
+`external_facility_required` rather than simulated.
+MSG-MX-009 implements twenty exact request-scoped DM, room, membership,
+administration, Space, encrypted-search, and bounded-media lanes. Python Core
+enforces complete exact bindings, including conjunctive multi-domain media
+leases, room-scoped encrypted local search, app-owned descriptor-relative file
+handling, quarantine-before-use, metadata-only preview, content-free progress,
+cancellation uncertainty, and manual same-idempotency retry. The one-use Rust
+broker implements sixteen exact Matrix network operations. A disposable local
+Synapse drill exercised all sixteen plus materialize, preview, and cleanup, then
+proved zero containers, networks, volumes, and residual resources. Default
+runtime remains `configuration_required`; the Messenger content and controls
+remain synthetic, remote homeservers and broad filesystem access are denied,
+and Element interoperability remains `external_facility_required`.
+MSG-MX-010 accepts six exact request-scoped local room-AI-policy, transient
+context-manifest, and redacted proposal-store lanes. All six re-evaluate exact
+policy, approval, session lease, complete resource scope, budget, deadline,
+readiness, kill switch, safe-disable, idempotency, and rollback/deletion posture
+immediately before start. Context bodies are transient and outputs are
+content-free; proposal records are review-only metadata with no execution path.
+Provider/model invocation and attachment materialize/scan/analyze/cleanup have
+no binding, adapter, route, CLI execution operation, or runtime. Autonomous
+send, action execution, context injection, and automatic Memory remain denied.
+MSG-MX-011 grants no new runtime lane. It caps cumulative protected-cache
+history at 5,000 events, per-room retained refs at 2,000, and encrypted outbox
+records at 256; adds typed content-free low-disk failures; and exposes the same
+twelve-category hardening posture through protected no-store API, CLI, and the
+desktop recovery inspector. Nine categories have bounded local evidence.
+Migration and persistent multi-device ownership remain blocked, localization
+readiness is partial, and Element interoperability remains
+`external_facility_required`. Calls, agent room participants, hosted
+infrastructure, public federation, and production deployment remain denied.
+MSG-MX-012 grants no new runtime lane. Its finite integrated acceptance packet
+reconciles all thirteen milestones, all fifteen desktop surfaces, the required
+failure/recovery scenarios, and API/CLI/macOS posture parity. The packet records
+implemented, partial, blocked, unsupported, configuration-required, and
+external-facility-required truth without promoting fixture, contract, loopback,
+or historical Synapse evidence into enrolled remote, Element, public-release,
+or production acceptance. Persistent crypto, migration/multi-device ownership,
+live backup/recovery/revocation, enrolled remote runtime, and Element
+interoperability remain blocked or externally required.
+The accepted design gate is recorded in
+`docs/design/control_center_north_star/UAA_MESSENGER_MATRIX_RENDER_ACCEPTANCE.md`,
+`docs/decisions/ADR-0062-messenger-matrix-client-and-data-boundaries.md`,
+`docs/security/UAA_MESSENGER_MATRIX_THREAT_MODEL.md`, and
+`docs/connectors/MESSENGER_MATRIX_DESIGN_AUTHORITY_MATRIX.md`; these artifacts
+grant no runtime authority.
 
 UAA-P1-020 PolicyEngine consolidation map
 Gate met: current policy/approval decision paths are mapped by owner, input
