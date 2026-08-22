@@ -2,6 +2,11 @@ import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   ActionPreviewDecision,
   ActionPreviewRequest,
+  AutocorrectControlStatus,
+  AutocorrectProposal,
+  AutocorrectProposalRequest,
+  AutocorrectReviewReceipt,
+  AutocorrectReviewRequest,
   AuthorityActionRequest,
   AuthorityDecisionPreview,
   AuthorityLeaseApproveAndIssueRequest,
@@ -3914,6 +3919,80 @@ export async function loadControlCenterData(
         : []),
     ],
   });
+}
+
+export async function fetchAutocorrectStatus(): Promise<AutocorrectControlStatus> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.autocorrectStatus}`,
+    {
+      headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+    },
+  );
+  const data = (await response.json()) as ResultEnvelope<AutocorrectControlStatus>;
+  const status = data.result ?? data.data;
+  if (!response.ok || !status) {
+    throw new Error(
+      safeApiErrorMessage(data, "Autocorrect status was unavailable safely."),
+    );
+  }
+  return status;
+}
+
+export async function submitAutocorrectProposalPreview(
+  request: AutocorrectProposalRequest,
+): Promise<AutocorrectProposal> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.autocorrectProposalPreview}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await response.json()) as ResultEnvelope<AutocorrectProposal>;
+  const proposal = data.result ?? data.data;
+  if (!response.ok || !proposal) {
+    throw new Error(
+      safeApiErrorMessage(data, "Autocorrect proposal was rejected safely."),
+    );
+  }
+  return proposal;
+}
+
+export async function submitAutocorrectReviewPreview(
+  request: AutocorrectReviewRequest,
+): Promise<AutocorrectReviewReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.autocorrectReviewPreview}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await response.json()) as ResultEnvelope<AutocorrectReviewReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      safeApiErrorMessage(data, "Autocorrect review was rejected safely."),
+    );
+  }
+  return receipt;
 }
 
 export async function submitActionPreview(

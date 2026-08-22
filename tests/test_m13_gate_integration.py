@@ -2,7 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
+    default_foundation_gate_criteria,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,8 +39,12 @@ def test_m13_foundation_gate_criteria_exist_and_pass() -> None:
 
 
 def test_frontend_source_declares_only_scoped_post_routes() -> None:
-    endpoints = (ROOT / "apps/control-center/src/api/endpoints.ts").read_text(encoding="utf-8")
-    client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
+    endpoints = (ROOT / "apps/control-center/src/api/endpoints.ts").read_text(
+        encoding="utf-8"
+    )
+    client = (ROOT / "apps/control-center/src/api/client.ts").read_text(
+        encoding="utf-8"
+    )
 
     assert 'actionPreview: "/control-center/actions/preview"' in endpoints
     assert 'localChatCompletions: "/v1/chat/completions"' in endpoints
@@ -66,6 +73,8 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "API_ENDPOINTS.localChatCompletions",
         "API_ENDPOINTS.turnRouterPreview",
         "API_ENDPOINTS.controlCenterWebEvidenceAttach",
+        "API_ENDPOINTS.autocorrectProposalPreview",
+        "API_ENDPOINTS.autocorrectReviewPreview",
         "postRuntimeGoalMutation",
         "prepareRuntimeGoalMutationApproval",
         "decideRuntimeGoalMutationApproval",
@@ -144,7 +153,9 @@ def test_m13_rejects_goal_helper_destination_substitution(
 
 
 def test_frontend_package_has_only_local_shell_dependencies() -> None:
-    package = (ROOT / "apps/control-center/package.json").read_text(encoding="utf-8").lower()
+    package = (
+        (ROOT / "apps/control-center/package.json").read_text(encoding="utf-8").lower()
+    )
     forbidden = [
         '"next"',
         '"tailwindcss"',
@@ -168,7 +179,11 @@ def test_frontend_package_has_only_local_shell_dependencies() -> None:
 
 
 def test_frontend_mocks_remain_non_authoritative() -> None:
-    mock = (ROOT / "apps/control-center/src/mocks/controlCenterData.ts").read_text(encoding="utf-8").lower()
+    mock = (
+        (ROOT / "apps/control-center/src/mocks/controlCenterData.ts")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     required = [
         "mock: true",
         "production_control_center: false",

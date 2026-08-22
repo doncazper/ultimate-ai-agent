@@ -16256,6 +16256,154 @@ export interface MacOSSetupAssistantData {
   morningReviewChecklist: string[];
 }
 
+export type AutocorrectTargetKind =
+  | "task"
+  | "task_occurrence"
+  | "board"
+  | "board_template"
+  | "calendar_set";
+
+export type AutocorrectOwner = "tasks" | "boards" | "calendar";
+
+export interface AutocorrectFieldDiff {
+  operation_ref: string;
+  target_ref: string;
+  field_ref: string;
+  change_kind: "added" | "removed" | "updated";
+  before_fingerprint_ref: string | null;
+  after_fingerprint_ref: string | null;
+  raw_value_included: false;
+}
+
+export interface AutocorrectProposalRequest {
+  workspace_ref: string;
+  source_proposal_ref: string;
+  target_kind: AutocorrectTargetKind;
+  target_owner: AutocorrectOwner;
+  target_ref: string;
+  expected_revision_ref: string;
+  current_revision_ref: string;
+  confidence_percent: number;
+  field_diffs: AutocorrectFieldDiff[];
+  evidence_refs: string[];
+  reason_refs: string[];
+  rejection_history_refs: string[];
+  safe_disabled: boolean;
+  model_generated: false;
+  raw_content_included: false;
+}
+
+export interface AutocorrectProposal {
+  schema_version: "uaa-autocorrect-controls.v1";
+  contract_ref: string;
+  proposal_ref: string;
+  proposal_fingerprint_ref: string;
+  source_proposal_ref: string;
+  workspace_ref: string;
+  target_kind: AutocorrectTargetKind;
+  target_owner: AutocorrectOwner;
+  target_ref: string;
+  state:
+    | "ready_for_review"
+    | "blocked_low_confidence"
+    | "blocked_safe_disabled"
+    | "stale";
+  confidence_percent: number;
+  confidence: "high" | "medium" | "low";
+  comparison: {
+    target_ref: string;
+    expected_revision_ref: string;
+    current_revision_ref: string;
+    field_diffs: AutocorrectFieldDiff[];
+    changed_field_count: number;
+    exact_revision_match: boolean;
+    raw_values_included: false;
+  };
+  evidence_refs: string[];
+  reason_refs: string[];
+  rejection_history_refs: string[];
+  expected_approval_scope_ref: string;
+  expected_changeset_plan_ref: string;
+  review_packet_ref: string;
+  rollback: {
+    rollback_plan_ref: string;
+    rollback_ready: boolean;
+    rollback_requires_applied_changeset_receipt: true;
+    rollback_execution_available: false;
+    safe_disable_available: true;
+  };
+  next_safe_action: string;
+  blocked_authority_refs: string[];
+  canonical_state_mutated: false;
+  changeset_created: false;
+  approval_granted: false;
+  rollback_executed: false;
+  model_call_performed: false;
+  external_write_performed: false;
+}
+
+export interface AutocorrectReviewRequest {
+  proposal: AutocorrectProposalRequest;
+  proposal_ref: string;
+  proposal_fingerprint_ref: string;
+  decision: "accept" | "reject" | "supersede";
+  reviewer_ref: string;
+  idempotency_ref: string;
+  superseding_proposal_ref: string | null;
+}
+
+export interface AutocorrectReviewReceipt {
+  schema_version: "uaa-autocorrect-controls.v1";
+  contract_ref: string;
+  receipt_ref: string;
+  review_fingerprint_ref: string;
+  proposal_ref: string;
+  proposal_fingerprint_ref: string;
+  reviewer_ref: string;
+  idempotency_ref: string;
+  decision: AutocorrectReviewRequest["decision"];
+  outcome:
+    | "accepted_for_changeset_review"
+    | "rejected"
+    | "superseded"
+    | "blocked"
+    | "stale";
+  superseding_proposal_ref: string | null;
+  rejection_learning_ref: string | null;
+  expected_changeset_plan_ref: string | null;
+  expected_approval_scope_ref: string | null;
+  rollback_plan_ref: string;
+  evidence_refs: string[];
+  next_safe_action: string;
+  replayed: boolean;
+  canonical_state_mutated: false;
+  changeset_created: false;
+  approval_granted: false;
+  rollback_executed: false;
+  model_call_performed: false;
+  external_write_performed: false;
+}
+
+export interface AutocorrectControlStatus {
+  schema_version: "uaa-autocorrect-controls.v1";
+  contract_ref: string;
+  status: "implemented_proposal_only";
+  supported_target_kinds: AutocorrectTargetKind[];
+  minimum_review_confidence: number;
+  process_local_review_capacity: number;
+  exact_revision_required: true;
+  idempotency_conflicts_fail_closed: true;
+  rejection_learning_content_free: true;
+  canonical_mutation_enabled: false;
+  changeset_creation_enabled: false;
+  rollback_execution_enabled: false;
+  model_calls_enabled: false;
+  external_writes_enabled: false;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;

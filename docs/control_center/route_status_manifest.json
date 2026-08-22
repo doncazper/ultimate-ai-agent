@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 349,
+  "openapi_path_count": 352,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -2977,6 +2977,43 @@
         "safe-context-proposal-status",
         "context-handoff-denial-summary"
       ]
+    },
+    {
+      "action_id": "navigate-autocorrect",
+      "label": "Navigate Autocorrect",
+      "ui_surface": "Autocorrect",
+      "frontend_route": "/autocorrect",
+      "owner": "ecosystem-governance",
+      "auth_posture": "protected_proposal_only_process_local_review",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "preview_available_not_execution",
+      "approval_requirement": "No approval is required to preview or record a process-local review outcome. Any canonical correction requires a separately approved exact ECO-008 child ChangeSet lane.",
+      "evidence_audit_output": "Backend-owned content-free exact diffs, exact revision and confidence posture, process-local idempotent review refs, rejection or supersession learning refs, proposed approval scope, and rollback readiness. No canonical mutation, ChangeSet creation, approval grant, rollback execution, raw value, model call, or external write.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/autocorrect/status",
+          "operation_id": "get_control_center_autocorrect_status",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/proposals/preview",
+          "operation_id": "post_control_center_autocorrect_proposals_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/autocorrect/reviews/preview",
+          "operation_id": "post_control_center_autocorrect_reviews_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-memory",

@@ -8,6 +8,7 @@ import type { RouteStateDescriptor } from "./components/DataState";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
+import { AutocorrectControlPanel } from "./components/AutocorrectControlPanel";
 import { CapabilitySurfacePanel } from "./components/CapabilitySurfacePanel";
 import { CodingCockpitPanel } from "./components/CodingCockpitPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
@@ -114,6 +115,7 @@ export const navItems: NavItem[] = [
   { path: "/files", label: "Files", group: "Review", status: "safe refs", releaseStatus: "partial", role: "supporting" },
   { path: "/files/review", label: "File Review", group: "Review", status: "review-only", releaseStatus: "experimental", role: "supporting" },
   { path: "/context/proposals", label: "Context Proposals", group: "Review", status: "review-only", releaseStatus: "experimental", role: "supporting" },
+  { path: "/autocorrect", label: "Autocorrect", group: "Review", status: "proposal-only", releaseStatus: "experimental", role: "supporting" },
   { path: "/action-preview", label: "Action Preview", group: "Review", status: "preview-only", releaseStatus: "experimental", role: "supporting" },
   { path: "/runtime", label: "Runtime", group: "Runtime", status: "summary", releaseStatus: "partial", role: "supporting" },
   { path: "/storage", label: "Storage", group: "Runtime", status: "local state", releaseStatus: "partial", role: "supporting" },
@@ -625,6 +627,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
       return (
         <ContextProposalSurfacePanel proposals={data.m39ContextProposals} />
       );
+    case "/autocorrect":
+      return <AutocorrectControlPanel />;
     case "/memory":
       return (
         <>

@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_DECISION_ROUTES,
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
+    CONTROL_CENTER_AUTOCORRECT_ROUTES,
     CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
     CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
@@ -282,15 +283,19 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     normalized_control_center_paths = _historical_control_center_path_set(paths)
     assert len(normalized_control_center_paths) == 173
     assert "/control-center/news-signals/summary" not in normalized_control_center_paths
-    assert len(
-        _historical_control_center_path_set(
-            paths | {"/control-center/news-signals/unreviewed-route"}
+    assert (
+        len(
+            _historical_control_center_path_set(
+                paths | {"/control-center/news-signals/unreviewed-route"}
+            )
         )
-    ) == 174
+        == 174
+    )
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
+        "control_center_autocorrect",
         "control_center_matrix_harness",
         "control_center_matrix_session",
         "control_center_matrix_crypto_validation",
@@ -326,6 +331,11 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "visual_proof",
         "web_evidence_product_slice",
         "v1_local_model_gateway",
+    }
+    assert CONTROL_CENTER_AUTOCORRECT_ROUTES == {
+        "/control-center/autocorrect/status",
+        "/control-center/autocorrect/proposals/preview",
+        "/control-center/autocorrect/reviews/preview",
     }
     assert (
         len(_post_m151_route_boundary_path_set(paths))

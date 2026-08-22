@@ -41,6 +41,15 @@ from ultimate_ai_agent.core.ecosystem.proposals import (
     ProposalExtractionRequest,
     extract_proposal_candidates,
 )
+from ultimate_ai_agent.core.ecosystem.corrections import (
+    AutocorrectConflict,
+    AutocorrectError,
+    CorrectionProposalRequest,
+    CorrectionReviewRequest,
+    CorrectionReviewSession,
+    build_autocorrect_control_status,
+    build_correction_proposal,
+)
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
@@ -59,6 +68,7 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
+_AUTOCORRECT_REVIEW_SESSION = CorrectionReviewSession()
 
 
 class FounderLoopActionRevisionConflictDetail(BaseModel):
@@ -2047,9 +2057,7 @@ def post_control_center_action_local_task_commit(
 def get_control_center_morning_briefing_summary() -> ResultEnvelope:
     data = get_founder_loop_service().morning_briefing_summary()
     news_signals = get_news_signals_repository().summary(limit=20)
-    data["news_signals_projection"] = news_signals[
-        "morning_briefing_projection"
-    ]
+    data["news_signals_projection"] = news_signals["morning_briefing_projection"]
     return ResultEnvelope(
         success=True,
         operation="control_center_morning_briefing_summary",
@@ -2076,9 +2084,7 @@ def get_control_center_news_signals_summary(
         service="NewsSignalsControlCenterAPI",
         trace_id="news-signals:summary",
         data=data,
-        evidence=[
-            {"evidence_ref": "evidence-ref:q24:news-signals-read-model"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:q24:news-signals-read-model"}],
         redactions_applied=[
             "safe_refs_only",
             "bounded_summaries_only",
@@ -2107,6 +2113,90 @@ def post_control_center_proposal_intelligence_extract(
             "bounded_summaries_only",
             "raw_source_content_omitted",
             "raw_paths_omitted",
+            "proposal_only_no_commit",
+        ],
+    )
+
+
+@router.get("/autocorrect/status", response_model=ResultEnvelope)
+def get_control_center_autocorrect_status() -> ResultEnvelope:
+    data = build_autocorrect_control_status()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_autocorrect_status",
+        service="AutocorrectControlCenterAPI",
+        trace_id="autocorrect:status",
+        data=data.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:queue-v2:Q28:control-status"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "raw_values_omitted",
+            "proposal_only_no_commit",
+        ],
+    )
+
+
+@router.post("/autocorrect/proposals/preview", response_model=ResultEnvelope)
+def post_control_center_autocorrect_proposal_preview(
+    request: CorrectionProposalRequest,
+) -> ResultEnvelope:
+    data = build_correction_proposal(request)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_autocorrect_proposal_preview",
+        service="AutocorrectControlCenterAPI",
+        trace_id=data.proposal_ref,
+        data=data.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:queue-v2:Q28:proposal-preview"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "content_free_field_diffs_only",
+            "raw_values_omitted",
+            "proposal_only_no_commit",
+        ],
+    )
+
+
+@router.post("/autocorrect/reviews/preview", response_model=ResultEnvelope)
+def post_control_center_autocorrect_review_preview(
+    request: CorrectionReviewRequest,
+) -> ResultEnvelope:
+    try:
+        data = _AUTOCORRECT_REVIEW_SESSION.review(request)
+    except AutocorrectConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc),
+                "safe_message": (
+                    "The correction review binding changed or reused an idempotency "
+                    "reference with a different safe payload."
+                ),
+            },
+        ) from exc
+    except AutocorrectError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc),
+                "safe_message": (
+                    "The bounded process-local correction review registry cannot "
+                    "record another preview. Restart or use a durable governed lane."
+                ),
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_autocorrect_review_preview",
+        service="AutocorrectControlCenterAPI",
+        trace_id=data.receipt_ref,
+        data=data.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:queue-v2:Q28:review-preview"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "content_free_learning_refs_only",
+            "raw_values_omitted",
+            "process_local_replay_guard",
             "proposal_only_no_commit",
         ],
     )
