@@ -36,12 +36,12 @@ _RAW_PATH_RE = re.compile(
     r"/(?:users|home|usr|var|private|tmp|etc)(?:/|$)|[a-z]:[/\\]|\\\\[^\\\s]+\\)"
 )
 _EMAIL_RE = re.compile(r"\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
-_HOST_RE = re.compile(
-    r"(?:\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-    r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b)|"
-    r"(?:\b(?:\d{1,3}\.){3}\d{1,3}\b)",
+_DNS_CANDIDATE_RE = re.compile(
+    r"\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b",
     re.IGNORECASE,
 )
+_IPV4_CANDIDATE_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _LOCAL_HOST_RE = re.compile(
     r"(?i)(?:^|[^a-z0-9-])localhost(?:[^a-z0-9-]|$)|"
     r"(?:^|[^a-z0-9-])[a-z0-9-]+\.local(?:[^a-z0-9-]|$)"
@@ -49,6 +49,7 @@ _LOCAL_HOST_RE = re.compile(
 _IPV6_CANDIDATE_RE = re.compile(
     r"(?i)(?<![a-z0-9])(?:\[[0-9a-f:.%]+\]|(?:[0-9a-f]{0,4}:){2,}[0-9a-f:.%]*)(?![a-z0-9])"
 )
+_UNSAFE_REF_SCHEME_RE = re.compile(r"(?i)(?:^|:)(?:file|ftp|https?):")
 
 
 class ProposalCandidateKind(str, Enum):
@@ -92,7 +93,14 @@ class _ProposalModel(BaseModel):
 def _validate_ref(value: str, field_name: str) -> str:
     if (
         not _SAFE_REF_RE.fullmatch(value)
+        or "/" in value
+        or "\\" in value
         or _RAW_PATH_RE.search(value)
+        or _UNSAFE_REF_SCHEME_RE.search(value)
+        or _contains_dns_hostname(value)
+        or _IPV4_CANDIDATE_RE.search(value)
+        or _LOCAL_HOST_RE.search(value)
+        or _contains_ipv6_address(value)
         or contains_obvious_secret(value)
     ):
         raise ValueError(f"ECO_PROPOSAL_{field_name.upper()}_SAFE_REF_REQUIRED")
@@ -116,13 +124,21 @@ def _validate_safe_summary(value: str) -> str:
         or "://" in value
         or _RAW_PATH_RE.search(value)
         or _EMAIL_RE.search(value)
-        or _HOST_RE.search(value)
+        or _contains_dns_hostname(value)
+        or _IPV4_CANDIDATE_RE.search(value)
         or _LOCAL_HOST_RE.search(value)
         or _contains_ipv6_address(value)
         or contains_obvious_secret(value)
     ):
         raise ValueError("ECO_PROPOSAL_SAFE_SUMMARY_REDACTION_REQUIRED")
     return value
+
+
+def _contains_dns_hostname(value: str) -> bool:
+    return any(
+        any(character.isalpha() for character in match.group(0).rsplit(".", 1)[-1])
+        for match in _DNS_CANDIDATE_RE.finditer(value)
+    )
 
 
 def _contains_ipv6_address(value: str) -> bool:
@@ -355,6 +371,7 @@ def extract_proposal_candidates(
         else:
             review_posture = ProposalReviewPosture.ready_for_review
         target_entity_kind = _TARGET_ENTITY_BY_KIND[fact.candidate_kind]
+        target_owner = canonical_owner_for(target_entity_kind)
         binding = {
             "candidate_kind": fact.candidate_kind.value,
             "current_source_revision_ref": current_revision_ref,
@@ -363,15 +380,31 @@ def extract_proposal_candidates(
             "source_revision_ref": fact.source_revision_ref,
             "workspace_ref": fact.workspace_ref,
         }
+        candidate_binding = {
+            **binding,
+            "ambiguity_refs": fact.ambiguity_refs,
+            "citation_refs": fact.evidence_refs,
+            "confidence_percent": fact.confidence_percent,
+            "confidence_posture": confidence_posture.value,
+            "due_at": fact.due_at,
+            "missing_evidence_refs": missing_evidence_refs,
+            "occurred_at": fact.occurred_at,
+            "participant_refs": fact.participant_refs,
+            "privacy_scope": fact.privacy_scope.value,
+            "review_posture": review_posture.value,
+            "safe_summary": fact.safe_summary,
+            "stale_state": stale_state,
+            "subject_ref": fact.subject_ref,
+            "target_entity_kind": target_entity_kind.value,
+            "target_owner": target_owner.value,
+        }
         candidates.append(
             ProposalCandidate(
                 proposal_ref=_stable_ref("proposal-ref", binding),
-                candidate_ref=_stable_ref(
-                    "proposal-candidate-ref", {**binding, "summary": fact.safe_summary}
-                ),
+                candidate_ref=_stable_ref("proposal-candidate-ref", candidate_binding),
                 candidate_kind=fact.candidate_kind,
                 target_entity_kind=target_entity_kind,
-                target_owner=canonical_owner_for(target_entity_kind),
+                target_owner=target_owner,
                 workspace_ref=fact.workspace_ref,
                 source_fact_ref=fact.fact_ref,
                 source_artifact_ref=fact.source_artifact_ref,

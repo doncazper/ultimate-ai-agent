@@ -6,10 +6,6 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
-from pathlib import Path
-from typing import Any
-
-from pydantic import ValidationError
 
 from ultimate_ai_agent.core.ecosystem.proposals import (
     ProposalCandidateKind,
@@ -56,17 +52,6 @@ def _synthetic_request() -> ProposalExtractionRequest:
     )
 
 
-def _load_request(path: Path) -> ProposalExtractionRequest:
-    try:
-        payload: Any = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError("ECO_PROPOSAL_INPUT_JSON_INVALID") from exc
-    try:
-        return ProposalExtractionRequest.model_validate(payload)
-    except ValidationError as exc:
-        raise ValueError("ECO_PROPOSAL_INPUT_CONTRACT_INVALID") from exc
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -74,21 +59,9 @@ def main(argv: list[str] | None = None) -> int:
             "performs no source read, model call, ChangeSet, approval, or write."
         )
     )
-    parser.add_argument(
-        "--input-json",
-        type=Path,
-        help="Optional local JSON request; the path is never included in output.",
-    )
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
-    try:
-        request = (
-            _load_request(args.input_json) if args.input_json else _synthetic_request()
-        )
-        result = extract_proposal_candidates(request)
-    except ValueError as exc:
-        print(json.dumps({"status": "blocked", "code": str(exc)}, sort_keys=True))
-        return 2
+    result = extract_proposal_candidates(_synthetic_request())
     print(
         json.dumps(
             result,

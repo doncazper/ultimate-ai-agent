@@ -1565,10 +1565,12 @@ output to become authority.
 Status: accepted locally on 2026-08-22 for bounded Python Core scope. Already-
 normalized safe facts produce event, task, person, commitment, and meeting
 candidates with canonical owner, privacy, confidence, ambiguity, evidence-gap,
-and current-source-revision posture. The validation-only API and repo-local CLI
-share the same contract.
+and current-source-revision posture. The validation-only API and synthetic-only
+repo-local CLI share the same contract.
 Scope: `docs/architecture/ECO_010_PROPOSAL_INTELLIGENCE.md`,
 `src/ultimate_ai_agent/core/ecosystem/proposals.py`,
+`src/ultimate_ai_agent/api/founder_loop.py`, `docs/api/openapi_contract.md`,
+`docs/api/route_inventory.md`,
 `scripts/inspect_eco_010_proposals.py`,
 `scripts/verify_queue_v2_q27_proposal_intelligence.py`, and
 `tests/test_queue_v2_q27_proposal_intelligence.py`. No source read, model call,

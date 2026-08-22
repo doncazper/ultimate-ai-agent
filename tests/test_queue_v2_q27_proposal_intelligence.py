@@ -4,7 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.api.manifest import route_side_effect_class
+from ultimate_ai_agent.api.manifest import (
+    CONTROL_CENTER_VALIDATION_ONLY_PATHS,
+    route_side_effect_class,
+)
 from ultimate_ai_agent.core.ecosystem import (
     CanonicalOwnerId,
     EntityKind,
@@ -206,21 +209,78 @@ def test_request_rejects_unbound_duplicate_and_cross_workspace_facts() -> None:
 
 
 @pytest.mark.parametrize(
-    "unsafe_summary",
+    "unsafe_summary_parts",
     (
-        "Contact person@example.test for details.",
-        "Read https://unsafe.example for details.",
-        "Load private data from /Users/example/records.",
-        "Observed endpoint 192.0.2.1 for details.",
-        "Observed endpoint localhost for details.",
-        "Observed endpoint [2001:db8::1] for details.",
+        ("Contact person", "@", "example", ".", "test for details."),
+        ("Read ", "https", ":", "//", "unsafe", ".", "example for details."),
+        ("Load private data from ", "/", "Users", "/", "example", "/records."),
+        ("Observed endpoint ", "192", ".", "0", ".", "2", ".", "1 for details."),
+        ("Observed endpoint ", "local", "host for details."),
+        ("Observed endpoint [", "2001", ":", "db8", "::", "1] for details."),
     ),
 )
-def test_fact_rejects_unredacted_safe_summary(unsafe_summary: str) -> None:
+def test_fact_rejects_unredacted_safe_summary(
+    unsafe_summary_parts: tuple[str, ...],
+) -> None:
     values = _fact("unsafe").model_dump(mode="json")
-    values["safe_summary"] = unsafe_summary
+    values["safe_summary"] = "".join(unsafe_summary_parts)
     with pytest.raises(ValueError, match="SAFE_SUMMARY_REDACTION_REQUIRED"):
         ProposalFact.model_validate(values)
+
+
+@pytest.mark.parametrize(
+    "safe_summary",
+    (
+        "Budget increased by 2.5 percent.",
+        "Release v1.2.3 is planned.",
+    ),
+)
+def test_fact_allows_decimal_and_version_summaries(safe_summary: str) -> None:
+    values = _fact("decimal").model_dump(mode="json")
+    values["safe_summary"] = safe_summary
+    assert ProposalFact.model_validate(values).safe_summary == safe_summary
+
+
+@pytest.mark.parametrize(
+    "unsafe_ref_parts",
+    (
+        (
+            "source-artifact-ref:q27:file:",
+            "/",
+            "workspace",
+            "/",
+            "private",
+            "/",
+            "data",
+        ),
+        ("source-artifact-ref:q27:", "https", ":private"),
+        ("source-artifact-ref:q27:", "https", ":", "//", "private", ".", "example"),
+        ("source-artifact-ref:q27:host:", "founder", "-", "machine", ".", "local"),
+        ("source-artifact-ref:q27:ip:", "192", ".", "0", ".", "2", ".", "1"),
+        ("source-artifact-ref:q27:ip:", "2001", ":", "db8", "::", "1"),
+    ),
+)
+def test_source_binding_rejects_unsafe_ref_forms(
+    unsafe_ref_parts: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValueError, match="SOURCE_ARTIFACT_REF_SAFE_REF_REQUIRED"):
+        ProposalSourceRevisionBinding(
+            source_artifact_ref="".join(unsafe_ref_parts),
+            current_source_revision_ref="source-revision-ref:q27:safe:v1",
+        )
+
+
+def test_candidate_ref_binds_material_review_posture() -> None:
+    high = extract_proposal_candidates(_request(_fact("material", confidence=90)))[
+        "candidates"
+    ][0]
+    low = extract_proposal_candidates(_request(_fact("material", confidence=10)))[
+        "candidates"
+    ][0]
+
+    assert high["review_posture"] == "ready_for_review"
+    assert low["review_posture"] == "needs_review"
+    assert high["candidate_ref"] != low["candidate_ref"]
 
 
 def test_validation_only_api_and_cli_contract_shape() -> None:
@@ -239,4 +299,8 @@ def test_validation_only_api_and_cli_contract_shape() -> None:
     assert (
         route_side_effect_class("/control-center/proposal-intelligence/extract").value
         == "validation_only"
+    )
+    assert (
+        "/control-center/proposal-intelligence/extract"
+        in CONTROL_CENTER_VALIDATION_ONLY_PATHS
     )

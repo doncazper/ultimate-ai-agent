@@ -895,6 +895,7 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
+    "/control-center/proposal-intelligence/extract",
     "/control-center/turn-router/preview",
     "/control-center/communications/matrix-crypto/proposal",
     "/control-center/communications/matrix-messaging/proposal",

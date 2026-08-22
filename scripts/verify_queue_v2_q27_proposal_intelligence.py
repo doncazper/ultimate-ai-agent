@@ -59,6 +59,7 @@ DENIED_AUTHORITY_FRAGMENTS = (
     "target_write_performed: Literal[True]",
     "external_write_performed: Literal[True]",
 )
+DENIED_CLI_FRAGMENTS = ("--input-json", "read_text(")
 
 
 def _prohibited_imports(path: Path) -> set[str]:
@@ -143,6 +144,12 @@ def verify() -> list[str]:
         for fragment in DENIED_AUTHORITY_FRAGMENTS:
             if fragment in source:
                 failures.append(f"denied Q27 authority fragment: {fragment}")
+    cli_path = ROOT / "scripts/inspect_eco_010_proposals.py"
+    if cli_path.is_file():
+        cli_source = cli_path.read_text(encoding="utf-8")
+        for fragment in DENIED_CLI_FRAGMENTS:
+            if fragment in cli_source:
+                failures.append(f"denied Q27 CLI source-read fragment: {fragment}")
     for relative_path, markers in REQUIRED_MARKERS.items():
         path = ROOT / relative_path
         if not path.is_file():

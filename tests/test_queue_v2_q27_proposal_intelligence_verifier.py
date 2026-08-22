@@ -57,3 +57,14 @@ def test_q27_verifier_reports_missing_artifact(monkeypatch, tmp_path: Path) -> N
         ("proposals.py", "missing.md"),
     )
     assert "missing Q27 artifact: missing.md" in verifier.verify()
+
+
+@pytest.mark.parametrize("fragment", verifier.DENIED_CLI_FRAGMENTS)
+def test_q27_verifier_rejects_cli_source_reads(
+    monkeypatch, tmp_path: Path, fragment: str
+) -> None:
+    _temporary_source(monkeypatch, tmp_path, "proposal_only = True\n")
+    cli = tmp_path / "scripts" / "inspect_eco_010_proposals.py"
+    cli.parent.mkdir(parents=True)
+    cli.write_text(f"payload = {fragment!r}\n", encoding="utf-8")
+    assert f"denied Q27 CLI source-read fragment: {fragment}" in verifier.verify()

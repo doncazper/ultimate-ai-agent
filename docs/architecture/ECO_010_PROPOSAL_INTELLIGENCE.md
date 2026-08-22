@@ -46,10 +46,11 @@ gaps remain visible rather than being silently invented.
 
 - Python Core: `src/ultimate_ai_agent/core/ecosystem/proposals.py`
 - Validation-only API: `POST /control-center/proposal-intelligence/extract`
-- Repo-local inspection: `scripts/inspect_eco_010_proposals.py`
+- Repo-local synthetic-fixture inspection: `scripts/inspect_eco_010_proposals.py`
 - Focused verifier: `scripts/verify_queue_v2_q27_proposal_intelligence.py`
 
-The API and CLI expose the same Python-owned result. There is no product route
+The API and synthetic-only CLI expose the same Python-owned result. The CLI has
+no file-input option or local source-read path. There is no product route
 or primary Control Center workflow in this shared-core milestone; later Inbox,
 Calendar, Tasks, CRM, or meeting UI must consume typed proposal refs without
 duplicating canonical records.
