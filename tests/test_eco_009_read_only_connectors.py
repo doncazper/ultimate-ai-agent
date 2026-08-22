@@ -128,6 +128,15 @@ def test_cursor_is_bound_and_expires() -> None:
     )
     assert expired.status == ConnectorReadStatus.invalid_cursor
     assert first.next_cursor_ref not in platform._cursor_state
+    expired_replay = platform.read(
+        _request(
+            "request-ref:eco-009:test-2",
+            cursor_ref=first.next_cursor_ref,
+        ),
+        now=NOW + timedelta(minutes=16),
+    )
+    assert expired_replay.status == ConnectorReadStatus.invalid_cursor
+    assert expired_replay.items == ()
 
 
 def test_request_ref_is_idempotent_and_conflicts_fail_closed() -> None:
@@ -145,6 +154,18 @@ def test_request_ref_is_idempotent_and_conflicts_fail_closed() -> None:
     assert conflict.status == ConnectorReadStatus.invalid_scope
     assert conflict.items == ()
     assert conflict.reason_refs == ("reason-ref:eco-009:request-ref-conflict",)
+
+
+def test_cached_outcomes_are_isolated_from_caller_mutation() -> None:
+    platform = _platform()
+    request = _request()
+
+    first = platform.read(request, now=NOW)
+    first.items[0].field_values["raw_title"] = "caller mutation"
+    replay = platform.read(request, now=NOW + timedelta(seconds=1))
+
+    assert "raw_title" not in replay.items[0].field_values
+    assert replay.items[0].field_values["event_ref"] == "calendar-event-ref:test-0"
 
 
 def test_request_binding_is_only_committed_with_an_outcome(monkeypatch) -> None:
@@ -176,6 +197,23 @@ def test_request_replay_cache_is_bounded() -> None:
     assert tuple(platform._request_order) == ("request-ref:eco-009:test-2",)
     assert set(platform._request_bindings) == {"request-ref:eco-009:test-2"}
     assert set(platform._request_cache) == {"request-ref:eco-009:test-2"}
+
+
+def test_registration_snapshots_caller_owned_adapter_state() -> None:
+    adapter = CalendarMetadataSnapshotAdapter(
+        source_ref=SOURCE_REF,
+        workspace_ref=WORKSPACE_REF,
+        rows=_rows(3),
+        provenance_ref="provenance-ref:caller-supplied-redacted-fixture",
+    )
+    platform = ConnectorReadPlatform()
+    platform.register_calendar_snapshot(adapter)
+
+    adapter.rows = _rows(1)
+    outcome = platform.read(_request(limit=3), now=NOW)
+
+    assert outcome.status == ConnectorReadStatus.completed
+    assert len(outcome.items) == 3
 
 
 @pytest.mark.parametrize(
@@ -280,6 +318,25 @@ def test_request_and_snapshot_schema_exclude_raw_content_and_unsafe_refs() -> No
     assert raw_field.status == ConnectorReadStatus.invalid_scope
     assert raw_field.reason_refs == ("reason-ref:eco-009:field-scope-not-allowed",)
     assert raw_field.items == ()
+
+
+@pytest.mark.parametrize(
+    "unsafe_ref",
+    (
+        "/".join(("file:", "", "", "Users", "redacted", "private.json")),
+        "/".join(("source-ref:", "", "Users", "redacted", "private.json")),
+    ),
+)
+def test_uri_wrapped_local_paths_are_rejected(unsafe_ref: str) -> None:
+    with pytest.raises(ValidationError):
+        CalendarMetadataSnapshotRow(
+            event_ref="calendar-event-ref:test",
+            starts_at=NOW,
+            ends_at=NOW + timedelta(hours=1),
+            availability_ref="availability-ref:busy",
+            provenance_ref=unsafe_ref,
+            source_revision_ref="source-revision-ref:test",
+        )
 
 
 def test_posture_is_truthful_when_inactive_ready_and_revoked() -> None:

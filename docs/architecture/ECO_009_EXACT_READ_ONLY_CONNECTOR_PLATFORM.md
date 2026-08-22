@@ -22,7 +22,7 @@ The Python Core owns:
 - idempotent request refs with conflicting reuse denied inside a bounded
   in-memory replay cache;
 - per-source rate limiting;
-- source revocation and global safe-disable;
+- source revocation and irreversible in-instance global safe-disable;
 - content-free outcomes and truthful fail-closed status; and
 - an inspection posture consumed by Source Readiness in the Control Center.
 

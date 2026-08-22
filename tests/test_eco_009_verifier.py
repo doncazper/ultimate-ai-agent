@@ -45,6 +45,12 @@ def test_eco_009_verifier_rejects_runtime_imports(
 @pytest.mark.parametrize(
     "fragment",
     (
+        "account_auth_enabled: Literal[True]",
+        "background_sync_enabled: Literal[True]",
+        "connector_write_enabled: Literal[True]",
+        "network_access_enabled: Literal[True]",
+        "production_authority_enabled: Literal[True]",
+        "raw_content_enabled: Literal[True]",
         "network_access_performed: Literal[True]",
         "model_call_enabled: Literal[True]",
         "model_call_performed: Literal[True]",

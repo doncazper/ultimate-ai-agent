@@ -31,7 +31,7 @@ ECO009_DEFAULT_RETENTION_REF = "retention-ref:eco-009:bounded-metadata-default"
 
 _SAFE_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:/-]{2,240}$")
 _RAW_PATH_RE = re.compile(
-    r"(?i)(?:^|[\s\"'`(:=,\[])(?:~[/\\]|"
+    r"(?i)(?:^|[\s\"'`(:=,/\[])(?:~[/\\]|"
     r"/(?:users|home|usr|var|private|tmp|etc)(?:/|$)|[a-z]:[/\\]|\\\\[^\\\s]+\\)"
 )
 
@@ -371,7 +371,13 @@ class ConnectorReadPlatform:
         source_ref = adapter.descriptor.source_ref
         if source_ref in self._sources:
             raise ValueError("ECO009_DUPLICATE_SOURCE_REF")
-        self._sources[source_ref] = adapter
+        self._sources[source_ref] = CalendarMetadataSnapshotAdapter(
+            source_ref=source_ref,
+            workspace_ref=adapter.descriptor.workspace_ref,
+            rows=tuple(row.model_copy(deep=True) for row in adapter.rows),
+            provenance_ref=adapter.descriptor.provenance_ref,
+            retention_ref=adapter.descriptor.retention_ref,
+        )
 
     def descriptors(self) -> tuple[ConnectorSourceDescriptor, ...]:
         descriptors: list[ConnectorSourceDescriptor] = []
@@ -394,9 +400,6 @@ class ConnectorReadPlatform:
 
     def set_safe_disable(self, safe_disable_ref: str) -> None:
         self._safe_disable_ref = _safe_ref(safe_disable_ref, "safe_disable_ref")
-
-    def clear_safe_disable(self) -> None:
-        self._safe_disable_ref = None
 
     def revoke_source(self, source_ref: str, revocation_ref: str) -> None:
         _safe_ref(source_ref, "source_ref")
@@ -436,7 +439,18 @@ class ConnectorReadPlatform:
                     "reason-ref:eco-009:safe-disable-active",
                     evidence_refs=(self._safe_disable_ref,),
                 )
-            return self._request_cache[request.request_ref]
+            if (
+                request.cursor_ref is not None
+                and request.cursor_ref not in self._cursor_state
+            ):
+                return self._blocked(
+                    request,
+                    ConnectorReadStatus.invalid_cursor,
+                    "reason-ref:eco-009:cursor-invalid-or-expired",
+                )
+            return self._validated_outcome_copy(
+                self._request_cache[request.request_ref]
+            )
         adapter = self._sources.get(request.source_ref)
         if adapter is None:
             return self._remember(
@@ -635,14 +649,21 @@ class ConnectorReadPlatform:
         outcome: ConnectorReadOutcome,
         binding_ref: str,
     ) -> ConnectorReadOutcome:
-        self._request_cache[request.request_ref] = outcome
+        cached_outcome = self._validated_outcome_copy(outcome)
+        self._request_cache[request.request_ref] = cached_outcome
         self._request_bindings[request.request_ref] = binding_ref
         self._request_order.append(request.request_ref)
         while len(self._request_order) > self.policy.max_cached_requests:
             expired_request_ref = self._request_order.popleft()
             self._request_bindings.pop(expired_request_ref, None)
             self._request_cache.pop(expired_request_ref, None)
-        return outcome
+        return self._validated_outcome_copy(cached_outcome)
+
+    @staticmethod
+    def _validated_outcome_copy(
+        outcome: ConnectorReadOutcome,
+    ) -> ConnectorReadOutcome:
+        return ConnectorReadOutcome.model_validate(outcome.model_dump(mode="python"))
 
     def _blocked(
         self,
