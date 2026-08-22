@@ -153,6 +153,30 @@ def test_pending_ocr_is_not_retrievable_until_exact_review(
     update = _apply_governance(store, governance)
     assert update.mutation_performed is True
 
+    restarted_store = KnowledgeDumpStore(store.root)
+    replay_plan = restarted_store.prepare_governance_update(
+        receipt.document_ref,
+        lifecycle_state=KnowledgeLifecycleState.active,
+        rights_status=KnowledgeRightsStatus.current,
+        rights_evidence_ref="rights-evidence-ref:q18-operator-authored",
+        ocr_review_status=KnowledgeOcrReviewStatus.reviewed,
+        ocr_review_evidence_ref="ocr-evidence-ref:q18-reviewed-001",
+        idempotency_key="knowledge-q18-governance-ocr-001",
+    )
+    assert replay_plan.plan.exact_scope_ref == governance.plan.exact_scope_ref
+    replay = _apply_governance(restarted_store, replay_plan)
+    assert replay.mutation_performed is False
+    with pytest.raises(ValueError, match="KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT"):
+        restarted_store.prepare_governance_update(
+            receipt.document_ref,
+            lifecycle_state=KnowledgeLifecycleState.archived,
+            rights_status=KnowledgeRightsStatus.current,
+            rights_evidence_ref="rights-evidence-ref:q18-operator-authored",
+            ocr_review_status=KnowledgeOcrReviewStatus.reviewed,
+            ocr_review_evidence_ref="ocr-evidence-ref:q18-reviewed-001",
+            idempotency_key="knowledge-q18-governance-ocr-001",
+        )
+
     pack = store.prepare_selected_context([prepared.chunks[0].chunk_ref])
     assert pack.selection_mode == "operator_selected"
     assert pack.selected_chunk_refs == (prepared.chunks[0].chunk_ref,)

@@ -970,6 +970,58 @@ class KnowledgeDumpStore:
         ):
             raise ValueError("KNOWLEDGE_GOVERNANCE_REF_SECRET_LIKE")
         document = self._require_document(document_ref)
+        stored_plan: KnowledgeGovernanceUpdatePlan | None = None
+        if self.database_path.exists():
+            with self._connect() as connection:
+                table_exists = connection.execute(
+                    """SELECT 1 FROM sqlite_master
+                       WHERE type = 'table' AND name = 'governance_updates'"""
+                ).fetchone()
+                if table_exists is not None:
+                    columns = {
+                        row["name"]
+                        for row in connection.execute(
+                            "PRAGMA table_info(governance_updates)"
+                        ).fetchall()
+                    }
+                    row = connection.execute(
+                        "SELECT * FROM governance_updates WHERE idempotency_key = ?",
+                        (idempotency_key,),
+                    ).fetchone()
+                    if row is not None:
+                        if "plan_json" not in columns or row["plan_json"] is None:
+                            raise ValueError(
+                                "KNOWLEDGE_GOVERNANCE_REPLAY_SCOPE_UNAVAILABLE"
+                            )
+                        stored_plan = KnowledgeGovernanceUpdatePlan.model_validate_json(
+                            row["plan_json"]
+                        )
+        if stored_plan is not None:
+            requested_posture = (
+                document_ref,
+                _enum_value(lifecycle_state),
+                _enum_value(rights_status),
+                rights_evidence_ref,
+                _enum_value(ocr_review_status),
+                ocr_review_evidence_ref,
+                idempotency_key,
+                self.store_ref,
+            )
+            stored_posture = (
+                stored_plan.document_ref,
+                _enum_value(stored_plan.lifecycle_state),
+                _enum_value(stored_plan.rights_status),
+                stored_plan.rights_evidence_ref,
+                _enum_value(stored_plan.ocr_review_status),
+                stored_plan.ocr_review_evidence_ref,
+                stored_plan.idempotency_key,
+                stored_plan.store_ref,
+            )
+            if requested_posture != stored_posture:
+                raise ValueError("KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT")
+            prepared = PreparedKnowledgeGovernanceUpdate(plan=stored_plan)
+            self._validate_prepared_governance_update(prepared, document=document)
+            return prepared
         plan = KnowledgeGovernanceUpdatePlan(
             plan_ref="knowledge-governance-plan-ref:pending",
             exact_scope_ref="knowledge-governance-scope-ref:pending",
@@ -1137,12 +1189,14 @@ class KnowledgeDumpStore:
                 )
                 connection.execute(
                     """INSERT INTO governance_updates
-                       (idempotency_key, exact_scope_ref, document_ref, created_at)
-                       VALUES (?, ?, ?, ?)""",
+                       (idempotency_key, exact_scope_ref, document_ref, plan_json,
+                        created_at)
+                       VALUES (?, ?, ?, ?, ?)""",
                     (
                         plan.idempotency_key,
                         plan.exact_scope_ref,
                         plan.document_ref,
+                        plan.model_dump_json(),
                         utc_now().isoformat(),
                     ),
                 )
@@ -2033,6 +2087,7 @@ class KnowledgeDumpStore:
                     idempotency_key TEXT PRIMARY KEY,
                     exact_scope_ref TEXT NOT NULL,
                     document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
+                    plan_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS document_removals (
@@ -2096,6 +2151,16 @@ class KnowledgeDumpStore:
                 connection.execute(
                     "ALTER TABLE audit_records ADD COLUMN approver_ref TEXT NOT NULL "
                     "DEFAULT 'knowledge-approver-ref:legacy-unknown'"
+                )
+            governance_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(governance_updates)"
+                ).fetchall()
+            }
+            if "plan_json" not in governance_columns:
+                connection.execute(
+                    "ALTER TABLE governance_updates ADD COLUMN plan_json TEXT"
                 )
 
     def _require_mutation_policy(
