@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 967,
+  "timed_file_count": 969,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -903,6 +903,16 @@
     {
       "path": "tests/test_eco_006_verifier.py",
       "seconds": 0.33,
+      "source": "focused-local"
+    },
+    {
+      "path": "tests/test_eco_007_inbox.py",
+      "seconds": 0.6,
+      "source": "focused-local"
+    },
+    {
+      "path": "tests/test_eco_007_verifier.py",
+      "seconds": 0.35,
       "source": "focused-local"
     },
     {

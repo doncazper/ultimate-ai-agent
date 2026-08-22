@@ -77,6 +77,17 @@ _SCOPED_MUTATION_ACTIONS = {
             }
         ),
     ),
+    "ecosystem.inbox.apply": (
+        "module-ref:inbox",
+        frozenset(
+            {
+                "record-kind-ref:inbox-source-binding",
+                "record-kind-ref:inbox-source-artifact",
+                "record-kind-ref:inbox-conversation-thread",
+                "record-kind-ref:inbox-source-proposal",
+            }
+        ),
+    ),
     # Exact compatibility lane for ECO-001 records that used the Tasks module
     # before ECO-002 reserved it for canonical Task kinds. This keeps those
     # records maintainable without reopening the generic mutation action.
@@ -90,6 +101,7 @@ _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
         "ecosystem.boards.apply",
         "ecosystem.calendar.apply",
         "ecosystem.crm.apply",
+        "ecosystem.inbox.apply",
         "ecosystem.tasks.apply",
     }
 )

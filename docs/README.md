@@ -337,6 +337,17 @@ compatibility product surface. No storage, cutover, route/CLI/UI, source refresh
 connector, notification, mutation, provider/model/browser/background runtime,
 public release, or production authority is added.
 
+The bounded ECO-007 Inbox and source-artifact workbench is documented in
+`docs/architecture/ECO_007_INBOX_SOURCE_ARTIFACT_WORKBENCH.md`. It adds an
+encrypted manual/synthetic source repository with content-free import plans,
+exact approval and replay, triage, same-workspace links and threads, blind-index
+search, archive/retention posture, and reviewed downstream proposals. Accepted
+proposals may feed ECO-006 but perform no target write. Existing Founder Loop
+Source Inbox and Action Inbox remain compatibility product truth. No live
+connector/account/file read, route/CLI/UI, send/write, cross-app execution,
+provider/model/browser/subprocess/background runtime, public release, or
+production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,
