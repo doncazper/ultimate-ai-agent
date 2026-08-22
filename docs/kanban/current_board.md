@@ -1010,6 +1010,29 @@ release, or production authority is accepted.
 Next: separately scope migration plus route/CLI parity and approval-preview UX;
 do not cut over M2 until compatibility and recovery evidence is accepted.
 
+ECO-006 Today And Morning Briefing Projection Core
+Goal: assemble daily canonical truth without creating another database or
+granting hidden ranking, refresh, or mutation authority.
+Status: accepted for bounded ECO-006 projection scope on 2026-08-21. Exact
+Task, Calendar, CRM follow-up, Plan milestone, Inbox source proposal, blocker,
+and recent-receipt refs now compose deterministically with canonical owner/ref
+provenance, source-result refs, why-shown refs, visible ordering factors,
+freshness, missing-evidence posture, and proposal-only carry-forward. CRM
+privacy is evaluated separately for Today and Briefing; Private Relationships
+leaves no item, status, proposal, or result-ref trace.
+Scope: `docs/architecture/ECO_006_TODAY_AND_MORNING_BRIEFING.md`,
+`docs/decisions/ADR-0068-today-and-morning-briefing-projection.md`,
+`src/ultimate_ai_agent/core/ecosystem/today.py`,
+`scripts/verify_eco_006_today.py`, `tests/test_eco_006_today.py`, and
+`tests/test_eco_006_verifier.py`. Existing Founder Loop Today and Morning
+Briefing remains compatibility product truth. No storage/cutover, API/CLI/UI,
+source refresh, notification, connector, approved mutation,
+provider/model/browser/background runtime, public release, or production
+authority is accepted.
+Next: separately scope product integration and approved daily-plan mutations;
+do not cut over the existing daily loop until compatibility evidence is
+accepted.
+
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
