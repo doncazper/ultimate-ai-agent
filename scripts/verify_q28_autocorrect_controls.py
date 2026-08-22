@@ -159,14 +159,18 @@ def verify() -> list[str]:
         for path in REQUIRED_FILES
         if not (ROOT / path).is_file()
     ]
-    core_path = ROOT / REQUIRED_FILES[0]
-    if core_path.is_file():
-        for name in sorted(_prohibited_imports(core_path)):
+    for relative_path in REQUIRED_FILES:
+        path = ROOT / relative_path
+        if not path.is_file() or path.suffix != ".py":
+            continue
+        for name in sorted(_prohibited_imports(path)):
             failures.append(f"forbidden Q28 runtime import: {name}")
-        source = core_path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8")
         for fragment in DENIED_AUTHORITY_FRAGMENTS:
             if fragment in source:
-                failures.append(f"denied Q28 authority fragment: {fragment}")
+                failures.append(
+                    f"denied Q28 authority fragment in {relative_path}: {fragment}"
+                )
     cli_path = ROOT / "scripts/inspect_autocorrect_controls.py"
     if cli_path.is_file():
         cli_source = cli_path.read_text(encoding="utf-8")

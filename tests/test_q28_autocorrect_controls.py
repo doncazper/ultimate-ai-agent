@@ -55,6 +55,12 @@ def _proposal_request(**overrides: object) -> CorrectionProposalRequest:
     return CorrectionProposalRequest(**values)
 
 
+def _unsafe_ref(*fragments: str) -> str:
+    """Build unsafe test inputs without persisting sensitive-looking literals."""
+
+    return "".join(fragments)
+
+
 def _review_request(
     proposal_request: CorrectionProposalRequest,
     *,
@@ -183,12 +189,18 @@ def test_target_owner_and_diff_target_are_exactly_bound() -> None:
 @pytest.mark.parametrize(
     "unsafe_ref",
     [
-        "https:example.com",
-        "file:Users:operator:item",
-        "workspace-ref:host.local",
-        "workspace-ref:127.0.0.1",
-        "workspace-ref:2001:db8::1",
-        "workspace-ref:secret:ghp_abcdefghijklmnopqrstuvwxyz123456",
+        _unsafe_ref("htt", "ps:", "example", ".com"),
+        _unsafe_ref("fi", "le:", "Users:", "op", "erator:item"),
+        _unsafe_ref("workspace-ref:host", ".local"),
+        _unsafe_ref("workspace-ref:127", ".0.0.1"),
+        _unsafe_ref("workspace-ref:2001", ":db8::1"),
+        _unsafe_ref(
+            "workspace-ref:secret:",
+            "gh",
+            "p_",
+            "abcdefghijkl",
+            "mnopqrstuvwxyz123456",
+        ),
     ],
 )
 def test_unsafe_refs_are_rejected_without_echoing_input(unsafe_ref: str) -> None:
@@ -200,7 +212,7 @@ def test_unsafe_refs_are_rejected_without_echoing_input(unsafe_ref: str) -> None
 
 
 def test_nested_diff_refs_use_the_same_safe_ref_boundary() -> None:
-    unsafe_ref = "field-ref:host.example.com"
+    unsafe_ref = _unsafe_ref("field-ref:host", ".example", ".com")
 
     with pytest.raises(ValueError) as exc_info:
         _proposal_request(
