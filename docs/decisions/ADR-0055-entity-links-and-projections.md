@@ -1,6 +1,7 @@
 # ADR-0055: EntityLink And Projection Semantics
 
-Status: Accepted for ECO-000 contracts; persistence and runtime use are later.
+Status: Accepted. Bounded encrypted persistence is implemented by ADR-0071;
+projection consumers and broader runtime use remain later work.
 
 ## Decision
 

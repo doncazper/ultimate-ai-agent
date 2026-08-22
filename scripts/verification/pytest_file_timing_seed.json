@@ -916,6 +916,16 @@
       "source": "focused-local"
     },
     {
+      "path": "tests/test_eco_008_changesets.py",
+      "seconds": 0.81,
+      "source": "focused-local"
+    },
+    {
+      "path": "tests/test_eco_008_verifier.py",
+      "seconds": 0.5,
+      "source": "focused-local"
+    },
+    {
       "path": "tests/test_event_ledger_append_only.py",
       "seconds": 0.270693,
       "source": "shard-elapsed-fallback"

@@ -896,12 +896,19 @@ content leaking to evidence or unrelated workspaces.
 
 ### `ECO-008` Cross-app link and ChangeSet engine
 
-- Implement typed links, field-level diffs, operation dependencies, local
-  atomic commits, external partial-outcome contracts, conflict preconditions,
-  receipts, rollback, compensation, and unified review UX.
+- Accepted bounded local Python Core on 2026-08-22: encrypted typed-link
+  persistence, content-free field diffs, dependency-ordered updates to existing
+  Task/Board/Calendar aggregates, exact approval and replay, one-unit-of-work
+  commits, conflict preconditions, encrypted rollback ledgers, separately
+  approved rollback, and non-executing external outcome/compensation
+  projections.
+- Deferred: unified review UX, route/CLI integration, create/delete/lifecycle
+  ChangeSets, CRM/Inbox mutation adapters, external execution and compensation,
+  connector/provider/browser/model/background runtime, and product cutover.
 
-Gate: golden local workflows update multiple apps coherently and recover from
-conflict or failure without duplicated truth.
+Gate: the bounded golden local workflow updates multiple apps coherently and
+recovers from conflict or failure without duplicated truth. No external
+atomicity or standing authority is claimed.
 
 ### `FIN-001` through `FIN-008` and `COMP-001` Local Finance & Compliance program
 

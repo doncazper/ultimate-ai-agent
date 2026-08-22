@@ -46,6 +46,15 @@ _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _SCOPED_MUTATION_ACTIONS = {
+    "ecosystem.changesets.apply": (
+        "module-ref:changesets",
+        frozenset(
+            {
+                "record-kind-ref:entity-link",
+                "record-kind-ref:change-set-execution",
+            }
+        ),
+    ),
     "ecosystem.crm.apply": (
         "module-ref:crm",
         frozenset(
@@ -96,10 +105,29 @@ _SCOPED_MUTATION_ACTIONS = {
         frozenset({"record-kind-ref:task"}),
     ),
 }
+_CHANGESET_LOCAL_ATOMIC_ACTION = "ecosystem.changesets.local_atomic.apply"
+_CHANGESET_LOCAL_ATOMIC_SCOPE = {
+    "module-ref:changesets": frozenset({"record-kind-ref:change-set-execution"}),
+    "module-ref:tasks": frozenset(
+        {
+            "record-kind-ref:canonical-task",
+            "record-kind-ref:task-occurrence",
+        }
+    ),
+    "module-ref:boards": frozenset(
+        {
+            "record-kind-ref:canonical-board",
+            "record-kind-ref:board-template",
+        }
+    ),
+    "module-ref:calendar": frozenset({"record-kind-ref:calendar-set"}),
+}
 _REPOSITORY_ONLY_MUTATION_ACTIONS = frozenset(
     {
         "ecosystem.boards.apply",
         "ecosystem.calendar.apply",
+        _CHANGESET_LOCAL_ATOMIC_ACTION,
+        "ecosystem.changesets.apply",
         "ecosystem.crm.apply",
         "ecosystem.inbox.apply",
         "ecosystem.tasks.apply",
@@ -1302,6 +1330,38 @@ class EcosystemLocalDataPlatform:
                 ).fetchone()
                 if row is not None and row["module_ref"] in protected_modules:
                     raise EcosystemLocalDataError("ECO_MUTATION_REQUIRES_DOMAIN_ACTION")
+            return
+        if requested_action == _CHANGESET_LOCAL_ATOMIC_ACTION:
+            for operation in operations:
+                if isinstance(operation, PutRecord):
+                    row = connection.execute(
+                        "SELECT module_ref, record_kind_ref FROM eco_records "
+                        "WHERE workspace_ref = ? AND record_ref = ?",
+                        (workspace_ref, operation.record_ref),
+                    ).fetchone()
+                    allowed_kinds = _CHANGESET_LOCAL_ATOMIC_SCOPE.get(
+                        operation.module_ref
+                    )
+                    if (
+                        allowed_kinds is None
+                        or operation.record_kind_ref not in allowed_kinds
+                        or (
+                            operation.module_ref != "module-ref:changesets"
+                            and row is None
+                        )
+                        or (
+                            row is not None
+                            and (
+                                row["module_ref"] != operation.module_ref
+                                or row["record_kind_ref"] not in allowed_kinds
+                            )
+                        )
+                    ):
+                        raise EcosystemLocalDataError(
+                            "ECO_MUTATION_ACTION_DOMAIN_SCOPE_INVALID"
+                        )
+                    continue
+                raise EcosystemLocalDataError("ECO_CHANGESET_LOCAL_ATOMIC_PUT_REQUIRED")
             return
         scope = _SCOPED_MUTATION_ACTIONS.get(requested_action)
         if scope is None:
