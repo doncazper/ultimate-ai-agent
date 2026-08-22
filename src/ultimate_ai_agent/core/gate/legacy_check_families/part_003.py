@@ -1585,9 +1585,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 "API normalized pre-M37 path count changed from accepted "
                 f"boundary: expected {EXPECTED_M36_OPENAPI_PATH_COUNT}, found {len(historical_paths)}"
             )
-        control_center_routes = [
-            path for path in paths if path.startswith("/control-center")
-        ]
+        control_center_routes = _historical_control_center_path_set(paths)
         if len(control_center_routes) != EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT:
             failures.append(
                 f"unexpected Control Center route count: {len(control_center_routes)}"

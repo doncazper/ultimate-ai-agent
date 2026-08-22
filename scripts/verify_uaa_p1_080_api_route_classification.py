@@ -38,7 +38,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 83,
     "none": 16,
-    "local_dev_workspace_only": 195,
+    "local_dev_workspace_only": 196,
     "governed_network_read_only": 6,
     "authenticated_connector_mutation": 25,
     "destructive_local_sensitive": 4,

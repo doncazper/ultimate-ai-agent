@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_DECISION_ROUTES,
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
+    CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
@@ -35,6 +36,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     UAA_RUNTIME_CONTROL_PLANE_ROUTES,
     UAA_RUNTIME_EXTENSION_ROUTES,
+    _historical_control_center_path_set,
     _historical_openapi_path_set,
     _post_m151_route_boundary_path_set,
 )
@@ -140,6 +142,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/actions/{action_id}/local-task/commit",
         "/control-center/today/action-envelope",
         "/control-center/morning-briefing/summary",
+        "/control-center/news-signals/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
         "/control-center/today/exact-action/approve",
@@ -269,6 +272,17 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/api/runtime/worktree-per-agent",
     }
     assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 70
+    assert CONTROL_CENTER_NEWS_SIGNALS_ROUTES == {
+        "/control-center/news-signals/summary",
+    }
+    normalized_control_center_paths = _historical_control_center_path_set(paths)
+    assert len(normalized_control_center_paths) == 173
+    assert "/control-center/news-signals/summary" not in normalized_control_center_paths
+    assert len(
+        _historical_control_center_path_set(
+            paths | {"/control-center/news-signals/unreviewed-route"}
+        )
+    ) == 174
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
@@ -280,6 +294,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_matrix_messaging",
         "control_center_matrix_rooms_media",
         "control_center_communications_readonly",
+        "control_center_news_signals",
         "control_center_operational_status",
         "control_center_proof_start_trust",
         "control_center_provider_catalog",

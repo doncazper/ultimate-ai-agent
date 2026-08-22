@@ -67,6 +67,22 @@ def test_m22_route_guard_allows_exact_task_decomposition_canonical_surface() -> 
     assert any("OpenAPI path count" in failure for failure in failures)
 
 
+def test_m22_route_guard_allows_exact_news_signals_read_surface_only() -> None:
+    historical_paths = {
+        f"/historical-contract-path-{index}"
+        for index in range(EXPECTED_M22_OPENAPI_PATH_COUNT)
+    }
+    current_paths = historical_paths | {"/control-center/news-signals/summary"}
+
+    assert m22_openapi_route_failures(current_paths) == []
+
+    failures = m22_openapi_route_failures(
+        current_paths | {"/control-center/news-signals/unreviewed-route"}
+    )
+
+    assert any("OpenAPI path count" in failure for failure in failures)
+
+
 def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path: Path) -> None:
     source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
     source_file.parent.mkdir(parents=True)

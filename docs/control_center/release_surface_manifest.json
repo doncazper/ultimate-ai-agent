@@ -413,11 +413,19 @@
       "path": "/news",
       "label": "News & Signals",
       "group": "Founder Loop",
-      "ui_status": "illustrative read-only preview",
-      "status": "experimental",
-      "backend_routes": [],
-      "side_effect_class": "local_ui_state_only",
-      "route_classification": "none",
+      "ui_status": "backend-owned redacted artifact read model",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/news-signals/summary",
+          "operation_id": "get_control_center_news_signals_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
       "approval_required": false,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
@@ -427,10 +435,8 @@
         "apps/control-center/src/App.test.tsx"
       ],
       "blocked_capabilities": [
-        "missing_backend:news-signals-read-model",
-        "missing_backend:news-signals-source-provenance",
-        "missing_backend:news-signals-morning-briefing-projection",
-        "missing_backend:news-signals-source-adapter-readiness",
+        "missing_backend:news-signals-live-source-adapter",
+        "missing_backend:news-signals-account-enrollment",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
@@ -439,25 +445,27 @@
       ],
       "evidence_refs": [
         "apps/control-center/src/components/NewsSignalsPreviewPanel.tsx",
+        "src/ultimate_ai_agent/core/news_signals/read_model.py",
+        "scripts/inspect_news_signals.py",
+        "scripts/verify_queue_v2_q24_news_signals.py",
         "apps/control-center/src/routes.tsx",
         "docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md",
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
       "owner": "founder-loop",
-      "backend_contract_rationale": "no-backend-route:news-signals:fixture-preview-only",
-      "visual_proof_status": "experimental_no_baseline",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
       "visual_baseline_ref": "visual-baseline:control-center:news-signals:not-captured",
-      "visual_proof_rationale": "No checked-in visual baseline is recorded for this fixture-only route; visual proof remains experimental until a scoped redacted desktop visual regression lane captures it.",
+      "visual_proof_rationale": "No checked-in visual baseline proves Q24 backend behavior; historical fixture-only evidence is not promoted and a new redacted backend-state baseline remains required.",
       "promotion_criteria": [
-        "Add a backend-owned safe-ref read model and matching CLI/API inspection before claiming live data.",
         "Graduate exact read-only source adapters individually through WebAccessGateway authority and readiness checks.",
-        "Add passing focused tests and a redacted desktop visual baseline for the claimed behavior.",
+        "Add a redacted desktop visual baseline for the Q24 blocked and populated backend states.",
         "Keep writes, browser actions, hidden context, public release, production readiness, and production authority blocked."
       ],
       "product_language_caveats": [
-        "News & Signals currently renders illustrative local fixtures only; it does not fetch, monitor, summarize, rank, store, or act on live sources.",
-        "Filtering and selection are presentation state only; no backend truth, approval, memory, or authority is created.",
+        "News & Signals renders backend-owned safe refs and bounded summaries from already-redacted local artifacts; it does not fetch, monitor, authenticate, model-summarize, recommend, or act on live sources.",
+        "Filtering and selection are presentation state only; readiness, freshness, provenance, conflict, ranking, and briefing candidacy remain Python-owned.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "News & Signals is not a public beta or public release and does not claim production authority.",
         "External content remains untrusted evidence and route visibility grants no connector writes, browser actions, provider/model calls, hidden context, or broad runtime authority."

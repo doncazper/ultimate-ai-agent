@@ -50,6 +50,7 @@ import type {
   FounderLoopAgentLoopThread,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
+  NewsSignalsSummary,
   FounderLoopSourceReadiness,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
@@ -432,6 +433,283 @@ export async function loadControlCenterBackendTruth(): Promise<ControlCenterBack
     API_ENDPOINTS.controlCenterBackendTruth,
   );
   return validateControlCenterBackendTruth(payload);
+}
+
+export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const value = await readEnvelope<unknown>(API_ENDPOINTS.newsSignalsSummary);
+  if (!isSafeNewsSignalsSummary(value)) {
+    throw new Error("NEWS_SIGNALS_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+const NEWS_SIGNALS_SAFE_REF =
+  /^[a-z][a-z0-9-]*-ref:[a-z0-9][a-z0-9:-]{1,190}$/;
+const NEWS_SIGNALS_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function newsSignalsHasOnlyKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+): boolean {
+  const allowedSet = new Set(allowed);
+  return Object.keys(value).every((key) => allowedSet.has(key));
+}
+
+function isNewsSignalsSafeRef(value: unknown): value is string {
+  return typeof value === "string" && NEWS_SIGNALS_SAFE_REF.test(value);
+}
+
+function isNewsSignalsSafeRefArray(
+  value: unknown,
+  maximum: number,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= maximum &&
+    value.every(isNewsSignalsSafeRef) &&
+    new Set(value).size === value.length
+  );
+}
+
+function isNewsSignalsSafeText(value: unknown, maximum: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum &&
+    value.trim() === value &&
+    !value.includes("\n") &&
+    !value.includes("\r") &&
+    !value.includes("://") &&
+    !value.includes("/") &&
+    !value.includes("\\") &&
+    !value.includes("@") &&
+    !containsSecretLike(value)
+  );
+}
+
+function isSafeNewsSignalItem(value: unknown): value is NewsSignalsSummary["items"][number] {
+  if (!isPlainRecord(value)) return false;
+  if (
+    !newsSignalsHasOnlyKeys(value, [
+      "signal_ref",
+      "cluster_ref",
+      "claim_ref",
+      "title",
+      "safe_summary",
+      "source_ref",
+      "source_label",
+      "source_kind",
+      "source_state",
+      "source_revision_ref",
+      "content_digest_ref",
+      "topic_ref",
+      "published_at",
+      "observed_at",
+      "freshness_state",
+      "confidence_percent",
+      "confidence_state",
+      "evidence_class",
+      "external_content_untrusted",
+      "conflict_state",
+      "coverage_source_refs",
+      "coverage_count",
+      "provenance_refs",
+      "rank_score",
+      "rank_reason_refs",
+      "briefing_candidate",
+      "action_authority_granted",
+    ])
+  ) {
+    return false;
+  }
+  const sourceKinds = ["official", "community", "rss", "public_social", "local"];
+  const sourceStates = ["ready", "blocked", "unknown", "revoked", "safe_disabled"];
+  return (
+    isNewsSignalsSafeRef(value.signal_ref) &&
+    isNewsSignalsSafeRef(value.cluster_ref) &&
+    isNewsSignalsSafeRef(value.claim_ref) &&
+    isNewsSignalsSafeText(value.title, 140) &&
+    isNewsSignalsSafeText(value.safe_summary, 320) &&
+    isNewsSignalsSafeRef(value.source_ref) &&
+    isNewsSignalsSafeText(value.source_label, 80) &&
+    sourceKinds.includes(String(value.source_kind)) &&
+    sourceStates.includes(String(value.source_state)) &&
+    isNewsSignalsSafeRef(value.source_revision_ref) &&
+    isNewsSignalsSafeRef(value.content_digest_ref) &&
+    isNewsSignalsSafeRef(value.topic_ref) &&
+    typeof value.published_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.published_at) &&
+    typeof value.observed_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.observed_at) &&
+    ["fresh", "stale", "unknown"].includes(String(value.freshness_state)) &&
+    Number.isInteger(value.confidence_percent) &&
+    Number(value.confidence_percent) >= 0 &&
+    Number(value.confidence_percent) <= 100 &&
+    ["high", "medium", "low"].includes(String(value.confidence_state)) &&
+    ["primary", "corroborating", "community", "commentary"].includes(
+      String(value.evidence_class),
+    ) &&
+    value.external_content_untrusted === true &&
+    ["none", "conflicting"].includes(String(value.conflict_state)) &&
+    isNewsSignalsSafeRefArray(value.coverage_source_refs, 24) &&
+    Number.isInteger(value.coverage_count) &&
+    value.coverage_count === value.coverage_source_refs.length &&
+    isNewsSignalsSafeRefArray(value.provenance_refs, 24) &&
+    typeof value.rank_score === "number" &&
+    Number.isFinite(value.rank_score) &&
+    isNewsSignalsSafeRefArray(value.rank_reason_refs, 24) &&
+    typeof value.briefing_candidate === "boolean" &&
+    value.action_authority_granted === false
+  );
+}
+
+function isSafeNewsSignalSource(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  if (
+    !newsSignalsHasOnlyKeys(value, [
+      "source_ref",
+      "source_kind",
+      "safe_label",
+      "state",
+      "observed_at",
+      "freshness_ttl_seconds",
+      "adapter_ref",
+      "provenance_ref",
+      "retention_ref",
+      "reason_refs",
+      "external_network_read_performed",
+      "account_authority_granted",
+    ])
+  ) {
+    return false;
+  }
+  return (
+    isNewsSignalsSafeRef(value.source_ref) &&
+    ["official", "community", "rss", "public_social", "local"].includes(
+      String(value.source_kind),
+    ) &&
+    isNewsSignalsSafeText(value.safe_label, 80) &&
+    ["ready", "blocked", "unknown", "revoked", "safe_disabled"].includes(
+      String(value.state),
+    ) &&
+    (value.observed_at === null ||
+      (typeof value.observed_at === "string" &&
+        NEWS_SIGNALS_TIMESTAMP.test(value.observed_at))) &&
+    Number.isInteger(value.freshness_ttl_seconds) &&
+    Number(value.freshness_ttl_seconds) >= 300 &&
+    Number(value.freshness_ttl_seconds) <= 604_800 &&
+    isNewsSignalsSafeRef(value.adapter_ref) &&
+    isNewsSignalsSafeRef(value.provenance_ref) &&
+    isNewsSignalsSafeRef(value.retention_ref) &&
+    isNewsSignalsSafeRefArray(value.reason_refs, 24) &&
+    value.external_network_read_performed === false &&
+    value.account_authority_granted === false
+  );
+}
+
+function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
+  if (!isPlainRecord(value)) return false;
+  if (
+    !newsSignalsHasOnlyKeys(value, [
+      "schema_version",
+      "contract_ref",
+      "status",
+      "backend_owned",
+      "read_only",
+      "local_artifact_snapshot_only",
+      "external_content_untrusted",
+      "live_fetch_enabled",
+      "authenticated_source_enabled",
+      "background_polling_enabled",
+      "model_summarization_enabled",
+      "connector_write_enabled",
+      "action_authority_granted",
+      "observed_at",
+      "source_readiness",
+      "items",
+      "freshness_counts",
+      "conflicting_claim_refs",
+      "today_projection",
+      "morning_briefing_projection",
+      "safe_summary",
+      "blocked_state_refs",
+      "evidence_refs",
+    ])
+  ) {
+    return false;
+  }
+  if (
+    value.schema_version !== "uaa-news-signals-read-model.v1" ||
+    !isNewsSignalsSafeRef(value.contract_ref) ||
+    ![
+      "blocked_no_graduated_source",
+      "blocked_source_unavailable",
+      "ready_empty",
+      "ready",
+    ].includes(String(value.status)) ||
+    value.backend_owned !== true ||
+    value.read_only !== true ||
+    value.local_artifact_snapshot_only !== true ||
+    value.external_content_untrusted !== true ||
+    value.live_fetch_enabled !== false ||
+    value.authenticated_source_enabled !== false ||
+    value.background_polling_enabled !== false ||
+    value.model_summarization_enabled !== false ||
+    value.connector_write_enabled !== false ||
+    value.action_authority_granted !== false ||
+    typeof value.observed_at !== "string" ||
+    !NEWS_SIGNALS_TIMESTAMP.test(value.observed_at) ||
+    !Array.isArray(value.source_readiness) ||
+    value.source_readiness.length > 24 ||
+    !value.source_readiness.every(isSafeNewsSignalSource) ||
+    !Array.isArray(value.items) ||
+    value.items.length > 100 ||
+    !value.items.every(isSafeNewsSignalItem) ||
+    !isPlainRecord(value.freshness_counts) ||
+    !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 100) ||
+    !isPlainRecord(value.today_projection) ||
+    !isPlainRecord(value.morning_briefing_projection) ||
+    !isNewsSignalsSafeText(value.safe_summary, 320) ||
+    !isNewsSignalsSafeRefArray(value.blocked_state_refs, 24) ||
+    !isNewsSignalsSafeRefArray(value.evidence_refs, 24)
+  ) {
+    return false;
+  }
+  const freshness = value.freshness_counts;
+  const today = value.today_projection;
+  const briefing = value.morning_briefing_projection;
+  return (
+    newsSignalsHasOnlyKeys(freshness, ["fresh", "stale", "unknown"]) &&
+    [freshness.fresh, freshness.stale, freshness.unknown].every(
+      (count) => Number.isInteger(count) && Number(count) >= 0,
+    ) &&
+    newsSignalsHasOnlyKeys(today, [
+      "projection_ref",
+      "item_refs",
+      "bounded_limit",
+      "read_only",
+    ]) &&
+    isNewsSignalsSafeRef(today.projection_ref) &&
+    isNewsSignalsSafeRefArray(today.item_refs, 3) &&
+    today.bounded_limit === 3 &&
+    today.read_only === true &&
+    newsSignalsHasOnlyKeys(briefing, [
+      "projection_ref",
+      "candidate_refs",
+      "bounded_limit",
+      "review_required",
+      "read_only",
+    ]) &&
+    isNewsSignalsSafeRef(briefing.projection_ref) &&
+    isNewsSignalsSafeRefArray(briefing.candidate_refs, 5) &&
+    briefing.bounded_limit === 5 &&
+    briefing.review_required === true &&
+    briefing.read_only === true
+  );
 }
 
 const COMMUNICATIONS_SAFE_REF =

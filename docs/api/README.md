@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `347` OpenAPI paths and `349` manifest route operations.
+Current generated contract snapshot: `348` OpenAPI paths and `350` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The counts are generated from the FastAPI application and `/api/manifest`.

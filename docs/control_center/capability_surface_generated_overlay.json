@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 349,
+    "api_manifest_route_count": 350,
     "release_surface_route_count": 43,
     "visible_action_count": 46,
     "human_capability_count": 31,
@@ -195,19 +195,29 @@
       "source_truth_status": "current"
     },
     {
-      "capability_id": "news_signals_fixture_preview",
-      "api_routes": [],
+      "capability_id": "news_signals_backend_read_model",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/news-signals/summary",
+          "operation_id": "get_control_center_news_signals_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        }
+      ],
       "ui_routes": [
         {
           "path": "/news",
           "label": "News & Signals",
           "group": "Founder Loop",
-          "ui_status": "illustrative read-only preview",
-          "release_status": "experimental",
+          "ui_status": "backend-owned redacted artifact read model",
+          "release_status": "partial",
           "owner": "founder-loop",
-          "backend_route_count": 0,
-          "blocked_capability_count": 9,
-          "visual_proof_status": "experimental_no_baseline",
+          "backend_route_count": 1,
+          "blocked_capability_count": 7,
+          "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"
         }
       ],
@@ -217,11 +227,11 @@
           "source": "route_status_manifest",
           "frontend_route": "/news",
           "ui_surface": "News & Signals",
-          "release_status": "mock_only_not_product_ready",
+          "release_status": "partial_backend_not_product_ready",
           "side_effect_class": "local_ui_state_only",
           "risk_class": "medium",
-          "backend_route_count": 0,
-          "missing_backend_route_count": 4,
+          "backend_route_count": 1,
+          "missing_backend_route_count": 3,
           "source_truth_status": "current"
         }
       ],

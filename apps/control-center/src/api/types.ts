@@ -16343,3 +16343,95 @@ export interface ControlCenterData {
   connection: BackendConnectionSummary;
   routeStates: Record<string, ControlCenterRouteReadState>;
 }
+export type NewsSignalSourceKind =
+  | "official"
+  | "community"
+  | "rss"
+  | "public_social"
+  | "local";
+
+export type NewsSignalFreshnessState = "fresh" | "stale" | "unknown";
+
+export interface NewsSignalReadItem {
+  signal_ref: string;
+  cluster_ref: string;
+  claim_ref: string;
+  title: string;
+  safe_summary: string;
+  source_ref: string;
+  source_label: string;
+  source_kind: NewsSignalSourceKind;
+  source_state: "ready" | "blocked" | "unknown" | "revoked" | "safe_disabled";
+  source_revision_ref: string;
+  content_digest_ref: string;
+  topic_ref: string;
+  published_at: string;
+  observed_at: string;
+  freshness_state: NewsSignalFreshnessState;
+  confidence_percent: number;
+  confidence_state: "high" | "medium" | "low";
+  evidence_class: "primary" | "corroborating" | "community" | "commentary";
+  external_content_untrusted: true;
+  conflict_state: "none" | "conflicting";
+  coverage_source_refs: string[];
+  coverage_count: number;
+  provenance_refs: string[];
+  rank_score: number;
+  rank_reason_refs: string[];
+  briefing_candidate: boolean;
+  action_authority_granted: false;
+}
+
+export interface NewsSignalsSummary {
+  schema_version: "uaa-news-signals-read-model.v1";
+  contract_ref: string;
+  status:
+    | "blocked_no_graduated_source"
+    | "blocked_source_unavailable"
+    | "ready_empty"
+    | "ready";
+  backend_owned: true;
+  read_only: true;
+  local_artifact_snapshot_only: true;
+  external_content_untrusted: true;
+  live_fetch_enabled: false;
+  authenticated_source_enabled: false;
+  background_polling_enabled: false;
+  model_summarization_enabled: false;
+  connector_write_enabled: false;
+  action_authority_granted: false;
+  observed_at: string;
+  source_readiness: Array<{
+    source_ref: string;
+    source_kind: NewsSignalSourceKind;
+    safe_label: string;
+    state: "ready" | "blocked" | "unknown" | "revoked" | "safe_disabled";
+    observed_at: string | null;
+    freshness_ttl_seconds: number;
+    adapter_ref: string;
+    provenance_ref: string;
+    retention_ref: string;
+    reason_refs: string[];
+    external_network_read_performed: false;
+    account_authority_granted: false;
+  }>;
+  items: NewsSignalReadItem[];
+  freshness_counts: Record<NewsSignalFreshnessState, number>;
+  conflicting_claim_refs: string[];
+  today_projection: {
+    projection_ref: string;
+    item_refs: string[];
+    bounded_limit: 3;
+    read_only: true;
+  };
+  morning_briefing_projection: {
+    projection_ref: string;
+    candidate_refs: string[];
+    bounded_limit: 5;
+    review_required: true;
+    read_only: true;
+  };
+  safe_summary: string;
+  blocked_state_refs: string[];
+  evidence_refs: string[];
+}
