@@ -7,7 +7,10 @@ from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
-from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.approvals.enums import (
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.crm.private_repository import (
     ECO_CRM_MUTATION_ACTION,
@@ -34,6 +37,7 @@ from ultimate_ai_agent.core.ecosystem.boards import (
     BoardRepository,
 )
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    EcosystemConflict,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
     InMemoryLocalDataCryptoBackend,
@@ -45,7 +49,10 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorType,
     AuthoritySource,
 )
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -110,10 +117,17 @@ def _repositories(
         ),
     )
     boards = BoardRepository(platform)
-    return PrivateCrmRepository(platform, board_repository=boards), boards, authority, database_path
+    return (
+        PrivateCrmRepository(platform, board_repository=boards),
+        boards,
+        authority,
+        database_path,
+    )
 
 
-def _resources(repository_type, *, record_ref: str, operation_ref: str, idempotency_ref: str):
+def _resources(
+    repository_type, *, record_ref: str, operation_ref: str, idempotency_ref: str
+):
     return repository_type.mutation_resource_refs(
         workspace_ref=WORKSPACE,
         record_ref=record_ref,
@@ -173,7 +187,9 @@ def _create_board(boards: BoardRepository, authority: LocalApprovalAuthority) ->
     )
 
 
-def _create_portfolio(repository: PrivateCrmRepository, authority: LocalApprovalAuthority):
+def _create_portfolio(
+    repository: PrivateCrmRepository, authority: LocalApprovalAuthority
+):
     operation_ref = "operation-ref:create-crm-portfolio"
     idempotency_ref = "idempotency-ref:create-crm-portfolio"
     approval = _approval(
@@ -215,7 +231,9 @@ def test_private_relationship_preset_is_excluded_from_shared_surfaces() -> None:
     )
     assert item.privacy_policy.included_in_memory is False
 
-    with pytest.raises(ValueError, match="ECO_CRM_PRIVATE_RELATIONSHIPS_ISOLATION_REQUIRED"):
+    with pytest.raises(
+        ValueError, match="ECO_CRM_PRIVATE_RELATIONSHIPS_ISOLATION_REQUIRED"
+    ):
         PrivateCrmWorkspace(
             crm_workspace_ref="crm-workspace-ref:private",
             name="Private relationships",
@@ -224,7 +242,9 @@ def test_private_relationship_preset_is_excluded_from_shared_surfaces() -> None:
         )
 
 
-def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_path: Path) -> None:
+def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(
+    tmp_path: Path,
+) -> None:
     repository, boards, authority, database_path = _repositories(tmp_path)
     _create_board(boards, authority)
     receipt = _create_portfolio(repository, authority)
@@ -244,7 +264,10 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_
         ),
     )
     version += 1
-    for person_ref, name in (("person-ref:one", "Synthetic One"), ("person-ref:two", "Synthetic Two")):
+    for person_ref, name in (
+        ("person-ref:one", "Synthetic One"),
+        ("person-ref:two", "Synthetic Two"),
+    ):
         _mutate(
             repository,
             authority,
@@ -253,7 +276,10 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_
             item=PrivateCrmPerson(person_ref=person_ref, display_name=name),
         )
         version += 1
-    for context_ref, person_ref in (("context-ref:one", "person-ref:one"), ("context-ref:two", "person-ref:two")):
+    for context_ref, person_ref in (
+        ("context-ref:one", "person-ref:one"),
+        ("context-ref:two", "person-ref:two"),
+    ):
         _mutate(
             repository,
             authority,
@@ -405,16 +431,46 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_
     assert moved.pipeline_objects[0].lane_ref == "lane-ref:won"
     assert moved.result_ref != first_result_ref
 
-    _mutate(
-        repository,
+    operation_ref = "operation-ref:complete-follow-up"
+    idempotency_ref = "idempotency-ref:complete-follow-up"
+    approval = _approval(
         authority,
-        "complete_follow_up",
-        version=version,
+        action=ECO_CRM_MUTATION_ACTION,
+        resources=_resources(
+            PrivateCrmRepository,
+            record_ref=PORTFOLIO,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    repository.complete_follow_up(
+        workspace_ref=WORKSPACE,
+        portfolio_ref=PORTFOLIO,
+        expected_version=version,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=approval,
         follow_up_ref="follow-up-ref:one",
         completed_at=datetime(2026, 8, 22, 17, tzinfo=timezone.utc),
     )
+    with pytest.raises(EcosystemConflict, match="ECO_IDEMPOTENCY_REPLAY_CONFLICT"):
+        repository.complete_follow_up(
+            workspace_ref=WORKSPACE,
+            portfolio_ref=PORTFOLIO,
+            expected_version=version,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            follow_up_ref="follow-up-ref:one",
+            completed_at=datetime(2026, 8, 22, 18, tzinfo=timezone.utc),
+        )
     version += 1
-    assert repository.read(workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO).follow_ups[0].state == CrmFollowUpState.completed
+    assert (
+        repository.read(workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO)
+        .follow_ups[0]
+        .state
+        == CrmFollowUpState.completed
+    )
 
     _mutate(repository, authority, "undo", version=version)
     restored = repository.read(workspace_ref=WORKSPACE, portfolio_ref=PORTFOLIO)
@@ -424,8 +480,44 @@ def test_private_crm_builds_relationship_follow_up_and_board_owned_pipeline(tmp_
     assert b"Synthetic private CRM marker" not in database_bytes
     assert b"Synthetic private follow-up" not in database_bytes
 
+    board = boards.read(workspace_ref=WORKSPACE, board_ref=BOARD)
+    invalid_card = board.cards[0].model_copy(
+        update={"subject_ref": "pipeline-object-ref:other"}
+    )
+    operation_ref = "operation-ref:invalidate-opportunity-card"
+    idempotency_ref = "idempotency-ref:invalidate-opportunity-card"
+    boards.save(
+        board=board.model_copy(
+            update={"version": board.version + 1, "cards": (invalid_card,)}
+        ),
+        expected_version=board.version,
+        operation_ref=operation_ref,
+        idempotency_ref=idempotency_ref,
+        approval=_approval(
+            authority,
+            action=ECO_BOARD_MUTATION_ACTION,
+            resources=_resources(
+                BoardRepository,
+                record_ref=BOARD,
+                operation_ref=operation_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        ),
+    )
+    with pytest.raises(
+        PrivateCrmConflict,
+        match="ECO_CRM_PIPELINE_OBJECT_CARD_BINDING_INVALID",
+    ):
+        repository.workspace_read_model(
+            workspace_ref=WORKSPACE,
+            portfolio_ref=PORTFOLIO,
+            crm_workspace_ref=CRM_WORKSPACE,
+        )
 
-def test_pipeline_requires_existing_board_and_exact_card_binding(tmp_path: Path) -> None:
+
+def test_pipeline_requires_existing_board_and_exact_card_binding(
+    tmp_path: Path,
+) -> None:
     repository, boards, authority, _database_path = _repositories(tmp_path)
     _create_portfolio(repository, authority)
     _mutate(

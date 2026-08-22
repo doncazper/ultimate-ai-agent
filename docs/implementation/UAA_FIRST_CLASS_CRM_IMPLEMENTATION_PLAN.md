@@ -6,6 +6,7 @@ Date: 2026-07-12
 Builds on: `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`
 Current implementation truth: `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`
 and `docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md`
+Threat review: `docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`
 Suite ownership plan:
 `docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md`
 
@@ -322,8 +323,10 @@ Deliver:
 - Write an ADR for private CRM storage, encryption, keys, backup, recovery,
   and local API exposure.
 
-Gate: no private-data persistence or new mutation routes until the ADR and
-threat model are accepted. This is the immediate next milestone.
+Gate: satisfied only for the bounded encrypted ECO-005 repository by accepted
+ADR-0067 and `docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`. New mutation
+routes, migration/cutover, production key/path backends, import/export, or
+external data movement require later exact acceptance.
 
 ### `CRM-FC-001` Private local repository and migrations
 

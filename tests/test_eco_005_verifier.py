@@ -31,7 +31,7 @@ def test_eco_005_verifier_rejects_forbidden_runtime_imports_and_aliases(
 ) -> None:
     source = tmp_path / "private_repository.py"
     source.write_text(source_text, encoding="utf-8")
-    monkeypatch.setattr(verifier, "REQUIRED_FILES", ("private_repository.py",) * 4)
+    monkeypatch.setattr(verifier, "REQUIRED_FILES", ("private_repository.py",) * 5)
     monkeypatch.setattr(verifier, "ROOT", tmp_path)
 
     failures = verifier.verify()

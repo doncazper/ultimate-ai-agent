@@ -3,6 +3,13 @@
 Status: accepted bounded core scope on 2026-08-21. This is not product cutover,
 external CRM sync, public release, or production authority.
 
+The bounded persistence threat review is accepted in
+`docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`. It limits this slice to the
+encrypted ECO-001 data plane, constant-term blind indexing, safe-ref evidence,
+exact mutation approval/replay, strict workspace policy, and live Board-binding
+validation. Production keys, paths, backup operations, export, migration, and
+all external data movement remain blocked.
+
 ## Accepted behavior
 
 ECO-005 adds a versioned encrypted `PrivateCrmPortfolio` on the ECO-001 local
@@ -54,9 +61,11 @@ mutate those records.
 
 ## Compatibility and deferred work
 
-The existing CRM M0/M1 contracts and CRM Local Command Center M2 remain
-compatibility/read-only surfaces. ECO-005 does not silently migrate or cut over
-their JSONL records. A later accepted lane must provide bounded migration,
+The existing CRM M0/M1 contracts remain compatibility/read-only surfaces. CRM
+Local Command Center M2 remains a separate compatibility surface with its
+existing governed `POST /control-center/crm/local-mutations` JSONL mutation
+lane. ECO-005 neither broadens that authority nor silently migrates or cuts over
+M2 records. A later accepted lane must provide bounded migration,
 route/CLI parity, approval-preview UX, Control Center People and pipeline
 surfaces, Today/Briefing projections respecting privacy policy, typed private
 import/export, recovery evidence, accessibility proof, and production key/path

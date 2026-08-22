@@ -9,7 +9,10 @@ from datetime import timedelta
 from pathlib import Path
 
 from ultimate_ai_agent.core.approvals.authority import LocalApprovalAuthority
-from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.approvals.enums import (
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.crm.private_repository import (
     ECO_CRM_MUTATION_ACTION,
@@ -27,7 +30,10 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorType,
     AuthoritySource,
 )
-from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -37,6 +43,7 @@ REQUIRED_FILES = (
     "tests/test_eco_005_private_crm.py",
     "docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md",
     "docs/decisions/ADR-0067-first-class-private-crm.md",
+    "docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md",
 )
 PROHIBITED_RUNTIME_IMPORTS = (
     "http.client",
@@ -194,14 +201,19 @@ def verify() -> list[str]:
             )
             if not replay.replayed or replay.receipt_ref != first.receipt_ref:
                 failures.append("ECO-005 exact replay verification failed")
-            if repository.read(
-                workspace_ref=workspace_ref, portfolio_ref=portfolio_ref
-            ).name != private_marker:
+            if (
+                repository.read(
+                    workspace_ref=workspace_ref, portfolio_ref=portfolio_ref
+                ).name
+                != private_marker
+            ):
                 failures.append("ECO-005 private CRM readback failed")
             if private_marker.encode("utf-8") in database_path.read_bytes():
                 failures.append("ECO-005 private marker persisted as plaintext")
     except Exception as exc:  # pragma: no cover - surfaced as verifier output
-        failures.append(f"ECO-005 operational verification failed: {type(exc).__name__}")
+        failures.append(
+            f"ECO-005 operational verification failed: {type(exc).__name__}"
+        )
     return failures
 
 

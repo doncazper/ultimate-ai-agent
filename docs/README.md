@@ -321,6 +321,10 @@ excluded from global search, Today, Briefing, Memory, and general export by
 default. Existing CRM M0-M2 remains a compatibility surface. No migration,
 route/CLI/UI, connector/account sync, send/write, model/browser/background
 runtime, public release, or production authority is added.
+The accepted bounded persistence threat review is
+`docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md`; production key/path
+backends, migration/export, external data movement, and product cutover remain
+blocked.
 
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a

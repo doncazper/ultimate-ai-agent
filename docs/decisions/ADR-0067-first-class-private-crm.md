@@ -13,6 +13,12 @@ board engine or leaking private contact data into evidence.
 
 ## Decision
 
+Accept the bounded persistence threat review in
+`docs/security/ECO_005_PRIVATE_CRM_THREAT_MODEL.md` together with this ADR. The
+review permits only the encrypted repository scope described below; production
+key/path backends, migration, export, external data movement, and product
+cutover remain blocked behind later exact threat-review gates.
+
 Store one encrypted, versioned private CRM portfolio aggregate per ECO-001
 workspace. Identity is portfolio-wide; CRM context and work are bound to exact
 CRM workspace refs. Private Relationships always excludes itself from global
