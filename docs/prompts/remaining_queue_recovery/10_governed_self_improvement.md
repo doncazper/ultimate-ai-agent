@@ -3,6 +3,14 @@
 Status: triage-ready recovery source. It grants no self-modification,
 automatic training, hidden memory update, or automatic merge authority.
 
+Detailed recovered plan:
+`docs/implementation/UAA_GOVERNED_SELF_IMPROVEMENT_IMPLEMENTATION_PLAN.md`.
+
+Vision status: high-confidence archive recovery. The preserved product loop is
+observe, classify, propose, review, separately implement, test/evaluate, return
+for PR review, and learn from the reviewed outcome. No phase implies
+self-granted implementation, Git, merge, release, or deployment authority.
+
 ## Outcome
 
 Create a review-as-you-go improvement loop that turns redacted outcomes,

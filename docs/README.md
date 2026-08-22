@@ -15,6 +15,15 @@ product-surface, and one verification/read-only claim, and keeps eleven
 authority-heavy programs visible but gated. The immutable remaining-queue
 manifest and its local recovery source set remain historical evidence; their
 legacy admission path is disabled so they cannot recreate duplicate work.
+The canonical product-vision preservation layer is
+`docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.md` with machine-readable truth in
+`docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.json`. It binds first-class product
+and vertical queue items to durable plans, historical recovery confidence,
+guardrails, and separate current-slice versus whole-vision outcomes. A queue
+receipt therefore cannot silently imply that CRM, News, Social, Finance,
+Autocorrect, self-improvement, publishing, or the final benchmark has completed
+its larger vision. The registry is enforced by
+`scripts/verify_product_vision_registry.py` and the master static scan suite.
 Queue V2 Q10's current-source Hermes/OpenClaw rebaseline is recorded in
 `reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md`;
 it routes a finite gap ledger to later owners without importing competitor

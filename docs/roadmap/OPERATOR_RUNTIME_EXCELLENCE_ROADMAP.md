@@ -10,6 +10,11 @@ runtime authority and does not replace the configured local model.
 
 Status: Active product/runtime excellence plan.
 
+Whole-product intent for first-class product and vertical Queue V2 items is
+preserved in `docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.md`. This roadmap and
+Queue V2 may admit bounded slices; neither may promote a slice receipt into a
+whole-vision completion claim without the registry's independent evidence gate.
+
 This plan is a repo-owned execution artifact for bringing Ultimate AI Agent to
 credible parity with mature local operator-console systems, then moving beyond
 them through a stronger foundation, cleaner structure, lower latency, tighter
