@@ -18,7 +18,11 @@ from ultimate_ai_agent.core.hygiene.actor_context import (
 )
 from ultimate_ai_agent.core.knowledge_dump import (
     KnowledgeDumpStore,
+    KnowledgeExtractionMethod,
+    KnowledgeLifecycleState,
+    KnowledgeOcrReviewStatus,
     KnowledgeRightsBasis,
+    KnowledgeRightsStatus,
     KnowledgeSourceKind,
 )
 
@@ -50,6 +54,9 @@ def _prepare(store: KnowledgeDumpStore, args: argparse.Namespace):  # type: igno
         category=args.category,
         collection=args.collection,
         tags=args.tag,
+        extraction_method=KnowledgeExtractionMethod(args.extraction_method),
+        ocr_review_status=KnowledgeOcrReviewStatus(args.ocr_review_status),
+        ocr_review_evidence_ref=args.ocr_review_evidence_ref,
     )
 
 
@@ -88,6 +95,17 @@ def build_parser() -> argparse.ArgumentParser:
     shared.add_argument("--category", default="uncategorized")
     shared.add_argument("--collection")
     shared.add_argument("--tag", action="append", default=[])
+    shared.add_argument(
+        "--extraction-method",
+        choices=[item.value for item in KnowledgeExtractionMethod],
+        default=KnowledgeExtractionMethod.native_text.value,
+    )
+    shared.add_argument(
+        "--ocr-review-status",
+        choices=[item.value for item in KnowledgeOcrReviewStatus],
+        default=KnowledgeOcrReviewStatus.not_required.value,
+    )
+    shared.add_argument("--ocr-review-evidence-ref")
 
     subparsers.add_parser(
         "plan-ingest", parents=[shared], help="Build a content-free exact ingest plan."
@@ -114,6 +132,12 @@ def build_parser() -> argparse.ArgumentParser:
     listing.add_argument("--collection")
     listing.add_argument("--tag")
     listing.add_argument(
+        "--lifecycle-state", choices=[item.value for item in KnowledgeLifecycleState]
+    )
+    listing.add_argument(
+        "--rights-status", choices=[item.value for item in KnowledgeRightsStatus]
+    )
+    listing.add_argument(
         "--sort-by",
         choices=["newest", "oldest", "title", "category", "source_kind"],
         default="newest",
@@ -123,6 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers.add_parser(
         "audit", help="Inspect durable redacted ingest and metadata audit records."
+    )
+    subparsers.add_parser(
+        "encryption-posture",
+        help="Inspect truthful local at-rest encryption and permission posture.",
     )
     categorize = subparsers.add_parser(
         "categorize", help="Exact-approved navigation metadata update."
@@ -138,6 +166,37 @@ def build_parser() -> argparse.ArgumentParser:
     categorize.add_argument("--tag", action="append", default=[])
     categorize.add_argument("--idempotency-key", required=True)
     categorize.add_argument("--approve-exact-scope", metavar="EXACT_SCOPE_REF")
+    governance = subparsers.add_parser(
+        "govern", help="Exact-approved lifecycle, rights, and OCR review update."
+    )
+    governance.add_argument("document_ref")
+    governance.add_argument(
+        "--lifecycle-state",
+        choices=[item.value for item in KnowledgeLifecycleState],
+        required=True,
+    )
+    governance.add_argument(
+        "--rights-status",
+        choices=[item.value for item in KnowledgeRightsStatus],
+        required=True,
+    )
+    governance.add_argument("--rights-evidence-ref", required=True)
+    governance.add_argument(
+        "--ocr-review-status",
+        choices=[item.value for item in KnowledgeOcrReviewStatus],
+        required=True,
+    )
+    governance.add_argument("--ocr-review-evidence-ref")
+    governance.add_argument("--idempotency-key", required=True)
+    governance.add_argument("--approve-exact-scope", metavar="EXACT_SCOPE_REF")
+    removal = subparsers.add_parser(
+        "remove", help="Permanently remove one exact source after retention review."
+    )
+    removal.add_argument("document_ref")
+    removal.add_argument("--retention-decision-ref", required=True)
+    removal.add_argument("--backup-disposition-ref", required=True)
+    removal.add_argument("--idempotency-key", required=True)
+    removal.add_argument("--approve-exact-scope", metavar="EXACT_SCOPE_REF")
     search = subparsers.add_parser(
         "search", help="Lexically search and return cited local chunks."
     )
@@ -161,6 +220,14 @@ def build_parser() -> argparse.ArgumentParser:
     context.add_argument("--category")
     context.add_argument("--collection")
     context.add_argument("--tag")
+    selected_context = subparsers.add_parser(
+        "prepare-selected-context",
+        help="Prepare context from exact operator-selected cited chunks.",
+    )
+    selected_context.add_argument(
+        "--chunk-ref", action="append", required=True, dest="chunk_refs"
+    )
+    selected_context.add_argument("--max-characters", type=int, default=8000)
     return parser
 
 
@@ -237,6 +304,16 @@ def _run(args: argparse.Namespace) -> int:
                     category=args.category,
                     collection=args.collection,
                     tag=args.tag,
+                    lifecycle_state=(
+                        KnowledgeLifecycleState(args.lifecycle_state)
+                        if args.lifecycle_state
+                        else None
+                    ),
+                    rights_status=(
+                        KnowledgeRightsStatus(args.rights_status)
+                        if args.rights_status
+                        else None
+                    ),
                     sort_by=args.sort_by,
                 )
             ]
@@ -247,6 +324,9 @@ def _run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "audit":
         _dump([item.model_dump(mode="json") for item in store.list_audit_records()])
+        return 0
+    if args.command == "encryption-posture":
+        _dump(store.encryption_posture())
         return 0
     if args.command == "categorize":
         prepared = store.prepare_metadata_update(
@@ -292,6 +372,83 @@ def _run(args: argparse.Namespace) -> int:
             )
         )
         return 0
+    if args.command == "govern":
+        prepared = store.prepare_governance_update(
+            args.document_ref,
+            lifecycle_state=KnowledgeLifecycleState(args.lifecycle_state),
+            rights_status=KnowledgeRightsStatus(args.rights_status),
+            rights_evidence_ref=args.rights_evidence_ref,
+            ocr_review_status=KnowledgeOcrReviewStatus(args.ocr_review_status),
+            ocr_review_evidence_ref=args.ocr_review_evidence_ref,
+            idempotency_key=args.idempotency_key,
+        )
+        if args.approve_exact_scope != prepared.plan.exact_scope_ref:
+            _dump(prepared.plan)
+            raise SystemExit(
+                "Refusing mutation: inspect the current governance plan and provide "
+                "its exact scope ref with --approve-exact-scope EXACT_SCOPE_REF."
+            )
+        actor = _actor()
+        run_id = prepared.plan.plan_ref
+        authority = LocalApprovalAuthority()
+        request = store.approval_request_for_governance_update(
+            prepared, actor_context=actor, run_id=run_id
+        )
+        authority.create_request(request)
+        grant = authority.grant(
+            request.approval_request_id,
+            approved_by_actor_id=actor.actor_id,
+            approved_actions=[request.requested_action],
+            approved_resource_refs=request.resource_refs,
+            approval_ref=f"approval:{prepared.plan.exact_scope_ref}",
+        )
+        _dump(
+            store.update_governance(
+                prepared,
+                approval_authority=authority,
+                approval_ref=grant.approval_ref,
+                actor_context=actor,
+                run_id=run_id,
+            )
+        )
+        return 0
+    if args.command == "remove":
+        prepared = store.prepare_removal(
+            args.document_ref,
+            retention_decision_ref=args.retention_decision_ref,
+            backup_disposition_ref=args.backup_disposition_ref,
+            idempotency_key=args.idempotency_key,
+        )
+        if args.approve_exact_scope != prepared.plan.exact_scope_ref:
+            _dump(prepared.plan)
+            raise SystemExit(
+                "Refusing mutation: inspect the current removal plan and provide "
+                "its exact scope ref with --approve-exact-scope EXACT_SCOPE_REF."
+            )
+        actor = _actor()
+        run_id = prepared.plan.plan_ref
+        authority = LocalApprovalAuthority()
+        request = store.approval_request_for_removal(
+            prepared, actor_context=actor, run_id=run_id
+        )
+        authority.create_request(request)
+        grant = authority.grant(
+            request.approval_request_id,
+            approved_by_actor_id=actor.actor_id,
+            approved_actions=[request.requested_action],
+            approved_resource_refs=request.resource_refs,
+            approval_ref=f"approval:{prepared.plan.exact_scope_ref}",
+        )
+        _dump(
+            store.remove(
+                prepared,
+                approval_authority=authority,
+                approval_ref=grant.approval_ref,
+                actor_context=actor,
+                run_id=run_id,
+            )
+        )
+        return 0
     if args.command == "search":
         _dump(
             [
@@ -321,6 +478,14 @@ def _run(args: argparse.Namespace) -> int:
                 category=args.category,
                 collection=args.collection,
                 tag=args.tag,
+            )
+        )
+        return 0
+    if args.command == "prepare-selected-context":
+        _dump(
+            store.prepare_selected_context(
+                args.chunk_refs,
+                max_characters=args.max_characters,
             )
         )
         return 0

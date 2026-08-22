@@ -348,6 +348,16 @@ connector/account/file read, route/CLI/UI, send/write, cross-app execution,
 provider/model/browser/subprocess/background runtime, public release, or
 production authority is added.
 
+Q18 Knowledge Workbench hardening is documented in
+`docs/architecture/Q18_KNOWLEDGE_WORKBENCH_HARDENING.md`. It adds exact-approved
+document lifecycle, rights and OCR review posture, permanent removal with
+redacted tombstones, truthful plaintext/encrypted-volume posture, and exact
+operator-selected cited context to the local Knowledge Dump. Search and context
+exclude archived, rights-ineligible, and OCR-pending sources. No PDF/OCR engine,
+automatic restore, application-level encryption, model/provider call, training,
+automatic Chat injection, network acquisition, public release, or production
+authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

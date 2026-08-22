@@ -49,13 +49,22 @@ from ultimate_ai_agent.core.knowledge_dump.models import (
     KnowledgeCitation,
     KnowledgeContextPack,
     KnowledgeDocument,
+    KnowledgeEncryptionPosture,
+    KnowledgeExtractionMethod,
+    KnowledgeGovernanceUpdatePlan,
+    KnowledgeGovernanceUpdateReceipt,
     KnowledgeHit,
     KnowledgeIngestPlan,
     KnowledgeIngestReceipt,
     KnowledgeInventory,
+    KnowledgeLifecycleState,
     KnowledgeMetadataUpdatePlan,
     KnowledgeMetadataUpdateReceipt,
+    KnowledgeOcrReviewStatus,
+    KnowledgeRemovalPlan,
+    KnowledgeRemovalReceipt,
     KnowledgeRightsBasis,
+    KnowledgeRightsStatus,
     KnowledgeSourceKind,
 )
 from ultimate_ai_agent.core.medical_knowledge import (
@@ -98,6 +107,16 @@ class PreparedKnowledgeMetadataUpdate:
     plan: KnowledgeMetadataUpdatePlan
 
 
+@dataclass(frozen=True)
+class PreparedKnowledgeGovernanceUpdate:
+    plan: KnowledgeGovernanceUpdatePlan
+
+
+@dataclass(frozen=True)
+class PreparedKnowledgeRemoval:
+    plan: KnowledgeRemovalPlan
+
+
 def _enum_value(value: object) -> str:
     return str(getattr(value, "value", value))
 
@@ -122,18 +141,20 @@ def _chunk_manifest_ref(chunks: tuple[_PreparedChunk, ...]) -> str:
 
 def _ingest_scope_ref(plan: KnowledgeIngestPlan) -> str:
     material = {
-        "catalog_citation_locator_refs": list(
-            plan.catalog_citation_locator_refs
-        ),
+        "catalog_citation_locator_refs": list(plan.catalog_citation_locator_refs),
         "catalog_source_id": plan.catalog_source_id,
         "category": plan.category,
         "chunk_manifest_ref": plan.chunk_manifest_ref,
         "collection": plan.collection,
         "idempotency_key": plan.idempotency_key,
+        "extraction_method": _enum_value(plan.extraction_method),
+        "ocr_review_evidence_ref": plan.ocr_review_evidence_ref,
+        "ocr_review_status": _enum_value(plan.ocr_review_status),
         "planned_character_count": plan.planned_character_count,
         "planned_chunk_count": plan.planned_chunk_count,
         "rights_basis": _enum_value(plan.rights_basis),
         "rights_evidence_ref": plan.rights_evidence_ref,
+        "rights_status": _enum_value(plan.rights_status),
         "source_content_ref": plan.source_content_ref,
         "source_format": _enum_value(plan.source_format),
         "source_kind": _enum_value(plan.source_kind),
@@ -183,6 +204,64 @@ def _metadata_scope_ref(plan: KnowledgeMetadataUpdatePlan) -> str:
     )
 
 
+def _governance_ref(
+    *,
+    lifecycle_state: object,
+    rights_status: object,
+    rights_evidence_ref: str,
+    extraction_method: object,
+    ocr_review_status: object,
+    ocr_review_evidence_ref: str | None,
+) -> str:
+    material = {
+        "extraction_method": _enum_value(extraction_method),
+        "lifecycle_state": _enum_value(lifecycle_state),
+        "ocr_review_evidence_ref": ocr_review_evidence_ref,
+        "ocr_review_status": _enum_value(ocr_review_status),
+        "rights_evidence_ref": rights_evidence_ref,
+        "rights_status": _enum_value(rights_status),
+    }
+    return _hash_ref(
+        "knowledge-governance-ref",
+        json.dumps(material, sort_keys=True, separators=(",", ":")),
+    )
+
+
+def _governance_scope_ref(plan: KnowledgeGovernanceUpdatePlan) -> str:
+    material = {
+        "document_ref": plan.document_ref,
+        "expected_governance_ref": plan.expected_governance_ref,
+        "idempotency_key": plan.idempotency_key,
+        "lifecycle_state": _enum_value(plan.lifecycle_state),
+        "ocr_review_evidence_ref": plan.ocr_review_evidence_ref,
+        "ocr_review_status": _enum_value(plan.ocr_review_status),
+        "rights_evidence_ref": plan.rights_evidence_ref,
+        "rights_status": _enum_value(plan.rights_status),
+        "store_ref": plan.store_ref,
+    }
+    return _hash_ref(
+        "knowledge-governance-scope-ref",
+        json.dumps(material, sort_keys=True, separators=(",", ":")),
+    )
+
+
+def _removal_scope_ref(plan: KnowledgeRemovalPlan) -> str:
+    material = {
+        "backup_disposition_ref": plan.backup_disposition_ref,
+        "document_ref": plan.document_ref,
+        "expected_document_revision_ref": plan.expected_document_revision_ref,
+        "idempotency_key": plan.idempotency_key,
+        "planned_character_count": plan.planned_character_count,
+        "planned_chunk_count": plan.planned_chunk_count,
+        "retention_decision_ref": plan.retention_decision_ref,
+        "store_ref": plan.store_ref,
+    }
+    return _hash_ref(
+        "knowledge-removal-scope-ref",
+        json.dumps(material, sort_keys=True, separators=(",", ":")),
+    )
+
+
 class KnowledgeDumpStore:
     """SQLite-backed local corpus with exact approval and cited lexical retrieval."""
 
@@ -216,6 +295,9 @@ class KnowledgeDumpStore:
         category: str = "uncategorized",
         collection: str | None = None,
         tags: list[str] | None = None,
+        extraction_method: KnowledgeExtractionMethod = KnowledgeExtractionMethod.native_text,
+        ocr_review_status: KnowledgeOcrReviewStatus = KnowledgeOcrReviewStatus.not_required,
+        ocr_review_evidence_ref: str | None = None,
     ) -> PreparedKnowledgeIngest:
         path = Path(source_path).expanduser().resolve()
         if not title.strip():
@@ -226,6 +308,10 @@ class KnowledgeDumpStore:
             raise ValueError("KNOWLEDGE_RIGHTS_EVIDENCE_REF_SECRET_LIKE")
         if contains_obvious_secret({"idempotency_key": idempotency_key}):
             raise ValueError("KNOWLEDGE_IDEMPOTENCY_KEY_SECRET_LIKE")
+        if ocr_review_evidence_ref and contains_obvious_secret(
+            {"ocr_review_evidence_ref": ocr_review_evidence_ref}
+        ):
+            raise ValueError("KNOWLEDGE_OCR_EVIDENCE_REF_SECRET_LIKE")
         if catalog_source_id and not re.fullmatch(
             r"[a-z][a-z0-9_]{2,80}", catalog_source_id
         ):
@@ -266,6 +352,10 @@ class KnowledgeDumpStore:
             source_size_bytes=source_size,
             rights_basis=rights_basis,
             rights_evidence_ref=rights_evidence_ref,
+            rights_status=KnowledgeRightsStatus.current,
+            extraction_method=extraction_method,
+            ocr_review_status=ocr_review_status,
+            ocr_review_evidence_ref=ocr_review_evidence_ref,
             catalog_source_id=catalog_source_id,
             catalog_citation_locator_refs=locator_refs,
             source_kind=source_kind,
@@ -327,8 +417,20 @@ class KnowledgeDumpStore:
                 plan.chunk_manifest_ref,
                 plan.store_ref,
                 plan.rights_evidence_ref,
+                *(
+                    [plan.ocr_review_evidence_ref]
+                    if plan.ocr_review_evidence_ref is not None
+                    else []
+                ),
             ],
-            consent_refs=[plan.rights_evidence_ref],
+            consent_refs=[
+                plan.rights_evidence_ref,
+                *(
+                    [plan.ocr_review_evidence_ref]
+                    if plan.ocr_review_evidence_ref is not None
+                    else []
+                ),
+            ],
             trace_id=plan.plan_ref,
         )
 
@@ -382,6 +484,15 @@ class KnowledgeDumpStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self._validate_prepared_ingest(prepared)
+            removed_binding = connection.execute(
+                """SELECT document_ref FROM document_removals
+                   WHERE source_content_ref = ? OR ingest_idempotency_key = ?""",
+                (plan.source_content_ref, plan.idempotency_key),
+            ).fetchone()
+            if removed_binding is not None:
+                raise ValueError(
+                    "KNOWLEDGE_REMOVED_CONTENT_REQUIRES_NEW_SOURCE_REVISION"
+                )
             existing_by_idempotency = connection.execute(
                 """SELECT document_ref, source_content_ref, idempotency_key,
                           exact_scope_ref
@@ -410,10 +521,12 @@ class KnowledgeDumpStore:
                 connection.execute(
                     """INSERT INTO documents
                     (document_ref, source_content_ref, exact_scope_ref, title, source_format, rights_basis,
-                     rights_evidence_ref, catalog_source_id, catalog_citation_locator_refs_json,
+                     rights_evidence_ref, rights_status, lifecycle_state, extraction_method,
+                     ocr_review_status, ocr_review_evidence_ref, catalog_source_id,
+                     catalog_citation_locator_refs_json,
                      chunk_count, character_count, idempotency_key, created_at, source_kind,
                      category, collection, tags_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         document_ref,
                         plan.source_content_ref,
@@ -422,6 +535,11 @@ class KnowledgeDumpStore:
                         plan.source_format,
                         plan.rights_basis,
                         plan.rights_evidence_ref,
+                        plan.rights_status,
+                        KnowledgeLifecycleState.active,
+                        plan.extraction_method,
+                        plan.ocr_review_status,
+                        plan.ocr_review_evidence_ref,
                         plan.catalog_source_id,
                         json.dumps(
                             plan.catalog_citation_locator_refs,
@@ -467,6 +585,10 @@ class KnowledgeDumpStore:
                 character_count=plan.planned_character_count,
                 rights_basis=plan.rights_basis,
                 rights_evidence_ref=plan.rights_evidence_ref,
+                rights_status=plan.rights_status,
+                extraction_method=plan.extraction_method,
+                ocr_review_status=plan.ocr_review_status,
+                ocr_review_evidence_ref=plan.ocr_review_evidence_ref,
                 approval_ref=approval_ref,
                 idempotency_key=plan.idempotency_key,
                 rollback_ref=plan.rollback_ref,
@@ -499,6 +621,8 @@ class KnowledgeDumpStore:
         category: str | None = None,
         collection: str | None = None,
         tag: str | None = None,
+        lifecycle_state: KnowledgeLifecycleState | None = None,
+        rights_status: KnowledgeRightsStatus | None = None,
         sort_by: str = "newest",
     ) -> list[KnowledgeDocument]:
         if not self.database_path.exists():
@@ -516,6 +640,18 @@ class KnowledgeDumpStore:
             documents = [item for item in documents if item.collection == collection]
         if tag is not None:
             documents = [item for item in documents if tag in item.tags]
+        if lifecycle_state is not None:
+            documents = [
+                item
+                for item in documents
+                if item.lifecycle_state == _enum_value(lifecycle_state)
+            ]
+        if rights_status is not None:
+            documents = [
+                item
+                for item in documents
+                if item.rights_status == _enum_value(rights_status)
+            ]
         sort_keys = {
             "newest": lambda item: (item.created_at, item.document_ref),
             "oldest": lambda item: (item.created_at, item.document_ref),
@@ -559,6 +695,15 @@ class KnowledgeDumpStore:
             ),
             by_format=dict(
                 sorted(Counter(item.source_format for item in documents).items())
+            ),
+            by_lifecycle_state=dict(
+                sorted(Counter(item.lifecycle_state for item in documents).items())
+            ),
+            by_rights_status=dict(
+                sorted(Counter(item.rights_status for item in documents).items())
+            ),
+            by_ocr_review_status=dict(
+                sorted(Counter(item.ocr_review_status for item in documents).items())
             ),
         )
 
@@ -805,6 +950,526 @@ class KnowledgeDumpStore:
             )
         return receipt
 
+    def prepare_governance_update(
+        self,
+        document_ref: str,
+        *,
+        lifecycle_state: KnowledgeLifecycleState,
+        rights_status: KnowledgeRightsStatus,
+        rights_evidence_ref: str,
+        ocr_review_status: KnowledgeOcrReviewStatus,
+        ocr_review_evidence_ref: str | None,
+        idempotency_key: str,
+    ) -> PreparedKnowledgeGovernanceUpdate:
+        if contains_obvious_secret(
+            {
+                "rights_evidence_ref": rights_evidence_ref,
+                "ocr_review_evidence_ref": ocr_review_evidence_ref,
+                "idempotency_key": idempotency_key,
+            }
+        ):
+            raise ValueError("KNOWLEDGE_GOVERNANCE_REF_SECRET_LIKE")
+        document = self._require_document(document_ref)
+        plan = KnowledgeGovernanceUpdatePlan(
+            plan_ref="knowledge-governance-plan-ref:pending",
+            exact_scope_ref="knowledge-governance-scope-ref:pending",
+            store_ref=self.store_ref,
+            document_ref=document_ref,
+            expected_governance_ref=self._governance_ref_for_document(document),
+            lifecycle_state=lifecycle_state,
+            rights_status=rights_status,
+            rights_evidence_ref=rights_evidence_ref,
+            ocr_review_status=ocr_review_status,
+            ocr_review_evidence_ref=ocr_review_evidence_ref,
+            idempotency_key=idempotency_key,
+        )
+        exact_scope_ref = _governance_scope_ref(plan)
+        plan = plan.model_copy(
+            update={
+                "exact_scope_ref": exact_scope_ref,
+                "plan_ref": _hash_ref("knowledge-governance-plan-ref", exact_scope_ref),
+            }
+        )
+        prepared = PreparedKnowledgeGovernanceUpdate(plan=plan)
+        self._validate_prepared_governance_update(prepared, document=document)
+        return prepared
+
+    def approval_request_for_governance_update(
+        self,
+        prepared: PreparedKnowledgeGovernanceUpdate,
+        *,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> ApprovalRequest:
+        document = self._require_document(prepared.plan.document_ref)
+        self._validate_prepared_governance_update(prepared, document=document)
+        plan = prepared.plan
+        return ApprovalRequest(
+            approval_request_id=_hash_ref(
+                "knowledge-governance-approval-request", plan.exact_scope_ref
+            ),
+            run_id=run_id,
+            subject_type=ApprovalSubjectType.file_write,
+            subject_id=plan.plan_ref,
+            actor_context=actor_context,
+            requested_action="knowledge_dump.update_governance",
+            purpose=(
+                "Update lifecycle, rights, and OCR review posture for one exact "
+                "local Knowledge Dump document."
+            ),
+            risk_level=ApprovalRiskLevel.medium,
+            data_classification=DataClassification(
+                classification=ClassificationValue.project_private,
+                source="local_knowledge_governance_update",
+                allowed_sinks=["local_knowledge_dump", "receipts"],
+                forbidden_sinks=["network", "provider", "model_training"],
+                requires_consent=True,
+                retention_policy="until_exact_approved_removal",
+            ),
+            resource_refs=[
+                plan.exact_scope_ref,
+                plan.document_ref,
+                plan.expected_governance_ref,
+                plan.rights_evidence_ref,
+                plan.store_ref,
+                *(
+                    [plan.ocr_review_evidence_ref]
+                    if plan.ocr_review_evidence_ref is not None
+                    else []
+                ),
+            ],
+            consent_refs=[
+                plan.rights_evidence_ref,
+                *(
+                    [plan.ocr_review_evidence_ref]
+                    if plan.ocr_review_evidence_ref is not None
+                    else []
+                ),
+            ],
+            trace_id=plan.plan_ref,
+        )
+
+    def update_governance(
+        self,
+        prepared: PreparedKnowledgeGovernanceUpdate,
+        *,
+        approval_authority: LocalApprovalAuthority,
+        approval_ref: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeGovernanceUpdateReceipt:
+        if contains_obvious_secret({"approval_ref": approval_ref}):
+            raise ValueError("KNOWLEDGE_APPROVAL_REF_SECRET_LIKE")
+        request = self.approval_request_for_governance_update(
+            prepared, actor_context=actor_context, run_id=run_id
+        )
+        self._require_mutation_policy(
+            operation="governance_update",
+            plan_ref=prepared.plan.plan_ref,
+            exact_scope_ref=prepared.plan.exact_scope_ref,
+            idempotency_key=prepared.plan.idempotency_key,
+        )
+        with approval_authority.hold_validation_lock():
+            decision = approval_authority.validate_for_request(request, approval_ref)
+            if not decision.allowed:
+                raise PermissionError("KNOWLEDGE_GOVERNANCE_EXACT_APPROVAL_REQUIRED")
+            grant = approval_authority.get_grant(approval_ref)
+            if grant is None:
+                raise PermissionError("KNOWLEDGE_GOVERNANCE_EXACT_APPROVAL_REQUIRED")
+            return self._persist_approved_governance_update(
+                prepared,
+                approval_ref=approval_ref,
+                approver_actor_id=grant.approved_by_actor_id,
+                actor_context=actor_context,
+                run_id=run_id,
+            )
+
+    def _persist_approved_governance_update(
+        self,
+        prepared: PreparedKnowledgeGovernanceUpdate,
+        *,
+        approval_ref: str,
+        approver_actor_id: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeGovernanceUpdateReceipt:
+        self._initialize()
+        plan = prepared.plan
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM documents WHERE document_ref = ?",
+                (plan.document_ref,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{plan.document_ref}")
+            document = self._document_from_row(row)
+            self._validate_prepared_governance_update(prepared, document=document)
+            existing = connection.execute(
+                "SELECT exact_scope_ref FROM governance_updates WHERE idempotency_key = ?",
+                (plan.idempotency_key,),
+            ).fetchone()
+            if (
+                existing is not None
+                and existing["exact_scope_ref"] != plan.exact_scope_ref
+            ):
+                raise ValueError("KNOWLEDGE_GOVERNANCE_IDEMPOTENCY_CONFLICT")
+            mutation_performed = existing is None
+            if mutation_performed:
+                if (
+                    self._governance_ref_for_document(document)
+                    != plan.expected_governance_ref
+                ):
+                    raise ValueError("KNOWLEDGE_GOVERNANCE_STALE_REVISION")
+                connection.execute(
+                    """UPDATE documents
+                       SET lifecycle_state = ?, rights_status = ?, rights_evidence_ref = ?,
+                           ocr_review_status = ?, ocr_review_evidence_ref = ?
+                       WHERE document_ref = ?""",
+                    (
+                        plan.lifecycle_state,
+                        plan.rights_status,
+                        plan.rights_evidence_ref,
+                        plan.ocr_review_status,
+                        plan.ocr_review_evidence_ref,
+                        plan.document_ref,
+                    ),
+                )
+                connection.execute(
+                    """INSERT INTO governance_updates
+                       (idempotency_key, exact_scope_ref, document_ref, created_at)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        plan.idempotency_key,
+                        plan.exact_scope_ref,
+                        plan.document_ref,
+                        utc_now().isoformat(),
+                    ),
+                )
+            receipt = KnowledgeGovernanceUpdateReceipt(
+                receipt_ref=_hash_ref(
+                    "knowledge-governance-receipt-ref", plan.exact_scope_ref
+                ),
+                plan_ref=plan.plan_ref,
+                exact_scope_ref=plan.exact_scope_ref,
+                document_ref=plan.document_ref,
+                lifecycle_state=plan.lifecycle_state,
+                rights_status=plan.rights_status,
+                rights_evidence_ref=plan.rights_evidence_ref,
+                ocr_review_status=plan.ocr_review_status,
+                ocr_review_evidence_ref=plan.ocr_review_evidence_ref,
+                approval_ref=approval_ref,
+                idempotency_key=plan.idempotency_key,
+                mutation_performed=mutation_performed,
+                reason_codes=[
+                    "KNOWLEDGE_GOVERNANCE_UPDATED"
+                    if mutation_performed
+                    else "KNOWLEDGE_GOVERNANCE_ALREADY_APPLIED",
+                    "KNOWLEDGE_GOVERNANCE_EXACT_APPROVAL_VALIDATED",
+                ],
+            )
+            self._insert_audit_record(
+                connection,
+                self._audit_record(
+                    operation="governance_update",
+                    receipt=receipt,
+                    subject_ref=plan.document_ref,
+                    approver_actor_id=approver_actor_id,
+                    actor_context=actor_context,
+                    run_id=run_id,
+                ),
+            )
+        return receipt
+
+    def prepare_removal(
+        self,
+        document_ref: str,
+        *,
+        retention_decision_ref: str,
+        backup_disposition_ref: str,
+        idempotency_key: str,
+    ) -> PreparedKnowledgeRemoval:
+        if contains_obvious_secret(
+            {
+                "retention_decision_ref": retention_decision_ref,
+                "backup_disposition_ref": backup_disposition_ref,
+                "idempotency_key": idempotency_key,
+            }
+        ):
+            raise ValueError("KNOWLEDGE_REMOVAL_REF_SECRET_LIKE")
+        if not self.database_path.exists():
+            raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{document_ref}")
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT chunk_count, character_count FROM documents WHERE document_ref = ?",
+                (document_ref,),
+            ).fetchone()
+            if row is None:
+                removal_table_exists = connection.execute(
+                    """SELECT 1 FROM sqlite_master
+                       WHERE type = 'table' AND name = 'document_removals'"""
+                ).fetchone()
+                removed = (
+                    connection.execute(
+                        """SELECT * FROM document_removals
+                           WHERE idempotency_key = ?""",
+                        (idempotency_key,),
+                    ).fetchone()
+                    if removal_table_exists is not None
+                    else None
+                )
+                if removed is None:
+                    raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{document_ref}")
+                if (
+                    removed["document_ref"] != document_ref
+                    or removed["retention_decision_ref"] != retention_decision_ref
+                    or removed["backup_disposition_ref"] != backup_disposition_ref
+                ):
+                    raise ValueError("KNOWLEDGE_REMOVAL_IDEMPOTENCY_CONFLICT")
+                revision_ref = str(removed["expected_document_revision_ref"])
+                planned_chunk_count = int(removed["deleted_chunk_count"])
+                planned_character_count = int(removed["deleted_character_count"])
+                stored_scope_ref = str(removed["exact_scope_ref"])
+            else:
+                revision_ref = self._document_revision_ref(connection, document_ref)
+                planned_chunk_count = int(row["chunk_count"])
+                planned_character_count = int(row["character_count"])
+                stored_scope_ref = None
+        plan = KnowledgeRemovalPlan(
+            plan_ref="knowledge-removal-plan-ref:pending",
+            exact_scope_ref="knowledge-removal-scope-ref:pending",
+            store_ref=self.store_ref,
+            document_ref=document_ref,
+            expected_document_revision_ref=revision_ref,
+            retention_decision_ref=retention_decision_ref,
+            backup_disposition_ref=backup_disposition_ref,
+            idempotency_key=idempotency_key,
+            planned_chunk_count=planned_chunk_count,
+            planned_character_count=planned_character_count,
+        )
+        exact_scope_ref = _removal_scope_ref(plan)
+        if stored_scope_ref is not None and stored_scope_ref != exact_scope_ref:
+            raise ValueError("KNOWLEDGE_REMOVAL_IDEMPOTENCY_CONFLICT")
+        plan = plan.model_copy(
+            update={
+                "exact_scope_ref": exact_scope_ref,
+                "plan_ref": _hash_ref("knowledge-removal-plan-ref", exact_scope_ref),
+            }
+        )
+        prepared = PreparedKnowledgeRemoval(plan=plan)
+        self._validate_prepared_removal(prepared)
+        return prepared
+
+    def approval_request_for_removal(
+        self,
+        prepared: PreparedKnowledgeRemoval,
+        *,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> ApprovalRequest:
+        self._validate_prepared_removal(prepared)
+        plan = prepared.plan
+        return ApprovalRequest(
+            approval_request_id=_hash_ref(
+                "knowledge-removal-approval-request", plan.exact_scope_ref
+            ),
+            run_id=run_id,
+            subject_type=ApprovalSubjectType.file_write,
+            subject_id=plan.plan_ref,
+            actor_context=actor_context,
+            requested_action="knowledge_dump.remove",
+            purpose=(
+                "Permanently remove one exact local source and its chunks after "
+                "reviewing retention and external-backup posture."
+            ),
+            risk_level=ApprovalRiskLevel.high,
+            data_classification=DataClassification(
+                classification=ClassificationValue.third_party_confidential,
+                source="local_knowledge_exact_removal",
+                allowed_sinks=["local_knowledge_dump", "redacted_receipts"],
+                forbidden_sinks=["network", "provider", "model_training", "logs"],
+                requires_consent=True,
+                retention_policy="exact_approved_removal",
+            ),
+            resource_refs=[
+                plan.exact_scope_ref,
+                plan.document_ref,
+                plan.expected_document_revision_ref,
+                plan.retention_decision_ref,
+                plan.backup_disposition_ref,
+                plan.store_ref,
+            ],
+            consent_refs=[plan.retention_decision_ref, plan.backup_disposition_ref],
+            trace_id=plan.plan_ref,
+        )
+
+    def remove(
+        self,
+        prepared: PreparedKnowledgeRemoval,
+        *,
+        approval_authority: LocalApprovalAuthority,
+        approval_ref: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeRemovalReceipt:
+        if contains_obvious_secret({"approval_ref": approval_ref}):
+            raise ValueError("KNOWLEDGE_APPROVAL_REF_SECRET_LIKE")
+        request = self.approval_request_for_removal(
+            prepared, actor_context=actor_context, run_id=run_id
+        )
+        self._require_mutation_policy(
+            operation="removal",
+            plan_ref=prepared.plan.plan_ref,
+            exact_scope_ref=prepared.plan.exact_scope_ref,
+            idempotency_key=prepared.plan.idempotency_key,
+        )
+        with approval_authority.hold_validation_lock():
+            decision = approval_authority.validate_for_request(request, approval_ref)
+            if not decision.allowed:
+                raise PermissionError("KNOWLEDGE_REMOVAL_EXACT_APPROVAL_REQUIRED")
+            grant = approval_authority.get_grant(approval_ref)
+            if grant is None:
+                raise PermissionError("KNOWLEDGE_REMOVAL_EXACT_APPROVAL_REQUIRED")
+            return self._persist_approved_removal(
+                prepared,
+                approval_ref=approval_ref,
+                approver_actor_id=grant.approved_by_actor_id,
+                actor_context=actor_context,
+                run_id=run_id,
+            )
+
+    def _persist_approved_removal(
+        self,
+        prepared: PreparedKnowledgeRemoval,
+        *,
+        approval_ref: str,
+        approver_actor_id: str,
+        actor_context: ActorContext,
+        run_id: str,
+    ) -> KnowledgeRemovalReceipt:
+        self._initialize()
+        plan = prepared.plan
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._validate_prepared_removal(prepared)
+            existing = connection.execute(
+                "SELECT * FROM document_removals WHERE idempotency_key = ?",
+                (plan.idempotency_key,),
+            ).fetchone()
+            if (
+                existing is not None
+                and existing["exact_scope_ref"] != plan.exact_scope_ref
+            ):
+                raise ValueError("KNOWLEDGE_REMOVAL_IDEMPOTENCY_CONFLICT")
+            mutation_performed = existing is None
+            if mutation_performed:
+                current_revision_ref = self._document_revision_ref(
+                    connection, plan.document_ref
+                )
+                if current_revision_ref != plan.expected_document_revision_ref:
+                    raise ValueError("KNOWLEDGE_REMOVAL_STALE_REVISION")
+                source_binding = connection.execute(
+                    """SELECT source_content_ref, idempotency_key FROM documents
+                       WHERE document_ref = ?""",
+                    (plan.document_ref,),
+                ).fetchone()
+                if source_binding is None:
+                    raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{plan.document_ref}")
+                chunk_rows = connection.execute(
+                    "SELECT chunk_ref FROM chunks WHERE document_ref = ? ORDER BY ordinal",
+                    (plan.document_ref,),
+                ).fetchall()
+                if len(chunk_rows) != plan.planned_chunk_count:
+                    raise ValueError("KNOWLEDGE_REMOVAL_STALE_REVISION")
+                connection.executemany(
+                    "DELETE FROM chunks_fts WHERE chunk_ref = ?",
+                    ((row["chunk_ref"],) for row in chunk_rows),
+                )
+                deleted = connection.execute(
+                    "DELETE FROM documents WHERE document_ref = ?",
+                    (plan.document_ref,),
+                )
+                if deleted.rowcount != 1:
+                    raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{plan.document_ref}")
+                connection.execute(
+                    """INSERT INTO document_removals
+                       (idempotency_key, exact_scope_ref, document_ref,
+                        expected_document_revision_ref, retention_decision_ref,
+                        backup_disposition_ref, source_content_ref,
+                        ingest_idempotency_key, deleted_chunk_count,
+                        deleted_character_count, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        plan.idempotency_key,
+                        plan.exact_scope_ref,
+                        plan.document_ref,
+                        plan.expected_document_revision_ref,
+                        plan.retention_decision_ref,
+                        plan.backup_disposition_ref,
+                        source_binding["source_content_ref"],
+                        source_binding["idempotency_key"],
+                        plan.planned_chunk_count,
+                        plan.planned_character_count,
+                        utc_now().isoformat(),
+                    ),
+                )
+                deleted_chunk_count = plan.planned_chunk_count
+                deleted_character_count = plan.planned_character_count
+            else:
+                deleted_chunk_count = int(existing["deleted_chunk_count"])
+                deleted_character_count = int(existing["deleted_character_count"])
+            receipt = KnowledgeRemovalReceipt(
+                receipt_ref=_hash_ref(
+                    "knowledge-removal-receipt-ref", plan.exact_scope_ref
+                ),
+                plan_ref=plan.plan_ref,
+                exact_scope_ref=plan.exact_scope_ref,
+                document_ref=plan.document_ref,
+                expected_document_revision_ref=plan.expected_document_revision_ref,
+                retention_decision_ref=plan.retention_decision_ref,
+                backup_disposition_ref=plan.backup_disposition_ref,
+                approval_ref=approval_ref,
+                idempotency_key=plan.idempotency_key,
+                deleted_chunk_count=deleted_chunk_count,
+                deleted_character_count=deleted_character_count,
+                mutation_performed=mutation_performed,
+                reason_codes=[
+                    "KNOWLEDGE_DOCUMENT_REMOVED"
+                    if mutation_performed
+                    else "KNOWLEDGE_DOCUMENT_REMOVAL_ALREADY_APPLIED",
+                    "KNOWLEDGE_REMOVAL_EXACT_APPROVAL_VALIDATED",
+                    "KNOWLEDGE_RESTORE_REQUIRES_EXTERNAL_BACKUP",
+                ],
+            )
+            self._insert_audit_record(
+                connection,
+                self._audit_record(
+                    operation="removal",
+                    receipt=receipt,
+                    subject_ref=plan.document_ref,
+                    approver_actor_id=approver_actor_id,
+                    actor_context=actor_context,
+                    run_id=run_id,
+                ),
+            )
+        return receipt
+
+    def encryption_posture(self) -> KnowledgeEncryptionPosture:
+        root_private = (
+            self.root.exists() and stat.S_IMODE(self.root.stat().st_mode) == 0o700
+        )
+        database_private = (
+            self.database_path.exists()
+            and not self.database_path.is_symlink()
+            and self.database_path.is_file()
+            and stat.S_IMODE(self.database_path.stat().st_mode) == 0o600
+        )
+        return KnowledgeEncryptionPosture(
+            store_ref=self.store_ref,
+            owner_only_directory_permissions=root_private,
+            owner_only_database_permissions=database_private,
+        )
+
     def search(
         self,
         query: str,
@@ -827,6 +1492,10 @@ class KnowledgeDumpStore:
         match_query = " OR ".join(f'"{token.replace(chr(34), "")}"' for token in tokens)
         with self._connect() as connection:
             connection.execute("BEGIN")
+            document_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+            }
             clauses: list[str] = []
             parameters: list[str] = []
             if source_kind is not None:
@@ -839,14 +1508,60 @@ class KnowledgeDumpStore:
                 clauses.append("collection = ?")
                 parameters.append(collection)
             where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+            lifecycle_expression = (
+                "lifecycle_state"
+                if "lifecycle_state" in document_columns
+                else "'active'"
+            )
+            rights_expression = (
+                "rights_status" if "rights_status" in document_columns else "'current'"
+            )
+            extraction_expression = (
+                "extraction_method"
+                if "extraction_method" in document_columns
+                else "'native_text'"
+            )
+            ocr_expression = (
+                "ocr_review_status"
+                if "ocr_review_status" in document_columns
+                else "'not_required'"
+            )
+            ocr_evidence_expression = (
+                "ocr_review_evidence_ref"
+                if "ocr_review_evidence_ref" in document_columns
+                else "NULL"
+            )
             membership_rows = connection.execute(
-                f"SELECT document_ref, tags_json FROM documents{where}",
+                f"""SELECT document_ref, tags_json,
+                           {lifecycle_expression} AS lifecycle_state,
+                           {rights_expression} AS rights_status,
+                           {extraction_expression} AS extraction_method,
+                           {ocr_expression} AS ocr_review_status,
+                           {ocr_evidence_expression} AS ocr_review_evidence_ref
+                    FROM documents{where}""",
                 parameters,
             ).fetchall()
             allowed_document_refs = {
                 str(row["document_ref"])
                 for row in membership_rows
-                if tag is None or tag in json.loads(row["tags_json"])
+                if (tag is None or tag in json.loads(row["tags_json"]))
+                and row["lifecycle_state"] == KnowledgeLifecycleState.active
+                and row["rights_status"] == KnowledgeRightsStatus.current
+                and (
+                    (
+                        row["extraction_method"]
+                        == KnowledgeExtractionMethod.native_text
+                        and row["ocr_review_status"]
+                        == KnowledgeOcrReviewStatus.not_required
+                    )
+                    or (
+                        row["extraction_method"]
+                        == KnowledgeExtractionMethod.operator_supplied_ocr
+                        and row["ocr_review_status"]
+                        == KnowledgeOcrReviewStatus.reviewed
+                        and row["ocr_review_evidence_ref"] is not None
+                    )
+                )
             }
             if not allowed_document_refs:
                 return []
@@ -875,10 +1590,6 @@ class KnowledgeDumpStore:
                     "ON a.document_ref = c.document_ref"
                 )
                 fts_table = "filtered_chunks_fts"
-            document_columns = {
-                row["name"]
-                for row in connection.execute("PRAGMA table_info(documents)").fetchall()
-            }
             catalog_locator_expression = (
                 "d.catalog_citation_locator_refs_json"
                 if "catalog_citation_locator_refs_json" in document_columns
@@ -953,7 +1664,128 @@ class KnowledgeDumpStore:
             ),
             query_ref=query_ref,
             hits=tuple(selected),
+            selection_mode="query_ranked",
+            selected_chunk_refs=tuple(hit.citation.chunk_ref for hit in selected),
             used_characters=used,
+            max_characters=max_characters,
+        )
+
+    def prepare_selected_context(
+        self,
+        chunk_refs: Iterable[str],
+        *,
+        max_characters: int = 8_000,
+    ) -> KnowledgeContextPack:
+        """Prepare cited context from an exact operator-selected chunk set."""
+
+        selected_refs = tuple(dict.fromkeys(chunk_refs))
+        if (
+            not selected_refs
+            or len(selected_refs) > 32
+            or max_characters < 1
+            or max_characters > 50_000
+            or any(
+                not re.fullmatch(r"knowledge-chunk-ref:sha256:[0-9a-f]{24}", chunk_ref)
+                for chunk_ref in selected_refs
+            )
+        ):
+            raise ValueError("KNOWLEDGE_CONTEXT_SELECTION_OUT_OF_BOUNDS")
+        if not self.database_path.exists():
+            raise ValueError("KNOWLEDGE_CONTEXT_SELECTION_INELIGIBLE")
+        placeholders = ",".join("?" for _ in selected_refs)
+        with self._connect() as connection:
+            document_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+            }
+
+            def column(name: str, fallback: str) -> str:
+                return f"d.{name}" if name in document_columns else f"'{fallback}'"
+
+            ocr_evidence_expression = (
+                "d.ocr_review_evidence_ref"
+                if "ocr_review_evidence_ref" in document_columns
+                else "NULL"
+            )
+            catalog_locator_expression = (
+                "d.catalog_citation_locator_refs_json"
+                if "catalog_citation_locator_refs_json" in document_columns
+                else "'[]'"
+            )
+            rows = connection.execute(
+                f"""SELECT c.chunk_ref, c.locator, c.text,
+                           d.document_ref, d.source_content_ref, d.title,
+                           d.catalog_source_id,
+                           {catalog_locator_expression} AS catalog_citation_locator_refs_json,
+                           {column("lifecycle_state", "active")} AS lifecycle_state,
+                           {column("rights_status", "current")} AS rights_status,
+                           {column("extraction_method", "native_text")} AS extraction_method,
+                           {column("ocr_review_status", "not_required")} AS ocr_review_status,
+                           {ocr_evidence_expression} AS ocr_review_evidence_ref
+                    FROM chunks c
+                    JOIN documents d ON d.document_ref = c.document_ref
+                    WHERE c.chunk_ref IN ({placeholders})""",
+                selected_refs,
+            ).fetchall()
+        rows_by_ref = {str(row["chunk_ref"]): row for row in rows}
+        if set(rows_by_ref) != set(selected_refs):
+            raise ValueError("KNOWLEDGE_CONTEXT_SELECTION_INELIGIBLE")
+        ordered_rows = [rows_by_ref[chunk_ref] for chunk_ref in selected_refs]
+        for row in ordered_rows:
+            eligible = (
+                row["lifecycle_state"] == KnowledgeLifecycleState.active
+                and row["rights_status"] == KnowledgeRightsStatus.current
+                and (
+                    (
+                        row["extraction_method"]
+                        == KnowledgeExtractionMethod.native_text
+                        and row["ocr_review_status"]
+                        == KnowledgeOcrReviewStatus.not_required
+                    )
+                    or (
+                        row["extraction_method"]
+                        == KnowledgeExtractionMethod.operator_supplied_ocr
+                        and row["ocr_review_status"]
+                        == KnowledgeOcrReviewStatus.reviewed
+                        and row["ocr_review_evidence_ref"] is not None
+                    )
+                )
+            )
+            if not eligible:
+                raise ValueError("KNOWLEDGE_CONTEXT_SELECTION_INELIGIBLE")
+        used_characters = sum(len(str(row["text"])) for row in ordered_rows)
+        if used_characters > max_characters:
+            raise ValueError("KNOWLEDGE_CONTEXT_CHARACTER_BUDGET_EXCEEDED")
+        hits = tuple(
+            KnowledgeHit(
+                citation=KnowledgeCitation(
+                    document_ref=row["document_ref"],
+                    chunk_ref=row["chunk_ref"],
+                    source_content_ref=row["source_content_ref"],
+                    title=row["title"],
+                    locator=row["locator"],
+                    catalog_source_id=row["catalog_source_id"],
+                    catalog_citation_locator_refs=tuple(
+                        json.loads(row["catalog_citation_locator_refs_json"])
+                    ),
+                ),
+                text=row["text"],
+                score=0.0,
+            )
+            for row in ordered_rows
+        )
+        selection_material = "|".join(selected_refs)
+        query_ref = _hash_ref("knowledge-query-ref", f"selected|{selection_material}")
+        return KnowledgeContextPack(
+            context_pack_ref=_hash_ref(
+                "knowledge-context-pack-ref",
+                f"{query_ref}|{max_characters}|{selection_material}",
+            ),
+            query_ref=query_ref,
+            hits=hits,
+            selection_mode="operator_selected",
+            selected_chunk_refs=selected_refs,
+            used_characters=used_characters,
             max_characters=max_characters,
         )
 
@@ -1030,6 +1862,114 @@ class KnowledgeDumpStore:
         ):
             raise ValueError("KNOWLEDGE_METADATA_PLAN_INTEGRITY_MISMATCH")
 
+    def _validate_prepared_governance_update(
+        self,
+        prepared: PreparedKnowledgeGovernanceUpdate,
+        *,
+        document: KnowledgeDocument,
+    ) -> None:
+        plan = prepared.plan
+        if plan.store_ref != self.store_ref:
+            raise ValueError("KNOWLEDGE_GOVERNANCE_STORE_SCOPE_MISMATCH")
+        if (
+            plan.contract_ref != KNOWLEDGE_DUMP_CONTRACT_REF
+            or plan.exact_scope_ref != _governance_scope_ref(plan)
+            or plan.plan_ref
+            != _hash_ref("knowledge-governance-plan-ref", plan.exact_scope_ref)
+            or not plan.approval_required
+            or any(
+                (
+                    plan.source_content_mutation_enabled,
+                    plan.network_access_enabled,
+                    plan.model_call_enabled,
+                    plan.model_training_enabled,
+                )
+            )
+        ):
+            raise ValueError("KNOWLEDGE_GOVERNANCE_PLAN_INTEGRITY_MISMATCH")
+        if document.extraction_method == KnowledgeExtractionMethod.native_text:
+            if (
+                plan.ocr_review_status != KnowledgeOcrReviewStatus.not_required
+                or plan.ocr_review_evidence_ref is not None
+            ):
+                raise ValueError("KNOWLEDGE_OCR_POSTURE_INVALID")
+        elif plan.ocr_review_status == KnowledgeOcrReviewStatus.not_required:
+            raise ValueError("KNOWLEDGE_OCR_POSTURE_INVALID")
+
+    def _validate_prepared_removal(self, prepared: PreparedKnowledgeRemoval) -> None:
+        plan = prepared.plan
+        if plan.store_ref != self.store_ref:
+            raise ValueError("KNOWLEDGE_REMOVAL_STORE_SCOPE_MISMATCH")
+        if (
+            plan.contract_ref != KNOWLEDGE_DUMP_CONTRACT_REF
+            or plan.exact_scope_ref != _removal_scope_ref(plan)
+            or plan.plan_ref
+            != _hash_ref("knowledge-removal-plan-ref", plan.exact_scope_ref)
+            or not plan.approval_required
+            or not plan.external_backup_restore_only
+            or any(
+                (
+                    plan.automatic_restore_enabled,
+                    plan.network_access_enabled,
+                    plan.model_call_enabled,
+                    plan.model_training_enabled,
+                )
+            )
+        ):
+            raise ValueError("KNOWLEDGE_REMOVAL_PLAN_INTEGRITY_MISMATCH")
+
+    def _require_document(self, document_ref: str) -> KnowledgeDocument:
+        if not re.fullmatch(
+            r"knowledge-document-ref:sha256:[0-9a-f]{24}", document_ref
+        ):
+            raise ValueError("KNOWLEDGE_DOCUMENT_REF_INVALID")
+        document = next(
+            (
+                item
+                for item in self.list_documents()
+                if item.document_ref == document_ref
+            ),
+            None,
+        )
+        if document is None:
+            raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{document_ref}")
+        return document
+
+    @staticmethod
+    def _governance_ref_for_document(document: KnowledgeDocument) -> str:
+        return _governance_ref(
+            lifecycle_state=document.lifecycle_state,
+            rights_status=document.rights_status,
+            rights_evidence_ref=document.rights_evidence_ref,
+            extraction_method=document.extraction_method,
+            ocr_review_status=document.ocr_review_status,
+            ocr_review_evidence_ref=document.ocr_review_evidence_ref,
+        )
+
+    def _document_revision_ref(
+        self, connection: sqlite3.Connection, document_ref: str
+    ) -> str:
+        row = connection.execute(
+            "SELECT * FROM documents WHERE document_ref = ?", (document_ref,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"UNKNOWN_KNOWLEDGE_DOCUMENT:{document_ref}")
+        document = self._document_from_row(row)
+        chunks = connection.execute(
+            """SELECT chunk_ref, text_ref, ordinal, locator
+               FROM chunks WHERE document_ref = ? ORDER BY ordinal""",
+            (document_ref,),
+        ).fetchall()
+        material = {
+            "document": document.model_dump(mode="json"),
+            "chunks": [dict(chunk) for chunk in chunks],
+        }
+        return _hash_ref(
+            "knowledge-document-revision-ref",
+            json.dumps(material, sort_keys=True, separators=(",", ":")),
+            40,
+        )
+
     def _initialize(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         if stat.S_IMODE(self.root.stat().st_mode) != 0o700:
@@ -1056,6 +1996,11 @@ class KnowledgeDumpStore:
                     source_format TEXT NOT NULL,
                     rights_basis TEXT NOT NULL,
                     rights_evidence_ref TEXT NOT NULL,
+                    rights_status TEXT NOT NULL DEFAULT 'current',
+                    lifecycle_state TEXT NOT NULL DEFAULT 'active',
+                    extraction_method TEXT NOT NULL DEFAULT 'native_text',
+                    ocr_review_status TEXT NOT NULL DEFAULT 'not_required',
+                    ocr_review_evidence_ref TEXT,
                     catalog_source_id TEXT,
                     catalog_citation_locator_refs_json TEXT NOT NULL DEFAULT '[]',
                     chunk_count INTEGER NOT NULL,
@@ -1082,6 +2027,25 @@ class KnowledgeDumpStore:
                     idempotency_key TEXT PRIMARY KEY,
                     exact_scope_ref TEXT NOT NULL,
                     document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS governance_updates (
+                    idempotency_key TEXT PRIMARY KEY,
+                    exact_scope_ref TEXT NOT NULL,
+                    document_ref TEXT NOT NULL REFERENCES documents(document_ref) ON DELETE CASCADE,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS document_removals (
+                    idempotency_key TEXT PRIMARY KEY,
+                    exact_scope_ref TEXT NOT NULL,
+                    document_ref TEXT NOT NULL,
+                    expected_document_revision_ref TEXT NOT NULL,
+                    retention_decision_ref TEXT NOT NULL,
+                    backup_disposition_ref TEXT NOT NULL,
+                    source_content_ref TEXT NOT NULL,
+                    ingest_idempotency_key TEXT NOT NULL,
+                    deleted_chunk_count INTEGER NOT NULL,
+                    deleted_character_count INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS audit_records (
@@ -1111,6 +2075,11 @@ class KnowledgeDumpStore:
                 "collection": "TEXT",
                 "tags_json": "TEXT NOT NULL DEFAULT '[]'",
                 "catalog_citation_locator_refs_json": "TEXT NOT NULL DEFAULT '[]'",
+                "rights_status": "TEXT NOT NULL DEFAULT 'current'",
+                "lifecycle_state": "TEXT NOT NULL DEFAULT 'active'",
+                "extraction_method": "TEXT NOT NULL DEFAULT 'native_text'",
+                "ocr_review_status": "TEXT NOT NULL DEFAULT 'not_required'",
+                "ocr_review_evidence_ref": "TEXT",
             }
             for name, declaration in additions.items():
                 if name not in existing_columns:
@@ -1139,7 +2108,7 @@ class KnowledgeDumpStore:
     ) -> None:
         manifest = CapabilityManifest(
             id=f"knowledge.dump.{operation}",
-            version="q03-v1",
+            version="q18-v2",
             kind=CapabilityKind.tool,
             name=f"knowledge.dump.{operation}",
             description="Policy gate for exact-approved local knowledge mutation.",
@@ -1200,7 +2169,12 @@ class KnowledgeDumpStore:
     def _audit_record(
         *,
         operation: str,
-        receipt: KnowledgeIngestReceipt | KnowledgeMetadataUpdateReceipt,
+        receipt: (
+            KnowledgeIngestReceipt
+            | KnowledgeMetadataUpdateReceipt
+            | KnowledgeGovernanceUpdateReceipt
+            | KnowledgeRemovalReceipt
+        ),
         subject_ref: str,
         approver_actor_id: str,
         actor_context: ActorContext,
@@ -1277,6 +2251,7 @@ class KnowledgeDumpStore:
         try:
             connection.row_factory = sqlite3.Row
             connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA secure_delete = ON")
             yield connection
             connection.commit()
         except BaseException:
@@ -1326,9 +2301,7 @@ class KnowledgeDumpStore:
     ) -> None:
         if catalog_source_id is None:
             if catalog_citation_locator_refs:
-                raise ValueError(
-                    "KNOWLEDGE_CITATION_LOCATORS_REQUIRE_CATALOG_SOURCE"
-                )
+                raise ValueError("KNOWLEDGE_CITATION_LOCATORS_REQUIRE_CATALOG_SOURCE")
             return
         catalog_source = get_medical_knowledge_source(catalog_source_id)
         if (
@@ -1355,6 +2328,27 @@ class KnowledgeDumpStore:
             source_format=row["source_format"],
             rights_basis=row["rights_basis"],
             rights_evidence_ref=row["rights_evidence_ref"],
+            rights_status=(
+                row["rights_status"] if "rights_status" in keys else "current"
+            ),
+            lifecycle_state=(
+                row["lifecycle_state"] if "lifecycle_state" in keys else "active"
+            ),
+            extraction_method=(
+                row["extraction_method"]
+                if "extraction_method" in keys
+                else "native_text"
+            ),
+            ocr_review_status=(
+                row["ocr_review_status"]
+                if "ocr_review_status" in keys
+                else "not_required"
+            ),
+            ocr_review_evidence_ref=(
+                row["ocr_review_evidence_ref"]
+                if "ocr_review_evidence_ref" in keys
+                else None
+            ),
             catalog_source_id=row["catalog_source_id"],
             catalog_citation_locator_refs=tuple(
                 json.loads(row["catalog_citation_locator_refs_json"])

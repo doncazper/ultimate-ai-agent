@@ -1055,6 +1055,31 @@ Next: ECO-008 may consume accepted proposal refs through separately reviewed
 ChangeSets; do not add live source acquisition or product cutover without its
 own acceptance evidence.
 
+Q18 Knowledge Workbench Hardening
+Goal: make the Q03 local corpus lifecycle, rights, OCR review, removal, storage
+posture, and selected cited-context boundaries explicit and inspectable.
+Status: accepted for bounded local Python Core and CLI scope on 2026-08-21.
+Documents now carry active/archive, current/review-required/revoked rights, and
+native/operator-OCR review posture. Exact-approved governance updates are
+revision-bound and audited. Exact removal deletes document, chunk, and FTS rows
+while preserving redacted tombstone evidence and external-backup-only recovery
+truth. Operator-selected context binds an ordered exact chunk set and excludes
+archived, rights-ineligible, or OCR-pending sources. Encryption posture reports
+owner-only permissions while retaining the truthful plaintext-at-rest and
+encrypted-volume-required limitation.
+Scope: `docs/architecture/Q18_KNOWLEDGE_WORKBENCH_HARDENING.md`,
+`docs/decisions/ADR-0070-knowledge-workbench-hardening.md`,
+`src/ultimate_ai_agent/core/knowledge_dump/`, `scripts/dev/uaa_knowledge.py`,
+`scripts/verify_queue_v2_q18_knowledge_workbench.py`,
+`tests/test_knowledge_dump.py`, and
+`tests/test_knowledge_workbench_hardening.py`, and
+`tests/test_knowledge_workbench_verifier.py`. No PDF/automatic OCR,
+application-level encryption, automatic backup/restore, uncited or automatic
+Chat context, model/provider call, training, network acquisition, connector,
+public release, or production authority is accepted.
+Next: Q19 may consume only safe refs and reviewed proposal/context evidence;
+do not turn retrieval into action or authority.
+
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and
 board truth before any new web runtime authority is implemented.
