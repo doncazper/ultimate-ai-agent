@@ -1,0 +1,169 @@
+{
+  "schema_version": "queue-v2-q21-weekly-review-private-trial-report.v1",
+  "report_ref": "report-ref:queue-v2:q21:weekly-review-private-trial:v1",
+  "task_ref": "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
+  "tested_revision_ref": "commit-ref:git:52a302e9fbe50c3ab8c0877b83e7481cf4fd5232",
+  "trial_date_ref": "date-ref:2026-08-22",
+  "status": "completed_with_owned_follow_ups",
+  "weekly_review_contract_ref": "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+  "private_trial_contract_ref": "contract-ref:product-loop-012-private-product-loop-trial-script:v1",
+  "historical_pull_request_refs": [
+    "pull-request-ref:53",
+    "pull-request-ref:57"
+  ],
+  "surface_results": [
+    {
+      "surface": "Boot",
+      "disposition": "accepted",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:boot-primary-ready-secondary-blocked"
+      ],
+      "follow_up_ref": null
+    },
+    {
+      "surface": "Today",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Morning Briefing",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Follow-Ups",
+      "disposition": "revised_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:crm-route-mock-fallback"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:current-trial-truth-overlay"
+    },
+    {
+      "surface": "Memory",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Actions",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Plans",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Chat Handoff",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Evidence",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Weekly Review",
+      "disposition": "accepted_with_limit",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:weekly-review-state-not-found-no-write"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    },
+    {
+      "surface": "Settings",
+      "disposition": "blocked_owned_follow_up",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete"
+      ],
+      "follow_up_ref": "follow-up-ref:queue-v2:q21:fresh-state-proof-bootstrap"
+    }
+  ],
+  "material_gaps": [
+    {
+      "gap_ref": "gap-ref:queue-v2:q21:fresh-state-proof-bootstrap",
+      "owner_ref": "owner-ref:founder-loop-bootstrap",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:fresh-state-backend-truth-evidence-incomplete",
+        "evidence-ref:queue-v2:q21:dogfood-seed-approval-ref-missing"
+      ],
+      "next_safe_action": "Provide an approval-bound first-proof bootstrap that never mints its own authority, then rerun the same local/private surface list."
+    },
+    {
+      "gap_ref": "gap-ref:queue-v2:q21:current-trial-truth-overlay",
+      "owner_ref": "owner-ref:control-center-private-trial",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:trial-packet-mock-fallback",
+        "evidence-ref:queue-v2:q21:historical-missing-implementation-refs"
+      ],
+      "next_safe_action": "Add a current backend-owned trial-result overlay before treating historical UAA-P1-087.2a through 2c scaffolds as current acceptance truth."
+    },
+    {
+      "gap_ref": "gap-ref:queue-v2:q21:trial-packet-readability",
+      "owner_ref": "owner-ref:control-center-ux",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:trial-packet-dense-first-viewport",
+        "evidence-ref:queue-v2:q21:long-status-ref-wrap"
+      ],
+      "next_safe_action": "Put dispositions and next safe actions first, collapse long ref inventories, and prevent status labels from wrapping character-by-character."
+    },
+    {
+      "gap_ref": "gap-ref:queue-v2:q21:weekly-review-verifier-scope",
+      "owner_ref": "owner-ref:weekly-ceo-review-verifier",
+      "evidence_refs": [
+        "evidence-ref:queue-v2:q21:unrelated-adapter-name-false-positive"
+      ],
+      "next_safe_action": "Keep forbidden-runtime scanning bounded to Weekly CEO Review client constants and validation code."
+    }
+  ],
+  "resolved_in_q21_refs": [
+    "gap-ref:queue-v2:q21:weekly-review-verifier-scope"
+  ],
+  "verification_refs": [
+    "verifier-ref:product-loop-008-weekly-ceo-review",
+    "verifier-ref:product-loop-012-private-trial-script",
+    "verifier-ref:queue-v2:q21:completion-report",
+    "evidence-ref:queue-v2:q21:browser-rendered-private-trial"
+  ],
+  "safe_summary": "A bounded local/private trial accepted boot and fail-closed safety, confirmed the Weekly CEO Review no-write empty-state contract, and routed every material usability or bootstrap gap to an explicit owner.",
+  "next_safe_action": "Keep the owned product gaps explicit and advance the queue without claiming public beta or production readiness.",
+  "local_private_only": true,
+  "safe_refs_only": true,
+  "raw_content_included": false,
+  "raw_paths_included": false,
+  "raw_logs_included": false,
+  "credential_material_included": false,
+  "connector_read_enabled": false,
+  "connector_write_enabled": false,
+  "provider_model_call_enabled": false,
+  "runtime_model_call_enabled": false,
+  "action_execution_enabled": false,
+  "memory_write_authorized": false,
+  "public_beta_claim_enabled": false,
+  "public_distribution_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "production_authority_enabled": false,
+  "runtime_authority_added": false
+}

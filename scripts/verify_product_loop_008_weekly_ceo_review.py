@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify Product Loop 008 Weekly CEO Review V1 safety posture."""
+
 from __future__ import annotations
 
 import json
@@ -78,6 +79,34 @@ def _require_absent(path: Path, fragments: list[str], failures: list[str]) -> No
     for fragment in fragments:
         if fragment.lower() in text:
             failures.append(f"{path.relative_to(ROOT)} contains forbidden {fragment!r}")
+
+
+def _require_absent_text(
+    label: str,
+    text: str,
+    fragments: list[str],
+    failures: list[str],
+) -> None:
+    lowered = text.lower()
+    for fragment in fragments:
+        if fragment.lower() in lowered:
+            failures.append(f"{label} contains forbidden {fragment!r}")
+
+
+def _bounded_source_slice(
+    source: str,
+    *,
+    start: str,
+    end: str,
+    label: str,
+    failures: list[str],
+) -> str:
+    start_index = source.find(start)
+    end_index = source.find(end, start_index + len(start))
+    if start_index < 0 or end_index < 0:
+        failures.append(f"{label} boundaries are missing")
+        return ""
+    return source[start_index:end_index]
 
 
 def _assert_read_model(model: dict[str, Any], failures: list[str]) -> None:
@@ -169,9 +198,15 @@ def _validate_cli(failures: list[str]) -> None:
         payload = json.loads(result.stdout)
         if payload["storage_state"] != "existing_state_read_only":
             failures.append("Weekly CEO Review CLI lost read-only state label")
-        if payload["safe_refs_only"] is not True or payload["safe_summary_only"] is not True:
+        if (
+            payload["safe_refs_only"] is not True
+            or payload["safe_summary_only"] is not True
+        ):
             failures.append("Weekly CEO Review CLI lost safe refs/summary posture")
-        if payload["raw_content_omitted"] is not True or payload["raw_paths_omitted"] is not True:
+        if (
+            payload["raw_content_omitted"] is not True
+            or payload["raw_paths_omitted"] is not True
+        ):
             failures.append("Weekly CEO Review CLI lost raw omission posture")
         for flag in DENIED_FLAGS:
             if payload.get(flag) is not False:
@@ -262,7 +297,7 @@ def _validate_static(failures: list[str]) -> None:
             "model_summary_enabled",
             "provider_model_call_enabled",
             "production_claim_enabled",
-            "extra=\"forbid\"",
+            'extra="forbid"',
         ],
         failures,
     )
@@ -282,7 +317,7 @@ def _validate_static(failures: list[str]) -> None:
             "seed_defaults=False",
             "ensure_storage=False",
             "read_only=True",
-            "sqlite_state = state_dir / \"founder_loop.sqlite3\"",
+            'sqlite_state = state_dir / "founder_loop.sqlite3"',
             "state_not_found_no_write",
             '"model_summary_enabled": False',
             '"provider_model_call_enabled": False',
@@ -372,8 +407,38 @@ def _validate_static(failures: list[str]) -> None:
         "execute_workflow(",
         "connector_write(",
     ]
-    for path in [CONTRACT, STORAGE, CLI, FRONTEND_CLIENT, FRONTEND_PANEL]:
+    for path in [CONTRACT, STORAGE, CLI, FRONTEND_PANEL]:
         _require_absent(path, forbidden_runtime_snippets, failures)
+
+    # client.ts is a shared multi-feature transport and validation module. Scan
+    # only the Weekly CEO Review constants and validator so unrelated approved
+    # adapters cannot make this verifier report a false runtime-authority
+    # regression.
+    client_source = _read(FRONTEND_CLIENT)
+    weekly_client_source = "\n".join(
+        [
+            _bounded_source_slice(
+                client_source,
+                start="const WEEKLY_CEO_REVIEW_V1_DENIED_FLAGS",
+                end="const FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS",
+                label="Weekly CEO Review client constants",
+                failures=failures,
+            ),
+            _bounded_source_slice(
+                client_source,
+                start="function isSafeWeeklyCeoReviewV1ReadModel",
+                end="function isSafeFounderLoopProductProofReadModel",
+                label="Weekly CEO Review client validator",
+                failures=failures,
+            ),
+        ]
+    )
+    _require_absent_text(
+        "Weekly CEO Review client contract",
+        weekly_client_source,
+        forbidden_runtime_snippets,
+        failures,
+    )
 
 
 def main() -> int:
