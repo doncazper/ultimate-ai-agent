@@ -12,11 +12,13 @@ change, runtime authority, production claim, or automatic gap-fix authority.
 
 Do not start the final comparison until:
 
-- Q05 Capability Evaluation Lab has stable repeatable cases;
-- Q10 current-source parity rebaseline has terminal findings and owner routes;
-- Q22 TAW-00 through TAW-08 has terminal evidence or reviewed cancellations;
-- Q23 through Q30 have terminal slice evidence, explicit reviewed cancellation,
-  or named blocking evidence;
+- Q05 Capability Evaluation Lab has stable repeatable cases as the accepted
+  evaluation foundation;
+- the exact Queue V2 dependency set—Q10, Q21, Q22, Q24, Q25, Q28, Q29, and
+  Q30—has terminal slice evidence or an explicit reviewed cancellation where
+  the queue contract permits one;
+- Finance/Q26 evidence is included when the comparison rubric explicitly binds
+  it, but Q26 does not block core parity merely because it remains nonterminal;
 - both repositories can be bound to exact current revisions;
 - any uncommitted or unclassified repository state is excluded from scoring.
 

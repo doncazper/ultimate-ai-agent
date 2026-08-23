@@ -3,14 +3,6 @@
 Status: triage-ready recovery source. It grants no account connection, send,
 publish, browser, or standing authority.
 
-Detailed recovered plan:
-`docs/implementation/UAA_SOCIAL_PUBLISHING_IMPLEMENTATION_PLAN.md`.
-
-Vision status: high-confidence archive recovery. Q30 ends at exact variants,
-compatibility, approval preparation, and dry-run receipts. The whole vision of
-independently graduated publishing adapters, reconciliation, and engagement
-learning remains planned.
-
 ## Outcome
 
 Build UAA-native social planning, evidence, review, and dry-run publication

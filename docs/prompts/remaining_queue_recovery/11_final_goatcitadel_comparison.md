@@ -3,14 +3,6 @@
 Status: final recovery gate. It is not eligible until all prerequisite recovery
 tasks and TAW-00 through TAW-08 are terminally evidenced.
 
-Detailed recovered evaluation contract:
-`docs/evals/UAA_FINAL_GOATCITADEL_COMPARISON_PLAN.md`.
-
-Vision status: high-confidence archive recovery. The comparison scores sixteen
-system-level AI-agent components against exact-revision implementation,
-tests, operator surfaces, and evidence. It does not score raw-model
-intelligence or promote roadmap claims to implementation truth.
-
 ## Outcome
 
 Run the repeatable, skepticism-first final UAA versus GoatCitadel comparison

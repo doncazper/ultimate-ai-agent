@@ -3,13 +3,6 @@
 Status: triage-ready recovery source. It grants no automatic correction or
 unreviewed mutation authority.
 
-Detailed reconstructed plan:
-`docs/implementation/UAA_AUTOCORRECT_CONTROLS_IMPLEMENTATION_PLAN.md`.
-
-Vision status: medium-confidence conservative reconstruction. No exact archived
-prompt was located. Queue completion covers the bounded proposal/ChangeSet
-slice only, not arbitrary or silent cross-UAA autocorrection.
-
 ## Outcome
 
 Provide reviewable correction proposals, exact diffs, confidence and evidence

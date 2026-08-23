@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -12,23 +14,16 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.json"
 QUEUE = ROOT / "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
-EXPECTED_SCHEMA = "uaa.product_vision_registry.v1"
+EXPECTED_SCHEMA = "uaa.product_vision_registry.v2"
 EXPECTED_STATUS = "canonical_vision_preservation_layer"
 ALLOWED_STRENGTHS = {"strong", "adequate", "recovered", "reconstructed"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
 ALLOWED_WHOLE_STATUSES = {"planned", "partial", "blocked", "complete"}
-REQUIRED_PRODUCT_ITEMS = {
-    "Q15",
-    "Q24",
-    "Q25",
-    "Q26",
-    "Q27",
-    "Q28",
-    "Q29",
-    "Q30",
-    "Q31",
-}
+QUEUE_COVERAGE_MARKER = "queue_item_dispositions"
+REQUIRED_COVERAGE_VALUE = "required"
+ALLOWED_COVERAGE_VALUES = {REQUIRED_COVERAGE_VALUE, "not_required"}
 DETAIL_PLAN_PREFIXES = ("docs/implementation/", "docs/evals/")
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -104,17 +99,10 @@ def verify(
     if not isinstance(coverage, dict):
         failures.append("coverage policy is missing")
         coverage = {}
-    required_ids_raw = coverage.get("required_queue_item_ids")
-    required_ids = (
-        set(required_ids_raw)
-        if isinstance(required_ids_raw, list)
-        and all(isinstance(item, str) for item in required_ids_raw)
-        else set()
-    )
-    if required_ids != REQUIRED_PRODUCT_ITEMS:
-        failures.append("required product queue item coverage drifted")
-    if isinstance(required_ids_raw, list) and len(required_ids_raw) != len(required_ids):
-        failures.append("required product queue item coverage is duplicated")
+    if coverage.get("queue_item_marker") != QUEUE_COVERAGE_MARKER:
+        failures.append("vision registry queue coverage marker drifted")
+    if coverage.get("required_marker_value") != REQUIRED_COVERAGE_VALUE:
+        failures.append("vision registry required marker value drifted")
     if not _nonempty_text(coverage.get("expansion_rule")):
         failures.append("vision registry expansion rule is missing")
     if not _nonempty_text(coverage.get("completion_rule")):
@@ -123,17 +111,75 @@ def verify(
     queue_items_raw = queue_payload.get("items")
     if not isinstance(queue_items_raw, list):
         return [*failures, "Queue V2 items are missing"]
+    queue_item_ids = [
+        item.get("item_id")
+        for item in queue_items_raw
+        if isinstance(item, dict) and isinstance(item.get("item_id"), str)
+    ]
+    if len(queue_item_ids) != len(set(queue_item_ids)):
+        failures.append("Queue V2 item IDs are duplicated")
     queue_items = {
-        item.get("item_id"): item
+        item["item_id"]: item
         for item in queue_items_raw
         if isinstance(item, dict) and isinstance(item.get("item_id"), str)
     }
-    missing_queue_ids = sorted(REQUIRED_PRODUCT_ITEMS - set(queue_items))
-    if missing_queue_ids:
-        failures.append(
-            "required product items are absent from Queue V2: "
-            + ", ".join(missing_queue_ids)
-        )
+    dispositions = payload.get(QUEUE_COVERAGE_MARKER)
+    if not isinstance(dispositions, dict):
+        failures.append("Queue V2 vision registry dispositions are missing")
+        dispositions = {}
+    if set(dispositions) != set(queue_items):
+        failures.append("Queue V2 vision registry dispositions are incomplete or extra")
+    required_ids: set[str] = set()
+    for queue_id, disposition in dispositions.items():
+        if disposition not in ALLOWED_COVERAGE_VALUES:
+            failures.append(
+                f"{queue_id}: Queue V2 vision registry disposition is missing or invalid"
+            )
+        elif disposition == REQUIRED_COVERAGE_VALUE:
+            required_ids.add(queue_id)
+
+    evidence_catalog = payload.get("completion_evidence_catalog")
+    if not isinstance(evidence_catalog, dict):
+        failures.append("completion evidence catalog is missing")
+        evidence_catalog = {}
+    for evidence_ref, binding in evidence_catalog.items():
+        evidence_prefix = f"completion evidence {evidence_ref}: "
+        if not _nonempty_text(evidence_ref) or not str(evidence_ref).startswith(
+            "evidence-ref:"
+        ):
+            failures.append("completion evidence catalog contains an invalid ref")
+            continue
+        if not isinstance(binding, dict):
+            failures.append(evidence_prefix + "binding is missing")
+            continue
+        if binding.get("item_id") not in required_ids:
+            failures.append(evidence_prefix + "item binding is invalid")
+        artifact_path = binding.get("artifact_path")
+        artifact_sha256 = binding.get("artifact_sha256")
+        if not _nonempty_text(artifact_path):
+            failures.append(evidence_prefix + "artifact path is missing")
+        if not isinstance(artifact_sha256, str) or not SHA256_RE.fullmatch(
+            artifact_sha256
+        ):
+            failures.append(evidence_prefix + "artifact digest is invalid")
+        if not _nonempty_text(binding.get("independent_verifier_ref")) or not str(
+            binding.get("independent_verifier_ref", "")
+        ).startswith("verifier-ref:"):
+            failures.append(evidence_prefix + "independent verifier ref is invalid")
+        if not _nonempty_text(binding.get("verification_receipt_ref")) or not str(
+            binding.get("verification_receipt_ref", "")
+        ).startswith("verification-receipt-ref:"):
+            failures.append(evidence_prefix + "verification receipt ref is invalid")
+        if check_refs and _nonempty_text(artifact_path):
+            if not _safe_repo_file(root, artifact_path):
+                failures.append(evidence_prefix + "artifact path is unsafe or missing")
+            elif isinstance(artifact_sha256, str) and SHA256_RE.fullmatch(
+                artifact_sha256
+            ):
+                artifact = root.joinpath(*PurePosixPath(artifact_path).parts)
+                actual_digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+                if actual_digest != artifact_sha256:
+                    failures.append(evidence_prefix + "artifact digest mismatched")
 
     registry_items_raw = payload.get("items")
     if not isinstance(registry_items_raw, list):
@@ -146,7 +192,7 @@ def verify(
     if len(item_ids) != len(set(item_ids)):
         failures.append("product vision registry item IDs are duplicated")
     registry_ids = {item for item in item_ids if isinstance(item, str)}
-    if registry_ids != REQUIRED_PRODUCT_ITEMS:
+    if registry_ids != required_ids:
         failures.append("product vision registry item set is incomplete or extra")
 
     for item in registry_items_raw:
@@ -172,6 +218,12 @@ def verify(
             declared_ref_set: set[str] = set()
         else:
             declared_ref_set = set(declared_refs)
+        source_bindings = item.get("queue_source_bindings")
+        if not isinstance(source_bindings, dict):
+            failures.append(prefix + "queue source bindings are missing")
+            source_bindings = {}
+        if set(source_bindings) != declared_ref_set:
+            failures.append(prefix + "queue source binding keys are unresolved")
         if isinstance(queue_item, dict):
             queue_refs = queue_item.get("source_refs")
             queue_ref_set = (
@@ -208,6 +260,15 @@ def verify(
             completion_refs = []
         if whole_vision.get("status") == "complete" and not completion_refs:
             failures.append(prefix + "whole vision is complete without evidence")
+        unresolved_completion_refs = [
+            ref
+            for ref in completion_refs
+            if ref not in evidence_catalog
+            or not isinstance(evidence_catalog.get(ref), dict)
+            or evidence_catalog[ref].get("item_id") != item_id
+        ]
+        if unresolved_completion_refs:
+            failures.append(prefix + "completion evidence refs are unresolved")
         if (
             _nonempty_text(current_slice.get("outcome"))
             and current_slice.get("outcome") == whole_vision.get("outcome")
@@ -224,6 +285,21 @@ def verify(
             for ref in canonical_paths:
                 if not _safe_repo_file(root, ref):
                     failures.append(prefix + f"canonical source path is unsafe or missing: {ref}")
+        for source_ref, bound_paths in source_bindings.items():
+            if not _nonempty_text_list(bound_paths):
+                failures.append(prefix + f"source binding is empty: {source_ref}")
+                continue
+            if len(bound_paths) != len(set(bound_paths)):
+                failures.append(prefix + f"source binding is duplicated: {source_ref}")
+            for bound_path in bound_paths:
+                if bound_path not in canonical_paths:
+                    failures.append(
+                        prefix + f"source binding target is not canonical: {source_ref}"
+                    )
+                elif check_refs and not _safe_repo_file(root, bound_path):
+                    failures.append(
+                        prefix + f"source binding target is unsafe or missing: {source_ref}"
+                    )
 
         historical_refs = item.get("historical_source_refs")
         if not isinstance(historical_refs, list) or not all(

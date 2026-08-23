@@ -33,6 +33,19 @@ def test_product_vision_registry_requires_every_product_item() -> None:
     assert "product vision registry item set is incomplete or extra" in failures
 
 
+def test_product_vision_registry_requires_disposition_for_new_queue_item() -> None:
+    queue_payload = copy.deepcopy(_queue_payload())
+    new_item = copy.deepcopy(queue_payload["items"][-1])
+    new_item["queue_order"] = 32
+    new_item["item_id"] = "Q32"
+    new_item["slug"] = "new-product"
+    queue_payload["items"].append(new_item)
+
+    failures = vision.verify(queue_payload=queue_payload, check_refs=False)
+
+    assert "Queue V2 vision registry dispositions are incomplete or extra" in failures
+
+
 def test_product_vision_registry_resolves_symbolic_queue_sources() -> None:
     payload = copy.deepcopy(_payload())
     _item(payload, "Q29")["queue_source_refs"] = ["canonical-task-ref:lost-source"]
@@ -40,6 +53,23 @@ def test_product_vision_registry_resolves_symbolic_queue_sources() -> None:
     failures = vision.verify(payload=payload)
 
     assert "Q29: symbolic Queue V2 source refs are unresolved" in failures
+
+
+def test_product_vision_registry_binds_each_symbolic_source_to_documents() -> None:
+    payload = copy.deepcopy(_payload())
+    queue_payload = copy.deepcopy(_queue_payload())
+    _item(payload, "Q29")["queue_source_refs"] = [
+        "canonical-task-ref:renamed-source"
+    ]
+    next(
+        item for item in queue_payload["items"] if item["item_id"] == "Q29"
+    )["source_refs"] = ["canonical-task-ref:renamed-source"]
+
+    failures = vision.verify(
+        payload=payload, queue_payload=queue_payload, check_refs=False
+    )
+
+    assert "Q29: queue source binding keys are unresolved" in failures
 
 
 def test_product_vision_registry_rejects_missing_source_path() -> None:
@@ -87,6 +117,19 @@ def test_product_vision_registry_rejects_unsupported_completion_claim() -> None:
     failures = vision.verify(payload=payload, check_refs=False)
 
     assert "Q15: whole vision is complete without evidence" in failures
+
+
+def test_product_vision_registry_rejects_unresolved_completion_evidence() -> None:
+    payload = copy.deepcopy(_payload())
+    q15 = _item(payload, "Q15")
+    q15["whole_vision"]["status"] = "complete"
+    q15["whole_vision"]["completion_evidence_refs"] = [
+        "evidence-ref:not-accepted"
+    ]
+
+    failures = vision.verify(payload=payload, check_refs=False)
+
+    assert "Q15: completion evidence refs are unresolved" in failures
 
 
 def test_product_vision_registry_requires_archived_provenance_for_recovery() -> None:

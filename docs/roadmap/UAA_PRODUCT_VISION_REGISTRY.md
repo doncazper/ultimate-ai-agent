@@ -20,7 +20,9 @@ prevents that collapse by binding each covered queue item to:
 - its bounded current slice;
 - the larger product outcome;
 - future stages that the slice must not foreclose;
-- directly resolvable repository sources;
+- a complete Queue V2 disposition map, so every added queue item must be
+  classified before the verifier passes;
+- per-symbolic-source bindings to directly resolvable repository documents;
 - historical source references and recovery confidence;
 - guardrails that remain true even when implementation changes.
 
@@ -57,16 +59,17 @@ layer failed.
 | Q24 | News & Signals | strong | local signal and briefing-candidate lane | planned |
 | Q25 | Social Media Intelligence | strong | read-only product contract | planned |
 | Q26 | Finance & Compliance | strong | local review and accountant handoff | planned |
-| Q27 | Proposal Intelligence | strengthened | bounded cross-app proposals | planned |
+| Q27 | Proposal Intelligence | adequate | deterministic cited workflow candidates | planned |
 | Q28 | Autocorrect controls | reconstructed, medium confidence | proposal-only corrections | planned |
 | Q29 | Governed self-improvement | recovered, high confidence | self-assessment proposals | planned |
 | Q30 | Social publishing | recovered, high confidence | proposal and dry-run | planned |
 | Q31 | Final GoatCitadel comparison | recovered, high confidence | exact-revision evaluation | planned |
 
 CRM, News, Social Intelligence, and Finance already had detailed durable
-sources. Proposal Intelligence was strengthened with the recovered
-assistant-OS/system-map intent. Autocorrect, self-improvement, social
-publishing, and the final Goat comparison now have dedicated detailed plans.
+sources. Proposal Intelligence stays bound to ECO-010's cited event, task,
+person, commitment, CRM-link, and meeting candidates. Autocorrect,
+self-improvement, social publishing, and the final Goat comparison now have
+dedicated detailed plans.
 
 ## Recovered Historical Evidence
 
@@ -99,7 +102,9 @@ Allowed whole-vision states are:
 - `blocked`: the intended outcome is preserved but a named dependency,
   permission, facility, or safety condition prevents progress;
 - `complete`: the full outcome is independently demonstrated and
-  `completion_evidence_refs` is non-empty.
+  every `completion_evidence_ref` resolves through the registry's evidence
+  catalog to a content-addressed repository artifact, independent verifier,
+  and verification receipt.
 
 Queue status is read from the Queue V2 manifest and is not duplicated as
 product truth here. The registry's `current_slice.scope_status` describes what
@@ -117,24 +122,27 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_product_vision_registry.py
 
 The verifier fails when:
 
+- the Queue V2 disposition map omits or adds an item;
 - a required product/vertical queue item is missing;
-- a registry item does not resolve the queue's symbolic source refs;
+- a registry item does not bind each symbolic queue source ref to one or more
+  canonical documents;
 - a canonical source path is absent, absolute, outside the repository, or a
   symlink;
 - a recovered/reconstructed entry lacks provenance, confidence, or a detailed
   implementation/evaluation plan;
 - current-slice and whole-vision outcomes are not distinct;
-- the whole vision is marked complete without evidence;
+- the whole vision is marked complete without cataloged, digest-verified,
+  independently reviewed evidence;
 - a guardrail or recovery explanation is missing.
 
 This is intentionally a currentness gate, not a feature-completion gate.
 
 ## Maintenance Rule
 
-Before adding another first-class product or vertical whose product outcome is
-larger than one queue slice:
+Whenever Queue V2 gains an item, first classify it in
+`queue_item_dispositions`. Before marking a new item `required`:
 
-1. add or update its registry entry;
+1. add its registry entry;
 2. bind every queue source ref to existing canonical source paths;
 3. describe both the admitted slice and the whole product outcome;
 4. list future stages and non-negotiable guardrails;
