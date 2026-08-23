@@ -1559,6 +1559,29 @@ Autonomous background sessions by default
 ## Done
 
 ```text
+Q29 Governed Self-Improvement — Proposal And Outcome Contract
+Goal: turn accepted evidence into reversible human-review proposals without
+allowing the system to change or promote itself.
+Status: accepted locally on 2026-08-22 for bounded Python Core and synthetic CLI
+inspection scope. Evaluation gaps, correction decisions, operator feedback, and
+verified outcomes bind source revisions, provenance, source-specific rights,
+evidence, target revision, bounded deltas, regression expectations, independent
+review, and rollback posture. Unknown or denied rights, safe-disable, changed
+bindings, changed idempotency payloads, capacity exhaustion, and regressions
+without verified rollback fail closed. Accepted reviews open only a separately
+governed future change-review scope; verified outcomes may be cited by a future
+proposal only after fresh rights review.
+Scope: `docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md`,
+`src/ultimate_ai_agent/core/ecosystem/improvements.py`,
+`scripts/inspect_governed_improvement.py`,
+`scripts/verify_q29_governed_improvement.py`, and
+`tests/test_q29_governed_improvement.py`. No target mutation, patch creation,
+model training, approval grant, automatic learning or promotion, durable store,
+API/UI route, Git publication, merge, external write, public release, or
+production authority is accepted.
+Next: any implementation must be a separate exact-scoped change lane with its
+own approval, tests, independent review, rollback, and publication authority.
+
 Q28 Autocorrect Controls — Proposal-Only Review Lane
 Goal: make corrections reviewable without allowing silent or stale mutation.
 Status: accepted locally on 2026-08-22 for bounded proposal-only scope. Python

@@ -24,7 +24,12 @@ ECO-008 is accepted for bounded typed-link persistence and exact existing-record
 Task/Board/Calendar local ChangeSets with encrypted replay and separately
 approved rollback. External outcomes remain projection-only; CRM/Inbox
 mutation adapters, routes/UI, connectors, external execution, and production
-authority remain later distinct lanes.
+authority remain later distinct lanes. Q29 is accepted for a proposal-only
+governed improvement contract over content-free evaluation, correction,
+feedback, and verified outcome receipts with source-specific rights,
+independent review, regression evidence, and rollback posture. It adds no
+self-modifying code, patch creation, model training, approval grant, automatic
+promotion, Git publication, merge, external write, or production authority.
 
 Current planning overlay: the active product/package baseline is v0.104.0 /
 0.104.0. UAA-P1-065 is complete, UAA-P1-067 is complete for Today-spine
