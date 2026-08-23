@@ -166,6 +166,17 @@ See `renders/social-media-v1/README.md` for locked labels, ownership, and the
 future implementation gate. These renders are concept artifacts, not current
 Control Center screenshots or implementation evidence.
 
+## Finance & Compliance V1
+
+The sixteen-image `finance-compliance-v1` candidate set covers twelve desktop
+targets plus command, transaction-review, evidence-capture, and obligation
+narrow states. It is synthetic, planning-only, and pending independent FIN-000
+acceptance. The images do not prove a Finance route, storage, calculations,
+connectors, accountant access, payment, filing, advice, or runtime authority.
+
+See `renders/finance-compliance-v1/README.md` for the exact inventory, visual
+contract, and unsigned review checklist.
+
 ## Legacy Composite Coverage
 
 | File | Covered surfaces | Must show | Must not imply |

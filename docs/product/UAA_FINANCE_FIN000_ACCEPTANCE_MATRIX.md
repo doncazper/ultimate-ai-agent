@@ -1,15 +1,16 @@
 # FIN-000 Acceptance Matrix
 
-Status: planning contract accepted for review; render evidence pending
+Status: planning contract accepted for review; render candidates generated and independent acceptance pending
 Baseline: v0.104.0 / 0.104.0
-Date: 2026-08-18
+Date: 2026-08-23
 
 ## Purpose
 
 This matrix makes FIN-000 completion truth explicit. The product, ownership,
 security, storage, schema, adapter, workflow, state, reference, and render
-requirements are defined; no Finance runtime is implemented. The render pack
-remains pending until the checklist in the render brief is signed off.
+requirements are defined; no Finance runtime is implemented. The render
+candidate inventory now exists, but FIN-000 remains pending until the checklist
+in the render brief is independently signed off.
 
 ## Planning Deliverables
 
@@ -23,7 +24,7 @@ remains pending until the checklist in the render brief is signed off.
 | Schema/migration contract | this matrix and ADR-0063 | planning-only |
 | Disabled adapter contract | this matrix and product contract | planning-only |
 | Desktop/narrow state contract | render brief | defined |
-| Twelve desktop plus narrow render evidence | `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md` | pending |
+| Twelve desktop plus four narrow render candidates | `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md` and `tests/test_fin000_render_evidence.py` | generated; independent review pending |
 | Reference parity and clean-room exclusions | product contract and this matrix | defined |
 | Queue placement | `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md` | defined |
 
