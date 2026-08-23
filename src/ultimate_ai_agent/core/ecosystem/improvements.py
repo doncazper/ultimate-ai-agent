@@ -77,6 +77,7 @@ class ImprovementProposalState(str, Enum):
     blocked_rights = "blocked_rights"
     blocked_missing_evidence = "blocked_missing_evidence"
     blocked_missing_adr = "blocked_missing_adr"
+    blocked_unverified_outcome = "blocked_unverified_outcome"
     blocked_safe_disabled = "blocked_safe_disabled"
 
 
@@ -396,10 +397,15 @@ class ImprovementReviewReceipt(_ImprovementModel):
     review_fingerprint_ref: str
     proposal_ref: str
     proposal_fingerprint_ref: str
+    workspace_ref: str
+    source_evidence: tuple[ImprovementEvidenceSource, ...]
     target_kind: ImprovementTargetKind
     target_ref: str
     target_revision_ref: str
     expected_regression_refs: tuple[str, ...]
+    intended_delta_refs: tuple[str, ...]
+    exception_refs: tuple[str, ...]
+    review_packet_ref: str
     reviewer_ref: str
     independent_reviewer_ref: str | None
     independent_review_evidence_ref: str | None
@@ -503,8 +509,10 @@ class ImprovementOutcomeReceipt(_ImprovementModel):
     proposal_promoted: Literal[False] = False
 
 
-def build_improvement_proposal(
+def _build_improvement_proposal(
     request: ImprovementProposalRequest,
+    *,
+    eligible_outcome_receipt_refs: frozenset[str],
 ) -> ImprovementProposal:
     payload = request.model_dump(mode="json")
     proposal_fingerprint_ref = _stable_ref(
@@ -517,6 +525,11 @@ def build_improvement_proposal(
         for source in request.source_evidence
     )
     evidence_ready = all(source.evidence_refs for source in request.source_evidence)
+    verified_outcomes_ready = all(
+        source.source_kind != ImprovementEvidenceKind.verified_outcome
+        or source.source_receipt_ref in eligible_outcome_receipt_refs
+        for source in request.source_evidence
+    )
     if request.safe_disabled:
         state = ImprovementProposalState.blocked_safe_disabled
     elif not rights_ready:
@@ -528,6 +541,8 @@ def build_improvement_proposal(
         and request.adr_evidence_ref is None
     ):
         state = ImprovementProposalState.blocked_missing_adr
+    elif not verified_outcomes_ready:
+        state = ImprovementProposalState.blocked_unverified_outcome
     else:
         state = ImprovementProposalState.ready_for_human_review
     dedicated_adr_required = request.target_kind == ImprovementTargetKind.tcb_change
@@ -541,6 +556,8 @@ def build_improvement_proposal(
         next_safe_action = "Attach bounded regression evidence before review."
     elif state == ImprovementProposalState.blocked_missing_adr:
         next_safe_action = "Attach accepted dedicated ADR evidence before TCB review."
+    elif state == ImprovementProposalState.blocked_unverified_outcome:
+        next_safe_action = "Resolve an eligible verified outcome receipt before reuse."
     else:
         next_safe_action = "Keep the proposal inert while safe-disable is active."
     return ImprovementProposal(
@@ -590,6 +607,17 @@ def build_improvement_proposal(
     )
 
 
+def build_improvement_proposal(
+    request: ImprovementProposalRequest,
+) -> ImprovementProposal:
+    """Build a proposal without trusting caller-asserted outcome eligibility."""
+
+    return _build_improvement_proposal(
+        request,
+        eligible_outcome_receipt_refs=frozenset(),
+    )
+
+
 class ImprovementSession:
     """Bounded process-local review and outcome receipt registry."""
 
@@ -601,16 +629,38 @@ class ImprovementSession:
         self._outcomes: dict[str, ImprovementOutcomeReceipt] = {}
         self._lock = RLock()
 
+    def propose(self, request: ImprovementProposalRequest) -> ImprovementProposal:
+        """Build a proposal using only eligible outcome receipts stored here."""
+
+        with self._lock:
+            eligible_refs = frozenset(
+                receipt.receipt_ref
+                for receipt in self._outcomes.values()
+                if receipt.eligible_as_future_evidence
+            )
+            return _build_improvement_proposal(
+                request,
+                eligible_outcome_receipt_refs=eligible_refs,
+            )
+
     def review(self, request: ImprovementReviewRequest) -> ImprovementReviewReceipt:
-        proposal = build_improvement_proposal(request.proposal)
-        if (
-            request.proposal_ref != proposal.proposal_ref
-            or request.proposal_fingerprint_ref != proposal.proposal_fingerprint_ref
-        ):
-            raise ImprovementConflict("IMPROVEMENT_PROPOSAL_BINDING_CONFLICT")
         payload = request.model_dump(mode="json")
         fingerprint = _stable_ref("improvement-review-fingerprint-ref", payload)
         with self._lock:
+            eligible_refs = frozenset(
+                receipt.receipt_ref
+                for receipt in self._outcomes.values()
+                if receipt.eligible_as_future_evidence
+            )
+            proposal = _build_improvement_proposal(
+                request.proposal,
+                eligible_outcome_receipt_refs=eligible_refs,
+            )
+            if (
+                request.proposal_ref != proposal.proposal_ref
+                or request.proposal_fingerprint_ref != proposal.proposal_fingerprint_ref
+            ):
+                raise ImprovementConflict("IMPROVEMENT_PROPOSAL_BINDING_CONFLICT")
             replay = self._reviews.get(request.idempotency_ref)
             if replay is not None:
                 if replay.review_fingerprint_ref != fingerprint:
@@ -632,11 +682,19 @@ class ImprovementSession:
                 raise ImprovementConflict(
                     "IMPROVEMENT_PROPOSAL_TERMINAL_STATE_CONFLICT"
                 )
-            if proposal.state != ImprovementProposalState.ready_for_human_review:
+            if request.decision == ImprovementDecision.reject:
+                outcome = ImprovementReviewOutcome.rejected
+                scope_ref = None
+                next_action = "Retain the rejection as evidence without changing truth."
+            elif request.decision == ImprovementDecision.supersede:
+                outcome = ImprovementReviewOutcome.superseded
+                scope_ref = None
+                next_action = "Review the separately bound superseding proposal."
+            elif proposal.state != ImprovementProposalState.ready_for_human_review:
                 outcome = ImprovementReviewOutcome.blocked
                 scope_ref = None
                 next_action = proposal.next_safe_action
-            elif request.decision == ImprovementDecision.accept and (
+            elif (
                 not request.independent_review_verified
                 or request.independent_reviewer_ref is None
                 or request.independent_review_evidence_ref is None
@@ -644,27 +702,24 @@ class ImprovementSession:
                 outcome = ImprovementReviewOutcome.blocked
                 scope_ref = None
                 next_action = "Obtain verified evidence from a distinct independent human reviewer."
-            elif request.decision == ImprovementDecision.accept:
+            else:
                 outcome = ImprovementReviewOutcome.accepted_for_separate_change_review
                 scope_ref = proposal.expected_change_review_scope_ref
                 next_action = "Open a separate exact-scoped change review; no change is authorized."
-            elif request.decision == ImprovementDecision.reject:
-                outcome = ImprovementReviewOutcome.rejected
-                scope_ref = None
-                next_action = "Retain the rejection as evidence without changing truth."
-            else:
-                outcome = ImprovementReviewOutcome.superseded
-                scope_ref = None
-                next_action = "Review the separately bound superseding proposal."
             receipt = ImprovementReviewReceipt(
                 receipt_ref=_stable_ref("improvement-review-receipt-ref", fingerprint),
                 review_fingerprint_ref=fingerprint,
                 proposal_ref=proposal.proposal_ref,
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
+                workspace_ref=proposal.workspace_ref,
+                source_evidence=request.proposal.source_evidence,
                 target_kind=proposal.target_kind,
                 target_ref=proposal.target_ref,
                 target_revision_ref=proposal.target_revision_ref,
                 expected_regression_refs=proposal.expected_regression_refs,
+                intended_delta_refs=proposal.intended_delta_refs,
+                exception_refs=proposal.exception_refs,
+                review_packet_ref=proposal.review_packet_ref,
                 reviewer_ref=request.reviewer_ref,
                 independent_reviewer_ref=request.independent_reviewer_ref,
                 independent_review_evidence_ref=(

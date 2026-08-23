@@ -232,6 +232,12 @@ def test_acceptance_only_opens_a_separate_change_review() -> None:
         receipt.outcome == ImprovementReviewOutcome.accepted_for_separate_change_review
     )
     assert receipt.expected_change_review_scope_ref is not None
+    assert receipt.workspace_ref == request.workspace_ref
+    assert receipt.source_evidence == request.source_evidence
+    assert receipt.intended_delta_refs == request.intended_delta_refs
+    assert receipt.expected_regression_refs == request.expected_regression_refs
+    assert receipt.exception_refs == request.exception_refs
+    assert receipt.review_packet_ref.startswith("improvement-review-packet-ref:")
     assert receipt.target_mutated is False
     assert receipt.patch_created is False
     assert receipt.approval_granted is False
@@ -244,6 +250,23 @@ def test_blocked_proposal_cannot_be_accepted() -> None:
     )
     receipt = ImprovementSession().review(_review_request(request))
     assert receipt.outcome == ImprovementReviewOutcome.blocked
+    assert receipt.expected_change_review_scope_ref is None
+
+
+def test_blocked_proposal_can_be_rejected_without_independent_review() -> None:
+    request = _proposal_request(
+        source_evidence=(_source(rights=ImprovementRightsPosture.unknown),)
+    )
+    receipt = ImprovementSession().review(
+        _review_request(
+            request,
+            decision=ImprovementDecision.reject,
+            independent_reviewer_ref=None,
+            independent_review_evidence_ref=None,
+            independent_review_verified=False,
+        )
+    )
+    assert receipt.outcome == ImprovementReviewOutcome.rejected
     assert receipt.expected_change_review_scope_ref is None
 
 
@@ -341,6 +364,54 @@ def test_verified_outcome_is_bound_and_does_not_learn_automatically() -> None:
     assert receipt.target_mutated is False
     assert replay.receipt_ref == receipt.receipt_ref
     assert replay.replayed is True
+
+
+def test_verified_outcome_source_requires_eligible_session_receipt() -> None:
+    session = ImprovementSession()
+    first_request = _proposal_request()
+    first_review = session.review(_review_request(first_request))
+    first_outcome = session.record_outcome(
+        ImprovementOutcomeRequest(
+            proposal_ref=first_review.proposal_ref,
+            proposal_fingerprint_ref=first_review.proposal_fingerprint_ref,
+            accepted_review_receipt_ref=first_review.receipt_ref,
+            implementation=_implementation(first_review),
+            independent_reviewer_ref=first_review.independent_reviewer_ref,
+            independent_review_evidence_ref=(
+                first_review.independent_review_evidence_ref
+            ),
+            regression_results=(_regression(),),
+            observed_outcome=ObservedImprovementOutcome.improved,
+            idempotency_ref="idempotency-ref:q29:source-outcome",
+        )
+    )
+    eligible_source = ImprovementEvidenceSource(
+        source_kind=ImprovementEvidenceKind.verified_outcome,
+        source_receipt_ref=first_outcome.receipt_ref,
+        source_revision_ref=first_outcome.implementation.implemented_revision_ref,
+        provenance_ref="provenance-ref:q29:verified-outcome",
+        rights_posture=ImprovementRightsPosture.permitted,
+        rights_evidence_ref="rights-evidence-ref:q29:verified-outcome",
+        evidence_refs=(first_outcome.outcome_fingerprint_ref,),
+    )
+    followup_request = _proposal_request(source_evidence=(eligible_source,))
+
+    assert (
+        build_improvement_proposal(followup_request).state
+        == ImprovementProposalState.blocked_unverified_outcome
+    )
+    assert (
+        session.propose(followup_request).state
+        == ImprovementProposalState.ready_for_human_review
+    )
+
+    fabricated_source = eligible_source.model_copy(
+        update={"source_receipt_ref": "improvement-outcome-receipt-ref:q29:fabricated"}
+    )
+    assert (
+        session.propose(_proposal_request(source_evidence=(fabricated_source,))).state
+        == ImprovementProposalState.blocked_unverified_outcome
+    )
 
 
 def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:

@@ -31,10 +31,13 @@ ADR evidence ref.
 Human review can accept a proposal only when a distinct independent reviewer
 identity, independent-review evidence ref, and verified-review posture are all
 bound for a separately governed change review. Rejection and supersession do
-not require independent-review evidence, and either terminal outcome prevents a
-later outcome receipt for the original proposal. Synthetic CLI accept reviews
-remain unverified and blocked. Acceptance is not LocalApprovalAuthority
-approval and does not create a ChangeSet or patch.
+not require proposal readiness or independent-review evidence, and either
+terminal outcome prevents a later outcome receipt for the original proposal.
+Review receipts preserve the complete redacted source, rights, provenance,
+revision, evidence, target, intended-delta, exception, regression, rollback,
+and review-packet bindings that the human reviewed. Synthetic CLI accept
+reviews remain unverified and blocked. Acceptance is not
+LocalApprovalAuthority approval and does not create a ChangeSet or patch.
 
 Outcome receipts bind an accepted review receipt, verified implementation
 evidence, the exact accepted change scope, target and base revision, implemented
@@ -44,6 +47,9 @@ and typed verified rollback evidence bound to the accepted rollback plan,
 implemented change receipt, and implemented revision. Successful or neutral outcomes
 become eligible only when every planned regression result passed, and then only
 as evidence for a future proposal after fresh rights review; no automatic learning occurs.
+Verified-outcome proposal sources additionally resolve against an eligible
+outcome receipt stored in the same bounded session. A caller-supplied or
+regressed/unknown outcome ref remains `blocked_unverified_outcome`.
 
 ## Durability and authority
 
