@@ -1,8 +1,8 @@
 # Finance & Compliance V1 Render Brief
 
-Status: planning-only render brief; image renders pending review
+Status: planning-only render candidate pack complete; independent review pending
 Baseline: v0.104.0 / 0.104.0
-Date: 2026-08-16
+Date: 2026-08-23
 Program: `FIN-000`
 Product contract: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`
 Workflow case study: `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`
@@ -74,9 +74,30 @@ must not look like a generic fintech template pasted into UAA.
    - Today, Morning Briefing, Action Inbox, and Work Board examples showing the
      same Finance refs across daily review, decisions, and multi-step work.
 
-After desktop acceptance, add narrow variants for command, review, evidence
-capture, and upcoming obligations. Use synthetic names, amounts, institutions,
-entities, tax years, jurisdictions, account suffixes, and document refs only.
+The candidate pack also includes the narrow review set so responsive posture can
+be evaluated in the same independent review:
+
+13. `13-finance-command-narrow.png`
+14. `14-transaction-review-narrow.png`
+15. `15-evidence-capture-narrow.png`
+16. `16-upcoming-obligations-narrow.png`
+
+All images use synthetic fixture data and remain design targets. Their presence
+does not sign the checklist, prove a working route, or promote FIN-000.
+
+## Candidate Evidence Posture
+
+The sixteen PNG candidates are checked in at readable desktop or narrow
+resolution. A focused repository test verifies the exact inventory, PNG
+headers, and minimum dimensions. This is content-free asset-integrity evidence,
+not product, accounting-domain, privacy/security, accessibility, or
+implementation acceptance.
+
+Author self-check found the intended planning-only, local-only, review-required,
+and external-actions-blocked posture across the pack. Independent reviewers
+must still assess visual details, canonical ownership, synthetic-data quality,
+accounting language, privacy, accessibility notes, and implementation fit. Any
+requested correction keeps FIN-000 proposed.
 
 ## UAA Visual Contract
 
