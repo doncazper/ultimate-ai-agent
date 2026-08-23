@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 980,
+  "timed_file_count": 981,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -3958,6 +3958,11 @@
     {
       "path": "tests/test_q28_autocorrect_controls.py",
       "seconds": 7.0,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_q29_governed_improvement.py",
+      "seconds": 0.35,
       "source": "operator-supplied-advisory"
     },
     {

@@ -390,6 +390,15 @@ review refs only. No canonical mutation, ChangeSet creation, approval grant,
 rollback execution, model/provider call, connector/external write, public
 release, or production authority is added.
 
+Q29 governed self-improvement is documented in
+`docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md`. It converts only
+content-free, revision-bound evaluation, correction, feedback, and verified
+outcome receipts into deterministic human-review proposals with source-specific
+rights evidence, independent review, regression evidence, and rollback posture.
+Acceptance opens only a separate future change-review scope. No target mutation,
+patch creation, training, approval grant, automatic promotion, Git publication,
+merge, external write, public release, or production authority is added.
+
 The accepted planning-only Social Media Intelligence direction is defined in
 `docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md`. It locks a
 creator-focused read-only intelligence surface for performance, audience,

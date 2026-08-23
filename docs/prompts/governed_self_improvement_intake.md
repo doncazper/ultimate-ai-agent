@@ -1,16 +1,21 @@
 # Governed Self-Improvement Intake Summary
 
-Status: redacted intake record; deferred; not an executable prompt or queue authority
+Status: superseded historical intake record; not an executable prompt or queue authority
 
 Provenance ref:
 `reconciliation-ref:governed-self-improvement-intake:sha256:99539bf8a2878223936c499bb30bae6a997d450da16a7ccd393110dd3a827889`
 
 This bounded summary records the intent of a locally discovered implementation
-proposal without retaining its raw prompt content. It is subordinate to the
-canonical `governed-self-improvement` item in
-`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. It does not materialize the
-canonical external prompt, change that item's
-`blocked_pending_exact_source` status, or create a second execution sequence.
+proposal without retaining its raw prompt content. At creation it was
+subordinate to the historical `governed-self-improvement` item in the immutable
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and did not itself materialize
+that source or create an execution sequence. The later materialized recovery
+contract at `docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md`,
+its exact hash and task mapping in
+`docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json`, and authoritative
+Queue-of-Record V2 item Q29 supersede this intake's historical blocked posture.
+The immutable remaining manifest stays unchanged as audit evidence and is not
+the active admission source.
 
 ## Preserved intent
 
@@ -29,7 +34,8 @@ improvement loop that could, in later separately accepted work:
   and
 - fail closed when provenance, approval, evidence, or rollback data is absent.
 
-No Phase 00-10 implementation work is queued or authorized by this record.
+No implementation work is authorized by this intake record. Q29 authority is
+derived only from Queue-of-Record V2 and its materialized recovery contract.
 
 ## Authority acceptance boundary
 

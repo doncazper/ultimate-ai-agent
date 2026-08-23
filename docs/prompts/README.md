@@ -292,12 +292,12 @@ for the finite merge-gated wrapper.
 
 ## Governed self-improvement intake summary
 
-`docs/prompts/governed_self_improvement_intake.md` is a bounded, redacted intake
-record for a locally discovered implementation proposal. It is not an
-executable prompt and remains subordinate to the canonical
-`governed-self-improvement` item in
-`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`; that item's source remains
-not materialized and execution remains blocked pending the exact source. The
-summary preserves intent and authority requirements without creating a second
-queue or granting runtime, Git, skill, workflow, learning-write, or merge
+`docs/prompts/governed_self_improvement_intake.md` is a bounded, redacted,
+superseded intake record for a locally discovered implementation proposal. It
+is not executable authority. Its historical blocked posture was superseded by
+the materialized recovery contract at
+`docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md`, the
+exact recovery-manifest binding, and authoritative Queue-of-Record V2 Q29. The
+immutable remaining-queue manifest remains audit evidence only. The intake
+summary grants no runtime, Git, skill, workflow, learning-write, or merge
 authority.
