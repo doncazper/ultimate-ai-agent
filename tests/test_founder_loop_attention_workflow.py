@@ -280,19 +280,25 @@ def test_concurrent_approval_identifiers_create_at_most_one_grant(
     )
     prepared = workflow.prepare(request)
     outcomes: list[str] = []
+    errors: list[Exception] = []
+    start_barrier = threading.Barrier(3)
 
     def approve(suffix: str) -> None:
-        outcomes.append(
-            workflow.grant_exact_approval(
-                workflow_ref=request.workflow_ref,
-                today_item_ref=request.today_item_ref,
-                inspected_source_refs=request.inspected_source_refs,
-                source_review_receipt_ref=request.source_review_receipt_ref,
-                proposal_ref=prepared.proposal_ref,
-                approved_by_actor_ref="operator-ref:local-user",
-                approval_ref=f"approval-ref:founder-loop-attention:{suffix}",
+        try:
+            start_barrier.wait(timeout=10)
+            outcomes.append(
+                workflow.grant_exact_approval(
+                    workflow_ref=request.workflow_ref,
+                    today_item_ref=request.today_item_ref,
+                    inspected_source_refs=request.inspected_source_refs,
+                    source_review_receipt_ref=request.source_review_receipt_ref,
+                    proposal_ref=prepared.proposal_ref,
+                    approved_by_actor_ref="operator-ref:local-user",
+                    approval_ref=f"approval-ref:founder-loop-attention:{suffix}",
+                )
             )
-        )
+        except Exception as exc:  # pragma: no cover - surfaced in the parent thread
+            errors.append(exc)
 
     threads = [
         threading.Thread(target=approve, args=("concurrent-one",)),
@@ -300,9 +306,13 @@ def test_concurrent_approval_identifiers_create_at_most_one_grant(
     ]
     for thread in threads:
         thread.start()
+    start_barrier.wait(timeout=10)
     for thread in threads:
-        thread.join(timeout=2)
+        thread.join(timeout=10)
 
+    assert not any(thread.is_alive() for thread in threads)
+    if errors:
+        raise errors[0]
     assert len(outcomes) == 2
     assert len(set(outcomes)) == 1
     assert len(workflow.mission_service.approval_authority.list_grants()) == 1
