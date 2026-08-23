@@ -153,7 +153,9 @@ def verify() -> list[str]:
             proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
             decision=ImprovementDecision.accept,
             reviewer_ref="reviewer-ref:q29:verifier",
-            independent_review_ref="review-evidence-ref:q29:verifier",
+            independent_reviewer_ref="reviewer-ref:q29:independent-verifier",
+            independent_review_evidence_ref="review-evidence-ref:q29:verifier",
+            independent_review_verified=True,
             idempotency_ref="idempotency-ref:q29:verifier",
         )
     )

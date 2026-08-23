@@ -18,10 +18,12 @@ A proposal binds its target revision, bounded delta refs, regression refs,
 exceptions, rollback plan, review packet, and a separate future change-review
 scope. TCB proposals remain inert and explicitly require a dedicated ADR.
 
-Human review can accept a proposal only for a separately governed change
-review. Acceptance is not LocalApprovalAuthority approval and does not create
-a ChangeSet or patch. Rejection and supersession remain immutable review
-outcomes.
+Human review can accept a proposal only when a distinct independent reviewer
+identity, independent-review evidence ref, and verified-review posture are all
+bound for a separately governed change review. Synthetic CLI reviews remain
+unverified and blocked. Acceptance is not LocalApprovalAuthority approval and
+does not create a ChangeSet or patch. Rejection and supersession remain
+immutable review outcomes.
 
 Outcome receipts bind an accepted review receipt, implemented-change receipt,
 implemented revision, independent review, and regression evidence. A regressed

@@ -66,7 +66,9 @@ def _review_request(
         "proposal_fingerprint_ref": proposal.proposal_fingerprint_ref,
         "decision": ImprovementDecision.accept,
         "reviewer_ref": "reviewer-ref:q29:human",
-        "independent_review_ref": "review-evidence-ref:q29:independent",
+        "independent_reviewer_ref": "reviewer-ref:q29:independent-human",
+        "independent_review_evidence_ref": "review-evidence-ref:q29:independent",
+        "independent_review_verified": True,
         "idempotency_ref": "idempotency-ref:q29:review",
     }
     values.update(overrides)
@@ -177,6 +179,27 @@ def test_blocked_proposal_cannot_be_accepted() -> None:
     assert receipt.expected_change_review_scope_ref is None
 
 
+def test_unverified_independent_review_cannot_be_accepted() -> None:
+    request = _proposal_request()
+    receipt = ImprovementSession().review(
+        _review_request(request, independent_review_verified=False)
+    )
+    assert receipt.outcome == ImprovementReviewOutcome.blocked
+    assert receipt.independent_review_verified is False
+    assert receipt.expected_change_review_scope_ref is None
+
+
+def test_reviewer_and_independent_reviewer_must_be_distinct() -> None:
+    request = _proposal_request()
+    with pytest.raises(
+        ValueError, match="IMPROVEMENT_DISTINCT_INDEPENDENT_REVIEWER_REQUIRED"
+    ):
+        _review_request(
+            request,
+            independent_reviewer_ref="reviewer-ref:q29:human",
+        )
+
+
 def test_review_idempotency_is_stable_and_conflicts_on_changed_payload() -> None:
     request = _proposal_request()
     session = ImprovementSession()
@@ -211,7 +234,8 @@ def test_verified_outcome_is_bound_and_does_not_learn_automatically() -> None:
         accepted_review_receipt_ref=review.receipt_ref,
         implemented_change_receipt_ref="change-receipt-ref:q29:implemented",
         implemented_revision_ref="revision-ref:q29:implemented:2",
-        independent_review_ref=review.independent_review_ref,
+        independent_reviewer_ref=review.independent_reviewer_ref,
+        independent_review_evidence_ref=review.independent_review_evidence_ref,
         regression_evidence_refs=("regression-evidence-ref:q29:passed",),
         observed_outcome=ObservedImprovementOutcome.improved,
         idempotency_ref="idempotency-ref:q29:outcome",
@@ -237,7 +261,8 @@ def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:
             accepted_review_receipt_ref=review.receipt_ref,
             implemented_change_receipt_ref="change-receipt-ref:q29:regressed",
             implemented_revision_ref="revision-ref:q29:implemented:3",
-            independent_review_ref=review.independent_review_ref,
+            independent_reviewer_ref=review.independent_reviewer_ref,
+            independent_review_evidence_ref=review.independent_review_evidence_ref,
             regression_evidence_refs=("regression-evidence-ref:q29:failed",),
             observed_outcome=ObservedImprovementOutcome.regressed,
             rollback_evidence_ref="rollback-evidence-ref:q29:verified",
@@ -263,7 +288,8 @@ def test_outcome_requires_an_accepted_review_binding() -> None:
                 accepted_review_receipt_ref="review-receipt-ref:q29:missing",
                 implemented_change_receipt_ref="change-receipt-ref:q29:missing",
                 implemented_revision_ref="revision-ref:q29:implemented:2",
-                independent_review_ref="review-evidence-ref:q29:independent",
+                independent_reviewer_ref="reviewer-ref:q29:independent-human",
+                independent_review_evidence_ref=("review-evidence-ref:q29:independent"),
                 regression_evidence_refs=("regression-evidence-ref:q29:passed",),
                 observed_outcome=ObservedImprovementOutcome.improved,
                 idempotency_ref="idempotency-ref:q29:missing-review",
@@ -281,7 +307,8 @@ def test_regression_requires_revert_and_rollback_evidence() -> None:
             accepted_review_receipt_ref="review-receipt-ref:q29:accepted",
             implemented_change_receipt_ref="change-receipt-ref:q29:implemented",
             implemented_revision_ref="revision-ref:q29:implemented:2",
-            independent_review_ref="review-evidence-ref:q29:independent",
+            independent_reviewer_ref="reviewer-ref:q29:independent-human",
+            independent_review_evidence_ref="review-evidence-ref:q29:independent",
             regression_evidence_refs=("regression-evidence-ref:q29:failed",),
             observed_outcome=ObservedImprovementOutcome.regressed,
             idempotency_ref="idempotency-ref:q29:regressed",

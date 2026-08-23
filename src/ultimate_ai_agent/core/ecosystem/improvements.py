@@ -268,7 +268,9 @@ class ImprovementReviewRequest(_ImprovementModel):
     proposal_fingerprint_ref: str
     decision: ImprovementDecision
     reviewer_ref: str
-    independent_review_ref: str
+    independent_reviewer_ref: str
+    independent_review_evidence_ref: str
+    independent_review_verified: bool = False
     idempotency_ref: str
     superseding_proposal_ref: str | None = None
 
@@ -278,14 +280,15 @@ class ImprovementReviewRequest(_ImprovementModel):
             "proposal_ref",
             "proposal_fingerprint_ref",
             "reviewer_ref",
-            "independent_review_ref",
+            "independent_reviewer_ref",
+            "independent_review_evidence_ref",
             "idempotency_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
         if self.superseding_proposal_ref is not None:
             _validate_ref(self.superseding_proposal_ref, "superseding_proposal_ref")
-        if self.reviewer_ref == self.independent_review_ref:
-            raise ValueError("IMPROVEMENT_INDEPENDENT_REVIEW_REF_REQUIRED")
+        if self.reviewer_ref == self.independent_reviewer_ref:
+            raise ValueError("IMPROVEMENT_DISTINCT_INDEPENDENT_REVIEWER_REQUIRED")
         if self.decision == ImprovementDecision.supersede:
             if (
                 self.superseding_proposal_ref is None
@@ -307,7 +310,9 @@ class ImprovementReviewReceipt(_ImprovementModel):
     proposal_ref: str
     proposal_fingerprint_ref: str
     reviewer_ref: str
-    independent_review_ref: str
+    independent_reviewer_ref: str
+    independent_review_evidence_ref: str
+    independent_review_verified: bool
     idempotency_ref: str
     decision: ImprovementDecision
     outcome: ImprovementReviewOutcome
@@ -331,7 +336,8 @@ class ImprovementOutcomeRequest(_ImprovementModel):
     accepted_review_receipt_ref: str
     implemented_change_receipt_ref: str
     implemented_revision_ref: str
-    independent_review_ref: str
+    independent_reviewer_ref: str
+    independent_review_evidence_ref: str
     regression_evidence_refs: tuple[str, ...] = Field(..., min_length=1, max_length=32)
     observed_outcome: ObservedImprovementOutcome
     rollback_evidence_ref: str | None = None
@@ -346,7 +352,8 @@ class ImprovementOutcomeRequest(_ImprovementModel):
             "accepted_review_receipt_ref",
             "implemented_change_receipt_ref",
             "implemented_revision_ref",
-            "independent_review_ref",
+            "independent_reviewer_ref",
+            "independent_review_evidence_ref",
             "idempotency_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
@@ -373,7 +380,8 @@ class ImprovementOutcomeReceipt(_ImprovementModel):
     accepted_review_receipt_ref: str
     implemented_change_receipt_ref: str
     implemented_revision_ref: str
-    independent_review_ref: str
+    independent_reviewer_ref: str
+    independent_review_evidence_ref: str
     regression_evidence_refs: tuple[str, ...]
     observed_outcome: ObservedImprovementOutcome
     rollback_evidence_ref: str | None
@@ -500,6 +508,10 @@ class ImprovementSession:
                 outcome = ImprovementReviewOutcome.blocked
                 scope_ref = None
                 next_action = proposal.next_safe_action
+            elif not request.independent_review_verified:
+                outcome = ImprovementReviewOutcome.blocked
+                scope_ref = None
+                next_action = "Obtain verified evidence from a distinct independent human reviewer."
             elif request.decision == ImprovementDecision.accept:
                 outcome = ImprovementReviewOutcome.accepted_for_separate_change_review
                 scope_ref = proposal.expected_change_review_scope_ref
@@ -518,7 +530,11 @@ class ImprovementSession:
                 proposal_ref=proposal.proposal_ref,
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
                 reviewer_ref=request.reviewer_ref,
-                independent_review_ref=request.independent_review_ref,
+                independent_reviewer_ref=request.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    request.independent_review_evidence_ref
+                ),
+                independent_review_verified=request.independent_review_verified,
                 idempotency_ref=request.idempotency_ref,
                 decision=request.decision,
                 outcome=outcome,
@@ -559,7 +575,10 @@ class ImprovementSession:
                 != ImprovementReviewOutcome.accepted_for_separate_change_review
                 or accepted.proposal_ref != request.proposal_ref
                 or accepted.proposal_fingerprint_ref != request.proposal_fingerprint_ref
-                or accepted.independent_review_ref != request.independent_review_ref
+                or not accepted.independent_review_verified
+                or accepted.independent_reviewer_ref != request.independent_reviewer_ref
+                or accepted.independent_review_evidence_ref
+                != request.independent_review_evidence_ref
             ):
                 raise ImprovementConflict("IMPROVEMENT_OUTCOME_REVIEW_BINDING_CONFLICT")
             eligible = request.observed_outcome in {
@@ -574,7 +593,10 @@ class ImprovementSession:
                 accepted_review_receipt_ref=request.accepted_review_receipt_ref,
                 implemented_change_receipt_ref=request.implemented_change_receipt_ref,
                 implemented_revision_ref=request.implemented_revision_ref,
-                independent_review_ref=request.independent_review_ref,
+                independent_reviewer_ref=request.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    request.independent_review_evidence_ref
+                ),
                 regression_evidence_refs=request.regression_evidence_refs,
                 observed_outcome=request.observed_outcome,
                 rollback_evidence_ref=request.rollback_evidence_ref,

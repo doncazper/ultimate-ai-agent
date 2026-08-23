@@ -80,7 +80,11 @@ def main() -> int:
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
                 decision=ImprovementDecision.accept,
                 reviewer_ref="reviewer-ref:q29:synthetic",
-                independent_review_ref="review-evidence-ref:q29:synthetic",
+                independent_reviewer_ref="reviewer-ref:q29:synthetic-independent",
+                independent_review_evidence_ref=(
+                    "review-evidence-ref:q29:synthetic-unverified"
+                ),
+                independent_review_verified=False,
                 idempotency_ref="idempotency-ref:q29:synthetic",
             )
         )
