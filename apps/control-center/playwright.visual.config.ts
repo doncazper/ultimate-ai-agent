@@ -43,6 +43,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
+      testIgnore: /backend-truth\.real\.spec\.ts/,
       use: {
         ...devices["Pixel 5"],
         viewport: { width: 390, height: 844 },
