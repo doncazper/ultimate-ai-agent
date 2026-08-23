@@ -13,6 +13,16 @@ def test_control_center_visual_regression_manifest_is_safe() -> None:
     assert failures == []
 
 
+def test_foundation_visuals_isolate_crm_and_work_board_state() -> None:
+    spec = (
+        ROOT
+        / "apps/control-center/tests/visual/foundation-surfaces.real.spec.ts"
+    ).read_text(encoding="utf-8")
+
+    assert 'UAA_CRM_STATE_DIR: join(stateDir, "crm")' in spec
+    assert 'UAA_WORK_BOARD_STATE_DIR: join(stateDir, "work-board")' in spec
+
+
 def test_control_center_visual_regression_manifest_requires_state_scenarios() -> None:
     manifest = visual.load_manifest()
     manifest["state_scenarios"] = []

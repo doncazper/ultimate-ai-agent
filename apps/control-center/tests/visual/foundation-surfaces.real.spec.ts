@@ -44,6 +44,8 @@ function startBackend(): void {
         UAA_BACKEND_TRUTH_TEST_PORT: String(backendTruthPort),
         UAA_BACKEND_TRUTH_TEST_NOW: backendTruthTestNow,
         UAA_BUILD_COMMIT: backendSourceCommit,
+        UAA_CRM_STATE_DIR: join(stateDir, "crm"),
+        UAA_WORK_BOARD_STATE_DIR: join(stateDir, "work-board"),
       },
       stdio: "ignore",
     },
