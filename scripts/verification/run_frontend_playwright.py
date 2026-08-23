@@ -48,6 +48,9 @@ class FrontendPlaywrightError(RuntimeError):
 
 VISUAL_BACKEND_TRUTH_TEST = "tests/visual/backend-truth.real.spec.ts"
 VISUAL_BACKEND_TRUTH_INVERT = "[desktop] > backend-truth.real.spec.ts\n"
+VISUAL_FOUNDATION_SURFACES_TEST = (
+    "tests/visual/foundation-surfaces.real.spec.ts"
+)
 
 
 @contextmanager
@@ -159,9 +162,7 @@ def run(suite: str) -> int:
         raw_result = temporary_root / "playwright-result.json"
         artifact_output = temporary_root / "playwright-artifacts"
         artifact_output.mkdir(mode=0o700)
-        suite_args = (
-            ("--project=desktop", "--workers=1") if suite == "visual" else ()
-        )
+        suite_args = ("--workers=1",) if suite == "visual" else ()
         phases: tuple[tuple[str, ...], ...] = ((),)
         if suite == "visual":
             fixture_list = temporary_root / "visual-fixtures-only.list"
@@ -172,8 +173,9 @@ def run(suite: str) -> int:
                 )
             fixture_list.chmod(0o600)
             phases = (
-                (VISUAL_BACKEND_TRUTH_TEST,),
-                (f"--test-list-invert={fixture_list}",),
+                ("--project=desktop", VISUAL_BACKEND_TRUTH_TEST),
+                ("--project=desktop", f"--test-list-invert={fixture_list}"),
+                ("--project=mobile", VISUAL_FOUNDATION_SURFACES_TEST),
             )
         try:
             playwright = str(resolve_installed_frontend_tool(APP, "playwright"))
@@ -253,13 +255,25 @@ def run(suite: str) -> int:
                 and external_target is not None
                 and phase_index + 1 < len(phases)
             ):
-                retain_failed_test_refs(
-                    external_target.with_name(DIAGNOSTIC_NAME),
-                    tuple(sorted(all_failed_test_refs))[:MAX_FAILED_TEST_REFS],
-                    failed_test_count=sum(
-                        int(item["failed_test_count"]) for item in observations
-                    ),
+                diagnostic_target = external_target.with_name(DIAGNOSTIC_NAME)
+                retained_refs = tuple(sorted(all_failed_test_refs))[
+                    :MAX_FAILED_TEST_REFS
+                ]
+                retained_failure_count = sum(
+                    int(item["failed_test_count"]) for item in observations
                 )
+                if diagnostics_retained:
+                    _refresh_retained_failed_test_refs(
+                        diagnostic_target,
+                        retained_refs,
+                        failed_test_count=retained_failure_count,
+                    )
+                else:
+                    retain_failed_test_refs(
+                        diagnostic_target,
+                        retained_refs,
+                        failed_test_count=retained_failure_count,
+                    )
                 diagnostics_retained = True
         observation = _combined_playwright_observation(tuple(observations))
         returncode = 1 if any(returncodes) else 0
