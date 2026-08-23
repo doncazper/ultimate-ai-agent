@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from scripts.verify_q29_governed_improvement import _prohibited_imports
 from ultimate_ai_agent.core.ecosystem.improvements import (
     ImprovementConflict,
     ImprovementDecision,
@@ -339,3 +342,12 @@ def test_status_keeps_all_automatic_authority_disabled() -> None:
     assert status["automatic_promotion_enabled"] is False
     assert status["automatic_git_publication_enabled"] is False
     assert status["automatic_merge_enabled"] is False
+
+
+def test_verifier_detects_prohibited_from_imports(tmp_path: Path) -> None:
+    candidate = tmp_path / "candidate.py"
+    candidate.write_text(
+        "from urllib import request\nfrom http import client\n",
+        encoding="utf-8",
+    )
+    assert _prohibited_imports(candidate) == {"urllib.request", "http.client"}

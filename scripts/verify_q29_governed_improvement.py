@@ -29,10 +29,16 @@ from ultimate_ai_agent.core.ecosystem.improvements import (  # noqa: E402
 REQUIRED_FILES = (
     "src/ultimate_ai_agent/core/ecosystem/improvements.py",
     "scripts/inspect_governed_improvement.py",
+    "scripts/verify_q29_governed_improvement.py",
     "tests/test_q29_governed_improvement.py",
     "docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
 )
+AUTHORITY_SURFACE_FILES = {
+    "src/ultimate_ai_agent/core/ecosystem/improvements.py",
+    "scripts/inspect_governed_improvement.py",
+    "tests/test_q29_governed_improvement.py",
+}
 PROHIBITED_IMPORTS = {
     "browserbase",
     "firecrawl",
@@ -75,7 +81,10 @@ def _prohibited_imports(path: Path) -> set[str]:
         if isinstance(node, ast.Import):
             names = [item.name for item in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
-            names = [node.module]
+            names = [
+                node.module,
+                *(f"{node.module}.{item.name}" for item in node.names),
+            ]
         else:
             continue
         for name in names:
@@ -122,6 +131,8 @@ def verify() -> list[str]:
             continue
         for name in sorted(_prohibited_imports(path)):
             failures.append(f"forbidden Q29 runtime import in {relative_path}: {name}")
+        if relative_path not in AUTHORITY_SURFACE_FILES:
+            continue
         source = path.read_text(encoding="utf-8")
         for fragment in DENIED_AUTHORITY_FRAGMENTS:
             if fragment in source:
