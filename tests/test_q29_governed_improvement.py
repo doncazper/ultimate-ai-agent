@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.ecosystem.improvements import (
     ImprovementProposalState,
     ImprovementRegressionEvidence,
     ImprovementRegressionStatus,
+    ImprovementRollbackEvidence,
     ImprovementReviewOutcome,
     ImprovementReviewReceipt,
     ImprovementReviewRequest,
@@ -111,6 +112,21 @@ def _regression(
     )
 
 
+def _rollback(
+    review: ImprovementReviewReceipt,
+    implementation: ImprovementImplementationEvidence,
+    **overrides: object,
+) -> ImprovementRollbackEvidence:
+    values: dict[str, object] = {
+        "rollback_plan_ref": review.rollback_plan_ref,
+        "change_receipt_ref": implementation.change_receipt_ref,
+        "implemented_revision_ref": implementation.implemented_revision_ref,
+        "evidence_ref": "rollback-evidence-ref:q29:verified",
+    }
+    values.update(overrides)
+    return ImprovementRollbackEvidence(**values)
+
+
 def _unsafe_ref(*fragments: str) -> str:
     return "".join(fragments)
 
@@ -189,8 +205,24 @@ def test_tcb_proposal_requires_dedicated_adr_and_still_has_no_authority() -> Non
         _proposal_request(target_kind=ImprovementTargetKind.tcb_change)
     )
     assert proposal.dedicated_adr_required is True
+    assert proposal.state == ImprovementProposalState.blocked_missing_adr
+    assert proposal.adr_evidence_ref is None
     assert proposal.patch_created is False
     assert proposal.approval_granted is False
+
+
+def test_tcb_acceptance_binds_dedicated_adr_evidence() -> None:
+    request = _proposal_request(
+        target_kind=ImprovementTargetKind.tcb_change,
+        adr_evidence_ref="adr-evidence-ref:q29:accepted",
+    )
+    receipt = ImprovementSession().review(_review_request(request))
+    assert (
+        receipt.outcome == ImprovementReviewOutcome.accepted_for_separate_change_review
+    )
+    assert receipt.target_kind == ImprovementTargetKind.tcb_change
+    assert receipt.dedicated_adr_required is True
+    assert receipt.adr_evidence_ref == "adr-evidence-ref:q29:accepted"
 
 
 def test_acceptance_only_opens_a_separate_change_review() -> None:
@@ -234,6 +266,32 @@ def test_reviewer_and_independent_reviewer_must_be_distinct() -> None:
             request,
             independent_reviewer_ref="reviewer-ref:q29:human",
         )
+
+
+@pytest.mark.parametrize(
+    "decision",
+    [ImprovementDecision.reject, ImprovementDecision.supersede],
+)
+def test_reject_and_supersede_do_not_require_independent_review(
+    decision: ImprovementDecision,
+) -> None:
+    request = _proposal_request()
+    overrides: dict[str, object] = {
+        "decision": decision,
+        "independent_reviewer_ref": None,
+        "independent_review_evidence_ref": None,
+        "independent_review_verified": False,
+    }
+    if decision == ImprovementDecision.supersede:
+        overrides["superseding_proposal_ref"] = (
+            "improvement-proposal-ref:q29:replacement"
+        )
+    receipt = ImprovementSession().review(_review_request(request, **overrides))
+    assert receipt.outcome in {
+        ImprovementReviewOutcome.rejected,
+        ImprovementReviewOutcome.superseded,
+    }
+    assert receipt.independent_reviewer_ref is None
 
 
 def test_review_idempotency_is_stable_and_conflicts_on_changed_payload() -> None:
@@ -289,16 +347,17 @@ def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:
     request = _proposal_request()
     session = ImprovementSession()
     review = session.review(_review_request(request))
+    implementation = _implementation(
+        review,
+        change_receipt_ref="change-receipt-ref:q29:regressed",
+        implemented_revision_ref="revision-ref:q29:implemented:3",
+    )
     receipt = session.record_outcome(
         ImprovementOutcomeRequest(
             proposal_ref=review.proposal_ref,
             proposal_fingerprint_ref=review.proposal_fingerprint_ref,
             accepted_review_receipt_ref=review.receipt_ref,
-            implementation=_implementation(
-                review,
-                change_receipt_ref="change-receipt-ref:q29:regressed",
-                implemented_revision_ref="revision-ref:q29:implemented:3",
-            ),
+            implementation=implementation,
             independent_reviewer_ref=review.independent_reviewer_ref,
             independent_review_evidence_ref=review.independent_review_evidence_ref,
             regression_results=(
@@ -308,13 +367,13 @@ def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:
                 ),
             ),
             observed_outcome=ObservedImprovementOutcome.regressed,
-            rollback_evidence_ref="rollback-evidence-ref:q29:verified",
-            reverted=True,
+            rollback=_rollback(review, implementation),
             idempotency_ref="idempotency-ref:q29:regressed-outcome",
         )
     )
     assert receipt.eligible_as_future_evidence is False
-    assert receipt.reverted is True
+    assert receipt.rollback is not None
+    assert receipt.rollback.reverted is True
     assert receipt.automatic_learning_performed is False
 
 
@@ -374,6 +433,77 @@ def test_regression_requires_revert_and_rollback_evidence() -> None:
             ),
             observed_outcome=ObservedImprovementOutcome.regressed,
             idempotency_ref="idempotency-ref:q29:regressed",
+        )
+
+
+def test_rollback_must_bind_plan_change_and_revision() -> None:
+    request = _proposal_request()
+    session = ImprovementSession()
+    review = session.review(_review_request(request))
+    implementation = _implementation(review)
+    with pytest.raises(
+        ImprovementConflict, match="IMPROVEMENT_ROLLBACK_BINDING_CONFLICT"
+    ):
+        session.record_outcome(
+            ImprovementOutcomeRequest(
+                proposal_ref=review.proposal_ref,
+                proposal_fingerprint_ref=review.proposal_fingerprint_ref,
+                accepted_review_receipt_ref=review.receipt_ref,
+                implementation=implementation,
+                independent_reviewer_ref=review.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    review.independent_review_evidence_ref
+                ),
+                regression_results=(
+                    _regression(
+                        evidence_ref="regression-evidence-ref:q29:failed",
+                        status=ImprovementRegressionStatus.failed,
+                    ),
+                ),
+                observed_outcome=ObservedImprovementOutcome.regressed,
+                rollback=_rollback(
+                    review,
+                    implementation,
+                    rollback_plan_ref="rollback-plan-ref:q29:unrelated",
+                ),
+                idempotency_ref="idempotency-ref:q29:wrong-rollback",
+            )
+        )
+
+
+def test_superseded_proposal_cannot_record_outcome() -> None:
+    request = _proposal_request()
+    session = ImprovementSession()
+    review = session.review(_review_request(request))
+    session.review(
+        _review_request(
+            request,
+            decision=ImprovementDecision.supersede,
+            superseding_proposal_ref="improvement-proposal-ref:q29:replacement",
+            idempotency_ref="idempotency-ref:q29:supersede",
+            independent_reviewer_ref=None,
+            independent_review_evidence_ref=None,
+            independent_review_verified=False,
+        )
+    )
+    with pytest.raises(
+        ImprovementConflict,
+        match="IMPROVEMENT_OUTCOME_PROPOSAL_TERMINAL_STATE_CONFLICT",
+    ):
+        session.record_outcome(
+            ImprovementOutcomeRequest(
+                proposal_ref=review.proposal_ref,
+                proposal_fingerprint_ref=review.proposal_fingerprint_ref,
+                accepted_review_receipt_ref=review.receipt_ref,
+                implementation=_implementation(review),
+                independent_reviewer_ref=review.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    review.independent_review_evidence_ref
+                ),
+                regression_results=(_regression(),),
+                observed_outcome=ObservedImprovementOutcome.improved,
+                idempotency_ref="idempotency-ref:q29:superseded-outcome",
+            )
         )
 
 

@@ -32,6 +32,10 @@ REQUIRED_FILES = (
     "scripts/verify_q29_governed_improvement.py",
     "tests/test_q29_governed_improvement.py",
     "docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md",
+    "docs/prompts/governed_self_improvement_intake.md",
+    "docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md",
+    "docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json",
+    "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
 )
 AUTHORITY_SURFACE_FILES = {
@@ -64,12 +68,26 @@ DENIED_AUTHORITY_FRAGMENTS = (
 DENIED_CLI_FRAGMENTS = ("--input-json", "read_text(")
 REQUIRED_MARKERS = {
     "docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md": (
+        "Queue-of-Record V2 item Q29",
         "source-specific rights",
         "process-local",
         "no automatic learning occurs",
     ),
+    "docs/prompts/governed_self_improvement_intake.md": (
+        "superseded historical intake record",
+        "Queue-of-Record V2 item Q29 supersede",
+    ),
+    "docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md": (
+        "Governed Self-Improvement Recovery Contract",
+        "Source-specific rights and evidence are required",
+    ),
+    "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json": (
+        '"item_id": "Q29"',
+        '"source_refs": ["canonical-task-ref:governed-self-improvement"]',
+    ),
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md": (
-        "Q29 accepts a bounded governed self-improvement",
+        "Queue-of-Record V2 Q29",
+        "bounded governed self-improvement proposal and outcome contract",
     ),
 }
 

@@ -76,6 +76,7 @@ class ImprovementProposalState(str, Enum):
     ready_for_human_review = "ready_for_human_review"
     blocked_rights = "blocked_rights"
     blocked_missing_evidence = "blocked_missing_evidence"
+    blocked_missing_adr = "blocked_missing_adr"
     blocked_safe_disabled = "blocked_safe_disabled"
 
 
@@ -148,6 +149,26 @@ class ImprovementRegressionEvidence(_ImprovementModel):
     def validate_regression(self) -> "ImprovementRegressionEvidence":
         _validate_ref(self.expected_regression_ref, "expected_regression_ref")
         _validate_ref(self.evidence_ref, "regression_evidence_ref")
+        return self
+
+
+class ImprovementRollbackEvidence(_ImprovementModel):
+    rollback_plan_ref: str
+    change_receipt_ref: str
+    implemented_revision_ref: str
+    evidence_ref: str
+    reverted: Literal[True] = True
+    verified: Literal[True] = True
+
+    @model_validator(mode="after")
+    def validate_rollback(self) -> "ImprovementRollbackEvidence":
+        for field_name in (
+            "rollback_plan_ref",
+            "change_receipt_ref",
+            "implemented_revision_ref",
+            "evidence_ref",
+        ):
+            _validate_ref(getattr(self, field_name), field_name)
         return self
 
 
@@ -246,6 +267,7 @@ class ImprovementProposalRequest(_ImprovementModel):
     expected_regression_refs: tuple[str, ...] = Field(..., min_length=1, max_length=24)
     exception_refs: tuple[str, ...] = Field(default=(), max_length=16)
     rollback_plan_ref: str
+    adr_evidence_ref: str | None = None
     safe_disabled: bool = False
     model_generated: Literal[False] = False
     raw_content_included: Literal[False] = False
@@ -265,6 +287,13 @@ class ImprovementProposalRequest(_ImprovementModel):
             "exception_refs",
         ):
             _validate_refs(getattr(self, field_name), field_name)
+        if self.adr_evidence_ref is not None:
+            _validate_ref(self.adr_evidence_ref, "adr_evidence_ref")
+        if (
+            self.target_kind != ImprovementTargetKind.tcb_change
+            and self.adr_evidence_ref is not None
+        ):
+            raise ValueError("IMPROVEMENT_ADR_EVIDENCE_ONLY_ALLOWED_FOR_TCB")
         source_refs = [source.source_receipt_ref for source in self.source_evidence]
         if len(source_refs) != len(set(source_refs)):
             raise ValueError("IMPROVEMENT_DUPLICATE_SOURCE_RECEIPT_REF")
@@ -294,6 +323,7 @@ class ImprovementProposal(_ImprovementModel):
     review_packet_ref: str
     expected_change_review_scope_ref: str
     dedicated_adr_required: bool
+    adr_evidence_ref: str | None
     next_safe_action: str
     blocked_authority_refs: tuple[str, ...]
     target_mutated: Literal[False] = False
@@ -311,8 +341,8 @@ class ImprovementReviewRequest(_ImprovementModel):
     proposal_fingerprint_ref: str
     decision: ImprovementDecision
     reviewer_ref: str
-    independent_reviewer_ref: str
-    independent_review_evidence_ref: str
+    independent_reviewer_ref: str | None = None
+    independent_review_evidence_ref: str | None = None
     independent_review_verified: bool = False
     idempotency_ref: str
     superseding_proposal_ref: str | None = None
@@ -323,14 +353,28 @@ class ImprovementReviewRequest(_ImprovementModel):
             "proposal_ref",
             "proposal_fingerprint_ref",
             "reviewer_ref",
-            "independent_reviewer_ref",
-            "independent_review_evidence_ref",
             "idempotency_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
+        for field_name in (
+            "independent_reviewer_ref",
+            "independent_review_evidence_ref",
+        ):
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_ref(value, field_name)
+        if (self.independent_reviewer_ref is None) != (
+            self.independent_review_evidence_ref is None
+        ):
+            raise ValueError("IMPROVEMENT_INDEPENDENT_REVIEW_BINDINGS_INCOMPLETE")
+        if self.independent_review_verified and self.independent_reviewer_ref is None:
+            raise ValueError("IMPROVEMENT_VERIFIED_INDEPENDENT_REVIEW_BINDING_REQUIRED")
         if self.superseding_proposal_ref is not None:
             _validate_ref(self.superseding_proposal_ref, "superseding_proposal_ref")
-        if self.reviewer_ref == self.independent_reviewer_ref:
+        if (
+            self.independent_reviewer_ref is not None
+            and self.reviewer_ref == self.independent_reviewer_ref
+        ):
             raise ValueError("IMPROVEMENT_DISTINCT_INDEPENDENT_REVIEWER_REQUIRED")
         if self.decision == ImprovementDecision.supersede:
             if (
@@ -352,12 +396,13 @@ class ImprovementReviewReceipt(_ImprovementModel):
     review_fingerprint_ref: str
     proposal_ref: str
     proposal_fingerprint_ref: str
+    target_kind: ImprovementTargetKind
     target_ref: str
     target_revision_ref: str
     expected_regression_refs: tuple[str, ...]
     reviewer_ref: str
-    independent_reviewer_ref: str
-    independent_review_evidence_ref: str
+    independent_reviewer_ref: str | None
+    independent_review_evidence_ref: str | None
     independent_review_verified: bool
     idempotency_ref: str
     decision: ImprovementDecision
@@ -365,6 +410,8 @@ class ImprovementReviewReceipt(_ImprovementModel):
     superseding_proposal_ref: str | None = None
     expected_change_review_scope_ref: str | None = None
     rollback_plan_ref: str
+    dedicated_adr_required: bool
+    adr_evidence_ref: str | None
     next_safe_action: str
     replayed: bool = False
     target_mutated: Literal[False] = False
@@ -387,8 +434,7 @@ class ImprovementOutcomeRequest(_ImprovementModel):
         ..., min_length=1, max_length=32
     )
     observed_outcome: ObservedImprovementOutcome
-    rollback_evidence_ref: str | None = None
-    reverted: bool = False
+    rollback: ImprovementRollbackEvidence | None = None
     idempotency_ref: str
 
     @model_validator(mode="after")
@@ -408,18 +454,16 @@ class ImprovementOutcomeRequest(_ImprovementModel):
         evidence_refs = tuple(result.evidence_ref for result in self.regression_results)
         _validate_refs(expected_refs, "expected_regression_refs")
         _validate_refs(evidence_refs, "regression_evidence_refs")
-        if self.rollback_evidence_ref is not None:
-            _validate_ref(self.rollback_evidence_ref, "rollback_evidence_ref")
         if self.observed_outcome == ObservedImprovementOutcome.regressed:
-            if not self.reverted or self.rollback_evidence_ref is None:
+            if self.rollback is None:
                 raise ValueError("IMPROVEMENT_REGRESSION_ROLLBACK_EVIDENCE_REQUIRED")
             if not any(
                 result.status == ImprovementRegressionStatus.failed
                 for result in self.regression_results
             ):
                 raise ValueError("IMPROVEMENT_REGRESSION_FAILED_RESULT_REQUIRED")
-        elif self.reverted:
-            raise ValueError("IMPROVEMENT_REVERTED_ONLY_ALLOWED_FOR_REGRESSION")
+        elif self.rollback is not None:
+            raise ValueError("IMPROVEMENT_ROLLBACK_ONLY_ALLOWED_FOR_REGRESSION")
         elif self.observed_outcome in {
             ObservedImprovementOutcome.improved,
             ObservedImprovementOutcome.neutral,
@@ -447,8 +491,7 @@ class ImprovementOutcomeReceipt(_ImprovementModel):
     expected_regression_refs: tuple[str, ...]
     regression_results: tuple[ImprovementRegressionEvidence, ...]
     observed_outcome: ObservedImprovementOutcome
-    rollback_evidence_ref: str | None
-    reverted: bool
+    rollback: ImprovementRollbackEvidence | None
     idempotency_ref: str
     eligible_as_future_evidence: bool
     next_safe_action: str
@@ -480,6 +523,11 @@ def build_improvement_proposal(
         state = ImprovementProposalState.blocked_rights
     elif not evidence_ready:
         state = ImprovementProposalState.blocked_missing_evidence
+    elif (
+        request.target_kind == ImprovementTargetKind.tcb_change
+        and request.adr_evidence_ref is None
+    ):
+        state = ImprovementProposalState.blocked_missing_adr
     else:
         state = ImprovementProposalState.ready_for_human_review
     dedicated_adr_required = request.target_kind == ImprovementTargetKind.tcb_change
@@ -491,6 +539,8 @@ def build_improvement_proposal(
         next_safe_action = "Resolve source-specific rights before reuse review."
     elif state == ImprovementProposalState.blocked_missing_evidence:
         next_safe_action = "Attach bounded regression evidence before review."
+    elif state == ImprovementProposalState.blocked_missing_adr:
+        next_safe_action = "Attach accepted dedicated ADR evidence before TCB review."
     else:
         next_safe_action = "Keep the proposal inert while safe-disable is active."
     return ImprovementProposal(
@@ -528,6 +578,7 @@ def build_improvement_proposal(
             "approval-scope-ref:improvement-change-review", proposal_fingerprint_ref
         ),
         dedicated_adr_required=dedicated_adr_required,
+        adr_evidence_ref=request.adr_evidence_ref,
         next_safe_action=next_safe_action,
         blocked_authority_refs=(
             "blocked-authority-ref:self-modifying-code",
@@ -567,11 +618,29 @@ class ImprovementSession:
                 return replay.model_copy(update={"replayed": True})
             if len(self._reviews) + len(self._outcomes) >= self._max_receipts:
                 raise ImprovementError("IMPROVEMENT_SESSION_CAPACITY_REACHED")
+            terminal_reviews = tuple(
+                receipt
+                for receipt in self._reviews.values()
+                if receipt.proposal_ref == proposal.proposal_ref
+                and receipt.outcome
+                in {
+                    ImprovementReviewOutcome.rejected,
+                    ImprovementReviewOutcome.superseded,
+                }
+            )
+            if terminal_reviews:
+                raise ImprovementConflict(
+                    "IMPROVEMENT_PROPOSAL_TERMINAL_STATE_CONFLICT"
+                )
             if proposal.state != ImprovementProposalState.ready_for_human_review:
                 outcome = ImprovementReviewOutcome.blocked
                 scope_ref = None
                 next_action = proposal.next_safe_action
-            elif not request.independent_review_verified:
+            elif request.decision == ImprovementDecision.accept and (
+                not request.independent_review_verified
+                or request.independent_reviewer_ref is None
+                or request.independent_review_evidence_ref is None
+            ):
                 outcome = ImprovementReviewOutcome.blocked
                 scope_ref = None
                 next_action = "Obtain verified evidence from a distinct independent human reviewer."
@@ -592,6 +661,7 @@ class ImprovementSession:
                 review_fingerprint_ref=fingerprint,
                 proposal_ref=proposal.proposal_ref,
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
+                target_kind=proposal.target_kind,
                 target_ref=proposal.target_ref,
                 target_revision_ref=proposal.target_revision_ref,
                 expected_regression_refs=proposal.expected_regression_refs,
@@ -607,6 +677,8 @@ class ImprovementSession:
                 superseding_proposal_ref=request.superseding_proposal_ref,
                 expected_change_review_scope_ref=scope_ref,
                 rollback_plan_ref=proposal.rollback_plan_ref,
+                dedicated_adr_required=proposal.dedicated_adr_required,
+                adr_evidence_ref=proposal.adr_evidence_ref,
                 next_safe_action=next_action,
             )
             self._reviews[request.idempotency_ref] = receipt
@@ -652,6 +724,23 @@ class ImprovementSession:
                 != request.implementation.base_revision_ref
             ):
                 raise ImprovementConflict("IMPROVEMENT_OUTCOME_REVIEW_BINDING_CONFLICT")
+            superseding_review = next(
+                (
+                    receipt
+                    for receipt in self._reviews.values()
+                    if receipt.proposal_ref == request.proposal_ref
+                    and receipt.outcome
+                    in {
+                        ImprovementReviewOutcome.rejected,
+                        ImprovementReviewOutcome.superseded,
+                    }
+                ),
+                None,
+            )
+            if superseding_review is not None:
+                raise ImprovementConflict(
+                    "IMPROVEMENT_OUTCOME_PROPOSAL_TERMINAL_STATE_CONFLICT"
+                )
             observed_expectations = tuple(
                 result.expected_regression_ref for result in request.regression_results
             )
@@ -659,6 +748,14 @@ class ImprovementSession:
                 raise ImprovementConflict(
                     "IMPROVEMENT_REGRESSION_EXPECTATION_BINDING_CONFLICT"
                 )
+            if request.rollback is not None and (
+                request.rollback.rollback_plan_ref != accepted.rollback_plan_ref
+                or request.rollback.change_receipt_ref
+                != request.implementation.change_receipt_ref
+                or request.rollback.implemented_revision_ref
+                != request.implementation.implemented_revision_ref
+            ):
+                raise ImprovementConflict("IMPROVEMENT_ROLLBACK_BINDING_CONFLICT")
             eligible = request.observed_outcome in {
                 ObservedImprovementOutcome.improved,
                 ObservedImprovementOutcome.neutral,
@@ -677,8 +774,7 @@ class ImprovementSession:
                 expected_regression_refs=accepted.expected_regression_refs,
                 regression_results=request.regression_results,
                 observed_outcome=request.observed_outcome,
-                rollback_evidence_ref=request.rollback_evidence_ref,
-                reverted=request.reverted,
+                rollback=request.rollback,
                 idempotency_ref=request.idempotency_ref,
                 eligible_as_future_evidence=eligible,
                 next_safe_action=(
@@ -729,6 +825,7 @@ __all__ = [
     "ImprovementProposalState",
     "ImprovementRegressionEvidence",
     "ImprovementRegressionStatus",
+    "ImprovementRollbackEvidence",
     "ImprovementReviewOutcome",
     "ImprovementReviewReceipt",
     "ImprovementReviewRequest",

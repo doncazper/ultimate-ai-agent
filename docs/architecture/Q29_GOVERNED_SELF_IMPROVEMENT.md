@@ -2,6 +2,14 @@
 
 Status: implemented proposal-only local contract
 
+Authority source: Queue-of-Record V2 item Q29, backed by the materialized and
+hash-bound recovery contract in
+`docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md` and
+`docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json`. The immutable
+`docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the earlier redacted intake
+remain superseded historical evidence; their disabled legacy admission path is
+not current queue authority.
+
 Q29 connects accepted, content-free evaluation gaps, Q28 correction decisions,
 operator feedback, and verified outcome receipts into deterministic improvement
 proposals. It does not create or apply a patch, mutate a target, train a model,
@@ -16,20 +24,24 @@ evidence refs. Unknown or denied rights fail closed as `blocked_rights`.
 
 A proposal binds its target revision, bounded delta refs, regression refs,
 exceptions, rollback plan, review packet, and a separate future change-review
-scope. TCB proposals remain inert and explicitly require a dedicated ADR.
+scope. TCB proposals remain blocked until accepted dedicated ADR evidence is
+bound; the review receipt preserves the TCB target kind, ADR requirement, and
+ADR evidence ref.
 
 Human review can accept a proposal only when a distinct independent reviewer
 identity, independent-review evidence ref, and verified-review posture are all
-bound for a separately governed change review. Synthetic CLI reviews remain
-unverified and blocked. Acceptance is not LocalApprovalAuthority approval and
-does not create a ChangeSet or patch. Rejection and supersession remain
-immutable review outcomes.
+bound for a separately governed change review. Rejection and supersession do
+not require independent-review evidence, and either terminal outcome prevents a
+later outcome receipt for the original proposal. Synthetic CLI accept reviews
+remain unverified and blocked. Acceptance is not LocalApprovalAuthority
+approval and does not create a ChangeSet or patch.
 
 Outcome receipts bind an accepted review receipt, verified implementation
 evidence, the exact accepted change scope, target and base revision, implemented
 revision, independent review, and one typed result for every planned regression
 expectation. A regressed outcome requires both a failed regression result,
-revert confirmation, and rollback evidence. Successful or neutral outcomes
+and typed verified rollback evidence bound to the accepted rollback plan,
+implemented change receipt, and implemented revision. Successful or neutral outcomes
 become eligible only when every planned regression result passed, and then only
 as evidence for a future proposal after fresh rights review; no automatic learning occurs.
 
