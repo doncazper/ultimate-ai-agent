@@ -1,0 +1,319 @@
+{
+  "schema_version": "uaa.product_vision_registry.v2",
+  "artifact_status": "canonical_vision_preservation_layer",
+  "purpose": "Keep the bounded Queue V2 implementation slice distinct from the larger product vision and resolve symbolic queue sources to durable repository documents.",
+  "assistant_os_invariants": [
+    "UAA is a local-first assistant operating layer joining intent, information, plans, approvals, actions, memory, and evidence.",
+    "The Python Agent Core owns product truth and authority; Control Center and other shells do not mint authority.",
+    "Govern access, memory, tools, state, and side effects without degrading ordinary informational assistance.",
+    "A completed queue slice does not mean the whole product vision is complete.",
+    "Planning and recovered historical intent grant no runtime, provider, connector, browser, shell, publication, or production authority."
+  ],
+  "coverage_policy": {
+    "scope": "first_class_product_and_vertical_queue_items",
+    "queue_item_marker": "queue_item_dispositions",
+    "required_marker_value": "required",
+    "expansion_rule": "queue_item_dispositions must classify every Queue V2 item. Add a registry entry whenever that disposition is required.",
+    "completion_rule": "whole_vision.status may be complete only when whole_vision.completion_evidence_refs is non-empty and independently verified."
+  },
+  "queue_item_dispositions": {
+    "Q00": "not_required",
+    "Q01": "not_required",
+    "Q02": "not_required",
+    "Q03": "not_required",
+    "Q04": "not_required",
+    "Q05": "not_required",
+    "Q06": "not_required",
+    "Q07": "not_required",
+    "Q08": "not_required",
+    "Q09": "not_required",
+    "Q10": "not_required",
+    "Q11": "not_required",
+    "Q12": "not_required",
+    "Q13": "not_required",
+    "Q14": "not_required",
+    "Q15": "required",
+    "Q16": "not_required",
+    "Q17": "not_required",
+    "Q18": "not_required",
+    "Q19": "not_required",
+    "Q20": "not_required",
+    "Q21": "not_required",
+    "Q22": "not_required",
+    "Q23": "not_required",
+    "Q24": "required",
+    "Q25": "required",
+    "Q26": "required",
+    "Q27": "required",
+    "Q28": "required",
+    "Q29": "required",
+    "Q30": "required",
+    "Q31": "required"
+  },
+  "completion_evidence_catalog": {},
+  "items": [
+    {
+      "item_id": "Q15",
+      "title": "First-class CRM",
+      "queue_source_refs": ["canonical-task-ref:ECO-005", "canonical-task-ref:CRM-FC-000"],
+      "queue_source_bindings": {
+        "canonical-task-ref:ECO-005": ["docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md"],
+        "canonical-task-ref:CRM-FC-000": ["docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "strong",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "ECO-005 private local CRM foundation",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Establish canonical private CRM identity, relationships, opportunities, activities, projections, and governed handoffs on shared local data."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A relationship-centered operator system spanning personal and business contacts, pipeline, communications, follow-up, Today, Calendar, Work Board, Evidence, and later exact read-only or approval-bound adapters.",
+        "future_stages": ["relationship intelligence", "communications and calendar projections", "operator-reviewed next-best actions", "exact separately graduated external adapters"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/implementation/UAA_FIRST_CLASS_CRM_IMPLEMENTATION_PLAN.md",
+        "docs/architecture/ECO_005_FIRST_CLASS_PRIVATE_CRM.md",
+        "docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md"
+      ],
+      "historical_source_refs": [],
+      "guardrail_refs": ["guardrail-ref:no-second-contact-truth", "guardrail-ref:no-connector-write-authority", "guardrail-ref:no-sensitive-outreach-inference"],
+      "recovery_note": "No recovery required; the detailed implementation plan preserves the whole vision and staged authority boundaries."
+    },
+    {
+      "item_id": "Q24",
+      "title": "News and Signals",
+      "queue_source_refs": ["canonical-task-ref:queue-07-news-signals"],
+      "queue_source_bindings": {
+        "canonical-task-ref:queue-07-news-signals": ["docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md"]
+      },
+      "vision_strength": "strong",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "deterministic local signal records and Morning Briefing candidacy",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Provide a readable, provenance-preserving local review lane without live source authority."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A personalized situational-intelligence desk that curates authorized RSS, official updates, community sources, and later exact adapters into News, Morning Briefing, and optional reviewed action proposals.",
+        "future_stages": ["source readiness and preferences", "exact read-only source adapters", "cross-source clustering", "Morning Briefing projection", "manual promotion to action proposals"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md",
+        "docs/prompts/remaining_queue_recovery/07_news_and_signals.md",
+        "docs/architecture/ECO_009_EXACT_READ_ONLY_CONNECTOR_PLATFORM.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:019f5abd-bfad-7cb2-83bc-ba7507a04696"],
+      "guardrail_refs": ["guardrail-ref:no-unrestricted-fetch", "guardrail-ref:source-specific-authority", "guardrail-ref:fetched-content-is-untrusted"],
+      "recovery_note": "Archive review confirmed the existing module plan retains the source-to-News-to-Briefing-to-proposal loop."
+    },
+    {
+      "item_id": "Q25",
+      "title": "Social Media Intelligence",
+      "queue_source_refs": ["canonical-task-ref:social-media-intelligence"],
+      "queue_source_bindings": {
+        "canonical-task-ref:social-media-intelligence": ["docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md"]
+      },
+      "vision_strength": "strong",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "read-only social intelligence product contract",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Define an operator-readable Observe, Plan, Engage, Create, Learn loop without publishing authority."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A creator-focused hub for engagement quality, audience growth, cadence, relationships, response opportunities, content learning, and evidence-backed recommendations across configured channels.",
+        "future_stages": ["read-only account snapshots", "content and relationship intelligence", "reviewed response briefings", "creator-outcome learning", "handoff to separately governed publishing"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md",
+        "docs/design/control_center_north_star/renders/social-media-v1/README.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:019f5bfc-d29c-7ee0-a08e-2cee36e4ff9e"],
+      "guardrail_refs": ["guardrail-ref:read-only-intelligence", "guardrail-ref:no-send-or-publish", "guardrail-ref:explainable-recommendations"],
+      "recovery_note": "No thin-plan repair required; archive review adds confidence that the existing product contract preserves the intended creator loop."
+    },
+    {
+      "item_id": "Q26",
+      "title": "Finance and Compliance local product",
+      "queue_source_refs": ["canonical-task-ref:FIN-000"],
+      "queue_source_bindings": {
+        "canonical-task-ref:FIN-000": ["docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md", "docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "strong",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "local review and accountant handoff foundation",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Organize local financial evidence, exceptions, questions, review decisions, and reversible ChangeSets without financial authority."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A local-first finance and compliance workspace that explains evidence, exceptions, books, obligations, and decisions while routing unresolved treatment to a qualified reviewer.",
+        "future_stages": ["local books and evidence", "exception workbench", "accountant collaboration packets", "rights-scoped read adapters", "separately approved low-risk actions"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md",
+        "docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md",
+        "docs/security/UAA_FINANCE_COMPLIANCE_THREAT_MODEL.md"
+      ],
+      "historical_source_refs": [],
+      "guardrail_refs": ["guardrail-ref:no-forced-tax-certainty", "guardrail-ref:no-financial-authority", "guardrail-ref:qualified-reviewer-escalation"],
+      "recovery_note": "No recovery required; the product, implementation, and threat-model set preserves detailed intent."
+    },
+    {
+      "item_id": "Q27",
+      "title": "Proposal Intelligence",
+      "queue_source_refs": ["canonical-task-ref:ECO-010"],
+      "queue_source_bindings": {
+        "canonical-task-ref:ECO-010": ["docs/architecture/ECO_010_PROPOSAL_INTELLIGENCE.md", "docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "adequate",
+      "source_confidence": "medium",
+      "current_slice": {
+        "name": "deterministic cited workflow candidates",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Create cited, reviewable event, task, person, commitment, CRM-link, and meeting candidates with deterministic extraction before any model-assisted candidate generation."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A private proposal-intelligence layer that turns source-backed communications and meetings into explainable candidate records, preserves uncertainty and citations, and promotes only reviewed candidates into canonical workflows.",
+        "future_stages": ["deterministic candidate extraction", "duplicate and conflict review", "meeting preparation and follow-up candidates", "separately accepted model-assisted candidate generation", "reviewed outcome learning"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/architecture/ECO_010_PROPOSAL_INTELLIGENCE.md",
+        "docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md",
+        "docs/architecture/ECO_008_ENTITY_LINK_AND_CHANGESET_ENGINE.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:01a00c61-88d6-7833-8507-5834aa2a4c0c"],
+      "guardrail_refs": ["guardrail-ref:proposal-is-not-authority", "guardrail-ref:citations-and-uncertainty-required", "guardrail-ref:no-direct-canonical-commit"],
+      "recovery_note": "The durable ECO-010 contract remains authoritative: proposal intelligence means cited workflow and meeting candidates, not capability-graph product discovery."
+    },
+    {
+      "item_id": "Q28",
+      "title": "Autocorrect controls",
+      "queue_source_refs": ["canonical-task-ref:queue-08-autocorrect-controls"],
+      "queue_source_bindings": {
+        "canonical-task-ref:queue-08-autocorrect-controls": ["docs/implementation/UAA_AUTOCORRECT_CONTROLS_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "reconstructed",
+      "source_confidence": "medium",
+      "current_slice": {
+        "name": "proposal-only correction controls",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Produce exact, reviewable, revision-bound ChangeSet corrections with stale blocking, rejection capture, receipts, and rollback."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A cross-UAA correction layer that catches likely mistakes, explains why, learns from reviewed accept or reject decisions, and improves future proposals without silently rewriting canonical truth.",
+        "future_stages": ["detection and evidence", "exact proposal diff", "review decision", "separate approved apply lane", "rollback", "reviewed correction-pattern learning"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/implementation/UAA_AUTOCORRECT_CONTROLS_IMPLEMENTATION_PLAN.md",
+        "docs/prompts/remaining_queue_recovery/08_autocorrect_controls.md",
+        "docs/architecture/ECO_008_ENTITY_LINK_AND_CHANGESET_ENGINE.md"
+      ],
+      "historical_source_refs": [],
+      "guardrail_refs": ["guardrail-ref:no-silent-mutation", "guardrail-ref:stale-revision-fails-closed", "guardrail-ref:rejection-is-not-automatic-training"],
+      "recovery_note": "No exact archived prompt was located. The plan is a conservative reconstruction from Queue V2, the recovery contract, ChangeSet semantics, and the assistant-utility invariant."
+    },
+    {
+      "item_id": "Q29",
+      "title": "Governed self-improvement",
+      "queue_source_refs": ["canonical-task-ref:governed-self-improvement"],
+      "queue_source_bindings": {
+        "canonical-task-ref:governed-self-improvement": ["docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md", "docs/implementation/UAA_GOVERNED_SELF_IMPROVEMENT_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "recovered",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "self-assessment and improvement proposal loop",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Turn redacted failures, friction, eval gaps, and feedback into evidence-backed proposals routed through Action Inbox."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "UAA autonomously recognizes how it should improve, proposes bugs, workflows, skills, integrations, docs, or configuration changes, and—only after exact human decisions—carries accepted changes through scoped implementation, tests, review, PR evidence, and outcome learning.",
+        "future_stages": ["observe", "classify remedy", "propose", "human decision", "scoped implementation", "tests and evaluation", "draft PR review", "outcome learning"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/architecture/Q29_GOVERNED_SELF_IMPROVEMENT.md",
+        "docs/implementation/UAA_GOVERNED_SELF_IMPROVEMENT_IMPLEMENTATION_PLAN.md",
+        "docs/prompts/remaining_queue_recovery/10_governed_self_improvement.md",
+        "docs/evals/CAPABILITY_EVALUATION_LAB_V1.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:019f69ae-704a-7823-8339-e3fe932ed5e0"],
+      "guardrail_refs": ["guardrail-ref:no-self-granted-authority", "guardrail-ref:no-auto-apply-merge-or-release", "guardrail-ref:trusted-computing-base-changes-blocked"],
+      "recovery_note": "The original repository prompt did not survive, but the archived design conversation preserved the end-to-end loop, phase boundaries, and authority model at high confidence."
+    },
+    {
+      "item_id": "Q30",
+      "title": "Cross-platform social publishing",
+      "queue_source_refs": ["canonical-task-ref:governed-cross-platform-social-publishing"],
+      "queue_source_bindings": {
+        "canonical-task-ref:governed-cross-platform-social-publishing": ["docs/implementation/UAA_SOCIAL_PUBLISHING_IMPLEMENTATION_PLAN.md"]
+      },
+      "vision_strength": "recovered",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "multi-platform proposal and dry-run",
+        "scope_status": "bounded_implementation_slice",
+        "outcome": "Create canonical drafts, platform variants, compatibility findings, exact approvals, and per-target dry-run receipts without connecting accounts or publishing."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "Create once, visibly adapt per platform, approve an exact bundle, publish through independently graduated adapters, preserve independent outcomes, retry only failed targets, reconcile uncertainty, and learn from returned engagement.",
+        "future_stages": ["canonical draft and assets", "platform variants and exact previews", "multi-target approval", "one exact adapter at a time", "partial-failure reconciliation", "engagement feedback into Social Intelligence"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/implementation/UAA_SOCIAL_PUBLISHING_IMPLEMENTATION_PLAN.md",
+        "docs/prompts/remaining_queue_recovery/09_cross_platform_social_publishing.md",
+        "docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:019f5bfc-d29c-7ee0-a08e-2cee36e4ff9e"],
+      "guardrail_refs": ["guardrail-ref:no-live-publishing-in-q30", "guardrail-ref:no-blind-identical-fanout", "guardrail-ref:never-retry-known-success", "guardrail-ref:unknown-outcomes-require-reconciliation"],
+      "recovery_note": "Archive review recovered the creator workflow, typed nouns, per-platform approval model, partial-failure semantics, and later adapter sequence."
+    },
+    {
+      "item_id": "Q31",
+      "title": "Final GoatCitadel comparison",
+      "queue_source_refs": ["canonical-task-ref:queue-09-final-goat-comparison"],
+      "queue_source_bindings": {
+        "canonical-task-ref:queue-09-final-goat-comparison": ["docs/evals/UAA_FINAL_GOATCITADEL_COMPARISON_PLAN.md"]
+      },
+      "vision_strength": "recovered",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "exact-revision skepticism-first comparison",
+        "scope_status": "bounded_evaluation_slice",
+        "outcome": "Score demonstrated system-level agent capability across exact revisions and route residual gaps without importing competitor code or inflating parity."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A repeatable closing benchmark that tells whether UAA's reasoning, planning, memory, learning, tools, authority, evidence, UX, parity, extensibility, and complete operator loop are stronger, weaker, or intentionally different from GoatCitadel.",
+        "future_stages": ["exact revision inventory", "16-component scorecard", "capability parity matrix", "skeptical evidence review", "separate UAA-native gap tasks", "final durable report"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/evals/UAA_FINAL_GOATCITADEL_COMPARISON_PLAN.md",
+        "docs/benchmarks/runtime_capability_foundation/GOAT_COMPARISON_20260712.md",
+        "docs/runtime/UAA_GOATCITADEL_PARITY_MATRIX.md",
+        "docs/prompts/remaining_queue_recovery/11_final_goatcitadel_comparison.md"
+      ],
+      "historical_source_refs": ["codex-thread-ref:019f4046-a55b-7491-8123-13bf706a0df2"],
+      "guardrail_refs": ["guardrail-ref:code-and-tests-outrank-roadmap", "guardrail-ref:no-raw-model-intelligence-score", "guardrail-ref:unknown-from-evidence", "guardrail-ref:no-parity-inflation"],
+      "recovery_note": "Archive review recovered the original 16-component taxonomy, scoring scale, evidence hierarchy, output structure, and anti-inflation rules."
+    }
+  ]
+}

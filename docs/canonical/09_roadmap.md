@@ -5,6 +5,13 @@ The active product/runtime execution plan is the Operator Runtime Excellence
 Program in `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, tracked by
 `docs/kanban/current_board.md`.
 
+Product-vision preservation is governed by
+`docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.md` and its machine-readable JSON.
+Queue V2 remains the ordered implementation authority; the registry prevents a
+bounded queue receipt from being mistaken for completion of a larger CRM,
+News, Social, Finance, Autocorrect, self-improvement, publishing, or comparison
+vision. Recovered plans remain planning evidence and grant no runtime authority.
+
 Ordered pre-Goat gate: every still-applicable item in the repo-owned
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` retains its immutable order.
 At the recorded boundary after governed self-improvement and before the final
