@@ -11,10 +11,14 @@ from ultimate_ai_agent.core.ecosystem.improvements import (
     ImprovementError,
     ImprovementEvidenceKind,
     ImprovementEvidenceSource,
+    ImprovementImplementationEvidence,
     ImprovementOutcomeRequest,
     ImprovementProposalRequest,
     ImprovementProposalState,
+    ImprovementRegressionEvidence,
+    ImprovementRegressionStatus,
     ImprovementReviewOutcome,
+    ImprovementReviewReceipt,
     ImprovementReviewRequest,
     ImprovementRightsPosture,
     ImprovementSession,
@@ -76,6 +80,35 @@ def _review_request(
     }
     values.update(overrides)
     return ImprovementReviewRequest(**values)
+
+
+def _implementation(
+    review: ImprovementReviewReceipt, **overrides: object
+) -> ImprovementImplementationEvidence:
+    assert review.expected_change_review_scope_ref is not None
+    values: dict[str, object] = {
+        "change_receipt_ref": "change-receipt-ref:q29:implemented",
+        "change_scope_ref": review.expected_change_review_scope_ref,
+        "target_ref": review.target_ref,
+        "base_revision_ref": review.target_revision_ref,
+        "implemented_revision_ref": "revision-ref:q29:implemented:2",
+        "verification_evidence_ref": "change-verification-ref:q29:implemented",
+    }
+    values.update(overrides)
+    return ImprovementImplementationEvidence(**values)
+
+
+def _regression(
+    *,
+    expected_ref: str = "regression-ref:q29:focused",
+    evidence_ref: str = "regression-evidence-ref:q29:passed",
+    status: ImprovementRegressionStatus = ImprovementRegressionStatus.passed,
+) -> ImprovementRegressionEvidence:
+    return ImprovementRegressionEvidence(
+        expected_regression_ref=expected_ref,
+        evidence_ref=evidence_ref,
+        status=status,
+    )
 
 
 def _unsafe_ref(*fragments: str) -> str:
@@ -235,11 +268,10 @@ def test_verified_outcome_is_bound_and_does_not_learn_automatically() -> None:
         proposal_ref=review.proposal_ref,
         proposal_fingerprint_ref=review.proposal_fingerprint_ref,
         accepted_review_receipt_ref=review.receipt_ref,
-        implemented_change_receipt_ref="change-receipt-ref:q29:implemented",
-        implemented_revision_ref="revision-ref:q29:implemented:2",
+        implementation=_implementation(review),
         independent_reviewer_ref=review.independent_reviewer_ref,
         independent_review_evidence_ref=review.independent_review_evidence_ref,
-        regression_evidence_refs=("regression-evidence-ref:q29:passed",),
+        regression_results=(_regression(),),
         observed_outcome=ObservedImprovementOutcome.improved,
         idempotency_ref="idempotency-ref:q29:outcome",
     )
@@ -262,11 +294,19 @@ def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:
             proposal_ref=review.proposal_ref,
             proposal_fingerprint_ref=review.proposal_fingerprint_ref,
             accepted_review_receipt_ref=review.receipt_ref,
-            implemented_change_receipt_ref="change-receipt-ref:q29:regressed",
-            implemented_revision_ref="revision-ref:q29:implemented:3",
+            implementation=_implementation(
+                review,
+                change_receipt_ref="change-receipt-ref:q29:regressed",
+                implemented_revision_ref="revision-ref:q29:implemented:3",
+            ),
             independent_reviewer_ref=review.independent_reviewer_ref,
             independent_review_evidence_ref=review.independent_review_evidence_ref,
-            regression_evidence_refs=("regression-evidence-ref:q29:failed",),
+            regression_results=(
+                _regression(
+                    evidence_ref="regression-evidence-ref:q29:failed",
+                    status=ImprovementRegressionStatus.failed,
+                ),
+            ),
             observed_outcome=ObservedImprovementOutcome.regressed,
             rollback_evidence_ref="rollback-evidence-ref:q29:verified",
             reverted=True,
@@ -281,6 +321,14 @@ def test_regressed_outcome_is_not_eligible_for_future_evidence() -> None:
 def test_outcome_requires_an_accepted_review_binding() -> None:
     request = _proposal_request()
     proposal = build_improvement_proposal(request)
+    implementation = ImprovementImplementationEvidence(
+        change_receipt_ref="change-receipt-ref:q29:missing",
+        change_scope_ref=proposal.expected_change_review_scope_ref,
+        target_ref=proposal.target_ref,
+        base_revision_ref=proposal.target_revision_ref,
+        implemented_revision_ref="revision-ref:q29:implemented:2",
+        verification_evidence_ref="change-verification-ref:q29:missing",
+    )
     with pytest.raises(
         ImprovementConflict, match="IMPROVEMENT_OUTCOME_REVIEW_BINDING_CONFLICT"
     ):
@@ -289,11 +337,10 @@ def test_outcome_requires_an_accepted_review_binding() -> None:
                 proposal_ref=proposal.proposal_ref,
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
                 accepted_review_receipt_ref="review-receipt-ref:q29:missing",
-                implemented_change_receipt_ref="change-receipt-ref:q29:missing",
-                implemented_revision_ref="revision-ref:q29:implemented:2",
+                implementation=implementation,
                 independent_reviewer_ref="reviewer-ref:q29:independent-human",
                 independent_review_evidence_ref=("review-evidence-ref:q29:independent"),
-                regression_evidence_refs=("regression-evidence-ref:q29:passed",),
+                regression_results=(_regression(),),
                 observed_outcome=ObservedImprovementOutcome.improved,
                 idempotency_ref="idempotency-ref:q29:missing-review",
             )
@@ -301,6 +348,14 @@ def test_outcome_requires_an_accepted_review_binding() -> None:
 
 
 def test_regression_requires_revert_and_rollback_evidence() -> None:
+    implementation = ImprovementImplementationEvidence(
+        change_receipt_ref="change-receipt-ref:q29:implemented",
+        change_scope_ref="approval-scope-ref:q29:change-review",
+        target_ref="evaluation-case-ref:q29:target",
+        base_revision_ref="revision-ref:q29:target:1",
+        implemented_revision_ref="revision-ref:q29:implemented:2",
+        verification_evidence_ref="change-verification-ref:q29:implemented",
+    )
     with pytest.raises(
         ValueError, match="IMPROVEMENT_REGRESSION_ROLLBACK_EVIDENCE_REQUIRED"
     ):
@@ -308,13 +363,73 @@ def test_regression_requires_revert_and_rollback_evidence() -> None:
             proposal_ref="improvement-proposal-ref:q29:sample",
             proposal_fingerprint_ref="improvement-fingerprint-ref:q29:sample",
             accepted_review_receipt_ref="review-receipt-ref:q29:accepted",
-            implemented_change_receipt_ref="change-receipt-ref:q29:implemented",
-            implemented_revision_ref="revision-ref:q29:implemented:2",
+            implementation=implementation,
             independent_reviewer_ref="reviewer-ref:q29:independent-human",
             independent_review_evidence_ref="review-evidence-ref:q29:independent",
-            regression_evidence_refs=("regression-evidence-ref:q29:failed",),
+            regression_results=(
+                _regression(
+                    evidence_ref="regression-evidence-ref:q29:failed",
+                    status=ImprovementRegressionStatus.failed,
+                ),
+            ),
             observed_outcome=ObservedImprovementOutcome.regressed,
             idempotency_ref="idempotency-ref:q29:regressed",
+        )
+
+
+def test_outcome_requires_exact_implementation_scope_binding() -> None:
+    request = _proposal_request()
+    session = ImprovementSession()
+    review = session.review(_review_request(request))
+    with pytest.raises(
+        ImprovementConflict, match="IMPROVEMENT_OUTCOME_REVIEW_BINDING_CONFLICT"
+    ):
+        session.record_outcome(
+            ImprovementOutcomeRequest(
+                proposal_ref=review.proposal_ref,
+                proposal_fingerprint_ref=review.proposal_fingerprint_ref,
+                accepted_review_receipt_ref=review.receipt_ref,
+                implementation=_implementation(
+                    review, change_scope_ref="approval-scope-ref:q29:unrelated"
+                ),
+                independent_reviewer_ref=review.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    review.independent_review_evidence_ref
+                ),
+                regression_results=(_regression(),),
+                observed_outcome=ObservedImprovementOutcome.improved,
+                idempotency_ref="idempotency-ref:q29:wrong-implementation",
+            )
+        )
+
+
+def test_outcome_requires_every_planned_regression_result() -> None:
+    request = _proposal_request(
+        expected_regression_refs=(
+            "regression-ref:q29:focused",
+            "regression-ref:q29:secondary",
+        )
+    )
+    session = ImprovementSession()
+    review = session.review(_review_request(request))
+    with pytest.raises(
+        ImprovementConflict,
+        match="IMPROVEMENT_REGRESSION_EXPECTATION_BINDING_CONFLICT",
+    ):
+        session.record_outcome(
+            ImprovementOutcomeRequest(
+                proposal_ref=review.proposal_ref,
+                proposal_fingerprint_ref=review.proposal_fingerprint_ref,
+                accepted_review_receipt_ref=review.receipt_ref,
+                implementation=_implementation(review),
+                independent_reviewer_ref=review.independent_reviewer_ref,
+                independent_review_evidence_ref=(
+                    review.independent_review_evidence_ref
+                ),
+                regression_results=(_regression(),),
+                observed_outcome=ObservedImprovementOutcome.improved,
+                idempotency_ref="idempotency-ref:q29:missing-regression",
+            )
         )
 
 

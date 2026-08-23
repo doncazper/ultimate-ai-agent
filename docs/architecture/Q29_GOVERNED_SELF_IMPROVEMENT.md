@@ -25,11 +25,13 @@ unverified and blocked. Acceptance is not LocalApprovalAuthority approval and
 does not create a ChangeSet or patch. Rejection and supersession remain
 immutable review outcomes.
 
-Outcome receipts bind an accepted review receipt, implemented-change receipt,
-implemented revision, independent review, and regression evidence. A regressed
-outcome requires both revert confirmation and rollback evidence. Successful or
-neutral outcomes become eligible only as evidence for a future proposal after
-fresh rights review; no automatic learning occurs.
+Outcome receipts bind an accepted review receipt, verified implementation
+evidence, the exact accepted change scope, target and base revision, implemented
+revision, independent review, and one typed result for every planned regression
+expectation. A regressed outcome requires both a failed regression result,
+revert confirmation, and rollback evidence. Successful or neutral outcomes
+become eligible only when every planned regression result passed, and then only
+as evidence for a future proposal after fresh rights review; no automatic learning occurs.
 
 ## Durability and authority
 

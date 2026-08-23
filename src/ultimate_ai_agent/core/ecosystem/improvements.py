@@ -99,6 +99,12 @@ class ObservedImprovementOutcome(str, Enum):
     unknown = "unknown"
 
 
+class ImprovementRegressionStatus(str, Enum):
+    passed = "passed"
+    failed = "failed"
+    unknown = "unknown"
+
+
 class _ImprovementModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -106,6 +112,43 @@ class _ImprovementModel(BaseModel):
         hide_input_in_errors=True,
         use_enum_values=False,
     )
+
+
+class ImprovementImplementationEvidence(_ImprovementModel):
+    change_receipt_ref: str
+    change_scope_ref: str
+    target_ref: str
+    base_revision_ref: str
+    implemented_revision_ref: str
+    verification_evidence_ref: str
+    verified: Literal[True] = True
+
+    @model_validator(mode="after")
+    def validate_implementation(self) -> "ImprovementImplementationEvidence":
+        for field_name in (
+            "change_receipt_ref",
+            "change_scope_ref",
+            "target_ref",
+            "base_revision_ref",
+            "implemented_revision_ref",
+            "verification_evidence_ref",
+        ):
+            _validate_ref(getattr(self, field_name), field_name)
+        if self.base_revision_ref == self.implemented_revision_ref:
+            raise ValueError("IMPROVEMENT_IMPLEMENTED_REVISION_MUST_ADVANCE")
+        return self
+
+
+class ImprovementRegressionEvidence(_ImprovementModel):
+    expected_regression_ref: str
+    evidence_ref: str
+    status: ImprovementRegressionStatus
+
+    @model_validator(mode="after")
+    def validate_regression(self) -> "ImprovementRegressionEvidence":
+        _validate_ref(self.expected_regression_ref, "expected_regression_ref")
+        _validate_ref(self.evidence_ref, "regression_evidence_ref")
+        return self
 
 
 def _contains_dns(value: str) -> bool:
@@ -309,6 +352,9 @@ class ImprovementReviewReceipt(_ImprovementModel):
     review_fingerprint_ref: str
     proposal_ref: str
     proposal_fingerprint_ref: str
+    target_ref: str
+    target_revision_ref: str
+    expected_regression_refs: tuple[str, ...]
     reviewer_ref: str
     independent_reviewer_ref: str
     independent_review_evidence_ref: str
@@ -334,11 +380,12 @@ class ImprovementOutcomeRequest(_ImprovementModel):
     proposal_ref: str
     proposal_fingerprint_ref: str
     accepted_review_receipt_ref: str
-    implemented_change_receipt_ref: str
-    implemented_revision_ref: str
+    implementation: ImprovementImplementationEvidence
     independent_reviewer_ref: str
     independent_review_evidence_ref: str
-    regression_evidence_refs: tuple[str, ...] = Field(..., min_length=1, max_length=32)
+    regression_results: tuple[ImprovementRegressionEvidence, ...] = Field(
+        ..., min_length=1, max_length=32
+    )
     observed_outcome: ObservedImprovementOutcome
     rollback_evidence_ref: str | None = None
     reverted: bool = False
@@ -350,21 +397,37 @@ class ImprovementOutcomeRequest(_ImprovementModel):
             "proposal_ref",
             "proposal_fingerprint_ref",
             "accepted_review_receipt_ref",
-            "implemented_change_receipt_ref",
-            "implemented_revision_ref",
             "independent_reviewer_ref",
             "independent_review_evidence_ref",
             "idempotency_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
-        _validate_refs(self.regression_evidence_refs, "regression_evidence_refs")
+        expected_refs = tuple(
+            result.expected_regression_ref for result in self.regression_results
+        )
+        evidence_refs = tuple(result.evidence_ref for result in self.regression_results)
+        _validate_refs(expected_refs, "expected_regression_refs")
+        _validate_refs(evidence_refs, "regression_evidence_refs")
         if self.rollback_evidence_ref is not None:
             _validate_ref(self.rollback_evidence_ref, "rollback_evidence_ref")
         if self.observed_outcome == ObservedImprovementOutcome.regressed:
             if not self.reverted or self.rollback_evidence_ref is None:
                 raise ValueError("IMPROVEMENT_REGRESSION_ROLLBACK_EVIDENCE_REQUIRED")
+            if not any(
+                result.status == ImprovementRegressionStatus.failed
+                for result in self.regression_results
+            ):
+                raise ValueError("IMPROVEMENT_REGRESSION_FAILED_RESULT_REQUIRED")
         elif self.reverted:
             raise ValueError("IMPROVEMENT_REVERTED_ONLY_ALLOWED_FOR_REGRESSION")
+        elif self.observed_outcome in {
+            ObservedImprovementOutcome.improved,
+            ObservedImprovementOutcome.neutral,
+        } and any(
+            result.status != ImprovementRegressionStatus.passed
+            for result in self.regression_results
+        ):
+            raise ValueError("IMPROVEMENT_ALL_REGRESSIONS_MUST_PASS")
         return self
 
 
@@ -378,11 +441,11 @@ class ImprovementOutcomeReceipt(_ImprovementModel):
     proposal_ref: str
     proposal_fingerprint_ref: str
     accepted_review_receipt_ref: str
-    implemented_change_receipt_ref: str
-    implemented_revision_ref: str
+    implementation: ImprovementImplementationEvidence
     independent_reviewer_ref: str
     independent_review_evidence_ref: str
-    regression_evidence_refs: tuple[str, ...]
+    expected_regression_refs: tuple[str, ...]
+    regression_results: tuple[ImprovementRegressionEvidence, ...]
     observed_outcome: ObservedImprovementOutcome
     rollback_evidence_ref: str | None
     reverted: bool
@@ -529,6 +592,9 @@ class ImprovementSession:
                 review_fingerprint_ref=fingerprint,
                 proposal_ref=proposal.proposal_ref,
                 proposal_fingerprint_ref=proposal.proposal_fingerprint_ref,
+                target_ref=proposal.target_ref,
+                target_revision_ref=proposal.target_revision_ref,
+                expected_regression_refs=proposal.expected_regression_refs,
                 reviewer_ref=request.reviewer_ref,
                 independent_reviewer_ref=request.independent_reviewer_ref,
                 independent_review_evidence_ref=(
@@ -579,8 +645,20 @@ class ImprovementSession:
                 or accepted.independent_reviewer_ref != request.independent_reviewer_ref
                 or accepted.independent_review_evidence_ref
                 != request.independent_review_evidence_ref
+                or accepted.expected_change_review_scope_ref
+                != request.implementation.change_scope_ref
+                or accepted.target_ref != request.implementation.target_ref
+                or accepted.target_revision_ref
+                != request.implementation.base_revision_ref
             ):
                 raise ImprovementConflict("IMPROVEMENT_OUTCOME_REVIEW_BINDING_CONFLICT")
+            observed_expectations = tuple(
+                result.expected_regression_ref for result in request.regression_results
+            )
+            if set(observed_expectations) != set(accepted.expected_regression_refs):
+                raise ImprovementConflict(
+                    "IMPROVEMENT_REGRESSION_EXPECTATION_BINDING_CONFLICT"
+                )
             eligible = request.observed_outcome in {
                 ObservedImprovementOutcome.improved,
                 ObservedImprovementOutcome.neutral,
@@ -591,13 +669,13 @@ class ImprovementSession:
                 proposal_ref=request.proposal_ref,
                 proposal_fingerprint_ref=request.proposal_fingerprint_ref,
                 accepted_review_receipt_ref=request.accepted_review_receipt_ref,
-                implemented_change_receipt_ref=request.implemented_change_receipt_ref,
-                implemented_revision_ref=request.implemented_revision_ref,
+                implementation=request.implementation,
                 independent_reviewer_ref=request.independent_reviewer_ref,
                 independent_review_evidence_ref=(
                     request.independent_review_evidence_ref
                 ),
-                regression_evidence_refs=request.regression_evidence_refs,
+                expected_regression_refs=accepted.expected_regression_refs,
+                regression_results=request.regression_results,
                 observed_outcome=request.observed_outcome,
                 rollback_evidence_ref=request.rollback_evidence_ref,
                 reverted=request.reverted,
@@ -643,11 +721,14 @@ __all__ = [
     "ImprovementError",
     "ImprovementEvidenceKind",
     "ImprovementEvidenceSource",
+    "ImprovementImplementationEvidence",
     "ImprovementOutcomeReceipt",
     "ImprovementOutcomeRequest",
     "ImprovementProposal",
     "ImprovementProposalRequest",
     "ImprovementProposalState",
+    "ImprovementRegressionEvidence",
+    "ImprovementRegressionStatus",
     "ImprovementReviewOutcome",
     "ImprovementReviewReceipt",
     "ImprovementReviewRequest",
