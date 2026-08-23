@@ -26,6 +26,11 @@ const backendOwnedVisualSurfaces = [
   ["setup", "/setup"],
 ] as const;
 
+const foundationVisualSurfaces = [
+  ["work-board", "/work-board", "/control-center/work-board"],
+  ["crm", "/crm", "/control-center/crm/summary"],
+] as const;
+
 function resolveBackendSourceCommit(): string {
   const result = spawnSync(
     "/usr/bin/git",
@@ -164,10 +169,88 @@ test.afterAll(async () => {
   rmSync(stateDir, { recursive: true, force: true });
 });
 
-test("critical founder-loop baselines stay backend-owned", async ({
+test("foundation visual baselines stay backend-owned", async ({
   context,
   request,
 }) => {
+  test.setTimeout(180_000);
+  const truthResponse = await request.get(
+    `${backendBaseUrl}/control-center/backend-truth`,
+  );
+  expect(truthResponse.ok()).toBe(true);
+  const truth = await truthResponse.json();
+  expect(truth.data.evidence_binding.status).toBe("verified_complete");
+  expect(truth.data.backend_revision_ref).toBe(
+    `commit-ref:git:${backendSourceCommit}`,
+  );
+  const fixedNow = new Date(truth.data.generated_at).getTime() + 1_000;
+
+  for (const [name, route, prioritizedEndpoint] of foundationVisualSurfaces) {
+    await test.step(`capture backend-owned ${name}`, async () => {
+      const page = await context.newPage();
+      await page.route(`**${prioritizedEndpoint}`, async (backendRoute) => {
+        const response = await backendRoute.fetch({
+          url: `${backendBaseUrl}${prioritizedEndpoint}`,
+        });
+        await backendRoute.fulfill({ response });
+      });
+      const backendReads = observePageBackendReads(page);
+      await page.addInitScript((timestamp) => {
+        const RealDate = Date;
+        class FixedDate extends RealDate {
+          constructor(...args: unknown[]) {
+            if (args.length === 0) {
+              super(timestamp);
+              return;
+            }
+            super(...(args as [number]));
+          }
+
+          static now() {
+            return timestamp;
+          }
+        }
+        globalThis.Date = FixedDate as DateConstructor;
+      }, fixedNow);
+      await page.goto(route);
+      await expect(
+        page.getByRole("heading", {
+          name: /is not showing unverified product state$/,
+        }),
+      ).toHaveCount(0, { timeout: 30_000 });
+      await expect(page.getByText("Mock fallback active")).toHaveCount(0);
+      if (name === "work-board") {
+        await expect(page.getByTestId("work-board")).toBeVisible({
+          timeout: 30_000,
+        });
+        await expect(page.getByText("Backend-owned Work Board")).toBeVisible();
+      } else {
+        await expect(
+          page.getByRole("heading", { name: "UAA CRM local command center" }),
+        ).toBeVisible({ timeout: 30_000 });
+        await expect(
+          page.getByText("backend-owned", { exact: true }),
+        ).toBeVisible();
+      }
+      await expect(page).toHaveScreenshot(`${name}.png`, {
+        animations: "disabled",
+        fullPage: true,
+      });
+      backendReads.beginTeardown();
+      await page.close();
+      backendReads.finishTeardown();
+    });
+  }
+});
+
+test("critical founder-loop baselines stay backend-owned", async (
+  { context, request },
+  testInfo,
+) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Mobile uses scoped foundation baselines only",
+  );
   test.setTimeout(300_000);
   const initialTruthResponse = await request.get(
     `${backendBaseUrl}/control-center/backend-truth`,
@@ -226,10 +309,14 @@ test("critical founder-loop baselines stay backend-owned", async ({
   }
 });
 
-test("critical founder loop fails closed on backend loss and survives durable restart", async ({
-  page,
-  request,
-}) => {
+test("critical founder loop fails closed on backend loss and survives durable restart", async (
+  { page, request },
+  testInfo,
+) => {
+  test.skip(
+    testInfo.project.name === "mobile",
+    "Mobile uses scoped foundation baselines only",
+  );
   test.setTimeout(180_000);
   const initialTruthResponse = await request.get(
     `${backendBaseUrl}/control-center/backend-truth`,

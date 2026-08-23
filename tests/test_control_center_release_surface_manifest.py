@@ -164,9 +164,9 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert "/control-center/work-board/cards" in work_board_route_paths
     assert "/control-center/work-board/reorder" in work_board_route_paths
     assert by_path["/work-board"]["approval_required"] is True
-    assert by_path["/work-board"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/work-board"]["visual_proof_status"] == "checked_in_baseline"
     assert by_path["/work-board"]["visual_baseline_ref"] == (
-        "visual-baseline:control-center:work-board:not-captured"
+        "visual-baseline:control-center:work-board"
     )
     assert (
         "missing_backend:work-board-durable-mutation-route"
@@ -286,6 +286,13 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "/control-center/crm/local-mutations",
     }
     assert by_path["/crm"]["approval_required"] is True
+    assert by_path["/crm"]["visual_proof_status"] == "checked_in_baseline"
+    assert by_path["/crm"]["visual_baseline_ref"] == (
+        "visual-baseline:control-center:crm"
+    )
+    assert "crm_visual_baseline_proof" not in (
+        by_path["/crm"]["blocked_capabilities"]
+    )
     assert (
         "crm_connector_read_lane_authority" in (by_path["/crm"]["blocked_capabilities"])
     )

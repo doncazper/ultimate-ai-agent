@@ -23,6 +23,8 @@ REQUIRED_SURFACES = {
     "Actions",
     "Source Inbox",
     "Plans",
+    "Work Board",
+    "CRM",
     "Proof",
     "Trust",
     "Memory",

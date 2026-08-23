@@ -130,6 +130,36 @@
       "raw_private_screenshot_included": false
     },
     {
+      "surface": "Work Board",
+      "route": "/work-board",
+      "baseline_ref": "visual-baseline:control-center:work-board",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:work-board",
+        "mobile": "visual-baseline-file:mobile:work-board"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:521314289c3172679e8c29a04aa1c7bbac66ddb9ad8482b042bd9eaca327a47b",
+        "mobile": "sha256:7909b01d9ee32ba096e077884342f966246f4d0b116a59b6f81ce7d9cd7b2aa8"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "CRM",
+      "route": "/crm",
+      "baseline_ref": "visual-baseline:control-center:crm",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:crm",
+        "mobile": "visual-baseline-file:mobile:crm"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:0fb4961f699a03d30156bc1d07ced48fef6ba68757b51536338b91b93ab47ae8",
+        "mobile": "sha256:cf438d5adc84170dc367606233d20b0d6d7c79531ce152bbb2869affab7e928b"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
       "surface": "Proof",
       "route": "/proof",
       "baseline_ref": "visual-baseline:control-center:proof",
