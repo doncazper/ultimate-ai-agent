@@ -280,7 +280,7 @@ def test_playwright_runner_emits_one_safe_observation(
         return 0
 
     monkeypatch.setattr(frontend_playwright, "run_frontend_command", fake_run)
-    monotonic = iter((0.0, 0.0, 100.0, 100.0, 100.0))
+    monotonic = iter((0.0, 0.0, 100.0, 100.0, 100.0, 100.0, 100.0))
     monkeypatch.setattr(
         frontend_playwright.time,
         "monotonic",
@@ -298,7 +298,21 @@ def test_playwright_runner_emits_one_safe_observation(
         collection_digest_ref="sha256:" + "c" * 64,
         passed_test_count=94,
     )
-    observations = iter((backend_observation, fixture_observation))
+    mobile_foundation_observation = _observation(
+        "runner-ref:frontend:playwright"
+    )
+    mobile_foundation_observation.update(
+        collected_test_count=1,
+        collection_digest_ref="sha256:" + "d" * 64,
+        passed_test_count=1,
+    )
+    observations = iter(
+        (
+            backend_observation,
+            fixture_observation,
+            mobile_foundation_observation,
+        )
+    )
     monkeypatch.setattr(
         frontend_playwright,
         "consume_playwright_json_result",
@@ -316,28 +330,36 @@ def test_playwright_runner_emits_one_safe_observation(
     )
 
     assert frontend_playwright.run("visual") == 0
-    assert len(command) == 2
-    assert timeouts == [frontend_playwright.TIMEOUT_SECONDS, 800]
+    assert len(command) == 3
+    assert timeouts == [frontend_playwright.TIMEOUT_SECONDS, 800, 800]
     assert all(
         "CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER" not in phase_environment
         for phase_environment in phase_environments
     )
     assert frontend_playwright.VISUAL_BACKEND_TRUTH_TEST in command[0]
     assert frontend_playwright.VISUAL_BACKEND_TRUTH_TEST not in command[1]
+    assert frontend_playwright.VISUAL_FOUNDATION_SURFACES_TEST in command[2]
     assert invert_list_contents == [frontend_playwright.VISUAL_BACKEND_TRUTH_INVERT]
-    for phase_command in command:
+    for phase_command in command[:2]:
         assert "--config=playwright.visual.config.ts" in phase_command
         assert "--project=desktop" in phase_command
         assert "--workers=1" in phase_command
         assert "--reporter=json" in phase_command
         assert any(argument.startswith("--output=") for argument in phase_command)
         assert phase_command[0] == "/safe-installed/playwright"
+    assert "--config=playwright.visual.config.ts" in command[2]
+    assert "--project=mobile" in command[2]
+    assert "--workers=1" in command[2]
+    assert "--reporter=json" in command[2]
+    assert any(argument.startswith("--output=") for argument in command[2])
+    assert command[2][0] == "/safe-installed/playwright"
     expected_digest = "sha256:" + hashlib.sha256(
         b"uaa-playwright-phase-aggregate-v1\0"
         + json.dumps(
             [
                 backend_observation["collection_digest_ref"],
                 fixture_observation["collection_digest_ref"],
+                mobile_foundation_observation["collection_digest_ref"],
             ],
             separators=(",", ":"),
         ).encode("ascii")
@@ -345,8 +367,8 @@ def test_playwright_runner_emits_one_safe_observation(
     assert len(published) == 1
     assert published[0][0] == target
     combined = published[0][1][0]
-    assert combined["collected_test_count"] == 96
-    assert combined["passed_test_count"] == 96
+    assert combined["collected_test_count"] == 97
+    assert combined["passed_test_count"] == 97
     assert combined["failed_test_count"] == 0
     assert combined["retry_attempt_count"] == 0
     assert combined["collection_digest_ref"] == expected_digest
@@ -449,6 +471,7 @@ def test_playwright_visual_runner_atomically_refreshes_completed_failures(
         (
             ("frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",),
             ("frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",),
+            ("frontend-test-ref:playwright:foundation.spec.ts:9876543210ab",),
         )
     )
     monkeypatch.setattr(
@@ -473,10 +496,11 @@ def test_playwright_visual_runner_atomically_refreshes_completed_failures(
             encoding="ascii"
         )
     )
-    assert retained["failed_test_count"] == 2
+    assert retained["failed_test_count"] == 3
     assert retained["failed_test_refs"] == [
         "frontend-test-ref:playwright:backend.real.spec.ts:0123456789ab",
         "frontend-test-ref:playwright:fixture.spec.ts:abcdef012345",
+        "frontend-test-ref:playwright:foundation.spec.ts:9876543210ab",
     ]
 
 
