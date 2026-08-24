@@ -15,6 +15,17 @@ post-merge verified before that comparison begins. The plan preserves the
 configured local model and grants no runtime authority; it is not shipped
 product evidence.
 
+TAW-00 now has a fail-closed evaluation scaffold for reconstructible synthetic
+development manifests, public holdout commitments, baseline and blind-score
+receipt shapes, selected statistics, revision-bound root/candidate inventories,
+CLI, and static verification. It is not a complete facility or accepted
+baseline. Typed power, binomial-bound, randomization, candidate/result binding,
+and transitive source-closure contracts remain incomplete; supported matrices,
+externally anchored reviewer identities, measurements, and human acceptance are
+also blocked. Candidate-authored refs, keys, receipts, or completion flags
+cannot promote it, the scaffold has no `ready` result, and no routing, prompt,
+model-call, or authority behavior changed.
+
 Capability Evaluation Lab V1 is implemented as a deterministic local
 verification contract. It checks four fixed UAA-native, Hermes,
 OpenClaw-contract, and GoatCitadel-comparison evidence cases with exact

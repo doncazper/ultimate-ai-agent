@@ -1,0 +1,50 @@
+{
+  "schema_version": "uaa-taw00-protocol.v1",
+  "protocol_ref": "protocol-ref:taw00:baseline:v1",
+  "plan_ref": "plan-ref:tool-aware-cognition-and-chat-quality:v1",
+  "capability_lab_ref": "contract-ref:capability-evaluation-lab:v1",
+  "status": "pending_configuration_freeze",
+  "cycle_ref": "cycle-ref:taw00:initial",
+  "supported_language_refs": [],
+  "model_configuration_refs": [],
+  "hardware_backend_refs": [],
+  "supported_stratum_refs": [],
+  "catalog_state_refs": [
+    "catalog-state-ref:healthy",
+    "catalog-state-ref:missing",
+    "catalog-state-ref:corrupt",
+    "catalog-state-ref:stale",
+    "catalog-state-ref:over-budget"
+  ],
+  "rubric_ref": "rubric-ref:taw00:ordinary-chat-quality-v1",
+  "language_qualification_protocol_ref": "qualification-protocol-ref:taw00:language-v1",
+  "exact_case_recovery_protocol_ref": "recovery-protocol-ref:taw00:exact-case-v1",
+  "estimator_refs": [
+    "estimator-ref:taw00:paired-bootstrap",
+    "estimator-ref:taw00:evaluator-clustered",
+    "estimator-ref:taw00:request-clustered",
+    "estimator-ref:taw00:holm-step-down",
+    "estimator-ref:taw00:krippendorff-ordinal"
+  ],
+  "metric_census": [],
+  "power_analysis_receipt_digest_ref": null,
+  "expected_pair_manifest_digest_ref": null,
+  "acceptance_affecting_path_refs": [],
+  "source_projection_path_refs": [],
+  "holm_familywise_alpha": 0.05,
+  "agreement_minimum": 0.67,
+  "ordinary_chat_margin_points": -5,
+  "false_positive_upper_bound": 0.02,
+  "unsafe_authority_upper_bound": 0.01,
+  "behavior_preserving_only": true,
+  "runtime_model_calls_added": false,
+  "routing_changes_added": false,
+  "prompt_changes_added": false,
+  "authority_added": false,
+  "blocked_reason_refs": [
+    "blocker-ref:taw00:supported-language-set-not-frozen",
+    "blocker-ref:taw00:model-configuration-set-not-frozen",
+    "blocker-ref:taw00:hardware-backend-set-not-frozen",
+    "blocker-ref:taw00:independent-holdout-custodian-pending"
+  ]
+}
