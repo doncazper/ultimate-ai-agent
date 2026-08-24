@@ -281,7 +281,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/proposal-intelligence/extract",
     }
     normalized_control_center_paths = _historical_control_center_path_set(paths)
-    assert len(normalized_control_center_paths) == 173
+    assert len(normalized_control_center_paths) == 175
     assert "/control-center/news-signals/summary" not in normalized_control_center_paths
     assert (
         len(
@@ -289,7 +289,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
                 paths | {"/control-center/news-signals/unreviewed-route"}
             )
         )
-        == 174
+        == 176
     )
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",

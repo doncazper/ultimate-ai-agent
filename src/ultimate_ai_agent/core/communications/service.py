@@ -19,6 +19,11 @@ from ultimate_ai_agent.core.communications.contracts import (
     CommunicationsSecurityPosture,
     CommunicationsSessionPosture,
     CommunicationsSessionStatus,
+    ReviewedCommunicationThreadDetail,
+    ReviewedCommunicationsThreadPage,
+)
+from ultimate_ai_agent.core.communications.local_projection import (
+    ReviewedCommunicationsProjectionStore,
 )
 from ultimate_ai_agent.core.communications.matrix_disabled import (
     MATRIX_PROVIDER_REF,
@@ -53,12 +58,17 @@ class CommunicationsService:
         failed_send_receipt_refs: Iterable[str] = (),
         security: CommunicationsSecurityPosture,
         receipts: Iterable[CommunicationsReceipt] = (),
+        reviewed_projection_store: ReviewedCommunicationsProjectionStore | None = None,
     ) -> None:
         self._registry = registry
         self._session = session.model_copy(deep=True)
         self._rooms = tuple(room.model_copy(deep=True) for room in rooms)
         self._failed_send_receipt_refs = tuple(failed_send_receipt_refs)
         self._security = security.model_copy(deep=True)
+        self._reviewed_projection_store = (
+            reviewed_projection_store
+            or ReviewedCommunicationsProjectionStore.from_env()
+        )
         receipt_items = tuple(receipts)
         self._receipts = {
             receipt.receipt_ref: receipt.model_copy(deep=True)
@@ -117,6 +127,18 @@ class CommunicationsService:
             blocker_codes=["COMMUNICATIONS_OUTBOX_RUNTIME_NOT_IMPLEMENTED"],
             safe_summary="No send runtime exists; failed-send inspection is empty and blocked.",
         )
+
+    def list_reviewed_conversations(
+        self, *, limit: int = 25, needs_attention: bool | None = None
+    ) -> ReviewedCommunicationsThreadPage:
+        return self._reviewed_projection_store.list_threads(
+            limit=limit, needs_attention=needs_attention
+        )
+
+    def get_reviewed_conversation(
+        self, conversation_ref: str
+    ) -> ReviewedCommunicationThreadDetail:
+        return self._reviewed_projection_store.get_thread(conversation_ref)
 
     def inspect_security_posture(self) -> CommunicationsSecurityPosture:
         return self._security.model_copy(deep=True)

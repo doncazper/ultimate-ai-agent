@@ -61,6 +61,17 @@ class CommunicationsFreshnessStatus(str, Enum):
     unknown = "unknown"
 
 
+class CommunicationsProjectionStatus(str, Enum):
+    ready = "ready"
+    empty = "empty"
+    stale = "stale"
+    blocked = "blocked"
+
+
+class CommunicationsProjectionSourceKind(str, Enum):
+    reviewed_manual_import = "reviewed_manual_import"
+
+
 class CommunicationsCryptoRuntimeStatus(str, Enum):
     adapter_required = "adapter_required"
     configuration_required = "configuration_required"
@@ -456,6 +467,206 @@ class CommunicationsRoomPage(_CommunicationsContract):
         return self
 
 
+class ConversationSourcePosture(_CommunicationsContract):
+    source_ref: str
+    source_kind: CommunicationsProjectionSourceKind
+    schema_version: Literal["uaa-communications-reviewed-projection.v1"] = (
+        "uaa-communications-reviewed-projection.v1"
+    )
+    observed_at: datetime
+    freshness: CommunicationsFreshnessStatus
+    coverage_ref: str
+    retention_ref: str
+    privacy_ref: str
+    evidence_refs: list[str] = Field(default_factory=list, max_length=32)
+    connector_configured: Literal[False] = False
+    live_sync_enabled: Literal[False] = False
+    external_actions_enabled: Literal[False] = False
+    raw_content_persisted: Literal[False] = False
+
+    @field_validator("source_ref", "coverage_ref", "retention_ref", "privacy_ref")
+    @classmethod
+    def validate_refs(cls, value: str) -> str:
+        return _validated_ref(value, "communications_projection_source_ref")
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def validate_evidence_refs(cls, value: list[str]) -> list[str]:
+        return _validated_refs(value, "communications_projection_evidence_ref")
+
+    @field_validator("observed_at")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("COMMUNICATIONS_TIMESTAMP_MUST_BE_TIMEZONE_AWARE")
+        return value
+
+
+class ReviewedCommunicationItem(_CommunicationsContract):
+    item_ref: str
+    conversation_ref: str
+    sender_ref: str
+    item_kind: CommunicationsEventKind
+    occurred_at: datetime
+    safe_summary: str = Field(..., min_length=1, max_length=240)
+    content_fingerprint_ref: str
+    relation_ref: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list, max_length=32)
+    content_untrusted: Literal[True] = True
+    not_instruction_authority: Literal[True] = True
+    reviewed_redacted_summary_only: Literal[True] = True
+    raw_content_omitted: Literal[True] = True
+
+    @field_validator(
+        "item_ref",
+        "conversation_ref",
+        "sender_ref",
+        "content_fingerprint_ref",
+        "relation_ref",
+    )
+    @classmethod
+    def validate_refs(cls, value: str | None) -> str | None:
+        return _validated_optional_ref(value, "communications_projection_item_ref")
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def validate_evidence_refs(cls, value: list[str]) -> list[str]:
+        return _validated_refs(value, "communications_projection_evidence_ref")
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_summary(cls, value: str) -> str:
+        return _validated_summary(value)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("COMMUNICATIONS_TIMESTAMP_MUST_BE_TIMEZONE_AWARE")
+        return value
+
+
+class ReviewedCommunicationThread(_CommunicationsContract):
+    conversation_ref: str
+    channel_ref: str
+    participant_refs: list[str] = Field(default_factory=list, max_length=50)
+    item_refs: list[str] = Field(default_factory=list, max_length=50)
+    latest_activity_at: datetime
+    needs_attention: bool = False
+    safe_label: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=240)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=32)
+
+    @field_validator("conversation_ref", "channel_ref")
+    @classmethod
+    def validate_refs(cls, value: str) -> str:
+        return _validated_ref(value, "communications_projection_thread_ref")
+
+    @field_validator("participant_refs", "item_refs", "evidence_refs")
+    @classmethod
+    def validate_ref_lists(cls, value: list[str]) -> list[str]:
+        return _validated_refs(value, "communications_projection_ref")
+
+    @field_validator("safe_label", "safe_summary")
+    @classmethod
+    def validate_summaries(cls, value: str) -> str:
+        return _validated_summary(value, "communications_projection_summary")
+
+    @field_validator("latest_activity_at")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("COMMUNICATIONS_TIMESTAMP_MUST_BE_TIMEZONE_AWARE")
+        return value
+
+
+class ReviewedCommunicationsSnapshot(_CommunicationsContract):
+    schema_version: Literal["uaa-communications-reviewed-projection.v1"] = (
+        "uaa-communications-reviewed-projection.v1"
+    )
+    snapshot_ref: str
+    source: ConversationSourcePosture
+    threads: list[ReviewedCommunicationThread] = Field(
+        default_factory=list, max_length=50
+    )
+    items: list[ReviewedCommunicationItem] = Field(default_factory=list, max_length=250)
+    raw_content_persisted: Literal[False] = False
+
+    @field_validator("snapshot_ref")
+    @classmethod
+    def validate_snapshot_ref(cls, value: str) -> str:
+        return _validated_ref(value, "communications_projection_snapshot_ref")
+
+    @model_validator(mode="after")
+    def validate_projection_links(self) -> "ReviewedCommunicationsSnapshot":
+        thread_refs = [thread.conversation_ref for thread in self.threads]
+        item_refs = [item.item_ref for item in self.items]
+        if len(thread_refs) != len(set(thread_refs)):
+            raise ValueError("COMMUNICATIONS_PROJECTION_THREAD_REF_DUPLICATE")
+        if len(item_refs) != len(set(item_refs)):
+            raise ValueError("COMMUNICATIONS_PROJECTION_ITEM_REF_DUPLICATE")
+        item_by_ref = {item.item_ref: item for item in self.items}
+        for thread in self.threads:
+            if any(ref not in item_by_ref for ref in thread.item_refs):
+                raise ValueError("COMMUNICATIONS_PROJECTION_ITEM_REF_MISSING")
+            if any(
+                item_by_ref[ref].conversation_ref != thread.conversation_ref
+                for ref in thread.item_refs
+            ):
+                raise ValueError("COMMUNICATIONS_PROJECTION_ITEM_SCOPE_MISMATCH")
+        if any(item.conversation_ref not in set(thread_refs) for item in self.items):
+            raise ValueError("COMMUNICATIONS_PROJECTION_THREAD_REF_MISSING")
+        return self
+
+
+class ReviewedCommunicationsThreadPage(_CommunicationsContract):
+    status: CommunicationsProjectionStatus
+    source: ConversationSourcePosture | None = None
+    items: list[ReviewedCommunicationThread] = Field(
+        default_factory=list, max_length=50
+    )
+    pagination: CommunicationsPagination
+    reason_codes: list[str] = Field(default_factory=list, max_length=32)
+    blocker_codes: list[str] = Field(default_factory=list, max_length=32)
+    safe_summary: str = Field(..., min_length=1, max_length=240)
+    read_only: Literal[True] = True
+    send_enabled: Literal[False] = False
+    reply_enabled: Literal[False] = False
+    delete_enabled: Literal[False] = False
+    moderate_enabled: Literal[False] = False
+    raw_content_omitted: Literal[True] = True
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_summary(cls, value: str) -> str:
+        return _validated_summary(value)
+
+    @model_validator(mode="after")
+    def validate_page_count(self) -> "ReviewedCommunicationsThreadPage":
+        if self.pagination.returned_count != len(self.items):
+            raise ValueError("COMMUNICATIONS_PAGE_COUNT_MISMATCH")
+        return self
+
+
+class ReviewedCommunicationThreadDetail(_CommunicationsContract):
+    status: CommunicationsProjectionStatus
+    source: ConversationSourcePosture
+    thread: ReviewedCommunicationThread
+    items: list[ReviewedCommunicationItem] = Field(default_factory=list, max_length=50)
+    safe_summary: str = Field(..., min_length=1, max_length=240)
+    read_only: Literal[True] = True
+    send_enabled: Literal[False] = False
+    reply_enabled: Literal[False] = False
+    delete_enabled: Literal[False] = False
+    moderate_enabled: Literal[False] = False
+    raw_content_omitted: Literal[True] = True
+
+    @field_validator("safe_summary")
+    @classmethod
+    def validate_summary(cls, value: str) -> str:
+        return _validated_summary(value)
+
+
 class CommunicationsFailedSendPage(_CommunicationsContract):
     receipt_refs: list[str] = Field(
         default_factory=list, max_length=COMMUNICATIONS_MAX_PAGE_SIZE
@@ -538,7 +749,10 @@ class CommunicationsSecurityPosture(_CommunicationsContract):
     def validate_crypto_truth(self) -> "CommunicationsSecurityPosture":
         if self.crypto_live_executor_refs or self.crypto_initialized:
             raise ValueError("COMMUNICATIONS_CRYPTO_LIVE_RUNTIME_NOT_PROVEN")
-        if self.crypto_runtime_status != CommunicationsCryptoRuntimeStatus.adapter_required:
+        if (
+            self.crypto_runtime_status
+            != CommunicationsCryptoRuntimeStatus.adapter_required
+        ):
             raise ValueError("COMMUNICATIONS_CRYPTO_RUNTIME_STATUS_NOT_PROVEN")
         expected_lanes = [lane.lane_ref for lane in MATRIX_CRYPTO_LANES.values()]
         expected_operations = [

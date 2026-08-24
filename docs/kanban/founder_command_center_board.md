@@ -1794,14 +1794,17 @@ projections into Calendar, Work Board, Communications, CRM, Studio, Evidence,
 and Memory. The first milestone remains read-only and preserves canonical app
 ownership.
 
-Activation gates: Work Board/Kanban, first-class CRM, and
-Communications/Messenger must each be accepted as fully implemented with
-durable backend truth, API/CLI parity, tested Control Center workflows,
-accepted visual evidence, and aligned product truth.
+Activation gate: Work Board, CRM, and Communications must pass
+`contract-ref:social-read-only-foundation-profile:v1`. The profile is currently
+partial: Communications now has a backend-owned reviewed local projection with
+API/CLI parity and a real Control Center view; Work Board `Social Content`, CRM
+Social relationship acceptance, exact visual acceptance, and a bound profile
+ledger/verifier remain missing. The profile does not mark any owner product
+globally complete.
 
 Board posture: Deferred. This card is not current WIP and is not eligible as
-"what's next" while any activation gate lacks accepted evidence. Passing all
-three gates makes it eligible for prioritization; it does not automatically
+"what's next" while the profile lacks accepted evidence. Passing the profile
+makes it eligible for prioritization; it does not automatically
 outrank current P0/P1 work.
 
 Execution prompt:

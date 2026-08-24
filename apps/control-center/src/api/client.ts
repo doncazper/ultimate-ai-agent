@@ -25,6 +25,7 @@ import type {
   CommunicationsProviderDescriptor,
   CommunicationsReceipt,
   CommunicationsRoomPage,
+  ReviewedCommunicationsThreadPage,
   CommunicationsSecurityPosture,
   CommunicationsSessionPosture,
   MatrixCryptoPosture,
@@ -1579,6 +1580,95 @@ export async function loadCommunicationsRooms(): Promise<CommunicationsRoomPage>
   return value as unknown as CommunicationsRoomPage;
 }
 
+function isSafeConversationSourcePosture(value: unknown): boolean {
+  if (!isCommunicationsRecord(value)) return false;
+  return (
+    hasExactCommunicationsKeys(value, [
+      "source_ref", "source_kind", "schema_version", "observed_at", "freshness",
+      "coverage_ref", "retention_ref", "privacy_ref", "evidence_refs",
+      "connector_configured", "live_sync_enabled", "external_actions_enabled",
+      "raw_content_persisted",
+    ]) &&
+    isCommunicationsSafeRef(value.source_ref) &&
+    value.source_kind === "reviewed_manual_import" &&
+    value.schema_version === "uaa-communications-reviewed-projection.v1" &&
+    isCommunicationsTimestamp(value.observed_at) &&
+    ["current", "stale", "unknown"].includes(String(value.freshness)) &&
+    isCommunicationsSafeRef(value.coverage_ref) &&
+    isCommunicationsSafeRef(value.retention_ref) &&
+    isCommunicationsSafeRef(value.privacy_ref) &&
+    isCommunicationsSafeRefArray(value.evidence_refs, 32) &&
+    value.connector_configured === false &&
+    value.live_sync_enabled === false &&
+    value.external_actions_enabled === false &&
+    value.raw_content_persisted === false
+  );
+}
+
+function isSafeReviewedCommunicationThread(value: unknown): boolean {
+  if (!isCommunicationsRecord(value)) return false;
+  return (
+    hasExactCommunicationsKeys(value, [
+      "conversation_ref", "channel_ref", "participant_refs", "item_refs",
+      "latest_activity_at", "needs_attention", "safe_label", "safe_summary",
+      "evidence_refs",
+    ]) &&
+    isCommunicationsSafeRef(value.conversation_ref) &&
+    isCommunicationsSafeRef(value.channel_ref) &&
+    isCommunicationsSafeRefArray(value.participant_refs) &&
+    isCommunicationsSafeRefArray(value.item_refs) &&
+    isCommunicationsTimestamp(value.latest_activity_at) &&
+    typeof value.needs_attention === "boolean" &&
+    isCommunicationsSafeSummary(value.safe_label) &&
+    String(value.safe_label).length <= 120 &&
+    isCommunicationsSafeSummary(value.safe_summary) &&
+    isCommunicationsSafeRefArray(value.evidence_refs, 32)
+  );
+}
+
+async function loadCommunicationsConversationsWithReadContext(
+  readLimiter = defaultControlCenterReadLimiter,
+  expectedBinding: BackendTruthReadBinding | null = null,
+): Promise<ReviewedCommunicationsThreadPage> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.communicationsConversations,
+    readLimiter,
+    expectedBinding,
+  );
+  if (
+    !isCommunicationsRecord(value) ||
+    !hasExactCommunicationsKeys(value, [
+      "status", "source", "items", "pagination", "reason_codes", "blocker_codes",
+      "safe_summary", "read_only", "send_enabled", "reply_enabled",
+      "delete_enabled", "moderate_enabled", "raw_content_omitted",
+    ]) ||
+    !["ready", "empty", "stale", "blocked"].includes(String(value.status)) ||
+    !(value.source === null || isSafeConversationSourcePosture(value.source)) ||
+    !Array.isArray(value.items) ||
+    value.items.length > 50 ||
+    !value.items.every(isSafeReviewedCommunicationThread) ||
+    !isSafeCommunicationsPagination(value.pagination) ||
+    !isCommunicationsRecord(value.pagination) ||
+    value.pagination.returned_count !== value.items.length ||
+    !isCommunicationsSafeCodeArray(value.reason_codes) ||
+    !isCommunicationsSafeCodeArray(value.blocker_codes) ||
+    !isCommunicationsSafeSummary(value.safe_summary) ||
+    value.read_only !== true ||
+    value.send_enabled !== false ||
+    value.reply_enabled !== false ||
+    value.delete_enabled !== false ||
+    value.moderate_enabled !== false ||
+    value.raw_content_omitted !== true
+  ) {
+    throw new Error("Reviewed communications response failed safe validation.");
+  }
+  return value as unknown as ReviewedCommunicationsThreadPage;
+}
+
+export async function loadCommunicationsConversations(): Promise<ReviewedCommunicationsThreadPage> {
+  return loadCommunicationsConversationsWithReadContext();
+}
+
 export async function loadCommunicationsFailedSends(): Promise<CommunicationsFailedSendPage> {
   const value = await readEnvelope<unknown>(
     API_ENDPOINTS.communicationsFailedSends,
@@ -1914,6 +2004,12 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const communicationsProjectionSettledPromise = Promise.allSettled([
+    loadCommunicationsConversationsWithReadContext(
+      loadReadLimiter,
+      expectedBinding,
+    ),
+  ] as const);
   const capabilitySurfaceSettledPromise = Promise.allSettled([
     read<ControlCenterCapabilitySurfaceReadModel>(
       API_ENDPOINTS.controlCenterCapabilitySurface,
@@ -2168,6 +2264,8 @@ export async function loadControlCenterData(
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const communicationsProjectionResult =
+    await communicationsProjectionSettledPromise;
   const capabilitySurfaceResult = await capabilitySurfaceSettledPromise;
   const agentLoopResult = await agentLoopSettledPromise;
   const runtimeCapabilityDiscoveryResult =
@@ -2359,6 +2457,9 @@ export async function loadControlCenterData(
   const codingLivePreview = fulfilledValue(results[41]);
   const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const communicationsProjection = fulfilledValue(
+    communicationsProjectionResult[0],
+  );
   const capabilitySurface = fulfilledValue(capabilitySurfaceResult[0]);
   const founderAgentLoopThread = fulfilledValue(agentLoopResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
@@ -2642,6 +2743,8 @@ export async function loadControlCenterData(
     workBoard.drag_drop_posture?.durable_reorder_enabled !== true ||
     workBoard.drag_drop_posture?.backend_mutation_route_available !== true ||
     workBoard.drag_drop_posture?.approval_required !== true;
+  const communicationsProjectionFallbackUsed =
+    communicationsProjection === undefined;
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
   ];
@@ -3220,6 +3323,13 @@ export async function loadControlCenterData(
       endpointReturned: crmLocalCommandCenter !== undefined,
       usedFallback: crmEndpointFallbackUsed,
     }),
+    routeReadStateInput({
+      route: "/workspace/communications",
+      surfaceLabel: "Communications",
+      backendRouteRef: "GET /control-center/communications/conversations",
+      endpointReturned: communicationsProjection !== undefined,
+      usedFallback: communicationsProjectionFallbackUsed,
+    }),
   ]);
   const founderLoopFieldFallbackUsed =
     normalizedFounderToday.usedFallback ||
@@ -3560,6 +3670,8 @@ export async function loadControlCenterData(
     codingMultiAgentReview:
       safeCodingMultiAgentReview ?? mockControlCenterData.codingMultiAgentReview,
     workBoard: workBoardFallbackUsed ? mockControlCenterData.workBoard : workBoard,
+    communicationsProjection:
+      communicationsProjection ?? mockControlCenterData.communicationsProjection,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

@@ -103,6 +103,16 @@ fresh-state bootstrap, current trial truth, and readability gaps were assigned
 to explicit owners without blocking queue progress or promoting authority.
 Evidence: `report-ref:queue-v2:q21:weekly-review-private-trial:v1` for
 `dev-task:queue-v2-q21-weekly-ceo-review-private-trial`.
+Queue-of-Record V2 Q25 now has a partial dependency advance, not completion:
+Communications owns a strict reviewed-manual-import conversation projection
+with safe source/freshness posture, bounded thread/item contracts, protected
+read-only API routes, CLI parity, and a backend-wired `Social Media` / `Needs
+attention` Control Center view. Raw content, connector sync, sending, replies,
+deletes, moderation, and external writes remain blocked. Q25 remains deferred
+until the Work Board `Social Content` projection, CRM relationship acceptance,
+desktop/narrow visual acceptance, and a bound foundation-profile ledger and
+verifier are accepted. Evidence:
+`docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md`.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
 backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
 explicit: contract refs are defined, while approval-alone availability,

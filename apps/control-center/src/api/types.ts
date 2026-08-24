@@ -13378,6 +13378,50 @@ export interface CommunicationsRoomPage {
   raw_content_omitted: true;
 }
 
+export interface ConversationSourcePosture {
+  source_ref: string;
+  source_kind: "reviewed_manual_import";
+  schema_version: "uaa-communications-reviewed-projection.v1";
+  observed_at: string;
+  freshness: "current" | "stale" | "unknown";
+  coverage_ref: string;
+  retention_ref: string;
+  privacy_ref: string;
+  evidence_refs: string[];
+  connector_configured: false;
+  live_sync_enabled: false;
+  external_actions_enabled: false;
+  raw_content_persisted: false;
+}
+
+export interface ReviewedCommunicationThread {
+  conversation_ref: string;
+  channel_ref: string;
+  participant_refs: string[];
+  item_refs: string[];
+  latest_activity_at: string;
+  needs_attention: boolean;
+  safe_label: string;
+  safe_summary: string;
+  evidence_refs: string[];
+}
+
+export interface ReviewedCommunicationsThreadPage {
+  status: "ready" | "empty" | "stale" | "blocked";
+  source: ConversationSourcePosture | null;
+  items: ReviewedCommunicationThread[];
+  pagination: CommunicationsPagination;
+  reason_codes: string[];
+  blocker_codes: string[];
+  safe_summary: string;
+  read_only: true;
+  send_enabled: false;
+  reply_enabled: false;
+  delete_enabled: false;
+  moderate_enabled: false;
+  raw_content_omitted: true;
+}
+
 export interface CommunicationsFailedSendPage {
   receipt_refs: string[];
   pagination: CommunicationsPagination;
@@ -16471,6 +16515,7 @@ export interface ControlCenterData {
   codingLivePreview: CodingLivePreviewReadModel;
   codingMultiAgentReview: CodingMultiAgentReviewReadModel;
   workBoard: WorkBoardReadModel;
+  communicationsProjection: ReviewedCommunicationsThreadPage;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

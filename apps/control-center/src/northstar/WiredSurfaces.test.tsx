@@ -818,15 +818,62 @@ describe("North Star backend wiring", () => {
   it("does not show stale fixture detail after communication or news searches have no matches", () => {
     const data = cloneData();
     const view = render(<NorthStarControlCenter activePath="/workspace/communications" data={data} />);
-    fireEvent.change(screen.getByPlaceholderText("Search preview communications"), { target: { value: "no-such-fixture" } });
-    expect(screen.getByRole("heading", { name: "No fixture matches" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Customer kickoff timing" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Search reviewed summaries"), { target: { value: "no-such-summary" } });
+    expect(screen.getByRole("heading", { name: "No reviewed summaries" })).toBeVisible();
+    expect(screen.queryByText("Reviewed redacted summary")).not.toBeInTheDocument();
 
     view.rerender(<NorthStarControlCenter activePath="/workspace/news" data={data} />);
     fireEvent.change(screen.getByPlaceholderText("Search preview news and briefings"), { target: { value: "no-such-fixture" } });
     expect(screen.getByText("No preview article matches this search.")).toBeVisible();
     expect(screen.getByText("No fixture is selected.")).toBeVisible();
     expect(screen.queryByText("Preview freshness")).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned reviewed communication summaries with actions blocked", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/workspace/communications");
+    data.communicationsProjection = {
+      ...data.communicationsProjection,
+      status: "ready",
+      source: {
+        source_ref: "source-ref:communications:reviewed-manual-import",
+        source_kind: "reviewed_manual_import",
+        schema_version: "uaa-communications-reviewed-projection.v1",
+        observed_at: "2026-08-24T18:00:00Z",
+        freshness: "current",
+        coverage_ref: "coverage-ref:communications:bounded-local-review",
+        retention_ref: "retention-ref:communications:operator-managed",
+        privacy_ref: "privacy-ref:communications:redacted-summary-only",
+        evidence_refs: ["evidence-ref:communications:reviewed-import-alpha"],
+        connector_configured: false,
+        live_sync_enabled: false,
+        external_actions_enabled: false,
+        raw_content_persisted: false,
+      },
+      items: [{
+        conversation_ref: "conversation-ref:communications:alpha",
+        channel_ref: "channel-ref:communications:social-review",
+        participant_refs: ["participant-ref:communications:reviewer-alpha"],
+        item_refs: ["item-ref:communications:alpha-1"],
+        latest_activity_at: "2026-08-24T17:55:00Z",
+        needs_attention: true,
+        safe_label: "Reviewed social signal",
+        safe_summary: "A reviewed redacted signal requires operator attention.",
+        evidence_refs: ["evidence-ref:communications:thread-alpha"],
+      }],
+      pagination: {
+        ...data.communicationsProjection.pagination,
+        returned_count: 1,
+      },
+      blocker_codes: [],
+      safe_summary: "Reviewed local communication summaries are available read only.",
+    };
+
+    render(<NorthStarControlCenter activePath="/workspace/communications" data={data} />);
+    expect(screen.getByRole("heading", { name: "Reviewed social signal" })).toBeVisible();
+    expect(screen.getAllByText("A reviewed redacted signal requires operator attention.")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Draft reply" })).toBeDisabled();
+    expect(screen.getByText(/Reviewed redacted summaries only/)).toBeVisible();
   });
 
   it("requires explicit confirmation before revoking an exact active authority lease", async () => {

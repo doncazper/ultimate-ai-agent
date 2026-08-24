@@ -380,20 +380,19 @@ moderation, account, or recurring authority.
 Recommendation state: **deferred**.
 
 When the operator asks UAA "what's next?", UAA must not recommend Social Media
-Intelligence as the next implementation lane while any of these conditions is
-true:
+Intelligence until Work Board, CRM, and Communications pass
+`contract-ref:social-read-only-foundation-profile:v1`. This profile proves
+only the backend-owned read interfaces, API/CLI parity, tested Control Center
+projections, visual evidence, and truthful source/freshness states required by
+the first read-only Social milestone. It does not establish standalone product
+completion, production readiness, external connector authority, sending
+authority, or general mutation authority. A planning document, concept render,
+fixture-only view, isolated route, or partial UI does not pass the profile.
 
-1. accepted Work Board/Kanban completion evidence is absent;
-2. accepted first-class CRM completion evidence is absent; or
-3. accepted Communications/Messenger completion evidence is absent.
+The current profile is documented in
+`docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and remains partial.
 
-For each foundation product, completion evidence must cover durable
-backend-owned truth, the intended end-to-end operator workflow, API and CLI
-inspection parity, tested Control Center behavior, accepted visual evidence,
-and aligned current product truth. A planning document, concept render,
-fixture, isolated route, or partial UI does not pass a gate.
-
-Once all three gates pass, Social Media Intelligence becomes an **eligible next
+Once the profile passes, Social Media Intelligence becomes an **eligible next
 candidate**, not an automatic priority. UAA must still reconcile the active
 roadmap, current board, operator pain, and any higher-priority safety or product
 work. The stored execution prompt is
