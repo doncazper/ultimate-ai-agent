@@ -1846,6 +1846,12 @@ Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_FIN000_ACCEPTANCE_MATRIX.md`, and
 `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md`.
 
+FIN-000 review readiness: The exact sixteen-image candidate manifest is locked,
+and the independent review packet, gallery, state/accessibility matrix, pending
+role ledger, and verifier are implemented. Product/design, accounting-domain,
+privacy/security, accessibility, and implementation decisions remain pending;
+this is review readiness, not render acceptance or runtime promotion.
+
 Safety notes: No financial-account connection, aggregation provider, raw
 credential storage, maintained compliance feed, tax/legal/accounting advice,
 accountant invitation, payment, transfer, signature, filing, external write,

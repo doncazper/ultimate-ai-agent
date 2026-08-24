@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 983,
+  "timed_file_count": 984,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1249,6 +1249,11 @@
       "path": "tests/test_filesystem_metadata_tool_contracts.py",
       "seconds": 0.270693,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_fin000_render_acceptance.py",
+      "seconds": 0.3,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_fin000_render_evidence.py",

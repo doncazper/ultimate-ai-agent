@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-ref:fin000-render-acceptance-ledger:v1",
+  "title": "FIN-000 render acceptance ledger v1",
+  "$defs": {
+    "safe_ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9._-]*)+$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "check": {
+      "type": "object", "additionalProperties": false,
+      "required": ["check_ref", "decision", "evidence_refs"],
+      "properties": {
+        "check_ref": {"$ref": "#/$defs/safe_ref"},
+        "decision": {"enum": ["verified_by_automation", "pending_independent_review", "accepted", "changes_requested"]},
+        "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/safe_ref"}}
+      }
+    },
+    "reviewer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role_ref", "reviewer_ref", "trusted_key_ref", "decision", "receipt_ref", "candidate_pack_digest", "acceptance_subject_digest", "finding_refs", "signature_base64url"],
+      "properties": {
+        "role_ref": {"$ref": "#/$defs/safe_ref"},
+        "reviewer_ref": {"anyOf": [{"$ref": "#/$defs/safe_ref"}, {"type": "null"}]},
+        "trusted_key_ref": {"anyOf": [{"$ref": "#/$defs/safe_ref"}, {"type": "null"}]},
+        "decision": {"enum": ["pending", "accepted", "changes_requested"]},
+        "receipt_ref": {"anyOf": [{"$ref": "#/$defs/safe_ref"}, {"type": "null"}]},
+        "candidate_pack_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "acceptance_subject_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "finding_refs": {"type": "array", "items": {"$ref": "#/$defs/safe_ref"}},
+        "signature_base64url": {"anyOf": [{"type": "string", "minLength": 86, "maxLength": 88}, {"type": "null"}]}
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ledger_ref", "program_ref", "candidate_pack_ref",
+    "candidate_manifest_locked", "candidate_manifest_ref",
+    "candidate_pack_digest", "acceptance_subject_digest", "candidate_author_ref", "schema_ref", "status",
+    "review_scope", "assets", "checklist", "reviewers", "promotion_ready",
+    "runtime_authority_added", "next_safe_action"
+  ],
+  "properties": {
+    "ledger_ref": {"const": "ledger-ref:fin000-render-acceptance:v1"},
+    "program_ref": {"const": "program-ref:fin000"},
+    "candidate_pack_ref": {"const": "render-pack-ref:finance-compliance-v1"},
+    "candidate_manifest_locked": {"const": true},
+    "candidate_manifest_ref": {"const": "manifest-ref:fin000-render-pack:v1"},
+    "candidate_pack_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "acceptance_subject_digest": {"$ref": "#/$defs/digest"},
+    "candidate_author_ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9._-]*)+$"},
+    "schema_ref": {"const": "schema-ref:fin000-render-acceptance-ledger:v1"},
+    "status": {"enum": ["pending_independent_review", "changes_requested", "accepted"]},
+    "review_scope": {"const": "planning_only_render_candidate_pack"},
+    "assets": {
+      "type": "array", "minItems": 16, "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path_ref", "filename", "sha256", "width", "height", "viewport_class"],
+        "properties": {
+          "path_ref": {"type": "string"}, "filename": {"type": "string", "pattern": "^[^/]+\\.png$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1},
+          "viewport_class": {"enum": ["desktop", "narrow"]}
+        }
+      }
+    },
+    "checklist": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"$ref": "#/$defs/check"}},
+    "reviewers": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/reviewer"}},
+    "promotion_ready": {"type": "boolean"},
+    "runtime_authority_added": {"const": false},
+    "next_safe_action": {"type": "string", "minLength": 1}
+  }
+}
