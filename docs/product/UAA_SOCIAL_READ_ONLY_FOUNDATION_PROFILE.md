@@ -14,12 +14,31 @@ Work Board, CRM, Communications, Messenger, or Social globally complete.
 
 | Owner foundation | Required Social integration | Current state |
 |---|---|---|
-| Work Board | Backend-owned board plus a typed `Social Content` saved projection | Partial. The board foundation exists; the Social saved projection remains missing. |
+| Work Board | Backend-owned board plus a typed `Social Content` saved projection | Implemented locally. Python Core owns a strict read-only saved projection and the Control Center can filter it; independent visual and profile acceptance remain missing. |
 | CRM | Backend-owned relationship context and stable deep-link refs | Partial. The local CRM owner foundation exists; Social relationship projection acceptance remains missing. |
 | Communications | Canonical reviewed conversation summaries, typed source/freshness posture, API/CLI parity, `Social Media` and `Needs attention` UI projections | Implemented locally for a read-only reviewed-manual-import projection; independent visual acceptance remains missing. |
 
 Q25 is not eligible until every row is accepted on one exact revision with
 tests, current product truth, and desktop/narrow visual evidence.
+
+## Work Board foundation contract
+
+The existing Python Agent Core Work Board now owns
+`contract-ref:work-board-social-content-saved-projection:v1`:
+
+- `work-board-saved-projection:social-content` selects existing board cards by
+  the exact `social-content` tag while Work Board retains lifecycle, ordering,
+  card, and task ownership;
+- the projection publishes typed link contracts for originating signal,
+  campaign, evidence, and schedule refs without fabricating linked records;
+- the Control Center exposes `Social Content` as a saved-view filter and labels
+  it backend-owned and read-only;
+- copied task lifecycle, social publishing, connector writes, background sync,
+  and production authority are structurally rejected.
+
+The projection uses the existing `GET /control-center/work-board` route and
+`scripts/dev/uaa_work_board.py inspect-board` CLI. It adds no route or mutation
+lane.
 
 ## Communications foundation contract
 
@@ -59,7 +78,8 @@ data and cannot act as instructions or authority.
 
 ## Remaining acceptance work
 
-1. Add and accept the Work Board `Social Content` saved projection.
+1. Independently accept the Work Board `Social Content` saved projection and
+   its desktop/narrow evidence.
 2. Accept the CRM relationship-context projection and deep links.
 3. Capture and independently review desktop and narrow visual evidence for the
    backend-owned Communications states: ready, empty, stale, blocked, error,

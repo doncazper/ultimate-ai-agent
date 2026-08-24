@@ -73,6 +73,12 @@ WORK_BOARD_TASK_CREATE_SAFE_DISABLE_REF = "safe-disable-ref:work-board:local-tas
 WORK_BOARD_TASK_CREATE_ROLLBACK_REF = "rollback-ref:work-board:remove-local-task-record"
 WORK_BOARD_TASK_CREATE_PROOF_REF = "proof-ref:work-board-local-task-create"
 WORK_BOARD_TASK_CREATE_EVIDENCE_REF = "evidence-ref:work-board-local-task-create"
+WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF = "work-board-saved-projection:social-content"
+WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF = (
+    "contract-ref:work-board-social-content-saved-projection:v1"
+)
+WORK_BOARD_SOCIAL_CONTENT_CARD_REF = "work-board-card:social-read-only-foundation"
+WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG = "social-content"
 WORK_BOARD_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
 WORK_BOARD_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
 WORK_BOARD_REORDER_AUTHORITY_ACTION_REF = "authority-action-ref:work-board-reorder"
@@ -101,6 +107,7 @@ BoardStatus = Literal["backend_owned_read_model"]
 ColumnStatus = Literal["planned", "in_progress", "review", "blocked", "done"]
 CardPriority = Literal["critical", "high", "medium", "low"]
 CardAuthorityState = Literal["enabled_read_only", "proposal_only", "blocked"]
+SavedProjectionStatus = Literal["backend_owned_read_only"]
 
 
 def _hash_ref(prefix: str, value: object) -> str:
@@ -812,6 +819,71 @@ class WorkBoardColumnReadModel(BaseModel):
         return self
 
 
+class WorkBoardSavedProjectionReadModel(BaseModel):
+    projection_ref: str = Field(..., min_length=1)
+    contract_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=80)
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    owner_ref: str = Field(..., min_length=1)
+    status: SavedProjectionStatus = "backend_owned_read_only"
+    filter_tags: list[str] = Field(default_factory=list, min_length=1)
+    link_contract_refs: list[str] = Field(default_factory=list, min_length=1)
+    proof_refs: list[str] = Field(default_factory=list, min_length=1)
+    evidence_refs: list[str] = Field(default_factory=list, min_length=1)
+    blocker_refs: list[str] = Field(default_factory=list)
+    backend_owned: bool = True
+    read_only: bool = True
+    copies_task_lifecycle: bool = False
+    publishing_enabled: bool = False
+    connector_write_enabled: bool = False
+    background_sync_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_projection(self) -> "WorkBoardSavedProjectionReadModel":
+        for ref in [
+            self.projection_ref,
+            self.contract_ref,
+            self.owner_ref,
+            *self.link_contract_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocker_refs,
+        ]:
+            validate_task_ref(ref, "work_board_saved_projection_ref")
+        for value in [
+            self.label,
+            self.safe_summary,
+            self.status,
+            *self.filter_tags,
+        ]:
+            validate_safe_task_text(value, "work_board_saved_projection_text")
+        if len(self.filter_tags) != len(set(self.filter_tags)):
+            raise ValueError("work board saved projection duplicate filter tag")
+        if len(self.link_contract_refs) != len(set(self.link_contract_refs)):
+            raise ValueError("work board saved projection duplicate link contract")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"work board saved projection disabled {disabled[0]}")
+        forbidden_flags = {
+            "copies_task_lifecycle": self.copies_task_lifecycle,
+            "publishing_enabled": self.publishing_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "background_sync_enabled": self.background_sync_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in forbidden_flags.items() if value]
+        if enabled:
+            raise ValueError(f"work board saved projection enabled {enabled[0]}")
+        return self
+
+
 class WorkBoardDragDropPostureReadModel(BaseModel):
     posture_ref: str = "drag-drop-posture:work-board-exact-approved-reorder"
     safe_summary: str = Field(..., min_length=1, max_length=520)
@@ -902,6 +974,9 @@ class WorkBoardReadModel(BaseModel):
     full_strength_goal: str = Field(..., min_length=1, max_length=640)
     columns: list[WorkBoardColumnReadModel] = Field(default_factory=list)
     cards: list[WorkBoardCardReadModel] = Field(default_factory=list)
+    saved_projections: list[WorkBoardSavedProjectionReadModel] = Field(
+        default_factory=list
+    )
     local_task_records: list[WorkBoardLocalTaskReadModel] = Field(default_factory=list)
     blocked_lanes: list[WorkBoardBlockedLaneReadModel] = Field(default_factory=list)
     drag_drop_posture: WorkBoardDragDropPostureReadModel
@@ -1020,6 +1095,35 @@ class WorkBoardReadModel(BaseModel):
             for card_ref in column.card_refs:
                 if (card_ref, column.column_ref) not in card_column_pairs:
                     raise ValueError("work board column card ordering drifted")
+        projection_refs = [
+            projection.projection_ref for projection in self.saved_projections
+        ]
+        if len(projection_refs) != len(set(projection_refs)):
+            raise ValueError("work board duplicate saved projection ref")
+        social_projection = next(
+            (
+                projection
+                for projection in self.saved_projections
+                if projection.projection_ref == WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF
+            ),
+            None,
+        )
+        if social_projection is None:
+            raise ValueError("work board Social Content saved projection missing")
+        if (
+            social_projection.contract_ref
+            != WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF
+            or social_projection.label != "Social Content"
+            or social_projection.filter_tags != [WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG]
+        ):
+            raise ValueError("work board Social Content saved projection drifted")
+        if not any(
+            set(social_projection.filter_tags).issubset(set(card.tags))
+            for card in self.cards
+        ):
+            raise ValueError(
+                "work board Social Content projection has no matching card"
+            )
         if not set(WORK_BOARD_REQUIRED_BLOCKED_REFS).issubset(
             self.blocked_authority_refs
         ):
@@ -2789,7 +2893,10 @@ def _base_work_board() -> tuple[list[WorkBoardColumnReadModel], list[WorkBoardCa
             label="Review",
             status="review",
             safe_summary="Changes that need proof, language, safety, OpenAPI, and UI review before promotion.",
-            card_refs=["work-board-card:trust-authority-map"],
+            card_refs=[
+                "work-board-card:trust-authority-map",
+                WORK_BOARD_SOCIAL_CONTENT_CARD_REF,
+            ],
             wip_limit=4,
             blocked_authority_refs=[],
         ),
@@ -2898,6 +3005,23 @@ def _base_work_board() -> tuple[list[WorkBoardColumnReadModel], list[WorkBoardCa
             ["trust", "authority"],
         ),
         _card(
+            WORK_BOARD_SOCIAL_CONTENT_CARD_REF,
+            "Social read-only foundation",
+            "work-board-column:review",
+            "Track the Q25 owner-foundation acceptance work without copying task lifecycle or granting social publishing authority.",
+            "high",
+            "proposal_only",
+            "Foundation review",
+            [
+                WORK_BOARD_ROUTE_REF,
+                "route-ref:control-center-communications",
+                "route-ref:control-center-crm",
+            ],
+            ["proof-ref:q25-social-read-only-foundation"],
+            ["blocked-state:q25-social-foundation-acceptance-incomplete"],
+            [WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG, "q25", "cross-app"],
+        ),
+        _card(
             "work-board-card:external-agent-dispatch",
             "External agent dispatch",
             "work-board-column:blocked",
@@ -2997,6 +3121,32 @@ def build_work_board_read_model(
         ),
         columns=columns,
         cards=cards,
+        saved_projections=[
+            WorkBoardSavedProjectionReadModel(
+                projection_ref=WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF,
+                contract_ref=WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF,
+                label="Social Content",
+                safe_summary=(
+                    "Backend-owned saved projection of Work Board cards tagged for "
+                    "Q25 Social foundation review. Work Board retains lifecycle and "
+                    "ordering ownership."
+                ),
+                owner_ref="owner-ref:python-agent-core-work-board",
+                filter_tags=[WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG],
+                link_contract_refs=[
+                    "link-contract-ref:social-originating-signal",
+                    "link-contract-ref:social-campaign",
+                    "link-contract-ref:social-evidence",
+                    "link-contract-ref:social-schedule",
+                ],
+                proof_refs=["proof-ref:q25-work-board-social-content-projection"],
+                evidence_refs=["evidence-ref:work-board-read-model"],
+                blocker_refs=[
+                    "blocked-state:q25-social-foundation-acceptance-incomplete",
+                    "blocked-state:q25-no-social-publishing",
+                ],
+            )
+        ],
         local_task_records=local_task_records,
         blocked_lanes=[
             WorkBoardBlockedLaneReadModel(

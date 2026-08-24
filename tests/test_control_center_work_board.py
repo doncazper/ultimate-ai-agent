@@ -28,6 +28,10 @@ from ultimate_ai_agent.core.control_center import (
     WORK_BOARD_CONTRACT_REF,
     WORK_BOARD_FRONTEND_ROUTE_REF,
     WORK_BOARD_REQUIRED_BLOCKED_REFS,
+    WORK_BOARD_SOCIAL_CONTENT_CARD_REF,
+    WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG,
+    WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF,
+    WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF,
     WorkBoardReadModel,
     build_work_board_read_model,
 )
@@ -108,6 +112,29 @@ def test_work_board_read_model_is_backend_owned_safe_refs_only() -> None:
     assert board.drag_drop_posture.rollback_available is True
     assert board.columns
     assert board.cards
+    assert len(board.saved_projections) == 1
+    social_projection = board.saved_projections[0]
+    assert social_projection.projection_ref == WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF
+    assert (
+        social_projection.contract_ref
+        == WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF
+    )
+    assert social_projection.label == "Social Content"
+    assert social_projection.filter_tags == [WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG]
+    assert social_projection.backend_owned is True
+    assert social_projection.read_only is True
+    assert social_projection.copies_task_lifecycle is False
+    assert social_projection.publishing_enabled is False
+    assert social_projection.connector_write_enabled is False
+    assert social_projection.background_sync_enabled is False
+    assert social_projection.production_authority_enabled is False
+    social_card = next(
+        card
+        for card in board.cards
+        if card.card_ref == WORK_BOARD_SOCIAL_CONTENT_CARD_REF
+    )
+    assert WORK_BOARD_SOCIAL_CONTENT_FILTER_TAG in social_card.tags
+    assert social_card.authority_state == "proposal_only"
     assert set(WORK_BOARD_REQUIRED_BLOCKED_REFS).issubset(
         board.blocked_authority_refs
     )
@@ -183,6 +210,42 @@ def test_work_board_rejects_raw_paths_and_card_mutation() -> None:
     with pytest.raises(ValidationError, match="task create route"):
         WorkBoardReadModel(**payload)
 
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "copies_task_lifecycle",
+        "publishing_enabled",
+        "connector_write_enabled",
+        "background_sync_enabled",
+        "production_authority_enabled",
+    ],
+)
+def test_work_board_social_saved_projection_rejects_authority(
+    field_name: str,
+) -> None:
+    payload = build_work_board_read_model().model_dump(mode="json")
+    payload["saved_projections"][0][field_name] = True
+
+    with pytest.raises(ValidationError, match=field_name):
+        WorkBoardReadModel(**payload)
+
+
+def test_work_board_requires_exact_social_content_saved_projection() -> None:
+    payload = build_work_board_read_model().model_dump(mode="json")
+    payload["saved_projections"] = []
+    with pytest.raises(
+        ValidationError, match="Social Content saved projection missing"
+    ):
+        WorkBoardReadModel(**payload)
+
+    payload = build_work_board_read_model().model_dump(mode="json")
+    payload["saved_projections"][0]["filter_tags"] = ["different-view"]
+    with pytest.raises(
+        ValidationError, match="Social Content saved projection drifted"
+    ):
+        WorkBoardReadModel(**payload)
+
     payload = build_work_board_read_model().model_dump(mode="json")
     payload["task_create_route_available"] = False
     with pytest.raises(ValidationError, match="task create route"):
@@ -228,6 +291,9 @@ def test_control_center_work_board_route_returns_safe_read_model() -> None:
     assert set(WORK_BOARD_REQUIRED_BLOCKED_REFS).issubset(
         data["blocked_authority_refs"]
     )
+    assert data["saved_projections"] == [
+        build_work_board_read_model().saved_projections[0].model_dump(mode="json")
+    ]
 
 
 def test_control_center_work_board_reorder_route_requires_exact_approval(

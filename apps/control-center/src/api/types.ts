@@ -1692,6 +1692,27 @@ export interface WorkBoardDragDropPostureReadModel {
   promotion_path_refs: string[];
 }
 
+export interface WorkBoardSavedProjectionReadModel {
+  projection_ref: string;
+  contract_ref: string;
+  label: string;
+  safe_summary: string;
+  owner_ref: string;
+  status: "backend_owned_read_only";
+  filter_tags: string[];
+  link_contract_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocker_refs: string[];
+  backend_owned: boolean;
+  read_only: boolean;
+  copies_task_lifecycle: boolean;
+  publishing_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_sync_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface WorkBoardReadModel {
   schema_version: "uaa-work-board-read-model.v1";
   contract_ref: string;
@@ -1710,6 +1731,7 @@ export interface WorkBoardReadModel {
   full_strength_goal: string;
   columns: WorkBoardColumnReadModel[];
   cards: WorkBoardCardReadModel[];
+  saved_projections: WorkBoardSavedProjectionReadModel[];
   local_task_records: WorkBoardLocalTaskReadModel[];
   blocked_lanes: WorkBoardBlockedLaneReadModel[];
   drag_drop_posture: WorkBoardDragDropPostureReadModel;

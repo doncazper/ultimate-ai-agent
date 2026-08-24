@@ -1388,6 +1388,75 @@ function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
   ) as typeof mockControlCenterData.workBoard;
   return {
     ...board,
+    columns: board.columns.map((column) =>
+      column.column_ref === "work-board-column:review"
+        ? {
+            ...column,
+            card_refs: [
+              ...column.card_refs,
+              "work-board-card:social-read-only-foundation",
+            ],
+          }
+        : column,
+    ),
+    cards: [
+      ...board.cards,
+      {
+        card_ref: "work-board-card:social-read-only-foundation",
+        title: "Social read-only foundation",
+        safe_summary:
+          "Track Q25 owner-foundation acceptance without copying task lifecycle or granting publishing authority.",
+        column_ref: "work-board-column:review",
+        priority: "high",
+        authority_state: "proposal_only",
+        owner_ref: "owner-ref:python-agent-core-work-board",
+        progress_label: "Foundation review",
+        proof_refs: ["proof-ref:q25-social-read-only-foundation"],
+        evidence_refs: ["evidence-ref:work-board-read-model"],
+        blocker_refs: [
+          "blocked-state:q25-social-foundation-acceptance-incomplete",
+        ],
+        surface_refs: ["route-ref:control-center-work-board"],
+        cli_inspection_refs: ["scripts/dev/uaa_work_board.py inspect-board"],
+        tags: ["social-content", "q25", "cross-app"],
+        raw_path_included: false,
+        raw_content_included: false,
+        mutation_enabled: false,
+        drag_persistence_enabled: false,
+      },
+    ],
+    saved_projections: [
+      {
+        projection_ref: "work-board-saved-projection:social-content",
+        contract_ref:
+          "contract-ref:work-board-social-content-saved-projection:v1",
+        label: "Social Content",
+        safe_summary:
+          "Backend-owned saved projection for Q25 Social foundation review.",
+        owner_ref: "owner-ref:python-agent-core-work-board",
+        status: "backend_owned_read_only",
+        filter_tags: ["social-content"],
+        link_contract_refs: [
+          "link-contract-ref:social-originating-signal",
+          "link-contract-ref:social-campaign",
+          "link-contract-ref:social-evidence",
+          "link-contract-ref:social-schedule",
+        ],
+        proof_refs: ["proof-ref:q25-work-board-social-content-projection"],
+        evidence_refs: ["evidence-ref:work-board-read-model"],
+        blocker_refs: [
+          "blocked-state:q25-social-foundation-acceptance-incomplete",
+          "blocked-state:q25-no-social-publishing",
+        ],
+        backend_owned: true,
+        read_only: true,
+        copies_task_lifecycle: false,
+        publishing_enabled: false,
+        connector_write_enabled: false,
+        background_sync_enabled: false,
+        production_authority_enabled: false,
+      },
+    ],
     board_ref: "work-board:app-test-backend",
     source_label: "python_core_work_board_read_model",
     blocked_lanes: [
@@ -3166,6 +3235,21 @@ describe("Web Control Center shell", () => {
     try {
       expect(await screen.findByText("Backend online")).toBeInTheDocument();
       const board = screen.getByTestId("work-board");
+      const savedViewFilter = within(board).getByLabelText("Saved view filter");
+      fireEvent.click(
+        within(savedViewFilter).getByRole("button", { name: "Social Content" }),
+      );
+      expect(
+        within(board).getByLabelText("Social read-only foundation card"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).queryByLabelText("Action Inbox work queue card"),
+      ).not.toBeInTheDocument();
+      expect(
+        within(board).getByLabelText("Social Content saved projection"),
+      ).toBeInTheDocument();
+      expect(within(board).getByText("Read-only · publishing blocked")).toBeInTheDocument();
+      fireEvent.click(within(savedViewFilter).getByRole("button", { name: "All" }));
       fireEvent.change(screen.getByLabelText("Search Work Board"), {
         target: { value: "proof" },
       });
@@ -3190,7 +3274,12 @@ describe("Web Control Center shell", () => {
       expect(
         within(board).queryByLabelText("Action Inbox work queue card"),
       ).not.toBeInTheDocument();
-      fireEvent.click(within(board).getAllByRole("button", { name: "All" })[1]);
+      fireEvent.click(
+        within(within(board).getByLabelText("Authority filter")).getByRole(
+          "button",
+          { name: "All" },
+        ),
+      );
       fireEvent.click(
         within(board).getByRole("button", { name: "Add local draft" }),
       );

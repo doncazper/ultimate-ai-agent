@@ -5516,6 +5516,7 @@ th {
 
 .work-board-chrome,
 .work-board-filter-row,
+.work-board-saved-projection,
 .work-board-notice,
 .work-board-column,
 .work-board-inspector,
@@ -5682,6 +5683,34 @@ th {
   border-color: #f0b429;
   background: #fffbea;
   color: #7c2d12;
+}
+
+.work-board-saved-projection {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #b8c9dc;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f8fbff, #eef5fb);
+}
+
+.work-board-saved-projection > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.work-board-saved-projection strong {
+  color: #0f2942;
+  font-size: 0.95rem;
+}
+
+.work-board-saved-projection p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .work-board-notice {
@@ -6039,6 +6068,7 @@ th {
   }
 
   .work-board-layout,
+  .work-board-saved-projection,
   .work-board-proof-grid {
     grid-template-columns: minmax(0, 1fr);
   }
