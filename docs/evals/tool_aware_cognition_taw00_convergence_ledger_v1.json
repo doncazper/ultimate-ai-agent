@@ -1,0 +1,22 @@
+{
+  "ledger_ref": "ledger-ref:taw00:convergence:v1",
+  "protocol_ref": "protocol-ref:taw00:baseline:v1",
+  "status": "scaffold_implemented_acceptance_contracts_pending",
+  "requirements": [
+    {"requirement_ref": "requirement-ref:taw00:capability-lab-reuse", "state": "implemented", "evidence_refs": ["contract-ref:capability-evaluation-lab:v1"]},
+    {"requirement_ref": "requirement-ref:taw00:development-corpus", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:development-corpus:v1", "blocker-ref:taw00:acceptance-corpus-contract-review-pending"]},
+    {"requirement_ref": "requirement-ref:taw00:holdout-commitment", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:holdout-commitment:v1"]},
+    {"requirement_ref": "requirement-ref:taw00:blind-scoring", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:blind-score:v1", "schema-ref:taw00:adjudication:v1", "blocker-ref:taw00:typed-randomization-receipt-pending", "blocker-ref:taw00:candidate-result-binding-pending"]},
+    {"requirement_ref": "requirement-ref:taw00:statistics", "state": "scaffolded", "evidence_refs": ["estimator-ref:taw00:paired-bootstrap", "estimator-ref:taw00:evaluator-clustered", "estimator-ref:taw00:holm-step-down", "estimator-ref:taw00:krippendorff-ordinal", "blocker-ref:taw00:typed-power-analysis-pending", "blocker-ref:taw00:binomial-upper-bound-estimator-pending"]},
+    {"requirement_ref": "requirement-ref:taw00:candidate-lock", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:candidate-lock:v1", "blocker-ref:taw00:candidate-result-binding-pending", "blocker-ref:taw00:source-dependency-closure-pending"]},
+    {"requirement_ref": "requirement-ref:taw00:supported-matrices", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:supported-matrices-not-frozen"]},
+    {"requirement_ref": "requirement-ref:taw00:independent-custody", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:independent-holdout-custodian-pending", "blocker-ref:taw00:independent-custodian-identity-authority-missing", "blocker-ref:taw00:independent-evaluator-identity-authority-missing"]},
+    {"requirement_ref": "requirement-ref:taw00:accepted-current-baseline", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:baseline-measurement-pending", "blocker-ref:taw00:external-baseline-acceptance-authority-missing"]},
+    {"requirement_ref": "requirement-ref:taw00:routing-or-prompt-change", "state": "not_started", "evidence_refs": ["boundary-ref:taw00:no-behavior-change-before-baseline"]}
+  ],
+  "routing_changes_added": false,
+  "prompt_changes_added": false,
+  "runtime_model_calls_added": false,
+  "authority_added": false,
+  "next_safe_action": "Complete and review typed power, binomial-bound, randomization, candidate-result, and transitive source-closure contracts; then freeze truthful supported matrices and configure externally anchored custodian, evaluator, and baseline-acceptance identity authority before any routing or prompt change."
+}

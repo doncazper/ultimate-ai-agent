@@ -17,6 +17,15 @@ runtime authority and is not completion evidence. Canonical plan:
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`; ordered
 execution record:
 `docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`.
+Q22 / TAW-00 posture: a fail-closed scaffold now covers reconstructible
+development cases, public holdout commitments, baseline/score receipt shapes,
+metric-specific threshold checks, revision-bound root/candidate inventories,
+CLI, and static verification. It is not an evaluation facility or acceptance
+proof. Typed power, binomial-bound, randomization, candidate/result binding,
+and transitive source-closure contracts remain incomplete; supported matrices,
+externally anchored reviewer identities, and an accepted-current baseline also
+remain blocked. The scaffold has no `ready` result. No routing, prompt,
+model-call, or authority change may begin on this evidence alone.
 The exact intervening item order, pre-Goat insertion boundary, and
 machine-readable no-new-authority declaration are pinned in
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.
