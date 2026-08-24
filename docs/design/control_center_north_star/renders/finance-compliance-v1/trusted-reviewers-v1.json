@@ -1,0 +1,6 @@
+{
+  "registry_ref": "registry-ref:fin000:trusted-reviewers:v1",
+  "candidate_pack_ref": "render-pack-ref:finance-compliance-v1",
+  "status": "pending_reviewer_enrollment",
+  "reviewers": []
+}

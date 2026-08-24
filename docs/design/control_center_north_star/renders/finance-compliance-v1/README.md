@@ -8,6 +8,10 @@ Product contract: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`
 Workflow case study: `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`
 Threat model: `docs/security/UAA_FINANCE_COMPLIANCE_THREAT_MODEL.md`
 FIN-000 matrix: `docs/product/UAA_FINANCE_FIN000_ACCEPTANCE_MATRIX.md`
+Independent review packet: `docs/product/UAA_FINANCE_FIN000_INDEPENDENT_REVIEW_PACKET.md`
+Acceptance ledger: `docs/design/control_center_north_star/renders/finance-compliance-v1/acceptance-ledger-v1.json`
+Review gallery: `docs/design/control_center_north_star/renders/finance-compliance-v1/REVIEW_GALLERY.md`
+State/accessibility matrix: `docs/product/UAA_FINANCE_FIN000_STATE_ACCESSIBILITY_MATRIX.md`
 
 ## Purpose
 
@@ -92,6 +96,16 @@ resolution. A focused repository test verifies the exact inventory, PNG
 headers, and minimum dimensions. This is content-free asset-integrity evidence,
 not product, accounting-domain, privacy/security, accessibility, or
 implementation acceptance.
+
+The candidate filenames and SHA-256 digests are locked in a durable acceptance
+ledger. A separate digest locks the normative review contract. A repository
+verifier checks exact inventory and minimum dimensions, manifest and review-
+contract integrity, registered Ed25519 reviewer signatures, distinct keys and
+roles, evidence refs, redaction posture, and promotion consistency. Registered
+keys do not prove independent human identity, so promotion remains fail-closed
+until an external identity authority is separately anchored. The current
+ledger is honestly `pending_independent_review`; verifier success means the
+pending record is internally valid, not that reviewers accepted the renders.
 
 Author self-check found the intended planning-only, local-only, review-required,
 and external-actions-blocked posture across the pack. Independent reviewers

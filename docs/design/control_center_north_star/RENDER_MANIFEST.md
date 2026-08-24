@@ -174,8 +174,10 @@ narrow states. It is synthetic, planning-only, and pending independent FIN-000
 acceptance. The images do not prove a Finance route, storage, calculations,
 connectors, accountant access, payment, filing, advice, or runtime authority.
 
-See `renders/finance-compliance-v1/README.md` for the exact inventory, visual
-contract, and unsigned review checklist.
+See `renders/finance-compliance-v1/README.md` for the exact inventory and visual
+contract, `renders/finance-compliance-v1/REVIEW_GALLERY.md` for the locked review
+sequence, and `renders/finance-compliance-v1/acceptance-ledger-v1.json` for the
+still-pending independent decisions.
 
 ## Legacy Composite Coverage
 

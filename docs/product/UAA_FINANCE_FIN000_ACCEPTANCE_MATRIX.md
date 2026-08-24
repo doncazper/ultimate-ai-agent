@@ -25,6 +25,8 @@ in the render brief is independently signed off.
 | Disabled adapter contract | this matrix and product contract | planning-only |
 | Desktop/narrow state contract | render brief | defined |
 | Twelve desktop plus four narrow render candidates | `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md` and `tests/test_fin000_render_evidence.py` | generated; independent review pending |
+| Locked candidate manifest and acceptance ledger | `docs/design/control_center_north_star/renders/finance-compliance-v1/acceptance-ledger-v1.json`, `docs/product/UAA_FINANCE_FIN000_INDEPENDENT_REVIEW_PACKET.md`, and `scripts/verify_fin000_render_acceptance.py` | review-ready; five independent role decisions pending |
+| Render gallery and state/accessibility review contract | `docs/design/control_center_north_star/renders/finance-compliance-v1/REVIEW_GALLERY.md` and `docs/product/UAA_FINANCE_FIN000_STATE_ACCESSIBILITY_MATRIX.md` | review-ready; implementation proof remains future |
 | Reference parity and clean-room exclusions | product contract and this matrix | defined |
 | Queue placement | `docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md` | defined |
 

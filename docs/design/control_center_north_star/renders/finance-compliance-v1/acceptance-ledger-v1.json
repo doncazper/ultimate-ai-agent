@@ -1,0 +1,53 @@
+{
+  "ledger_ref": "ledger-ref:fin000-render-acceptance:v1",
+  "program_ref": "program-ref:fin000",
+  "candidate_pack_ref": "render-pack-ref:finance-compliance-v1",
+  "candidate_manifest_locked": true,
+  "candidate_manifest_ref": "manifest-ref:fin000-render-pack:v1",
+  "candidate_pack_digest": "sha256:95c90c25855f6408ee22f9f050a07e373b79404de37c2f3c91a0005ac532fc72",
+  "acceptance_subject_digest": "sha256:c435398cf009273b3b203db1567d71b56e494efa492e877c9bb0c732928febff",
+  "candidate_author_ref": "actor-ref:fin000:candidate-pack-author",
+  "schema_ref": "schema-ref:fin000-render-acceptance-ledger:v1",
+  "status": "pending_independent_review",
+  "review_scope": "planning_only_render_candidate_pack",
+  "assets": [
+    {"path_ref": "render-ref:fin000:01-finance-command-desktop", "filename": "01-finance-command-desktop.png", "sha256": "b45181cbe7e17532ac520613d10cc89f0174bcee09ff6c0e289a61e8f5345cbb", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:02-source-statement-inbox-desktop", "filename": "02-source-statement-inbox-desktop.png", "sha256": "fe137c777f054ecc9f363a493bf4e8ee6cc8f76d9dec2e9535298027f2a16ca4", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:03-extraction-reconciliation-workbench", "filename": "03-extraction-reconciliation-workbench.png", "sha256": "e03d4b9228b7ff1a1be3bdcc0ae0ecb9a704fcfe9f5c96b9fbd1ccf71628a3f1", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:04-transfer-balance-sheet-review", "filename": "04-transfer-balance-sheet-review.png", "sha256": "a7c5f94badcaa54c6a8df82ad7cc69867ae7fb23f14c6f3cfbc31625f9d4b55a", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:05-review-batches-desktop", "filename": "05-review-batches-desktop.png", "sha256": "54b2755f9246f5c478cf1676a0b212d0e21b90d107a7632354314c435e2ab4c2", "width": 1586, "height": 992, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:06-transaction-review-desktop", "filename": "06-transaction-review-desktop.png", "sha256": "19b260614251c106a43e0bfa23bcbc0d0fd58899dc64e53e3cc45907f02b2d47", "width": 1586, "height": 992, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:07-transaction-evidence-inspector", "filename": "07-transaction-evidence-inspector.png", "sha256": "915114adfe25d8adb980594d72442e3684170faa62f50a21ee8005ba148b8957", "width": 1536, "height": 1024, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:08-books-reconciliation-desktop", "filename": "08-books-reconciliation-desktop.png", "sha256": "4c8716504b3505e45a80ad2465d0044b69a3e797844d053d049fe73088420088", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:09-tax-readiness-accountant-desktop", "filename": "09-tax-readiness-accountant-desktop.png", "sha256": "a75dc5b0e104c7dde0a887335179303c5078321bd19ee67e04cff7044c8616f3", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:10-compliance-obligations-desktop", "filename": "10-compliance-obligations-desktop.png", "sha256": "952a16a955bc8885ab4ea335cb6abf8c0d075511659390131b89403b0b500746", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:11-calendar-finance-saved-view", "filename": "11-calendar-finance-saved-view.png", "sha256": "61d93bf04fbb3465192b6532fc03172280fdaa7cb10d42546350024bd182484e", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:12-founder-loop-finance-projections", "filename": "12-founder-loop-finance-projections.png", "sha256": "ec23f95503f81d006fb76c275ce237125531a61ca7547ed71b59138d15c976fd", "width": 1584, "height": 993, "viewport_class": "desktop"},
+    {"path_ref": "render-ref:fin000:13-finance-command-narrow", "filename": "13-finance-command-narrow.png", "sha256": "38a178e4d193a9b2a71c8c112f568904d0bb237c0ec833093947597ba344c533", "width": 1024, "height": 1536, "viewport_class": "narrow"},
+    {"path_ref": "render-ref:fin000:14-transaction-review-narrow", "filename": "14-transaction-review-narrow.png", "sha256": "7b3ed4c9abe6f1382669852d7ad0878668695ef9771c0a72007186cdcc1be979", "width": 1024, "height": 1536, "viewport_class": "narrow"},
+    {"path_ref": "render-ref:fin000:15-evidence-capture-narrow", "filename": "15-evidence-capture-narrow.png", "sha256": "361f3574ace08f8ff68895d2a54aa26d55088ba81b14da7bfc4c96a9fdc4416a", "width": 1024, "height": 1536, "viewport_class": "narrow"},
+    {"path_ref": "render-ref:fin000:16-upcoming-obligations-narrow", "filename": "16-upcoming-obligations-narrow.png", "sha256": "02f761b38cf39bf123109ce2ea9e4cf59f52639fac7918451753d4b2dac2adac", "width": 1024, "height": 1536, "viewport_class": "narrow"}
+  ],
+  "checklist": [
+    {"check_ref": "check-ref:fin000:desktop-inventory", "decision": "verified_by_automation", "evidence_refs": ["test-ref:fin000-render-inventory"]},
+    {"check_ref": "check-ref:fin000:narrow-inventory", "decision": "verified_by_automation", "evidence_refs": ["test-ref:fin000-render-inventory"]},
+    {"check_ref": "check-ref:fin000:coherent-fixture-story", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:canonical-ownership", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:state-language", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:no-unavailable-authority", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:consequence-readability", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:synthetic-sensitive-values", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:accessibility", "decision": "pending_independent_review", "evidence_refs": []},
+    {"check_ref": "check-ref:fin000:role-acceptance", "decision": "pending_independent_review", "evidence_refs": []}
+  ],
+  "reviewers": [
+    {"role_ref": "reviewer-role-ref:fin000:product-design", "reviewer_ref": null, "trusted_key_ref": null, "decision": "pending", "receipt_ref": null, "candidate_pack_digest": null, "acceptance_subject_digest": null, "finding_refs": [], "signature_base64url": null},
+    {"role_ref": "reviewer-role-ref:fin000:accounting-domain", "reviewer_ref": null, "trusted_key_ref": null, "decision": "pending", "receipt_ref": null, "candidate_pack_digest": null, "acceptance_subject_digest": null, "finding_refs": [], "signature_base64url": null},
+    {"role_ref": "reviewer-role-ref:fin000:privacy-security", "reviewer_ref": null, "trusted_key_ref": null, "decision": "pending", "receipt_ref": null, "candidate_pack_digest": null, "acceptance_subject_digest": null, "finding_refs": [], "signature_base64url": null},
+    {"role_ref": "reviewer-role-ref:fin000:accessibility", "reviewer_ref": null, "trusted_key_ref": null, "decision": "pending", "receipt_ref": null, "candidate_pack_digest": null, "acceptance_subject_digest": null, "finding_refs": [], "signature_base64url": null},
+    {"role_ref": "reviewer-role-ref:fin000:implementation", "reviewer_ref": null, "trusted_key_ref": null, "decision": "pending", "receipt_ref": null, "candidate_pack_digest": null, "acceptance_subject_digest": null, "finding_refs": [], "signature_base64url": null}
+  ],
+  "promotion_ready": false,
+  "runtime_authority_added": false,
+  "next_safe_action": "Independent reviewers inspect the locked candidate pack, record safe reviewer and receipt refs, and either accept the checklist or request changes."
+}
