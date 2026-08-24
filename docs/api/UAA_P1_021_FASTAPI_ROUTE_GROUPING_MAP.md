@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `352`.
+Current OpenAPI path count: `354`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `354`
-- OpenAPI paths: `352`
+- Manifest route operations: `356`
+- OpenAPI paths: `354`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 178 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:84, `local_sensitive`:15, `none`:12, `system_browser_exact_launch`:1, `validation_only`:28 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 180 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:84, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:28 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -250,6 +250,8 @@ an idempotency conflict and never waits for or executes behind the owner.
 | GET | `/control-center/communications/providers` | `get_control_center_communications_providers` | `none` | yes | future | yes |
 | GET | `/control-center/communications/receipts/{receipt_ref}` | `get_control_center_communications_receipt` | `none` | yes | future | yes |
 | GET | `/control-center/communications/rooms` | `get_control_center_communications_rooms` | `none` | yes | future | yes |
+| GET | `/control-center/communications/conversations` | `get_control_center_communications_conversations` | `none` | yes | future | yes |
+| GET | `/control-center/communications/conversations/{conversation_ref}` | `get_control_center_communications_conversation` | `none` | yes | future | yes |
 | GET | `/control-center/communications/security-posture` | `get_control_center_communications_security_posture` | `none` | yes | future | yes |
 | GET | `/control-center/communications/session-posture` | `get_control_center_communications_session_posture` | `none` | yes | future | yes |
 | GET | `/control-center/crm/follow-ups` | `get_control_center_crm_follow_ups` | `local_dev_workspace_only` | no | future | yes |

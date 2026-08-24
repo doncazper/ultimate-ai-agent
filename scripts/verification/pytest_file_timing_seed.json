@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 985,
+  "timed_file_count": 986,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -519,6 +519,11 @@
       "path": "tests/test_coding_pair_agent_relay_runner_prompt_pack.py",
       "seconds": 0.09,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_communications_reviewed_projection.py",
+      "seconds": 2.52,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_connector_delivery_semantics_contract.py",

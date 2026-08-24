@@ -17,6 +17,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.communications import (  # noqa: E402
+    CommunicationsProjectionInvalid,
+    CommunicationsProjectionNotFound,
     CommunicationsReceiptNotFound,
     CommunicationsService,
     build_default_communications_service,
@@ -175,6 +177,59 @@ def _render_failed_sends(
     return 0
 
 
+def _render_conversations(
+    service: CommunicationsService,
+    as_json: bool,
+    limit: int,
+    needs_attention: bool | None,
+) -> int:
+    try:
+        page = service.list_reviewed_conversations(
+            limit=limit,
+            needs_attention=needs_attention,
+        )
+    except CommunicationsProjectionInvalid:
+        print("Reviewed communications projection is invalid (safe diagnostic).")
+        return 2
+    if as_json:
+        _json(page)
+        return 0
+    print("Reviewed communications projection")
+    print(f"- Status: {page.status.value}")
+    print(f"- Returned: {page.pagination.returned_count}")
+    print(f"- Blockers: {', '.join(page.blocker_codes) or 'none'}")
+    print(
+        "Only reviewed redacted summaries were inspected; external actions remain blocked."
+    )
+    return 0
+
+
+def _render_conversation(
+    service: CommunicationsService,
+    as_json: bool,
+    conversation_ref: str,
+) -> int:
+    try:
+        detail = service.get_reviewed_conversation(conversation_ref)
+    except CommunicationsProjectionNotFound:
+        print("Reviewed communication was not found (safe diagnostic).")
+        return 2
+    except CommunicationsProjectionInvalid:
+        print("Reviewed communications projection is invalid (safe diagnostic).")
+        return 2
+    if as_json:
+        _json(detail)
+        return 0
+    print("Reviewed communication detail")
+    print(f"- Status: {detail.status.value}")
+    print(f"- Conversation: {detail.thread.conversation_ref}")
+    print(f"- Items: {len(detail.items)}")
+    print(
+        "Only reviewed redacted summaries were inspected; external actions remain blocked."
+    )
+    return 0
+
+
 def _render_security(service: CommunicationsService, as_json: bool) -> int:
     posture = service.inspect_security_posture()
     if as_json:
@@ -301,11 +356,11 @@ def _render_matrix_hardening_posture(as_json: bool) -> int:
     for check in posture.checks:
         print(f"- {check.category.value}: {check.status.value}")
     print(f"- Bounded budgets: {len(posture.budgets)}")
-    print(
-        f"- Element interoperability: {posture.element_interoperability_status}"
-    )
+    print(f"- Element interoperability: {posture.element_interoperability_status}")
     print("- New runtime authority: denied")
-    print("No message content, credentials, telemetry payloads, or local paths are shown.")
+    print(
+        "No message content, credentials, telemetry payloads, or local paths are shown."
+    )
     return 0
 
 
@@ -1095,6 +1150,29 @@ def build_parser() -> argparse.ArgumentParser:
         command = subparsers.add_parser(name)
         command.add_argument("--limit", type=int, default=25)
         command.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    conversations = subparsers.add_parser(
+        "conversations",
+        help="Inspect the backend-owned reviewed local conversation projection.",
+    )
+    conversations.add_argument("--limit", type=int, default=25)
+    attention = conversations.add_mutually_exclusive_group()
+    attention.add_argument(
+        "--needs-attention", dest="needs_attention", action="store_true"
+    )
+    attention.add_argument(
+        "--all-attention-states",
+        dest="needs_attention",
+        action="store_const",
+        const=None,
+    )
+    conversations.set_defaults(needs_attention=None)
+    conversations.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    conversation = subparsers.add_parser(
+        "conversation",
+        help="Inspect one backend-owned reviewed local conversation.",
+    )
+    conversation.add_argument("conversation_ref")
+    conversation.add_argument("--json", action="store_true", help="Emit safe JSON.")
     receipt = subparsers.add_parser("receipt")
     receipt.add_argument("receipt_ref")
     receipt.add_argument("--json", action="store_true", help="Emit safe JSON.")
@@ -1259,6 +1337,19 @@ def main(
         return _render_session(active_service, args.json)
     if args.command == "rooms":
         return _render_rooms(active_service, args.json, args.limit)
+    if args.command == "conversations":
+        return _render_conversations(
+            active_service,
+            args.json,
+            args.limit,
+            args.needs_attention,
+        )
+    if args.command == "conversation":
+        return _render_conversation(
+            active_service,
+            args.json,
+            args.conversation_ref,
+        )
     if args.command == "failed-sends":
         return _render_failed_sends(active_service, args.json, args.limit)
     if args.command == "security":

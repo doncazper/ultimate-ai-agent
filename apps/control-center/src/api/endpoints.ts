@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   communicationsMatrixHardeningPosture:
     "/control-center/communications/matrix-hardening/posture",
   communicationsRooms: "/control-center/communications/rooms",
+  communicationsConversations: "/control-center/communications/conversations",
   communicationsFailedSends: "/control-center/communications/failed-sends",
   communicationsSecurityPosture:
     "/control-center/communications/security-posture",
@@ -303,6 +304,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterCodingLivePreview,
   API_ENDPOINTS.controlCenterCodingMultiAgentReview,
   API_ENDPOINTS.controlCenterWorkBoard,
+  API_ENDPOINTS.communicationsConversations,
   API_ENDPOINTS.controlCenterProofIndex,
   API_ENDPOINTS.trustAuthorityMatrix,
   API_ENDPOINTS.founderEvidenceTimeline,

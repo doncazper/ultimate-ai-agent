@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, SecretStr, StrictBool, model_validat
 
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.communications import (
+    CommunicationsProjectionInvalid,
+    CommunicationsProjectionNotFound,
     CommunicationsReceiptNotFound,
     CommunicationsService,
     build_default_communications_service,
@@ -1184,6 +1186,68 @@ def get_control_center_communications_rooms(
         operation="control_center_communications_rooms",
         trace_id="communications-trace:rooms",
         data=page.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/conversations",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_conversations",
+)
+def get_control_center_communications_conversations(
+    response: Response,
+    limit: int = Query(default=25, ge=1, le=50),
+    needs_attention: bool | None = Query(default=None),
+) -> ResultEnvelope:
+    _no_store(response)
+    try:
+        page = get_communications_service().list_reviewed_conversations(
+            limit=limit,
+            needs_attention=needs_attention,
+        )
+    except CommunicationsProjectionInvalid as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="COMMUNICATIONS_PROJECTION_INVALID",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    return _envelope(
+        operation="control_center_communications_conversations",
+        trace_id="communications-trace:reviewed-conversations",
+        data=page.model_dump(mode="json"),
+    )
+
+
+@router.get(
+    "/conversations/{conversation_ref}",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_communications_conversation",
+)
+def get_control_center_communications_conversation(
+    conversation_ref: str,
+    response: Response,
+) -> ResultEnvelope:
+    _no_store(response)
+    try:
+        detail = get_communications_service().get_reviewed_conversation(
+            conversation_ref
+        )
+    except CommunicationsProjectionNotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="COMMUNICATIONS_PROJECTION_NOT_FOUND",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    except CommunicationsProjectionInvalid as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="COMMUNICATIONS_PROJECTION_INVALID",
+            headers={"Cache-Control": "no-store"},
+        ) from exc
+    return _envelope(
+        operation="control_center_communications_conversation",
+        trace_id=detail.thread.conversation_ref,
+        data=detail.model_dump(mode="json"),
     )
 
 

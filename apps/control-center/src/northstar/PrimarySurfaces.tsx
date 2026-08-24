@@ -124,77 +124,73 @@ function NumberedRow({ active, number, text }: { active?: boolean; number: numbe
   );
 }
 
-const messages = [
-  { initials: "R", tone: "purple" as const, source: "Relationship Alpha", subject: "Customer kickoff timing", preview: "Hi Alex, thanks for the great discussion...", time: "10:24 AM" },
-  { initials: "#", tone: "teal" as const, source: "#sales-updates", subject: "Weekly pipeline update", preview: "Here’s the latest snapshot...", time: "9:47 AM" },
-  { initials: "ML", tone: "blue" as const, source: "Morgan Lee", subject: "Re: Product demo feedback", preview: "Thanks for the demo yesterday...", time: "8:31 AM" },
-  { initials: "DL", tone: "gray" as const, source: "Devon Lane", subject: "Contract review status", preview: "Checking in on the latest draft...", time: "Yesterday" },
-];
-
 export function CommunicationsSurface({ data }: { data: ControlCenterData }) {
-  const [tab, setTab] = useState("Unified");
-  const [selected, setSelected] = useState(0);
+  const [tab, setTab] = useState("All");
+  const [selectedRef, setSelectedRef] = useState("");
   const [query, setQuery] = useState("");
-  const sourcePosture = data.founderSourceReadiness.source_readiness_posture;
-  const visibleMessages = messages.filter((item) => `${item.source} ${item.subject} ${item.preview}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const message = visibleMessages[selected] ?? visibleMessages[0];
+  const projection = data.communicationsProjection;
+  const visibleThreads = projection.items.filter((item) => {
+    const matchesTab = tab !== "Needs attention" || item.needs_attention;
+    return matchesTab && `${item.safe_label} ${item.safe_summary}`.toLowerCase().includes(query.trim().toLowerCase());
+  });
+  const selected = visibleThreads.find((item) => item.conversation_ref === selectedRef) ?? visibleThreads[0];
+  const backendOwned = data.connection.state === "online"
+    && !data.connection.usingMockData
+    && data.routeStates["/workspace/communications"]?.state === "backend_owned";
   return (
     <div className="ns-surface ns-communications">
-      <Toolbar title="Communications" subtitle="Synthetic desktop fixture · no account messages are connected">
-        <SearchField onChange={setQuery} placeholder="Search preview communications" value={query} />
-        <Button disabled icon="filter" title="No backend message-filter contract is connected">Filters</Button>
+      <Toolbar title="Communications" subtitle={backendOwned ? "Backend-owned reviewed local projection · read only" : "Backend projection unavailable · non-authoritative fallback"}>
+        <SearchField onChange={setQuery} placeholder="Search reviewed summaries" value={query} />
+        <Button disabled icon="filter" title="Only exact local reviewed-summary filters are available">Filters</Button>
         <a className="ns-button primary" href={`${WORKSPACE_PREFIX}/decisions`}><Icon name="scale" size={17} /> Review {data.founderActionsInbox.items.length} decisions</a>
       </Toolbar>
-      <Tabs active={tab} items={["Unified", "Email", "Messages", "Follow-ups", "Drafts", "Waiting"]} onChange={setTab} />
+      <Tabs active={tab} items={["All", "Social Media", "Needs attention"]} onChange={setTab} />
       <div className="ns-communications-layout">
         <aside className="ns-message-list">
-          <header>Preview messages <Badge tone="neutral">{visibleMessages.length}</Badge></header>
-          {visibleMessages.map((item, index) => (
-            <button className={selected === index ? "active" : ""} key={item.subject} onClick={() => setSelected(index)} type="button">
-              <Avatar initials={item.initials} tone={item.tone} />
-              <span><small>{item.source}</small><strong>{item.subject}</strong><em>{item.preview}</em></span>
-              <time>{item.time}</time>
+          <header>Reviewed summaries <Badge tone="neutral">{visibleThreads.length}</Badge></header>
+          {visibleThreads.map((item) => (
+            <button className={selected?.conversation_ref === item.conversation_ref ? "active" : ""} key={item.conversation_ref} onClick={() => setSelectedRef(item.conversation_ref)} type="button">
+              <Avatar initials={item.safe_label.slice(0, 2).toUpperCase()} tone={item.needs_attention ? "purple" : "teal"} />
+              <span><small>{item.needs_attention ? "Needs attention" : "Reviewed"}</small><strong>{item.safe_label}</strong><em>{item.safe_summary}</em></span>
+              <time>{new Date(item.latest_activity_at).toLocaleDateString()}</time>
             </button>
           ))}
         </aside>
         <section className="ns-message-reader">
-          {message ? <>
+          {selected ? <>
           <div className="ns-reader-actions">
             <Button disabled title="No message summarization runtime is connected" tone="quiet" icon="sparkles">Summarize</Button>
-            <Button disabled title="No governed draft contract is connected" tone="quiet" icon="pencil">Draft reply</Button>
-            <Button disabled title="No follow-up mutation contract is connected" tone="quiet" icon="clock">Add follow-up</Button>
-            <Button disabled title="No communication-to-CRM mutation contract is connected" tone="quiet" icon="users">Link CRM</Button>
+            <Button disabled title="Reply authority is blocked" tone="quiet" icon="pencil">Draft reply</Button>
+            <Button disabled title="Follow-up mutation authority is blocked" tone="quiet" icon="clock">Add follow-up</Button>
+            <Button disabled title="CRM mutation authority is blocked" tone="quiet" icon="users">Link CRM</Button>
             <Button disabled title="Calendar writes remain blocked" tone="secondary" icon="calendar-days">Propose event</Button>
           </div>
-          <header><h2>{message.subject}</h2><Icon name="reply" size={17} /><Icon name="forward" size={17} /></header>
+          <header><h2>{selected.safe_label}</h2><Icon name="lock" size={17} /></header>
           <div className="ns-message-body">
-            <div className="ns-message-sender"><Avatar initials={message.initials} tone={message.tone} /><span><strong>{message.source}</strong><small>To: Alex Morgan</small></span><time>{message.time}</time></div>
-            <p>Hi Alex,</p>
-            <p>Thanks for the great discussion earlier this week. We&apos;re excited to move forward and would like to schedule our customer kickoff session.</p>
-            <p>Are you available next Tuesday or Wednesday afternoon? We&apos;d like to align on objectives, key stakeholders, and a timeline for the first 90 days.</p>
-            <p>Best,<br />Sara Patel<br />Relationship Alpha</p>
+            <div className="ns-message-sender"><Avatar initials={selected.safe_label.slice(0, 2).toUpperCase()} tone={selected.needs_attention ? "purple" : "teal"} /><span><strong>Reviewed redacted summary</strong><small>Raw source content omitted</small></span><time>{new Date(selected.latest_activity_at).toLocaleDateString()}</time></div>
+            <p>{selected.safe_summary}</p>
           </div>
-          <Panel className="ns-summary-card" title="UAA summary · read-only" icon="sparkles">
-            <p>Synthetic summary fixture only. No model call, source retrieval, or action proposal occurred.</p>
+          <Panel className="ns-summary-card" title="Source posture · read-only" icon="shield-check">
+            <p>{projection.safe_summary}</p>
           </Panel>
-          </> : <div className="ns-empty-lease"><Icon name="search" size={34} /><h3>No fixture matches</h3><p>Change the local preview search to inspect another synthetic item.</p></div>}
+          </> : <div className="ns-empty-lease"><Icon name="search" size={34} /><h3>No reviewed summaries</h3><p>{projection.safe_summary}</p></div>}
         </section>
         <aside className="ns-context-inspector">
-          {message ? <>
+          {selected ? <>
           <Panel title="Relationship context" icon="users">
-            <MetaRow icon="info" label="Posture" value="Synthetic fixture" tone="orange" />
-            <MetaRow icon="lock" label="Account data" value="Not connected" />
+            <MetaRow icon="info" label="Posture" value={projection.status.replaceAll("_", " ")} tone={projection.status === "ready" ? "green" : "orange"} />
+            <MetaRow icon="lock" label="External actions" value="Blocked" />
+            <MetaRow icon="shield" label="Raw content" value="Omitted" />
           </Panel>
-          <Panel title="Proposed event · preview" icon="calendar-days">
-            <h3>Synthetic proposal card</h3>
-            <p>No proposal envelope or conflict-check evidence is connected.</p>
-            <MetaRow icon="lock" label="Calendar write" value="External write blocked" />
-            <div className="ns-stack-actions"><Button disabled title="No calendar proposal envelope is connected" tone="primary">Review proposal</Button><Button disabled title="No communication handoff contract is connected">Ask UAA</Button></div>
+          <Panel title="Source controls" icon="shield">
+            <MetaRow icon="lock" label="Connector" value={projection.source?.connector_configured ? "Configured" : "Not configured"} />
+            <MetaRow icon="lock" label="Live sync" value="Blocked" />
+            <MetaRow icon="lock" label="Reply or send" value="Blocked" />
           </Panel>
-          </> : <p className="ns-help-copy">No fixture is selected.</p>}
+          </> : <p className="ns-help-copy">No reviewed local projection item is selected.</p>}
         </aside>
       </div>
-      <div className="ns-receipt-band"><Icon name="shield-check" size={18} tone="warning" /> Synthetic communication fixture · Backend source posture: {sourcePosture.status.replaceAll("_", " ")} ({sourcePosture.ready_source_count}/{sourcePosture.source_count} ready) · No account read, reply, or calendar write performed</div>
+      <div aria-live="polite" className="ns-receipt-band"><Icon name={backendOwned ? "shield-check" : "triangle-alert"} size={18} tone={backendOwned ? "success" : "warning"} /> {projection.status.replaceAll("_", " ")} · Reviewed redacted summaries only · No account read, reply, connector sync, or external write performed</div>
     </div>
   );
 }

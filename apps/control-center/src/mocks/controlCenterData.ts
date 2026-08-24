@@ -178,7 +178,7 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 328;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 178;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 180;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -12571,6 +12571,11 @@ export const mockControlCenterData: ControlCenterData = {
     "/storage": mockRouteState("Storage", "/storage", "GET /control-center/storage/status"),
     "/capabilities": mockRouteState("Capabilities", "/capabilities", "GET /control-center/capabilities/surface"),
     "/crm": mockRouteState("CRM", "/crm", "GET /control-center/crm/summary"),
+    "/workspace/communications": mockRouteState(
+      "Communications",
+      "/workspace/communications",
+      "GET /control-center/communications/conversations",
+    ),
   },
   settingsStatus: {
     schema_version: "uaa-control-center-settings-status.v1",
@@ -20034,6 +20039,26 @@ export const mockControlCenterData: ControlCenterData = {
   codingLivePreview: mockCodingLivePreview,
   codingMultiAgentReview: mockCodingMultiAgentReview,
   workBoard: mockWorkBoard,
+  communicationsProjection: {
+    status: "blocked",
+    source: null,
+    items: [],
+    pagination: {
+      page_size: 25,
+      returned_count: 0,
+      next_cursor_ref: null,
+      bounded: true,
+    },
+    reason_codes: ["COMMUNICATIONS_REVIEWED_PROJECTION_CONTRACT_AVAILABLE"],
+    blocker_codes: ["COMMUNICATIONS_REVIEWED_PROJECTION_NOT_CONFIGURED"],
+    safe_summary: "No reviewed local communication projection is configured.",
+    read_only: true,
+    send_enabled: false,
+    reply_enabled: false,
+    delete_enabled: false,
+    moderate_enabled: false,
+    raw_content_omitted: true,
+  },
   founderAgentLoopThread: {
     schema_version: "runtime_agent_loop_thread.v1",
     contract_ref: "contract-ref:runtime-agent-loop-thread:v1",

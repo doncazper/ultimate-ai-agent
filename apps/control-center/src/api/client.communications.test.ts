@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   loadCommunicationsProviders,
+  loadCommunicationsConversations,
   loadCommunicationsReceipt,
   loadCommunicationsRooms,
   loadCommunicationsSessionPosture,
@@ -800,6 +801,79 @@ describe("communications API bindings", () => {
       raw_content_omitted: true,
     });
     await expect(loadCommunicationsRooms()).rejects.toThrow(
+      "failed safe validation",
+    );
+  });
+
+  it("accepts the exact reviewed local projection and blocked action posture", async () => {
+    respond({
+      status: "ready",
+      source: {
+        source_ref: "source-ref:communications:reviewed-manual-import",
+        source_kind: "reviewed_manual_import",
+        schema_version: "uaa-communications-reviewed-projection.v1",
+        observed_at: "2026-08-24T18:00:00Z",
+        freshness: "current",
+        coverage_ref: "coverage-ref:communications:bounded-local-review",
+        retention_ref: "retention-ref:communications:operator-managed",
+        privacy_ref: "privacy-ref:communications:redacted-summary-only",
+        evidence_refs: ["evidence-ref:communications:reviewed-import-alpha"],
+        connector_configured: false,
+        live_sync_enabled: false,
+        external_actions_enabled: false,
+        raw_content_persisted: false,
+      },
+      items: [{
+        conversation_ref: "conversation-ref:communications:alpha",
+        channel_ref: "channel-ref:communications:social-review",
+        participant_refs: ["participant-ref:communications:reviewer-alpha"],
+        item_refs: ["item-ref:communications:alpha-1"],
+        latest_activity_at: "2026-08-24T17:55:00Z",
+        needs_attention: true,
+        safe_label: "Reviewed social signal",
+        safe_summary: "A reviewed redacted signal requires operator attention.",
+        evidence_refs: ["evidence-ref:communications:thread-alpha"],
+      }],
+      pagination: {
+        page_size: 25,
+        returned_count: 1,
+        next_cursor_ref: null,
+        bounded: true,
+      },
+      reason_codes: ["COMMUNICATIONS_REVIEWED_PROJECTION_LOADED"],
+      blocker_codes: [],
+      safe_summary: "Reviewed local communication summaries are available read only.",
+      read_only: true,
+      send_enabled: false,
+      reply_enabled: false,
+      delete_enabled: false,
+      moderate_enabled: false,
+      raw_content_omitted: true,
+    });
+
+    const result = await loadCommunicationsConversations();
+    expect(result.items[0]?.needs_attention).toBe(true);
+    expect(result.send_enabled).toBe(false);
+    expect(result.source?.live_sync_enabled).toBe(false);
+  });
+
+  it("rejects reviewed projections that claim external action authority", async () => {
+    respond({
+      status: "blocked",
+      source: null,
+      items: [],
+      pagination: { page_size: 25, returned_count: 0, next_cursor_ref: null, bounded: true },
+      reason_codes: ["COMMUNICATIONS_REVIEWED_PROJECTION_CONTRACT_AVAILABLE"],
+      blocker_codes: ["COMMUNICATIONS_REVIEWED_PROJECTION_NOT_CONFIGURED"],
+      safe_summary: "No reviewed local communication projection is configured.",
+      read_only: true,
+      send_enabled: true,
+      reply_enabled: false,
+      delete_enabled: false,
+      moderate_enabled: false,
+      raw_content_omitted: true,
+    });
+    await expect(loadCommunicationsConversations()).rejects.toThrow(
       "failed safe validation",
     );
   });

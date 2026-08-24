@@ -1,7 +1,7 @@
 # Implement Social Media Intelligence After Foundation Gates
 
-Status: stored operator-run prompt; deferred until prerequisite product gates
-are accepted complete.
+Status: stored operator-run prompt; deferred until the Social Read-Only
+Integration Foundation Profile is accepted.
 
 Use this prompt only when UAA is evaluating Social Media Intelligence as a
 possible next product lane. Its presence in the repository is not permission
@@ -11,8 +11,9 @@ authority.
 
 ```text
 Implement UAA Social Media Intelligence as the next dependency-gated product
-lane, but only after proving that its three owning foundation products are
-fully implemented and accepted.
+lane, but only after proving
+contract-ref:social-read-only-foundation-profile:v1 accepted on the exact
+candidate revision.
 
 Start by reading AGENTS.md and inspecting the working tree. Preserve all
 unrelated user changes. Then read these sources completely before changing
@@ -35,18 +36,13 @@ code or product truth:
 
 PHASE 0 — FAIL-CLOSED ACTIVATION GATE
 
-Collect current, repository-owned completion evidence for all three gates:
-
-1. Work Board/Kanban is accepted as fully implemented: durable backend-owned
-   truth, complete operator workflow, API and CLI inspection parity, tested
-   Control Center UI, visual acceptance evidence, and aligned product truth.
-2. First-class CRM is accepted as fully implemented: its planned workspaces,
-   durable local workflows, API and CLI inspection parity, tested Control
-   Center UI, visual acceptance evidence, and aligned product truth.
-3. Communications/Messenger is accepted as fully implemented: canonical
-   conversation ownership, complete local operator workflow, API and CLI
-   inspection parity, tested Control Center UI, visual acceptance evidence,
-   and aligned product truth.
+Collect current repository-owned evidence for
+`docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md`. Require the exact
+Work Board `Social Content` saved projection, CRM relationship context,
+Communications canonical reviewed conversation projection, API/CLI parity,
+tested Control Center behavior, truthful source/freshness states, and accepted
+desktop/narrow visual evidence. Do not require unrelated standalone product
+completion or future send/write/connector authority.
 
 Do not infer completion from a planning document, mockup, partial route, local
 fixture, isolated test, or the word "done" in a non-canonical note. Cite the
@@ -59,7 +55,7 @@ Communications lane instead. Do not add a Social route, navigation item,
 schema, fixture, component, connector, or dependency. Leave Social Media
 Intelligence deferred.
 
-Passing all three gates makes Social eligible for prioritization; it does not
+Passing the profile makes Social eligible for prioritization; it does not
 make Social automatically next. Reconcile the active roadmap, current board,
 operator pain, and any P0/P1 safety work before beginning implementation.
 

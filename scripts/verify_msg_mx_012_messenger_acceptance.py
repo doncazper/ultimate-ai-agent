@@ -45,7 +45,11 @@ def _table_ids(text: str, prefix: str) -> list[str]:
 def _scenario_ids(text: str) -> list[str]:
     section = text.partition("## Required Failure And Recovery Scenarios")[2]
     section = section.partition("## API, CLI, And macOS Desktop Parity")[0]
-    return re.findall(r"^\| ([^|]+?) \| `(?:implemented|partial|blocked|unsupported|configuration_required|external_facility_required)` \|", section, re.MULTILINE)
+    return re.findall(
+        r"^\| ([^|]+?) \| `(?:implemented|partial|blocked|unsupported|configuration_required|external_facility_required)` \|",
+        section,
+        re.MULTILINE,
+    )
 
 
 def verify_packet_text(text: str) -> list[str]:
@@ -59,7 +63,9 @@ def verify_packet_text(text: str) -> list[str]:
     if set(surfaces) != EXPECTED_SURFACES or len(surfaces) != 15:
         failures.append("MSG-MX-012 desktop surface matrix is incomplete or duplicated")
     if set(scenarios) != EXPECTED_SCENARIOS or len(scenarios) != 13:
-        failures.append("MSG-MX-012 failure/recovery scenario matrix is incomplete or duplicated")
+        failures.append(
+            "MSG-MX-012 failure/recovery scenario matrix is incomplete or duplicated"
+        )
     for state in sorted(REQUIRED_STATES):
         if f"`{state}`" not in text:
             failures.append(f"MSG-MX-012 state vocabulary missing: {state}")
@@ -82,7 +88,9 @@ def verify_packet_text(text: str) -> list[str]:
 
     for forbidden in ("/Users/", "file://", "access_token", "Bearer ey"):
         if forbidden in text:
-            failures.append(f"MSG-MX-012 packet contains forbidden durable data: {forbidden}")
+            failures.append(
+                f"MSG-MX-012 packet contains forbidden durable data: {forbidden}"
+            )
     return failures
 
 
@@ -156,11 +164,9 @@ def verify(root: Path = ROOT) -> list[str]:
             route
             for route in routes
             if isinstance(route, dict)
-            and str(route.get("path", "")).startswith(
-                "/control-center/communications"
-            )
+            and str(route.get("path", "")).startswith("/control-center/communications")
         ]
-        if len(communications) != 73:
+        if len(communications) != 75:
             failures.append("MSG-MX-012 accepted communications route count drifted")
         if any(
             route.get("route_classification")
