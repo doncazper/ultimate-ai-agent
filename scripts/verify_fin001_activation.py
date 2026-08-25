@@ -86,6 +86,28 @@ EXPECTED_TOP_LEVEL_BINDINGS = {
     "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
     "milestone_ref": "milestone-ref:finance/FIN-001",
     "status": "blocked_pending_activation_merge_and_explicit_unblock",
+    "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator verifies and removes the exact merge-pending blocker before claim.",
+    "next_safe_action": "After this record merges, verify the exact merge-pending blocker and vacant product-surface lane, explicitly unblock and claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans.",
+}
+EXPECTED_TOP_LEVEL_KEYS = {
+    "schema_version",
+    "activation_ref",
+    "decision_receipt_ref",
+    "queue_task_receipt_ref",
+    "queue_block_receipt_ref",
+    "source_revision_ref",
+    "task_ref",
+    "parent_program_task_ref",
+    "milestone_ref",
+    "status",
+    "safe_summary",
+    "dependency_evidence",
+    "normative_path_refs",
+    "first_slice",
+    "implementation_plan",
+    "board_claim_plan",
+    "authority_posture",
+    "next_safe_action",
 }
 EXPECTED_BOARD_CLAIM_PLAN = {
     "queue_snapshot_revision": 162,
@@ -212,7 +234,7 @@ def _has_secret_like_durable_content(value: Any) -> bool:
 
 def _schema_has_nonlocal_ref(schema: Any) -> bool:
     return any(
-        key == "$ref" and not value.startswith("#/")
+        key in {"$ref", "$dynamicRef"} and not value.startswith("#/")
         for key, value in _walk_strings(schema)
     )
 
@@ -233,6 +255,8 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         payload.get(key) != value for key, value in EXPECTED_TOP_LEVEL_BINDINGS.items()
     ):
         failures.append("FIN-001 top-level activation binding drifted")
+    if set(payload) != EXPECTED_TOP_LEVEL_KEYS:
+        failures.append("FIN-001 top-level activation shape drifted")
     if payload.get("first_slice") != EXPECTED_FIRST_SLICE:
         failures.append("FIN-001 complete first-slice boundary drifted")
     if payload.get("authority_posture") != EXPECTED_AUTHORITY_POSTURE:

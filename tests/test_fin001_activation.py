@@ -108,6 +108,15 @@ def test_top_level_binding_is_independently_pinned() -> None:
     assert "FIN-001 top-level activation binding drifted" in failures
 
 
+def test_top_level_shape_is_independently_pinned() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["runtime_authority_override"] = False
+
+    failures = verifier.verify(payload)
+
+    assert "FIN-001 top-level activation shape drifted" in failures
+
+
 def test_implementation_plan_drift_fails_closed() -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
     payload["implementation_plan"]["rollback_plan_ref"] = (
@@ -148,6 +157,12 @@ def test_complete_authority_posture_is_independently_pinned() -> None:
 
 def test_nonlocal_schema_reference_is_rejected_before_validation() -> None:
     schema = {"$ref": "https://schemas.example.invalid/finance.json"}
+
+    assert verifier._schema_has_nonlocal_ref(schema) is True
+
+
+def test_nonlocal_dynamic_schema_reference_is_rejected_before_validation() -> None:
+    schema = {"$dynamicRef": "https://schemas.example.invalid/finance.json"}
 
     assert verifier._schema_has_nonlocal_ref(schema) is True
 
