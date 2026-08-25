@@ -2,8 +2,10 @@
   "schema_version": "uaa.finance-fin001-activation.v1",
   "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
   "decision_receipt_ref": "receipt-ref:queue-v2/Q26/pr425-founder-direction",
+  "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
   "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
-  "task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
+  "task_ref": "dev-task:finance-fin001-synthetic-kernel",
+  "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
   "milestone_ref": "milestone-ref:finance/FIN-001",
   "status": "activated_synthetic_only_private_dogfood",
   "safe_summary": "FIN-001 is promoted as the sole product-surface WIP lane for a synthetic-only local book and balanced double-entry kernel. Real financial data and every external or professional authority remain blocked.",
@@ -30,7 +32,7 @@
     },
     {
       "task_ref": "dev-task:queue-v2-q19-eco008-entitylink-changeset",
-      "evidence_ref": "commit-ref:bfad7dabb2a08dbcf1fabc469c5ca80267e4eedd"
+      "evidence_ref": "commit-ref:9fc8f37a4533e19436e9608da7078f9c179b8778"
     },
     {
       "task_ref": "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
@@ -81,7 +83,7 @@
     "explicit": true,
     "wip_lane": "product_surface",
     "prior_active_task_ref": null,
-    "promoted_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product"
+    "promoted_task_ref": "dev-task:finance-fin001-synthetic-kernel"
   },
   "authority_posture": {
     "real_financial_data_allowed": false,

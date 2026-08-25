@@ -910,9 +910,10 @@ continuous local books, review-and-learn categorization, receipt/context
 capture, reconciliation, spending intelligence, accountant readiness, and
 sourced business-compliance obligations integrated with the Founder Loop.
 Status: FIN-001 is explicitly promoted as the active `product_surface` WIP lane
-for bounded synthetic-only implementation. Independent promotion remains
-pending. No Finance runtime, real-data storage, connector, calculation, filing,
-payment, or professional authority exists yet.
+through `dev-task:finance-fin001-synthetic-kernel` for bounded synthetic-only
+implementation. The broader Queue V2 Q26 program task remains blocked.
+Independent promotion remains pending. No Finance runtime, real-data storage,
+connector, calculation, filing, payment, or professional authority exists yet.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules

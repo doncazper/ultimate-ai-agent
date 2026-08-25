@@ -8,8 +8,10 @@
     "schema_version",
     "activation_ref",
     "decision_receipt_ref",
+    "queue_task_receipt_ref",
     "source_revision_ref",
     "task_ref",
+    "parent_program_task_ref",
     "milestone_ref",
     "status",
     "safe_summary",
@@ -25,8 +27,10 @@
     "schema_version": {"const": "uaa.finance-fin001-activation.v1"},
     "activation_ref": {"const": "activation-ref:finance/FIN-001/synthetic-kernel:v1"},
     "decision_receipt_ref": {"const": "receipt-ref:queue-v2/Q26/pr425-founder-direction"},
+    "queue_task_receipt_ref": {"const": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3"},
     "source_revision_ref": {"const": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df"},
-    "task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
+    "task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"},
+    "parent_program_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
     "milestone_ref": {"const": "milestone-ref:finance/FIN-001"},
     "status": {"const": "activated_synthetic_only_private_dogfood"},
     "safe_summary": {"$ref": "#/$defs/safeText"},
@@ -74,17 +78,17 @@
         "synthetic_evidence_plan_ref"
       ],
       "properties": {
-        "protected_data_plan_ref": {"$ref": "#/$defs/ref"},
-        "key_plan_ref": {"$ref": "#/$defs/ref"},
-        "migration_plan_ref": {"$ref": "#/$defs/ref"},
-        "backup_restore_plan_ref": {"$ref": "#/$defs/ref"},
-        "deletion_plan_ref": {"$ref": "#/$defs/ref"},
-        "redaction_plan_ref": {"$ref": "#/$defs/ref"},
-        "cli_parity_plan_ref": {"$ref": "#/$defs/ref"},
-        "api_ui_parity_plan_ref": {"$ref": "#/$defs/ref"},
-        "focused_verifier_plan_ref": {"$ref": "#/$defs/ref"},
-        "rollback_plan_ref": {"$ref": "#/$defs/ref"},
-        "synthetic_evidence_plan_ref": {"$ref": "#/$defs/ref"}
+        "protected_data_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-data-boundary"},
+        "key_plan_ref": {"const": "plan-ref:finance/FIN-001/no-real-data-key-enrollment"},
+        "migration_plan_ref": {"const": "plan-ref:finance/FIN-001/versioned-synthetic-schema"},
+        "backup_restore_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-round-trip-proof"},
+        "deletion_plan_ref": {"const": "plan-ref:finance/FIN-001/explicit-synthetic-store-delete"},
+        "redaction_plan_ref": {"const": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence"},
+        "cli_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/core-cli-parity"},
+        "api_ui_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/no-route-until-separate-review"},
+        "focused_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests"},
+        "rollback_plan_ref": {"const": "plan-ref:finance/FIN-001/default-off-safe-disable"},
+        "synthetic_evidence_plan_ref": {"const": "plan-ref:finance/FIN-001/deterministic-fixtures"}
       }
     },
     "board_promotion": {
@@ -95,7 +99,7 @@
         "explicit": {"const": true},
         "wip_lane": {"const": "product_surface"},
         "prior_active_task_ref": {"type": "null"},
-        "promoted_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"}
+        "promoted_task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"}
       }
     },
     "authority_posture": {

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -42,12 +43,25 @@ EXPECTED_DEPENDENCIES = {
     ),
     (
         "dev-task:queue-v2-q19-eco008-entitylink-changeset",
-        "commit-ref:bfad7dabb2a08dbcf1fabc469c5ca80267e4eedd",
+        "commit-ref:9fc8f37a4533e19436e9608da7078f9c179b8778",
     ),
     (
         "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
         "report-ref:queue-v2:q21:weekly-review-private-trial:v1",
     ),
+}
+EXPECTED_IMPLEMENTATION_PLAN = {
+    "protected_data_plan_ref": "plan-ref:finance/FIN-001/synthetic-data-boundary",
+    "key_plan_ref": "plan-ref:finance/FIN-001/no-real-data-key-enrollment",
+    "migration_plan_ref": "plan-ref:finance/FIN-001/versioned-synthetic-schema",
+    "backup_restore_plan_ref": "plan-ref:finance/FIN-001/synthetic-round-trip-proof",
+    "deletion_plan_ref": "plan-ref:finance/FIN-001/explicit-synthetic-store-delete",
+    "redaction_plan_ref": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence",
+    "cli_parity_plan_ref": "plan-ref:finance/FIN-001/core-cli-parity",
+    "api_ui_parity_plan_ref": "plan-ref:finance/FIN-001/no-route-until-separate-review",
+    "focused_verifier_plan_ref": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests",
+    "rollback_plan_ref": "plan-ref:finance/FIN-001/default-off-safe-disable",
+    "synthetic_evidence_plan_ref": "plan-ref:finance/FIN-001/deterministic-fixtures",
 }
 EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",
@@ -102,14 +116,19 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     payload = _load(LEDGER_PATH) if payload is None else payload
     schema = _load(SCHEMA_PATH)
 
-    for error in sorted(Draft202012Validator(schema).iter_errors(payload), key=str):
-        location = ".".join(str(part) for part in error.absolute_path) or "root"
-        failures.append(f"schema:{location}:{error.message}")
+    if contains_obvious_secret(payload) or any(
+        SECRET_LIKE_REF.search(value) for _, value in _walk_strings(payload)
+    ):
+        failures.append("activation record contains secret-like durable content")
+    schema_errors = Draft202012Validator(schema).iter_errors(payload)
+    for error in sorted(
+        schema_errors,
+        key=lambda item: tuple(str(part) for part in item.absolute_schema_path),
+    ):
+        failures.append(f"schema:validation_failed:{error.validator}")
     if failures:
         return failures
 
-    if contains_obvious_secret(payload):
-        failures.append("activation record contains secret-like durable content")
     for key, value in _walk_strings(payload):
         try:
             if key.endswith("_ref") or key.endswith("_refs"):
@@ -130,6 +149,21 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     }
     if dependencies != EXPECTED_DEPENDENCIES:
         failures.append("FIN-001 dependency evidence drifted")
+    for task_ref, evidence_ref in dependencies:
+        if not evidence_ref.startswith(("commit-ref:", "merge-commit-ref:")):
+            continue
+        revision = evidence_ref.split(":", 1)[1]
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", revision, "HEAD"],
+            cwd=root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode != 0:
+            failures.append(
+                f"dependency commit evidence is not in current history: {task_ref}"
+            )
     if set(payload["normative_path_refs"]) != EXPECTED_NORMATIVE_PATH_REFS:
         failures.append("FIN-001 normative path inventory drifted")
     for path_ref in payload["normative_path_refs"]:
@@ -144,6 +178,8 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         failures.append("FIN-001 first-slice scope drifted")
     if set(first_slice["non_goal_refs"]) != EXPECTED_NON_GOAL_REFS:
         failures.append("FIN-001 non-goal boundary drifted")
+    if payload["implementation_plan"] != EXPECTED_IMPLEMENTATION_PLAN:
+        failures.append("FIN-001 implementation plan drifted")
 
     if any(payload["authority_posture"].values()):
         failures.append(

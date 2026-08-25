@@ -35,7 +35,7 @@ def test_authority_promotion_fails_closed() -> None:
 
     failures = verifier.verify(payload)
 
-    assert any("real_financial_data_allowed" in item for item in failures)
+    assert any(item.startswith("schema:validation_failed") for item in failures)
 
 
 def test_secret_like_ref_is_rejected() -> None:
@@ -45,3 +45,44 @@ def test_secret_like_ref_is_rejected() -> None:
     failures = verifier.verify(payload)
 
     assert any("secret-like durable content" in item for item in failures)
+    assert all("sk_live_abc123" not in item for item in failures)
+
+
+def test_schema_error_never_echoes_secret_value() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["task_ref"] = "dev-task:sk_live_abc123"
+
+    failures = verifier.verify(payload)
+
+    assert failures
+    assert any("secret-like durable content" in item for item in failures)
+    assert all("sk_live_abc123" not in item for item in failures)
+
+
+def test_implementation_plan_drift_fails_closed() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["implementation_plan"]["rollback_plan_ref"] = (
+        "plan-ref:finance/FIN-001/no-rollback"
+    )
+
+    failures = verifier.verify(payload)
+
+    assert failures
+
+
+def test_dependency_commit_must_be_in_current_history(monkeypatch) -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+
+    class MissingCommit:
+        returncode = 1
+
+    monkeypatch.setattr(
+        verifier.subprocess, "run", lambda *args, **kwargs: MissingCommit()
+    )
+
+    failures = verifier.verify(payload)
+
+    assert any(
+        "dependency commit evidence is not in current history" in item
+        for item in failures
+    )

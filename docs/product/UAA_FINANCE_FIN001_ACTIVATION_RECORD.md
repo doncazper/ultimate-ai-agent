@@ -14,6 +14,13 @@ The machine-readable decision is
 `docs/product/finance_fin001_activation_v1.json`; its verifier is
 `scripts/verify_fin001_activation.py`.
 
+The promoted work item is the separately bounded
+`dev-task:finance-fin001-synthetic-kernel`. The broader Queue V2 Q26 program
+record stays blocked and cannot be used as the implementation handoff for this
+slice. Queue receipt
+`developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3` records the exact
+task; it stays blocked until this activation PR merges.
+
 ## Dependency Checklist
 
 - Action Inbox: Queue V2 Q00 completed.
