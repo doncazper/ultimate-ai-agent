@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-ref:finance-fin001-activation:v1",
+  "title": "FIN-001 synthetic-only activation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "activation_ref",
+    "decision_receipt_ref",
+    "queue_task_receipt_ref",
+    "queue_block_receipt_ref",
+    "source_revision_ref",
+    "task_ref",
+    "parent_program_task_ref",
+    "milestone_ref",
+    "status",
+    "safe_summary",
+    "dependency_evidence",
+    "normative_path_refs",
+    "first_slice",
+    "implementation_plan",
+    "board_claim_plan",
+    "authority_posture",
+    "next_safe_action"
+  ],
+  "properties": {
+    "schema_version": {"const": "uaa.finance-fin001-activation.v1"},
+    "activation_ref": {"const": "activation-ref:finance/FIN-001/synthetic-kernel:v1"},
+    "decision_receipt_ref": {"const": "receipt-ref:founder-private-dogfood:2026-08-25"},
+    "queue_task_receipt_ref": {"const": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3"},
+    "queue_block_receipt_ref": {"const": "developer-work-receipt-ref:sha256:44573429fe043729321aee47"},
+    "source_revision_ref": {"const": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df"},
+    "task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"},
+    "parent_program_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
+    "milestone_ref": {"const": "milestone-ref:finance/FIN-001"},
+    "status": {"const": "blocked_pending_activation_merge_and_explicit_unblock"},
+    "safe_summary": {"$ref": "#/$defs/safeText"},
+    "dependency_evidence": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_ref", "evidence_ref"],
+        "properties": {
+          "task_ref": {"$ref": "#/$defs/ref"},
+          "evidence_ref": {"$ref": "#/$defs/ref"}
+        }
+      }
+    },
+    "normative_path_refs": {"$ref": "#/$defs/refArray"},
+    "first_slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_refs", "non_goal_refs", "synthetic_only", "persistent_real_financial_data_allowed", "input_mode", "arbitrary_operator_values_allowed", "mutation_capability_ref"],
+      "properties": {
+        "scope_refs": {"$ref": "#/$defs/refArray"},
+        "non_goal_refs": {"$ref": "#/$defs/refArray"},
+        "synthetic_only": {"const": true},
+        "persistent_real_financial_data_allowed": {"const": false},
+        "input_mode": {"const": "allowlisted_deterministic_fixture_refs_only"},
+        "arbitrary_operator_values_allowed": {"const": false},
+        "mutation_capability_ref": {"const": "capability-ref:finance/FIN-001/synthetic-book-mutation"}
+      }
+    },
+    "implementation_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protected_data_plan_ref",
+        "key_plan_ref",
+        "migration_plan_ref",
+        "backup_restore_plan_ref",
+        "deletion_plan_ref",
+        "redaction_plan_ref",
+        "cli_parity_plan_ref",
+        "api_ui_parity_plan_ref",
+        "focused_verifier_plan_ref",
+        "rollback_plan_ref",
+        "synthetic_evidence_plan_ref",
+        "local_approval_authority_plan_ref",
+        "idempotency_plan_ref",
+        "audit_receipt_plan_ref",
+        "mutation_scope_plan_ref",
+        "mutation_governance_verifier_plan_ref",
+        "synthetic_input_policy_plan_ref",
+        "fixture_manifest_plan_ref",
+        "real_data_rejection_verifier_plan_ref",
+        "policy_engine_plan_ref",
+        "policy_governance_verifier_plan_ref",
+        "authority_lease_plan_ref",
+        "authority_lease_verifier_plan_ref"
+      ],
+      "properties": {
+        "protected_data_plan_ref": {"const": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary"},
+        "key_plan_ref": {"const": "plan-ref:finance/FIN-001/opaque-keychain-handle"},
+        "migration_plan_ref": {"const": "plan-ref:finance/FIN-001/versioned-synthetic-schema"},
+        "backup_restore_plan_ref": {"const": "plan-ref:finance/FIN-001/encrypted-synthetic-round-trip-proof"},
+        "deletion_plan_ref": {"const": "plan-ref:finance/FIN-001/cryptographic-and-explicit-delete"},
+        "redaction_plan_ref": {"const": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence"},
+        "cli_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/core-cli-parity"},
+        "api_ui_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/no-route-until-separate-review"},
+        "focused_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests"},
+        "rollback_plan_ref": {"const": "plan-ref:finance/FIN-001/default-off-safe-disable"},
+        "synthetic_evidence_plan_ref": {"const": "plan-ref:finance/FIN-001/deterministic-fixtures"},
+        "local_approval_authority_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-cli-approval-binding"},
+        "idempotency_plan_ref": {"const": "plan-ref:finance/FIN-001/request-ref-replay-conflict"},
+        "audit_receipt_plan_ref": {"const": "plan-ref:finance/FIN-001/append-first-mutation-receipts"},
+        "mutation_scope_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope"},
+        "mutation_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests"},
+        "synthetic_input_policy_plan_ref": {"const": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only"},
+        "fixture_manifest_plan_ref": {"const": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest"},
+        "real_data_rejection_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests"},
+        "policy_engine_plan_ref": {"const": "plan-ref:finance/FIN-001/current-policy-decision-binding"},
+        "policy_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"},
+        "authority_lease_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-binding-registration-and-pre-persist-revalidation"},
+        "authority_lease_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/coarse-expired-and-revoked-lease-denial-tests"}
+      }
+    },
+    "board_claim_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue_snapshot_revision", "lane_vacant_at_recording", "task_state_at_recording", "blocker_ref", "queue_block_receipt_ref", "claim_required_after_merge", "unblock_required_after_merge", "unblock_requires_merge_commit_ref", "claim_receipt_ref", "wip_lane", "reserved_task_ref"],
+      "properties": {
+        "queue_snapshot_revision": {"const": 162},
+        "lane_vacant_at_recording": {"const": true},
+        "task_state_at_recording": {"const": "blocked"},
+        "blocker_ref": {"const": "blocker-ref:finance/FIN-001/pr426-activation-merge-pending"},
+        "queue_block_receipt_ref": {"const": "developer-work-receipt-ref:sha256:44573429fe043729321aee47"},
+        "claim_required_after_merge": {"const": true},
+        "unblock_required_after_merge": {"const": true},
+        "unblock_requires_merge_commit_ref": {"const": true},
+        "claim_receipt_ref": {"type": "null"},
+        "wip_lane": {"const": "product_surface"},
+        "reserved_task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"}
+      }
+    },
+    "authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_financial_data_allowed",
+        "connector_allowed",
+        "accountant_access_allowed",
+        "payment_allowed",
+        "filing_allowed",
+        "advice_allowed",
+        "provider_or_model_calls_allowed",
+        "browser_runtime_allowed",
+        "background_sync_allowed",
+        "public_release_allowed",
+        "production_authority_granted"
+      ],
+      "properties": {
+        "real_financial_data_allowed": {"const": false},
+        "connector_allowed": {"const": false},
+        "accountant_access_allowed": {"const": false},
+        "payment_allowed": {"const": false},
+        "filing_allowed": {"const": false},
+        "advice_allowed": {"const": false},
+        "provider_or_model_calls_allowed": {"const": false},
+        "browser_runtime_allowed": {"const": false},
+        "background_sync_allowed": {"const": false},
+        "public_release_allowed": {"const": false},
+        "production_authority_granted": {"const": false}
+      }
+    },
+    "next_safe_action": {"$ref": "#/$defs/safeText"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[A-Za-z0-9][A-Za-z0-9._/-]*)+$"},
+    "refArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "safeText": {"type": "string", "minLength": 1, "maxLength": 800}
+  }
+}

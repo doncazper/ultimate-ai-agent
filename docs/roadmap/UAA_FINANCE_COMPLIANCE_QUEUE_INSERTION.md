@@ -115,3 +115,15 @@ Before `FIN-001` moves to `In Progress`, record:
 Before any connector or filing milestone starts, repeat the checklist for that
 exact named capability. Acceptance of Finance never grants standing financial,
 compliance, payment, filing, browser, provider, or external-write authority.
+
+The checklist above is recorded for the synthetic-only FIN-001 slice in
+`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md` and
+`docs/product/finance_fin001_activation_v1.json`. The current board reserves
+the bounded package for the otherwise-empty `product_surface` WIP lane. After
+merge, the coordinator must verify the recorded merge-pending blocker, re-check
+lane vacancy, resolve the full merge commit as an ancestor of fetched
+`origin/main`, explicitly unblock the exact task, and emit its claim receipt
+before implementation begins. The synthetic slice accepts only allowlisted
+deterministic fixture refs and rejects arbitrary operator financial values.
+This does not implement the kernel or satisfy the independent real-data
+promotion gate.

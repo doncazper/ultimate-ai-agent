@@ -909,17 +909,25 @@ Goal: preserve and refine the first-party UAA Finance vision before runtime:
 continuous local books, review-and-learn categorization, receipt/context
 capture, reconciliation, spending intelligence, accountant readiness, and
 sourced business-compliance obligations integrated with the Founder Loop.
-Status: founder render direction accepted for private dogfood on 2026-08-25;
-independent promotion remains pending. No Finance runtime, real-data storage,
-connector, calculation, filing, payment, or professional authority exists.
+Status: FIN-001 is reserved as the next `product_surface` WIP item through
+`dev-task:finance-fin001-synthetic-kernel`; it is blocked pending merge of the
+activation record and a fresh exact coordinator claim. The broader Queue V2
+Q26 program task remains blocked. Independent promotion remains pending. No
+Finance runtime, real-data storage, connector, calculation, filing, payment, or
+professional authority exists yet.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
-Next: complete the FIN-001 dependency checklist and record explicit board
-promotion under WIP limits; only then implement the separately reviewed
-synthetic local book and double-entry kernel. Retain the independent FIN-000
-gate before real-data or higher-authority promotion. Financial/compliance adapters,
+Next: after the activation record merges, verify the recorded merge-pending
+blocker, re-check lane vacancy, explicitly unblock and claim the exact FIN-001
+task, and then implement the encrypted synthetic core contracts,
+balanced-posting validator, repository, fixtures, safe-disable path, governed
+CLI mutations limited to allowlisted deterministic fixture refs, arbitrary
+operator-value rejection, and backup/restore proof defined in
+`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Retain the independent
+FIN-000 gate before real-data or higher-authority promotion.
+Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.
 

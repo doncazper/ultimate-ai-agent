@@ -12,8 +12,10 @@ requirements are defined; no Finance runtime is implemented. The founder has
 accepted the exact candidate pack as a private-dogfood direction with iterative
 polish expected. That decision clears the visual prerequisite for a future
 synthetic-only FIN-001 lane; the dependency checklist and explicit board
-promotion still precede implementation. FIN-000 independent promotion remains
-pending until the render brief is signed off under its stricter gate.
+reservation are now recorded for the separately bounded synthetic work item
+`dev-task:finance-fin001-synthetic-kernel`. A fresh lane-vacancy check and exact
+claim receipt still precede implementation. FIN-000 independent promotion
+remains pending until the render brief is signed off under its stricter gate.
 
 ## Planning Deliverables
 
@@ -97,5 +99,8 @@ enough to implement and refine through use. It does not mean independent render
 promotion is complete, Finance exists in the product, real books are stored,
 accounts connect, calculations are professionally validated, an accountant can
 access data, or UAA can advise, pay, transfer, sign, submit, or file. FIN-001
-remains dependency- and board-promotion-gated and, once activated, is limited
-to a separately reviewed synthetic local kernel under the implementation plan.
+has cleared dependency review and is reserved only for the separately bounded
+synthetic local kernel under the activation record and implementation plan. It
+is not active until the exact post-merge claim receipt exists. The broader
+Queue V2 Q26 task remains blocked, as do independent acceptance, real-data use,
+and every higher-authority lane.

@@ -99,6 +99,13 @@ def _walk_strings(value: Any, key: str = "") -> list[tuple[str, str]]:
     return found
 
 
+def _schema_has_nonlocal_ref(schema: Any) -> bool:
+    return any(
+        key in {"$ref", "$dynamicRef"} and not value.startswith("#/")
+        for key, value in _walk_strings(schema)
+    )
+
+
 def _repo_path_from_ref(path_ref: str, root: Path) -> Path:
     prefix = "repo-path-ref:"
     if not path_ref.startswith(prefix):
@@ -164,13 +171,21 @@ def verify(
     *,
     root: Path = ROOT,
     fin_ledger_payload: dict[str, Any] | None = None,
+    schema_payload: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str], bool]:
     failures: list[str] = []
     advisories: list[str] = []
     payload = _load(LEDGER_PATH) if payload is None else payload
 
-    schema = _load(SCHEMA_PATH)
-    for error in sorted(Draft202012Validator(schema).iter_errors(payload), key=str):
+    schema = _load(SCHEMA_PATH) if schema_payload is None else schema_payload
+    if _schema_has_nonlocal_ref(schema):
+        return ["acceptance schema contains a nonlocal reference"], advisories, False
+    try:
+        Draft202012Validator.check_schema(schema)
+        schema_errors = list(Draft202012Validator(schema).iter_errors(payload))
+    except Exception:
+        return ["acceptance schema is invalid or unresolvable"], advisories, False
+    for error in sorted(schema_errors, key=str):
         location = ".".join(str(part) for part in error.absolute_path) or "root"
         failures.append(f"schema:{location}:{error.message}")
 

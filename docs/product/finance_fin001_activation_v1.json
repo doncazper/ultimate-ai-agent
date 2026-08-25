@@ -1,0 +1,125 @@
+{
+  "schema_version": "uaa.finance-fin001-activation.v1",
+  "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
+  "decision_receipt_ref": "receipt-ref:founder-private-dogfood:2026-08-25",
+  "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
+  "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
+  "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
+  "task_ref": "dev-task:finance-fin001-synthetic-kernel",
+  "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
+  "milestone_ref": "milestone-ref:finance/FIN-001",
+  "status": "blocked_pending_activation_merge_and_explicit_unblock",
+  "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator removes the sole exact merge-pending blocker using the actual merge commit before claim.",
+  "dependency_evidence": [
+    {
+      "task_ref": "dev-task:queue-v2-q00-pr379-action-inbox-finish",
+      "evidence_ref": "commit-ref:71e0fa4a98b59a153aa651be4387a5541ce2eea7"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q08-today-render-fidelity",
+      "evidence_ref": "commit-ref:cdc5c5cfb96d8974d00b01db70dfff3e6342b1b1"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q11-eco001-shared-local-data",
+      "evidence_ref": "merge-commit-ref:e8088e7abaa56ecc884222a15e464cf2ef2de92f"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q13-eco003-boards",
+      "evidence_ref": "commit-ref:c9d5448ab482c8df2dc8caa7e1750a796700e6a6"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q14-eco004-local-calendar",
+      "evidence_ref": "commit-ref:38959c58863dabe7324edcfe2cc30a0cf12a874a"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q19-eco008-entitylink-changeset",
+      "evidence_ref": "commit-ref:9fc8f37a4533e19436e9608da7078f9c179b8778"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
+      "evidence_ref": "commit-ref:c22a2d3ced004da774a60f6522913d171e735a08"
+    }
+  ],
+  "normative_path_refs": [
+    "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",
+    "repo-path-ref:docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md",
+    "repo-path-ref:docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md",
+    "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md",
+    "repo-path-ref:docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md",
+    "repo-path-ref:docs/security/UAA_FINANCE_COMPLIANCE_THREAT_MODEL.md"
+  ],
+  "first_slice": {
+    "scope_refs": [
+      "scope-ref:finance/FIN-001/balanced-posting-validation",
+      "scope-ref:finance/FIN-001/core-contracts",
+      "scope-ref:finance/FIN-001/synthetic-backup-restore-proof",
+      "scope-ref:finance/FIN-001/synthetic-local-repository"
+    ],
+    "non_goal_refs": [
+      "non-goal-ref:finance/FIN-001/accountant-access",
+      "non-goal-ref:finance/FIN-001/advice-or-filing",
+      "non-goal-ref:finance/FIN-001/api-or-ui-route",
+      "non-goal-ref:finance/FIN-001/import-or-ocr",
+      "non-goal-ref:finance/FIN-001/live-connector",
+      "non-goal-ref:finance/FIN-001/payment-or-transfer",
+      "non-goal-ref:finance/FIN-001/real-financial-data"
+    ],
+    "synthetic_only": true,
+    "persistent_real_financial_data_allowed": false,
+    "input_mode": "allowlisted_deterministic_fixture_refs_only",
+    "arbitrary_operator_values_allowed": false,
+    "mutation_capability_ref": "capability-ref:finance/FIN-001/synthetic-book-mutation"
+  },
+  "implementation_plan": {
+    "protected_data_plan_ref": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary",
+    "key_plan_ref": "plan-ref:finance/FIN-001/opaque-keychain-handle",
+    "migration_plan_ref": "plan-ref:finance/FIN-001/versioned-synthetic-schema",
+    "backup_restore_plan_ref": "plan-ref:finance/FIN-001/encrypted-synthetic-round-trip-proof",
+    "deletion_plan_ref": "plan-ref:finance/FIN-001/cryptographic-and-explicit-delete",
+    "redaction_plan_ref": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence",
+    "cli_parity_plan_ref": "plan-ref:finance/FIN-001/core-cli-parity",
+    "api_ui_parity_plan_ref": "plan-ref:finance/FIN-001/no-route-until-separate-review",
+    "focused_verifier_plan_ref": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests",
+    "rollback_plan_ref": "plan-ref:finance/FIN-001/default-off-safe-disable",
+    "synthetic_evidence_plan_ref": "plan-ref:finance/FIN-001/deterministic-fixtures",
+    "local_approval_authority_plan_ref": "plan-ref:finance/FIN-001/exact-cli-approval-binding",
+    "idempotency_plan_ref": "plan-ref:finance/FIN-001/request-ref-replay-conflict",
+    "audit_receipt_plan_ref": "plan-ref:finance/FIN-001/append-first-mutation-receipts",
+    "mutation_scope_plan_ref": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope",
+    "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests",
+    "synthetic_input_policy_plan_ref": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only",
+    "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
+    "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
+    "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
+    "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
+    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/exact-binding-registration-and-pre-persist-revalidation",
+    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/coarse-expired-and-revoked-lease-denial-tests"
+  },
+  "board_claim_plan": {
+    "queue_snapshot_revision": 162,
+    "lane_vacant_at_recording": true,
+    "task_state_at_recording": "blocked",
+    "blocker_ref": "blocker-ref:finance/FIN-001/pr426-activation-merge-pending",
+    "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
+    "claim_required_after_merge": true,
+    "unblock_required_after_merge": true,
+    "unblock_requires_merge_commit_ref": true,
+    "claim_receipt_ref": null,
+    "wip_lane": "product_surface",
+    "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel"
+  },
+  "authority_posture": {
+    "real_financial_data_allowed": false,
+    "connector_allowed": false,
+    "accountant_access_allowed": false,
+    "payment_allowed": false,
+    "filing_allowed": false,
+    "advice_allowed": false,
+    "provider_or_model_calls_allowed": false,
+    "browser_runtime_allowed": false,
+    "background_sync_allowed": false,
+    "public_release_allowed": false,
+    "production_authority_granted": false
+  },
+  "next_safe_action": "After this record merges, verify the exact merge-pending blocker is the only blocker and the product-surface lane is vacant, unblock it with the actual PR 426 merge-commit ref, claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans."
+}
