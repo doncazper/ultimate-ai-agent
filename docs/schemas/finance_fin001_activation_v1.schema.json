@@ -55,14 +55,15 @@
     "first_slice": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scope_refs", "non_goal_refs", "synthetic_only", "persistent_real_financial_data_allowed", "input_mode", "arbitrary_operator_values_allowed"],
+      "required": ["scope_refs", "non_goal_refs", "synthetic_only", "persistent_real_financial_data_allowed", "input_mode", "arbitrary_operator_values_allowed", "mutation_capability_ref"],
       "properties": {
         "scope_refs": {"$ref": "#/$defs/refArray"},
         "non_goal_refs": {"$ref": "#/$defs/refArray"},
         "synthetic_only": {"const": true},
         "persistent_real_financial_data_allowed": {"const": false},
         "input_mode": {"const": "allowlisted_deterministic_fixture_refs_only"},
-        "arbitrary_operator_values_allowed": {"const": false}
+        "arbitrary_operator_values_allowed": {"const": false},
+        "mutation_capability_ref": {"const": "capability-ref:finance/FIN-001/synthetic-book-mutation"}
       }
     },
     "implementation_plan": {
@@ -89,7 +90,9 @@
         "fixture_manifest_plan_ref",
         "real_data_rejection_verifier_plan_ref",
         "policy_engine_plan_ref",
-        "policy_governance_verifier_plan_ref"
+        "policy_governance_verifier_plan_ref",
+        "authority_lease_plan_ref",
+        "authority_lease_verifier_plan_ref"
       ],
       "properties": {
         "protected_data_plan_ref": {"const": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary"},
@@ -112,7 +115,9 @@
         "fixture_manifest_plan_ref": {"const": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest"},
         "real_data_rejection_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests"},
         "policy_engine_plan_ref": {"const": "plan-ref:finance/FIN-001/current-policy-decision-binding"},
-        "policy_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"}
+        "policy_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"},
+        "authority_lease_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation"},
+        "authority_lease_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests"}
       }
     },
     "board_claim_plan": {

@@ -72,13 +72,16 @@ focused acceptance cases.
 
 Every CLI mutation must call the same Python core only after both a current
 PolicyEngine allow decision and an exact LocalApprovalAuthority scope bind the
-operation, book, current revision, request ref, and intended record refs.
-Denied, unknown, or stale policy and approval states fail closed. Replays are
-idempotent; changed payloads under the same request ref fail closed. The core
-appends a redacted mutation receipt before reporting success and provides a
-tested reversal or rollback path. Focused tests must cover policy denial and
-staleness, denied or stale approval, exact replay, changed-payload conflict,
-receipt integrity, rollback, and safe-disable.
+operation, book, current revision, request ref, and intended record refs. The
+same operation also requires an active AuthorityLease for exact capability
+`capability-ref:finance/FIN-001/synthetic-book-mutation`, revalidated
+immediately before persistence. Denied, unknown, or stale policy and approval
+states and expired or revoked leases fail closed. Replays are idempotent;
+changed payloads under the same request ref fail closed. The core appends a
+redacted mutation receipt before reporting success and provides a tested
+reversal or rollback path. Focused tests must cover policy denial and
+staleness, denied or stale approval, expired or revoked lease, exact replay,
+changed-payload conflict, receipt integrity, rollback, and safe-disable.
 
 ## Non-Goals And Authority Boundary
 

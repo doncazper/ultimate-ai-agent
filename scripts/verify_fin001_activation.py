@@ -72,6 +72,8 @@ EXPECTED_IMPLEMENTATION_PLAN = {
     "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
     "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
     "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
+    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation",
+    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests",
 }
 EXPECTED_TOP_LEVEL_BINDINGS = {
     "schema_version": "uaa.finance-fin001-activation.v1",
@@ -97,6 +99,41 @@ EXPECTED_BOARD_CLAIM_PLAN = {
     "wip_lane": "product_surface",
     "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel",
 }
+EXPECTED_FIRST_SLICE = {
+    "scope_refs": [
+        "scope-ref:finance/FIN-001/balanced-posting-validation",
+        "scope-ref:finance/FIN-001/core-contracts",
+        "scope-ref:finance/FIN-001/synthetic-backup-restore-proof",
+        "scope-ref:finance/FIN-001/synthetic-local-repository",
+    ],
+    "non_goal_refs": [
+        "non-goal-ref:finance/FIN-001/accountant-access",
+        "non-goal-ref:finance/FIN-001/advice-or-filing",
+        "non-goal-ref:finance/FIN-001/api-or-ui-route",
+        "non-goal-ref:finance/FIN-001/import-or-ocr",
+        "non-goal-ref:finance/FIN-001/live-connector",
+        "non-goal-ref:finance/FIN-001/payment-or-transfer",
+        "non-goal-ref:finance/FIN-001/real-financial-data",
+    ],
+    "synthetic_only": True,
+    "persistent_real_financial_data_allowed": False,
+    "input_mode": "allowlisted_deterministic_fixture_refs_only",
+    "arbitrary_operator_values_allowed": False,
+    "mutation_capability_ref": "capability-ref:finance/FIN-001/synthetic-book-mutation",
+}
+EXPECTED_AUTHORITY_POSTURE = {
+    "real_financial_data_allowed": False,
+    "connector_allowed": False,
+    "accountant_access_allowed": False,
+    "payment_allowed": False,
+    "filing_allowed": False,
+    "advice_allowed": False,
+    "provider_or_model_calls_allowed": False,
+    "browser_runtime_allowed": False,
+    "background_sync_allowed": False,
+    "public_release_allowed": False,
+    "production_authority_granted": False,
+}
 EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",
     "repo-path-ref:docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md",
@@ -104,21 +141,6 @@ EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md",
     "repo-path-ref:docs/roadmap/UAA_FINANCE_COMPLIANCE_QUEUE_INSERTION.md",
     "repo-path-ref:docs/security/UAA_FINANCE_COMPLIANCE_THREAT_MODEL.md",
-}
-EXPECTED_SCOPE_REFS = {
-    "scope-ref:finance/FIN-001/balanced-posting-validation",
-    "scope-ref:finance/FIN-001/core-contracts",
-    "scope-ref:finance/FIN-001/synthetic-backup-restore-proof",
-    "scope-ref:finance/FIN-001/synthetic-local-repository",
-}
-EXPECTED_NON_GOAL_REFS = {
-    "non-goal-ref:finance/FIN-001/accountant-access",
-    "non-goal-ref:finance/FIN-001/advice-or-filing",
-    "non-goal-ref:finance/FIN-001/api-or-ui-route",
-    "non-goal-ref:finance/FIN-001/import-or-ocr",
-    "non-goal-ref:finance/FIN-001/live-connector",
-    "non-goal-ref:finance/FIN-001/payment-or-transfer",
-    "non-goal-ref:finance/FIN-001/real-financial-data",
 }
 SECRET_LIKE_REF = re.compile(
     r"(?i)(?:sk_(?:live|test)|gh[pousr]_|akia|asia|api[_-]?key|tokenvalue)"
@@ -188,6 +210,13 @@ def _has_secret_like_durable_content(value: Any) -> bool:
     return False
 
 
+def _schema_has_nonlocal_ref(schema: Any) -> bool:
+    return any(
+        key == "$ref" and not value.startswith("#/")
+        for key, value in _walk_strings(schema)
+    )
+
+
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     try:
@@ -204,6 +233,14 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         payload.get(key) != value for key, value in EXPECTED_TOP_LEVEL_BINDINGS.items()
     ):
         failures.append("FIN-001 top-level activation binding drifted")
+    if payload.get("first_slice") != EXPECTED_FIRST_SLICE:
+        failures.append("FIN-001 complete first-slice boundary drifted")
+    if payload.get("authority_posture") != EXPECTED_AUTHORITY_POSTURE:
+        failures.append("FIN-001 complete authority posture drifted")
+    if _schema_has_nonlocal_ref(schema):
+        failures.append("activation schema contains a nonlocal reference")
+    if failures:
+        return failures
     try:
         Draft202012Validator.check_schema(schema)
         schema_errors = list(Draft202012Validator(schema).iter_errors(payload))
@@ -262,20 +299,11 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
                 f"normative path is missing or not a regular file: {path_ref}"
             )
 
-    first_slice = payload["first_slice"]
-    if set(first_slice["scope_refs"]) != EXPECTED_SCOPE_REFS:
-        failures.append("FIN-001 first-slice scope drifted")
-    if set(first_slice["non_goal_refs"]) != EXPECTED_NON_GOAL_REFS:
-        failures.append("FIN-001 non-goal boundary drifted")
     if payload["implementation_plan"] != EXPECTED_IMPLEMENTATION_PLAN:
         failures.append("FIN-001 implementation plan drifted")
     if payload["board_claim_plan"] != EXPECTED_BOARD_CLAIM_PLAN:
         failures.append("FIN-001 blocked queue handoff drifted")
 
-    if any(payload["authority_posture"].values()):
-        failures.append(
-            "FIN-001 activation cannot grant external or production authority"
-        )
     return failures
 
 

@@ -116,9 +116,12 @@ Deliver:
 - a versioned allowlist of deterministic fixture refs; all arbitrary
   operator-supplied financial values fail closed before persistence;
 - CLI create/inspect/check/export parity with current PolicyEngine decision,
-  exact LocalApprovalAuthority, revision, idempotency, audit-receipt, and
-  rollback binding for every local mutation; denied, unknown, or stale policy
-  fails closed, and imports remain FIN-002;
+  exact LocalApprovalAuthority, and an active
+  `capability-ref:finance/FIN-001/synthetic-book-mutation` AuthorityLease
+  revalidated immediately before persistence, plus revision, idempotency,
+  audit-receipt, and rollback binding for every local mutation; denied,
+  unknown, or stale policy, approval, and expired or revoked leases fail
+  closed, and imports remain FIN-002;
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 

@@ -67,7 +67,8 @@
     "synthetic_only": true,
     "persistent_real_financial_data_allowed": false,
     "input_mode": "allowlisted_deterministic_fixture_refs_only",
-    "arbitrary_operator_values_allowed": false
+    "arbitrary_operator_values_allowed": false,
+    "mutation_capability_ref": "capability-ref:finance/FIN-001/synthetic-book-mutation"
   },
   "implementation_plan": {
     "protected_data_plan_ref": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary",
@@ -90,7 +91,9 @@
     "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
     "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
     "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
-    "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"
+    "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
+    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation",
+    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests"
   },
   "board_claim_plan": {
     "queue_snapshot_revision": 162,

@@ -40,7 +40,7 @@ def test_scope_expansion_fails_closed() -> None:
 
     failures = verifier.verify(payload)
 
-    assert "FIN-001 first-slice scope drifted" in failures
+    assert "FIN-001 complete first-slice boundary drifted" in failures
 
 
 def test_authority_promotion_fails_closed() -> None:
@@ -49,7 +49,7 @@ def test_authority_promotion_fails_closed() -> None:
 
     failures = verifier.verify(payload)
 
-    assert any(item.startswith("schema:validation_failed") for item in failures)
+    assert "FIN-001 complete authority posture drifted" in failures
 
 
 def test_secret_like_ref_is_rejected() -> None:
@@ -134,7 +134,22 @@ def test_arbitrary_operator_financial_values_remain_blocked() -> None:
 
     failures = verifier.verify(payload)
 
-    assert failures
+    assert "FIN-001 complete first-slice boundary drifted" in failures
+
+
+def test_complete_authority_posture_is_independently_pinned() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    del payload["authority_posture"]["browser_runtime_allowed"]
+
+    failures = verifier.verify(payload)
+
+    assert "FIN-001 complete authority posture drifted" in failures
+
+
+def test_nonlocal_schema_reference_is_rejected_before_validation() -> None:
+    schema = {"$ref": "https://schemas.example.invalid/finance.json"}
+
+    assert verifier._schema_has_nonlocal_ref(schema) is True
 
 
 def test_dependency_commit_must_be_in_current_history(monkeypatch) -> None:
