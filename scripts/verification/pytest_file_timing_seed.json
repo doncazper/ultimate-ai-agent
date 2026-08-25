@@ -1267,7 +1267,7 @@
     },
     {
       "path": "tests/test_fin001_activation.py",
-      "seconds": 1.18,
+      "seconds": 1.61,
       "source": "operator-supplied-advisory"
     },
     {

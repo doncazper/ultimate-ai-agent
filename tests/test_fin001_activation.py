@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 
+import pytest
+
 from scripts import verify_fin001_activation as verifier
 
 
@@ -86,3 +88,11 @@ def test_dependency_commit_must_be_in_current_history(monkeypatch) -> None:
         "dependency commit evidence is not in current history" in item
         for item in failures
     )
+
+
+def test_duplicate_json_keys_fail_closed(tmp_path) -> None:
+    duplicate = tmp_path / "duplicate.json"
+    duplicate.write_text('{"authority_posture":{},"authority_posture":{}}')
+
+    with pytest.raises(ValueError, match="duplicate object key"):
+        verifier._load(duplicate)

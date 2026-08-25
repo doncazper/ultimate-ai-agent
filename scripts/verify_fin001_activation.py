@@ -51,17 +51,22 @@ EXPECTED_DEPENDENCIES = {
     ),
 }
 EXPECTED_IMPLEMENTATION_PLAN = {
-    "protected_data_plan_ref": "plan-ref:finance/FIN-001/synthetic-data-boundary",
-    "key_plan_ref": "plan-ref:finance/FIN-001/no-real-data-key-enrollment",
+    "protected_data_plan_ref": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary",
+    "key_plan_ref": "plan-ref:finance/FIN-001/opaque-keychain-handle",
     "migration_plan_ref": "plan-ref:finance/FIN-001/versioned-synthetic-schema",
-    "backup_restore_plan_ref": "plan-ref:finance/FIN-001/synthetic-round-trip-proof",
-    "deletion_plan_ref": "plan-ref:finance/FIN-001/explicit-synthetic-store-delete",
+    "backup_restore_plan_ref": "plan-ref:finance/FIN-001/encrypted-synthetic-round-trip-proof",
+    "deletion_plan_ref": "plan-ref:finance/FIN-001/cryptographic-and-explicit-delete",
     "redaction_plan_ref": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence",
     "cli_parity_plan_ref": "plan-ref:finance/FIN-001/core-cli-parity",
     "api_ui_parity_plan_ref": "plan-ref:finance/FIN-001/no-route-until-separate-review",
     "focused_verifier_plan_ref": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests",
     "rollback_plan_ref": "plan-ref:finance/FIN-001/default-off-safe-disable",
     "synthetic_evidence_plan_ref": "plan-ref:finance/FIN-001/deterministic-fixtures",
+    "local_approval_authority_plan_ref": "plan-ref:finance/FIN-001/exact-cli-approval-binding",
+    "idempotency_plan_ref": "plan-ref:finance/FIN-001/request-ref-replay-conflict",
+    "audit_receipt_plan_ref": "plan-ref:finance/FIN-001/append-first-mutation-receipts",
+    "mutation_scope_plan_ref": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope",
+    "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests",
 }
 EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",
@@ -91,8 +96,22 @@ SECRET_LIKE_REF = re.compile(
 )
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("governance JSON contains a duplicate object key")
+        payload[key] = value
+    return payload
+
+
 def _load(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys
+        )
+    except json.JSONDecodeError:
+        raise ValueError("governance JSON is malformed") from None
     if not isinstance(payload, dict):
         raise ValueError(f"{path.name} must contain a JSON object")
     return payload
@@ -113,8 +132,11 @@ def _walk_strings(value: Any, key: str = "") -> list[tuple[str, str]]:
 
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
     failures: list[str] = []
-    payload = _load(LEDGER_PATH) if payload is None else payload
-    schema = _load(SCHEMA_PATH)
+    try:
+        payload = _load(LEDGER_PATH) if payload is None else payload
+        schema = _load(SCHEMA_PATH)
+    except ValueError:
+        return ["activation governance JSON is invalid or ambiguous"]
 
     if contains_obvious_secret(payload) or any(
         SECRET_LIKE_REF.search(value) for _, value in _walk_strings(payload)
@@ -200,8 +222,9 @@ def main() -> int:
     print(
         json.dumps(
             {
-                "status": "ACTIVATED_SYNTHETIC_ONLY",
+                "status": "READY_FOR_EXACT_QUEUE_CLAIM",
                 "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
+                "task_claimed": False,
                 "product_runtime_authority_granted": False,
                 "real_financial_data_allowed": False,
             },

@@ -1841,13 +1841,12 @@ Today, Action Inbox, and ECO-008 ChangeSets are accepted. The local product
 precedes live bank or compliance connections; every adapter, accountant-access
 lane, payment, and filing handoff requires separate promotion.
 
-Board posture: In Progress for FIN-001 synthetic-only core implementation in
-the `product_surface` lane through the separately bounded
-`dev-task:finance-fin001-synthetic-kernel`. The activation checklist and
-explicit promotion are recorded in
+Board posture: Ready for exact claim after activation-record merge. The
+separately bounded `dev-task:finance-fin001-synthetic-kernel` reserves the next
+`product_surface` slot, but is not In Progress until a fresh lane-vacancy check
+and coordinator claim receipt exist. The checklist and claim procedure are in
 `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. The broader Queue V2 Q26
-program task and later Finance milestones remain blocked/deferred, and this
-promotion does not interrupt or expand the Founder Command Center spine.
+program task and later Finance milestones remain blocked/deferred.
 
 Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,

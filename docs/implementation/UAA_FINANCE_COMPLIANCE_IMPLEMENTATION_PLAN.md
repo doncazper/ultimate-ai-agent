@@ -95,12 +95,14 @@ added.
 
 Founder private-dogfood direction acceptance clears the FIN-000 visual
 prerequisite for this bounded package. The dependency checklist and explicit
-current-board promotion are now recorded in
+current-board reservation are now recorded in
 `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`; implementation may begin
-only within that exact synthetic-only slice. The decision does not authorize
-persistent real financial data, a connector, advice, filing, or
-professional-readiness claims. Those remain behind independent promotion and
-their exact later capability gates.
+only after merge, a fresh lane-vacancy check, and an exact coordinator claim for
+`dev-task:finance-fin001-synthetic-kernel`. The encrypted SQLite and opaque
+Keychain-handle boundary applies from the first synthetic record. The decision
+does not authorize persistent real financial data, a connector, advice,
+filing, or professional-readiness claims. Those remain behind independent
+promotion and their exact later capability gates.
 
 Deliver:
 
@@ -111,7 +113,9 @@ Deliver:
 - append-oriented event/history model with optimistic concurrency;
 - local protected repository, migrations, fixtures, backup/restore proof, and
   safe-delete posture;
-- CLI create/import/inspect/check/export parity for every local mutation;
+- CLI create/inspect/check/export parity with exact LocalApprovalAuthority,
+  revision, idempotency, audit-receipt, and rollback binding for every local
+  mutation; imports remain FIN-002;
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 

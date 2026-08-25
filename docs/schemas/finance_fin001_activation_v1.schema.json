@@ -19,7 +19,7 @@
     "normative_path_refs",
     "first_slice",
     "implementation_plan",
-    "board_promotion",
+    "board_claim_plan",
     "authority_posture",
     "next_safe_action"
   ],
@@ -32,7 +32,7 @@
     "task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"},
     "parent_program_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
     "milestone_ref": {"const": "milestone-ref:finance/FIN-001"},
-    "status": {"const": "activated_synthetic_only_private_dogfood"},
+    "status": {"const": "ready_for_exact_queue_claim_after_merge"},
     "safe_summary": {"$ref": "#/$defs/safeText"},
     "dependency_evidence": {
       "type": "array",
@@ -75,31 +75,43 @@
         "api_ui_parity_plan_ref",
         "focused_verifier_plan_ref",
         "rollback_plan_ref",
-        "synthetic_evidence_plan_ref"
+        "synthetic_evidence_plan_ref",
+        "local_approval_authority_plan_ref",
+        "idempotency_plan_ref",
+        "audit_receipt_plan_ref",
+        "mutation_scope_plan_ref",
+        "mutation_governance_verifier_plan_ref"
       ],
       "properties": {
-        "protected_data_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-data-boundary"},
-        "key_plan_ref": {"const": "plan-ref:finance/FIN-001/no-real-data-key-enrollment"},
+        "protected_data_plan_ref": {"const": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary"},
+        "key_plan_ref": {"const": "plan-ref:finance/FIN-001/opaque-keychain-handle"},
         "migration_plan_ref": {"const": "plan-ref:finance/FIN-001/versioned-synthetic-schema"},
-        "backup_restore_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-round-trip-proof"},
-        "deletion_plan_ref": {"const": "plan-ref:finance/FIN-001/explicit-synthetic-store-delete"},
+        "backup_restore_plan_ref": {"const": "plan-ref:finance/FIN-001/encrypted-synthetic-round-trip-proof"},
+        "deletion_plan_ref": {"const": "plan-ref:finance/FIN-001/cryptographic-and-explicit-delete"},
         "redaction_plan_ref": {"const": "plan-ref:finance/FIN-001/safe-refs-no-raw-ledger-evidence"},
         "cli_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/core-cli-parity"},
         "api_ui_parity_plan_ref": {"const": "plan-ref:finance/FIN-001/no-route-until-separate-review"},
         "focused_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/balance-reversal-backup-restore-tests"},
         "rollback_plan_ref": {"const": "plan-ref:finance/FIN-001/default-off-safe-disable"},
-        "synthetic_evidence_plan_ref": {"const": "plan-ref:finance/FIN-001/deterministic-fixtures"}
+        "synthetic_evidence_plan_ref": {"const": "plan-ref:finance/FIN-001/deterministic-fixtures"},
+        "local_approval_authority_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-cli-approval-binding"},
+        "idempotency_plan_ref": {"const": "plan-ref:finance/FIN-001/request-ref-replay-conflict"},
+        "audit_receipt_plan_ref": {"const": "plan-ref:finance/FIN-001/append-first-mutation-receipts"},
+        "mutation_scope_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope"},
+        "mutation_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests"}
       }
     },
-    "board_promotion": {
+    "board_claim_plan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["explicit", "wip_lane", "prior_active_task_ref", "promoted_task_ref"],
+      "required": ["queue_snapshot_revision", "lane_vacant_at_recording", "claim_required_after_merge", "claim_receipt_ref", "wip_lane", "reserved_task_ref"],
       "properties": {
-        "explicit": {"const": true},
+        "queue_snapshot_revision": {"const": 162},
+        "lane_vacant_at_recording": {"const": true},
+        "claim_required_after_merge": {"const": true},
+        "claim_receipt_ref": {"type": "null"},
         "wip_lane": {"const": "product_surface"},
-        "prior_active_task_ref": {"type": "null"},
-        "promoted_task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"}
+        "reserved_task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"}
       }
     },
     "authority_posture": {

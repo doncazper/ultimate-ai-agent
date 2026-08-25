@@ -1,14 +1,16 @@
 # FIN-001 Synthetic-Only Activation Record
 
-Status: activated for bounded implementation after merge of this record. This
-is a Queue V2 WIP decision, not a claim that Finance runtime already exists.
+Status: ready for an exact Queue claim after merge of this record. This is a
+verified reservation, not an active claim or a statement that Finance runtime
+already exists.
 
 ## Decision
 
 The founder's private-dogfood direction acceptance in PR 425 cleared the
 FIN-000 visual prerequisite. The required shared foundations are accepted, and
-the `product_surface` lane has no prior active task. FIN-001 is therefore the
-explicit next product-surface WIP item.
+the `product_surface` lane was vacant at coordinator revision 162. FIN-001 is
+therefore reserved as the next product-surface WIP item, subject to a fresh
+vacancy check and exact claim after merge.
 
 The machine-readable decision is
 `docs/product/finance_fin001_activation_v1.json`; its verifier is
@@ -20,6 +22,10 @@ record stays blocked and cannot be used as the implementation handoff for this
 slice. Queue receipt
 `developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3` records the exact
 task; it stays blocked until this activation PR merges.
+
+After merge, the coordinator must still show the `product_surface` lane as
+vacant, then emit a claim receipt for this exact task. Until that transition is
+recorded, the package is ready but not In Progress.
 
 ## Dependency Checklist
 
@@ -44,11 +50,21 @@ parity for this bounded core. Do not add an API route or Control Center action
 in this slice.
 
 Tests and durable evidence use synthetic values and safe refs. The repository
-schema is versioned; migration, explicit deletion, backup/restore round trips,
-reversal behavior, commodity balancing, stale-revision rejection, and
-redaction are focused acceptance cases. Any unavailable protected-storage or
-key boundary must fail closed before real-data promotion; no key enrollment is
-needed or allowed for this synthetic-only slice.
+schema is versioned and uses the ADR-0063 encrypted SQLite boundary from its
+first synthetic record. A random per-repository key is available only through
+an opaque Keychain handle; key material never enters configuration, CLI output,
+logs, receipts, or fixtures. Migration, cryptographic and explicit deletion,
+encrypted backup/restore round trips, key-unavailable failure, reversal
+behavior, commodity balancing, stale-revision rejection, and redaction are
+focused acceptance cases.
+
+Every CLI mutation must call the same Python core through an exact
+LocalApprovalAuthority scope that binds operation, book, current revision,
+request ref, and intended record refs. Replays are idempotent; changed payloads
+under the same request ref fail closed. The core appends a redacted mutation
+receipt before reporting success and provides a tested reversal or rollback
+path. Focused tests must cover denied or stale approval, exact replay,
+changed-payload conflict, receipt integrity, rollback, and safe-disable.
 
 ## Non-Goals And Authority Boundary
 

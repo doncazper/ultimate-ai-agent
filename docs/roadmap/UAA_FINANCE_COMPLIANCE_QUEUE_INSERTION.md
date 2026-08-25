@@ -118,7 +118,8 @@ compliance, payment, filing, browser, provider, or external-write authority.
 
 The checklist above is recorded for the synthetic-only FIN-001 slice in
 `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md` and
-`docs/product/finance_fin001_activation_v1.json`. The current board explicitly
-promotes that bounded package into the otherwise-empty `product_surface` WIP
-lane. This closes the activation prerequisite only; it does not implement the
-kernel or satisfy the independent real-data promotion gate.
+`docs/product/finance_fin001_activation_v1.json`. The current board reserves
+the bounded package for the otherwise-empty `product_surface` WIP lane. After
+merge, the coordinator must re-check lane vacancy and emit the exact task claim
+receipt before implementation begins. This does not implement the kernel or
+satisfy the independent real-data promotion gate.

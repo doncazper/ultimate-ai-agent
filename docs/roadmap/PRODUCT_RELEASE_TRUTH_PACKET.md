@@ -566,9 +566,10 @@ direction for private dogfooding. The versioned ledger and verifier bind the
 reviewed surface inventory while explicitly allowing cosmetic iteration from
 real use. This clears visual-direction indecision only: Q25 still needs its CRM
 relationship projection and independent promotion profile. Q26 has now
-recorded its FIN-001 dependency checklist and explicit product-surface board
-promotion, so only the exact synthetic kernel in
-`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md` may begin. Social publishing,
+recorded its FIN-001 dependency checklist and exact product-surface reservation.
+Implementation cannot begin until the activation record merges and the
+coordinator emits a fresh exact claim receipt for the synthetic task in
+`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Social publishing,
 platform writes, real financial data, bank connectivity, advice, filing,
 public release, and production authority remain false. Evidence:
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md` and
