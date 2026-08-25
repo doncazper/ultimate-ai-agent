@@ -13,6 +13,15 @@ def test_checked_in_founder_direction_acceptance_is_valid() -> None:
     assert isinstance(current_match, bool)
 
 
+def test_direction_schema_rejects_nonlocal_refs_before_resolution() -> None:
+    payload = verifier._load(verifier.LEDGER_PATH)
+    schema = {"$ref": "https://schemas.example.invalid/direction.json"}
+
+    failures, _, _ = verifier.verify(payload, schema_payload=schema)
+
+    assert failures == ["acceptance schema contains a nonlocal reference"]
+
+
 def test_q25_recorded_asset_tampering_fails_closed() -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
     payload["programs"]["q25"]["assets"][0]["sha256"] = "sha256:" + "0" * 64

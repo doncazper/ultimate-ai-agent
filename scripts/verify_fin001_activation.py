@@ -302,6 +302,18 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     if failures:
         return failures
     try:
+        Draft202012Validator.check_schema(schema)
+        schema_errors = list(Draft202012Validator(schema).iter_errors(payload))
+    except Exception:
+        return ["activation schema is invalid or unresolvable"]
+    for error in sorted(
+        schema_errors,
+        key=lambda item: tuple(str(part) for part in item.absolute_schema_path),
+    ):
+        failures.append(f"schema:validation_failed:{error.validator}")
+    if failures:
+        return failures
+    try:
         direction = _load(root / DIRECTION_LEDGER_RELATIVE_PATH)
     except (OSError, ValueError):
         failures.append("founder direction acceptance artifact is invalid or missing")
@@ -323,19 +335,6 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
             "direction_accepted_synthetic_kernel_dependency_and_board_gated"
         ):
             failures.append("founder Q26 direction status drifted")
-    if failures:
-        return failures
-    try:
-        Draft202012Validator.check_schema(schema)
-        schema_errors = list(Draft202012Validator(schema).iter_errors(payload))
-    except Exception:
-        failures.append("activation schema is invalid or unresolvable")
-        return failures
-    for error in sorted(
-        schema_errors,
-        key=lambda item: tuple(str(part) for part in item.absolute_schema_path),
-    ):
-        failures.append(f"schema:validation_failed:{error.validator}")
     if failures:
         return failures
 

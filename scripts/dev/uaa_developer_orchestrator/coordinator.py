@@ -36,6 +36,7 @@ DEVELOPER_COORDINATOR_NODE_WIP_LIMIT = 2
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FULL_MERGE_COMMIT_REF_RE = re.compile(r"^merge-commit-ref:([0-9a-f]{40})$")
 MERGE_EVIDENCE_TARGET_REF = "refs/remotes/origin/main"
+MERGE_GATED_BLOCKER_PR_RE = re.compile(r"(?:^|[/:_-])pr([0-9]+)(?:[/:_-]|$)")
 
 DeveloperWorkPriority = Literal["p0", "p1", "p2", "p3"]
 DeveloperWorkState = Literal[
@@ -134,6 +135,11 @@ def _validate_unblock_evidence(*, expected_blocker_ref: str, evidence_ref: str) 
         )
     if match is None:
         return
+    pull_request_match = MERGE_GATED_BLOCKER_PR_RE.search(expected_blocker_ref)
+    if merge_gated and pull_request_match is None:
+        raise DeveloperWorkQueueClaimError(
+            "DEVELOPER_WORK_UNBLOCK_MERGE_SUBJECT_REQUIRED"
+        )
     revision = match.group(1)
     object_check = subprocess.run(
         ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
@@ -155,7 +161,31 @@ def _validate_unblock_evidence(*, expected_blocker_ref: str, evidence_ref: str) 
         stderr=subprocess.DEVNULL,
         check=False,
     )
-    if object_check.returncode != 0 or ancestry_check.returncode != 0:
+    message_check = subprocess.run(
+        ["git", "log", "-1", "--format=%B", revision],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    expected_pr_marker = (
+        None
+        if pull_request_match is None
+        else re.compile(
+            rf"(?:\(#{pull_request_match.group(1)}\)\s*$|^Merge pull request #{pull_request_match.group(1)}\b)",
+            re.MULTILINE,
+        )
+    )
+    if (
+        object_check.returncode != 0
+        or ancestry_check.returncode != 0
+        or message_check.returncode != 0
+        or (
+            expected_pr_marker is not None
+            and expected_pr_marker.search(message_check.stdout) is None
+        )
+    ):
         raise DeveloperWorkQueueClaimError(
             "DEVELOPER_WORK_UNBLOCK_MERGE_COMMIT_EVIDENCE_INVALID"
         )
@@ -1179,10 +1209,6 @@ class DeveloperWorkCoordinator:
         )
         validate_task_ref(evidence_ref, "developer_work_unblock_evidence_ref")
         validate_task_ref(idempotency_ref, "developer_work_unblock_idempotency_ref")
-        _validate_unblock_evidence(
-            expected_blocker_ref=expected_blocker_ref,
-            evidence_ref=evidence_ref,
-        )
         with self._locked():
             snapshot = self._load_snapshot()
             task = self._find_task(snapshot, task_ref)
@@ -1201,6 +1227,10 @@ class DeveloperWorkCoordinator:
                 raise DeveloperWorkQueueClaimError(
                     "DEVELOPER_WORK_UNBLOCK_BLOCKER_SET_DRIFTED"
                 )
+            _validate_unblock_evidence(
+                expected_blocker_ref=expected_blocker_ref,
+                evidence_ref=evidence_ref,
+            )
             updated = task.model_copy(update={"state": "queued", "blocker_refs": []})
             next_snapshot = snapshot.model_copy(
                 update={
