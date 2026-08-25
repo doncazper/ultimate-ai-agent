@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import subprocess
+import subprocess as _subprocess
 import shutil
 import sys
 import threading
@@ -99,6 +99,27 @@ def _register_node(
             node_ref=node_ref,
             idempotency_ref=f"{idempotency_ref}-heartbeat",
         )
+
+
+class _HistoricalMergeSubprocess:
+    """Keep merge-gate fixtures bound to the immutable PR #425 revision."""
+
+    @staticmethod
+    def run(args: list[str], **kwargs: object) -> _subprocess.CompletedProcess[str]:
+        if args == ["git", "rev-parse", "refs/remotes/origin/main"]:
+            args = [
+                "git",
+                "log",
+                "--format=%H",
+                "--fixed-strings",
+                "--grep=(#425)",
+                "-1",
+                "refs/remotes/origin/main",
+            ]
+        return _subprocess.run(args, **kwargs)  # type: ignore[call-overload]
+
+
+subprocess = _HistoricalMergeSubprocess()
 
 
 def test_queue_claims_are_idempotent_and_dependency_bound(tmp_path: Path) -> None:
