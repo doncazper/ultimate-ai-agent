@@ -111,11 +111,13 @@ a strict reviewed-manual-import conversation projection
 with safe source/freshness posture, bounded thread/item contracts, protected
 read-only API routes, CLI parity, and a backend-wired `Social Media` / `Needs
 attention` Control Center view. Raw content, connector sync, sending, replies,
-deletes, moderation, and external writes remain blocked. Q25 remains deferred
-until Work Board projection visual acceptance, CRM relationship acceptance,
-desktop/narrow Communications visual acceptance, and a bound
-foundation-profile ledger and verifier are accepted. Evidence:
-`docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md`.
+deletes, moderation, and external writes remain blocked. The founder accepted
+the displayed Social direction for private dogfooding on 2026-08-25, so
+pixel-perfect visual approval no longer blocks iterative gap closure. Q25
+remains deferred until the CRM relationship projection is implemented and the
+strict independent-promotion profile ledger/verifier is accepted. Evidence:
+`docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and
+`docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
 backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
 explicit: contract refs are defined, while approval-alone availability,
@@ -907,15 +909,17 @@ Goal: preserve and refine the first-party UAA Finance vision before runtime:
 continuous local books, review-and-learn categorization, receipt/context
 capture, reconciliation, spending intelligence, accountant readiness, and
 sourced business-compliance obligations integrated with the Founder Loop.
-Status: planning package proposed for review; no Finance runtime, storage,
+Status: founder render direction accepted for private dogfood on 2026-08-25;
+independent promotion remains pending. No Finance runtime, real-data storage,
 connector, calculation, filing, payment, or professional authority exists.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
-Next: review FIN-000 planning truth and create/accept the synthetic render pack.
-Runtime FIN-001 remains behind ECO-001, first-class Boards/Kanban, Calendar,
-Today, Action Inbox, and ECO-008 ChangeSet gates. Financial/compliance adapters,
+Next: complete the FIN-001 dependency checklist and record explicit board
+promotion under WIP limits; only then implement the separately reviewed
+synthetic local book and double-entry kernel. Retain the independent FIN-000
+gate before real-data or higher-authority promotion. Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.
 

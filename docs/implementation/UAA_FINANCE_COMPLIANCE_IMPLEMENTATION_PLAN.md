@@ -24,7 +24,7 @@ lane later.
 The execution shape is:
 
 ```text
-FIN-000 contract + threat model + accepted renders
+FIN-000 contract + threat model + founder-accepted private-dogfood direction
         |
         v
 shared ecosystem foundations through ECO-008
@@ -67,8 +67,9 @@ cannot displace the active Founder Command Center implementation spine.
 ### `FIN-000` Product contract, threat model, and render acceptance
 
 Planning evidence is indexed in
-`docs/product/UAA_FINANCE_FIN000_ACCEPTANCE_MATRIX.md`. The render checklist
-remains pending and cannot be represented as accepted visual evidence.
+`docs/product/UAA_FINANCE_FIN000_ACCEPTANCE_MATRIX.md`. The founder accepted
+the displayed render direction for private dogfooding; the independent render
+checklist remains pending and cannot be represented as promotion evidence.
 
 Deliver:
 
@@ -91,6 +92,14 @@ blocked, how failure is recovered, and how every screen fits UAA. No runtime is
 added.
 
 ### `FIN-001` Protected local book and double-entry kernel
+
+Founder private-dogfood direction acceptance clears the FIN-000 visual
+prerequisite for this bounded package. Implementation remains behind the
+dependency checklist in the queue insertion record and explicit current-board
+promotion under WIP limits. Once activated, the first slice uses synthetic
+fixtures only. The decision does not authorize persistent real financial data,
+a connector, advice, filing, or professional-readiness claims. Those remain
+behind independent promotion and their exact later capability gates.
 
 Deliver:
 

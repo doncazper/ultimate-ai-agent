@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-ref:private-dogfood-direction-acceptance:v1",
+  "title": "Founder private-dogfood direction acceptance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ledger_ref",
+    "decision_ref",
+    "decision_receipt_ref",
+    "operator_ref",
+    "accepted_date_ref",
+    "accepted_source_revision_ref",
+    "acceptance_level",
+    "safe_summary",
+    "programs",
+    "refinement_policy",
+    "authority_posture",
+    "next_safe_action"
+  ],
+  "properties": {
+    "schema_version": {"const": "uaa.private-dogfood-direction-acceptance.v1"},
+    "ledger_ref": {"const": "ledger-ref:private-dogfood-direction-acceptance:v1"},
+    "decision_ref": {"const": "decision-ref:founder-private-dogfood:q25-q26:v1"},
+    "decision_receipt_ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9._-]*)+$"},
+    "operator_ref": {"const": "actor-ref:founder-operator"},
+    "accepted_date_ref": {"const": "date-ref:2026-08-25"},
+    "accepted_source_revision_ref": {"const": "git-sha:fd1152d209fb0871873d74147bcbf391a64474a3"},
+    "acceptance_level": {"const": "founder_accepted_for_private_dogfood"},
+    "safe_summary": {"type": "string", "minLength": 1, "maxLength": 600},
+    "programs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q25", "q26"],
+      "properties": {
+        "q25": {"$ref": "#/$defs/q25"},
+        "q26": {"$ref": "#/$defs/q26"}
+      }
+    },
+    "refinement_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cosmetic_iteration_allowed",
+        "current_asset_hash_match_required",
+        "exact_surface_inventory_required",
+        "allowed_refinement_refs",
+        "material_reapproval_trigger_refs"
+      ],
+      "properties": {
+        "cosmetic_iteration_allowed": {"const": true},
+        "current_asset_hash_match_required": {"const": false},
+        "exact_surface_inventory_required": {"const": true},
+        "allowed_refinement_refs": {"$ref": "#/$defs/refArray"},
+        "material_reapproval_trigger_refs": {"$ref": "#/$defs/refArray"}
+      }
+    },
+    "authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "independent_promotion_required",
+        "social_publishing_allowed",
+        "platform_writes_allowed",
+        "real_financial_data_allowed",
+        "bank_connectivity_allowed",
+        "financial_advice_allowed",
+        "filing_allowed",
+        "public_release_allowed",
+        "production_authority_granted"
+      ],
+      "properties": {
+        "independent_promotion_required": {"const": true},
+        "social_publishing_allowed": {"const": false},
+        "platform_writes_allowed": {"const": false},
+        "real_financial_data_allowed": {"const": false},
+        "bank_connectivity_allowed": {"const": false},
+        "financial_advice_allowed": {"const": false},
+        "filing_allowed": {"const": false},
+        "public_release_allowed": {"const": false},
+        "production_authority_granted": {"const": false}
+      }
+    },
+    "next_safe_action": {"type": "string", "minLength": 1, "maxLength": 600}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[A-Za-z0-9][A-Za-z0-9._/-]*)+$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "refArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_ref", "sha256"],
+      "properties": {
+        "path_ref": {"$ref": "#/$defs/ref"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "q25": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_ref",
+        "status",
+        "render_pack_ref",
+        "asset_digest",
+        "assets",
+        "implementation_scope_refs",
+        "remaining_gate_refs"
+      ],
+      "properties": {
+        "task_ref": {"const": "dev-task:queue-v2-q25-social-media-intelligence"},
+        "status": {"const": "direction_accepted_foundations_partial"},
+        "render_pack_ref": {"const": "render-pack-ref:social-media-v1"},
+        "asset_digest": {"const": "sha256:780aab0c1352cbad4a77adfcfb981b09377772cba0ad4ba19bd328a0888b8584"},
+        "assets": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/asset"}
+        },
+        "implementation_scope_refs": {"$ref": "#/$defs/refArray"},
+        "remaining_gate_refs": {"$ref": "#/$defs/refArray"}
+      }
+    },
+    "q26": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_ref",
+        "status",
+        "candidate_pack_ref",
+        "candidate_pack_digest",
+        "implementation_scope_refs",
+        "remaining_gate_refs"
+      ],
+      "properties": {
+        "task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
+        "status": {"const": "direction_accepted_synthetic_kernel_dependency_and_board_gated"},
+        "candidate_pack_ref": {"const": "render-pack-ref:finance-compliance-v1"},
+        "candidate_pack_digest": {"const": "sha256:95c90c25855f6408ee22f9f050a07e373b79404de37c2f3c91a0005ac532fc72"},
+        "implementation_scope_refs": {"$ref": "#/$defs/refArray"},
+        "remaining_gate_refs": {"$ref": "#/$defs/refArray"}
+      }
+    }
+  }
+}

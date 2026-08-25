@@ -72,7 +72,8 @@ hashes, verifiers, and explicit approval—not an incidental documentation edit.
 
 - `FIN-000` is `P2` planning/design work and may be reviewed without runtime
   authority.
-- `FIN-001` becomes eligible for promotion after the dependency gate, normally
+- `FIN-001` becomes eligible for synthetic-only implementation after the
+  dependency gate and founder private-dogfood direction acceptance, normally
   ahead of optional broad ecosystem expansion because continuous financial
   readiness is a core founder/operator workflow.
 - Eligibility is not activation. The current board must name the milestone in
@@ -100,8 +101,9 @@ transactions.”
 
 Before `FIN-001` moves to `In Progress`, record:
 
-- accepted `FIN-000` contract, threat model, architecture decision, and render
-  pack;
+- accepted `FIN-000` contract, threat model, architecture decision, and either
+  founder private-dogfood render direction for synthetic-only FIN-001 or the
+  stricter independent pack acceptance for later real-data promotion;
 - accepted dependencies through `ECO-008` or an explicit reviewed exception
   proving the same ownership/ChangeSet guarantees;
 - exact first runtime slice and non-goals;
