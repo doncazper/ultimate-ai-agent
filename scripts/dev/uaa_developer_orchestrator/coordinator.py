@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Literal
@@ -31,6 +33,9 @@ DEVELOPER_COORDINATOR_GLOBAL_WIP_LIMIT = 3
 DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT = 1
 DEVELOPER_COORDINATOR_WIP_LANE_LIMIT = 1
 DEVELOPER_COORDINATOR_NODE_WIP_LIMIT = 2
+REPO_ROOT = Path(__file__).resolve().parents[3]
+FULL_MERGE_COMMIT_REF_RE = re.compile(r"^merge-commit-ref:([0-9a-f]{40})$")
+MERGE_EVIDENCE_TARGET_REF = "refs/remotes/origin/main"
 
 DeveloperWorkPriority = Literal["p0", "p1", "p2", "p3"]
 DeveloperWorkState = Literal[
@@ -118,6 +123,42 @@ def developer_coordinator_state_dir() -> Path:
 def _validate_refs(values: list[str], field_name: str) -> None:
     for value in values:
         validate_task_ref(value, field_name)
+
+
+def _validate_unblock_evidence(*, expected_blocker_ref: str, evidence_ref: str) -> None:
+    merge_gated = "merge" in expected_blocker_ref and "pending" in expected_blocker_ref
+    match = FULL_MERGE_COMMIT_REF_RE.fullmatch(evidence_ref)
+    if merge_gated and match is None:
+        raise DeveloperWorkQueueClaimError(
+            "DEVELOPER_WORK_UNBLOCK_MERGE_COMMIT_EVIDENCE_REQUIRED"
+        )
+    if match is None:
+        return
+    revision = match.group(1)
+    object_check = subprocess.run(
+        ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
+        cwd=REPO_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    ancestry_check = subprocess.run(
+        [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            revision,
+            MERGE_EVIDENCE_TARGET_REF,
+        ],
+        cwd=REPO_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if object_check.returncode != 0 or ancestry_check.returncode != 0:
+        raise DeveloperWorkQueueClaimError(
+            "DEVELOPER_WORK_UNBLOCK_MERGE_COMMIT_EVIDENCE_INVALID"
+        )
 
 
 class DeveloperWorkTaskDraft(BaseModel):
@@ -1138,6 +1179,10 @@ class DeveloperWorkCoordinator:
         )
         validate_task_ref(evidence_ref, "developer_work_unblock_evidence_ref")
         validate_task_ref(idempotency_ref, "developer_work_unblock_idempotency_ref")
+        _validate_unblock_evidence(
+            expected_blocker_ref=expected_blocker_ref,
+            evidence_ref=evidence_ref,
+        )
         with self._locked():
             snapshot = self._load_snapshot()
             task = self._find_task(snapshot, task_ref)

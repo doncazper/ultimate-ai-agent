@@ -202,7 +202,9 @@ evidence references. `unblock` is an explicit reviewed transition; it does not
 silently retry or reassign work. It requires the one exact expected blocker and
 a reviewed evidence ref, and it fails without changing state if another blocker
 has been added. For merge-gated work, use the exact `merge-commit-ref` produced
-by the merged prerequisite. `cancel` applies only to unclaimed work,
+by the merged prerequisite after fetching `origin/main`; the coordinator
+requires a full 40-hex commit and proves that it is an ancestor of the protected
+remote-main ref before changing queue state. `cancel` applies only to unclaimed work,
 requires an exact reason ref plus explicit confirmation, and is idempotent.
 
 ```bash
@@ -210,7 +212,7 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" unblock \
   --task-ref dev-task:fcc-today-render-001 \
   --expected-blocker-ref blocker-ref:activation-merge-pending \
-  --evidence-ref merge-commit-ref:accepted-activation \
+  --evidence-ref merge-commit-ref:"$PR_MERGE_SHA" \
   --idempotency-ref idempotency-ref:unblock-after-merge --pretty
 ```
 

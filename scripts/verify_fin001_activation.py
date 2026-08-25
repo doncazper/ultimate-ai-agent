@@ -10,10 +10,18 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 from ultimate_ai_agent.core.execution.validation import (
+    contains_absolute_local_path,
     validate_execution_ref,
     validate_safe_execution_text,
 )
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
+
+try:
+    from scripts import (
+        verify_private_dogfood_direction_acceptance as direction_verifier,
+    )
+except ModuleNotFoundError:  # Direct repo-local script execution.
+    import verify_private_dogfood_direction_acceptance as direction_verifier
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -174,9 +182,8 @@ SECRET_LIKE_REF = re.compile(
 CREDENTIAL_KEY = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|private[_-]?key|credential)"
 )
-RAW_LOCAL_PATH = re.compile(
-    r"(?i)(?:/(?:users|home|private|var/folders)/|[a-z]:\\\\users\\\\)"
-)
+SCHEMA_VALUE_ANNOTATION_KEYS = {"default", "const", "enum", "examples"}
+SAFE_REF_SCHEMA_PATTERN = r"^[a-z][a-z0-9-]*(?::[A-Za-z0-9][A-Za-z0-9._/-]*)+$"
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -213,30 +220,39 @@ def _walk_strings(value: Any, key: str = "") -> list[tuple[str, str]]:
     return found
 
 
+def _has_credential_annotation(value: Any, *, credential_context: bool = False) -> bool:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_is_credential = bool(CREDENTIAL_KEY.search(str(key)))
+            child_context = credential_context or key_is_credential
+            if (
+                child_context
+                and key in SCHEMA_VALUE_ANNOTATION_KEYS
+                and child not in (None, False, "", [])
+            ):
+                return True
+            if (
+                key_is_credential
+                and not isinstance(child, (dict, list))
+                and child not in (None, False, "", [])
+            ):
+                return True
+            if _has_credential_annotation(child, credential_context=child_context):
+                return True
+    elif isinstance(value, list):
+        return any(
+            _has_credential_annotation(item, credential_context=credential_context)
+            for item in value
+        )
+    return False
+
+
 def _has_secret_like_durable_content(value: Any) -> bool:
     if contains_obvious_secret(value) or any(
         SECRET_LIKE_REF.search(text) for _, text in _walk_strings(value)
     ):
         return True
-    if isinstance(value, dict):
-        for key, child in value.items():
-            if CREDENTIAL_KEY.search(str(key)):
-                if isinstance(child, dict):
-                    annotations = (
-                        child.get("default"),
-                        child.get("const"),
-                        child.get("enum"),
-                        child.get("examples"),
-                    )
-                    if any(item not in (None, False, "", []) for item in annotations):
-                        return True
-                elif child not in (None, False, "", []):
-                    return True
-            if _has_secret_like_durable_content(child):
-                return True
-    elif isinstance(value, list):
-        return any(_has_secret_like_durable_content(item) for item in value)
-    return False
+    return _has_credential_annotation(value)
 
 
 def _schema_has_nonlocal_ref(schema: Any) -> bool:
@@ -247,7 +263,14 @@ def _schema_has_nonlocal_ref(schema: Any) -> bool:
 
 
 def _has_raw_local_path(value: Any) -> bool:
-    return any(RAW_LOCAL_PATH.search(text) for _, text in _walk_strings(value))
+    for key, text in _walk_strings(value):
+        if key in {"$ref", "$dynamicRef"} and text.startswith("#/"):
+            continue
+        if key == "pattern" and text == SAFE_REF_SCHEMA_PATTERN:
+            continue
+        if contains_absolute_local_path(text):
+            return True
+    return False
 
 
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
@@ -283,6 +306,12 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     except (OSError, ValueError):
         failures.append("founder direction acceptance artifact is invalid or missing")
     else:
+        try:
+            direction_failures, _, _ = direction_verifier.verify(direction, root=root)
+        except (OSError, ValueError, KeyError, TypeError):
+            direction_failures = ["invalid"]
+        if direction_failures:
+            failures.append("founder direction acceptance verification failed")
         if direction.get("decision_receipt_ref") != payload["decision_receipt_ref"]:
             failures.append("founder direction decision receipt drifted")
         if direction.get("acceptance_level") != (

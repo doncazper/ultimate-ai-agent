@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import shutil
 import sys
 import threading
@@ -499,13 +500,19 @@ def test_unblock_rejects_blocker_set_drift(tmp_path: Path) -> None:
         idempotency_ref="idempotency-ref:block-drift",
     )
 
+    current_revision = subprocess.run(
+        ["git", "rev-parse", "refs/remotes/origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     with pytest.raises(
         DeveloperWorkQueueClaimError, match="UNBLOCK_BLOCKER_SET_DRIFTED"
     ):
         coordinator.unblock(
             task_ref="dev-task:blocked-drift",
             expected_blocker_ref="blocker-ref:activation-merge-pending",
-            evidence_ref="merge-commit-ref:activation-record",
+            evidence_ref=f"merge-commit-ref:{current_revision}",
             idempotency_ref="idempotency-ref:unblock-drift",
         )
 
@@ -519,6 +526,72 @@ def test_unblock_rejects_blocker_set_drift(tmp_path: Path) -> None:
         "blocker-ref:activation-merge-pending",
         "blocker-ref:independent-review-pending",
     ]
+
+
+def test_merge_gated_unblock_requires_current_history_commit(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.add_task(
+        _draft("dev-task:merge-gated"),
+        idempotency_ref="idempotency-ref:add-merge-gated",
+    )
+    coordinator.block(
+        task_ref="dev-task:merge-gated",
+        blocker_refs=["blocker-ref:activation-merge-pending"],
+        idempotency_ref="idempotency-ref:block-merge-gated",
+    )
+
+    for evidence_ref in (
+        "evidence-ref:anything",
+        "merge-commit-ref:activation-record",
+        f"merge-commit-ref:{'f' * 40}",
+    ):
+        with pytest.raises(DeveloperWorkQueueClaimError, match="MERGE_COMMIT"):
+            coordinator.unblock(
+                task_ref="dev-task:merge-gated",
+                expected_blocker_ref="blocker-ref:activation-merge-pending",
+                evidence_ref=evidence_ref,
+                idempotency_ref=f"idempotency-ref:unblock-{evidence_ref.split(':')[-1]}",
+            )
+
+    task = next(
+        item
+        for item in coordinator.inspect().tasks
+        if item.task_ref == "dev-task:merge-gated"
+    )
+    assert task.state == "blocked"
+
+
+def test_merge_gated_unblock_accepts_current_history_commit(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.add_task(
+        _draft("dev-task:merge-gated-valid"),
+        idempotency_ref="idempotency-ref:add-merge-gated-valid",
+    )
+    coordinator.block(
+        task_ref="dev-task:merge-gated-valid",
+        blocker_refs=["blocker-ref:activation-merge-pending"],
+        idempotency_ref="idempotency-ref:block-merge-gated-valid",
+    )
+    current_revision = subprocess.run(
+        ["git", "rev-parse", "refs/remotes/origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    coordinator.unblock(
+        task_ref="dev-task:merge-gated-valid",
+        expected_blocker_ref="blocker-ref:activation-merge-pending",
+        evidence_ref=f"merge-commit-ref:{current_revision}",
+        idempotency_ref="idempotency-ref:unblock-merge-gated-valid",
+    )
+
+    task = next(
+        item
+        for item in coordinator.inspect().tasks
+        if item.task_ref == "dev-task:merge-gated-valid"
+    )
+    assert task.state == "queued"
 
 
 def test_node_registration_and_heartbeat_gate_claims(tmp_path: Path) -> None:

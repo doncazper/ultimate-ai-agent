@@ -87,10 +87,25 @@ def test_schema_credential_property_default_is_included_in_secret_scan() -> None
     assert verifier._has_secret_like_durable_content(schema) is True
 
 
-def test_schema_raw_local_path_is_rejected() -> None:
-    schema = {"description": "/home/example/private"}
+def test_nested_schema_credential_annotation_is_included_in_secret_scan() -> None:
+    schema = {
+        "properties": {"service_api_key": {"allOf": [{"default": "abcdefghijklmnop"}]}}
+    }
 
-    assert verifier._has_raw_local_path(schema) is True
+    assert verifier._has_secret_like_durable_content(schema) is True
+
+
+def test_schema_raw_local_path_is_rejected() -> None:
+    slash = chr(47)
+    backslash = chr(92)
+    for raw_path in (
+        f"{slash}home{slash}example{slash}private",
+        f"{slash}workspace{slash}ultimate-ai-agent{slash}private",
+        f"{slash}root{slash}private",
+        f"{slash}tmp{slash}private",
+        f"{backslash}{backslash}server{backslash}share{backslash}private",
+    ):
+        assert verifier._has_raw_local_path({"description": raw_path}) is True
 
 
 def test_invalid_schema_returns_bounded_failure(monkeypatch) -> None:
@@ -137,6 +152,22 @@ def test_founder_direction_artifact_receipt_is_resolved(monkeypatch) -> None:
     failures = verifier.verify()
 
     assert "founder direction decision receipt drifted" in failures
+
+
+def test_complete_founder_direction_artifact_is_verified(monkeypatch) -> None:
+    original_load = verifier._load
+
+    def load_with_scope_drift(path):
+        loaded = original_load(path)
+        if path.name == "private_dogfood_direction_acceptance_v1.json":
+            loaded["programs"]["q26"]["implementation_scope_refs"] = []
+        return loaded
+
+    monkeypatch.setattr(verifier, "_load", load_with_scope_drift)
+
+    failures = verifier.verify()
+
+    assert "founder direction acceptance verification failed" in failures
 
 
 def test_implementation_plan_drift_fails_closed() -> None:
