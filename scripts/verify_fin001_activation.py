@@ -145,6 +145,12 @@ def _walk_strings(value: Any, key: str = "") -> list[tuple[str, str]]:
     return found
 
 
+def _has_secret_like_durable_content(value: Any) -> bool:
+    return contains_obvious_secret(value) or any(
+        SECRET_LIKE_REF.search(text) for _, text in _walk_strings(value)
+    )
+
+
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     try:
@@ -153,10 +159,10 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     except ValueError:
         return ["activation governance JSON is invalid or ambiguous"]
 
-    if contains_obvious_secret(payload) or any(
-        SECRET_LIKE_REF.search(value) for _, value in _walk_strings(payload)
-    ):
+    if _has_secret_like_durable_content(payload):
         failures.append("activation record contains secret-like durable content")
+    if _has_secret_like_durable_content(schema):
+        failures.append("activation schema contains secret-like durable content")
     schema_errors = Draft202012Validator(schema).iter_errors(payload)
     for error in sorted(
         schema_errors,

@@ -1841,7 +1841,8 @@ Today, Action Inbox, and ECO-008 ChangeSets are accepted. The local product
 precedes live bank or compliance connections; every adapter, accountant-access
 lane, payment, and filing handoff requires separate promotion.
 
-Board posture: Ready for exact claim after activation-record merge. The
+Board posture: Blocked pending activation-record merge and explicit coordinator
+unblock. The
 separately bounded `dev-task:finance-fin001-synthetic-kernel` reserves the next
 `product_surface` slot, but is not In Progress until a fresh lane-vacancy check
 and coordinator claim receipt exist. The checklist and claim procedure are in

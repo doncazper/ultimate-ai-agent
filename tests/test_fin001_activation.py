@@ -73,6 +73,12 @@ def test_schema_error_never_echoes_secret_value() -> None:
     assert all("sk_live_abc123" not in item for item in failures)
 
 
+def test_schema_annotations_are_included_in_secret_scan() -> None:
+    schema = {"description": "credential-ref:ghp_abcdef123456"}
+
+    assert verifier._has_secret_like_durable_content(schema) is True
+
+
 def test_implementation_plan_drift_fails_closed() -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
     payload["implementation_plan"]["rollback_plan_ref"] = (
