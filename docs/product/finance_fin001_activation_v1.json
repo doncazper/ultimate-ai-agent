@@ -17,7 +17,7 @@
     },
     {
       "task_ref": "dev-task:queue-v2-q08-today-render-fidelity",
-      "evidence_ref": "evidence-ref:pr-395-merge-cdc5c5cf"
+      "evidence_ref": "commit-ref:cdc5c5cfb96d8974d00b01db70dfff3e6342b1b1"
     },
     {
       "task_ref": "dev-task:queue-v2-q11-eco001-shared-local-data",
@@ -25,11 +25,11 @@
     },
     {
       "task_ref": "dev-task:queue-v2-q13-eco003-boards",
-      "evidence_ref": "evidence-ref:queue-v2/Q13/pr-401-merge-c9d5448a"
+      "evidence_ref": "commit-ref:c9d5448ab482c8df2dc8caa7e1750a796700e6a6"
     },
     {
       "task_ref": "dev-task:queue-v2-q14-eco004-local-calendar",
-      "evidence_ref": "evidence-ref:queue-v2/Q14/pr-404-merge-38959c58"
+      "evidence_ref": "commit-ref:38959c58863dabe7324edcfe2cc30a0cf12a874a"
     },
     {
       "task_ref": "dev-task:queue-v2-q19-eco008-entitylink-changeset",

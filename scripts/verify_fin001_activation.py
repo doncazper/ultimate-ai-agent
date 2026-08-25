@@ -27,7 +27,7 @@ EXPECTED_DEPENDENCIES = {
     ),
     (
         "dev-task:queue-v2-q08-today-render-fidelity",
-        "evidence-ref:pr-395-merge-cdc5c5cf",
+        "commit-ref:cdc5c5cfb96d8974d00b01db70dfff3e6342b1b1",
     ),
     (
         "dev-task:queue-v2-q11-eco001-shared-local-data",
@@ -35,11 +35,11 @@ EXPECTED_DEPENDENCIES = {
     ),
     (
         "dev-task:queue-v2-q13-eco003-boards",
-        "evidence-ref:queue-v2/Q13/pr-401-merge-c9d5448a",
+        "commit-ref:c9d5448ab482c8df2dc8caa7e1750a796700e6a6",
     ),
     (
         "dev-task:queue-v2-q14-eco004-local-calendar",
-        "evidence-ref:queue-v2/Q14/pr-404-merge-38959c58",
+        "commit-ref:38959c58863dabe7324edcfe2cc30a0cf12a874a",
     ),
     (
         "dev-task:queue-v2-q19-eco008-entitylink-changeset",
@@ -193,7 +193,7 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
     try:
         payload = _load(LEDGER_PATH) if payload is None else payload
         schema = _load(SCHEMA_PATH)
-    except ValueError:
+    except (OSError, ValueError):
         return ["activation governance JSON is invalid or ambiguous"]
 
     if _has_secret_like_durable_content(payload):
