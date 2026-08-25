@@ -21,7 +21,12 @@ The promoted work item is the separately bounded
 record stays blocked and cannot be used as the implementation handoff for this
 slice. Queue receipt
 `developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3` records the exact
-task; it stays blocked until this activation PR merges.
+task. Block receipt
+`developer-work-receipt-ref:sha256:44573429fe043729321aee47` records its
+`blocked` state under
+`blocker-ref:finance/FIN-001/pr426-activation-merge-pending`; the coordinator
+cannot claim it until this activation PR merges and an explicit unblock is
+recorded.
 
 After merge, the coordinator must still show the `product_surface` lane as
 vacant, then emit a claim receipt for this exact task. Until that transition is
@@ -48,6 +53,13 @@ synthetic-only local repository; deterministic fixtures; explicit safe-disable
 behavior; and synthetic backup/restore proof. Add CLI inspection and mutation
 parity for this bounded core. Do not add an API route or Control Center action
 in this slice.
+
+Mutation inputs are limited to refs in a versioned deterministic fixture
+manifest while this slice remains synthetic-only. Arbitrary operator-supplied
+book, entity, account, journal, posting, memo, counterparty, or amount values
+must fail closed before persistence. Focused tests must prove unknown fixture
+refs and direct financial values are rejected; accepting real data requires a
+separate reviewed promotion.
 
 Tests and durable evidence use synthetic values and safe refs. The repository
 schema is versioned and uses the ADR-0063 encrypted SQLite boundary from its

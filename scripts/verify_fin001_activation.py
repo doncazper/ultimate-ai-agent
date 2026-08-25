@@ -67,6 +67,21 @@ EXPECTED_IMPLEMENTATION_PLAN = {
     "audit_receipt_plan_ref": "plan-ref:finance/FIN-001/append-first-mutation-receipts",
     "mutation_scope_plan_ref": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope",
     "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests",
+    "synthetic_input_policy_plan_ref": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only",
+    "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
+    "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
+}
+EXPECTED_BOARD_CLAIM_PLAN = {
+    "queue_snapshot_revision": 162,
+    "lane_vacant_at_recording": True,
+    "task_state_at_recording": "blocked",
+    "blocker_ref": "blocker-ref:finance/FIN-001/pr426-activation-merge-pending",
+    "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
+    "claim_required_after_merge": True,
+    "unblock_required_after_merge": True,
+    "claim_receipt_ref": None,
+    "wip_lane": "product_surface",
+    "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel",
 }
 EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",
@@ -202,6 +217,8 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         failures.append("FIN-001 non-goal boundary drifted")
     if payload["implementation_plan"] != EXPECTED_IMPLEMENTATION_PLAN:
         failures.append("FIN-001 implementation plan drifted")
+    if payload["board_claim_plan"] != EXPECTED_BOARD_CLAIM_PLAN:
+        failures.append("FIN-001 blocked queue handoff drifted")
 
     if any(payload["authority_posture"].values()):
         failures.append(

@@ -567,10 +567,12 @@ reviewed surface inventory while explicitly allowing cosmetic iteration from
 real use. This clears visual-direction indecision only: Q25 still needs its CRM
 relationship projection and independent promotion profile. Q26 has now
 recorded its FIN-001 dependency checklist and exact product-surface reservation.
-Implementation cannot begin until the activation record merges and the
-coordinator emits a fresh exact claim receipt for the synthetic task in
+Implementation cannot begin until the activation record merges, the coordinator
+verifies and removes the exact merge-pending blocker, and it emits a fresh exact
+claim receipt for the synthetic task in
 `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Social publishing,
-platform writes, real financial data, bank connectivity, advice, filing,
+platform writes, arbitrary operator financial values, real financial data,
+bank connectivity, advice, filing,
 public release, and production authority remain false. Evidence:
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md` and
 `scripts/verify_private_dogfood_direction_acceptance.py`; FIN-001 activation:

@@ -3,6 +3,7 @@
   "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
   "decision_receipt_ref": "receipt-ref:queue-v2/Q26/pr425-founder-direction",
   "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
+  "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
   "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
   "task_ref": "dev-task:finance-fin001-synthetic-kernel",
   "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
@@ -64,7 +65,9 @@
       "non-goal-ref:finance/FIN-001/real-financial-data"
     ],
     "synthetic_only": true,
-    "persistent_real_financial_data_allowed": false
+    "persistent_real_financial_data_allowed": false,
+    "input_mode": "allowlisted_deterministic_fixture_refs_only",
+    "arbitrary_operator_values_allowed": false
   },
   "implementation_plan": {
     "protected_data_plan_ref": "plan-ref:finance/FIN-001/encrypted-sqlite-boundary",
@@ -82,12 +85,19 @@
     "idempotency_plan_ref": "plan-ref:finance/FIN-001/request-ref-replay-conflict",
     "audit_receipt_plan_ref": "plan-ref:finance/FIN-001/append-first-mutation-receipts",
     "mutation_scope_plan_ref": "plan-ref:finance/FIN-001/exact-operation-and-revision-scope",
-    "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests"
+    "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests",
+    "synthetic_input_policy_plan_ref": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only",
+    "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
+    "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests"
   },
   "board_claim_plan": {
     "queue_snapshot_revision": 162,
     "lane_vacant_at_recording": true,
+    "task_state_at_recording": "blocked",
+    "blocker_ref": "blocker-ref:finance/FIN-001/pr426-activation-merge-pending",
+    "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
     "claim_required_after_merge": true,
+    "unblock_required_after_merge": true,
     "claim_receipt_ref": null,
     "wip_lane": "product_surface",
     "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel"

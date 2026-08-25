@@ -113,6 +113,8 @@ Deliver:
 - append-oriented event/history model with optimistic concurrency;
 - local protected repository, migrations, fixtures, backup/restore proof, and
   safe-delete posture;
+- a versioned allowlist of deterministic fixture refs; all arbitrary
+  operator-supplied financial values fail closed before persistence;
 - CLI create/inspect/check/export parity with exact LocalApprovalAuthority,
   revision, idempotency, audit-receipt, and rollback binding for every local
   mutation; imports remain FIN-002;

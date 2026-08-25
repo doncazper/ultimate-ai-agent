@@ -72,6 +72,24 @@ def test_implementation_plan_drift_fails_closed() -> None:
     assert failures
 
 
+def test_blocked_queue_handoff_drift_fails_closed() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["board_claim_plan"]["task_state_at_recording"] = "queued"
+
+    failures = verifier.verify(payload)
+
+    assert failures
+
+
+def test_arbitrary_operator_financial_values_remain_blocked() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["first_slice"]["arbitrary_operator_values_allowed"] = True
+
+    failures = verifier.verify(payload)
+
+    assert failures
+
+
 def test_dependency_commit_must_be_in_current_history(monkeypatch) -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
 

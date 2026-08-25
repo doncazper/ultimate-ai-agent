@@ -919,10 +919,12 @@ Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
-Next: after the activation record merges, re-check lane vacancy, claim the
-exact FIN-001 task, and then implement the encrypted synthetic core contracts,
+Next: after the activation record merges, verify the recorded merge-pending
+blocker, re-check lane vacancy, explicitly unblock and claim the exact FIN-001
+task, and then implement the encrypted synthetic core contracts,
 balanced-posting validator, repository, fixtures, safe-disable path, governed
-CLI mutations, and backup/restore proof defined in
+CLI mutations limited to allowlisted deterministic fixture refs, arbitrary
+operator-value rejection, and backup/restore proof defined in
 `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Retain the independent
 FIN-000 gate before real-data or higher-authority promotion.
 Financial/compliance adapters,
