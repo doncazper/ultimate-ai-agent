@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-ref:finance-fin001-activation:v1",
+  "title": "FIN-001 synthetic-only activation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "activation_ref",
+    "decision_receipt_ref",
+    "source_revision_ref",
+    "task_ref",
+    "milestone_ref",
+    "status",
+    "safe_summary",
+    "dependency_evidence",
+    "normative_path_refs",
+    "first_slice",
+    "implementation_plan",
+    "board_promotion",
+    "authority_posture",
+    "next_safe_action"
+  ],
+  "properties": {
+    "schema_version": {"const": "uaa.finance-fin001-activation.v1"},
+    "activation_ref": {"const": "activation-ref:finance/FIN-001/synthetic-kernel:v1"},
+    "decision_receipt_ref": {"const": "receipt-ref:queue-v2/Q26/pr425-founder-direction"},
+    "source_revision_ref": {"const": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df"},
+    "task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
+    "milestone_ref": {"const": "milestone-ref:finance/FIN-001"},
+    "status": {"const": "activated_synthetic_only_private_dogfood"},
+    "safe_summary": {"$ref": "#/$defs/safeText"},
+    "dependency_evidence": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_ref", "evidence_ref"],
+        "properties": {
+          "task_ref": {"$ref": "#/$defs/ref"},
+          "evidence_ref": {"$ref": "#/$defs/ref"}
+        }
+      }
+    },
+    "normative_path_refs": {"$ref": "#/$defs/refArray"},
+    "first_slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_refs", "non_goal_refs", "synthetic_only", "persistent_real_financial_data_allowed"],
+      "properties": {
+        "scope_refs": {"$ref": "#/$defs/refArray"},
+        "non_goal_refs": {"$ref": "#/$defs/refArray"},
+        "synthetic_only": {"const": true},
+        "persistent_real_financial_data_allowed": {"const": false}
+      }
+    },
+    "implementation_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protected_data_plan_ref",
+        "key_plan_ref",
+        "migration_plan_ref",
+        "backup_restore_plan_ref",
+        "deletion_plan_ref",
+        "redaction_plan_ref",
+        "cli_parity_plan_ref",
+        "api_ui_parity_plan_ref",
+        "focused_verifier_plan_ref",
+        "rollback_plan_ref",
+        "synthetic_evidence_plan_ref"
+      ],
+      "properties": {
+        "protected_data_plan_ref": {"$ref": "#/$defs/ref"},
+        "key_plan_ref": {"$ref": "#/$defs/ref"},
+        "migration_plan_ref": {"$ref": "#/$defs/ref"},
+        "backup_restore_plan_ref": {"$ref": "#/$defs/ref"},
+        "deletion_plan_ref": {"$ref": "#/$defs/ref"},
+        "redaction_plan_ref": {"$ref": "#/$defs/ref"},
+        "cli_parity_plan_ref": {"$ref": "#/$defs/ref"},
+        "api_ui_parity_plan_ref": {"$ref": "#/$defs/ref"},
+        "focused_verifier_plan_ref": {"$ref": "#/$defs/ref"},
+        "rollback_plan_ref": {"$ref": "#/$defs/ref"},
+        "synthetic_evidence_plan_ref": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "board_promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["explicit", "wip_lane", "prior_active_task_ref", "promoted_task_ref"],
+      "properties": {
+        "explicit": {"const": true},
+        "wip_lane": {"const": "product_surface"},
+        "prior_active_task_ref": {"type": "null"},
+        "promoted_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"}
+      }
+    },
+    "authority_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_financial_data_allowed",
+        "connector_allowed",
+        "accountant_access_allowed",
+        "payment_allowed",
+        "filing_allowed",
+        "advice_allowed",
+        "provider_or_model_calls_allowed",
+        "browser_runtime_allowed",
+        "background_sync_allowed",
+        "public_release_allowed",
+        "production_authority_granted"
+      ],
+      "properties": {
+        "real_financial_data_allowed": {"const": false},
+        "connector_allowed": {"const": false},
+        "accountant_access_allowed": {"const": false},
+        "payment_allowed": {"const": false},
+        "filing_allowed": {"const": false},
+        "advice_allowed": {"const": false},
+        "provider_or_model_calls_allowed": {"const": false},
+        "browser_runtime_allowed": {"const": false},
+        "background_sync_allowed": {"const": false},
+        "public_release_allowed": {"const": false},
+        "production_authority_granted": {"const": false}
+      }
+    },
+    "next_safe_action": {"$ref": "#/$defs/safeText"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[A-Za-z0-9][A-Za-z0-9._/-]*)+$"},
+    "refArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "safeText": {"type": "string", "minLength": 1, "maxLength": 800}
+  }
+}

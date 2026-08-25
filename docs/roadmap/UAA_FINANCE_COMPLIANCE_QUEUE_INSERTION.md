@@ -115,3 +115,10 @@ Before `FIN-001` moves to `In Progress`, record:
 Before any connector or filing milestone starts, repeat the checklist for that
 exact named capability. Acceptance of Finance never grants standing financial,
 compliance, payment, filing, browser, provider, or external-write authority.
+
+The checklist above is recorded for the synthetic-only FIN-001 slice in
+`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md` and
+`docs/product/finance_fin001_activation_v1.json`. The current board explicitly
+promotes that bounded package into the otherwise-empty `product_surface` WIP
+lane. This closes the activation prerequisite only; it does not implement the
+kernel or satisfy the independent real-data promotion gate.

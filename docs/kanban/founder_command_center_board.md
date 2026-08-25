@@ -1841,9 +1841,11 @@ Today, Action Inbox, and ECO-008 ChangeSets are accepted. The local product
 precedes live bank or compliance connections; every adapter, accountant-access
 lane, payment, and filing handoff requires separate promotion.
 
-Board posture: Deferred. This card is not current WIP. Passing the activation
-gates makes FIN-001 eligible for explicit board promotion under WIP limits; it
-does not interrupt the Founder Command Center spine automatically.
+Board posture: In Progress for FIN-001 synthetic-only core implementation in
+the `product_surface` lane. The activation checklist and explicit promotion are
+recorded in `docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Later
+Finance milestones remain deferred and this promotion does not interrupt or
+expand the Founder Command Center spine.
 
 Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,

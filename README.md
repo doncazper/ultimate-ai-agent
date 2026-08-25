@@ -517,6 +517,7 @@ Start with the active product truth and indexes.
 | [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md) | Founder Loop V1 milestone truth |
 | [docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md) | Read-only Social Media Intelligence product and ownership contract with founder-approved private-dogfood direction |
 | [docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md](docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md) | Versioned Q25/Q26 founder direction decision, refinement policy, and preserved independent-promotion gates |
+| [docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md](docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md) | Verifier-backed synthetic-only FIN-001 checklist and explicit product-surface WIP promotion |
 | [docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md) | Deferred execution prompt gated on Work Board, CRM, and Communications completion |
 | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) | Governed memory spine contract |
 | [docs/api/README.md](docs/api/README.md) | API documentation entrypoint |

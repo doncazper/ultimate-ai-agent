@@ -94,12 +94,13 @@ added.
 ### `FIN-001` Protected local book and double-entry kernel
 
 Founder private-dogfood direction acceptance clears the FIN-000 visual
-prerequisite for this bounded package. Implementation remains behind the
-dependency checklist in the queue insertion record and explicit current-board
-promotion under WIP limits. Once activated, the first slice uses synthetic
-fixtures only. The decision does not authorize persistent real financial data,
-a connector, advice, filing, or professional-readiness claims. Those remain
-behind independent promotion and their exact later capability gates.
+prerequisite for this bounded package. The dependency checklist and explicit
+current-board promotion are now recorded in
+`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`; implementation may begin
+only within that exact synthetic-only slice. The decision does not authorize
+persistent real financial data, a connector, advice, filing, or
+professional-readiness claims. Those remain behind independent promotion and
+their exact later capability gates.
 
 Deliver:
 
