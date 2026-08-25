@@ -47,7 +47,7 @@ EXPECTED_DEPENDENCIES = {
     ),
     (
         "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
-        "report-ref:queue-v2:q21:weekly-review-private-trial:v1",
+        "commit-ref:c22a2d3ced004da774a60f6522913d171e735a08",
     ),
 }
 EXPECTED_IMPLEMENTATION_PLAN = {
@@ -70,6 +70,20 @@ EXPECTED_IMPLEMENTATION_PLAN = {
     "synthetic_input_policy_plan_ref": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only",
     "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
     "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
+    "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
+    "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
+}
+EXPECTED_TOP_LEVEL_BINDINGS = {
+    "schema_version": "uaa.finance-fin001-activation.v1",
+    "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
+    "decision_receipt_ref": "receipt-ref:queue-v2/Q26/pr425-founder-direction",
+    "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
+    "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
+    "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
+    "task_ref": "dev-task:finance-fin001-synthetic-kernel",
+    "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
+    "milestone_ref": "milestone-ref:finance/FIN-001",
+    "status": "blocked_pending_activation_merge_and_explicit_unblock",
 }
 EXPECTED_BOARD_CLAIM_PLAN = {
     "queue_snapshot_revision": 162,
@@ -109,6 +123,9 @@ EXPECTED_NON_GOAL_REFS = {
 SECRET_LIKE_REF = re.compile(
     r"(?i)(?:sk_(?:live|test)|gh[pousr]_|akia|asia|api[_-]?key|tokenvalue)"
 )
+CREDENTIAL_KEY = re.compile(
+    r"(?i)(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|private[_-]?key|credential)"
+)
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -146,9 +163,29 @@ def _walk_strings(value: Any, key: str = "") -> list[tuple[str, str]]:
 
 
 def _has_secret_like_durable_content(value: Any) -> bool:
-    return contains_obvious_secret(value) or any(
+    if contains_obvious_secret(value) or any(
         SECRET_LIKE_REF.search(text) for _, text in _walk_strings(value)
-    )
+    ):
+        return True
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if CREDENTIAL_KEY.search(str(key)):
+                if isinstance(child, dict):
+                    annotations = (
+                        child.get("default"),
+                        child.get("const"),
+                        child.get("enum"),
+                        child.get("examples"),
+                    )
+                    if any(item not in (None, False, "", []) for item in annotations):
+                        return True
+                elif child not in (None, False, "", []):
+                    return True
+            if _has_secret_like_durable_content(child):
+                return True
+    elif isinstance(value, list):
+        return any(_has_secret_like_durable_content(item) for item in value)
+    return False
 
 
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
@@ -163,7 +200,16 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         failures.append("activation record contains secret-like durable content")
     if _has_secret_like_durable_content(schema):
         failures.append("activation schema contains secret-like durable content")
-    schema_errors = Draft202012Validator(schema).iter_errors(payload)
+    if any(
+        payload.get(key) != value for key, value in EXPECTED_TOP_LEVEL_BINDINGS.items()
+    ):
+        failures.append("FIN-001 top-level activation binding drifted")
+    try:
+        Draft202012Validator.check_schema(schema)
+        schema_errors = list(Draft202012Validator(schema).iter_errors(payload))
+    except Exception:
+        failures.append("activation schema is invalid or unresolvable")
+        return failures
     for error in sorted(
         schema_errors,
         key=lambda item: tuple(str(part) for part in item.absolute_schema_path),

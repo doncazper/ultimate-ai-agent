@@ -79,6 +79,35 @@ def test_schema_annotations_are_included_in_secret_scan() -> None:
     assert verifier._has_secret_like_durable_content(schema) is True
 
 
+def test_schema_credential_property_default_is_included_in_secret_scan() -> None:
+    schema = {
+        "properties": {"service_api_key": {"type": "string", "default": "opaque-value"}}
+    }
+
+    assert verifier._has_secret_like_durable_content(schema) is True
+
+
+def test_invalid_schema_returns_bounded_failure(monkeypatch) -> None:
+    def invalid_schema(_schema) -> None:
+        raise RuntimeError("sensitive local diagnostic")
+
+    monkeypatch.setattr(verifier.Draft202012Validator, "check_schema", invalid_schema)
+
+    failures = verifier.verify()
+
+    assert failures == ["activation schema is invalid or unresolvable"]
+    assert all("sensitive local diagnostic" not in failure for failure in failures)
+
+
+def test_top_level_binding_is_independently_pinned() -> None:
+    payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    payload["task_ref"] = "dev-task:queue-v2-q26-finance-compliance-local-product"
+
+    failures = verifier.verify(payload)
+
+    assert "FIN-001 top-level activation binding drifted" in failures
+
+
 def test_implementation_plan_drift_fails_closed() -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
     payload["implementation_plan"]["rollback_plan_ref"] = (
@@ -110,13 +139,17 @@ def test_arbitrary_operator_financial_values_remain_blocked() -> None:
 
 def test_dependency_commit_must_be_in_current_history(monkeypatch) -> None:
     payload = copy.deepcopy(verifier._load(verifier.LEDGER_PATH))
+    original_run = verifier.subprocess.run
 
     class MissingCommit:
         returncode = 1
 
-    monkeypatch.setattr(
-        verifier.subprocess, "run", lambda *args, **kwargs: MissingCommit()
-    )
+    def run_with_missing_commit(*args, **kwargs):
+        if args[0][0:2] == ["git", "merge-base"]:
+            return MissingCommit()
+        return original_run(*args, **kwargs)
+
+    monkeypatch.setattr(verifier.subprocess, "run", run_with_missing_commit)
 
     failures = verifier.verify(payload)
 

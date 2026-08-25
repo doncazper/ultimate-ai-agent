@@ -115,9 +115,10 @@ Deliver:
   safe-delete posture;
 - a versioned allowlist of deterministic fixture refs; all arbitrary
   operator-supplied financial values fail closed before persistence;
-- CLI create/inspect/check/export parity with exact LocalApprovalAuthority,
-  revision, idempotency, audit-receipt, and rollback binding for every local
-  mutation; imports remain FIN-002;
+- CLI create/inspect/check/export parity with current PolicyEngine decision,
+  exact LocalApprovalAuthority, revision, idempotency, audit-receipt, and
+  rollback binding for every local mutation; denied, unknown, or stale policy
+  fails closed, and imports remain FIN-002;
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 

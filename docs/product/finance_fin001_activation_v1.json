@@ -37,7 +37,7 @@
     },
     {
       "task_ref": "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
-      "evidence_ref": "report-ref:queue-v2:q21:weekly-review-private-trial:v1"
+      "evidence_ref": "commit-ref:c22a2d3ced004da774a60f6522913d171e735a08"
     }
   ],
   "normative_path_refs": [
@@ -88,7 +88,9 @@
     "mutation_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/approval-idempotency-receipt-tests",
     "synthetic_input_policy_plan_ref": "plan-ref:finance/FIN-001/fixture-ref-allowlist-only",
     "fixture_manifest_plan_ref": "plan-ref:finance/FIN-001/versioned-deterministic-fixture-manifest",
-    "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests"
+    "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
+    "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
+    "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"
   },
   "board_claim_plan": {
     "queue_snapshot_revision": 162,
