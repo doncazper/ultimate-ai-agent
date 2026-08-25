@@ -45,6 +45,14 @@ then routes the operator into the canonical app where work belongs.
 
 Use
 `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`
-only after Work Board/Kanban, first-class CRM, and Communications/Messenger are
-all accepted as fully implemented with current tests, verifiers, visual proof,
-and product truth. Until then this pack remains a deferred visual target.
+for the exact read-only foundation-gap closure now that the founder has accepted
+the displayed direction for iterative private dogfood. Current Work Board and
+Communications projection evidence applies only to the exact Social Content and
+reviewed-conversation read projections; it does not mark either owner product
+globally complete.
+
+The first Social milestone remains deferred until the CRM relationship
+projection and strict independent-promotion profile are accepted with current
+tests, verifiers, visual proof, product truth, and explicit board promotion.
+Until then this pack is a private-dogfood direction, not an activated Social
+runtime milestone.

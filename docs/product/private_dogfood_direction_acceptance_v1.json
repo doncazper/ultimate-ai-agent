@@ -43,7 +43,7 @@
     },
     "q26": {
       "task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
-      "status": "direction_accepted_synthetic_kernel_eligible",
+      "status": "direction_accepted_synthetic_kernel_dependency_and_board_gated",
       "candidate_pack_ref": "render-pack-ref:finance-compliance-v1",
       "candidate_pack_digest": "sha256:95c90c25855f6408ee22f9f050a07e373b79404de37c2f3c91a0005ac532fc72",
       "implementation_scope_refs": [
@@ -51,6 +51,8 @@
         "scope-ref:queue-v2/Q26/synthetic-local-fin001-kernel"
       ],
       "remaining_gate_refs": [
+        "gate-ref:queue-v2/Q26/dependency-checklist-or-reviewed-exception",
+        "gate-ref:queue-v2/Q26/explicit-board-promotion",
         "gate-ref:queue-v2/Q26/independent-domain-and-safety-review",
         "gate-ref:queue-v2/Q26/protected-real-data-promotion"
       ]
@@ -85,5 +87,5 @@
     "public_release_allowed": false,
     "production_authority_granted": false
   },
-  "next_safe_action": "Close the remaining Q25 CRM foundation gap and implement the FIN-001 synthetic local kernel in separate bounded lanes while preserving every independent promotion gate."
+  "next_safe_action": "Close the remaining Q25 CRM foundation gap; for Q26, satisfy the FIN-001 dependency checklist and record explicit board promotion before implementing a bounded synthetic-only kernel while preserving every independent promotion gate."
 }

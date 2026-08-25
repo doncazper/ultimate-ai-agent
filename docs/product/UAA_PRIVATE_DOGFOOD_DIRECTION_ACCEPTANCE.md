@@ -26,9 +26,13 @@ ready for public or production use.
   pixel-perfect visual approval. The missing CRM relationship projection and
   the independent promotion profile remain explicit gates before Q25 can be
   called fully accepted.
-- Q26 may begin the FIN-001 synthetic local book and double-entry kernel. It
-  must use synthetic fixtures and remain connector-free. Persistent real
-  financial data is not allowed by this decision.
+- Q26 clears the FIN-000 visual-direction prerequisite for a future FIN-001
+  synthetic local book and double-entry kernel. FIN-001 may begin only after
+  the existing dependency checklist is satisfied (or an explicit reviewed
+  exception records equivalent guarantees) and the current board explicitly
+  promotes the milestone under WIP limits. When activated, the first slice must
+  use synthetic fixtures and remain connector-free. Persistent real financial
+  data is not allowed by this decision.
 
 ## Refinement Policy
 

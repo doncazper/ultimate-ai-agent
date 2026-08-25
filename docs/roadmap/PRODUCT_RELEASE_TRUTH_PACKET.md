@@ -565,8 +565,9 @@ On 2026-08-25 the founder accepted the displayed Q25 Social and Q26 Finance
 direction for private dogfooding. The versioned ledger and verifier bind the
 reviewed surface inventory while explicitly allowing cosmetic iteration from
 real use. This clears visual-direction indecision only: Q25 still needs its CRM
-relationship projection and independent promotion profile, and Q26 may proceed
-only with a separately reviewed synthetic FIN-001 kernel. Social publishing,
+relationship projection and independent promotion profile, while Q26 still
+needs its FIN-001 dependency checklist and explicit board promotion before a
+separately reviewed synthetic kernel begins. Social publishing,
 platform writes, real financial data, bank connectivity, advice, filing,
 public release, and production authority remain false. Evidence:
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md` and

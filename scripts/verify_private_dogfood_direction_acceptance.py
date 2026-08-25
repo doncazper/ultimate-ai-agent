@@ -56,6 +56,8 @@ EXPECTED_Q26_SCOPE_REFS = {
     "scope-ref:queue-v2/Q26/synthetic-local-fin001-kernel",
 }
 EXPECTED_Q26_GATE_REFS = {
+    "gate-ref:queue-v2/Q26/dependency-checklist-or-reviewed-exception",
+    "gate-ref:queue-v2/Q26/explicit-board-promotion",
     "gate-ref:queue-v2/Q26/independent-domain-and-safety-review",
     "gate-ref:queue-v2/Q26/protected-real-data-promotion",
 }

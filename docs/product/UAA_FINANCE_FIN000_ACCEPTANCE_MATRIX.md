@@ -10,9 +10,10 @@ This matrix makes FIN-000 completion truth explicit. The product, ownership,
 security, storage, schema, adapter, workflow, state, reference, and render
 requirements are defined; no Finance runtime is implemented. The founder has
 accepted the exact candidate pack as a private-dogfood direction with iterative
-polish expected. That decision makes the synthetic-only FIN-001 kernel eligible
-for a separately reviewed implementation lane. FIN-000 independent promotion
-remains pending until the render brief is signed off under its stricter gate.
+polish expected. That decision clears the visual prerequisite for a future
+synthetic-only FIN-001 lane; the dependency checklist and explicit board
+promotion still precede implementation. FIN-000 independent promotion remains
+pending until the render brief is signed off under its stricter gate.
 
 ## Planning Deliverables
 
@@ -95,6 +96,6 @@ Founder private-dogfood acceptance means the render direction is coherent
 enough to implement and refine through use. It does not mean independent render
 promotion is complete, Finance exists in the product, real books are stored,
 accounts connect, calculations are professionally validated, an accountant can
-access data, or UAA can advise, pay, transfer, sign, submit, or file. FIN-001 is
-eligible only for a separately reviewed synthetic local kernel under the
-implementation plan.
+access data, or UAA can advise, pay, transfer, sign, submit, or file. FIN-001
+remains dependency- and board-promotion-gated and, once activated, is limited
+to a separately reviewed synthetic local kernel under the implementation plan.

@@ -142,7 +142,7 @@
       ],
       "properties": {
         "task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
-        "status": {"const": "direction_accepted_synthetic_kernel_eligible"},
+        "status": {"const": "direction_accepted_synthetic_kernel_dependency_and_board_gated"},
         "candidate_pack_ref": {"const": "render-pack-ref:finance-compliance-v1"},
         "candidate_pack_digest": {"const": "sha256:95c90c25855f6408ee22f9f050a07e373b79404de37c2f3c91a0005ac532fc72"},
         "implementation_scope_refs": {"$ref": "#/$defs/refArray"},

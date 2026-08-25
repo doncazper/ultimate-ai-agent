@@ -916,9 +916,10 @@ Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
-Next: implement the separately reviewed FIN-001 synthetic local book and
-double-entry kernel; retain the independent FIN-000 gate before real-data or
-higher-authority promotion. Financial/compliance adapters,
+Next: complete the FIN-001 dependency checklist and record explicit board
+promotion under WIP limits; only then implement the separately reviewed
+synthetic local book and double-entry kernel. Retain the independent FIN-000
+gate before real-data or higher-authority promotion. Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.
 
