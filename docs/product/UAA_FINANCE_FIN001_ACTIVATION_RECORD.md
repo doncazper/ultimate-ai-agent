@@ -22,6 +22,8 @@ The machine-readable decision is
 - first-class Boards/Kanban: Queue V2 Q13 completed.
 - local Calendar: Queue V2 Q14 completed.
 - ECO-008 EntityLink and ChangeSet guarantees: Queue V2 Q19 completed.
+- Weekly CEO Review private trial, the remaining direct Queue V2 dependency:
+  Q21 completed.
 - FIN-000 contract, threat model, protected-data ADR, implementation sequence,
   and founder private-dogfood direction are present and remain normative.
 

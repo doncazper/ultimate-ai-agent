@@ -44,6 +44,10 @@ EXPECTED_DEPENDENCIES = {
         "dev-task:queue-v2-q19-eco008-entitylink-changeset",
         "commit-ref:bfad7dabb2a08dbcf1fabc469c5ca80267e4eedd",
     ),
+    (
+        "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
+        "report-ref:queue-v2:q21:weekly-review-private-trial:v1",
+    ),
 }
 EXPECTED_NORMATIVE_PATH_REFS = {
     "repo-path-ref:docs/decisions/ADR-0063-finance-protected-local-data-boundary.md",

@@ -31,6 +31,10 @@
     {
       "task_ref": "dev-task:queue-v2-q19-eco008-entitylink-changeset",
       "evidence_ref": "commit-ref:bfad7dabb2a08dbcf1fabc469c5ca80267e4eedd"
+    },
+    {
+      "task_ref": "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
+      "evidence_ref": "report-ref:queue-v2:q21:weekly-review-private-trial:v1"
     }
   ],
   "normative_path_refs": [
