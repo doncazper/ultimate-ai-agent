@@ -87,6 +87,12 @@ def test_schema_credential_property_default_is_included_in_secret_scan() -> None
     assert verifier._has_secret_like_durable_content(schema) is True
 
 
+def test_schema_raw_local_path_is_rejected() -> None:
+    schema = {"description": "/home/example/private"}
+
+    assert verifier._has_raw_local_path(schema) is True
+
+
 def test_invalid_schema_returns_bounded_failure(monkeypatch) -> None:
     def invalid_schema(_schema) -> None:
         raise RuntimeError("sensitive local diagnostic")
@@ -115,6 +121,22 @@ def test_top_level_shape_is_independently_pinned() -> None:
     failures = verifier.verify(payload)
 
     assert "FIN-001 top-level activation shape drifted" in failures
+
+
+def test_founder_direction_artifact_receipt_is_resolved(monkeypatch) -> None:
+    original_load = verifier._load
+
+    def load_with_drift(path):
+        loaded = original_load(path)
+        if path.name == "private_dogfood_direction_acceptance_v1.json":
+            loaded["decision_receipt_ref"] = "receipt-ref:founder-direction:drifted"
+        return loaded
+
+    monkeypatch.setattr(verifier, "_load", load_with_drift)
+
+    failures = verifier.verify()
+
+    assert "founder direction decision receipt drifted" in failures
 
 
 def test_implementation_plan_drift_fails_closed() -> None:

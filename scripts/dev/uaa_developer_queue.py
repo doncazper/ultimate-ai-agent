@@ -285,6 +285,8 @@ def unblock(args: argparse.Namespace) -> int:
     return _print(
         _coordinator(args).unblock(
             task_ref=args.task_ref,
+            expected_blocker_ref=args.expected_blocker_ref,
+            evidence_ref=args.evidence_ref,
             idempotency_ref=args.idempotency_ref,
         ),
         pretty=args.pretty,
@@ -384,9 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     recover_command = subparsers.add_parser(
         "recover-remaining-queue",
-        help=(
-            "Fail closed because the legacy recovery manifest is superseded by V2."
-        ),
+        help=("Fail closed because the legacy recovery manifest is superseded by V2."),
     )
     recover_command.add_argument("--idempotency-prefix", required=True)
     recover_command.add_argument("--confirm-recovery", required=True)
@@ -534,6 +534,8 @@ def build_parser() -> argparse.ArgumentParser:
         "unblock", help="Return a reviewed blocked task to the queue."
     )
     unblock_command.add_argument("--task-ref", required=True)
+    unblock_command.add_argument("--expected-blocker-ref", required=True)
+    unblock_command.add_argument("--evidence-ref", required=True)
     unblock_command.add_argument("--idempotency-ref", required=True)
     unblock_command.add_argument("--pretty", action="store_true")
     unblock_command.set_defaults(func=unblock)

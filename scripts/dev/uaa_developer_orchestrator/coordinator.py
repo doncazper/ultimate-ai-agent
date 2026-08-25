@@ -1126,21 +1126,36 @@ class DeveloperWorkCoordinator:
         self,
         *,
         task_ref: str,
+        expected_blocker_ref: str,
+        evidence_ref: str,
         idempotency_ref: str,
     ) -> DeveloperWorkQueueReceipt:
-        """Return a reviewed blocked task to the queue; no task is executed."""
+        """Remove one exact reviewed blocker and return the task to the queue."""
 
         validate_task_ref(task_ref, "developer_work_unblock_task_ref")
+        validate_task_ref(
+            expected_blocker_ref, "developer_work_unblock_expected_blocker_ref"
+        )
+        validate_task_ref(evidence_ref, "developer_work_unblock_evidence_ref")
         validate_task_ref(idempotency_ref, "developer_work_unblock_idempotency_ref")
         with self._locked():
             snapshot = self._load_snapshot()
             task = self._find_task(snapshot, task_ref)
-            payload = {"event_kind": "task_unblocked", "task_ref": task_ref}
+            payload = {
+                "event_kind": "task_unblocked",
+                "task_ref": task_ref,
+                "expected_blocker_ref": expected_blocker_ref,
+                "evidence_ref": evidence_ref,
+            }
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
             if task.state != "blocked":
                 raise DeveloperWorkQueueClaimError("DEVELOPER_WORK_TASK_NOT_BLOCKED")
+            if task.blocker_refs != [expected_blocker_ref]:
+                raise DeveloperWorkQueueClaimError(
+                    "DEVELOPER_WORK_UNBLOCK_BLOCKER_SET_DRIFTED"
+                )
             updated = task.model_copy(update={"state": "queued", "blocker_refs": []})
             next_snapshot = snapshot.model_copy(
                 update={
@@ -1155,8 +1170,9 @@ class DeveloperWorkCoordinator:
                 payload=payload,
                 revision=next_snapshot.revision,
                 safe_summary=(
-                    "Developer task returned to the queue after explicit blocker review; "
-                    "no shell, Git, remote dispatch, or task execution occurred."
+                    "Developer task returned to the queue after exact blocker and "
+                    "evidence review; no shell, Git, remote dispatch, or task execution "
+                    "occurred."
                 ),
             )
             updated = updated.model_copy(

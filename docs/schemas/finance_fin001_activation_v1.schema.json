@@ -27,7 +27,7 @@
   "properties": {
     "schema_version": {"const": "uaa.finance-fin001-activation.v1"},
     "activation_ref": {"const": "activation-ref:finance/FIN-001/synthetic-kernel:v1"},
-    "decision_receipt_ref": {"const": "receipt-ref:queue-v2/Q26/pr425-founder-direction"},
+    "decision_receipt_ref": {"const": "receipt-ref:founder-private-dogfood:2026-08-25"},
     "queue_task_receipt_ref": {"const": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3"},
     "queue_block_receipt_ref": {"const": "developer-work-receipt-ref:sha256:44573429fe043729321aee47"},
     "source_revision_ref": {"const": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df"},
@@ -116,14 +116,14 @@
         "real_data_rejection_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests"},
         "policy_engine_plan_ref": {"const": "plan-ref:finance/FIN-001/current-policy-decision-binding"},
         "policy_governance_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests"},
-        "authority_lease_plan_ref": {"const": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation"},
-        "authority_lease_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests"}
+        "authority_lease_plan_ref": {"const": "plan-ref:finance/FIN-001/exact-binding-registration-and-pre-persist-revalidation"},
+        "authority_lease_verifier_plan_ref": {"const": "plan-ref:finance/FIN-001/coarse-expired-and-revoked-lease-denial-tests"}
       }
     },
     "board_claim_plan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["queue_snapshot_revision", "lane_vacant_at_recording", "task_state_at_recording", "blocker_ref", "queue_block_receipt_ref", "claim_required_after_merge", "unblock_required_after_merge", "claim_receipt_ref", "wip_lane", "reserved_task_ref"],
+      "required": ["queue_snapshot_revision", "lane_vacant_at_recording", "task_state_at_recording", "blocker_ref", "queue_block_receipt_ref", "claim_required_after_merge", "unblock_required_after_merge", "unblock_requires_merge_commit_ref", "claim_receipt_ref", "wip_lane", "reserved_task_ref"],
       "properties": {
         "queue_snapshot_revision": {"const": 162},
         "lane_vacant_at_recording": {"const": true},
@@ -132,6 +132,7 @@
         "queue_block_receipt_ref": {"const": "developer-work-receipt-ref:sha256:44573429fe043729321aee47"},
         "claim_required_after_merge": {"const": true},
         "unblock_required_after_merge": {"const": true},
+        "unblock_requires_merge_commit_ref": {"const": true},
         "claim_receipt_ref": {"type": "null"},
         "wip_lane": {"const": "product_surface"},
         "reserved_task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"}

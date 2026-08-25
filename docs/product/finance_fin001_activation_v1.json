@@ -1,7 +1,7 @@
 {
   "schema_version": "uaa.finance-fin001-activation.v1",
   "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
-  "decision_receipt_ref": "receipt-ref:queue-v2/Q26/pr425-founder-direction",
+  "decision_receipt_ref": "receipt-ref:founder-private-dogfood:2026-08-25",
   "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
   "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
   "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
@@ -9,7 +9,7 @@
   "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
   "milestone_ref": "milestone-ref:finance/FIN-001",
   "status": "blocked_pending_activation_merge_and_explicit_unblock",
-  "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator verifies and removes the exact merge-pending blocker before claim.",
+  "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator removes the sole exact merge-pending blocker using the actual merge commit before claim.",
   "dependency_evidence": [
     {
       "task_ref": "dev-task:queue-v2-q00-pr379-action-inbox-finish",
@@ -92,8 +92,8 @@
     "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
     "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
     "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
-    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation",
-    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests"
+    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/exact-binding-registration-and-pre-persist-revalidation",
+    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/coarse-expired-and-revoked-lease-denial-tests"
   },
   "board_claim_plan": {
     "queue_snapshot_revision": 162,
@@ -103,6 +103,7 @@
     "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
     "claim_required_after_merge": true,
     "unblock_required_after_merge": true,
+    "unblock_requires_merge_commit_ref": true,
     "claim_receipt_ref": null,
     "wip_lane": "product_surface",
     "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel"
@@ -120,5 +121,5 @@
     "public_release_allowed": false,
     "production_authority_granted": false
   },
-  "next_safe_action": "After this record merges, verify the exact merge-pending blocker and vacant product-surface lane, explicitly unblock and claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans."
+  "next_safe_action": "After this record merges, verify the exact merge-pending blocker is the only blocker and the product-surface lane is vacant, unblock it with the actual PR 426 merge-commit ref, claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans."
 }

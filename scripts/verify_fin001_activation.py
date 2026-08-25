@@ -19,6 +19,9 @@ from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 ROOT = Path(__file__).resolve().parent.parent
 LEDGER_PATH = ROOT / "docs/product/finance_fin001_activation_v1.json"
 SCHEMA_PATH = ROOT / "docs/schemas/finance_fin001_activation_v1.schema.json"
+DIRECTION_LEDGER_RELATIVE_PATH = Path(
+    "docs/product/private_dogfood_direction_acceptance_v1.json"
+)
 
 EXPECTED_DEPENDENCIES = {
     (
@@ -72,13 +75,13 @@ EXPECTED_IMPLEMENTATION_PLAN = {
     "real_data_rejection_verifier_plan_ref": "plan-ref:finance/FIN-001/arbitrary-value-rejection-tests",
     "policy_engine_plan_ref": "plan-ref:finance/FIN-001/current-policy-decision-binding",
     "policy_governance_verifier_plan_ref": "plan-ref:finance/FIN-001/denied-and-stale-policy-tests",
-    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/synthetic-book-mutation-lease-revalidation",
-    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/expired-and-revoked-lease-tests",
+    "authority_lease_plan_ref": "plan-ref:finance/FIN-001/exact-binding-registration-and-pre-persist-revalidation",
+    "authority_lease_verifier_plan_ref": "plan-ref:finance/FIN-001/coarse-expired-and-revoked-lease-denial-tests",
 }
 EXPECTED_TOP_LEVEL_BINDINGS = {
     "schema_version": "uaa.finance-fin001-activation.v1",
     "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
-    "decision_receipt_ref": "receipt-ref:queue-v2/Q26/pr425-founder-direction",
+    "decision_receipt_ref": "receipt-ref:founder-private-dogfood:2026-08-25",
     "queue_task_receipt_ref": "developer-work-receipt-ref:sha256:9352c6acbdff3bcd1e5493f3",
     "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
     "source_revision_ref": "git-sha:6ac977ba9b98c2fbc323606f5be377b9949690df",
@@ -86,8 +89,8 @@ EXPECTED_TOP_LEVEL_BINDINGS = {
     "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
     "milestone_ref": "milestone-ref:finance/FIN-001",
     "status": "blocked_pending_activation_merge_and_explicit_unblock",
-    "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator verifies and removes the exact merge-pending blocker before claim.",
-    "next_safe_action": "After this record merges, verify the exact merge-pending blocker and vacant product-surface lane, explicitly unblock and claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans.",
+    "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator removes the sole exact merge-pending blocker using the actual merge commit before claim.",
+    "next_safe_action": "After this record merges, verify the exact merge-pending blocker is the only blocker and the product-surface lane is vacant, unblock it with the actual PR 426 merge-commit ref, claim only dev-task:finance-fin001-synthetic-kernel, persist its claim receipt, and then implement the encrypted synthetic kernel under the exact mutation-governance plans.",
 }
 EXPECTED_TOP_LEVEL_KEYS = {
     "schema_version",
@@ -117,6 +120,7 @@ EXPECTED_BOARD_CLAIM_PLAN = {
     "queue_block_receipt_ref": "developer-work-receipt-ref:sha256:44573429fe043729321aee47",
     "claim_required_after_merge": True,
     "unblock_required_after_merge": True,
+    "unblock_requires_merge_commit_ref": True,
     "claim_receipt_ref": None,
     "wip_lane": "product_surface",
     "reserved_task_ref": "dev-task:finance-fin001-synthetic-kernel",
@@ -169,6 +173,9 @@ SECRET_LIKE_REF = re.compile(
 )
 CREDENTIAL_KEY = re.compile(
     r"(?i)(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|private[_-]?key|credential)"
+)
+RAW_LOCAL_PATH = re.compile(
+    r"(?i)(?:/(?:users|home|private|var/folders)/|[a-z]:\\\\users\\\\)"
 )
 
 
@@ -239,6 +246,10 @@ def _schema_has_nonlocal_ref(schema: Any) -> bool:
     )
 
 
+def _has_raw_local_path(value: Any) -> bool:
+    return any(RAW_LOCAL_PATH.search(text) for _, text in _walk_strings(value))
+
+
 def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[str]:
     failures: list[str] = []
     try:
@@ -251,6 +262,8 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         failures.append("activation record contains secret-like durable content")
     if _has_secret_like_durable_content(schema):
         failures.append("activation schema contains secret-like durable content")
+    if _has_raw_local_path(payload) or _has_raw_local_path(schema):
+        failures.append("activation governance contains a raw local path")
     if any(
         payload.get(key) != value for key, value in EXPECTED_TOP_LEVEL_BINDINGS.items()
     ):
@@ -263,6 +276,24 @@ def verify(payload: dict[str, Any] | None = None, *, root: Path = ROOT) -> list[
         failures.append("FIN-001 complete authority posture drifted")
     if _schema_has_nonlocal_ref(schema):
         failures.append("activation schema contains a nonlocal reference")
+    if failures:
+        return failures
+    try:
+        direction = _load(root / DIRECTION_LEDGER_RELATIVE_PATH)
+    except (OSError, ValueError):
+        failures.append("founder direction acceptance artifact is invalid or missing")
+    else:
+        if direction.get("decision_receipt_ref") != payload["decision_receipt_ref"]:
+            failures.append("founder direction decision receipt drifted")
+        if direction.get("acceptance_level") != (
+            "founder_accepted_for_private_dogfood"
+        ):
+            failures.append("founder direction acceptance level drifted")
+        q26_direction = direction.get("programs", {}).get("q26", {})
+        if q26_direction.get("status") != (
+            "direction_accepted_synthetic_kernel_dependency_and_board_gated"
+        ):
+            failures.append("founder Q26 direction status drifted")
     if failures:
         return failures
     try:

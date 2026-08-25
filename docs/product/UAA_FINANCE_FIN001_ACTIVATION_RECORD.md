@@ -29,8 +29,11 @@ cannot claim it until this activation PR merges and an explicit unblock is
 recorded.
 
 After merge, the coordinator must still show the `product_surface` lane as
-vacant, then emit a claim receipt for this exact task. Until that transition is
-recorded, the package remains blocked and is not In Progress.
+vacant. Its exact-blocker unblock must name
+`blocker-ref:finance/FIN-001/pr426-activation-merge-pending`, supply the actual
+PR 426 merge commit as evidence, and fail if any additional blocker is present.
+Only then may it emit a claim receipt for this exact task. Until those
+transitions are recorded, the package remains blocked and is not In Progress.
 
 ## Dependency Checklist
 
@@ -75,13 +78,16 @@ PolicyEngine allow decision and an exact LocalApprovalAuthority scope bind the
 operation, book, current revision, request ref, and intended record refs. The
 same operation also requires an active AuthorityLease for exact capability
 `capability-ref:finance/FIN-001/synthetic-book-mutation`, revalidated
-immediately before persistence. Denied, unknown, or stale policy and approval
-states and expired or revoked leases fail closed. Replays are idempotent;
+immediately before persistence. FIN-001 must register that exact binding in the
+authority catalog; a generic or coarse `workspace/mutate` lease cannot satisfy
+it. Denied, unknown, or stale policy and approval states and coarse, expired,
+or revoked leases fail closed. Replays are idempotent;
 changed payloads under the same request ref fail closed. The core appends a
 redacted mutation receipt before reporting success and provides a tested
 reversal or rollback path. Focused tests must cover policy denial and
 staleness, denied or stale approval, expired or revoked lease, exact replay,
-changed-payload conflict, receipt integrity, rollback, and safe-disable.
+coarse-lease denial, changed-payload conflict, receipt integrity, rollback, and
+safe-disable.
 
 ## Non-Goals And Authority Boundary
 

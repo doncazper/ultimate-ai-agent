@@ -118,10 +118,11 @@ Deliver:
 - CLI create/inspect/check/export parity with current PolicyEngine decision,
   exact LocalApprovalAuthority, and an active
   `capability-ref:finance/FIN-001/synthetic-book-mutation` AuthorityLease
-  revalidated immediately before persistence, plus revision, idempotency,
-  audit-receipt, and rollback binding for every local mutation; denied,
-  unknown, or stale policy, approval, and expired or revoked leases fail
-  closed, and imports remain FIN-002;
+  with an exact registered authority-catalog binding and revalidation
+  immediately before persistence, plus revision, idempotency, audit-receipt,
+  and rollback binding for every local mutation; coarse generic leases and
+  denied, unknown, or stale policy, approval, and expired or revoked leases
+  fail closed, and imports remain FIN-002;
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 

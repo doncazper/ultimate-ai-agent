@@ -472,13 +472,53 @@ def test_blocked_task_requires_an_explicit_unblock_before_reclaim(
             idempotency_ref="idempotency-ref:claim-blocked",
         )
     coordinator.unblock(
-        task_ref="dev-task:blocked", idempotency_ref="idempotency-ref:unblock"
+        task_ref="dev-task:blocked",
+        expected_blocker_ref="blocker-ref:verification-failure",
+        evidence_ref="evidence-ref:verification-reviewed",
+        idempotency_ref="idempotency-ref:unblock",
     )
     coordinator.claim_task(
         task_ref="dev-task:blocked",
         node_ref="node-ref:mac",
         idempotency_ref="idempotency-ref:claim-unblocked",
     )
+
+
+def test_unblock_rejects_blocker_set_drift(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.add_task(
+        _draft("dev-task:blocked-drift"),
+        idempotency_ref="idempotency-ref:add-blocked-drift",
+    )
+    coordinator.block(
+        task_ref="dev-task:blocked-drift",
+        blocker_refs=[
+            "blocker-ref:activation-merge-pending",
+            "blocker-ref:independent-review-pending",
+        ],
+        idempotency_ref="idempotency-ref:block-drift",
+    )
+
+    with pytest.raises(
+        DeveloperWorkQueueClaimError, match="UNBLOCK_BLOCKER_SET_DRIFTED"
+    ):
+        coordinator.unblock(
+            task_ref="dev-task:blocked-drift",
+            expected_blocker_ref="blocker-ref:activation-merge-pending",
+            evidence_ref="merge-commit-ref:activation-record",
+            idempotency_ref="idempotency-ref:unblock-drift",
+        )
+
+    task = next(
+        task
+        for task in coordinator.inspect().tasks
+        if task.task_ref == "dev-task:blocked-drift"
+    )
+    assert task.state == "blocked"
+    assert task.blocker_refs == [
+        "blocker-ref:activation-merge-pending",
+        "blocker-ref:independent-review-pending",
+    ]
 
 
 def test_node_registration_and_heartbeat_gate_claims(tmp_path: Path) -> None:
