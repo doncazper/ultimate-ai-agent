@@ -12249,6 +12249,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
       ["coding", "cockpit"],
     ),
   ],
+  saved_projections: [],
   local_task_records: [],
   blocked_lanes: [
     {

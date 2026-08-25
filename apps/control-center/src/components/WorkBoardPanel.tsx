@@ -18,6 +18,7 @@ import { NorthStarIcon } from "./NorthStarIcon";
 type WorkBoardView = "board" | "list" | "proof";
 type PriorityFilter = WorkBoardCardPriority | "all";
 type AuthorityFilter = WorkBoardCardAuthorityState | "all";
+type SavedProjectionFilter = string | "all";
 type PreviewLayout = Record<string, string[]>;
 
 interface WorkBoardPanelProps {
@@ -36,6 +37,8 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
   const [activeView, setActiveView] = useState<WorkBoardView>("board");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [authorityFilter, setAuthorityFilter] = useState<AuthorityFilter>("all");
+  const [savedProjectionFilter, setSavedProjectionFilter] =
+    useState<SavedProjectionFilter>("all");
   const [query, setQuery] = useState("");
   const [draftCards, setDraftCards] = useState<WorkBoardCardReadModel[]>([]);
   const [backendLayout, setBackendLayout] = useState<PreviewLayout>(() =>
@@ -74,6 +77,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     setLastCardCreateReceiptRef(board.latest_card_create_receipt_ref ?? "");
     setLastTaskCreateReceiptRef(board.latest_task_create_receipt_ref ?? "");
     setSelectedCardRef(board.cards[0]?.card_ref ?? "");
+    setSavedProjectionFilter("all");
     setNotice(board.drag_drop_posture.safe_summary);
     setSelectedBlockedLaneRef(board.blocked_lanes[0]?.lane_ref ?? "");
   }, [
@@ -95,6 +99,13 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     () => new Map(cards.map((card) => [card.card_ref, card])),
     [cards],
   );
+  const selectedSavedProjection = useMemo(
+    () =>
+      board.saved_projections.find(
+        (projection) => projection.projection_ref === savedProjectionFilter,
+      ),
+    [board.saved_projections, savedProjectionFilter],
+  );
   const visibleCards = useMemo(
     () =>
       cards.filter((card) => {
@@ -104,9 +115,25 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           priorityFilter === "all" || card.priority === priorityFilter;
         const matchesAuthority =
           authorityFilter === "all" || card.authority_state === authorityFilter;
-        return matchesQuery && matchesPriority && matchesAuthority;
+        const matchesSavedProjection =
+          selectedSavedProjection === undefined ||
+          selectedSavedProjection.filter_tags.every((tag) =>
+            card.tags.includes(tag),
+          );
+        return (
+          matchesQuery &&
+          matchesPriority &&
+          matchesAuthority &&
+          matchesSavedProjection
+        );
       }),
-    [authorityFilter, cards, priorityFilter, query],
+    [
+      authorityFilter,
+      cards,
+      priorityFilter,
+      query,
+      selectedSavedProjection,
+    ],
   );
   const columnRefByCardRef = useMemo(() => {
     const next = new Map<string, string>();
@@ -140,7 +167,8 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     [cards, visibleCards.length],
   );
   const selectedCard =
-    cardsByRef.get(selectedCardRef) ?? visibleCards[0] ?? cards[0];
+    visibleCards.find((card) => card.card_ref === selectedCardRef) ??
+    visibleCards[0];
   const selectedBlockedLane =
     board.blocked_lanes.find(
       (lane) => lane.lane_ref === selectedBlockedLaneRef,
@@ -546,6 +574,22 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
       </div>
 
       <div className="work-board-filter-row" aria-label="Work Board filters">
+        {board.saved_projections.length > 0 ? (
+          <FilterGroup
+            label="Saved view"
+            onChange={setSavedProjectionFilter}
+            options={[
+              ["all", "All"],
+              ...board.saved_projections.map(
+                (projection): [string, string] => [
+                  projection.projection_ref,
+                  projection.label,
+                ],
+              ),
+            ]}
+            value={savedProjectionFilter}
+          />
+        ) : null}
         <FilterGroup
           label="Priority"
           onChange={setPriorityFilter}
@@ -573,6 +617,30 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           {previewChanged ? "Unsaved local preview" : "Backend order"}
         </span>
       </div>
+
+      {selectedSavedProjection ? (
+        <div
+          className="work-board-saved-projection"
+          aria-label={`${selectedSavedProjection.label} saved projection`}
+        >
+          <div>
+            <span className="eyebrow">Backend-owned saved projection</span>
+            <strong>{selectedSavedProjection.label}</strong>
+            <p>{selectedSavedProjection.safe_summary}</p>
+          </div>
+          <div className="work-board-ref-strip">
+            <RefChip
+              label="Projection"
+              value={selectedSavedProjection.projection_ref}
+            />
+            <RefChip
+              label="Contract"
+              value={selectedSavedProjection.contract_ref}
+            />
+          </div>
+          <span className="status-pill compact">Read-only · publishing blocked</span>
+        </div>
+      ) : null}
 
       <div className="work-board-notice" role="status">
         <NorthStarIcon name={previewChanged ? "info" : "shield-check"} />

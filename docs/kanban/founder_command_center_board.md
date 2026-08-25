@@ -1797,10 +1797,11 @@ ownership.
 Activation gate: Work Board, CRM, and Communications must pass
 `contract-ref:social-read-only-foundation-profile:v1`. The profile is currently
 partial: Communications now has a backend-owned reviewed local projection with
-API/CLI parity and a real Control Center view; Work Board `Social Content`, CRM
-Social relationship acceptance, exact visual acceptance, and a bound profile
-ledger/verifier remain missing. The profile does not mark any owner product
-globally complete.
+API/CLI parity and a real Control Center view; Work Board now has a strict
+backend-owned read-only `Social Content` saved projection and Control Center
+filter. Work Board visual acceptance, CRM Social relationship acceptance,
+exact Communications visual acceptance, and a bound profile ledger/verifier
+remain missing. The profile does not mark any owner product globally complete.
 
 Board posture: Deferred. This card is not current WIP and is not eligible as
 "what's next" while the profile lacks accepted evidence. Passing the profile
