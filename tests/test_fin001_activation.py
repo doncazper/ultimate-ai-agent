@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import json
+import sys
 
 import pytest
 
@@ -9,6 +11,16 @@ from scripts import verify_fin001_activation as verifier
 
 def test_checked_in_fin001_activation_is_valid() -> None:
     assert verifier.verify() == []
+
+
+def test_cli_reports_pending_unblock_not_claim_readiness(capsys, monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["verify_fin001_activation.py"])
+    assert verifier.main() == 0
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["status"] == "BLOCKED_PENDING_ACTIVATION_MERGE_AND_EXPLICIT_UNBLOCK"
+    assert result["claim_ready"] is False
+    assert result["task_claimed"] is False
 
 
 def test_dependency_removal_fails_closed() -> None:

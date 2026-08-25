@@ -8,7 +8,7 @@
   "task_ref": "dev-task:finance-fin001-synthetic-kernel",
   "parent_program_task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
   "milestone_ref": "milestone-ref:finance/FIN-001",
-  "status": "ready_for_exact_queue_claim_after_merge",
+  "status": "blocked_pending_activation_merge_and_explicit_unblock",
   "safe_summary": "FIN-001 has an exact synthetic-only task and a vacant product-surface lane reservation. Implementation remains blocked until this activation record merges and the coordinator emits the exact claim receipt.",
   "dependency_evidence": [
     {

@@ -239,8 +239,9 @@ def main() -> int:
     print(
         json.dumps(
             {
-                "status": "READY_FOR_EXACT_QUEUE_CLAIM",
+                "status": "BLOCKED_PENDING_ACTIVATION_MERGE_AND_EXPLICIT_UNBLOCK",
                 "activation_ref": "activation-ref:finance/FIN-001/synthetic-kernel:v1",
+                "claim_ready": False,
                 "task_claimed": False,
                 "product_runtime_authority_granted": False,
                 "real_financial_data_allowed": False,

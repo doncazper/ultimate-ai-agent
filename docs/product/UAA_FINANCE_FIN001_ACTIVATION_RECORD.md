@@ -1,8 +1,8 @@
 # FIN-001 Synthetic-Only Activation Record
 
-Status: ready for an exact Queue claim after merge of this record. This is a
-verified reservation, not an active claim or a statement that Finance runtime
-already exists.
+Status: blocked pending merge of this record and an explicit coordinator
+unblock. This is a verified reservation, not claim readiness, an active claim,
+or a statement that Finance runtime already exists.
 
 ## Decision
 
@@ -30,7 +30,7 @@ recorded.
 
 After merge, the coordinator must still show the `product_surface` lane as
 vacant, then emit a claim receipt for this exact task. Until that transition is
-recorded, the package is ready but not In Progress.
+recorded, the package remains blocked and is not In Progress.
 
 ## Dependency Checklist
 

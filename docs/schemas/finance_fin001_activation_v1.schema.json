@@ -34,7 +34,7 @@
     "task_ref": {"const": "dev-task:finance-fin001-synthetic-kernel"},
     "parent_program_task_ref": {"const": "dev-task:queue-v2-q26-finance-compliance-local-product"},
     "milestone_ref": {"const": "milestone-ref:finance/FIN-001"},
-    "status": {"const": "ready_for_exact_queue_claim_after_merge"},
+    "status": {"const": "blocked_pending_activation_merge_and_explicit_unblock"},
     "safe_summary": {"$ref": "#/$defs/safeText"},
     "dependency_evidence": {
       "type": "array",
