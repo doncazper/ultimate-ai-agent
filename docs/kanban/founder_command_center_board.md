@@ -1799,9 +1799,11 @@ Activation gate: Work Board, CRM, and Communications must pass
 partial: Communications now has a backend-owned reviewed local projection with
 API/CLI parity and a real Control Center view; Work Board now has a strict
 backend-owned read-only `Social Content` saved projection and Control Center
-filter. Work Board visual acceptance, CRM Social relationship acceptance,
-exact Communications visual acceptance, and a bound profile ledger/verifier
-remain missing. The profile does not mark any owner product globally complete.
+filter. The founder accepted the displayed Social direction for private
+dogfooding, so cosmetic iteration no longer blocks gap closure. The CRM Social
+relationship projection and strict independent-promotion profile
+ledger/verifier remain missing. The profile does not mark any owner product
+globally complete.
 
 Board posture: Deferred. This card is not current WIP and is not eligible as
 "what's next" while the profile lacks accepted evidence. Passing the profile

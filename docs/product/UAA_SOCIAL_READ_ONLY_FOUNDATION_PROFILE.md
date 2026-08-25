@@ -1,8 +1,12 @@
 # Social Read-Only Integration Foundation Profile
 
-Status: partial implementation; Q25 remains deferred.
+Status: founder direction accepted for private dogfood; foundation
+implementation partial; independent promotion pending.
 
 Contract ref: `contract-ref:social-read-only-foundation-profile:v1`.
+
+Founder direction acceptance:
+`docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
 
 This profile is the narrow activation gate for the first read-only Social
 Media Intelligence milestone. It proves only the owner-backed read interfaces,
@@ -14,12 +18,15 @@ Work Board, CRM, Communications, Messenger, or Social globally complete.
 
 | Owner foundation | Required Social integration | Current state |
 |---|---|---|
-| Work Board | Backend-owned board plus a typed `Social Content` saved projection | Implemented locally. Python Core owns a strict read-only saved projection and the Control Center can filter it; independent visual and profile acceptance remain missing. |
-| CRM | Backend-owned relationship context and stable deep-link refs | Partial. The local CRM owner foundation exists; Social relationship projection acceptance remains missing. |
-| Communications | Canonical reviewed conversation summaries, typed source/freshness posture, API/CLI parity, `Social Media` and `Needs attention` UI projections | Implemented locally for a read-only reviewed-manual-import projection; independent visual acceptance remains missing. |
+| Work Board | Backend-owned board plus a typed `Social Content` saved projection | Implemented locally. Python Core owns a strict read-only saved projection and the Control Center can filter it; the displayed direction is founder-accepted for private dogfood while independent promotion remains pending. |
+| CRM | Backend-owned relationship context and stable deep-link refs | Partial. The displayed relationship direction is founder-accepted, but the exact Social relationship projection and deep-link contract still require implementation evidence. |
+| Communications | Canonical reviewed conversation summaries, typed source/freshness posture, API/CLI parity, `Social Media` and `Needs attention` UI projections | Implemented locally for a read-only reviewed-manual-import projection; the displayed direction is founder-accepted for private dogfood while independent promotion remains pending. |
 
-Q25 is not eligible until every row is accepted on one exact revision with
-tests, current product truth, and desktop/narrow visual evidence.
+Founder approval removes pixel-perfect visual direction as a prerequisite for
+private-dogfood iteration. It does not fabricate the missing CRM relationship
+contract. The full Q25 read-only milestone remains deferred until every row has
+implementation evidence on one exact revision and a strict profile promotion
+ledger preserves the independent gates.
 
 ## Work Board foundation contract
 
@@ -78,12 +85,13 @@ data and cannot act as instructions or authority.
 
 ## Remaining acceptance work
 
-1. Independently accept the Work Board `Social Content` saved projection and
-   its desktop/narrow evidence.
-2. Accept the CRM relationship-context projection and deep links.
-3. Capture and independently review desktop and narrow visual evidence for the
-   backend-owned Communications states: ready, empty, stale, blocked, error,
-   and `Needs attention` filtering.
-4. Publish a strict profile ledger/verifier bound to the exact evidence set.
-5. Only then evaluate Q25 priority; passing this profile does not make Social
-   automatically next.
+1. Implement and verify the CRM relationship-context projection and stable
+   deep links.
+2. Capture current implementation evidence for Work Board and Communications
+   desktop/narrow states. Cosmetic divergence from the founder-approved
+   direction is allowed; ownership, workflow-purpose, data-boundary, or
+   authority changes require a new decision.
+3. Publish a strict independent-promotion profile ledger/verifier bound to the
+   exact implementation evidence set.
+4. Only then evaluate the full Q25 read-only milestone; passing this profile
+   does not make Social automatically next.

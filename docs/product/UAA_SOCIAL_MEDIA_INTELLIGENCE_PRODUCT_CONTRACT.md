@@ -377,7 +377,7 @@ moderation, account, or recurring authority.
 
 ## Future Work Recommendation Gate
 
-Recommendation state: **deferred**.
+Recommendation state: **deferred pending the CRM foundation gap**.
 
 When the operator asks UAA "what's next?", UAA must not recommend Social Media
 Intelligence until Work Board, CRM, and Communications pass
@@ -391,6 +391,10 @@ fixture-only view, isolated route, or partial UI does not pass the profile.
 
 The current profile is documented in
 `docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and remains partial.
+The founder accepted the displayed direction for private dogfooding in
+`docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`; this removes
+pixel-perfect visual approval as a blocker but does not prove the missing CRM
+relationship projection or grant independent promotion.
 
 Once the profile passes, Social Media Intelligence becomes an **eligible next
 candidate**, not an automatic priority. UAA must still reconcile the active

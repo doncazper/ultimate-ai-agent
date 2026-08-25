@@ -1,0 +1,89 @@
+{
+  "schema_version": "uaa.private-dogfood-direction-acceptance.v1",
+  "ledger_ref": "ledger-ref:private-dogfood-direction-acceptance:v1",
+  "decision_ref": "decision-ref:founder-private-dogfood:q25-q26:v1",
+  "decision_receipt_ref": "receipt-ref:founder-private-dogfood:2026-08-25",
+  "operator_ref": "actor-ref:founder-operator",
+  "accepted_date_ref": "date-ref:2026-08-25",
+  "accepted_source_revision_ref": "git-sha:fd1152d209fb0871873d74147bcbf391a64474a3",
+  "acceptance_level": "founder_accepted_for_private_dogfood",
+  "safe_summary": "The founder accepted the displayed Q25 Social and Q26 Finance render direction as good enough for private dogfooding, with iterative polish expected from real use. This is not independent promotion acceptance.",
+  "programs": {
+    "q25": {
+      "task_ref": "dev-task:queue-v2-q25-social-media-intelligence",
+      "status": "direction_accepted_foundations_partial",
+      "render_pack_ref": "render-pack-ref:social-media-v1",
+      "asset_digest": "sha256:780aab0c1352cbad4a77adfcfb981b09377772cba0ad4ba19bd328a0888b8584",
+      "assets": [
+        {
+          "path_ref": "repo-path-ref:docs/design/control_center_north_star/renders/social-media-v1/01-social-command-view.jpg",
+          "sha256": "sha256:fba1af4cb7995fbc4ed03925c71a85b4b507b01ad349932be0f9cfe4a71e8d07"
+        },
+        {
+          "path_ref": "repo-path-ref:docs/design/control_center_north_star/renders/social-media-v1/02-calendar-social-publishing-view.jpg",
+          "sha256": "sha256:16556fc9c476c5ab736ff89e4fb6d7d25e865b87c180033ef669b002f18299b2"
+        },
+        {
+          "path_ref": "repo-path-ref:docs/design/control_center_north_star/renders/social-media-v1/03-work-board-social-content-view.jpg",
+          "sha256": "sha256:c36c76ff26c2266c5f64032d1bdb72ddeada2a45c3ebfbb12984fda67b745ddc"
+        },
+        {
+          "path_ref": "repo-path-ref:docs/design/control_center_north_star/renders/social-media-v1/04-communications-social-media-view.jpg",
+          "sha256": "sha256:fa0536bb41b3013b5f0d0ad479f1615986925e8748227adec9171b6c85b85a55"
+        }
+      ],
+      "implementation_scope_refs": [
+        "scope-ref:queue-v2/Q25/foundation-gap-closure",
+        "scope-ref:queue-v2/Q25/read-only-private-dogfood-iteration"
+      ],
+      "remaining_gate_refs": [
+        "gate-ref:queue-v2/Q25/crm-relationship-projection",
+        "gate-ref:queue-v2/Q25/independent-profile-promotion"
+      ]
+    },
+    "q26": {
+      "task_ref": "dev-task:queue-v2-q26-finance-compliance-local-product",
+      "status": "direction_accepted_synthetic_kernel_eligible",
+      "candidate_pack_ref": "render-pack-ref:finance-compliance-v1",
+      "candidate_pack_digest": "sha256:95c90c25855f6408ee22f9f050a07e373b79404de37c2f3c91a0005ac532fc72",
+      "implementation_scope_refs": [
+        "scope-ref:queue-v2/Q26/no-real-financial-data",
+        "scope-ref:queue-v2/Q26/synthetic-local-fin001-kernel"
+      ],
+      "remaining_gate_refs": [
+        "gate-ref:queue-v2/Q26/independent-domain-and-safety-review",
+        "gate-ref:queue-v2/Q26/protected-real-data-promotion"
+      ]
+    }
+  },
+  "refinement_policy": {
+    "cosmetic_iteration_allowed": true,
+    "current_asset_hash_match_required": false,
+    "exact_surface_inventory_required": true,
+    "allowed_refinement_refs": [
+      "refinement-ref:private-dogfood/accessibility-improvement",
+      "refinement-ref:private-dogfood/copy",
+      "refinement-ref:private-dogfood/interaction-polish",
+      "refinement-ref:private-dogfood/responsive-layout",
+      "refinement-ref:private-dogfood/spacing-density"
+    ],
+    "material_reapproval_trigger_refs": [
+      "trigger-ref:private-dogfood/authority-expansion",
+      "trigger-ref:private-dogfood/canonical-ownership-change",
+      "trigger-ref:private-dogfood/sensitive-data-boundary-change",
+      "trigger-ref:private-dogfood/workflow-purpose-change"
+    ]
+  },
+  "authority_posture": {
+    "independent_promotion_required": true,
+    "social_publishing_allowed": false,
+    "platform_writes_allowed": false,
+    "real_financial_data_allowed": false,
+    "bank_connectivity_allowed": false,
+    "financial_advice_allowed": false,
+    "filing_allowed": false,
+    "public_release_allowed": false,
+    "production_authority_granted": false
+  },
+  "next_safe_action": "Close the remaining Q25 CRM foundation gap and implement the FIN-001 synthetic local kernel in separate bounded lanes while preserving every independent promotion gate."
+}

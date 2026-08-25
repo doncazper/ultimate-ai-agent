@@ -1,6 +1,6 @@
 # FIN-000 Acceptance Matrix
 
-Status: planning contract accepted for review; render candidates generated and independent acceptance pending
+Status: founder direction accepted for private dogfood; independent acceptance pending for promotion
 Baseline: v0.104.0 / 0.104.0
 Date: 2026-08-23
 
@@ -8,9 +8,11 @@ Date: 2026-08-23
 
 This matrix makes FIN-000 completion truth explicit. The product, ownership,
 security, storage, schema, adapter, workflow, state, reference, and render
-requirements are defined; no Finance runtime is implemented. The render
-candidate inventory now exists, but FIN-000 remains pending until the checklist
-in the render brief is independently signed off.
+requirements are defined; no Finance runtime is implemented. The founder has
+accepted the exact candidate pack as a private-dogfood direction with iterative
+polish expected. That decision makes the synthetic-only FIN-001 kernel eligible
+for a separately reviewed implementation lane. FIN-000 independent promotion
+remains pending until the render brief is signed off under its stricter gate.
 
 ## Planning Deliverables
 
@@ -24,7 +26,7 @@ in the render brief is independently signed off.
 | Schema/migration contract | this matrix and ADR-0063 | planning-only |
 | Disabled adapter contract | this matrix and product contract | planning-only |
 | Desktop/narrow state contract | render brief | defined |
-| Twelve desktop plus four narrow render candidates | `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md` and `tests/test_fin000_render_evidence.py` | generated; independent review pending |
+| Twelve desktop plus four narrow render candidates | `docs/design/control_center_north_star/renders/finance-compliance-v1/README.md`, `tests/test_fin000_render_evidence.py`, and `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md` | founder direction accepted for private dogfood; independent promotion pending |
 | Locked candidate manifest and acceptance ledger | `docs/design/control_center_north_star/renders/finance-compliance-v1/acceptance-ledger-v1.json`, `docs/product/UAA_FINANCE_FIN000_INDEPENDENT_REVIEW_PACKET.md`, and `scripts/verify_fin000_render_acceptance.py` | review-ready; five independent role decisions pending |
 | Render gallery and state/accessibility review contract | `docs/design/control_center_north_star/renders/finance-compliance-v1/REVIEW_GALLERY.md` and `docs/product/UAA_FINANCE_FIN000_STATE_ACCESSIBILITY_MATRIX.md` | review-ready; implementation proof remains future |
 | Reference parity and clean-room exclusions | product contract and this matrix | defined |
@@ -89,8 +91,10 @@ debt.
 
 ## Exit Truth
 
-Merging FIN-000 means the planning boundary is coherent and reviewable. It does
-not mean renders are accepted, Finance exists in the product, books are stored,
-accounts connect, calculations are correct, an accountant can access data, or
-UAA can advise, pay, transfer, sign, submit, or file. FIN-001 remains blocked by
-the dependency and promotion gates in the implementation plan.
+Founder private-dogfood acceptance means the render direction is coherent
+enough to implement and refine through use. It does not mean independent render
+promotion is complete, Finance exists in the product, real books are stored,
+accounts connect, calculations are professionally validated, an accountant can
+access data, or UAA can advise, pay, transfer, sign, submit, or file. FIN-001 is
+eligible only for a separately reviewed synthetic local kernel under the
+implementation plan.

@@ -94,7 +94,8 @@ curated gallery and snapshot caveats.
 
 ## Planned Creator Feature: Social Media Intelligence
 
-**Status: planned and dependency-gated.** Social Media Intelligence is a
+**Status: founder direction accepted for private dogfood; implementation
+dependency-gated.** Social Media Intelligence is a
 creator-focused command view for cross-channel performance, audience signals,
 campaigns, publishing cadence, and high-value conversations. Social explains
 what changed and routes context into UAA Calendar, Work Board,
@@ -108,15 +109,16 @@ library. Social owns interpretation; Calendar owns time; Work Board owns
 production; Communications owns conversations; CRM owns relationships; Studio
 owns assets; and Evidence owns proof.
 
-This feature is deliberately deferred. UAA must not recommend it as the next
-implementation lane until **Work Board/Kanban**, **first-class CRM**, and
-**Communications/Messenger** are each accepted as fully implemented with
-current backend, API/CLI, frontend, test, visual, and product-truth evidence.
-Passing all three gates makes Social eligible for prioritization, not
-automatically next.
+The displayed direction is accepted for iterative private dogfooding, so
+pixel-perfect visual approval is no longer a blocker. Full Q25 implementation
+remains deferred until the exact CRM relationship projection and strict
+independent-promotion profile are proved alongside the existing Work Board and
+Communications read projections. Passing those gates makes Social eligible for
+prioritization, not automatically next.
 
 See the
 [product contract](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md),
+[private-dogfood direction acceptance](docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md),
 [accepted render pack](docs/design/control_center_north_star/renders/social-media-v1/README.md),
 and
 [gated future implementation prompt](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md).
@@ -513,7 +515,8 @@ Start with the active product truth and indexes.
 | [docs/kanban/current_board.md](docs/kanban/current_board.md) | Current board |
 | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) | Control Center shell gap map |
 | [docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md](docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md) | Founder Loop V1 milestone truth |
-| [docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md) | Planned read-only Social Media Intelligence product and ownership contract |
+| [docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md) | Read-only Social Media Intelligence product and ownership contract with founder-approved private-dogfood direction |
+| [docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md](docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md) | Versioned Q25/Q26 founder direction decision, refinement policy, and preserved independent-promotion gates |
 | [docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md) | Deferred execution prompt gated on Work Board, CRM, and Communications completion |
 | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) | Governed memory spine contract |
 | [docs/api/README.md](docs/api/README.md) | API documentation entrypoint |
@@ -602,9 +605,8 @@ tests/                    Backend, contract, storage, verifier, and API tests
 - **Control Center polish**: clearer shell states and fewer raw technical surfaces.
 - **Local model support**: safer inventory/status/readiness visibility.
 - **Connector contracts**: read-only email/calendar capabilities before any write authority.
-- **Social Media Intelligence**: deferred read-only creator command view, eligible
-  only after Work Board/Kanban, first-class CRM, and Communications/Messenger
-  have accepted completion evidence.
+- **Social Media Intelligence**: founder-approved private-dogfood direction;
+  continue the missing CRM/profile gap before the full read-only milestone.
 - **Private UI testing**: deferred `UAA-P1-087.2` functional tuning after more implementation evidence.
 
 ## Contributing

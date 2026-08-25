@@ -1,7 +1,7 @@
 # Implement Social Media Intelligence After Foundation Gates
 
-Status: stored operator-run prompt; deferred until the Social Read-Only
-Integration Foundation Profile is accepted.
+Status: stored operator-run prompt; founder direction accepted for private
+dogfood, implementation deferred until the remaining CRM/profile gates pass.
 
 Use this prompt only when UAA is evaluating Social Media Intelligence as a
 possible next product lane. Its presence in the repository is not permission
@@ -21,6 +21,7 @@ code or product truth:
 
 - README.md
 - docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md
+- docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md
 - docs/implementation/UAA_COHERENT_APP_ECOSYSTEM_IMPLEMENTATION_PLAN.md
 - docs/decisions/ADR-0054-canonical-application-object-ownership.md
 - docs/prompts/kanban_board/README.md
@@ -41,7 +42,9 @@ Collect current repository-owned evidence for
 Work Board `Social Content` saved projection, CRM relationship context,
 Communications canonical reviewed conversation projection, API/CLI parity,
 tested Control Center behavior, truthful source/freshness states, and accepted
-desktop/narrow visual evidence. Do not require unrelated standalone product
+desktop/narrow visual direction. The founder private-dogfood decision accepts
+the displayed direction and allows cosmetic iteration; require current
+implementation evidence rather than pixel identity. Do not require unrelated standalone product
 completion or future send/write/connector authority.
 
 Do not infer completion from a planning document, mockup, partial route, local
@@ -49,7 +52,8 @@ fixture, isolated test, or the word "done" in a non-canonical note. Cite the
 accepted implementation contract, verifier/test evidence, and current product
 truth for each gate.
 
-If any gate is missing, partial, blocked, stale, or cannot be proved, STOP.
+If any implementation or promotion gate is missing, partial, blocked, stale,
+or cannot be proved, STOP.
 Report the missing evidence and recommend the owning Work Board, CRM, or
 Communications lane instead. Do not add a Social route, navigation item,
 schema, fixture, component, connector, or dependency. Leave Social Media

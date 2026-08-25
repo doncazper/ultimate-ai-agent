@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 986,
+  "timed_file_count": 987,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -3854,6 +3854,11 @@
       "path": "tests/test_private_affected_preflight.py",
       "seconds": 0.2587,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_private_dogfood_direction_acceptance.py",
+      "seconds": 1.2,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_product_loop_012_private_trial_script.py",
