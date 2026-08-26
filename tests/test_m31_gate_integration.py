@@ -14,7 +14,10 @@ def test_m31_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m31_openapi_route_guard_rejects_tool_runtime_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M31_OPENAPI_PATH_COUNT, m31_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M31_OPENAPI_PATH_COUNT,
+        m31_openapi_route_failures,
+    )
 
     failures = m31_openapi_route_failures(
         {
@@ -28,7 +31,7 @@ def test_m31_openapi_route_guard_rejects_tool_runtime_routes() -> None:
     assert any("/tools/execute" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M31_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M31_OPENAPI_PATH_COUNT == 80
     assert m31_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

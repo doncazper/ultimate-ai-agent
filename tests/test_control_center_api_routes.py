@@ -88,8 +88,7 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
             expected_revision_ref=next(
                 str(item["action_revision_ref"])
                 for item in repo.list_action_inbox(limit=200)
-                if item["item_ref"]
-                == "founder-action:local-task-create-scorecard"
+                if item["item_ref"] == "founder-action:local-task-create-scorecard"
             ),
             decision_reason_ref="decision-reason-ref:api-local-task-action-approval",
         ),
@@ -147,8 +146,8 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/evidence/timeline",
         "/control-center/actions/inbox",
         "/control-center/backend-truth",
-            "/control-center/morning-briefing/summary",
-            "/control-center/news-signals/summary",
+        "/control-center/morning-briefing/summary",
+        "/control-center/news-signals/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
         "/control-center/agent-loop/thread",
@@ -187,7 +186,10 @@ def test_control_center_approval_queue_is_backend_owned_read_only() -> None:
     assert data["ui_mutation_controls_enabled"] is False
     connector_review = data["connector_delivery_review_queue"]
     assert connector_review["schema_version"] == "connector_delivery_review_queue.v1"
-    assert connector_review["source"] == "python_core_connector_delivery_review_queue_read_model"
+    assert (
+        connector_review["source"]
+        == "python_core_connector_delivery_review_queue_read_model"
+    )
     assert connector_review["backend_owned"] is True
     assert connector_review["safe_refs_only"] is True
     assert connector_review["raw_payloads_persisted"] is False
@@ -283,7 +285,9 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         assert proposal["write_authority_enabled"] is False
     draft_proposals = data["connector_draft_proposals"]
     assert draft_proposals["schema_version"] == "connector_draft_proposal_read_model.v1"
-    assert draft_proposals["source"] == "python_core_connector_draft_proposal_read_model"
+    assert (
+        draft_proposals["source"] == "python_core_connector_draft_proposal_read_model"
+    )
     assert draft_proposals["backend_owned"] is True
     assert draft_proposals["status"] == "draft_proposals_ready_no_send_write"
     assert draft_proposals["proposal_count"] == 2
@@ -309,9 +313,7 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         assert proposal["connector_send_performed"] is False
         assert proposal["delivery_execution_performed"] is False
         assert "credential_collection_enabled" not in proposal
-        assert "blocked-state:no-connector-write" in proposal[
-            "blocked_authority_refs"
-        ]
+        assert "blocked-state:no-connector-write" in proposal["blocked_authority_refs"]
 
     serialized = response.text.lower()
     for forbidden in [
@@ -342,17 +344,15 @@ def test_backend_truth_route_is_revision_bound_read_only_and_redacted() -> None:
     assert truth["safe_refs_only"] is True
     assert truth["raw_content_included"] is False
     assert truth["raw_paths_included"] is False
-    assert response.headers["X-UAA-Backend-Revision-Ref"] == truth[
-        "backend_revision_ref"
-    ]
-    assert response.headers["X-UAA-Backend-Instance-Ref"] == truth[
-        "backend_instance_ref"
-    ]
+    assert (
+        response.headers["X-UAA-Backend-Revision-Ref"] == truth["backend_revision_ref"]
+    )
+    assert (
+        response.headers["X-UAA-Backend-Instance-Ref"] == truth["backend_instance_ref"]
+    )
     assert truth["authority_posture"]["control_center_grants_authority"] is False
     assert truth["authority_posture"]["production_authority_enabled"] is False
-    assert payload["evidence"] == [
-        {"evidence_ref": truth["envelope_integrity_ref"]}
-    ]
+    assert payload["evidence"] == [{"evidence_ref": truth["envelope_integrity_ref"]}]
 
 
 def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> None:
@@ -373,12 +373,11 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert today["source_readiness_posture"]["connector_runtime_enabled"] is False
     assert today["source_readiness_posture"]["source_refresh_enabled"] is False
     assert today["source_readiness_posture"]["notification_delivery_enabled"] is False
-    assert today["source_readiness_items"] == source_readiness[
-        "source_readiness_items"
-    ]
-    assert today["source_readiness_posture"] == source_readiness[
-        "source_readiness_posture"
-    ]
+    assert today["source_readiness_items"] == source_readiness["source_readiness_items"]
+    assert (
+        today["source_readiness_posture"]
+        == source_readiness["source_readiness_posture"]
+    )
     assert {item["status"] for item in today["source_readiness_items"]} >= {
         "ready",
         "blocked",
@@ -418,9 +417,10 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
         actions["source_readiness_proposal_binding_contract_ref"]
         == "contract-ref:founder-loop-source-readiness-draft-proposals:v1"
     )
-    assert actions["source_readiness_proposal_candidates"] == source_readiness[
-        "source_readiness_proposal_candidates"
-    ]
+    assert (
+        actions["source_readiness_proposal_candidates"]
+        == source_readiness["source_readiness_proposal_candidates"]
+    )
     source_readiness_actions = [
         item
         for item in actions["items"]
@@ -440,9 +440,10 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
         assert item["source_readiness_proposal_classification"] == (
             "proposal_only_no_execution_path"
         )
-        assert "blocked-state:no-connector-write" in item[
-            "source_readiness_blocked_authority_refs"
-        ]
+        assert (
+            "blocked-state:no-connector-write"
+            in item["source_readiness_blocked_authority_refs"]
+        )
     for item in actions["items"]:
         envelope = item["approval_envelope"]
         assert envelope["schema_version"] == "founder_loop_action_approval_envelope.v1"
@@ -482,9 +483,9 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
     assert briefing["source_readiness_items"][0]["source_kind"] == "inbox"
     assert briefing["source_readiness_items"][0]["status"] == "blocked"
     assert briefing["source_readiness_posture"] == today["source_readiness_posture"]
-    assert briefing["source_readiness_items"] == source_readiness[
-        "source_readiness_items"
-    ]
+    assert (
+        briefing["source_readiness_items"] == source_readiness["source_readiness_items"]
+    )
     assert briefing["dogfood_capture"]["public_distribution_enabled"] is False
 
 
@@ -523,17 +524,20 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
     assert "public distribution" in data["blocked_authority_summary"]
     assert "loop-ref:setup-to-daily-loop:v1" in data["first_run_loop_refs"]
     assert "packaging-proof:local-macos-app-bundle" in data["local_package_proof_refs"]
-    assert "script:verify-local-macos-app-bundle-proof" in data[
-        "local_package_proof_refs"
-    ]
-    assert "promotion-path-ref:setup:exact-approved-mutation-pr" in data[
-        "promotion_path_refs"
-    ]
+    assert (
+        "script:verify-local-macos-app-bundle-proof" in data["local_package_proof_refs"]
+    )
+    assert (
+        "promotion-path-ref:setup:exact-approved-mutation-pr"
+        in data["promotion_path_refs"]
+    )
 
     diagnostics = {item["diagnostic_ref"]: item for item in data["diagnostics"]}
     assert diagnostics["macos-setup-diagnostic:read-only-plan"]["status"] == "ready"
     assert diagnostics["macos-setup-diagnostic:native-app"]["status"] == "missing"
-    assert diagnostics["macos-setup-diagnostic:live-health-proof"]["status"] == "blocked"
+    assert (
+        diagnostics["macos-setup-diagnostic:live-health-proof"]["status"] == "blocked"
+    )
     assert diagnostics["macos-setup-diagnostic:rollback-proof"]["status"] == "blocked"
     for diagnostic in diagnostics.values():
         assert diagnostic["read_only"] is True
@@ -707,13 +711,17 @@ def test_control_center_turn_router_preview_api_matches_no_effect_samples() -> N
         assert body["data"]["selected_turn_contract"] == selected_contract
         assert body["data"]["request_kind"] == "sample"
         assert body["data"]["sample_id"] == sample_id
-        assert body["data"]["no_effect_proof"]["no_runtime_model_call_performed"] is True
+        assert (
+            body["data"]["no_effect_proof"]["no_runtime_model_call_performed"] is True
+        )
         assert body["data"]["no_effect_proof"]["no_tool_execution_performed"] is True
         assert body["data"]["no_effect_proof"]["no_action_execution_performed"] is True
         assert TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS[sample_id] not in response.text
 
 
-def test_control_center_turn_router_preview_api_omits_ephemeral_text_and_secret() -> None:
+def test_control_center_turn_router_preview_api_omits_ephemeral_text_and_secret() -> (
+    None
+):
     secret = "api_key='abcdefghijklmnop'"
     response = client.post(
         "/control-center/turn-router/preview",
@@ -775,6 +783,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/crm/smart-lists",
         "/control-center/crm/local-mutations",
         "/control-center/providers/runtime-control-plane",
+        "/control-center/social-publishing/proposal",
     }
     assert required.issubset(paths)
     for forbidden in [
@@ -831,6 +840,30 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/api/runtime/authority-leases/revoke" in paths
     assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
+
+
+def test_social_publishing_proposal_route_is_read_only_and_content_free() -> None:
+    response = client.get("/control-center/social-publishing/proposal")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["operation"] == "control_center_social_publishing_proposal"
+    proposal = body["data"]
+    assert proposal["status"] == "proposal_dry_run_ready"
+    assert proposal["backend_owned"] is True
+    assert proposal["read_only"] is True
+    assert proposal["dry_run_only"] is True
+    assert proposal["raw_content_included"] is False
+    assert proposal["publishing_enabled"] is False
+    assert proposal["external_write_enabled"] is False
+    assert proposal["external_side_effect_performed"] is False
+    assert proposal["fixture"]["draft"]["raw_content_included"] is False
+    assert "blocked-state:q30:no-live-publish" in proposal["blocked_authority_refs"]
+
+    schema = app.openapi()["paths"]["/control-center/social-publishing/proposal"]
+    assert set(schema) == {"get"}
+    route = _api_route_index()[("GET", "/control-center/social-publishing/proposal")]
+    assert route.route_classification == "local_readonly"
+    assert route.side_effect_class == "validation_only"
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(

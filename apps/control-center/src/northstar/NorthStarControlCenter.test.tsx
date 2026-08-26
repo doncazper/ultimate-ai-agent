@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
@@ -86,6 +86,27 @@ describe("North Star workspace surface behavior", () => {
     expect(screen.getByText(/Sanitized render fixture/)).toBeVisible();
     expect(screen.getAllByText("External code blocked").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Start from a brief" })).toBeDisabled();
+  });
+
+  it("renders social publishing as readable dry-run review without a publish control", () => {
+    render(
+      <NorthStarControlCenter
+        activePath="/workspace/studio"
+        data={mockControlCenterData}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Social publishing" }));
+
+    expect(screen.getByRole("heading", { name: "Social publishing review" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Instagram" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "X" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "TikTok" })).toBeVisible();
+    expect(screen.getByText("No publish action")).toBeVisible();
+    expect(screen.getAllByText("Account not connected", { exact: false })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: /^Publish$/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/\{\s*"schema_version"/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dry-run review is CLI-gated" })).toBeDisabled();
   });
 
   it("links workspace navigation to the canonical Messenger shell", () => {

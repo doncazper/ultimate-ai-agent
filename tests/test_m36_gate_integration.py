@@ -13,8 +13,13 @@ def test_m36_foundation_gate_criteria_are_registered() -> None:
     assert "m36_m37_m38_remain_future" in criterion_ids
 
 
-def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M36_OPENAPI_PATH_COUNT, m36_openapi_route_failures
+def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_routes() -> (
+    None
+):
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M36_OPENAPI_PATH_COUNT,
+        m36_openapi_route_failures,
+    )
 
     failures = m36_openapi_route_failures(
         {
@@ -38,7 +43,7 @@ def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_r
     assert any("/memory/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M36_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M36_OPENAPI_PATH_COUNT == 80
     assert m36_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
@@ -52,7 +57,10 @@ def test_m36_surface_guard_rejects_unsafe_refs_and_mutating_requests() -> None:
 
     assert any("mutating M36 file review request" in failure for failure in failures)
     assert any("unsafe M36 safe_path_ref" in failure for failure in failures)
-    assert any("private path fragment in M36 file review fixture" in failure for failure in failures)
+    assert any(
+        "private path fragment in M36 file review fixture" in failure
+        for failure in failures
+    )
 
 
 def test_m36_foundation_gate_evaluator_passes_current_surface() -> None:

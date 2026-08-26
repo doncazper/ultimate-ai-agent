@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
   controlCenterWorkBoardCards: "/control-center/work-board/cards",
   controlCenterWorkBoardReorder: "/control-center/work-board/reorder",
   controlCenterWorkBoardTasks: "/control-center/work-board/tasks",
+  socialPublishingProposal: "/control-center/social-publishing/proposal",
   autocorrectStatus: "/control-center/autocorrect/status",
   autocorrectProposalPreview: "/control-center/autocorrect/proposals/preview",
   autocorrectReviewPreview: "/control-center/autocorrect/reviews/preview",

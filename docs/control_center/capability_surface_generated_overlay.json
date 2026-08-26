@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 356,
+    "api_manifest_route_count": 357,
     "release_surface_route_count": 44,
     "visible_action_count": 47,
     "human_capability_count": 32,
@@ -2224,7 +2224,7 @@
           "ui_status": "metadata-only Skill Workbench",
           "release_status": "partial",
           "owner": "studio-create",
-          "backend_route_count": 1,
+          "backend_route_count": 2,
           "blocked_capability_count": 10,
           "visual_proof_status": "checked_in_baseline",
           "source_truth_status": "current"
@@ -2239,7 +2239,7 @@
           "release_status": "partial_backend_not_product_ready",
           "side_effect_class": "local_dev_workspace_only",
           "risk_class": "low",
-          "backend_route_count": 1,
+          "backend_route_count": 2,
           "missing_backend_route_count": 0,
           "source_truth_status": "current"
         }

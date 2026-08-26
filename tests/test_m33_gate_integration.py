@@ -14,7 +14,10 @@ def test_m33_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M33_OPENAPI_PATH_COUNT, m33_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M33_OPENAPI_PATH_COUNT,
+        m33_openapi_route_failures,
+    )
 
     failures = m33_openapi_route_failures(
         {
@@ -30,7 +33,7 @@ def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes() -> None
     assert any("/files/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M33_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M33_OPENAPI_PATH_COUNT == 80
     assert m33_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
@@ -46,4 +49,3 @@ def test_m33_foundation_gate_evaluator_passes_current_contracts() -> None:
 
     for result in report.results:
         assert result.status == FoundationGateStatus.passed
-

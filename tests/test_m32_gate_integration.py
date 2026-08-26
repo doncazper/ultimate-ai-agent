@@ -14,7 +14,10 @@ def test_m32_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m32_openapi_route_guard_rejects_content_and_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M32_OPENAPI_PATH_COUNT, m32_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M32_OPENAPI_PATH_COUNT,
+        m32_openapi_route_failures,
+    )
 
     failures = m32_openapi_route_failures(
         {
@@ -29,7 +32,7 @@ def test_m32_openapi_route_guard_rejects_content_and_execution_routes() -> None:
     assert any("/files/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M32_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M32_OPENAPI_PATH_COUNT == 80
     assert m32_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

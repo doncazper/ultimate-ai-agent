@@ -12,7 +12,11 @@ def test_m30_foundation_gate_criteria_are_registered() -> None:
     assert "m30_execution_openapi_routes_unchanged" in criterion_ids
     assert "m30_m31_remains_future" in criterion_ids
 
-    criterion = next(item for item in criteria if item.criterion_id == "m30_execution_framework_contract_safe")
+    criterion = next(
+        item
+        for item in criteria
+        if item.criterion_id == "m30_execution_framework_contract_safe"
+    )
     assert "Multi-Step Execution Framework" in criterion.pass_condition
     assert "state-machine only" in criterion.pass_condition
     assert "no real task execution" in criterion.pass_condition
@@ -20,7 +24,10 @@ def test_m30_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m30_openapi_route_guard_rejects_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M30_OPENAPI_PATH_COUNT, m30_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M30_OPENAPI_PATH_COUNT,
+        m30_openapi_route_failures,
+    )
 
     failures = m30_openapi_route_failures(
         {
@@ -35,7 +42,7 @@ def test_m30_openapi_route_guard_rejects_execution_routes() -> None:
     assert any("/execution/run" in failure for failure in failures)
     assert any("/tasks/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M30_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M30_OPENAPI_PATH_COUNT == 80
     assert m30_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

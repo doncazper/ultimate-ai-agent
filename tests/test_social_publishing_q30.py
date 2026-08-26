@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from ultimate_ai_agent.core.social_publishing.contracts import (
     SocialPublishingDryRunKernel,
     build_retry_plan,
     build_q30_fixture,
+    build_q30_proposal_read_model,
     build_review_envelope,
     build_scenario,
     evaluate_variant_compatibility,
@@ -41,7 +43,21 @@ def test_q30_fixture_is_exact_content_free_and_non_authoritative() -> None:
     assert fixture.plan.external_write_enabled is False
 
 
+def test_q30_backend_read_model_is_content_free_and_fail_closed() -> None:
+    proposal = build_q30_proposal_read_model()
+    assert proposal.status == "proposal_dry_run_ready"
+    assert proposal.backend_owned is True
+    assert proposal.read_only is True
+    assert proposal.dry_run_only is True
+    assert proposal.raw_content_included is False
+    assert proposal.publishing_enabled is False
+    assert proposal.external_write_enabled is False
+    assert proposal.external_side_effect_performed is False
+    assert "blocked-state:q30:no-live-publish" in proposal.blocked_authority_refs
+
+
 def test_q30_p0_p4_verifier_passes() -> None:
+    # Keep the accepted corpus identity stable; verify() now covers P0-P6.
     assert verify() == []
 
 
@@ -114,6 +130,29 @@ def test_q30_replay_is_idempotent_and_conflict_fails_closed() -> None:
             envelope=envelope,
             scenario=build_scenario(fixture.plan, "mixed"),
         )
+
+
+def test_q30_concurrent_exact_replay_has_one_owner_and_no_drift() -> None:
+    fixture = build_q30_fixture()
+    envelope = build_review_envelope(
+        fixture.plan, ApprovalDecision.approved_for_dry_run
+    )
+    scenario = build_scenario(fixture.plan, "success")
+    kernel = SocialPublishingDryRunKernel()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(
+            pool.map(
+                lambda _: kernel.execute(
+                    plan=fixture.plan, envelope=envelope, scenario=scenario
+                ),
+                range(8),
+            )
+        )
+
+    assert len({result.result_ref for result in results}) == 1
+    assert sum(result.replayed for result in results) == 7
+    assert all(result.external_side_effect_performed is False for result in results)
 
 
 def test_q30_unknown_requires_reconciliation_before_retry() -> None:

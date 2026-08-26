@@ -1094,6 +1094,7 @@ LOCAL_READONLY_PATHS = {
     "/control-center/runs/observability",
     "/control-center/setup-assistant/summary",
     "/control-center/settings/status",
+    "/control-center/social-publishing/proposal",
     "/control-center/sources/readiness",
     "/control-center/status",
     "/control-center/crm/follow-ups",
@@ -1434,39 +1435,27 @@ def route_classification_for_path(
             ApiRouteClassification.mutating_requires_authority,
             "Proof-backed goal creation records only bounded local metadata after request-scoped LocalApprovalAuthority validation, idempotency, hash-chained persistence, and redaction; it grants no runtime execution or standing authority.",
         )
-    if (
-        normalized_method == "POST"
-        and path
-        in {
-            "/api/runtime/goals/approval-requests/create",
-            "/api/runtime/goals/{goal_ref}/approval-requests/edit",
-            "/api/runtime/goals/{goal_ref}/approval-requests/transition",
-        }
-    ):
+    if normalized_method == "POST" and path in {
+        "/api/runtime/goals/approval-requests/create",
+        "/api/runtime/goals/{goal_ref}/approval-requests/edit",
+        "/api/runtime/goals/{goal_ref}/approval-requests/transition",
+    }:
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Goal approval preparation durably records one exact non-authorizing authority-request specification with request-scoped idempotency and backend-truth binding; it neither grants approval nor mutates a goal.",
         )
-    if (
-        normalized_method == "POST"
-        and path
-        in {
-            "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
-            "/api/runtime/goals/approval-requests/revoke",
-        }
-    ):
+    if normalized_method == "POST" and path in {
+        "/api/runtime/goals/approval-requests/{approval_request_ref}/decision",
+        "/api/runtime/goals/approval-requests/revoke",
+    }:
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Goal approval decision mutation appends one exact operator decision or revocation to the hash-chained approval ledger with durable application-level replay, backend-truth binding, and no standing authority.",
         )
-    if (
-        normalized_method == "POST"
-        and path
-        in {
-            "/api/runtime/goals/{goal_ref}/edit",
-            "/api/runtime/goals/{goal_ref}/transition",
-        }
-    ):
+    if normalized_method == "POST" and path in {
+        "/api/runtime/goals/{goal_ref}/edit",
+        "/api/runtime/goals/{goal_ref}/transition",
+    }:
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Proof-backed goal mutation requires exact local approval, idempotency, optimistic version matching, durable hash-chain receipts, and completion proof binding; runtime execution and standing authority remain blocked.",

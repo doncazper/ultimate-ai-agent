@@ -13,7 +13,9 @@ def test_m28_foundation_gate_criteria_are_registered() -> None:
     assert "m28_m29_remains_future" in criterion_ids
 
     criterion = next(
-        item for item in criteria if item.criterion_id == "m28_approval_authority_v2_action_policy_safe"
+        item
+        for item in criteria
+        if item.criterion_id == "m28_approval_authority_v2_action_policy_safe"
     )
     assert "Approval Authority v2" in criterion.pass_condition
     assert "action execution" in criterion.pass_condition
@@ -21,7 +23,10 @@ def test_m28_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m28_openapi_route_guard_rejects_action_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M28_OPENAPI_PATH_COUNT, m28_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M28_OPENAPI_PATH_COUNT,
+        m28_openapi_route_failures,
+    )
 
     failures = m28_openapi_route_failures(
         {
@@ -39,7 +44,7 @@ def test_m28_openapi_route_guard_rejects_action_execution_routes() -> None:
     assert any("/approval/execute" in failure for failure in failures)
     assert any("/tools/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M28_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M28_OPENAPI_PATH_COUNT == 80
     assert m28_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

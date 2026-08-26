@@ -1,4 +1,7 @@
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
+    default_foundation_gate_criteria,
+)
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M19_OPENAPI_PATH_COUNT,
     M19_FORBIDDEN_BACKEND_ROUTES,
@@ -41,7 +44,7 @@ def test_m19_openapi_route_guard_rejects_mobile_runtime_expansion() -> None:
         expected_path_count=EXPECTED_M19_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M19_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M19_OPENAPI_PATH_COUNT == 80
     assert "/mobile/register" in M19_FORBIDDEN_BACKEND_ROUTES
     assert "/mobile/sensors" in M19_FORBIDDEN_BACKEND_ROUTES
     assert "/mobile/approvals/execute" in M19_FORBIDDEN_BACKEND_ROUTES

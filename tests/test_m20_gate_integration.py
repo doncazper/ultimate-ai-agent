@@ -1,4 +1,7 @@
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
+    default_foundation_gate_criteria,
+)
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M20_OPENAPI_PATH_COUNT,
     M20_FORBIDDEN_BACKEND_ROUTES,
@@ -16,7 +19,10 @@ def test_m20_device_capability_contract_criterion_exists_and_passes() -> None:
     assert "no sensor access" in criterion.pass_condition
     assert "no OS permission integration" in criterion.pass_condition
     assert "no native app" in criterion.pass_condition
-    assert "enabled and implemented capability flags are rejected" in criterion.pass_condition
+    assert (
+        "enabled and implemented capability flags are rejected"
+        in criterion.pass_condition
+    )
     assert "notification runtime" in criterion.pass_condition
     assert "permission runtime claims" in criterion.pass_condition
     assert "OpenAPI path count at 78" in criterion.pass_condition
@@ -41,7 +47,7 @@ def test_m20_openapi_route_guard_rejects_device_runtime_expansion() -> None:
         expected_path_count=EXPECTED_M20_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M20_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M20_OPENAPI_PATH_COUNT == 80
     assert "/device-capabilities" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/device-capabilities/execute" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/device-capabilities/bluetooth" in M20_FORBIDDEN_BACKEND_ROUTES

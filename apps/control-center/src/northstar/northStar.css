@@ -356,3 +356,34 @@
   .ns-crm-table-wrap { min-height: 420px; }
   .ns-crm-inspector { display: block; min-height: 520px; }
 }
+
+.ns-social-publishing-body { display: grid; min-height: 0; flex: 1; grid-template-columns: minmax(0, 1fr) 278px; gap: 12px; padding: 12px; overflow: hidden; background: #f4f6fa; }
+.ns-social-platform-grid { display: grid; min-height: 0; grid-template-columns: repeat(3, minmax(210px, 1fr)); gap: 10px; overflow: auto; }
+.ns-social-platform-card { display: flex; min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid var(--ns-border); border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(23, 46, 77, .06); }
+.ns-social-platform-card > header { display: flex; align-items: center; gap: 8px; padding: 11px; border-bottom: 1px solid var(--ns-border); }
+.ns-social-platform-card > header > div { min-width: 0; flex: 1; }
+.ns-social-platform-card h2 { margin: 0; font-size: 13px; }
+.ns-social-platform-card header small, .ns-social-platform-card footer small, .ns-social-review-rail small { display: block; overflow: hidden; color: #607893; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.ns-social-platform-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: #234f7c; color: #fff; font-size: 11px; font-weight: 800; }
+.ns-social-platform-mark.instagram { background: linear-gradient(145deg, #7b2bbf, #dc4b69, #f19a32); }
+.ns-social-platform-mark.x { border-radius: 50%; background: #111827; }
+.ns-social-platform-mark.tiktok { background: #18364c; box-shadow: inset 2px 0 #36d7d7, inset -2px 0 #f55176; }
+.ns-social-preview-tile { display: grid; min-height: 130px; place-content: center; justify-items: center; gap: 5px; padding: 16px; background: linear-gradient(145deg, #e8eef6, #f7f9fc); color: #375b7f; }
+.ns-social-preview-tile strong { font-size: 10px; }
+.ns-social-preview-tile small { max-width: 180px; }
+.ns-social-platform-card dl, .ns-social-review-rail dl { margin: 0; padding: 9px 11px; }
+.ns-social-platform-card dl > div, .ns-social-review-rail dl > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid #edf1f5; font-size: 8px; }
+.ns-social-platform-card dt, .ns-social-review-rail dt { color: #607893; }
+.ns-social-platform-card dd, .ns-social-review-rail dd { margin: 0; color: #183a5e; font-weight: 700; text-align: right; text-transform: capitalize; }
+.ns-social-findings { display: grid; gap: 6px; padding: 8px 11px; }
+.ns-social-findings > div { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 6px; }
+.ns-social-findings p { margin: 1px 0 0; color: #355b86; font-size: 8px; line-height: 1.35; }
+.ns-social-platform-card > footer { margin-top: auto; padding: 8px 11px; border-top: 1px solid var(--ns-border); background: #f8fafc; }
+.ns-social-review-rail { display: grid; min-height: 0; align-content: start; gap: 8px; overflow: auto; }
+.ns-social-review-rail .ns-panel { overflow: visible; }
+.ns-social-review-rail .ns-panel > p { margin: 9px 11px; color: #355b86; font-size: 9px; line-height: 1.45; }
+.ns-social-review-rail .ns-panel > small { margin: 0 11px 10px; }
+.ns-social-review-rail ul { display: grid; gap: 5px; margin: 8px 11px 10px; padding: 0; list-style: none; }
+.ns-social-review-rail li { padding: 5px 7px; border-left: 2px solid #c65a2e; background: #fff6ed; color: #784022; font-size: 8px; text-transform: capitalize; }
+.ns-social-review-rail > .ns-button { width: 100%; }
+@media (max-width: 1050px) { .ns-social-publishing-body { grid-template-columns: 1fr; overflow: auto; }.ns-social-platform-grid { grid-template-columns: repeat(3, minmax(230px, 1fr)); min-height: 430px; }.ns-social-review-rail { grid-template-columns: repeat(3, minmax(220px, 1fr)); overflow: visible; }.ns-social-review-rail > .ns-button { grid-column: 1 / -1; } }
