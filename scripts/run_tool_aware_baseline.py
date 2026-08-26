@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,20 +14,28 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
+    AcceptanceEvidenceBinding,
     AdjudicationBundle,
     BASELINE_ACCEPTANCE_AUTHORITY_CONFIGURED,
     BaselineReceipt,
     BlindScoreBundle,
     CandidateLock,
     PairManifest,
+    PowerAnalysisReceipt,
+    RandomizationBundle,
+    SourceDependencyClosure,
     SourceProjection,
     TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE,
     TAW00Protocol,
     durable_payload_has_forbidden_fields,
     protocol_readiness,
+    validate_acceptance_evidence_binding,
     validate_baseline_receipt,
     validate_blind_score_set,
+    validate_power_analysis_receipt,
+    validate_randomization_bundle,
     verify_candidate_lock,
+    verify_source_dependency_closure,
 )
 from ultimate_ai_agent.core.evals.tool_aware_corpus import (  # noqa: E402
     DevelopmentCorpusManifest,
@@ -39,6 +48,7 @@ DEFAULT_PROTOCOL = ROOT / "docs/evals/tool_aware_cognition_taw00_protocol_v1.jso
 DEFAULT_SOURCE_PROJECTION = (
     ROOT / "docs/evals/tool_aware_cognition_taw00_source_projection_v1.json"
 )
+_GIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _json(path: Path) -> Any:
@@ -73,6 +83,19 @@ def _git_content(revision_ref: str, path_ref: str) -> bytes:
     return completed.stdout
 
 
+def _git_path_refs(revision_ref: str) -> set[str]:
+    revision = revision_ref.removeprefix("git-sha:")
+    if not _GIT_REVISION.fullmatch(revision):
+        raise ValueError("source revision ref is invalid")
+    completed = subprocess.run(  # noqa: S603
+        ["git", "-C", str(ROOT), "ls-tree", "-r", "--name-only", revision],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {f"repo-path-ref:{path}" for path in completed.stdout.splitlines() if path}
+
+
 def _baseline_verification_failures(
     *,
     receipt: BaselineReceipt,
@@ -86,6 +109,8 @@ def _baseline_verification_failures(
             protocol,
             source_projection_digest_ref=source_projection.projection_digest_ref,
             pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
+            source_revision_ref=source_projection.source_revision_ref,
+            pair_manifest=pair_manifest,
         )
     )
     if protocol.status != "locked":
@@ -132,17 +157,49 @@ def main() -> int:
     verify_scores.add_argument("--scores", type=Path, required=True)
     verify_scores.add_argument("--adjudications", type=Path, required=True)
     verify_scores.add_argument("--pair-manifest", type=Path, required=True)
+    verify_scores.add_argument("--randomization", type=Path, required=True)
+
+    verify_power = subparsers.add_parser("verify-power-analysis")
+    verify_power.add_argument("--receipt", type=Path, required=True)
+    verify_power.add_argument("--protocol", type=Path, required=True)
+    verify_power.add_argument("--pair-manifest", type=Path, required=True)
+
+    verify_randomization = subparsers.add_parser("verify-randomization")
+    verify_randomization.add_argument("--bundle", type=Path, required=True)
+    verify_randomization.add_argument("--pair-manifest", type=Path, required=True)
+    verify_randomization.add_argument("--candidate-lock", type=Path, required=True)
+
+    verify_closure = subparsers.add_parser("verify-source-closure")
+    verify_closure.add_argument("--closure", type=Path, required=True)
+    verify_closure.add_argument("--source-projection", type=Path, required=True)
+
+    verify_binding = subparsers.add_parser("verify-acceptance-binding")
+    verify_binding.add_argument("--binding", type=Path, required=True)
+    verify_binding.add_argument("--protocol", type=Path, required=True)
+    verify_binding.add_argument("--power-analysis", type=Path, required=True)
+    verify_binding.add_argument("--source-projection", type=Path, required=True)
+    verify_binding.add_argument("--source-closure", type=Path, required=True)
+    verify_binding.add_argument("--candidate-lock", type=Path, required=True)
+    verify_binding.add_argument("--pair-manifest", type=Path, required=True)
+    verify_binding.add_argument("--baseline-receipt", type=Path, required=True)
+    verify_binding.add_argument("--randomization", type=Path, required=True)
+    verify_binding.add_argument("--scores", type=Path, required=True)
+    verify_binding.add_argument("--adjudications", type=Path, required=True)
 
     readiness = subparsers.add_parser("report-readiness")
     readiness.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
     readiness.add_argument("--commitment", type=Path, required=True)
     readiness.add_argument("--development-corpus", type=Path, required=True)
     readiness.add_argument("--pair-manifest", type=Path, required=True)
+    readiness.add_argument("--power-analysis", type=Path, required=True)
     readiness.add_argument("--baseline-receipt", type=Path, required=True)
     readiness.add_argument(
         "--source-projection", type=Path, default=DEFAULT_SOURCE_PROJECTION
     )
     readiness.add_argument("--candidate-lock", type=Path, required=True)
+    readiness.add_argument("--source-closure", type=Path, required=True)
+    readiness.add_argument("--randomization", type=Path, required=True)
+    readiness.add_argument("--acceptance-binding", type=Path, required=True)
     readiness.add_argument("--scores", type=Path, required=True)
     readiness.add_argument("--adjudications", type=Path, required=True)
 
@@ -203,13 +260,18 @@ def main() -> int:
             score_payload = _json(args.scores)
             adjudication_payload = _json(args.adjudications)
             pair_manifest_payload = _json(args.pair_manifest)
+            randomization_payload = _json(args.randomization)
             _validate_safe(score_payload)
             _validate_safe(adjudication_payload)
             _validate_safe(pair_manifest_payload)
+            _validate_safe(randomization_payload)
             pair_manifest = PairManifest.model_validate(pair_manifest_payload)
             score_bundle = BlindScoreBundle.model_validate(score_payload)
             adjudication_bundle = AdjudicationBundle.model_validate(
                 adjudication_payload
+            )
+            randomization_bundle = RandomizationBundle.model_validate(
+                randomization_payload
             )
             if any(
                 digest != pair_manifest.manifest_digest_ref
@@ -223,6 +285,7 @@ def main() -> int:
                 score_bundle.scores,
                 adjudication_bundle.adjudications,
                 pair_manifest=pair_manifest,
+                randomization_bundle=randomization_bundle,
             )
             _emit(
                 {
@@ -234,6 +297,125 @@ def main() -> int:
                 }
             )
             return 2
+        elif args.command == "verify-power-analysis":
+            payloads = {
+                "receipt": _json(args.receipt),
+                "protocol": _json(args.protocol),
+                "pair_manifest": _json(args.pair_manifest),
+            }
+            _validate_safe(payloads)
+            power_receipt = PowerAnalysisReceipt.model_validate(payloads["receipt"])
+            protocol = TAW00Protocol.model_validate(payloads["protocol"])
+            pair_manifest = PairManifest.model_validate(payloads["pair_manifest"])
+            failures = validate_power_analysis_receipt(
+                power_receipt, protocol, pair_manifest=pair_manifest
+            )
+            _emit(
+                {
+                    "status": "receipt_consistency_only_acceptance_blocked",
+                    "failure_refs": failures,
+                }
+            )
+            return 2
+        elif args.command == "verify-randomization":
+            payloads = {
+                "bundle": _json(args.bundle),
+                "pair_manifest": _json(args.pair_manifest),
+                "candidate_lock": _json(args.candidate_lock),
+            }
+            _validate_safe(payloads)
+            bundle = RandomizationBundle.model_validate(payloads["bundle"])
+            pair_manifest = PairManifest.model_validate(payloads["pair_manifest"])
+            candidate_lock = CandidateLock.model_validate(payloads["candidate_lock"])
+            failures = validate_randomization_bundle(
+                bundle,
+                pair_manifest=pair_manifest,
+                candidate_lock=candidate_lock,
+            )
+            _emit(
+                {
+                    "status": "receipt_consistency_only_acceptance_blocked",
+                    "failure_refs": failures,
+                }
+            )
+            return 2
+        elif args.command == "verify-source-closure":
+            payloads = {
+                "closure": _json(args.closure),
+                "source_projection": _json(args.source_projection),
+            }
+            _validate_safe(payloads)
+            closure = SourceDependencyClosure.model_validate(payloads["closure"])
+            projection = SourceProjection.model_validate(payloads["source_projection"])
+            content_by_path = {
+                entry.path_ref: _git_content(
+                    closure.source_revision_ref, entry.path_ref
+                )
+                for entry in closure.entries
+            }
+            failures = verify_source_dependency_closure(
+                closure,
+                source_projection=projection,
+                content_by_path_ref=content_by_path,
+                available_path_refs=_git_path_refs(closure.source_revision_ref),
+            )
+            _emit(
+                {
+                    "status": "receipt_consistency_only_acceptance_blocked",
+                    "failure_refs": failures,
+                }
+            )
+            return 2
+        elif args.command == "verify-acceptance-binding":
+            payloads = {
+                name: _json(path)
+                for name, path in (
+                    ("binding", args.binding),
+                    ("protocol", args.protocol),
+                    ("power_analysis", args.power_analysis),
+                    ("source_projection", args.source_projection),
+                    ("source_closure", args.source_closure),
+                    ("candidate_lock", args.candidate_lock),
+                    ("pair_manifest", args.pair_manifest),
+                    ("baseline_receipt", args.baseline_receipt),
+                    ("randomization", args.randomization),
+                    ("scores", args.scores),
+                    ("adjudications", args.adjudications),
+                )
+            }
+            _validate_safe(payloads)
+            failures = validate_acceptance_evidence_binding(
+                AcceptanceEvidenceBinding.model_validate(payloads["binding"]),
+                protocol=TAW00Protocol.model_validate(payloads["protocol"]),
+                power_analysis=PowerAnalysisReceipt.model_validate(
+                    payloads["power_analysis"]
+                ),
+                source_projection=SourceProjection.model_validate(
+                    payloads["source_projection"]
+                ),
+                source_closure=SourceDependencyClosure.model_validate(
+                    payloads["source_closure"]
+                ),
+                candidate_lock=CandidateLock.model_validate(payloads["candidate_lock"]),
+                pair_manifest=PairManifest.model_validate(payloads["pair_manifest"]),
+                baseline_receipt=BaselineReceipt.model_validate(
+                    payloads["baseline_receipt"]
+                ),
+                randomization_bundle=RandomizationBundle.model_validate(
+                    payloads["randomization"]
+                ),
+                score_bundle=BlindScoreBundle.model_validate(payloads["scores"]),
+                adjudication_bundle=AdjudicationBundle.model_validate(
+                    payloads["adjudications"]
+                ),
+            )
+            _emit(
+                {
+                    "status": "receipt_consistency_only_acceptance_blocked",
+                    "failure_refs": failures,
+                }
+            )
+            return 2
         elif args.command == "report-readiness":
             protocol = _validate_protocol(args.protocol)
             artifacts = {
@@ -242,9 +424,13 @@ def main() -> int:
                     ("commitment", args.commitment),
                     ("development_corpus", args.development_corpus),
                     ("pair_manifest", args.pair_manifest),
+                    ("power_analysis", args.power_analysis),
                     ("baseline_receipt", args.baseline_receipt),
                     ("source_projection", args.source_projection),
+                    ("source_closure", args.source_closure),
                     ("candidate_lock", args.candidate_lock),
+                    ("randomization", args.randomization),
+                    ("acceptance_binding", args.acceptance_binding),
                     ("scores", args.scores),
                     ("adjudications", args.adjudications),
                 )
@@ -255,9 +441,21 @@ def main() -> int:
                 artifacts["development_corpus"]
             )
             pair_manifest = PairManifest.model_validate(artifacts["pair_manifest"])
+            power_analysis = PowerAnalysisReceipt.model_validate(
+                artifacts["power_analysis"]
+            )
             baseline = BaselineReceipt.model_validate(artifacts["baseline_receipt"])
             projection = SourceProjection.model_validate(artifacts["source_projection"])
+            source_closure = SourceDependencyClosure.model_validate(
+                artifacts["source_closure"]
+            )
             candidate_lock = CandidateLock.model_validate(artifacts["candidate_lock"])
+            randomization = RandomizationBundle.model_validate(
+                artifacts["randomization"]
+            )
+            acceptance_binding = AcceptanceEvidenceBinding.model_validate(
+                artifacts["acceptance_binding"]
+            )
             score_bundle = BlindScoreBundle.model_validate(artifacts["scores"])
             adjudication_bundle = AdjudicationBundle.model_validate(
                 artifacts["adjudications"]
@@ -274,6 +472,7 @@ def main() -> int:
                 score_bundle.scores,
                 adjudication_bundle.adjudications,
                 pair_manifest=pair_manifest,
+                randomization_bundle=randomization,
             )
             source_paths = tuple(item.path_ref for item in projection.entries)
             source_projection_verified = all(
@@ -299,22 +498,61 @@ def main() -> int:
                 protocol,
                 source_projection_digest_ref=projection.projection_digest_ref,
                 pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
+                source_revision_ref=projection.source_revision_ref,
+                pair_manifest=pair_manifest,
+            )
+            closure_content = {
+                entry.path_ref: _git_content(
+                    source_closure.source_revision_ref, entry.path_ref
+                )
+                for entry in source_closure.entries
+            }
+            source_closure_failures = verify_source_dependency_closure(
+                source_closure,
+                source_projection=projection,
+                content_by_path_ref=closure_content,
+                available_path_refs=_git_path_refs(source_closure.source_revision_ref),
+            )
+            randomization_failures = validate_randomization_bundle(
+                randomization,
+                pair_manifest=pair_manifest,
+                candidate_lock=candidate_lock,
+            )
+            binding_failures = validate_acceptance_evidence_binding(
+                acceptance_binding,
+                protocol=protocol,
+                power_analysis=power_analysis,
+                source_projection=projection,
+                source_closure=source_closure,
+                candidate_lock=candidate_lock,
+                pair_manifest=pair_manifest,
+                baseline_receipt=baseline,
+                randomization_bundle=randomization,
+                score_bundle=score_bundle,
+                adjudication_bundle=adjudication_bundle,
             )
             report = protocol_readiness(
                 protocol,
                 commitment=commitment,
                 development_corpus=development_corpus,
                 pair_manifest=pair_manifest,
+                power_analysis_receipt=power_analysis,
                 baseline_receipt=baseline,
                 source_projection_digest_ref=projection.projection_digest_ref,
                 source_projection_path_refs=source_paths,
                 source_projection_verified=source_projection_verified,
+                source_closure_verified=not source_closure_failures,
+                source_closure_failures=source_closure_failures,
                 baseline_acceptance_verified=False,
                 candidate_lock_verified=not candidate_failures,
                 candidate_lock_failures=tuple(
                     (*candidate_failures, *baseline_failures)
                 ),
                 score_report=score_report,
+                randomization_verified=not randomization_failures,
+                randomization_failures=randomization_failures,
+                acceptance_binding_verified=not binding_failures,
+                acceptance_binding_failures=binding_failures,
             )
             _emit(report)
             if report["status"] != "ready":

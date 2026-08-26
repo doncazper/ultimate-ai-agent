@@ -8,13 +8,13 @@ remaining-queue manifest,
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. This program
 extends the existing Turn Contract Router, preserves the local model as UAA's
 language/reasoning engine, and grants no runtime authority by itself.
-The fail-closed TAW-00 evaluation scaffold is documented in
+The fail-closed TAW-00 evaluation acceptance contracts are documented in
 `docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md`; its checked-in protocol
-remains blocked on incomplete acceptance-evidence contracts, truthful supported-
-matrix freeze, independent holdout custody/evaluator identity authority, and an
+remains blocked on truthful supported-matrix freeze, independent holdout
+custody/evaluator identity authority, actual measurements, and an
 externally accepted-current baseline before any routing or prompt change.
 Candidate-generated safe refs, keys, receipts, or completion booleans cannot
-open those gates, and the scaffold has no `ready` result.
+open those gates, and the facility has no `ready` result.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one

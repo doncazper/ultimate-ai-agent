@@ -5,6 +5,78 @@ import random
 from collections.abc import Mapping, Sequence
 
 
+def binomial_one_sided_upper_bound(
+    event_count: int,
+    denominator: int,
+    *,
+    confidence: float = 0.95,
+) -> float:
+    """Exact Clopper-Pearson one-sided upper bound for a binomial rate."""
+    if denominator < 1 or event_count < 0 or event_count > denominator:
+        raise ValueError("invalid binomial event count or denominator")
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between zero and one")
+    if event_count == denominator:
+        return 1.0
+
+    alpha = 1.0 - confidence
+
+    def cumulative_probability(probability: float) -> float:
+        if probability <= 0:
+            return 1.0
+        if probability >= 1:
+            return 0.0
+
+        def probability_mass(observed: int) -> float:
+            log_mass = (
+                math.lgamma(denominator + 1)
+                - math.lgamma(observed + 1)
+                - math.lgamma(denominator - observed + 1)
+                + observed * math.log(probability)
+                + (denominator - observed) * math.log1p(-probability)
+            )
+            return math.exp(log_mass)
+
+        if event_count <= denominator // 2:
+            observed = event_count
+            term = probability_mass(observed)
+            total = term
+            while observed > 0:
+                term *= (
+                    observed
+                    / (denominator - observed + 1)
+                    * (1.0 - probability)
+                    / probability
+                )
+                total += term
+                observed -= 1
+            return min(1.0, total)
+
+        observed = event_count + 1
+        term = probability_mass(observed)
+        upper_tail = term
+        while observed < denominator:
+            term *= (
+                (denominator - observed)
+                / (observed + 1)
+                * probability
+                / (1.0 - probability)
+            )
+            upper_tail += term
+            observed += 1
+        return max(0.0, 1.0 - upper_tail)
+
+    low = event_count / denominator
+    high = 1.0
+    for _ in range(96):
+        midpoint = (low + high) / 2.0
+        if cumulative_probability(midpoint) > alpha:
+            low = midpoint
+        else:
+            high = midpoint
+    return high
+
+
 def holm_adjusted_alpha(
     p_values_by_ref: Mapping[str, float], *, familywise_alpha: float = 0.05
 ) -> dict[str, float]:
