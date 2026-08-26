@@ -96,10 +96,11 @@ added.
 Founder private-dogfood direction acceptance clears the FIN-000 visual
 prerequisite for this bounded package. The activation record merged and the
 coordinator claimed `dev-task:finance-fin001-synthetic-kernel` at revision 164.
-The implementation candidate now provides the contracts, deterministic fixture,
-protected repository, exact authority gate, and bounded CLI described in
-`docs/product/UAA_FINANCE_FIN001_SYNTHETIC_KERNEL.md`. Exact-head review, merge,
-and a coordinator completion receipt remain required. The decision does not
+The implementation provides the contracts, deterministic fixture, protected
+repository, exact authority gate, and bounded CLI described in
+`docs/product/UAA_FINANCE_FIN001_SYNTHETIC_KERNEL.md`. PR 428 merged the exact
+candidate after all hosted checks and clean exact-head review, and Queue V2
+recorded completion and its terminal packet at revision 166. The decision does not
 authorize persistent real financial data, a connector, advice, filing, or
 professional-readiness claims. Those remain behind independent promotion and
 their exact later capability gates.
@@ -129,10 +130,10 @@ Deliver:
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 
-Candidate exit evidence: a synthetic local book can be created, validated,
+Exit evidence: a synthetic local book can be created, validated,
 redacted-exported, backed up, restored, and cryptographically deleted without
-the UI or any connector. The task is not complete until protected merge and
-Queue V2 disposition evidence are recorded.
+the UI or any connector. Protected merge and Queue V2 disposition evidence are
+recorded; this does not activate FIN-002 or real-data handling.
 
 ### `FIN-002` Manual capture and file import pipeline
 

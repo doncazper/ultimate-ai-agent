@@ -46,13 +46,23 @@ def inspect_relationships(args: argparse.Namespace) -> int:
             "relationships": [
                 item.model_dump(mode="json") for item in crm.relationships
             ],
+            "social_relationship_projection": (
+                crm.social_relationship_projection.model_dump(mode="json")
+            ),
             "communication_drafts": [
                 item.model_dump(mode="json") for item in crm.communication_drafts
             ],
-            "ai_proposals": [
-                item.model_dump(mode="json") for item in crm.ai_proposals
-            ],
+            "ai_proposals": [item.model_dump(mode="json") for item in crm.ai_proposals],
         },
+        pretty=args.pretty,
+    )
+    return 0
+
+
+def inspect_social_relationships(args: argparse.Namespace) -> int:
+    crm = _store(args).read_model()
+    _print(
+        crm.social_relationship_projection.model_dump(mode="json"),
         pretty=args.pretty,
     )
     return 0
@@ -105,9 +115,7 @@ def inspect_smart_lists(args: argparse.Namespace) -> int:
     _print(
         {
             "contract_ref": crm.contract_ref,
-            "smart_lists": [
-                item.model_dump(mode="json") for item in crm.smart_lists
-            ],
+            "smart_lists": [item.model_dump(mode="json") for item in crm.smart_lists],
             "connector_read_lanes": crm.connector_read_lanes.model_dump(mode="json"),
             "sends_writes_authority_plan": (
                 crm.sends_writes_authority_plan.model_dump(mode="json")
@@ -196,9 +204,10 @@ def mutate_local(args: argparse.Namespace) -> int:
         stage_ref=args.stage_ref,
         metadata_refs=args.metadata_ref,
     )
-    receipt = _store(args).record_local_mutation(
+    receipt = _store(args).record_confirmed_local_mutation(
         request=request,
         idempotency_ref=args.idempotency_ref,
+        confirmed=args.confirm,
     )
     _print(receipt.model_dump(mode="json"), pretty=args.pretty)
     return 0
@@ -229,9 +238,18 @@ def build_parser() -> argparse.ArgumentParser:
             inspect_relationships,
             "Print relationship, people, organization, draft, and proposal refs.",
         ),
+        (
+            "inspect-social-relationships",
+            inspect_social_relationships,
+            "Print the CRM-owned read-only Social relationship projection.",
+        ),
         ("inspect-timeline", inspect_timeline, "Print timeline and report refs."),
         ("inspect-follow-ups", inspect_follow_ups, "Print follow-up queue refs."),
-        ("inspect-pipelines", inspect_pipelines, "Print pipeline and opportunity refs."),
+        (
+            "inspect-pipelines",
+            inspect_pipelines,
+            "Print pipeline and opportunity refs.",
+        ),
         ("inspect-smart-lists", inspect_smart_lists, "Print smart list refs."),
         (
             "inspect-connector-read-lanes",
@@ -283,6 +301,14 @@ def build_parser() -> argparse.ArgumentParser:
     mutation.add_argument("--target-ref", required=True)
     mutation.add_argument("--approval-ref", required=True)
     mutation.add_argument("--idempotency-ref", required=True)
+    mutation.add_argument(
+        "--confirm",
+        action="store_true",
+        help=(
+            "Capture one exact local operator approval and five-minute Contacts "
+            "write lease for this mutation only."
+        ),
+    )
     mutation.add_argument(
         "--safe-summary",
         default="Local CRM mutation requested with safe summary only.",

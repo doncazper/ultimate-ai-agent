@@ -788,9 +788,14 @@ describe("North Star backend wiring", () => {
     data.routeStates["/crm"].state = "backend_owned";
     data.routeStates["/coding"].state = "backend_owned";
     Object.assign(data.crmLocalCommandCenter, { backend_owned: true, read_only: true, safe_refs_only: true });
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, { backend_owned: true });
+    for (const item of data.crmLocalCommandCenter.social_relationship_projection.items) item.backend_owned = true;
     const { rerender } = render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
     expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
+    expect(screen.getByText("Social relationship context")).toBeVisible();
+    expect(screen.getByText(/CRM owned · read only/)).toBeVisible();
+    expect(screen.getByText(/control-center-deep-link-ref:crm:/)).toBeVisible();
 
     rerender(<NorthStarControlCenter activePath="/workspace/onboarding" data={data} />);
     fireEvent.click(screen.getByRole("button", { name: "Continue to review" }));
@@ -801,6 +806,70 @@ describe("North Star backend wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: /CodePropose, review, validate/ }));
     expect(screen.getByText(data.codingSession.project_model.project_label)).toBeVisible();
     expect(screen.getByText(/File writes blocked/)).toBeVisible();
+  });
+
+  it("labels Social relationship counts as fallback without backend truth", () => {
+    const data = cloneData();
+
+    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+
+    expect(screen.getByText("Social links").closest("div")).toHaveTextContent(
+      "fallback",
+    );
+    expect(screen.getByText("Non-authoritative fallback")).toBeVisible();
+  });
+
+  it("keeps exact CRM route truth visible when unrelated reads are degraded", () => {
+    const data = cloneData();
+    data.connection.state = "degraded";
+    data.connection.usingMockData = true;
+    data.routeStates["/crm"].state = "backend_owned";
+    Object.assign(data.crmLocalCommandCenter, {
+      backend_owned: true,
+      read_only: true,
+      safe_refs_only: true,
+    });
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, {
+      backend_owned: true,
+    });
+    for (const item of data.crmLocalCommandCenter.social_relationship_projection
+      .items) {
+      item.backend_owned = true;
+    }
+
+    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+
+    expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
+    expect(screen.getByText(/CRM owned · read only/)).toBeVisible();
+  });
+
+  it("distinguishes a truncated Social page from an unselected relationship", () => {
+    const data = cloneData();
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, {
+      items: [],
+      total_item_count: 2,
+      returned_item_count: 0,
+      truncated: true,
+    });
+
+    const view = render(
+      <NorthStarControlCenter activePath="/workspace/crm" data={data} />,
+    );
+
+    expect(
+      screen.getByText(/projection page is truncated/i),
+    ).toBeVisible();
+
+    data.crmLocalCommandCenter.people[0].tags =
+      data.crmLocalCommandCenter.people[0].tags.filter(
+        (tag) => tag !== "social-context",
+      );
+    view.rerender(
+      <NorthStarControlCenter activePath="/workspace/crm" data={data} />,
+    );
+    expect(
+      screen.getByText(/not in the Social context projection/i),
+    ).toBeVisible();
   });
 
   it("does not label nested CRM or Studio data backend-owned when route truth is fallback", () => {

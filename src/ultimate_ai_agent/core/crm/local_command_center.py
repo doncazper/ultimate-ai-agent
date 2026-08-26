@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -20,13 +21,22 @@ from ultimate_ai_agent.core.approvals import (
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
     AuthorityCapability,
+    AuthorityConstraint,
+    AuthorityConstraintClaim,
+    AuthorityConstraintKind,
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseRevokeRequest,
+    AuthorityLeaseScope,
     AuthorityLeaseStore,
     TrustMode,
     build_default_authority_leases,
     evaluate_authority_request,
+)
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.crm.contracts import (
     CRM_COMMUNICATIONS_REQUIRED_DENIAL_REFS,
@@ -39,6 +49,12 @@ from ultimate_ai_agent.core.crm.contracts import (
     _validate_ref_list,
     _validate_safe_text,
 )
+from ultimate_ai_agent.core.crm.social_projection import (
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+    CRM_SOCIAL_RELATIONSHIP_TAG,
+    CrmSocialRelationshipProjection,
+    build_crm_social_relationship_projection,
+)
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -48,12 +64,11 @@ from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
 )
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.time import utc_now
 
 
-CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF = (
-    "contract-ref:crm-local-command-center:m2:v1"
-)
+CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF = "contract-ref:crm-local-command-center:m2:v1"
 CRM_LOCAL_COMMAND_CENTER_DOC_REF = "docs-ref:uaa-crm-local-command-center-plan"
 CRM_LOCAL_COMMAND_CENTER_VERIFIER_REF = "script-ref:verify-crm-local-command-center"
 CRM_LOCAL_COMMAND_CENTER_STORAGE_REF = (
@@ -61,6 +76,12 @@ CRM_LOCAL_COMMAND_CENTER_STORAGE_REF = (
 )
 CRM_LOCAL_COMMAND_CENTER_SOURCE = "python_core_crm_local_command_center_read_model"
 CRM_LOCAL_COMMAND_CENTER_SCHEMA_VERSION = "crm-local-command-center.v1"
+CRM_LOCAL_PIPELINE_STAGE_LABELS = {
+    "stage-ref:crm-local:operator:new": "New",
+    "stage-ref:crm-local:operator:qualified": "Qualified",
+    "stage-ref:crm-local:operator:needs-review": "Needs Review",
+    "stage-ref:crm-local:operator:blocked": "Blocked",
+}
 
 CRM_LOCAL_COMMAND_CENTER_ROUTE_REFS = [
     "GET /control-center/crm/summary",
@@ -81,6 +102,7 @@ CRM_LOCAL_COMMAND_CENTER_CLI_REFS = [
     "repo-local-command:uaa-crm:inspect-pipelines",
     "repo-local-command:uaa-crm:inspect-connector-read-lanes",
     "repo-local-command:uaa-crm:inspect-storage",
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
     "repo-local-command:uaa-crm:mutate-local",
 ]
 
@@ -90,13 +112,12 @@ CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF = "authority-action-ref:crm-local-mutati
 CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF = "lane-ref:crm-local-mutation"
 CRM_LOCAL_MUTATION_AUTHORITY_DOMAIN_REF = "authority-domain-ref:contacts"
 CRM_LOCAL_MUTATION_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
-CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF = (
-    "authority-mode-ref:ask-before-changes"
-)
+CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF = "authority-mode-ref:ask-before-changes"
 CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_BLOCKED_REF = (
     "blocked-state:crm-local-mutation-authority-lease-required"
 )
 CRM_LOCAL_MUTATION_SAFE_DISABLE_REF = "safe-disable-ref:crm-local-mutation"
+CRM_LOCAL_STATE_LOCK_KEY = "crm-local-command-center-state"
 CRM_LOCAL_IMPORT_EXPORT_CONTRACT_REF = "contract-ref:crm-local-import-export:v1"
 CRM_LOCAL_AI_PROPOSAL_CONTRACT_REF = "contract-ref:crm-ai-proposal-layer:v1"
 CRM_LOCAL_CONNECTOR_READ_POSTURE_REF = "posture-ref:crm-connector-read-lanes:v1"
@@ -700,9 +721,7 @@ class CrmConnectorReadLaneReadModel(_CrmLocalModel):
     gateway_boundary_ref: str = (
         "gateway-ref:crm-connector-read:approved-read-gateway-required:v1"
     )
-    policy_decision_ref: str = (
-        "policy-ref:crm-connector-read:deny-until-exact-lane:v1"
-    )
+    policy_decision_ref: str = "policy-ref:crm-connector-read:deny-until-exact-lane:v1"
     approval_scope_ref: str = (
         "approval-scope-ref:crm-connector-read:per-attempt-required:v1"
     )
@@ -714,9 +733,7 @@ class CrmConnectorReadLaneReadModel(_CrmLocalModel):
     )
     proof_ref: str = "proof-ref:crm-connector-read-readiness:v1"
     evidence_ref: str = "evidence-ref:crm-connector-read-readiness:v1"
-    cli_inspection_ref: str = (
-        "repo-local-command:uaa-crm:inspect-connector-read-lanes"
-    )
+    cli_inspection_ref: str = "repo-local-command:uaa-crm:inspect-connector-read-lanes"
     api_surface_ref: str = "GET /control-center/crm/summary"
     control_center_surface_ref: str = (
         "route-ref:control-center:crm:connector-readiness-panel"
@@ -881,6 +898,7 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
     people: list[CrmPersonReadModel]
     organizations: list[CrmOrganizationReadModel]
     relationships: list[CrmRelationshipReadModel]
+    social_relationship_projection: CrmSocialRelationshipProjection
     timeline_events: list[CrmTimelineEventReadModel]
     follow_ups: list[CrmFollowUpReadModel]
     opportunities: list[CrmOpportunityReadModel]
@@ -911,6 +929,11 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
         _validate_safe_payload(self.model_dump(mode="json"), "crm_local_read_model")
         if not self.backend_owned or not self.read_only or not self.safe_refs_only:
             raise ValueError("CRM_LOCAL_READ_MODEL_SAFE_POSTURE_REQUIRED")
+        self.social_relationship_projection.validate_owner_links(
+            people=self.people,
+            organizations=self.organizations,
+            relationships=self.relationships,
+        )
         _deny_true_flags(
             self,
             [
@@ -925,26 +948,33 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
 
 
 class CrmLocalMutationRequest(_CrmLocalModel):
-    actor_context: ActorContext = Field(default_factory=lambda: _default_actor_context())
+    actor_context: ActorContext = Field(
+        default_factory=lambda: _default_actor_context()
+    )
     mutation_kind: Literal[
         "create_follow_up",
         "update_follow_up",
         "mark_follow_up_complete",
         "move_opportunity_stage",
         "add_note_summary_ref",
+        "select_social_context",
+        "clear_social_context",
     ]
     target_ref: str
     approval_ref: str
     safe_summary: str = "Local CRM mutation requested with safe summary only."
     relationship_ref: str | None = None
-    follow_up_status: Literal[
-        "due",
-        "upcoming",
-        "stale",
-        "blocked",
-        "proposed",
-        "completed",
-    ] | None = None
+    follow_up_status: (
+        Literal[
+            "due",
+            "upcoming",
+            "stale",
+            "blocked",
+            "proposed",
+            "completed",
+        ]
+        | None
+    ) = None
     stage_ref: str | None = None
     metadata_refs: list[str] = Field(default_factory=list)
 
@@ -957,8 +987,15 @@ class CrmLocalMutationRequest(_CrmLocalModel):
             _validate_ref(self.relationship_ref, "relationship_ref")
         if self.stage_ref is not None:
             _validate_ref(self.stage_ref, "stage_ref")
+        if self.mutation_kind == "move_opportunity_stage":
+            if self.stage_ref is None:
+                raise ValueError("CRM_LOCAL_PIPELINE_STAGE_REQUIRED")
+            if self.stage_ref not in CRM_LOCAL_PIPELINE_STAGE_LABELS:
+                raise ValueError("CRM_LOCAL_PIPELINE_STAGE_UNKNOWN")
         _validate_optional_ref_list(self.metadata_refs, "metadata_refs")
-        _validate_safe_payload(self.model_dump(mode="json"), "crm_local_mutation_request")
+        _validate_safe_payload(
+            self.model_dump(mode="json"), "crm_local_mutation_request"
+        )
         return self
 
 
@@ -1020,7 +1057,9 @@ class CrmLocalMutationReceipt(_CrmLocalModel):
             "proof_ref",
         ]:
             _validate_ref(getattr(self, field_name), field_name)
-        _validate_safe_text(self.authority_decision_outcome, "authority_decision_outcome")
+        _validate_safe_text(
+            self.authority_decision_outcome, "authority_decision_outcome"
+        )
         if self.authority_decision_outcome not in {
             AuthorityDecisionOutcome.allow.value,
             AuthorityDecisionOutcome.ask.value,
@@ -1054,7 +1093,11 @@ def build_crm_local_command_center_read_model(
 def validate_crm_local_command_center_read_model(
     payload: CrmLocalCommandCenterReadModel | dict[str, Any],
 ) -> CrmLocalCommandCenterReadModel:
-    data = payload.model_dump(mode="python") if isinstance(payload, BaseModel) else dict(payload)
+    data = (
+        payload.model_dump(mode="python")
+        if isinstance(payload, BaseModel)
+        else dict(payload)
+    )
     _validate_safe_payload(data, "crm_local_command_center")
     return CrmLocalCommandCenterReadModel.model_validate(data)
 
@@ -1066,7 +1109,11 @@ def expected_crm_local_mutation_approval_ref(
 ) -> str:
     _validate_ref(target_ref, "target_ref")
     _validate_ref(idempotency_ref, "idempotency_ref")
-    return f"approval-ref:crm-local:{_safe_suffix(target_ref)}:{_safe_suffix(idempotency_ref)}"
+    return _crm_local_derived_ref(
+        "approval-ref:crm-local",
+        target_ref,
+        idempotency_ref,
+    )
 
 
 def crm_local_mutation_approval_request(
@@ -1086,11 +1133,15 @@ def crm_local_mutation_approval_request(
     if request.stage_ref:
         resources.append(request.stage_ref)
     return ApprovalRequest(
-        approval_request_id=(
-            "approval-request:crm-local:"
-            f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+        approval_request_id=_crm_local_derived_ref(
+            "approval-request:crm-local",
+            request.target_ref,
+            idempotency_ref,
         ),
-        run_id=f"run:crm-local:{_safe_suffix(request.target_ref)}",
+        run_id=_crm_local_derived_ref(
+            "run:crm-local",
+            request.target_ref,
+        ),
         subject_type=ApprovalSubjectType.external_action,
         subject_id=request.target_ref,
         actor_context=request.actor_context,
@@ -1103,8 +1154,16 @@ def crm_local_mutation_approval_request(
             requires_redaction=True,
         ),
         resource_refs=resources,
-        event_ref=f"event-ref:crm-local-mutation:{_safe_suffix(request.target_ref)}",
-        trace_id=f"trace-ref:crm-local-mutation:{_safe_suffix(request.target_ref)}",
+        event_ref=_crm_local_derived_ref(
+            "event-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
+        ),
+        trace_id=_crm_local_derived_ref(
+            "trace-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
+        ),
         expires_at=utc_now() + timedelta(hours=1),
     )
 
@@ -1120,6 +1179,7 @@ class CrmLocalStore:
         self.snapshot_file = state_dir / "crm_local_command_center_snapshot.json"
         self.events_file = state_dir / "crm_local_command_center_events.jsonl"
         self._active_authority_leases = active_authority_leases
+        self._state_lock = FileSingleWriterLockManager(state_dir / ".locks")
 
     @classmethod
     def from_env(cls) -> "CrmLocalStore":
@@ -1167,14 +1227,28 @@ class CrmLocalStore:
 
     def seed_demo(self) -> CrmStorageStatusReadModel:
         state = _default_state_payload(storage_state="seeded_demo", seeded_demo=True)
-        self._write_state(state, "event-ref:crm-local:seed-demo")
+        self._write_state(
+            state,
+            _crm_local_derived_ref(
+                "event-ref:crm-local:seed-demo",
+                utc_now().isoformat(),
+            ),
+        )
         return self.storage_status(state)
 
     def clear_demo(self, *, confirm_local_only: bool) -> CrmStorageStatusReadModel:
         if not confirm_local_only:
-            raise CrmLocalCommandCenterError("CRM_CLEAR_DEMO_LOCAL_ONLY_CONFIRM_REQUIRED")
+            raise CrmLocalCommandCenterError(
+                "CRM_CLEAR_DEMO_LOCAL_ONLY_CONFIRM_REQUIRED"
+            )
         state = _empty_state_payload()
-        self._write_state(state, "event-ref:crm-local:clear-demo")
+        self._write_state(
+            state,
+            _crm_local_derived_ref(
+                "event-ref:crm-local:clear-demo",
+                utc_now().isoformat(),
+            ),
+        )
         return self.storage_status(state)
 
     def record_local_mutation(
@@ -1185,20 +1259,22 @@ class CrmLocalStore:
         approval_authority: LocalApprovalAuthority | None = None,
     ) -> CrmLocalMutationReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        with self._state_lock.acquire(CRM_LOCAL_STATE_LOCK_KEY):
+            return self._record_local_mutation_locked(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                approval_authority=approval_authority,
+            )
+
+    def _record_local_mutation_locked(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority | None,
+    ) -> CrmLocalMutationReceipt:
         state = self._read_state()
-        payload_fingerprint_ref = _payload_fingerprint_ref(
-            {
-                "contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
-                "mutation_kind": request.mutation_kind,
-                "target_ref": request.target_ref,
-                "relationship_ref": request.relationship_ref,
-                "follow_up_status": request.follow_up_status,
-                "stage_ref": request.stage_ref,
-                "safe_summary": request.safe_summary,
-                "metadata_refs": sorted(request.metadata_refs),
-                "approval_ref": request.approval_ref,
-            }
-        )
+        payload_fingerprint_ref = _local_mutation_payload_fingerprint_ref(request)
         replay = _find_replay(state, idempotency_ref)
         if replay is not None:
             if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
@@ -1206,9 +1282,7 @@ class CrmLocalStore:
                     "CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT"
                 )
             receipt = _find_receipt(state, str(replay["receipt_ref"]))
-            return CrmLocalMutationReceipt.model_validate(
-                {**receipt, "replayed": True}
-            )
+            return CrmLocalMutationReceipt.model_validate({**receipt, "replayed": True})
 
         approval_status, approval_reason_refs = _validate_local_mutation_approval(
             request=request,
@@ -1223,21 +1297,31 @@ class CrmLocalStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
 
-        before_ref = f"before-ref:crm-local:{_safe_suffix(request.target_ref)}"
-        after_ref = f"after-ref:crm-local:{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
-        receipt_ref = (
-            "receipt-ref:crm-local-mutation:"
-            f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+        before_ref = _crm_local_derived_ref(
+            "before-ref:crm-local",
+            request.target_ref,
+        )
+        after_ref = _crm_local_derived_ref(
+            "after-ref:crm-local",
+            request.target_ref,
+            idempotency_ref,
+        )
+        receipt_ref = _crm_local_derived_ref(
+            "receipt-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
         )
         receipt = CrmLocalMutationReceipt(
-            mutation_ref=(
-                "mutation-ref:crm-local:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            mutation_ref=_crm_local_derived_ref(
+                "mutation-ref:crm-local",
+                request.target_ref,
+                idempotency_ref,
             ),
             receipt_ref=receipt_ref,
-            audit_ref=(
-                "audit-ref:crm-local-mutation:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            audit_ref=_crm_local_derived_ref(
+                "audit-ref:crm-local-mutation",
+                request.target_ref,
+                idempotency_ref,
             ),
             mutation_kind=request.mutation_kind,
             target_ref=request.target_ref,
@@ -1250,13 +1334,14 @@ class CrmLocalStore:
             authority_lease_ref=str(authority_decision.lease_ref),
             before_ref=before_ref,
             after_ref=after_ref,
-            rollback_ref=(
-                "rollback-ref:crm-local:"
-                f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
+            rollback_ref=_crm_local_derived_ref(
+                "rollback-ref:crm-local:manual-reverse-ready",
+                request.target_ref,
             ),
-            proof_ref=(
-                "proof-ref:crm-local-mutation:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            proof_ref=_crm_local_derived_ref(
+                "proof-ref:crm-local-mutation",
+                request.target_ref,
+                idempotency_ref,
             ),
             safe_summary="Exact local CRM mutation receipt recorded.",
             evidence_refs=[
@@ -1268,7 +1353,17 @@ class CrmLocalStore:
             ],
         )
         _apply_mutation(state, request, receipt)
-        state.setdefault("mutation_receipts", []).append(receipt.model_dump(mode="json"))
+        try:
+            validate_crm_local_command_center_read_model(
+                _state_to_read_model_payload(state, self.storage_status(state))
+            )
+        except (CrmLocalCommandCenterError, ValueError) as exc:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_PROSPECTIVE_STATE_INVALID"
+            ) from exc
+        state.setdefault("mutation_receipts", []).append(
+            receipt.model_dump(mode="json")
+        )
         state.setdefault("mutation_replays", []).append(
             {
                 "idempotency_ref": idempotency_ref,
@@ -1279,6 +1374,119 @@ class CrmLocalStore:
         state["storage_state"] = "local_state"
         self._write_state(state, receipt.audit_ref)
         return receipt
+
+    def record_confirmed_local_mutation(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+        confirmed: bool,
+    ) -> CrmLocalMutationReceipt:
+        """Capture one exact operator approval and lease, then mutate locally."""
+        if not confirmed:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_OPERATOR_CONFIRMATION_REQUIRED"
+            )
+        _require_local_human_operator(request.actor_context)
+        _validate_ref(idempotency_ref, "idempotency_ref")
+        with self._state_lock.acquire(CRM_LOCAL_STATE_LOCK_KEY):
+            return self._record_confirmed_local_mutation_locked(
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+
+    def _record_confirmed_local_mutation_locked(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+    ) -> CrmLocalMutationReceipt:
+        expected_ref = expected_crm_local_mutation_approval_ref(
+            target_ref=request.target_ref,
+            idempotency_ref=idempotency_ref,
+        )
+        if request.approval_ref != expected_ref:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_APPROVAL_DENIED")
+
+        payload_fingerprint_ref = _local_mutation_payload_fingerprint_ref(request)
+        state = self._read_state()
+        replay = _find_replay(state, idempotency_ref)
+        if replay is not None:
+            if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                raise CrmLocalCommandCenterDuplicateError(
+                    "CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT"
+                )
+            receipt = _find_receipt(state, str(replay["receipt_ref"]))
+            return CrmLocalMutationReceipt.model_validate({**receipt, "replayed": True})
+
+        approvals = LocalApprovalAuthority()
+        approval_request = approvals.create_request(
+            crm_local_mutation_approval_request(
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        )
+        approvals.grant(
+            approval_request.approval_request_id,
+            approved_by_actor_id="local_operator",
+            approval_ref=expected_ref,
+            expires_at=approval_request.expires_at,
+        )
+
+        lease_store = AuthorityLeaseStore(self.state_dir / "authority")
+        lease_request = _crm_local_mutation_lease_issue_request(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        lease_idempotency_ref = _crm_local_mutation_lease_idempotency_ref(
+            lease_store,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        _requirement, _grant, lease, lease_receipt = (
+            issue_authority_lease_with_backend_approval(
+                lease_store,
+                lease_request,
+                idempotency_ref=lease_idempotency_ref,
+                approved_by_actor_id="operator-ref:local-user",
+            )
+        )
+        if lease is None or lease_receipt.status not in {"issued", "replayed"}:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_EXACT_LEASE_ISSUANCE_DENIED"
+            )
+        confirmed_store = CrmLocalStore(
+            self.state_dir,
+            active_authority_leases=[lease],
+        )
+        try:
+            return confirmed_store._record_local_mutation_locked(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                approval_authority=approvals,
+            )
+        except Exception:
+            _revoked_lease, revoke_receipt = lease_store.revoke_lease(
+                AuthorityLeaseRevokeRequest(
+                    lease_ref=lease.lease_ref,
+                    decision_reason_ref=(
+                        "decision-reason-ref:crm-local-mutation:post-issue-failure"
+                    ),
+                    safe_summary=(
+                        "Revoke the exact CRM mutation lease after the local "
+                        "mutation failed before commit."
+                    ),
+                ),
+                idempotency_ref=_hashed_ref(
+                    "idempotency-ref:crm-local-mutation-lease-revoke",
+                    lease.lease_ref,
+                ),
+            )
+            if revoke_receipt.status not in {"revoked", "replayed"}:
+                raise CrmLocalCommandCenterError(
+                    "CRM_LOCAL_MUTATION_LEASE_REVOCATION_FAILED"
+                )
+            raise
 
     def _local_mutation_authority_decision(
         self,
@@ -1295,19 +1503,11 @@ class CrmLocalStore:
                 or build_default_authority_leases()
             )
         )
-        resource_refs = [
-            request.target_ref,
-            f"mutation-kind-ref:crm-local:{request.mutation_kind}",
-            CRM_LOCAL_MUTATION_CONTRACT_REF,
-            idempotency_ref,
-            payload_fingerprint_ref,
-            request.approval_ref,
-        ]
-        if request.relationship_ref:
-            resource_refs.append(request.relationship_ref)
-        if request.stage_ref:
-            resource_refs.append(request.stage_ref)
-        resource_refs.extend(request.metadata_refs)
+        resource_refs = _crm_local_mutation_resource_refs(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
         authority_decision = evaluate_authority_request(
             AuthorityActionRequest(
                 action_ref=CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF,
@@ -1321,9 +1521,15 @@ class CrmLocalStore:
                 route_ref=CRM_LOCAL_MUTATION_ROUTE_REF,
                 lane_ref=CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF,
                 requested_mode=TrustMode.ask_before_changes,
-                rollback_ref=(
-                    "rollback-ref:crm-local:"
-                    f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
+                constraint_claims=[
+                    AuthorityConstraintClaim(
+                        kind=AuthorityConstraintKind.operation_budget,
+                        value=1,
+                    )
+                ],
+                rollback_ref=_crm_local_derived_ref(
+                    "rollback-ref:crm-local:manual-reverse-ready",
+                    request.target_ref,
                 ),
                 safe_disable_ref=CRM_LOCAL_MUTATION_SAFE_DISABLE_REF,
             ),
@@ -1363,7 +1569,9 @@ class CrmLocalStore:
             "raw_contact_details_omitted": True,
         }
 
-    def import_preview_from_csv(self, csv_path: Path, *, limit: int = 20) -> dict[str, Any]:
+    def import_preview_from_csv(
+        self, csv_path: Path, *, limit: int = 20
+    ) -> dict[str, Any]:
         rows: list[dict[str, str]] = []
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
@@ -1373,7 +1581,10 @@ class CrmLocalStore:
                 rows.append(
                     {
                         "candidate_ref": f"identity-match-candidate-ref:crm-local:csv:{index + 1}",
-                        "safe_label_ref": _hashed_ref("safe-label-ref:crm-local:csv", json.dumps(row, sort_keys=True)),
+                        "safe_label_ref": _hashed_ref(
+                            "safe-label-ref:crm-local:csv",
+                            json.dumps(row, sort_keys=True),
+                        ),
                         "review_only": "true",
                     }
                 )
@@ -1401,21 +1612,90 @@ class CrmLocalStore:
         return dict(state)
 
     def _write_state(self, state: dict[str, Any], event_ref: str) -> None:
+        with self._state_lock.acquire(CRM_LOCAL_STATE_LOCK_KEY):
+            self._write_state_locked(state, event_ref)
+
+    def _write_state_locked(self, state: dict[str, Any], event_ref: str) -> None:
         _validate_safe_payload(state, "crm_local_state")
         _validate_ref(event_ref, "event_ref")
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self.snapshot_file.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        tmp.replace(self.snapshot_file)
-        event = {
-            "event_ref": event_ref,
-            "safe_summary": "CRM local command center state event recorded.",
-            "storage_ref": CRM_LOCAL_COMMAND_CENTER_STORAGE_REF,
-            "created_at": utc_now().isoformat(),
-            "raw_paths_omitted": True,
-        }
-        with self.events_file.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, sort_keys=True) + "\n")
+        snapshot_tmp_path: Path | None = None
+        events_tmp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_dir,
+                prefix=".crm-local-snapshot-",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+                snapshot_tmp_path = Path(handle.name)
+
+            if self.events_file.is_symlink() or (
+                self.events_file.exists() and not self.events_file.is_file()
+            ):
+                raise CrmLocalCommandCenterError("CRM_LOCAL_EVENT_LOG_UNSAFE")
+            existing_events = (
+                self.events_file.read_text(encoding="utf-8")
+                if self.events_file.exists()
+                else ""
+            )
+            event_already_recorded = any(
+                isinstance(item, dict) and item.get("event_ref") == event_ref
+                for item in (
+                    json.loads(line)
+                    for line in existing_events.splitlines()
+                    if line.strip()
+                )
+            )
+            event = {
+                "event_ref": event_ref,
+                "safe_summary": "CRM local command center state event recorded.",
+                "storage_ref": CRM_LOCAL_COMMAND_CENTER_STORAGE_REF,
+                "created_at": utc_now().isoformat(),
+                "raw_paths_omitted": True,
+            }
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_dir,
+                prefix=".crm-local-events-",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(existing_events)
+                if existing_events and not existing_events.endswith("\n"):
+                    handle.write("\n")
+                if not event_already_recorded:
+                    handle.write(json.dumps(event, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+                events_tmp_path = Path(handle.name)
+
+            # Commit the audit log first. If snapshot replacement subsequently
+            # fails, retrying the same event ref repairs the transaction without
+            # duplicating the audit entry. A durable state change can therefore
+            # never exist without its audit event.
+            events_tmp_path.replace(self.events_file)
+            events_tmp_path = None
+            snapshot_tmp_path.replace(self.snapshot_file)
+            snapshot_tmp_path = None
+            directory_fd = os.open(self.state_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_EVENT_LOG_UNREADABLE") from exc
+        finally:
+            if snapshot_tmp_path is not None:
+                snapshot_tmp_path.unlink(missing_ok=True)
+            if events_tmp_path is not None:
+                events_tmp_path.unlink(missing_ok=True)
 
 
 def _default_actor_context() -> ActorContext:
@@ -1424,6 +1704,19 @@ def _default_actor_context() -> ActorContext:
         actor_id="local_operator",
         authority_source=AuthoritySource.explicit_user_request,
     )
+
+
+def _require_local_human_operator(actor_context: ActorContext) -> None:
+    if (
+        actor_context.actor_type != ActorType.human_user.value
+        or actor_context.actor_id != "local_operator"
+        or actor_context.authority_source
+        not in {
+            AuthoritySource.explicit_user_request.value,
+            AuthoritySource.manual_operator_action.value,
+        }
+    ):
+        raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_HUMAN_OPERATOR_REQUIRED")
 
 
 def _default_state_payload(
@@ -1439,7 +1732,7 @@ def _default_state_payload(
             "organization_refs": ["organization-ref:crm-local:alpha"],
             "evidence_refs": ["evidence-ref:crm-local:alpha"],
             "memory_provenance_refs": ["memory-ref:crm-local:alpha"],
-            "tags": ["warm", "high context"],
+            "tags": ["warm", "high context", "social-context"],
         },
         {
             "person_ref": "person-ref:crm-local:relationship-beta",
@@ -1632,13 +1925,35 @@ def _default_state_payload(
         "reports": [
             _report("follow-up-debt", "Follow-up debt", "2 open follow-up refs"),
             _report("stale-promises", "Stale promises", "1 stale promise ref"),
-            _report("relationship-health", "Relationship health", "1 warm and 1 stale relationship"),
-            _report("opportunity-aging", "Opportunity aging", "1 opportunity needs review"),
-            _report("source-ref-effectiveness", "Source ref effectiveness", "Evidence coverage is partial"),
-            _report("activity-completion", "Activity completion", "1 completed or proposed activity ref"),
+            _report(
+                "relationship-health",
+                "Relationship health",
+                "1 warm and 1 stale relationship",
+            ),
+            _report(
+                "opportunity-aging", "Opportunity aging", "1 opportunity needs review"
+            ),
+            _report(
+                "source-ref-effectiveness",
+                "Source ref effectiveness",
+                "Evidence coverage is partial",
+            ),
+            _report(
+                "activity-completion",
+                "Activity completion",
+                "1 completed or proposed activity ref",
+            ),
             _report("pipeline-value", "Pipeline value", "No revenue claim recorded"),
-            _report("blocked-authority", "Blocked authority", "External sends and writes blocked"),
-            _report("memory-evidence-coverage", "Memory evidence coverage", "2 memory provenance refs"),
+            _report(
+                "blocked-authority",
+                "Blocked authority",
+                "External sends and writes blocked",
+            ),
+            _report(
+                "memory-evidence-coverage",
+                "Memory evidence coverage",
+                "2 memory provenance refs",
+            ),
         ],
         "mutation_receipts": [],
         "mutation_replays": [],
@@ -1670,12 +1985,20 @@ def _state_to_read_model_payload(
     state: dict[str, Any],
     storage_status: CrmStorageStatusReadModel,
 ) -> dict[str, Any]:
+    social_relationship_projection = build_crm_social_relationship_projection(
+        people=state.get("people", []),
+        organizations=state.get("organizations", []),
+        relationships=state.get("relationships", []),
+    )
     return {
         "authority_posture": CrmAuthorityPostureReadModel().model_dump(mode="python"),
         "storage_status": storage_status.model_dump(mode="python"),
         "people": state.get("people", []),
         "organizations": state.get("organizations", []),
         "relationships": state.get("relationships", []),
+        "social_relationship_projection": social_relationship_projection.model_dump(
+            mode="python"
+        ),
         "timeline_events": state.get("timeline_events", []),
         "follow_ups": state.get("follow_ups", []),
         "opportunities": state.get("opportunities", []),
@@ -1726,7 +2049,9 @@ def _state_to_read_model_payload(
                 "prompt-ref:crm:unblock-sends-writes",
             ],
         },
-        "import_export_posture": CrmImportExportPostureReadModel().model_dump(mode="python"),
+        "import_export_posture": CrmImportExportPostureReadModel().model_dump(
+            mode="python"
+        ),
     }
 
 
@@ -1779,14 +2104,8 @@ def _follow_up(
 
 
 def _build_deal_stage_summary(opportunities: list[dict[str, Any]]) -> dict[str, Any]:
-    stage_labels = {
-        "stage-ref:crm-local:operator:new": "New",
-        "stage-ref:crm-local:operator:qualified": "Qualified",
-        "stage-ref:crm-local:operator:needs-review": "Needs Review",
-        "stage-ref:crm-local:operator:blocked": "Blocked",
-    }
     stages = []
-    for stage_ref, label in stage_labels.items():
+    for stage_ref, label in CRM_LOCAL_PIPELINE_STAGE_LABELS.items():
         stages.append(
             {
                 "stage_ref": stage_ref,
@@ -1831,7 +2150,13 @@ def _build_smart_lists(
         ("unanswered-outreach", "Unanswered outreach", rels[1:], [], []),
         ("opportunity-at-risk", "Opportunity at risk", rels[1:], [], at_risk),
         ("needs-evidence", "Needs evidence", rels[1:], [], at_risk),
-        ("ready-for-action-inbox", "Ready for Action Inbox", rels[:1], due_followups[:1], []),
+        (
+            "ready-for-action-inbox",
+            "Ready for Action Inbox",
+            rels[:1],
+            due_followups[:1],
+            [],
+        ),
         ("blocked-external-sync", "Blocked external sync", rels, [], []),
         ("recently-changed", "Recently changed", rels, due_followups, []),
     ]
@@ -1875,24 +2200,35 @@ def _apply_mutation(
             request.follow_up_status or "proposed",
         )
     elif request.mutation_kind == "create_follow_up":
-        relationship_ref = request.relationship_ref or "relationship-ref:crm-local:alpha"
-        state.setdefault("follow_ups", []).append(
-            _follow_up(
-                f"created:{_safe_suffix(request.target_ref)}",
-                relationship_ref,
-                request.follow_up_status or "proposed",
-                "medium",
-                request.safe_summary,
-            )
+        relationship_ref = (
+            request.relationship_ref or "relationship-ref:crm-local:alpha"
+        )
+        relationship = _require_relationship_target(state, relationship_ref)
+        follow_up = _follow_up(
+            f"created:{_safe_suffix(request.target_ref)}",
+            relationship_ref,
+            request.follow_up_status or "proposed",
+            "medium",
+            request.safe_summary,
+        )
+        state.setdefault("follow_ups", []).append(follow_up)
+        relationship.setdefault("follow_up_refs", []).append(
+            str(follow_up["follow_up_ref"])
         )
     elif request.mutation_kind == "move_opportunity_stage":
+        if request.stage_ref not in CRM_LOCAL_PIPELINE_STAGE_LABELS:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_PIPELINE_STAGE_UNKNOWN")
         for item in state.get("opportunities", []):
             if item.get("opportunity_ref") == request.target_ref:
-                item["stage_ref"] = request.stage_ref or item["stage_ref"]
+                item["stage_ref"] = request.stage_ref
                 item["stage_label"] = _safe_label_from_ref(str(item["stage_ref"]))
+                break
+        else:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_OPPORTUNITY_NOT_FOUND")
         state["pipelines"] = _rebuild_pipelines(state)
     elif request.mutation_kind == "add_note_summary_ref":
         relationship_ref = request.relationship_ref or request.target_ref
+        _require_relationship_target(state, relationship_ref)
         state.setdefault("timeline_events", []).append(
             _timeline(
                 f"note:{_safe_suffix(receipt.mutation_ref)}",
@@ -1902,6 +2238,23 @@ def _apply_mutation(
                 receipt.proof_ref,
             )
         )
+    elif request.mutation_kind in {
+        "select_social_context",
+        "clear_social_context",
+    }:
+        for person in state.get("people", []):
+            if person.get("person_ref") != request.target_ref:
+                continue
+            tags = list(person.get("tags", []))
+            if request.mutation_kind == "select_social_context":
+                if CRM_SOCIAL_RELATIONSHIP_TAG not in tags:
+                    tags.append(CRM_SOCIAL_RELATIONSHIP_TAG)
+            else:
+                tags = [tag for tag in tags if tag != CRM_SOCIAL_RELATIONSHIP_TAG]
+            person["tags"] = tags
+            break
+        else:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_PERSON_NOT_FOUND")
     else:
         raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_UNSUPPORTED")
 
@@ -1918,9 +2271,122 @@ def _update_follow_up_status(
     raise CrmLocalCommandCenterError("CRM_LOCAL_FOLLOW_UP_NOT_FOUND")
 
 
+def _require_relationship_target(
+    state: dict[str, Any], relationship_ref: str
+) -> dict[str, Any]:
+    for item in state.get("relationships", []):
+        if item.get("relationship_ref") == relationship_ref:
+            return item
+    raise CrmLocalCommandCenterError("CRM_LOCAL_RELATIONSHIP_NOT_FOUND")
+
+
 def _rebuild_pipelines(state: dict[str, Any]) -> list[dict[str, Any]]:
     opportunities = [dict(item) for item in state.get("opportunities", [])]
     return [_build_deal_stage_summary(opportunities)] if opportunities else []
+
+
+def _local_mutation_payload_fingerprint_ref(
+    request: CrmLocalMutationRequest,
+) -> str:
+    return _payload_fingerprint_ref(
+        {
+            "contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
+            "mutation_kind": request.mutation_kind,
+            "target_ref": request.target_ref,
+            "relationship_ref": request.relationship_ref,
+            "follow_up_status": request.follow_up_status,
+            "stage_ref": request.stage_ref,
+            "safe_summary": request.safe_summary,
+            "metadata_refs": sorted(request.metadata_refs),
+            "approval_ref": request.approval_ref,
+        }
+    )
+
+
+def _crm_local_mutation_resource_refs(
+    *,
+    request: CrmLocalMutationRequest,
+    idempotency_ref: str,
+    payload_fingerprint_ref: str,
+) -> list[str]:
+    resource_refs = [
+        request.target_ref,
+        f"mutation-kind-ref:crm-local:{request.mutation_kind}",
+        CRM_LOCAL_MUTATION_CONTRACT_REF,
+        idempotency_ref,
+        payload_fingerprint_ref,
+        request.approval_ref,
+    ]
+    if request.relationship_ref:
+        resource_refs.append(request.relationship_ref)
+    if request.stage_ref:
+        resource_refs.append(request.stage_ref)
+    resource_refs.extend(request.metadata_refs)
+    return resource_refs
+
+
+def _crm_local_mutation_lease_issue_request(
+    *,
+    request: CrmLocalMutationRequest,
+    idempotency_ref: str,
+    payload_fingerprint_ref: str,
+) -> AuthorityLeaseIssueRequest:
+    resource_refs = _crm_local_mutation_resource_refs(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+    )
+    constraint_suffix = hashlib.sha256(
+        payload_fingerprint_ref.encode("utf-8")
+    ).hexdigest()[:24]
+    return AuthorityLeaseIssueRequest(
+        mode=TrustMode.ask_before_changes,
+        scope=AuthorityLeaseScope.session,
+        requested_domains={
+            AuthorityDomain.contacts: [AuthorityCapability.write],
+        },
+        authority_constraints=[
+            AuthorityConstraint(
+                constraint_ref=(
+                    f"authority-constraint-ref:crm-local:resources:{constraint_suffix}"
+                ),
+                kind=AuthorityConstraintKind.resource_refs,
+                allowed_refs=resource_refs,
+                safe_summary=(
+                    "Restrict one confirmed CRM mutation to its exact local "
+                    "target, kind, approval, idempotency, and payload refs."
+                ),
+            ),
+            AuthorityConstraint(
+                constraint_ref=(
+                    "authority-constraint-ref:crm-local:operation-budget:"
+                    f"{constraint_suffix}"
+                ),
+                kind=AuthorityConstraintKind.operation_budget,
+                maximum=1,
+                safe_summary="Permit one exact confirmed local CRM mutation.",
+            ),
+        ],
+        constraints={
+            "exact_lane_ref": CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF,
+            "exact_action_ref": CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF,
+            "exact_route_ref": CRM_LOCAL_MUTATION_ROUTE_REF,
+            "exact_contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
+            "exact_target_ref": request.target_ref,
+            "exact_mutation_kind_ref": (
+                f"mutation-kind-ref:crm-local:{request.mutation_kind}"
+            ),
+            "exact_idempotency_ref": idempotency_ref,
+            "exact_payload_fingerprint_ref": payload_fingerprint_ref,
+            "exact_approval_ref": request.approval_ref,
+            "exact_safe_disable_ref": CRM_LOCAL_MUTATION_SAFE_DISABLE_REF,
+        },
+        decision_reason_ref=(
+            "decision-reason-ref:crm-local-mutation:operator-confirmed"
+        ),
+        duration_minutes=5,
+        safe_summary="Issue one exact operator-confirmed local CRM mutation lease.",
+    )
 
 
 def _validate_local_mutation_approval(
@@ -1973,6 +2439,50 @@ def _payload_fingerprint_ref(payload: dict[str, Any]) -> str:
 def _hashed_ref(prefix: str, value: str) -> str:
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}:{digest}"
+
+
+def _crm_local_mutation_lease_idempotency_ref(
+    lease_store: AuthorityLeaseStore,
+    *,
+    payload_fingerprint_ref: str,
+) -> str:
+    """Return the stable current attempt ref, advancing past revoked attempts."""
+    leases = lease_store.list_leases()
+    receipts = lease_store.list_receipts(limit=1_000_000)
+    candidate = _hashed_ref(
+        "idempotency-ref:crm-local-mutation-lease",
+        payload_fingerprint_ref,
+    )
+    for retry_index in range(1, len(leases) + len(receipts) + 2):
+        matching = next(
+            (
+                lease
+                for lease in leases
+                if lease.constraints.get("idempotency_ref") == candidate
+            ),
+            None,
+        )
+        denied = any(
+            receipt.operation == "issue"
+            and receipt.idempotency_ref == candidate
+            and receipt.status == "denied"
+            for receipt in receipts
+        )
+        if matching is None and not denied:
+            return candidate
+        if matching is not None and matching.status != "revoked":
+            return candidate
+        candidate = _hashed_ref(
+            "idempotency-ref:crm-local-mutation-lease-retry",
+            f"{payload_fingerprint_ref}:{retry_index}",
+        )
+    raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_LEASE_RETRY_EXHAUSTED")
+
+
+def _crm_local_derived_ref(prefix: str, *values: str) -> str:
+    canonical = json.dumps(values, separators=(",", ":"), ensure_ascii=True)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"{prefix}:sha256:{digest}"
 
 
 def _safe_suffix(value: str) -> str:

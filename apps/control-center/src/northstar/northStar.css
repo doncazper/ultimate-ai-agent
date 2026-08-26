@@ -347,3 +347,12 @@
 
 .ns-crm-row-select { display: flex; width: 100%; min-width: 0; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .ns-crm-row-select > span { min-width: 0; }
+
+@media (max-width: 720px) {
+  .ns-app, .ns-app.sidecar-open { grid-template-columns: minmax(0, 1fr); }
+  .ns-sidebar, .ns-sidecar { display: none; }
+  .ns-crm-layout { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .ns-smart-views { display: none; }
+  .ns-crm-table-wrap { min-height: 420px; }
+  .ns-crm-inspector { display: block; min-height: 520px; }
+}

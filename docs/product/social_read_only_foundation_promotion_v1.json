@@ -1,0 +1,146 @@
+{
+  "schema_version": "uaa-social-foundation-promotion.v1",
+  "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
+  "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
+  "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
+  "acceptance_subject_digest": "sha256:e5ee8fe389fc5991a2591cb2986a3fb14419b2f2bb8e8c0164e98fa280059fac",
+  "subject_files": [
+    {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:c65d1c29ac5958e171141dc4829011c064ad7ef2c82234b33eed7f36f02e97b0"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:b5d5433b4a3101199da4c8bfab94b415eac7a4bf8e958a79f73beadc1442d298"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/api/client.ts", "sha256": "sha256:4b6c7fa565049fe65c699d1a80ab1b69dc5acd702e86e29f7682d383e3cc010d"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/api/types.ts", "sha256": "sha256:a30cd894df314ccbae10772fbf09ad00701258d40f36e597bdca3bf2ad049919"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts", "sha256": "sha256:402655e784ee0d0055fd61e799d450aed56336446e5a15ad98e35909767d5b1c"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx", "sha256": "sha256:969c6684521c96989572caf0090022697012a0090d262ae97fa61e0c69d040a4"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/northstar/northStar.css", "sha256": "sha256:e2338dc1a8ddabfe1f99c97a534b58dd43aad3b0aeb17cad38dc8b42505e3b03"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx", "sha256": "sha256:5987e1d6d9ae2e6e321ee9efb71f96ca7ca73eee93bd45423ea1286f3515a4d0"},
+    {"path_ref": "repo-path-ref:apps/control-center/tests/visual/foundation-surfaces.real.spec.ts", "sha256": "sha256:e214f42f7e4824b8370c84924222fb998b1ddb00e42b7281cd9a11b7d4e5e920"},
+    {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/desktop/crm.png", "sha256": "sha256:0feb248b9a5b43f0cdd95d1503b3d8c8e75604f2df53de2d404964c03ccc4d93"},
+    {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/mobile/crm.png", "sha256": "sha256:f45a3000ea658c9c2cde378e4ecdeeb50a9cbc0877a11508c0fdd1632c1b0ee6"},
+    {"path_ref": "repo-path-ref:docs/control_center/visual_regression_manifest.json", "sha256": "sha256:fac57257bb55f36e1dc494d475a243ecaa738a563c697027a87f1a20f1cc3087"},
+    {"path_ref": "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md", "sha256": "sha256:66b671b5e7fa36da62d26b9860d74d1097d861fa56a659b35c6d28a6f5085232"},
+    {"path_ref": "repo-path-ref:docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md", "sha256": "sha256:5bd0647d677cc41c9676a65b332730fe57ef81023cbe8134010d53720ae67581"},
+    {"path_ref": "repo-path-ref:docs/schemas/social_read_only_foundation_promotion_v1.schema.json", "sha256": "sha256:e1ebede628466ff0c80400c86ab83d2cd4fda9712c7c3d476d61ce8c20617eb8"},
+    {"path_ref": "repo-path-ref:scripts/dev/uaa_crm.py", "sha256": "sha256:b3f258656dd06870dcb4cdaa815f9e776c0c49eaf8f7d7c7e3e9296d1b1d7f08"},
+    {"path_ref": "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py", "sha256": "sha256:1a67ad47a8a7b5e3c84c1d0da89b37f7a9f8dedc46491a5b93770c998ee0a624"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/api/control_center.py", "sha256": "sha256:7b84e279f9b1582f0b89b2267f19904abda554f1c194373161ad07a3aaea4ada"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/authority/contracts.py", "sha256": "sha256:9910558a9f3b89f57babf4352c49da9db3a3cfefe3b8df32996de7da1c891c0d"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/contracts.py", "sha256": "sha256:f75bc82168a52a4379dd86a31dbff995773bdb993cc52494e29bae82201bdba6"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/local_projection.py", "sha256": "sha256:b8ae7e153d396d8f99943403d6d2220a6c8e13a6a9b1d53716377ae46dd83cb6"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/control_center/work_board.py", "sha256": "sha256:297939bc32308ce5b30fa8685d3cab33029a6789470d236e47e996f3d18a8d1f"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/__init__.py", "sha256": "sha256:4bab21ba141987e8214c09f0f54aee84ed98910d9f7f25dec71d75b8ce8371ed"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py", "sha256": "sha256:61bdfbfbc3ffc8d43dd194c17f6e4d10da175f1de39506b1ff2b13a7895484db"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py", "sha256": "sha256:ee09732df27b28554dbaf3c69e19432cc53e283a75bdb51dac88316cc3387cef"},
+    {"path_ref": "repo-path-ref:tests/test_communications_reviewed_projection.py", "sha256": "sha256:357f219bd055dba8084145540dd1c7a2d343b6a11dd17ecdb20ab6c5c1d5395d"},
+    {"path_ref": "repo-path-ref:tests/test_control_center_work_board.py", "sha256": "sha256:36eb4c1102a083a924cc97bfb7b8bf8ee3eeaf3aee032a3359e72ed225669347"},
+    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center.py", "sha256": "sha256:8ae8091f897bf1e674bd44698a39ed2f5088e0c3dda21005bf1401cb1aea247d"},
+    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center_api_routes.py", "sha256": "sha256:f13a1a0f16bc0f6ed65a9ca2302509919e8b88c76ca37873bfc4bdec11766df6"},
+    {"path_ref": "repo-path-ref:tests/test_social_read_only_foundation_profile.py", "sha256": "sha256:ab12af6cb87ea65f3e6d7fbb1b3d56eea83c70342a90f90eef0355cf81565be7"}
+  ],
+  "foundations": [
+    {
+      "foundation_ref": "foundation-ref:social-profile:work-board",
+      "owner_ref": "owner-ref:work-board",
+      "contract_ref": "contract-ref:work-board-social-content-saved-projection:v1",
+      "implementation_state": "implemented",
+      "path_refs": [
+        "repo-path-ref:src/ultimate_ai_agent/core/control_center/work_board.py",
+        "repo-path-ref:tests/test_control_center_work_board.py"
+      ],
+      "api_refs": ["GET /control-center/work-board"],
+      "cli_refs": ["repo-local-command:uaa-work-board:inspect-board"],
+      "ui_refs": ["control-center-surface-ref:work-board-social-content"],
+      "verifier_refs": ["verifier-ref:social-foundation:work-board"],
+      "evidence_refs": ["evidence-ref:social-foundation:work-board-owner-projection"]
+    },
+    {
+      "foundation_ref": "foundation-ref:social-profile:communications",
+      "owner_ref": "owner-ref:communications",
+      "contract_ref": "contract-ref:communications-reviewed-projection:v1",
+      "implementation_state": "implemented",
+      "path_refs": [
+        "repo-path-ref:src/ultimate_ai_agent/core/communications/contracts.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/communications/local_projection.py",
+        "repo-path-ref:tests/test_communications_reviewed_projection.py"
+      ],
+      "api_refs": [
+        "GET /control-center/communications/conversations",
+        "GET /control-center/communications/conversations/{conversation_ref}"
+      ],
+      "cli_refs": ["repo-local-command:uaa-communications:conversations"],
+      "ui_refs": ["control-center-surface-ref:communications-social-media"],
+      "verifier_refs": ["verifier-ref:social-foundation:communications"],
+      "evidence_refs": ["evidence-ref:social-foundation:communications-owner-projection"]
+    },
+    {
+      "foundation_ref": "foundation-ref:social-profile:crm",
+      "owner_ref": "owner-ref:crm",
+      "contract_ref": "contract-ref:crm-social-relationship-projection:v1",
+      "implementation_state": "implemented",
+      "path_refs": [
+        "repo-path-ref:apps/control-center/src/App.test.tsx",
+        "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts",
+        "repo-path-ref:apps/control-center/src/api/client.ts",
+        "repo-path-ref:apps/control-center/src/api/types.ts",
+        "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts",
+        "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx",
+        "repo-path-ref:apps/control-center/src/northstar/northStar.css",
+        "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx",
+        "repo-path-ref:apps/control-center/tests/visual/foundation-surfaces.real.spec.ts",
+        "repo-path-ref:apps/control-center/tests/visual/__snapshots__/desktop/crm.png",
+        "repo-path-ref:apps/control-center/tests/visual/__snapshots__/mobile/crm.png",
+        "repo-path-ref:docs/control_center/visual_regression_manifest.json",
+        "repo-path-ref:scripts/dev/uaa_crm.py",
+        "repo-path-ref:src/ultimate_ai_agent/api/control_center.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/authority/contracts.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/crm/__init__.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py",
+        "repo-path-ref:tests/test_crm_local_command_center.py",
+        "repo-path-ref:tests/test_crm_local_command_center_api_routes.py",
+        "repo-path-ref:tests/test_social_read_only_foundation_profile.py"
+      ],
+      "api_refs": ["GET /control-center/crm/relationships"],
+      "cli_refs": [
+        "repo-local-command:uaa-crm:inspect-social-relationships",
+        "repo-local-command:uaa-crm:mutate-local"
+      ],
+      "ui_refs": ["control-center-surface-ref:crm-social-relationship-context"],
+      "verifier_refs": ["verifier-ref:social-foundation:crm"],
+      "evidence_refs": ["evidence-ref:social-foundation:crm-owner-projection"]
+    },
+    {
+      "foundation_ref": "foundation-ref:social-profile:promotion-contract",
+      "owner_ref": "owner-ref:governance",
+      "contract_ref": "contract-ref:social-read-only-foundation-profile:v1",
+      "implementation_state": "implemented",
+      "path_refs": [
+        "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md",
+        "repo-path-ref:docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md",
+        "repo-path-ref:docs/schemas/social_read_only_foundation_promotion_v1.schema.json",
+        "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py"
+      ],
+      "api_refs": [],
+      "cli_refs": ["repo-local-command:verify-social-read-only-foundation-profile"],
+      "ui_refs": [],
+      "verifier_refs": ["verifier-ref:social-foundation:promotion-v1"],
+      "evidence_refs": ["evidence-ref:social-foundation:acceptance-subject-bound"]
+    }
+  ],
+  "reviewers": [
+    {"role_ref": "reviewer-role-ref:social-foundation:product-design", "decision": "pending", "reviewer_ref": null, "acceptance_subject_digest": null, "receipt_ref": null, "finding_refs": []},
+    {"role_ref": "reviewer-role-ref:social-foundation:crm-owner", "decision": "pending", "reviewer_ref": null, "acceptance_subject_digest": null, "receipt_ref": null, "finding_refs": []},
+    {"role_ref": "reviewer-role-ref:social-foundation:privacy-security", "decision": "pending", "reviewer_ref": null, "acceptance_subject_digest": null, "receipt_ref": null, "finding_refs": []},
+    {"role_ref": "reviewer-role-ref:social-foundation:accessibility", "decision": "pending", "reviewer_ref": null, "acceptance_subject_digest": null, "receipt_ref": null, "finding_refs": []},
+    {"role_ref": "reviewer-role-ref:social-foundation:implementation", "decision": "pending", "reviewer_ref": null, "acceptance_subject_digest": null, "receipt_ref": null, "finding_refs": []}
+  ],
+  "external_human_identity_authority_configured": false,
+  "promotion_status": "pending_independent_review",
+  "next_safe_action": "Obtain five independent role decisions through a separately trusted human identity authority and bind them to the current acceptance subject digest.",
+  "live_source_access_enabled": false,
+  "connector_runtime_enabled": false,
+  "provider_model_call_enabled": false,
+  "publishing_enabled": false,
+  "external_write_enabled": false,
+  "production_authority_enabled": false,
+  "raw_content_included": false
+}

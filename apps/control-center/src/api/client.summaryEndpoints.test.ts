@@ -739,6 +739,117 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("marks a CRM response without the Social projection as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    delete crm.social_relationship_projection;
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.crmLocalCommandCenter.social_relationship_projection.backend_owned).toBe(
+      false,
+    );
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
+  it.each([
+    ["null projection", (crm: Record<string, unknown>) => {
+      crm.social_relationship_projection = null;
+    }],
+    ["null projection item", (crm: Record<string, unknown>) => {
+      const projection = crm.social_relationship_projection as Record<
+        string,
+        unknown
+      >;
+      projection.items = [null];
+      projection.total_item_count = 1;
+      projection.returned_item_count = 1;
+    }],
+    ["missing relationships array", (crm: Record<string, unknown>) => {
+      delete crm.relationships;
+    }],
+    ["null people array", (crm: Record<string, unknown>) => {
+      crm.people = null;
+    }],
+    ["non-array organizations", (crm: Record<string, unknown>) => {
+      crm.organizations = {};
+    }],
+    ["null relationship entry", (crm: Record<string, unknown>) => {
+      crm.relationships = [null];
+    }],
+    ["primitive person entry", (crm: Record<string, unknown>) => {
+      crm.people = ["person-ref:crm-local:invalid"];
+    }],
+    ["array organization entry", (crm: Record<string, unknown>) => {
+      crm.organizations = [[]];
+    }],
+  ])("fails closed for a CRM response with a %s", async (_label, mutate) => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    mutate(crm);
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
+  it("fails closed for CRM Social ownership metadata drift", async () => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    crm.social_relationship_projection.source_posture_ref =
+      "source-posture-ref:crm-social:mock-fallback";
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+  });
+
+  it.each([
+    ["safe summary", "safe_summary", "Altered safe-looking summary."],
+    [
+      "deep link",
+      "crm_deep_link_ref",
+      "control-center-deep-link-ref:crm:unbound-safe-looking-item",
+    ],
+    ["person owner", "person_ref", "person-ref:crm-local:other"],
+    [
+      "organization owner",
+      "organization_ref",
+      "organization-ref:crm-local:other",
+    ],
+    ["health", "health_state", "steady"],
+    ["freshness", "freshness_state", "stale"],
+  ])("fails closed for CRM Social item %s drift", async (_label, field, value) => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    crm.social_relationship_projection.items[0][field] = value;
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
   it("rejects Settings authority state that is not backend-owned", async () => {
     const routeData = baseRouteData();
     const settings = routeData[
@@ -1026,6 +1137,40 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
       expect(JSON.stringify(data.capabilitySurface)).not.toContain(unsafeValue);
     }
+  });
+
+  it("fails closed for malformed unselected CRM relationships", async () => {
+    async function expectFallback(
+      mutate: (relationship: Record<string, unknown>) => void,
+    ): Promise<void> {
+      const routeData = baseRouteData();
+      const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+      crm.relationships.push({
+        ...crm.relationships[0],
+        relationship_ref: "relationship-ref:crm-local:unselected",
+      });
+      mutate(crm.relationships[1]);
+      routeData[API_ENDPOINTS.crmSummary] = crm;
+      stubControlCenterFetch(routeData);
+
+      const data = await loadControlCenterData();
+
+      expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+      expect(data.routeStates["/crm"].state).toBe("degraded");
+      expect(data.connection.warnings).toContain(
+        "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+      );
+    }
+
+    await expectFallback((relationship) => {
+      delete relationship.health_state;
+    });
+    await expectFallback((relationship) => {
+      relationship.timeline_event_refs = null;
+    });
+    await expectFallback((relationship) => {
+      relationship.raw_contact_details_included = true;
+    });
   });
 });
 
@@ -1382,6 +1527,27 @@ function baseRouteData(): Record<string, unknown> {
     backend_owned: true,
     read_only: true,
     safe_refs_only: true,
+    social_relationship_projection: {
+      ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+      source_posture_ref: "source-posture-ref:crm-social:reviewed-local",
+      freshness_ref: "freshness-ref:crm-social:derived-from-crm-snapshot",
+      backend_owned: true,
+      items:
+        mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
+          (item) => ({
+            ...item,
+            projection_item_ref:
+              "projection-item-ref:crm-social:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+            crm_deep_link_ref:
+              "control-center-deep-link-ref:crm:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+            safe_summary:
+              "Non-authoritative fallback relationship with safe refs only.",
+            why_shown:
+              "Shown because CRM owns a reviewed relationship tagged for the Social relationship context projection.",
+            backend_owned: true,
+          }),
+        ),
+    },
     authority_posture: {
       ...mockControlCenterData.crmLocalCommandCenter.authority_posture,
       backend_owned: true,

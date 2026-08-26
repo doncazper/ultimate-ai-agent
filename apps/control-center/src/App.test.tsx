@@ -22374,12 +22374,35 @@ function envelopeForReadEndpoint(url: string) {
         backend_owned: true,
         exact_local_mutation_lane_enabled: true,
       },
+      social_relationship_projection: {
+        ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+        source_posture_ref: "source-posture-ref:crm-social:reviewed-local",
+        freshness_ref: "freshness-ref:crm-social:derived-from-crm-snapshot",
+        backend_owned: true,
+        items:
+          mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
+            (item) => ({
+              ...item,
+              projection_item_ref:
+                "projection-item-ref:crm-social:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+              crm_deep_link_ref:
+                "control-center-deep-link-ref:crm:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+              safe_summary:
+                "Non-authoritative fallback relationship with safe refs only.",
+              why_shown:
+                "Shown because CRM owns a reviewed relationship tagged for the Social relationship context projection.",
+              backend_owned: true,
+            }),
+        ),
+      },
     },
     [API_ENDPOINTS.crmRelationships]: {
       contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
       relationships: mockControlCenterData.crmLocalCommandCenter.relationships,
       people: mockControlCenterData.crmLocalCommandCenter.people,
       organizations: mockControlCenterData.crmLocalCommandCenter.organizations,
+      social_relationship_projection:
+        mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
     },
     [API_ENDPOINTS.crmTimeline]: {
       contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,

@@ -120,6 +120,17 @@ from ultimate_ai_agent.core.crm.private_repository import (
     PrivateCrmWorkspaceContext,
     PrivateCrmWorkspaceReadModel,
 )
+from ultimate_ai_agent.core.crm.social_projection import (
+    CRM_SOCIAL_RELATIONSHIP_API_REF,
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+    CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF,
+    CRM_SOCIAL_RELATIONSHIP_PROJECTION_REF,
+    CRM_SOCIAL_RELATIONSHIP_SELECTION_RULE_REF,
+    CRM_SOCIAL_RELATIONSHIP_TAG,
+    CrmSocialRelationshipProjection,
+    CrmSocialRelationshipProjectionItem,
+    build_crm_social_relationship_projection,
+)
 
 __all__ = [
     "CRM_COMMUNICATIONS_CANONICAL_NOUNS",
@@ -152,6 +163,12 @@ __all__ = [
     "CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF",
     "CRM_LOCAL_MUTATION_CONTRACT_REF",
     "CRM_LOCAL_MUTATION_ROUTE_REF",
+    "CRM_SOCIAL_RELATIONSHIP_API_REF",
+    "CRM_SOCIAL_RELATIONSHIP_CLI_REF",
+    "CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF",
+    "CRM_SOCIAL_RELATIONSHIP_PROJECTION_REF",
+    "CRM_SOCIAL_RELATIONSHIP_SELECTION_RULE_REF",
+    "CRM_SOCIAL_RELATIONSHIP_TAG",
     "ECO_CRM_MUTATION_ACTION",
     "ECO_CRM_SCHEMA_VERSION",
     "CrmAiProposalReadModel",
@@ -203,6 +220,8 @@ __all__ = [
     "CrmReportReadModel",
     "CrmSendsWritesAuthorityPlanReadModel",
     "CrmSmartListReadModel",
+    "CrmSocialRelationshipProjection",
+    "CrmSocialRelationshipProjectionItem",
     "CrmStorageStatusReadModel",
     "CrmTimelineEventReadModel",
     "CrmWorkQueue",
@@ -231,6 +250,7 @@ __all__ = [
     "build_crm_communications_spine_contract",
     "build_crm_local_command_center_read_model",
     "build_crm_m1_fixture_map",
+    "build_crm_social_relationship_projection",
     "crm_local_mutation_approval_request",
     "expected_crm_local_mutation_approval_ref",
     "validate_crm_communications_spine_contract",

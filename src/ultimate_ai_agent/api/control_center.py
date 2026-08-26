@@ -66,12 +66,15 @@ from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
 )
-from ultimate_ai_agent.core.task_decomposition import api_safety as task_decomposition_api_safety
+from ultimate_ai_agent.core.task_decomposition import (
+    api_safety as task_decomposition_api_safety,
+)
 from ultimate_ai_agent.core.task_decomposition.runtime import TaskDecompositionService
 
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_control_center_routes_registered"
+_OPERATOR_CONFIRMATION_HEADER = "X-UAA-Operator-Confirmed"
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
 _task_decomposition_service_getter: _TaskDecompositionServiceGetter | None = None
 
@@ -331,12 +334,13 @@ def get_control_center_crm_relationships() -> ResultEnvelope:
             "relationships": [
                 item.model_dump(mode="json") for item in crm.relationships
             ],
+            "social_relationship_projection": (
+                crm.social_relationship_projection.model_dump(mode="json")
+            ),
             "communication_drafts": [
                 item.model_dump(mode="json") for item in crm.communication_drafts
             ],
-            "ai_proposals": [
-                item.model_dump(mode="json") for item in crm.ai_proposals
-            ],
+            "ai_proposals": [item.model_dump(mode="json") for item in crm.ai_proposals],
         },
         evidence_ref="evidence-ref:crm-local-command-center:relationships",
     )
@@ -400,16 +404,12 @@ def get_control_center_crm_smart_lists() -> ResultEnvelope:
         trace_id=crm.contract_ref,
         data={
             "contract_ref": crm.contract_ref,
-            "smart_lists": [
-                item.model_dump(mode="json") for item in crm.smart_lists
-            ],
+            "smart_lists": [item.model_dump(mode="json") for item in crm.smart_lists],
             "connector_read_lanes": crm.connector_read_lanes.model_dump(mode="json"),
             "sends_writes_authority_plan": (
                 crm.sends_writes_authority_plan.model_dump(mode="json")
             ),
-            "import_export_posture": crm.import_export_posture.model_dump(
-                mode="json"
-            ),
+            "import_export_posture": crm.import_export_posture.model_dump(mode="json"),
         },
         evidence_ref="evidence-ref:crm-local-command-center:smart-lists",
     )
@@ -426,15 +426,28 @@ def post_control_center_crm_local_mutation(
         default=None,
         alias=IDEMPOTENCY_REF_HEADER,
     ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _crm_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
     try:
-        receipt = CrmLocalStore.from_env().record_local_mutation(
-            request=request,
-            idempotency_ref=idempotency_ref,
+        store = CrmLocalStore.from_env()
+        receipt = (
+            store.record_confirmed_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                confirmed=True,
+            )
+            if x_uaa_operator_confirmed
+            else store.record_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
         )
     except CrmLocalCommandCenterDuplicateError as exc:
         raise HTTPException(
@@ -815,7 +828,9 @@ def get_control_center_approvals_queue(
     run_ref: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
 ) -> ResultEnvelope:
-    queue = _task_decomposition_service().run_attached_approval_queue(run_ref, limit=limit)
+    queue = _task_decomposition_service().run_attached_approval_queue(
+        run_ref, limit=limit
+    )
     return ResultEnvelope(
         success=True,
         operation="control_center_approvals_queue",
@@ -900,7 +915,9 @@ def get_control_center_local_models_status() -> ResultEnvelope:
 
 @router.get("/foundation-gate/summary", response_model=ResultEnvelope)
 def get_control_center_foundation_gate_summary() -> ResultEnvelope:
-    dashboard = build_control_center_dashboard(foundation_gate_status="not_run_by_endpoint")
+    dashboard = build_control_center_dashboard(
+        foundation_gate_status="not_run_by_endpoint"
+    )
     return ResultEnvelope(
         success=True,
         operation="control_center_foundation_gate_summary",

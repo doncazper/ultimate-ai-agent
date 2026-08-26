@@ -1967,6 +1967,240 @@ function portableCanonicalNumber(value: number): string {
   return `${negative ? "-" : ""}${plain}`;
 }
 
+function crmStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0);
+}
+
+function crmRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function crmNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isSafeCrmRelationship(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.relationship_ref) &&
+    crmNonEmptyString(value.person_ref) &&
+    (value.organization_ref === null ||
+      value.organization_ref === undefined ||
+      crmNonEmptyString(value.organization_ref)) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmNonEmptyString(value.relationship_kind_ref) &&
+    ["warm", "steady", "stale", "blocked", "needs_evidence"].includes(
+      String(value.health_state),
+    ) &&
+    crmNonEmptyString(value.safe_summary) &&
+    crmNonEmptyString(value.why_shown) &&
+    crmStringArray(value.timeline_event_refs) &&
+    crmStringArray(value.follow_up_refs) &&
+    crmStringArray(value.opportunity_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    crmStringArray(value.memory_provenance_refs) &&
+    ["fresh", "stale", "conflict", "missing_evidence"].includes(String(value.stale_state)) &&
+    value.raw_contact_details_included === false
+  );
+}
+
+function isSafeCrmPerson(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.person_ref) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmStringArray(value.relationship_refs) &&
+    crmStringArray(value.organization_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    crmStringArray(value.memory_provenance_refs) &&
+    crmStringArray(value.tags) &&
+    value.raw_contact_details_included === false &&
+    value.account_sync_enabled === false
+  );
+}
+
+function isSafeCrmOrganization(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.organization_ref) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmStringArray(value.relationship_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    value.raw_contact_details_included === false &&
+    value.account_sync_enabled === false
+  );
+}
+
+function crmArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+async function isSafeCrmSocialProjection(crm: CrmLocalCommandCenterReadModel | undefined): Promise<boolean> {
+  const projection = crm?.social_relationship_projection;
+  if (
+    crm === undefined ||
+    projection === undefined ||
+    projection === null ||
+    typeof projection !== "object" ||
+    projection.contract_ref !== "contract-ref:crm-social-relationship-projection:v1" ||
+    projection.projection_ref !== "projection-ref:crm-social-relationship-context:v1" ||
+    projection.owner_ref !== "owner-ref:crm" ||
+    projection.selection_rule_ref !== "selection-rule-ref:crm-social:person-tag-social-context" ||
+    projection.source_posture_ref !== "source-posture-ref:crm-social:reviewed-local" ||
+    projection.freshness_ref !== "freshness-ref:crm-social:derived-from-crm-snapshot" ||
+    projection.api_ref !== "GET /control-center/crm/relationships" ||
+    projection.cli_ref !== "repo-local-command:uaa-crm:inspect-social-relationships" ||
+    projection.backend_owned !== true ||
+    projection.read_only !== true ||
+    projection.stable_deep_links !== true ||
+    projection.copies_relationship_truth !== false ||
+    projection.live_source_access_enabled !== false ||
+    projection.connector_runtime_enabled !== false ||
+    projection.provider_model_call_enabled !== false ||
+    projection.publishing_enabled !== false ||
+    projection.external_write_enabled !== false ||
+    projection.production_authority_enabled !== false ||
+    !crmStringArray(projection.evidence_refs) ||
+    !Array.isArray(crm.relationships) ||
+    !crm.relationships.every(isSafeCrmRelationship) ||
+    !Array.isArray(crm.people) ||
+    !crm.people.every(isSafeCrmPerson) ||
+    !Array.isArray(crm.organizations) ||
+    !crm.organizations.every(isSafeCrmOrganization) ||
+    !Number.isInteger(projection.total_item_count) ||
+    projection.total_item_count < 0 ||
+    !Number.isInteger(projection.returned_item_count) ||
+    !Array.isArray(projection.items) ||
+    projection.returned_item_count !== projection.items.length ||
+    projection.items.length > 50
+  ) {
+    return false;
+  }
+
+  const relationshipByRef = new Map(
+    crm.relationships.map((relationship) => [relationship.relationship_ref, relationship]),
+  );
+  const personByRef = new Map(crm.people.map((person) => [person.person_ref, person]));
+  const organizationByRef = new Map(
+    crm.organizations.map((organization) => [organization.organization_ref, organization]),
+  );
+  if (
+    relationshipByRef.size !== crm.relationships.length ||
+    personByRef.size !== crm.people.length ||
+    organizationByRef.size !== crm.organizations.length ||
+    crm.relationships.some(
+      (relationship) =>
+        !personByRef.has(relationship.person_ref) ||
+        (relationship.organization_ref !== null &&
+          relationship.organization_ref !== undefined &&
+          !organizationByRef.has(relationship.organization_ref)),
+    )
+  ) {
+    return false;
+  }
+
+  const selectedRelationshipRefs = new Set<string>();
+  for (const person of crm.people) {
+    if (!crmStringArray(person.relationship_refs) || !crmStringArray(person.tags)) {
+      return false;
+    }
+    if (!person.tags.includes("social-context")) {
+      continue;
+    }
+    for (const relationshipRef of person.relationship_refs) {
+      const relationship = relationshipByRef.get(relationshipRef);
+      if (relationship?.person_ref !== person.person_ref) {
+        return false;
+      }
+      selectedRelationshipRefs.add(relationshipRef);
+    }
+  }
+  const expectedRelationshipRefs = [...selectedRelationshipRefs].sort();
+  const expectedPageRefs = expectedRelationshipRefs.slice(0, 50);
+  if (
+    projection.total_item_count !== expectedRelationshipRefs.length ||
+    projection.returned_item_count !== expectedPageRefs.length ||
+    projection.truncated !== expectedRelationshipRefs.length > expectedPageRefs.length ||
+    projection.items.some((item, index) => item?.relationship_ref !== expectedPageRefs[index])
+  ) {
+    return false;
+  }
+
+  try {
+    for (const item of projection.items) {
+      if (
+        item === null ||
+        typeof item !== "object" ||
+        typeof item.projection_item_ref !== "string" ||
+        typeof item.relationship_ref !== "string" ||
+        typeof item.person_ref !== "string" ||
+        (item.organization_ref !== null &&
+          item.organization_ref !== undefined &&
+          typeof item.organization_ref !== "string") ||
+        typeof item.crm_deep_link_ref !== "string" ||
+        typeof item.safe_display_label !== "string" ||
+        typeof item.safe_summary !== "string" ||
+        item.why_shown !==
+          "Shown because CRM owns a reviewed relationship tagged for the Social relationship context projection." ||
+        typeof item.health_state !== "string" ||
+        typeof item.freshness_state !== "string" ||
+        !crmStringArray(item.evidence_refs) ||
+        !crmStringArray(item.memory_provenance_refs) ||
+        !Number.isInteger(item.evidence_ref_total_count) ||
+        !Number.isInteger(item.memory_provenance_ref_total_count) ||
+        item.backend_owned !== true ||
+        item.read_only !== true ||
+        item.raw_content_included !== false ||
+        item.connector_runtime_enabled !== false ||
+        item.external_action_enabled !== false
+      ) {
+        return false;
+      }
+      const relationship = relationshipByRef.get(item.relationship_ref);
+      const person = personByRef.get(item.person_ref);
+      if (
+        relationship === undefined ||
+        person === undefined ||
+        relationship.person_ref !== item.person_ref ||
+        relationship.organization_ref !== item.organization_ref ||
+        !person.tags.includes("social-context") ||
+        !person.relationship_refs.includes(item.relationship_ref) ||
+        (item.organization_ref !== null &&
+          item.organization_ref !== undefined &&
+          !organizationByRef.has(item.organization_ref)) ||
+        item.safe_display_label !== relationship.safe_display_label ||
+        item.safe_summary !== relationship.safe_summary ||
+        item.health_state !== relationship.health_state ||
+        item.freshness_state !== relationship.stale_state ||
+        !crmArraysEqual(item.evidence_refs, relationship.evidence_refs.slice(0, 20)) ||
+        item.evidence_ref_total_count !== relationship.evidence_refs.length ||
+        item.evidence_refs_truncated !== relationship.evidence_refs.length > 20 ||
+        !crmArraysEqual(item.memory_provenance_refs, relationship.memory_provenance_refs.slice(0, 20)) ||
+        item.memory_provenance_ref_total_count !== relationship.memory_provenance_refs.length ||
+        item.memory_provenance_refs_truncated !== relationship.memory_provenance_refs.length > 20
+      ) {
+        return false;
+      }
+      const normalized = item.relationship_ref
+        .toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!normalized) return false;
+      const digest = await sha256Hex(item.relationship_ref);
+      const suffix = `${normalized.slice(0, 80)}-${digest.slice(0, 16)}`;
+      if (
+        item.projection_item_ref !== `projection-item-ref:crm-social:${suffix}` ||
+        item.crm_deep_link_ref !== `control-center-deep-link-ref:crm:${suffix}`
+      ) {
+        return false;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 export async function loadControlCenterData(
   expectedBinding: BackendTruthReadBinding | null = null,
 ): Promise<ControlCenterData> {
@@ -2004,6 +2238,9 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const crmReadPromise = read<CrmLocalCommandCenterReadModel>(
+    API_ENDPOINTS.crmSummary,
+  );
   const communicationsProjectionSettledPromise = Promise.allSettled([
     loadCommunicationsConversationsWithReadContext(
       loadReadLimiter,
@@ -2221,7 +2458,7 @@ export async function loadControlCenterData(
       API_ENDPOINTS.founderSourceReadiness,
     ),
     read<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
-    read<CrmLocalCommandCenterReadModel>(API_ENDPOINTS.crmSummary),
+    crmReadPromise,
     read<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
@@ -2766,8 +3003,12 @@ export async function loadControlCenterData(
     : undefined;
   const agentLoopThreadFallbackUsed =
     safeFounderAgentLoopThread === undefined;
+  const crmSocialProjectionSafe = await isSafeCrmSocialProjection(
+    crmLocalCommandCenter,
+  );
   const crmEndpointFallbackUsed =
     crmLocalCommandCenter === undefined ||
+    !crmSocialProjectionSafe ||
     crmLocalCommandCenter.backend_owned !== true ||
     crmLocalCommandCenter.safe_refs_only !== true ||
     crmLocalCommandCenter.authority_posture?.control_center_grants_authority !==
