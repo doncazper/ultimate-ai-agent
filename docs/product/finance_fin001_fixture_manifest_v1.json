@@ -1,0 +1,291 @@
+{
+  "schema_version": "uaa-finance-synthetic-fixture-manifest.v1",
+  "manifest_ref": "fixture-manifest-ref:finance/FIN-001:sha256:b4d927f85c4b0edda60860be4387c7b9d3da1a4c23e00b18012708a61264833b",
+  "fixtures": [
+    {
+      "schema_version": "uaa-finance-synthetic-fixture.v1",
+      "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+      "book": {
+        "schema_version": "finance-schema:v1",
+        "book_ref": "book-ref:finance:synthetic-primary",
+        "legal_entity_refs": ["legal-entity-ref:finance:synthetic-primary"],
+        "default_commodity_ref": "commodity-ref:finance:USD",
+        "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+        "synthetic_only": true,
+        "real_financial_data_allowed": false
+      },
+      "legal_entities": [
+        {
+          "schema_version": "finance-schema:v1",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "entity_kind_ref": "entity-kind-ref:finance:synthetic-test-entity",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "synthetic_only": true
+        }
+      ],
+      "accounts": [
+        {
+          "schema_version": "finance-schema:v1",
+          "account_ref": "financial-account-ref:finance:synthetic-cash",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "account_kind": "asset",
+          "commodity_ref": "commodity-ref:finance:USD",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "active": true,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "account_ref": "financial-account-ref:finance:synthetic-reserve",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "account_kind": "asset",
+          "commodity_ref": "commodity-ref:finance:USD",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "active": true,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "account_ref": "financial-account-ref:finance:synthetic-opening-equity",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "account_kind": "equity",
+          "commodity_ref": "commodity-ref:finance:USD",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "active": true,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "account_ref": "financial-account-ref:finance:synthetic-expense",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "account_kind": "expense",
+          "commodity_ref": "commodity-ref:finance:USD",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "active": true,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "account_ref": "financial-account-ref:finance:synthetic-suspense",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "legal_entity_ref": "legal-entity-ref:finance:synthetic-primary",
+          "account_kind": "suspense",
+          "commodity_ref": "commodity-ref:finance:USD",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "active": true,
+          "synthetic_only": true
+        }
+      ],
+      "journal_entries": [
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-opening",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "opening_balance",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-opening-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 100000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-opening-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-opening-equity",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 100000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": null,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-transfer",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "transfer",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-transfer-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-reserve",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 25000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-transfer-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 25000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": null,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-split",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "split",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-split-expense-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-expense",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 3000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-split-reserve-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-reserve",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 7000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-split-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 10000,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": null,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-adjustment",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "adjustment",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-adjustment-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-expense",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 500,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-adjustment-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 500,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": null,
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-adjustment-reversal",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "reversal",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-reversal-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 500,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-reversal-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-expense",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 500,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": "journal-entry-ref:finance:synthetic-adjustment",
+          "synthetic_only": true
+        },
+        {
+          "schema_version": "finance-schema:v1",
+          "journal_entry_ref": "journal-entry-ref:finance:synthetic-suspense",
+          "book_ref": "book-ref:finance:synthetic-primary",
+          "flow": "suspense",
+          "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+          "postings": [
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-suspense-debit",
+              "account_ref": "financial-account-ref:finance:synthetic-cash",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "debit",
+              "amount_minor": 1200,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            },
+            {
+              "schema_version": "finance-schema:v1",
+              "posting_ref": "posting-ref:finance:synthetic-suspense-credit",
+              "account_ref": "financial-account-ref:finance:synthetic-suspense",
+              "commodity_ref": "commodity-ref:finance:USD",
+              "side": "credit",
+              "amount_minor": 1200,
+              "fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1",
+              "synthetic_only": true
+            }
+          ],
+          "reverses_journal_entry_ref": null,
+          "synthetic_only": true
+        }
+      ],
+      "deterministic": true,
+      "synthetic_only": true,
+      "arbitrary_values_allowed": false
+    }
+  ],
+  "deterministic": true,
+  "synthetic_only": true,
+  "arbitrary_values_allowed": false,
+  "real_financial_data_allowed": false
+}

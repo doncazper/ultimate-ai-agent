@@ -567,17 +567,22 @@ reviewed surface inventory while explicitly allowing cosmetic iteration from
 real use. This clears visual-direction indecision only: Q25 still needs its CRM
 relationship projection and independent promotion profile. Q26 has now
 recorded its FIN-001 dependency checklist and exact product-surface reservation.
-Implementation cannot begin until the activation record merges, the coordinator
-verifies and removes the exact merge-pending blocker, and it emits a fresh exact
-claim receipt for the synthetic task in
-`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. Social publishing,
+The activation record merged, the coordinator removed the exact merge-pending
+blocker, and it claimed the synthetic task at revision 164. A synthetic-only
+protected-book implementation candidate now supplies strict accounting
+contracts, a deterministic allowlisted fixture, encrypted SQLite persistence,
+opaque-Keychain crypto, exact policy/approval/lease revalidation, a governed
+CLI, lifecycle tests, and a verifier. Protected merge and Queue V2 completion
+evidence remain pending. Social publishing,
 platform writes, arbitrary operator financial values, real financial data,
 bank connectivity, advice, filing,
 public release, and production authority remain false. Evidence:
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md` and
 `scripts/verify_private_dogfood_direction_acceptance.py`; FIN-001 activation:
 `docs/product/finance_fin001_activation_v1.json` and
-`scripts/verify_fin001_activation.py`.
+`scripts/verify_fin001_activation.py`; implementation candidate:
+`docs/product/UAA_FINANCE_FIN001_SYNTHETIC_KERNEL.md` and
+`scripts/verify_fin001_synthetic_kernel.py`.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|

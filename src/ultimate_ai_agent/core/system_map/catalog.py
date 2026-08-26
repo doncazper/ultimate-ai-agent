@@ -28,6 +28,7 @@ SYSTEM_MAP_CAPABILITY_SOURCE_MODULES = (
     "ultimate_ai_agent.core.control_center.founder_loop_mission",
     "ultimate_ai_agent.core.device_capabilities.manifests",
     "ultimate_ai_agent.core.files.manager",
+    "ultimate_ai_agent.core.finance.authority",
     "ultimate_ai_agent.core.governed_browser.contracts",
     "ultimate_ai_agent.core.knowledge_dump.store",
     "ultimate_ai_agent.core.providers.credential_validation",
@@ -105,10 +106,11 @@ SYSTEM_MAP_FEATURE_CATALOG = (
         feature_ref="feature:finance-compliance-program",
         name="Finance and Compliance Program",
         safe_summary=(
-            "Planning-only local books, review, reconciliation, readiness, and "
-            "sourced-obligation product contract with all runtime authority blocked."
+            "Synthetic-only protected local books are implemented behind exact "
+            "policy, approval, and session-lease gates; real-data ingestion, review, "
+            "reconciliation, readiness, and sourced obligations remain planned."
         ),
-        truth_status=SystemMapTruthStatus.planned,
+        truth_status=SystemMapTruthStatus.partial,
         related_node_ids=(
             "surface:today",
             "surface:inbox",

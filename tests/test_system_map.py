@@ -436,7 +436,7 @@ def test_default_snapshot_converges_authority_lanes_and_ecosystem() -> None:
     assert "feature:finance-compliance-program" in nodes
     assert (
         nodes["feature:finance-compliance-program"].truth_status
-        == SystemMapTruthStatus.planned
+        == SystemMapTruthStatus.partial
     )
     assert "feature:durable-system-capability-map" in nodes
     assert "feature:local-knowledge-dump" in nodes
