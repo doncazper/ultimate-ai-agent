@@ -279,9 +279,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
       && selectedPerson?.tags.includes("social-context")
       && selectedPerson.relationship_refs.includes(selected.relationship_ref),
   );
-  const backendOwned = data.connection.state === "online"
-    && !data.connection.usingMockData
-    && data.routeStates["/crm"]?.state === "backend_owned"
+  const backendOwned = data.routeStates["/crm"]?.state === "backend_owned"
     && crm.backend_owned
     && crm.read_only
     && crm.safe_refs_only;

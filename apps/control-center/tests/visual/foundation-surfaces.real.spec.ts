@@ -16,7 +16,7 @@ let backend: ChildProcess | null = null;
 
 const foundationVisualSurfaces = [
   ["work-board", "/work-board", "/control-center/work-board"],
-  ["crm", "/crm", "/control-center/crm/summary"],
+  ["crm", "/workspace/crm", "/control-center/crm/summary"],
 ] as const;
 
 function resolveBackendSourceCommit(): string {
@@ -109,22 +109,41 @@ test("foundation visual baselines stay backend-owned", async ({
   expect(truth.data.backend_revision_ref).toBe(
     `commit-ref:git:${backendSourceCommit}`,
   );
+  const truthBody = await truthResponse.body();
   const fixedNow = new Date(truth.data.generated_at).getTime() + 1_000;
 
   for (const [name, route, prioritizedEndpoint] of foundationVisualSurfaces) {
     await test.step(`capture backend-owned ${name}`, async () => {
       const page = await context.newPage();
       let prioritizedReadCount = 0;
-      await page.route(`**${prioritizedEndpoint}`, async (backendRoute) => {
-        const response = await backendRoute.fetch({
-          url: `${backendBaseUrl}${prioritizedEndpoint}`,
-        });
-        expect(response.ok()).toBe(true);
-        expect(response.headers()["x-uaa-backend-revision-ref"]).toBe(
-          `commit-ref:git:${backendSourceCommit}`,
-        );
-        prioritizedReadCount += 1;
-        await backendRoute.fulfill({ response });
+      const prioritizedResponse = await request.get(
+        `${backendBaseUrl}${prioritizedEndpoint}`,
+      );
+      expect(prioritizedResponse.ok()).toBe(true);
+      expect(prioritizedResponse.headers()["x-uaa-backend-revision-ref"]).toBe(
+        `commit-ref:git:${backendSourceCommit}`,
+      );
+      const prioritizedBody = await prioritizedResponse.body();
+      await page.route("**/*", async (backendRoute) => {
+        const requestUrl = new URL(backendRoute.request().url());
+        if (requestUrl.pathname === "/control-center/backend-truth") {
+          await backendRoute.fulfill({
+            body: truthBody,
+            headers: truthResponse.headers(),
+            status: truthResponse.status(),
+          });
+          return;
+        }
+        if (requestUrl.pathname === prioritizedEndpoint) {
+          prioritizedReadCount += 1;
+          await backendRoute.fulfill({
+            body: prioritizedBody,
+            headers: prioritizedResponse.headers(),
+            status: prioritizedResponse.status(),
+          });
+          return;
+        }
+        await backendRoute.continue();
       });
       await page.addInitScript((timestamp) => {
         const RealDate = Date;
@@ -156,12 +175,20 @@ test("foundation visual baselines stay backend-owned", async ({
         });
         await expect(page.getByText("Backend-owned Work Board")).toBeVisible();
       } else {
-        await expect(
-          page.getByRole("heading", { name: "UAA CRM local command center" }),
-        ).toBeVisible({ timeout: 30_000 });
-        await expect(
-          page.getByText("backend-owned", { exact: true }),
-        ).toBeVisible();
+        await expect(page.getByRole("heading", { name: "CRM v3" })).toBeVisible(
+          { timeout: 30_000 },
+        );
+        const socialContextHeading = page.getByText(
+          "Social relationship context",
+          { exact: true },
+        );
+        await socialContextHeading.scrollIntoViewIfNeeded();
+        await expect(socialContextHeading).toBeVisible();
+        const crmOwnedBadge = page.getByText("CRM owned · read only", {
+          exact: true,
+        });
+        await expect(crmOwnedBadge).toBeVisible({ timeout: 30_000 });
+        await crmOwnedBadge.scrollIntoViewIfNeeded();
       }
       expect(prioritizedReadCount).toBeGreaterThan(0);
       await expect(page).toHaveScreenshot(`${name}.png`, {

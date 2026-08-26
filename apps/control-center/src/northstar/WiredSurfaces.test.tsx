@@ -819,6 +819,30 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText("Non-authoritative fallback")).toBeVisible();
   });
 
+  it("keeps exact CRM route truth visible when unrelated reads are degraded", () => {
+    const data = cloneData();
+    data.connection.state = "degraded";
+    data.connection.usingMockData = true;
+    data.routeStates["/crm"].state = "backend_owned";
+    Object.assign(data.crmLocalCommandCenter, {
+      backend_owned: true,
+      read_only: true,
+      safe_refs_only: true,
+    });
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, {
+      backend_owned: true,
+    });
+    for (const item of data.crmLocalCommandCenter.social_relationship_projection
+      .items) {
+      item.backend_owned = true;
+    }
+
+    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+
+    expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
+    expect(screen.getByText(/CRM owned · read only/)).toBeVisible();
+  });
+
   it("distinguishes a truncated Social page from an unselected relationship", () => {
     const data = cloneData();
     Object.assign(data.crmLocalCommandCenter.social_relationship_projection, {

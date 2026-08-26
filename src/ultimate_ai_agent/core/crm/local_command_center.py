@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDomain,
     AuthorityLease,
     AuthorityLeaseIssueRequest,
+    AuthorityLeaseRevokeRequest,
     AuthorityLeaseScope,
     AuthorityLeaseStore,
     TrustMode,
@@ -1435,11 +1436,34 @@ class CrmLocalStore:
             self.state_dir,
             active_authority_leases=[lease],
         )
-        return confirmed_store._record_local_mutation_locked(
-            request=request,
-            idempotency_ref=idempotency_ref,
-            approval_authority=approvals,
-        )
+        try:
+            return confirmed_store._record_local_mutation_locked(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                approval_authority=approvals,
+            )
+        except Exception:
+            _revoked_lease, revoke_receipt = lease_store.revoke_lease(
+                AuthorityLeaseRevokeRequest(
+                    lease_ref=lease.lease_ref,
+                    decision_reason_ref=(
+                        "decision-reason-ref:crm-local-mutation:post-issue-failure"
+                    ),
+                    safe_summary=(
+                        "Revoke the exact CRM mutation lease after the local "
+                        "mutation failed before commit."
+                    ),
+                ),
+                idempotency_ref=_hashed_ref(
+                    "idempotency-ref:crm-local-mutation-lease-revoke",
+                    lease.lease_ref,
+                ),
+            )
+            if revoke_receipt.status not in {"revoked", "replayed"}:
+                raise CrmLocalCommandCenterError(
+                    "CRM_LOCAL_MUTATION_LEASE_REVOCATION_FAILED"
+                )
+            raise
 
     def _local_mutation_authority_decision(
         self,

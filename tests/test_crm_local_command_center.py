@@ -535,6 +535,7 @@ def test_crm_social_selection_validates_prospective_owner_links_before_write(
 ) -> None:
     import pytest
 
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
     from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
 
     store = CrmLocalStore(tmp_path)
@@ -569,6 +570,44 @@ def test_crm_social_selection_validates_prospective_owner_links_before_write(
     persisted = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
     assert "social-context" not in persisted["people"][1]["tags"]
     assert persisted["mutation_receipts"] == []
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    assert lease_store.list_leases(active_only=True) == []
+    assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]
+
+
+def test_crm_confirmed_lane_revokes_lease_when_target_is_missing(
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:missing"
+    idempotency_ref = "idempotency-ref:crm-social-missing-target"
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+
+    with pytest.raises(
+        CrmLocalCommandCenterError,
+        match="CRM_LOCAL_PERSON_NOT_FOUND",
+    ):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    assert lease_store.list_leases(active_only=True) == []
+    assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]
 
 
 def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> None:

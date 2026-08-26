@@ -2179,6 +2179,9 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const crmReadPromise = read<CrmLocalCommandCenterReadModel>(
+    API_ENDPOINTS.crmSummary,
+  );
   const communicationsProjectionSettledPromise = Promise.allSettled([
     loadCommunicationsConversationsWithReadContext(
       loadReadLimiter,
@@ -2396,7 +2399,7 @@ export async function loadControlCenterData(
       API_ENDPOINTS.founderSourceReadiness,
     ),
     read<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
-    read<CrmLocalCommandCenterReadModel>(API_ENDPOINTS.crmSummary),
+    crmReadPromise,
     read<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
