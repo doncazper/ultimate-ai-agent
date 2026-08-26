@@ -128,6 +128,16 @@ publishing, connector, platform-write, public-release, or production authority.
 Evidence:
 `docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
+Queue-of-Record V2 Q30 is active. Its P0-P4 foundation is implemented locally
+as a content-free synthetic fixture kernel with Python Core and CLI parity:
+Studio-owned draft refs bind exact Instagram, X, and TikTok variants;
+deterministic capability findings block unknown constraints and unverified
+rights; immutable review envelopes bind every target and payload fingerprint;
+and simulated child settlements preserve successes, limit retry to eligible
+failures, and require reconciliation before an unknown can become retryable.
+Q30-P5 API/Control Center parity and Q30-P6 acceptance freeze remain next. No
+account connection, platform adapter, network, scheduler, upload, publishing,
+or external write is enabled.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
 backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
 explicit: contract refs are defined, while approval-alone availability,
