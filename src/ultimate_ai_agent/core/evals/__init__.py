@@ -117,6 +117,7 @@ from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     verify_holdout_commitment,
 )
 from ultimate_ai_agent.core.evals.tool_aware_statistics import (
+    TAW00_MAX_BINOMIAL_DENOMINATOR,
     binomial_one_sided_upper_bound,
     clustered_bootstrap_mean_interval,
     holm_adjusted_alpha,
@@ -153,6 +154,7 @@ __all__ = [
     "TAW00_CAPABILITY_LAB_REF",
     "TAW00_DIMENSIONS",
     "TAW00_MANDATORY_CANDIDATE_PATH_REFS",
+    "TAW00_MAX_BINOMIAL_DENOMINATOR",
     "TAW00_GENERATOR_REF",
     "TAW00_GENERATOR_VERSION",
     "TAW00_PLAN_REF",

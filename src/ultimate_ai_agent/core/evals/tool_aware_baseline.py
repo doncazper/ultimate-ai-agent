@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     canonical_digest,
 )
 from ultimate_ai_agent.core.evals.tool_aware_statistics import (
+    TAW00_MAX_BINOMIAL_DENOMINATOR,
     binomial_one_sided_upper_bound,
     krippendorff_alpha_ordinal,
 )
@@ -123,7 +124,7 @@ class _FrozenModel(BaseModel):
 class MetricRequirement(_FrozenModel):
     metric_ref: str
     stratum_ref: str
-    minimum_denominator: int = Field(..., ge=1)
+    minimum_denominator: int = Field(..., ge=1, le=TAW00_MAX_BINOMIAL_DENOMINATOR)
     estimand_ref: Literal[
         "estimand-ref:taw00:paired-quality-one-sided-lower",
         "estimand-ref:taw00:paired-p95-ttft-one-sided-upper",
@@ -155,7 +156,7 @@ class MetricRequirement(_FrozenModel):
 class PowerAnalysisCell(_FrozenModel):
     metric_ref: str
     stratum_ref: str
-    minimum_denominator: int = Field(..., ge=1)
+    minimum_denominator: int = Field(..., ge=1, le=TAW00_MAX_BINOMIAL_DENOMINATOR)
     target_effect_size: float = Field(..., gt=0)
     familywise_alpha: float = Field(..., gt=0, lt=1)
     target_power: float = Field(..., ge=0.8, lt=1)
@@ -449,8 +450,10 @@ def validate_power_analysis_receipt(
 class BaselineMetric(_FrozenModel):
     metric_ref: str
     stratum_ref: str
-    denominator: int = Field(..., ge=1)
-    event_count: int | None = Field(default=None, ge=0)
+    denominator: int = Field(..., ge=1, le=TAW00_MAX_BINOMIAL_DENOMINATOR)
+    event_count: int | None = Field(
+        default=None, ge=0, le=TAW00_MAX_BINOMIAL_DENOMINATOR
+    )
     point_estimate: float
     lower_bound: float
     upper_bound: float

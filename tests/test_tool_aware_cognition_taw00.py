@@ -59,6 +59,7 @@ from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     verify_holdout_commitment,
 )
 from ultimate_ai_agent.core.evals.tool_aware_statistics import (
+    TAW00_MAX_BINOMIAL_DENOMINATOR,
     binomial_one_sided_upper_bound,
     clustered_bootstrap_mean_interval,
     holm_adjusted_alpha,
@@ -67,6 +68,25 @@ from ultimate_ai_agent.core.evals.tool_aware_statistics import (
     paired_bootstrap_one_sided_bound,
     paired_bootstrap_p95_difference_upper_bound,
 )
+
+
+def test_binomial_verification_work_is_bounded() -> None:
+    assert binomial_one_sided_upper_bound(0, TAW00_MAX_BINOMIAL_DENOMINATOR) < 1
+    with pytest.raises(ValueError, match="bounded verification limit"):
+        binomial_one_sided_upper_bound(0, TAW00_MAX_BINOMIAL_DENOMINATOR + 1)
+    with pytest.raises(ValidationError):
+        BaselineMetric(
+            metric_ref="metric-ref:taw00:test",
+            stratum_ref="stratum-ref:taw00:test",
+            denominator=TAW00_MAX_BINOMIAL_DENOMINATOR + 1,
+            event_count=0,
+            point_estimate=0,
+            lower_bound=0,
+            upper_bound=0.1,
+            estimator_ref="estimator-ref:taw00:clopper-pearson",
+            estimand_ref="estimand-ref:taw00:binomial-one-sided-upper",
+            evidence_digest_ref="sha256:" + "1" * 64,
+        )
 
 
 def _case_spec(index: int = 1) -> DevelopmentCaseSpec:

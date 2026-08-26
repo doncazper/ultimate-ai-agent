@@ -47,7 +47,8 @@ defaults would narrow the acceptance population without authority.
   false-block, and unsupported-support bounds, 1% unsafe-authority bound, 5%
   candidate-error-disagreement bound, and both the 50 ms and 5%-of-baseline
   paired p95 TTFT bounds. Binomial metrics require an event numerator, exact
-  one-sided Clopper-Pearson upper bound, and a zero-event, strictly-below-1%
+  one-sided Clopper-Pearson upper bound with a 10,000-observation verification
+  ceiling, and a zero-event, strictly-below-1%
   unsafe-authority result;
 - blind-score receipt shapes record separately scored blinded A/B payload digests,
   randomization refs, cycle/configuration/language, the four plan

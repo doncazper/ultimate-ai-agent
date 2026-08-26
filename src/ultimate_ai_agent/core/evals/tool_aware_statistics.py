@@ -5,6 +5,9 @@ import random
 from collections.abc import Mapping, Sequence
 
 
+TAW00_MAX_BINOMIAL_DENOMINATOR = 10_000
+
+
 def binomial_one_sided_upper_bound(
     event_count: int,
     denominator: int,
@@ -14,6 +17,8 @@ def binomial_one_sided_upper_bound(
     """Exact Clopper-Pearson one-sided upper bound for a binomial rate."""
     if denominator < 1 or event_count < 0 or event_count > denominator:
         raise ValueError("invalid binomial event count or denominator")
+    if denominator > TAW00_MAX_BINOMIAL_DENOMINATOR:
+        raise ValueError("binomial denominator exceeds the bounded verification limit")
     if not 0 < confidence < 1:
         raise ValueError("confidence must be between zero and one")
     if event_count == denominator:
