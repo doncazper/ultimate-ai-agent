@@ -26,14 +26,14 @@ from ultimate_ai_agent.core.finance.repository import (
 def finance_repository_ref(root: Path) -> str:
     return stable_finance_ref(
         "repository-ref:finance/FIN-001",
-        {"absolute_path": str(root.expanduser().absolute())},
+        {"canonical_path": str(root.expanduser().resolve(strict=False))},
     )
 
 
 def finance_target_ref(path: Path) -> str:
     return stable_finance_ref(
         "backup-path-ref:finance/FIN-001",
-        {"absolute_path": str(path.expanduser().absolute())},
+        {"canonical_path": str(path.expanduser().resolve(strict=False))},
     )
 
 

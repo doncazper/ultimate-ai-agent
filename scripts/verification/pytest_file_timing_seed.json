@@ -1272,7 +1272,7 @@
     },
     {
       "path": "tests/test_fin001_synthetic_kernel.py",
-      "seconds": 2.8,
+      "seconds": 4.5,
       "source": "operator-supplied-advisory"
     },
     {

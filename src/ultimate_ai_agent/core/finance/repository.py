@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import fcntl
 import json
 import os
 import sqlite3
@@ -41,6 +43,8 @@ from ultimate_ai_agent.core.planning.validation import (
 FINANCE_REPOSITORY_METADATA_FILE = "finance_repository_v1.json"
 FINANCE_REPOSITORY_ENCRYPTED_FILE = "finance_repository_v1.enc"
 FINANCE_REPOSITORY_RECEIPTS_FILE = "finance_mutation_receipts_v1.jsonl"
+FINANCE_REPOSITORY_LOCK_FILE = ".finance_repository_v1.lock"
+FINANCE_REPOSITORY_PENDING_COMMIT_FILE = ".finance_repository_pending_commit_v1"
 FINANCE_REPOSITORY_SCHEMA_REF = "repository-schema-ref:finance/FIN-001:sqlite:v1"
 FINANCE_REPOSITORY_MIGRATION_REF = "migration-ref:finance/FIN-001:v0-to-v1"
 FINANCE_REPOSITORY_ENVELOPE_CONTEXT_REF = (
@@ -289,13 +293,29 @@ class FinanceRepository:
         *,
         crypto_backend: FinanceCryptoBackend,
     ) -> None:
-        self.root = root
+        self.root = root.expanduser().absolute()
         self.crypto = crypto_backend
-        self.metadata_path = root / FINANCE_REPOSITORY_METADATA_FILE
-        self.encrypted_path = root / FINANCE_REPOSITORY_ENCRYPTED_FILE
-        self.receipts_path = root / FINANCE_REPOSITORY_RECEIPTS_FILE
+        self.metadata_path = self.root / FINANCE_REPOSITORY_METADATA_FILE
+        self.encrypted_path = self.root / FINANCE_REPOSITORY_ENCRYPTED_FILE
+        self.receipts_path = self.root / FINANCE_REPOSITORY_RECEIPTS_FILE
+        self.lock_path = self.root / FINANCE_REPOSITORY_LOCK_FILE
+        self.pending_commit_path = self.root / FINANCE_REPOSITORY_PENDING_COMMIT_FILE
 
     def create_from_fixture(
+        self,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> FinanceMutationReceipt:
+        self._ensure_private_root(create=True)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._create_from_fixture_locked(
+                permit=permit,
+                revalidate=revalidate,
+            )
+
+    def _create_from_fixture_locked(
         self,
         *,
         permit: FinanceMutationPermit,
@@ -323,89 +343,106 @@ class FinanceRepository:
             {"repository_ref": permit.repository_ref},
         )
         backup_key_version_ref = "key-version-ref:finance:backup:v1"
-        primary_key_receipt = self.crypto.create_key(
-            key_handle_ref=key_handle_ref,
-            key_version_ref=key_version_ref,
-            request_ref=permit.request_ref,
-        )
+        primary_created = False
+        backup_created = False
         try:
+            primary_key_receipt = self.crypto.create_key(
+                key_handle_ref=key_handle_ref,
+                key_version_ref=key_version_ref,
+                request_ref=permit.request_ref,
+            )
+            primary_created = True
             backup_key_receipt = self.crypto.create_key(
                 key_handle_ref=backup_key_handle_ref,
                 key_version_ref=backup_key_version_ref,
                 request_ref=permit.request_ref,
             )
-        except Exception:
-            self.crypto.delete_key(
+            backup_created = True
+            snapshot = self._snapshot_from_fixture(
+                repository_ref=permit.repository_ref,
+                fixture=fixture,
+                fixture_manifest_ref=manifest.manifest_ref,
+            )
+            prepared = self._receipt(
+                permit=permit,
+                phase="prepared",
+                before_revision=0,
+                after_revision=snapshot.revision,
+                before_snapshot_ref=None,
+                after_snapshot_ref=None,
+                proof_refs=(
+                    primary_key_receipt.receipt_ref,
+                    backup_key_receipt.receipt_ref,
+                    FINANCE_REPOSITORY_MIGRATION_REF,
+                ),
+            )
+            self._require_revalidated(permit, revalidate)
+            self._append_receipt(prepared)
+            connection = self._new_connection()
+            try:
+                self._write_snapshot(connection, snapshot)
+                self._record_idempotency(connection, permit, prepared.receipt_ref)
+                serialized = connection.serialize()
+            finally:
+                connection.close()
+            ciphertext = self.crypto.seal(
                 key_handle_ref=key_handle_ref,
                 key_version_ref=key_version_ref,
+                context_ref=FINANCE_REPOSITORY_ENVELOPE_CONTEXT_REF,
                 request_ref=permit.request_ref,
+                plaintext=serialized,
             )
+            metadata = FinanceRepositoryMetadata(
+                repository_ref=permit.repository_ref,
+                key_handle_ref=key_handle_ref,
+                key_version_ref=key_version_ref,
+                backup_key_handle_ref=backup_key_handle_ref,
+                backup_key_version_ref=backup_key_version_ref,
+                crypto_adapter_ref=self.crypto.adapter_ref,
+                ciphertext_ref=ciphertext_ref(ciphertext),
+                generation=snapshot.generation,
+            )
+            committed = self._receipt(
+                permit=permit,
+                phase="committed",
+                before_revision=0,
+                after_revision=snapshot.revision,
+                before_snapshot_ref=None,
+                after_snapshot_ref=snapshot.snapshot_ref,
+                proof_refs=(
+                    metadata.ciphertext_ref,
+                    primary_key_receipt.receipt_ref,
+                    backup_key_receipt.receipt_ref,
+                    FINANCE_REPOSITORY_MIGRATION_REF,
+                ),
+            )
+            self._require_revalidated(permit, revalidate)
+            self._stage_and_commit_generation(
+                metadata=metadata,
+                ciphertext=ciphertext,
+                committed=committed,
+            )
+            return committed
+        except Exception:
+            if not self.pending_commit_path.exists():
+                self._rollback_new_keys(
+                    key_handle_ref=key_handle_ref,
+                    key_version_ref=key_version_ref,
+                    backup_key_handle_ref=backup_key_handle_ref,
+                    backup_key_version_ref=backup_key_version_ref,
+                    request_ref=permit.request_ref,
+                    primary_created=primary_created,
+                    backup_created=backup_created or primary_created,
+                )
             raise
-        snapshot = self._snapshot_from_fixture(
-            repository_ref=permit.repository_ref,
-            fixture=fixture,
-            fixture_manifest_ref=manifest.manifest_ref,
-        )
-        prepared = self._receipt(
-            permit=permit,
-            phase="prepared",
-            before_revision=0,
-            after_revision=snapshot.revision,
-            before_snapshot_ref=None,
-            after_snapshot_ref=None,
-            proof_refs=(
-                primary_key_receipt.receipt_ref,
-                backup_key_receipt.receipt_ref,
-                FINANCE_REPOSITORY_MIGRATION_REF,
-            ),
-        )
-        self._require_revalidated(permit, revalidate)
-        self._append_receipt(prepared)
-        connection = self._new_connection()
-        try:
-            self._write_snapshot(connection, snapshot)
-            self._record_idempotency(connection, permit, prepared.receipt_ref)
-            serialized = connection.serialize()
-        finally:
-            connection.close()
-        ciphertext = self.crypto.seal(
-            key_handle_ref=key_handle_ref,
-            key_version_ref=key_version_ref,
-            context_ref=FINANCE_REPOSITORY_ENVELOPE_CONTEXT_REF,
-            request_ref=permit.request_ref,
-            plaintext=serialized,
-        )
-        metadata = FinanceRepositoryMetadata(
-            repository_ref=permit.repository_ref,
-            key_handle_ref=key_handle_ref,
-            key_version_ref=key_version_ref,
-            backup_key_handle_ref=backup_key_handle_ref,
-            backup_key_version_ref=backup_key_version_ref,
-            crypto_adapter_ref=self.crypto.adapter_ref,
-            ciphertext_ref=ciphertext_ref(ciphertext),
-            generation=snapshot.generation,
-        )
-        self._require_revalidated(permit, revalidate)
-        self._atomic_write(self.encrypted_path, ciphertext)
-        self._atomic_write_json(self.metadata_path, metadata.model_dump(mode="json"))
-        committed = self._receipt(
-            permit=permit,
-            phase="committed",
-            before_revision=0,
-            after_revision=snapshot.revision,
-            before_snapshot_ref=None,
-            after_snapshot_ref=snapshot.snapshot_ref,
-            proof_refs=(
-                metadata.ciphertext_ref,
-                primary_key_receipt.receipt_ref,
-                backup_key_receipt.receipt_ref,
-                FINANCE_REPOSITORY_MIGRATION_REF,
-            ),
-        )
-        self._append_receipt(committed)
-        return committed
 
     def load_snapshot(self, *, request_ref: str) -> FinanceSnapshot:
+        self._ensure_private_root(create=False)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._load_snapshot_locked(request_ref=request_ref)
+
+    def _load_snapshot_locked(self, *, request_ref: str) -> FinanceSnapshot:
         validate_task_ref(request_ref, "finance_read_request_ref")
         metadata = self._read_metadata()
         if metadata.deleted:
@@ -434,9 +471,12 @@ class FinanceRepository:
             raise FinanceRepositoryError("FINANCE_REPOSITORY_DECRYPT_FAILED") from None
         connection = self._connection_from_bytes(plaintext)
         try:
-            return self._read_snapshot(connection)
+            snapshot = self._read_snapshot(connection)
         finally:
             connection.close()
+        if snapshot.repository_ref != metadata.repository_ref:
+            raise FinanceRepositoryError("FINANCE_REPOSITORY_BINDING_MISMATCH")
+        return snapshot
 
     def check_integrity(self, *, request_ref: str) -> dict[str, Any]:
         snapshot = self.load_snapshot(request_ref=request_ref)
@@ -465,7 +505,25 @@ class FinanceRepository:
         permit: FinanceMutationPermit,
         revalidate: Callable[[], FinanceMutationPermit],
     ) -> tuple[FinanceBackupMetadata, FinanceMutationReceipt]:
+        self._ensure_private_root(create=False)
+        canonical_backup = backup_path.expanduser().resolve(strict=False)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._backup_locked(
+                canonical_backup,
+                permit=permit,
+                revalidate=revalidate,
+            )
+
+    def _backup_locked(
+        self,
+        backup_path: Path,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> tuple[FinanceBackupMetadata, FinanceMutationReceipt]:
         self._require_permit(permit, FinanceMutationOperation.backup)
+        self._require_target_binding(permit, backup_path)
         replay = self._find_logged_replay(permit)
         if replay is not None:
             raw = self._read_regular(backup_path, max_bytes=64 * 1024 * 1024)
@@ -475,7 +533,8 @@ class FinanceRepository:
                 replay.model_copy(update={"replayed": True}),
             )
         metadata = self._read_metadata()
-        snapshot = self.load_snapshot(request_ref=permit.request_ref)
+        self._require_repository_binding(permit, metadata)
+        snapshot = self._load_snapshot_locked(request_ref=permit.request_ref)
         if snapshot.revision != permit.expected_revision:
             raise FinanceRepositoryError("FINANCE_STALE_REVISION")
         if backup_path.exists() or backup_path.is_symlink():
@@ -556,12 +615,31 @@ class FinanceRepository:
         permit: FinanceMutationPermit,
         revalidate: Callable[[], FinanceMutationPermit],
     ) -> FinanceMutationReceipt:
+        self._ensure_private_root(create=False)
+        canonical_backup = backup_path.expanduser().resolve(strict=False)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._restore_locked(
+                canonical_backup,
+                permit=permit,
+                revalidate=revalidate,
+            )
+
+    def _restore_locked(
+        self,
+        backup_path: Path,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> FinanceMutationReceipt:
         self._require_permit(permit, FinanceMutationOperation.restore)
+        self._require_target_binding(permit, backup_path)
         replay = self._find_logged_replay(permit)
         if replay is not None:
             return replay.model_copy(update={"replayed": True})
         metadata = self._read_metadata()
-        before = self.load_snapshot(request_ref=permit.request_ref)
+        self._require_repository_binding(permit, metadata)
+        before = self._load_snapshot_locked(request_ref=permit.request_ref)
         if before.revision != permit.expected_revision:
             raise FinanceRepositoryError("FINANCE_STALE_REVISION")
         raw = self._read_regular(backup_path, max_bytes=64 * 1024 * 1024)
@@ -627,11 +705,6 @@ class FinanceRepository:
                 "generation": metadata.generation + 1,
             }
         )
-        self._require_revalidated(permit, revalidate)
-        self._atomic_write(self.encrypted_path, live_ciphertext)
-        self._atomic_write_json(
-            self.metadata_path, updated_metadata.model_dump(mode="json")
-        )
         committed = self._receipt(
             permit=permit,
             phase="committed",
@@ -644,10 +717,26 @@ class FinanceRepository:
                 updated_metadata.ciphertext_ref,
             ),
         )
-        self._append_receipt(committed)
+        self._require_revalidated(permit, revalidate)
+        self._stage_and_commit_generation(
+            metadata=updated_metadata,
+            ciphertext=live_ciphertext,
+            committed=committed,
+        )
         return committed
 
     def delete(
+        self,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> FinanceMutationReceipt:
+        self._ensure_private_root(create=False)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._delete_locked(permit=permit, revalidate=revalidate)
+
+    def _delete_locked(
         self,
         *,
         permit: FinanceMutationPermit,
@@ -658,7 +747,18 @@ class FinanceRepository:
         if replay is not None:
             return replay.model_copy(update={"replayed": True})
         metadata = self._read_metadata()
-        before = self.load_snapshot(request_ref=permit.request_ref)
+        self._require_repository_binding(permit, metadata)
+        if metadata.deleted:
+            prepared = self._find_logged_prepared(permit)
+            if prepared is None:
+                raise FinanceRepositoryError("FINANCE_DELETE_RECOVERY_RECEIPT_MISSING")
+            return self._finish_delete(
+                metadata=metadata,
+                permit=permit,
+                prepared=prepared,
+                revalidate=revalidate,
+            )
+        before = self._load_snapshot_locked(request_ref=permit.request_ref)
         if before.revision != permit.expected_revision:
             raise FinanceRepositoryError("FINANCE_STALE_REVISION")
         prepared = self._receipt(
@@ -675,52 +775,264 @@ class FinanceRepository:
         self._require_revalidated(permit, revalidate)
         self._append_receipt(prepared)
         self._require_revalidated(permit, revalidate)
-        primary = self.crypto.delete_key(
-            key_handle_ref=metadata.key_handle_ref,
-            key_version_ref=metadata.key_version_ref,
-            request_ref=permit.request_ref,
+        tombstone = metadata.model_copy(update={"deleted": True})
+        self._atomic_write_json(self.metadata_path, tombstone.model_dump(mode="json"))
+        return self._finish_delete(
+            metadata=tombstone,
+            permit=permit,
+            prepared=prepared,
+            revalidate=revalidate,
         )
+
+    def _finish_delete(
+        self,
+        *,
+        metadata: FinanceRepositoryMetadata,
+        permit: FinanceMutationPermit,
+        prepared: FinanceMutationReceipt,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> FinanceMutationReceipt:
+        self._require_revalidated(permit, revalidate)
         backup = self.crypto.delete_key(
             key_handle_ref=metadata.backup_key_handle_ref,
             key_version_ref=metadata.backup_key_version_ref,
             request_ref=permit.request_ref,
         )
-        if self.encrypted_path.exists():
-            self.encrypted_path.unlink()
-        tombstone = metadata.model_copy(update={"deleted": True})
-        self._atomic_write_json(self.metadata_path, tombstone.model_dump(mode="json"))
+        primary = self.crypto.delete_key(
+            key_handle_ref=metadata.key_handle_ref,
+            key_version_ref=metadata.key_version_ref,
+            request_ref=permit.request_ref,
+        )
+        self._unlink_private_file(self.encrypted_path, missing_ok=True)
         committed = self._receipt(
             permit=permit,
             phase="committed",
-            before_revision=before.revision,
-            after_revision=before.revision,
-            before_snapshot_ref=before.snapshot_ref,
+            before_revision=prepared.before_revision,
+            after_revision=prepared.after_revision,
+            before_snapshot_ref=prepared.before_snapshot_ref,
             after_snapshot_ref=None,
             proof_refs=(primary.receipt_ref, backup.receipt_ref),
         )
-        self._append_receipt(committed)
+        self._append_receipt_if_missing(committed)
         return committed
 
     def _find_logged_replay(
         self, permit: FinanceMutationPermit
     ) -> FinanceMutationReceipt | None:
+        receipts = self._matching_logged_receipts(permit)
+        return next(
+            (receipt for receipt in reversed(receipts) if receipt.phase == "committed"),
+            None,
+        )
+
+    def _find_logged_prepared(
+        self, permit: FinanceMutationPermit
+    ) -> FinanceMutationReceipt | None:
+        receipts = self._matching_logged_receipts(permit)
+        return next(
+            (receipt for receipt in reversed(receipts) if receipt.phase == "prepared"),
+            None,
+        )
+
+    def _matching_logged_receipts(
+        self, permit: FinanceMutationPermit
+    ) -> list[FinanceMutationReceipt]:
         if not self.receipts_path.exists():
-            return None
+            return []
         raw = self._read_regular(self.receipts_path, max_bytes=8 * 1024 * 1024)
-        match: FinanceMutationReceipt | None = None
+        matches: list[FinanceMutationReceipt] = []
         for line in raw.splitlines():
             receipt = FinanceMutationReceipt.model_validate_json(line)
-            if receipt.idempotency_ref != permit.idempotency_ref:
+            idempotency_matches = receipt.idempotency_ref == permit.idempotency_ref
+            request_matches = receipt.request_ref == permit.request_ref
+            if not idempotency_matches and not request_matches:
                 continue
+            if idempotency_matches and not request_matches:
+                raise FinanceRepositoryError("FINANCE_IDEMPOTENCY_CONFLICT")
+            if request_matches and not idempotency_matches:
+                raise FinanceRepositoryError("FINANCE_REQUEST_REF_CONFLICT")
             if (
                 receipt.payload_fingerprint_ref != permit.payload_fingerprint_ref
                 or receipt.operation != permit.operation
                 or receipt.repository_ref != permit.repository_ref
             ):
                 raise FinanceRepositoryError("FINANCE_IDEMPOTENCY_CONFLICT")
-            if receipt.phase == "committed":
-                match = receipt
-        return match
+            matches.append(receipt)
+        return matches
+
+    @contextmanager
+    def _mutation_lock(self):
+        self._ensure_private_root(create=True)
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0)
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(self.lock_path, flags, 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.getuid()
+                or metadata.st_mode & 0o077
+            ):
+                raise FinanceRepositoryError("FINANCE_REPOSITORY_LOCK_INVALID")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+
+    @staticmethod
+    def _require_repository_binding(
+        permit: FinanceMutationPermit,
+        metadata: FinanceRepositoryMetadata,
+    ) -> None:
+        if metadata.repository_ref != permit.repository_ref:
+            raise FinanceRepositoryError("FINANCE_REPOSITORY_BINDING_MISMATCH")
+
+    @staticmethod
+    def _require_target_binding(
+        permit: FinanceMutationPermit,
+        path: Path,
+    ) -> None:
+        expected = stable_finance_ref(
+            "backup-path-ref:finance/FIN-001",
+            {"canonical_path": str(path.expanduser().resolve(strict=False))},
+        )
+        if permit.target_ref != expected:
+            raise FinanceRepositoryError("FINANCE_TARGET_REF_PATH_MISMATCH")
+
+    def _stage_and_commit_generation(
+        self,
+        *,
+        metadata: FinanceRepositoryMetadata,
+        ciphertext: bytes,
+        committed: FinanceMutationReceipt,
+    ) -> None:
+        if committed.phase != "committed":
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_RECEIPT_INVALID")
+        header = {
+            "schema_version": "uaa-finance-pending-commit.v1",
+            "metadata": metadata.model_dump(mode="json"),
+            "receipt": committed.model_dump(mode="json"),
+        }
+        encoded_header = json.dumps(
+            header,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        self._atomic_write(
+            self.pending_commit_path, encoded_header + b"\n" + ciphertext
+        )
+        self._recover_pending_commit()
+
+    def _recover_pending_commit(self) -> None:
+        if not self.pending_commit_path.exists():
+            return
+        raw = self._read_regular(
+            self.pending_commit_path,
+            max_bytes=64 * 1024 * 1024,
+        )
+        try:
+            encoded_header, ciphertext = raw.split(b"\n", 1)
+            header = json.loads(encoded_header)
+        except (ValueError, TypeError, json.JSONDecodeError):
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID") from None
+        if not isinstance(header, dict) or set(header) != {
+            "schema_version",
+            "metadata",
+            "receipt",
+        }:
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID")
+        if header["schema_version"] != "uaa-finance-pending-commit.v1":
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID")
+        try:
+            metadata = FinanceRepositoryMetadata.model_validate(header["metadata"])
+            committed = FinanceMutationReceipt.model_validate(header["receipt"])
+        except (ValueError, TypeError):
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID") from None
+        if (
+            committed.phase != "committed"
+            or committed.repository_ref != metadata.repository_ref
+            or committed.after_snapshot_ref is None
+            or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
+        ):
+            raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        self._atomic_write(self.encrypted_path, ciphertext)
+        self._atomic_write_json(self.metadata_path, metadata.model_dump(mode="json"))
+        self._append_receipt_if_missing(committed)
+        self._unlink_private_file(self.pending_commit_path, missing_ok=False)
+
+    def _append_receipt_if_missing(self, receipt: FinanceMutationReceipt) -> None:
+        if self.receipts_path.exists():
+            raw = self._read_regular(
+                self.receipts_path,
+                max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES,
+            )
+            for line in raw.splitlines():
+                existing = FinanceMutationReceipt.model_validate_json(line)
+                if existing.receipt_ref == receipt.receipt_ref:
+                    if existing != receipt:
+                        raise FinanceRepositoryError("FINANCE_RECEIPT_REF_CONFLICT")
+                    return
+        self._append_receipt(receipt)
+
+    def _rollback_new_keys(
+        self,
+        *,
+        key_handle_ref: str,
+        key_version_ref: str,
+        backup_key_handle_ref: str,
+        backup_key_version_ref: str,
+        request_ref: str,
+        primary_created: bool,
+        backup_created: bool,
+    ) -> None:
+        failures: list[Exception] = []
+        for created, handle_ref, version_ref in (
+            (backup_created, backup_key_handle_ref, backup_key_version_ref),
+            (primary_created, key_handle_ref, key_version_ref),
+        ):
+            if not created:
+                continue
+            try:
+                self.crypto.delete_key(
+                    key_handle_ref=handle_ref,
+                    key_version_ref=version_ref,
+                    request_ref=request_ref,
+                )
+            except Exception as exc:
+                failures.append(exc)
+        for path in (self.encrypted_path, self.metadata_path):
+            try:
+                self._unlink_private_file(path, missing_ok=True)
+            except Exception as exc:
+                failures.append(exc)
+        if failures:
+            raise FinanceRepositoryError("FINANCE_CREATE_ROLLBACK_FAILED") from None
+
+    @staticmethod
+    def _unlink_private_file(path: Path, *, missing_ok: bool) -> None:
+        try:
+            metadata = os.lstat(path)
+        except FileNotFoundError:
+            if missing_ok:
+                return
+            raise FinanceRepositoryError("FINANCE_REPOSITORY_FILE_MISSING") from None
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o077
+        ):
+            raise FinanceRepositoryError("FINANCE_REPOSITORY_TARGET_INVALID")
+        path.unlink()
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     @staticmethod
     def _require_revalidated(

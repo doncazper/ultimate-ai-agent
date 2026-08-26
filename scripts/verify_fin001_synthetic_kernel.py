@@ -107,6 +107,12 @@ def verify() -> list[str]:
         or manifest_contract.memory_write_allowed
     ):
         failures.append("Finance capability runtime authority broadened")
+    if (
+        not manifest_contract.approval_required
+        or not manifest_contract.safety.approval_required
+        or not manifest_contract.single_writer_required
+    ):
+        failures.append("Finance approval or single-writer contract drifted")
 
     cli = (ROOT / "scripts/dev/uaa_finance.py").read_text(encoding="utf-8")
     for command in ("status", "prepare", "run", "inspect", "check", "export"):
@@ -114,6 +120,8 @@ def verify() -> list[str]:
             failures.append(f"CLI command missing: {command}")
     if (
         "--confirmed" not in cli
+        or "--safe-disable-engaged" not in cli
+        or "_authority_state_dir" not in cli
         or "issue_authority_lease_with_backend_approval" not in cli
     ):
         failures.append("CLI confirmation or backend lease approval gate missing")
@@ -125,8 +133,11 @@ def verify() -> list[str]:
         "connection.serialize()",
         "FINANCE_STALE_REVISION",
         "FINANCE_IDEMPOTENCY_CONFLICT",
+        "FINANCE_REQUEST_REF_CONFLICT",
         "FINANCE_PREPERSIST_AUTHORITY_DRIFT",
         "FINANCE_REPOSITORY_CIPHERTEXT_DRIFT",
+        "FINANCE_REPOSITORY_LOCK_FILE",
+        "FINANCE_REPOSITORY_PENDING_COMMIT_FILE",
     ):
         if token not in repository:
             failures.append(f"repository invariant missing: {token}")

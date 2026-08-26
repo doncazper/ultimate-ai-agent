@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import stat
@@ -73,6 +74,27 @@ def _service(args: argparse.Namespace) -> FinanceKernelService:
     return FinanceKernelService(
         FinanceRepository(args.repository_dir, crypto_backend=_backend(args))
     )
+
+
+def _authority_state_dir(repository_dir: Path) -> Path:
+    canonical = repository_dir.expanduser().resolve(strict=False)
+    digest = hashlib.sha256(str(canonical).encode("utf-8")).hexdigest()
+    parent = canonical.parent / ".uaa-finance-authority"
+    state_dir = parent / digest
+    for directory in (parent, state_dir):
+        try:
+            directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+        except FileExistsError:
+            pass
+        metadata = os.lstat(directory)
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or metadata.st_uid != os.getuid()
+            or metadata.st_mode & 0o077
+        ):
+            raise ValueError("FINANCE_AUTHORITY_STATE_DIR_INVALID")
+    return state_dir
 
 
 def _request(args: argparse.Namespace) -> FinanceMutationRequest:
@@ -167,7 +189,7 @@ def command_run(args: argparse.Namespace) -> int:
         approval_ref=preview.expected_approval_ref,
         expires_at=preview.expires_at,
     )
-    lease_store = AuthorityLeaseStore(args.repository_dir / "authority")
+    lease_store = AuthorityLeaseStore(_authority_state_dir(args.repository_dir))
     issue_request = build_finance_lease_issue_request(
         preview,
     )
@@ -192,6 +214,7 @@ def command_run(args: argparse.Namespace) -> int:
         lease_provider=lambda: lease_store.list_leases(active_only=True),
         clock=lambda: datetime.now(UTC),
         backup_path=args.backup_path,
+        safe_disable_engaged=lambda: args.safe_disable_engaged,
     )
     if isinstance(result, tuple):
         backup, receipt = result
@@ -246,6 +269,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--bundle", type=Path, required=True)
     run.add_argument("--backup-path", type=Path)
     run.add_argument("--confirmed", action="store_true")
+    run.add_argument("--safe-disable-engaged", action="store_true")
     run.set_defaults(func=command_run)
     for name in ("inspect", "check", "export"):
         read = commands.add_parser(name, parents=[shared])

@@ -13,7 +13,9 @@ deployment claim is made.
 - The repository builds SQLite in memory and persists only AES-GCM ciphertext,
   safe-ref metadata, and content-free receipts. It includes schema version 1,
   integrity checks, optimistic revision checks, exact replay/conflict handling,
-  encrypted backup/restore, generation-safe restore, and cryptographic delete.
+  encrypted backup/restore, crash-recoverable generation commits, and
+  retryable tombstone-first cryptographic delete. Owner-private process locks
+  serialize the stale-revision check through final persistence.
 - Local mutation requires current `PolicyEngine` allowance, an exact
   `LocalApprovalAuthority` grant, and an active exact session AuthorityLease.
   All three are revalidated at the final persistence boundary. Safe-disable,
@@ -22,6 +24,10 @@ deployment claim is made.
 - `scripts/dev/uaa_finance.py` supplies status, prepare, run, inspect, check,
   and redacted export parity. `run` requires explicit operator confirmation,
   records backend approval for the exact lease, and calls the same Python core.
+  Its lease-control state is stored in a separate owner-private sibling state
+  directory, never inside the protected repository root. Operators can add
+  `--safe-disable-engaged` to any `run` invocation to force the exact lane to
+  deny before repository persistence.
 
 ## Protected Storage Boundary
 
@@ -36,7 +42,9 @@ environment. The in-memory backend exists only for deterministic tests.
 
 No plaintext SQLite file, key, financial value, raw local path, or record body
 is written to metadata, receipts, CLI output, or logs. CLI path arguments are
-converted to content-derived safe refs before authority binding.
+canonicalized through existing symlinked ancestors and converted to
+content-derived safe refs before authority binding. Metadata, snapshots,
+permits, and backup targets must retain the same exact canonical binding.
 
 ## CLI Flow
 
@@ -60,6 +68,9 @@ review envelope and performs no mutation.
   --helper-sha256 <64-lowercase-hex> \
   --bundle prepared.json --confirmed
 ```
+
+To verify or enforce the task-specific emergency stop, add
+`--safe-disable-engaged` to `run`; the command exits nonzero before mutation.
 
 Set the task-specific variables to owner-only local paths. They are runtime
 inputs, not defaults or durable evidence. Do not commit prepared bundles or

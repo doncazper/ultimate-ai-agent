@@ -278,7 +278,7 @@ def build_finance_mutation_capability_manifest() -> CapabilityManifest:
         side_effects=SideEffectLevel.write,
         risk_level=RiskLevel.medium,
         authority_level=CapabilityAuthorityLevel.mutating,
-        approval_required=False,
+        approval_required=True,
         deterministic=True,
         rollback_supported=True,
         receipt_required=True,
@@ -312,7 +312,7 @@ def build_finance_mutation_capability_manifest() -> CapabilityManifest:
         safety=SafetyPolicy(
             allow_parallel=False,
             require_single_writer=True,
-            approval_required=False,
+            approval_required=True,
             max_risk_level=RiskLevel.medium,
             max_side_effect_level=SideEffectLevel.write,
         ),
@@ -484,10 +484,16 @@ class FinanceMutationGate:
             raise FinanceAuthorityError("FINANCE_ACTION_ENVELOPE_MISMATCH")
 
         policy_decision = self._policy_decision(request, preview)
-        if (
-            policy_decision.status != PolicyDecisionStatus.allowed
-            or not policy_decision.allowed
-        ):
+        policy_allows = (
+            policy_decision.status == PolicyDecisionStatus.allowed
+            and policy_decision.allowed
+        )
+        policy_requires_exact_approval = (
+            policy_decision.status == PolicyDecisionStatus.approval_required
+            and not policy_decision.allowed
+            and policy_decision.requires_approval
+        )
+        if not policy_allows and not policy_requires_exact_approval:
             raise FinanceAuthorityError("FINANCE_POLICY_DENIED")
         policy_decision_ref = stable_finance_ref(
             "policy-decision-ref:finance/FIN-001",

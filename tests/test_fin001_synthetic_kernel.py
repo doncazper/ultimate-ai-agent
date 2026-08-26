@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -30,6 +31,7 @@ from ultimate_ai_agent.core.finance.authority import (
     FinanceMutationRequest,
     build_exact_finance_lease,
     build_finance_lease_issue_request,
+    build_finance_mutation_capability_manifest,
 )
 from ultimate_ai_agent.core.capabilities.enums import PolicyDecisionStatus
 from ultimate_ai_agent.core.finance.crypto import (
@@ -43,7 +45,9 @@ from ultimate_ai_agent.core.finance.fixtures import (
 from ultimate_ai_agent.core.finance.models import JournalEntry, stable_finance_ref
 from ultimate_ai_agent.core.finance.repository import (
     FINANCE_REPOSITORY_ENCRYPTED_FILE,
+    FINANCE_REPOSITORY_LOCK_FILE,
     FINANCE_REPOSITORY_METADATA_FILE,
+    FINANCE_REPOSITORY_PENDING_COMMIT_FILE,
     FINANCE_REPOSITORY_RECEIPTS_FILE,
     FinanceRepository,
     FinanceRepositoryError,
@@ -163,6 +167,11 @@ def test_fixture_manifest_is_exact_balanced_and_covers_required_flows() -> None:
             )
         assert set(by_commodity.values()) == {0}
 
+    capability = build_finance_mutation_capability_manifest()
+    assert capability.approval_required is True
+    assert capability.safety.approval_required is True
+    assert capability.single_writer_required is True
+
 
 def test_unbalanced_and_arbitrary_input_fail_closed() -> None:
     fixture = load_finance_fixture(FIXTURE_REF)
@@ -233,6 +242,40 @@ def test_create_replays_exact_receipt_and_conflicts_on_reused_key(kernel) -> Non
     )
     with pytest.raises(FinanceRepositoryError, match="FINANCE_IDEMPOTENCY_CONFLICT"):
         _execute(service, changed, now=now)
+    reused_request = request.model_copy(
+        update={"idempotency_ref": "idempotency-ref:finance:test-replay-new"}
+    )
+    with pytest.raises(FinanceRepositoryError, match="FINANCE_REQUEST_REF_CONFLICT"):
+        _execute(service, reused_request, now=now)
+
+
+def test_create_failure_rolls_back_both_new_keys_and_can_retry(
+    kernel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, crypto, root = kernel
+    now = datetime.now(UTC)
+    request = _request(root, "create", suffix="create-rollback", expected_revision=0)
+    repository = service.repository
+    original_append = repository._append_receipt
+    failed = False
+
+    def fail_first_prepared(receipt):
+        nonlocal failed
+        if receipt.phase == "prepared" and not failed:
+            failed = True
+            raise OSError("injected prepared receipt failure")
+        return original_append(receipt)
+
+    monkeypatch.setattr(repository, "_append_receipt", fail_first_prepared)
+    with pytest.raises(OSError, match="injected prepared receipt failure"):
+        _execute(service, request, now=now)
+    assert crypto._keys == {}
+    assert not (root / FINANCE_REPOSITORY_METADATA_FILE).exists()
+    assert not (root / FINANCE_REPOSITORY_ENCRYPTED_FILE).exists()
+
+    monkeypatch.setattr(repository, "_append_receipt", original_append)
+    receipt = _execute(service, request, now=now)
+    assert receipt.phase == "committed"
 
 
 def test_missing_approval_coarse_lease_and_prepersist_revocation_fail(kernel) -> None:
@@ -441,6 +484,115 @@ def test_delete_cryptographically_erases_keys_and_ciphertext(kernel) -> None:
             )
 
 
+def test_restore_commit_recovers_after_ciphertext_metadata_interruption(
+    kernel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, _crypto, root = kernel
+    now = datetime.now(UTC)
+    _execute(
+        service,
+        _request(root, "create", suffix="recover-create", expected_revision=0),
+        now=now,
+    )
+    backup_path = root.parent / "recover-backup.enc"
+    _execute(
+        service,
+        _request(
+            root,
+            "backup",
+            suffix="recover-backup",
+            expected_revision=1,
+            backup_path=backup_path,
+        ),
+        now=now,
+        backup_path=backup_path,
+    )
+    repository = service.repository
+    original_write_json = repository._atomic_write_json
+    interrupted = False
+
+    def interrupt_metadata(path: Path, payload: dict[str, object]) -> None:
+        nonlocal interrupted
+        if path == repository.metadata_path and not interrupted:
+            interrupted = True
+            raise OSError("injected metadata replacement failure")
+        original_write_json(path, payload)
+
+    monkeypatch.setattr(repository, "_atomic_write_json", interrupt_metadata)
+    restore_request = _request(
+        root,
+        "restore",
+        suffix="recover-restore",
+        expected_revision=1,
+        backup_path=backup_path,
+    )
+    with pytest.raises(OSError, match="injected metadata replacement failure"):
+        _execute(
+            service,
+            restore_request,
+            now=now,
+            backup_path=backup_path,
+        )
+    assert (root / FINANCE_REPOSITORY_PENDING_COMMIT_FILE).is_file()
+
+    monkeypatch.setattr(repository, "_atomic_write_json", original_write_json)
+    snapshot = repository.load_snapshot(
+        request_ref="request-ref:finance:test-recover-load"
+    )
+    assert snapshot.generation == 2
+    assert not (root / FINANCE_REPOSITORY_PENDING_COMMIT_FILE).exists()
+    replay = _execute(
+        service,
+        restore_request,
+        now=now,
+        backup_path=backup_path,
+    )
+    assert replay.replayed is True
+
+
+def test_interrupted_delete_is_tombstoned_and_retry_completes(
+    kernel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, crypto, root = kernel
+    now = datetime.now(UTC)
+    _execute(
+        service,
+        _request(root, "create", suffix="delete-recover-create", expected_revision=0),
+        now=now,
+    )
+    metadata = json.loads((root / FINANCE_REPOSITORY_METADATA_FILE).read_text())
+    original_delete = crypto.delete_key
+    failed = False
+
+    def fail_primary_once(*, key_handle_ref, key_version_ref, request_ref):
+        nonlocal failed
+        if key_handle_ref == metadata["key_handle_ref"] and not failed:
+            failed = True
+            raise RuntimeError("injected primary delete failure")
+        return original_delete(
+            key_handle_ref=key_handle_ref,
+            key_version_ref=key_version_ref,
+            request_ref=request_ref,
+        )
+
+    monkeypatch.setattr(crypto, "delete_key", fail_primary_once)
+    delete_request = _request(
+        root,
+        "delete",
+        suffix="delete-recover",
+        expected_revision=1,
+    )
+    with pytest.raises(RuntimeError, match="injected primary delete failure"):
+        _execute(service, delete_request, now=now)
+    tombstone = json.loads((root / FINANCE_REPOSITORY_METADATA_FILE).read_text())
+    assert tombstone["deleted"] is True
+    assert (root / FINANCE_REPOSITORY_ENCRYPTED_FILE).exists()
+
+    receipt = _execute(service, delete_request, now=now)
+    assert receipt.phase == "committed"
+    assert not (root / FINANCE_REPOSITORY_ENCRYPTED_FILE).exists()
+
+
 def test_safe_disable_and_kill_switch_deny_before_persistence(kernel) -> None:
     service, _crypto, root = kernel
     now = datetime.now(UTC)
@@ -577,6 +729,87 @@ def test_ciphertext_tamper_and_symlink_root_fail_closed(kernel, tmp_path: Path) 
         _execute(linked_service, linked_request, now=now)
 
 
+def test_canonical_path_binding_collapses_symlinked_ancestor(tmp_path: Path) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir(mode=0o700)
+    alias_parent = tmp_path / "alias-parent"
+    alias_parent.symlink_to(real_parent, target_is_directory=True)
+    real_root = real_parent / "book"
+    alias_root = alias_parent / "book"
+    assert finance_repository_ref(real_root) == finance_repository_ref(alias_root)
+
+    crypto = InMemoryFinanceCryptoBackend()
+    alias_service = FinanceKernelService(
+        FinanceRepository(alias_root, crypto_backend=crypto)
+    )
+    now = datetime.now(UTC)
+    _execute(
+        alias_service,
+        _request(alias_root, "create", suffix="canonical-create", expected_revision=0),
+        now=now,
+    )
+    real_service = FinanceKernelService(
+        FinanceRepository(real_root, crypto_backend=crypto)
+    )
+    snapshot = real_service.repository.load_snapshot(
+        request_ref="request-ref:finance:test-canonical-read"
+    )
+    assert snapshot.repository_ref == finance_repository_ref(real_root)
+
+
+def test_metadata_repository_binding_tamper_fails_closed(kernel) -> None:
+    service, _crypto, root = kernel
+    now = datetime.now(UTC)
+    _execute(
+        service,
+        _request(root, "create", suffix="metadata-binding", expected_revision=0),
+        now=now,
+    )
+    metadata_path = root / FINANCE_REPOSITORY_METADATA_FILE
+    metadata = json.loads(metadata_path.read_text())
+    metadata["repository_ref"] = "repository-ref:finance/FIN-001:other"
+    service.repository._atomic_write_json(metadata_path, metadata)
+    with pytest.raises(
+        FinanceRepositoryError, match="FINANCE_REPOSITORY_BINDING_MISMATCH"
+    ):
+        service.repository.load_snapshot(
+            request_ref="request-ref:finance:test-metadata-binding"
+        )
+
+
+def test_repository_mutation_waits_for_cross_process_lock(kernel) -> None:
+    service, _crypto, root = kernel
+    root.mkdir(mode=0o700)
+    lock_path = root / FINANCE_REPOSITORY_LOCK_FILE
+    holder = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import fcntl,os,sys,time;"
+                "fd=os.open(sys.argv[1],os.O_RDWR|os.O_CREAT,0o600);"
+                "fcntl.flock(fd,fcntl.LOCK_EX);"
+                "print('locked',flush=True);"
+                "time.sleep(0.4)"
+            ),
+            str(lock_path),
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert holder.stdout is not None
+    assert holder.stdout.readline().strip() == "locked"
+    started = time.monotonic()
+    _execute(
+        service,
+        _request(root, "create", suffix="process-lock", expected_revision=0),
+        now=datetime.now(UTC),
+    )
+    elapsed = time.monotonic() - started
+    assert holder.wait(timeout=5) == 0
+    assert elapsed >= 0.25
+
+
 def test_receipts_are_content_free_safe_refs(kernel) -> None:
     service, _crypto, root = kernel
     _execute(
@@ -629,6 +862,9 @@ def test_cli_prepare_is_non_mutating_and_confirmation_is_required(
     assert payload["mutation_performed"] is False
     assert payload["operator_confirmation_required"] is True
     assert not repository.exists()
+    bundle_path = tmp_path / "prepared-finance-bundle.json"
+    bundle_path.write_text(json.dumps(payload))
+    bundle_path.chmod(0o600)
 
     denied = subprocess.run(
         [
@@ -653,6 +889,32 @@ def test_cli_prepare_is_non_mutating_and_confirmation_is_required(
     assert json.loads(denied.stdout)["error_code"] == (
         "FINANCE_OPERATOR_CONFIRMATION_REQUIRED"
     )
+
+    disabled = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_finance.py",
+            "run",
+            "--repository-dir",
+            str(repository),
+            "--helper-path",
+            str(helper),
+            "--helper-sha256",
+            "a" * 64,
+            "--bundle",
+            str(bundle_path),
+            "--confirmed",
+            "--safe-disable-engaged",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert disabled.returncode == 2
+    assert json.loads(disabled.stdout)["error_code"] == "FINANCE_SAFE_DISABLE_ENGAGED"
+    assert not repository.exists()
+    assert not (repository / "authority").exists()
 
 
 def test_fin001_verifier_passes() -> None:
