@@ -56,7 +56,8 @@ def test_q30_backend_read_model_is_content_free_and_fail_closed() -> None:
     assert "blocked-state:q30:no-live-publish" in proposal.blocked_authority_refs
 
 
-def test_q30_p0_p6_verifier_passes() -> None:
+def test_q30_p0_p4_verifier_passes() -> None:
+    # Keep the accepted corpus identity stable; verify() now covers P0-P6.
     assert verify() == []
 
 
