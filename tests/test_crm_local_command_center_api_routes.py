@@ -110,4 +110,35 @@ def test_control_center_crm_local_mutation_requires_idempotency_and_approval(
         headers={"x-uaa-idempotency-key": idempotency_ref},
     )
     assert changed_denied.status_code == 403
-    assert changed_denied.json()["detail"]["code"] == "CRM_LOCAL_MUTATION_APPROVAL_DENIED"
+    assert (
+        changed_denied.json()["detail"]["code"] == "CRM_LOCAL_MUTATION_APPROVAL_DENIED"
+    )
+
+    non_human_idempotency_ref = "idempotency-ref:api-crm-local-non-human"
+    non_human_target_ref = "person-ref:crm-local:relationship-beta"
+    non_human_approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=non_human_target_ref,
+        idempotency_ref=non_human_idempotency_ref,
+    )
+    non_human_denied = api_client.post(
+        "/control-center/crm/local-mutations",
+        json={
+            "actor_context": {
+                "actor_type": "subagent",
+                "actor_id": "agent-ref:request-controlled",
+                "authority_source": "explicit_user_request",
+            },
+            "mutation_kind": "select_social_context",
+            "target_ref": non_human_target_ref,
+            "approval_ref": non_human_approval_ref,
+        },
+        headers={
+            "x-uaa-idempotency-key": non_human_idempotency_ref,
+            "x-uaa-operator-confirmed": "true",
+        },
+    )
+    assert non_human_denied.status_code == 403
+    assert (
+        non_human_denied.json()["detail"]["code"]
+        == "CRM_LOCAL_MUTATION_HUMAN_OPERATOR_REQUIRED"
+    )

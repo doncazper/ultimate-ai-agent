@@ -2155,10 +2155,47 @@ def _exact_authority_binding(lease: AuthorityLease) -> tuple[str, str, str, str]
     return values  # type: ignore[return-value]
 
 
+def _lease_exact_action_binding_matches(
+    lease: AuthorityLease,
+    request: AuthorityActionRequest,
+) -> bool:
+    """Keep action-bound leases from degrading into coarse domain grants."""
+    exact_action_ref = lease.constraints.get("exact_action_ref")
+    if exact_action_ref is None:
+        return True
+    exact_lane_ref = lease.constraints.get("exact_lane_ref")
+    exact_route_ref = lease.constraints.get("exact_route_ref")
+    if not all(
+        isinstance(value, str)
+        for value in (exact_action_ref, exact_lane_ref, exact_route_ref)
+    ):
+        return False
+    if (
+        request.action_ref != exact_action_ref
+        or request.lane_ref != exact_lane_ref
+        or request.route_ref != exact_route_ref
+    ):
+        return False
+    exact_resource_constraints = [
+        constraint
+        for constraint in lease.authority_constraints
+        if AuthorityConstraintKind(constraint.kind)
+        == AuthorityConstraintKind.resource_refs
+    ]
+    if len(exact_resource_constraints) != 1:
+        return False
+    allowed_resource_refs = exact_resource_constraints[0].allowed_refs
+    return len(request.resource_refs) == len(allowed_resource_refs) and set(
+        request.resource_refs
+    ) == set(allowed_resource_refs)
+
+
 def _lease_exact_authority_binding_matches(
     lease: AuthorityLease,
     request: AuthorityActionRequest,
 ) -> bool:
+    if not _lease_exact_action_binding_matches(lease, request):
+        return False
     request_binding = (
         request.lane_ref,
         request.capability_ref,
@@ -3882,9 +3919,7 @@ class AuthorityLeaseStore:
             existing.operation != "issue"
             or existing.request_fingerprint_ref != request_fingerprint_ref
         ):
-            raise AuthorityLeaseConflictError(
-                "AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT"
-            )
+            raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
         lease = self._lease_by_ref(existing.lease_ref)
         if existing.status == "denied":
             return None, existing.model_copy(deep=True)

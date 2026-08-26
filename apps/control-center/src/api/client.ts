@@ -2002,8 +2002,19 @@ async function isSafeCrmSocialProjection(crm: CrmLocalCommandCenterReadModel | u
     projection.production_authority_enabled !== false ||
     !crmStringArray(projection.evidence_refs) ||
     !Array.isArray(crm.relationships) ||
+    !crm.relationships.every(
+      (relationship) =>
+        relationship !== null && typeof relationship === "object" && !Array.isArray(relationship),
+    ) ||
     !Array.isArray(crm.people) ||
+    !crm.people.every(
+      (person) => person !== null && typeof person === "object" && !Array.isArray(person),
+    ) ||
     !Array.isArray(crm.organizations) ||
+    !crm.organizations.every(
+      (organization) =>
+        organization !== null && typeof organization === "object" && !Array.isArray(organization),
+    ) ||
     !Number.isInteger(projection.total_item_count) ||
     projection.total_item_count < 0 ||
     !Number.isInteger(projection.returned_item_count) ||

@@ -780,6 +780,15 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     ["non-array organizations", (crm: Record<string, unknown>) => {
       crm.organizations = {};
     }],
+    ["null relationship entry", (crm: Record<string, unknown>) => {
+      crm.relationships = [null];
+    }],
+    ["primitive person entry", (crm: Record<string, unknown>) => {
+      crm.people = ["person-ref:crm-local:invalid"];
+    }],
+    ["array organization entry", (crm: Record<string, unknown>) => {
+      crm.organizations = [[]];
+    }],
   ])("fails closed for a CRM response with a %s", async (_label, mutate) => {
     const routeData = baseRouteData();
     const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));

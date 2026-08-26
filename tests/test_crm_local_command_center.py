@@ -8,6 +8,17 @@ from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityConstraintClaim,
+    AuthorityConstraintKind,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLeaseStore,
+    TrustMode,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.crm import (
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
     CrmLocalAuthorityError,
@@ -18,6 +29,11 @@ from ultimate_ai_agent.core.crm import (
     build_crm_local_command_center_read_model,
     crm_local_mutation_approval_request,
     expected_crm_local_mutation_approval_ref,
+)
+from ultimate_ai_agent.core.hygiene.actor_context import (
+    ActorContext,
+    ActorType,
+    AuthoritySource,
 )
 from tests.authority_helpers import contacts_write_authority_lease
 
@@ -249,6 +265,141 @@ def test_crm_confirmed_operator_lane_captures_exact_approval_and_lease(
         item.relationship_ref
         for item in store.read_model().social_relationship_projection.items
     } >= {"relationship-ref:crm-local:beta"}
+
+
+def test_crm_confirmed_lane_rejects_non_human_or_unbound_operator(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-non-human"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+
+    for actor_context in (
+        ActorContext(
+            actor_type=ActorType.subagent,
+            actor_id="agent-ref:reviewer",
+            authority_source=AuthoritySource.explicit_user_request,
+        ),
+        ActorContext(
+            actor_type=ActorType.human_user,
+            actor_id="request-controlled-human-alias",
+            authority_source=AuthoritySource.explicit_user_request,
+        ),
+    ):
+        request = CrmLocalMutationRequest(
+            actor_context=actor_context,
+            mutation_kind="select_social_context",
+            target_ref=target_ref,
+            approval_ref=approval_ref,
+        )
+        with pytest.raises(
+            CrmLocalCommandCenterError,
+            match="CRM_LOCAL_MUTATION_HUMAN_OPERATOR_REQUIRED",
+        ):
+            store.record_confirmed_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                confirmed=True,
+            )
+
+    assert not (tmp_path / "authority").exists()
+
+
+def test_crm_confirmed_lane_checks_replay_before_issuing_authority(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-replay-authority"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    initial = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+    )
+    store.record_confirmed_local_mutation(
+        request=initial,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    lease_refs_before = [lease.lease_ref for lease in lease_store.list_leases()]
+
+    conflicting = CrmLocalMutationRequest(
+        mutation_kind="clear_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+    )
+    with pytest.raises(
+        CrmLocalCommandCenterDuplicateError,
+        match="CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT",
+    ):
+        store.record_confirmed_local_mutation(
+            request=conflicting,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert [lease.lease_ref for lease in lease_store.list_leases()] == lease_refs_before
+
+
+def test_crm_confirmed_lease_cannot_authorize_another_contacts_action(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-exact-action"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+    )
+    store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    leases = AuthorityLeaseStore(tmp_path / "authority").list_leases()
+    assert len(leases) == 1
+    resource_constraint = next(
+        constraint
+        for constraint in leases[0].authority_constraints
+        if constraint.kind == AuthorityConstraintKind.resource_refs.value
+    )
+
+    decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:other-contacts-write",
+            domain=AuthorityDomain.contacts,
+            capability=AuthorityCapability.write,
+            safe_summary="Attempt another Contacts write with copied CRM scope.",
+            resource_refs=resource_constraint.allowed_refs,
+            route_ref="POST /control-center/crm/local-mutations",
+            lane_ref="lane-ref:crm-local-mutation",
+            requested_mode=TrustMode.ask_before_changes,
+            constraint_claims=[
+                AuthorityConstraintClaim(
+                    kind=AuthorityConstraintKind.operation_budget,
+                    value=1,
+                )
+            ],
+        ),
+        leases,
+    )
+
+    assert decision.outcome == AuthorityDecisionOutcome.deny.value
+    assert decision.lease_ref is None
 
 
 def test_crm_confirmed_lane_supports_maximum_length_idempotency_refs(
