@@ -3,7 +3,7 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:86c7eefdb95450d2ef30f626248b149e89b4442984f1465247fec080f2988c1e",
+  "acceptance_subject_digest": "sha256:914707b03353fa8e93221ef428fe2436ec5be0854154dad398f7180b3cd7779d",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:c65d1c29ac5958e171141dc4829011c064ad7ef2c82234b33eed7f36f02e97b0"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:d4371c5187db8a2285325d9c4e9ba0f3c989ca2565242c15740ba729bffa8b1d"},
@@ -28,7 +28,7 @@
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py", "sha256": "sha256:ee09732df27b28554dbaf3c69e19432cc53e283a75bdb51dac88316cc3387cef"},
     {"path_ref": "repo-path-ref:tests/test_communications_reviewed_projection.py", "sha256": "sha256:357f219bd055dba8084145540dd1c7a2d343b6a11dd17ecdb20ab6c5c1d5395d"},
     {"path_ref": "repo-path-ref:tests/test_control_center_work_board.py", "sha256": "sha256:36eb4c1102a083a924cc97bfb7b8bf8ee3eeaf3aee032a3359e72ed225669347"},
-    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center.py", "sha256": "sha256:4cc836639fbba4c5517188a5cfb23632ac8ff3eb893a07f72ad5ec409da716ed"},
+    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center.py", "sha256": "sha256:8d71bb18b695c4fd037b2a06e26d26634225bb08db331011ab6eff1619aa1461"},
     {"path_ref": "repo-path-ref:tests/test_crm_local_command_center_api_routes.py", "sha256": "sha256:f13a1a0f16bc0f6ed65a9ca2302509919e8b88c76ca37873bfc4bdec11766df6"},
     {"path_ref": "repo-path-ref:tests/test_social_read_only_foundation_profile.py", "sha256": "sha256:76996dfe37045054b7ba194a11320fb0931d80048c7878c16d520d8ccab4360b"}
   ],

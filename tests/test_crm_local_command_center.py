@@ -1,39 +1,18 @@
 import json
 import subprocess
 import sys
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import pytest
-
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
-from ultimate_ai_agent.core.authority import (
-    AuthorityActionRequest,
-    AuthorityCapability,
-    AuthorityConstraintClaim,
-    AuthorityConstraintKind,
-    AuthorityDecisionOutcome,
-    AuthorityDomain,
-    AuthorityLeaseStore,
-    TrustMode,
-    evaluate_authority_request,
-)
 from ultimate_ai_agent.core.crm import (
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
     CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
-    CrmLocalCommandCenterError,
     CrmLocalMutationRequest,
     CrmLocalStore,
     build_crm_local_command_center_read_model,
     crm_local_mutation_approval_request,
     expected_crm_local_mutation_approval_ref,
-)
-from ultimate_ai_agent.core.hygiene.actor_context import (
-    ActorContext,
-    ActorType,
-    AuthoritySource,
 )
 from tests.authority_helpers import contacts_write_authority_lease
 
@@ -225,6 +204,10 @@ def test_crm_social_context_selection_uses_governed_local_mutation(
 def test_crm_confirmed_operator_lane_captures_exact_approval_and_lease(
     tmp_path: Path,
 ) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
     store = CrmLocalStore(tmp_path)
     target_ref = "person-ref:crm-local:relationship-beta"
     idempotency_ref = "idempotency-ref:crm-social-confirmed-beta"
@@ -270,6 +253,15 @@ def test_crm_confirmed_operator_lane_captures_exact_approval_and_lease(
 def test_crm_confirmed_lane_rejects_non_human_or_unbound_operator(
     tmp_path: Path,
 ) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+    from ultimate_ai_agent.core.hygiene.actor_context import (
+        ActorContext,
+        ActorType,
+        AuthoritySource,
+    )
+
     store = CrmLocalStore(tmp_path)
     target_ref = "person-ref:crm-local:relationship-beta"
     idempotency_ref = "idempotency-ref:crm-social-non-human"
@@ -312,6 +304,10 @@ def test_crm_confirmed_lane_rejects_non_human_or_unbound_operator(
 def test_crm_confirmed_lane_checks_replay_before_issuing_authority(
     tmp_path: Path,
 ) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+
     store = CrmLocalStore(tmp_path)
     target_ref = "person-ref:crm-local:relationship-beta"
     idempotency_ref = "idempotency-ref:crm-social-replay-authority"
@@ -353,6 +349,18 @@ def test_crm_confirmed_lane_checks_replay_before_issuing_authority(
 def test_crm_confirmed_lease_cannot_authorize_another_contacts_action(
     tmp_path: Path,
 ) -> None:
+    from ultimate_ai_agent.core.authority import (
+        AuthorityActionRequest,
+        AuthorityCapability,
+        AuthorityConstraintClaim,
+        AuthorityConstraintKind,
+        AuthorityDecisionOutcome,
+        AuthorityDomain,
+        AuthorityLeaseStore,
+        TrustMode,
+        evaluate_authority_request,
+    )
+
     store = CrmLocalStore(tmp_path)
     target_ref = "person-ref:crm-local:relationship-beta"
     idempotency_ref = "idempotency-ref:crm-social-exact-action"
@@ -438,9 +446,12 @@ def test_crm_confirmed_lane_supports_maximum_length_idempotency_refs(
 
 
 def test_crm_local_mutations_serialize_replay_and_state_transactions(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch,
     tmp_path: Path,
 ) -> None:
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
     store = CrmLocalStore(
         tmp_path,
         active_authority_leases=[contacts_write_authority_lease()],
@@ -522,6 +533,10 @@ def test_crm_local_mutations_serialize_replay_and_state_transactions(
 def test_crm_social_selection_validates_prospective_owner_links_before_write(
     tmp_path: Path,
 ) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
     store = CrmLocalStore(tmp_path)
     store.seed_demo()
     before = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
