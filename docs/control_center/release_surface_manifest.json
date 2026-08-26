@@ -1368,6 +1368,7 @@
         "apps/control-center/tests/visual/foundation-surfaces.real.spec.ts"
       ],
       "blocked_capabilities": [
+        "crm_visual_baseline_proof",
         "crm_connector_read_lane_authority",
         "crm_send_write_authority_lane",
         "crm_contact_import_commit_authority",
@@ -1403,11 +1404,11 @@
       ],
       "owner": "crm-local-command-center-m2",
       "backend_contract_rationale": "backend-route-refs-present",
-      "visual_proof_status": "checked_in_baseline",
-      "visual_baseline_ref": "visual-baseline:control-center:crm",
-      "visual_proof_rationale": "Checked-in redacted desktop and mobile baselines render the backend-owned local CRM read model while connector reads, external writes, sends, and production authority remain blocked.",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:crm:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline captures the legacy /crm route; the Q25 Social proof captures /workspace/crm and must not be substituted for this route.",
       "promotion_criteria": [
-        "Keep the checked-in backend-owned visual baselines current with the exact local CRM route contract.",
+        "Add redacted desktop and mobile baselines for the legacy /crm route, or retire that route through the governed route contract before claiming its visual proof.",
         "Keep CRM local mutation persistence bound to active contacts/write AuthorityLease scope, exact approval, idempotency, receipts, rollback/safe-disable posture, and tests.",
         "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted.",
         "Add accepted exact-scoped connector read-lane authority before claiming source sync or external CRM reads.",
