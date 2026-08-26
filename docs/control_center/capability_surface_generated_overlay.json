@@ -1342,8 +1342,8 @@
           "release_status": "partial",
           "owner": "crm-local-command-center-m2",
           "backend_route_count": 7,
-          "blocked_capability_count": 20,
-          "visual_proof_status": "checked_in_baseline",
+          "blocked_capability_count": 21,
+          "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"
         }
       ],
