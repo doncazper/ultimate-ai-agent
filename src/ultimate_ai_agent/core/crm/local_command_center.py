@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -62,6 +63,7 @@ from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
 )
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -108,6 +110,7 @@ CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_BLOCKED_REF = (
     "blocked-state:crm-local-mutation-authority-lease-required"
 )
 CRM_LOCAL_MUTATION_SAFE_DISABLE_REF = "safe-disable-ref:crm-local-mutation"
+CRM_LOCAL_STATE_LOCK_KEY = "crm-local-command-center-state"
 CRM_LOCAL_IMPORT_EXPORT_CONTRACT_REF = "contract-ref:crm-local-import-export:v1"
 CRM_LOCAL_AI_PROPOSAL_CONTRACT_REF = "contract-ref:crm-ai-proposal-layer:v1"
 CRM_LOCAL_CONNECTOR_READ_POSTURE_REF = "posture-ref:crm-connector-read-lanes:v1"
@@ -1094,7 +1097,11 @@ def expected_crm_local_mutation_approval_ref(
 ) -> str:
     _validate_ref(target_ref, "target_ref")
     _validate_ref(idempotency_ref, "idempotency_ref")
-    return f"approval-ref:crm-local:{_safe_suffix(target_ref)}:{_safe_suffix(idempotency_ref)}"
+    return _crm_local_derived_ref(
+        "approval-ref:crm-local",
+        target_ref,
+        idempotency_ref,
+    )
 
 
 def crm_local_mutation_approval_request(
@@ -1114,11 +1121,15 @@ def crm_local_mutation_approval_request(
     if request.stage_ref:
         resources.append(request.stage_ref)
     return ApprovalRequest(
-        approval_request_id=(
-            "approval-request:crm-local:"
-            f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+        approval_request_id=_crm_local_derived_ref(
+            "approval-request:crm-local",
+            request.target_ref,
+            idempotency_ref,
         ),
-        run_id=f"run:crm-local:{_safe_suffix(request.target_ref)}",
+        run_id=_crm_local_derived_ref(
+            "run:crm-local",
+            request.target_ref,
+        ),
         subject_type=ApprovalSubjectType.external_action,
         subject_id=request.target_ref,
         actor_context=request.actor_context,
@@ -1131,8 +1142,16 @@ def crm_local_mutation_approval_request(
             requires_redaction=True,
         ),
         resource_refs=resources,
-        event_ref=f"event-ref:crm-local-mutation:{_safe_suffix(request.target_ref)}",
-        trace_id=f"trace-ref:crm-local-mutation:{_safe_suffix(request.target_ref)}",
+        event_ref=_crm_local_derived_ref(
+            "event-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
+        ),
+        trace_id=_crm_local_derived_ref(
+            "trace-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
+        ),
         expires_at=utc_now() + timedelta(hours=1),
     )
 
@@ -1148,6 +1167,7 @@ class CrmLocalStore:
         self.snapshot_file = state_dir / "crm_local_command_center_snapshot.json"
         self.events_file = state_dir / "crm_local_command_center_events.jsonl"
         self._active_authority_leases = active_authority_leases
+        self._state_lock = FileSingleWriterLockManager(state_dir / ".locks")
 
     @classmethod
     def from_env(cls) -> "CrmLocalStore":
@@ -1215,6 +1235,20 @@ class CrmLocalStore:
         approval_authority: LocalApprovalAuthority | None = None,
     ) -> CrmLocalMutationReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        with self._state_lock.acquire(CRM_LOCAL_STATE_LOCK_KEY):
+            return self._record_local_mutation_locked(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                approval_authority=approval_authority,
+            )
+
+    def _record_local_mutation_locked(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority | None,
+    ) -> CrmLocalMutationReceipt:
         state = self._read_state()
         payload_fingerprint_ref = _local_mutation_payload_fingerprint_ref(request)
         replay = _find_replay(state, idempotency_ref)
@@ -1239,21 +1273,31 @@ class CrmLocalStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
 
-        before_ref = f"before-ref:crm-local:{_safe_suffix(request.target_ref)}"
-        after_ref = f"after-ref:crm-local:{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
-        receipt_ref = (
-            "receipt-ref:crm-local-mutation:"
-            f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+        before_ref = _crm_local_derived_ref(
+            "before-ref:crm-local",
+            request.target_ref,
+        )
+        after_ref = _crm_local_derived_ref(
+            "after-ref:crm-local",
+            request.target_ref,
+            idempotency_ref,
+        )
+        receipt_ref = _crm_local_derived_ref(
+            "receipt-ref:crm-local-mutation",
+            request.target_ref,
+            idempotency_ref,
         )
         receipt = CrmLocalMutationReceipt(
-            mutation_ref=(
-                "mutation-ref:crm-local:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            mutation_ref=_crm_local_derived_ref(
+                "mutation-ref:crm-local",
+                request.target_ref,
+                idempotency_ref,
             ),
             receipt_ref=receipt_ref,
-            audit_ref=(
-                "audit-ref:crm-local-mutation:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            audit_ref=_crm_local_derived_ref(
+                "audit-ref:crm-local-mutation",
+                request.target_ref,
+                idempotency_ref,
             ),
             mutation_kind=request.mutation_kind,
             target_ref=request.target_ref,
@@ -1266,13 +1310,14 @@ class CrmLocalStore:
             authority_lease_ref=str(authority_decision.lease_ref),
             before_ref=before_ref,
             after_ref=after_ref,
-            rollback_ref=(
-                "rollback-ref:crm-local:"
-                f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
+            rollback_ref=_crm_local_derived_ref(
+                "rollback-ref:crm-local:manual-reverse-ready",
+                request.target_ref,
             ),
-            proof_ref=(
-                "proof-ref:crm-local-mutation:"
-                f"{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
+            proof_ref=_crm_local_derived_ref(
+                "proof-ref:crm-local-mutation",
+                request.target_ref,
+                idempotency_ref,
             ),
             safe_summary="Exact local CRM mutation receipt recorded.",
             evidence_refs=[
@@ -1412,9 +1457,9 @@ class CrmLocalStore:
                         value=1,
                     )
                 ],
-                rollback_ref=(
-                    "rollback-ref:crm-local:"
-                    f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
+                rollback_ref=_crm_local_derived_ref(
+                    "rollback-ref:crm-local:manual-reverse-ready",
+                    request.target_ref,
                 ),
                 safe_disable_ref=CRM_LOCAL_MUTATION_SAFE_DISABLE_REF,
             ),
@@ -1497,14 +1542,31 @@ class CrmLocalStore:
         return dict(state)
 
     def _write_state(self, state: dict[str, Any], event_ref: str) -> None:
+        with self._state_lock.acquire(CRM_LOCAL_STATE_LOCK_KEY):
+            self._write_state_locked(state, event_ref)
+
+    def _write_state_locked(self, state: dict[str, Any], event_ref: str) -> None:
         _validate_safe_payload(state, "crm_local_state")
         _validate_ref(event_ref, "event_ref")
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self.snapshot_file.with_suffix(".json.tmp")
-        tmp.write_text(
-            json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        tmp.replace(self.snapshot_file)
+        tmp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_dir,
+                prefix=".crm-local-snapshot-",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+                tmp_path = Path(handle.name)
+            tmp_path.replace(self.snapshot_file)
+        finally:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
         event = {
             "event_ref": event_ref,
             "safe_summary": "CRM local command center state event recorded.",
@@ -2231,6 +2293,12 @@ def _payload_fingerprint_ref(payload: dict[str, Any]) -> str:
 def _hashed_ref(prefix: str, value: str) -> str:
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}:{digest}"
+
+
+def _crm_local_derived_ref(prefix: str, *values: str) -> str:
+    canonical = json.dumps(values, separators=(",", ":"), ensure_ascii=True)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return f"{prefix}:sha256:{digest}"
 
 
 def _safe_suffix(value: str) -> str:

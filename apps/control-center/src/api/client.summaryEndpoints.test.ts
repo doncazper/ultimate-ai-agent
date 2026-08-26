@@ -771,6 +771,15 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       projection.total_item_count = 1;
       projection.returned_item_count = 1;
     }],
+    ["missing relationships array", (crm: Record<string, unknown>) => {
+      delete crm.relationships;
+    }],
+    ["null people array", (crm: Record<string, unknown>) => {
+      crm.people = null;
+    }],
+    ["non-array organizations", (crm: Record<string, unknown>) => {
+      crm.organizations = {};
+    }],
   ])("fails closed for a CRM response with a %s", async (_label, mutate) => {
     const routeData = baseRouteData();
     const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));

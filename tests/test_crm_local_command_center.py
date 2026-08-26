@@ -1,6 +1,8 @@
 import json
 import subprocess
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -247,6 +249,123 @@ def test_crm_confirmed_operator_lane_captures_exact_approval_and_lease(
         item.relationship_ref
         for item in store.read_model().social_relationship_projection.items
     } >= {"relationship-ref:crm-local:beta"}
+
+
+def test_crm_confirmed_lane_supports_maximum_length_idempotency_refs(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:" + ("x" * 170)
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+    )
+
+    receipt = store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert approval_ref.startswith("approval-ref:crm-local:sha256:")
+    for value in (
+        receipt.mutation_ref,
+        receipt.receipt_ref,
+        receipt.audit_ref,
+        receipt.before_ref,
+        receipt.after_ref,
+        receipt.rollback_ref,
+        receipt.proof_ref,
+    ):
+        assert len(value) <= 191
+
+
+def test_crm_local_mutations_serialize_replay_and_state_transactions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(
+        tmp_path,
+        active_authority_leases=[contacts_write_authority_lease()],
+    )
+    target_ref = "follow-up-ref:crm-local:alpha:due"
+    idempotency_ref = "idempotency-ref:crm-local-concurrent-conflict"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    requests = [
+        CrmLocalMutationRequest(
+            mutation_kind="mark_follow_up_complete",
+            target_ref=target_ref,
+            approval_ref=approval_ref,
+        ),
+        CrmLocalMutationRequest(
+            mutation_kind="update_follow_up",
+            target_ref=target_ref,
+            approval_ref=approval_ref,
+            follow_up_status="blocked",
+        ),
+    ]
+    authorities: list[LocalApprovalAuthority] = []
+    for request in requests:
+        approval_request = crm_local_mutation_approval_request(
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+        authority = LocalApprovalAuthority()
+        authority.create_request(approval_request)
+        authority.grant(
+            approval_request.approval_request_id,
+            approved_by_actor_id=request.actor_context.actor_id,
+            approval_ref=approval_ref,
+        )
+        authorities.append(authority)
+
+    original_read = store._read_state
+    read_guard = threading.Lock()
+    second_read_seen = threading.Event()
+    read_count = 0
+
+    def coordinated_read() -> dict[str, object]:
+        nonlocal read_count
+        state = original_read()
+        with read_guard:
+            read_index = read_count
+            read_count += 1
+        if read_index == 0:
+            second_read_seen.wait(timeout=0.2)
+        elif read_index == 1:
+            second_read_seen.set()
+        return state
+
+    monkeypatch.setattr(store, "_read_state", coordinated_read)
+
+    def mutate(index: int) -> str:
+        try:
+            store.record_local_mutation(
+                request=requests[index],
+                idempotency_ref=idempotency_ref,
+                approval_authority=authorities[index],
+            )
+        except CrmLocalCommandCenterDuplicateError:
+            return "conflict"
+        return "committed"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(mutate, range(2)))
+
+    assert sorted(outcomes) == ["committed", "conflict"]
+    state = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
+    assert len(state["mutation_receipts"]) == 1
+    assert len(state["mutation_replays"]) == 1
+    assert not list(tmp_path.glob(".crm-local-snapshot-*.tmp"))
 
 
 def test_crm_social_selection_validates_prospective_owner_links_before_write(

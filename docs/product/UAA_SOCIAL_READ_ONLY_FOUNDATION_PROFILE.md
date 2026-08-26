@@ -45,6 +45,10 @@ CRM owns
 - a prospective full CRM read-model validation runs before persistence, so a
   missing or cross-person owner link cannot leave the stored Social projection
   unreadable;
+- the CRM read/replay/apply/write transaction is protected by a cross-process
+  single-writer lock and collision-safe atomic snapshot replacement; generated
+  approval, audit, receipt, rollback, and proof refs use bounded SHA-256
+  bindings rather than concatenating operator-supplied refs;
 - every projection item binds the canonical relationship, person, optional
   organization, evidence, memory provenance, health, and freshness refs;
 - stable `control-center-deep-link-ref:crm:*` refs let later Social surfaces

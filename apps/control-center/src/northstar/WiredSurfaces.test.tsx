@@ -828,10 +828,23 @@ describe("North Star backend wiring", () => {
       truncated: true,
     });
 
-    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+    const view = render(
+      <NorthStarControlCenter activePath="/workspace/crm" data={data} />,
+    );
 
     expect(
       screen.getByText(/projection page is truncated/i),
+    ).toBeVisible();
+
+    data.crmLocalCommandCenter.people[0].tags =
+      data.crmLocalCommandCenter.people[0].tags.filter(
+        (tag) => tag !== "social-context",
+      );
+    view.rerender(
+      <NorthStarControlCenter activePath="/workspace/crm" data={data} />,
+    );
+    expect(
+      screen.getByText(/not in the Social context projection/i),
     ).toBeVisible();
   });
 
