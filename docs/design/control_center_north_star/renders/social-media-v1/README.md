@@ -51,8 +51,9 @@ Communications projection evidence applies only to the exact Social Content and
 reviewed-conversation read projections; it does not mark either owner product
 globally complete.
 
-The first Social milestone remains deferred until the CRM relationship
-projection and strict independent-promotion profile are accepted with current
-tests, verifiers, visual proof, product truth, and explicit board promotion.
-Until then this pack is a private-dogfood direction, not an activated Social
-runtime milestone.
+The first Social milestone is complete for private dogfood: the CRM relationship
+projection is implemented, the founder accepted the displayed direction, and
+the bounded read-only implementation evidence passes. The strict independent-
+promotion profile remains pending as a separate stronger claim. This pack does
+not activate live sources, connector runtime, publishing, platform writes,
+public release, or production authority.
