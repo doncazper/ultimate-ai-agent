@@ -181,8 +181,9 @@ FORBIDDEN_MARKERS = (
 )
 
 
-def _load(path: Path = LEDGER_PATH) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+def _load(path: Path | None = None) -> dict[str, Any]:
+    ledger_path = path or LEDGER_PATH
+    payload = json.loads(ledger_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("promotion ledger must be a JSON object")
     return payload
@@ -376,8 +377,16 @@ def _verify_foundation_implementations() -> list[str]:
 
 
 def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
-    ledger = payload if payload is not None else _load()
     failures: list[str] = []
+    if payload is None:
+        try:
+            ledger = _load()
+        except (OSError, ValueError, json.JSONDecodeError):
+            return ["PROMOTION_LEDGER_COULD_NOT_BE_LOADED"], "INVALID"
+    elif not isinstance(payload, dict):
+        return ["PROMOTION_LEDGER_MUST_BE_AN_OBJECT"], "INVALID"
+    else:
+        ledger = payload
 
     try:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))

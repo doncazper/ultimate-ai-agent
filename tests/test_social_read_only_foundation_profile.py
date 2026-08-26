@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from scripts.verify_social_read_only_foundation_profile import (
     LEDGER_PATH,
+    main,
     verify,
 )
 from ultimate_ai_agent.api.app import app
@@ -398,6 +399,27 @@ def test_social_foundation_verifier_redacts_schema_errors_and_never_crashes() ->
         candidate_failures, candidate_state = verify(candidate)
         assert candidate_state == "INVALID"
         assert secret_like not in json.dumps(candidate_failures)
+
+
+@pytest.mark.parametrize("ledger_text", ["{", "[]"])
+def test_social_foundation_cli_returns_structured_invalid_for_bad_ledger(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    ledger_text: str,
+) -> None:
+    ledger_path = tmp_path / "promotion-ledger.json"
+    ledger_path.write_text(ledger_text, encoding="utf-8")
+    monkeypatch.setitem(main.__globals__, "LEDGER_PATH", ledger_path)
+    monkeypatch.setattr(sys, "argv", ["verify-social-foundation"])
+
+    assert main() == 1
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert payload["status"] == "INVALID"
+    assert payload["failures"] == ["PROMOTION_LEDGER_COULD_NOT_BE_LOADED"]
+    assert output.err == ""
+    assert str(tmp_path) not in output.out
 
 
 def test_social_foundation_verifier_executes_communications_projection_store(

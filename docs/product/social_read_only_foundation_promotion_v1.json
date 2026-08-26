@@ -3,7 +3,7 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:2acb315ae30414ed5b5a7dea9791f5190292acb3dd555be2ea65b0dfb5641cc1",
+  "acceptance_subject_digest": "sha256:a050db1a917bec1827e05d6c59392de2a7eafa57354333a1b8763fdafb1ce84b",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:c65d1c29ac5958e171141dc4829011c064ad7ef2c82234b33eed7f36f02e97b0"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:d4371c5187db8a2285325d9c4e9ba0f3c989ca2565242c15740ba729bffa8b1d"},
@@ -20,20 +20,20 @@
     {"path_ref": "repo-path-ref:docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md", "sha256": "sha256:5bd0647d677cc41c9676a65b332730fe57ef81023cbe8134010d53720ae67581"},
     {"path_ref": "repo-path-ref:docs/schemas/social_read_only_foundation_promotion_v1.schema.json", "sha256": "sha256:e1ebede628466ff0c80400c86ab83d2cd4fda9712c7c3d476d61ce8c20617eb8"},
     {"path_ref": "repo-path-ref:scripts/dev/uaa_crm.py", "sha256": "sha256:b3f258656dd06870dcb4cdaa815f9e776c0c49eaf8f7d7c7e3e9296d1b1d7f08"},
-    {"path_ref": "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py", "sha256": "sha256:fbc18b5c7e1c9a501a81b223c8d069424c254464d26250f8c1a90d8a46d69a30"},
+    {"path_ref": "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py", "sha256": "sha256:da614cf276f3984ca5dfb20d65baffee816a24110f2b6626097591e467ddc9b6"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/api/control_center.py", "sha256": "sha256:7b84e279f9b1582f0b89b2267f19904abda554f1c194373161ad07a3aaea4ada"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/authority/contracts.py", "sha256": "sha256:9910558a9f3b89f57babf4352c49da9db3a3cfefe3b8df32996de7da1c891c0d"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/contracts.py", "sha256": "sha256:f75bc82168a52a4379dd86a31dbff995773bdb993cc52494e29bae82201bdba6"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/local_projection.py", "sha256": "sha256:b8ae7e153d396d8f99943403d6d2220a6c8e13a6a9b1d53716377ae46dd83cb6"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/control_center/work_board.py", "sha256": "sha256:297939bc32308ce5b30fa8685d3cab33029a6789470d236e47e996f3d18a8d1f"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/__init__.py", "sha256": "sha256:4bab21ba141987e8214c09f0f54aee84ed98910d9f7f25dec71d75b8ce8371ed"},
-    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py", "sha256": "sha256:e5480d873cad5cc972e0ba883767ca485a7429f9240c8f729be08491ed3650db"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py", "sha256": "sha256:ff42f25763b6007877f3377ac8c2acde3259e77c6bb322d083ce297d074b4990"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py", "sha256": "sha256:ee09732df27b28554dbaf3c69e19432cc53e283a75bdb51dac88316cc3387cef"},
     {"path_ref": "repo-path-ref:tests/test_communications_reviewed_projection.py", "sha256": "sha256:357f219bd055dba8084145540dd1c7a2d343b6a11dd17ecdb20ab6c5c1d5395d"},
     {"path_ref": "repo-path-ref:tests/test_control_center_work_board.py", "sha256": "sha256:36eb4c1102a083a924cc97bfb7b8bf8ee3eeaf3aee032a3359e72ed225669347"},
-    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center.py", "sha256": "sha256:b48bb6652214caa5a1a61a4ca9d1ea9459d2556a56c1ed987329be21559155aa"},
+    {"path_ref": "repo-path-ref:tests/test_crm_local_command_center.py", "sha256": "sha256:168e5fe1fe57f5a3662e5c3b925597a38669f35989d855703f6a32fefad4d177"},
     {"path_ref": "repo-path-ref:tests/test_crm_local_command_center_api_routes.py", "sha256": "sha256:f13a1a0f16bc0f6ed65a9ca2302509919e8b88c76ca37873bfc4bdec11766df6"},
-    {"path_ref": "repo-path-ref:tests/test_social_read_only_foundation_profile.py", "sha256": "sha256:76996dfe37045054b7ba194a11320fb0931d80048c7878c16d520d8ccab4360b"}
+    {"path_ref": "repo-path-ref:tests/test_social_read_only_foundation_profile.py", "sha256": "sha256:e9d203a8c614ec81f046734d1d7d7026ae984b3b9c9028e373167f4c2919b8f2"}
   ],
   "foundations": [
     {

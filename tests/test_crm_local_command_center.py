@@ -574,6 +574,22 @@ def test_crm_social_selection_validates_prospective_owner_links_before_write(
     assert lease_store.list_leases(active_only=True) == []
     assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]
 
+    repaired = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
+    repaired["people"][1]["relationship_refs"] = ["relationship-ref:crm-local:beta"]
+    store.snapshot_file.write_text(
+        json.dumps(repaired, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    receipt = store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert receipt.replayed is False
+    leases = lease_store.list_leases()
+    assert [lease.status for lease in leases] == ["revoked", "active"]
+    assert leases[0].lease_ref != leases[1].lease_ref
+
 
 def test_crm_confirmed_lane_revokes_lease_when_target_is_missing(
     tmp_path: Path,
@@ -605,6 +621,43 @@ def test_crm_confirmed_lane_revokes_lease_when_target_is_missing(
             confirmed=True,
         )
 
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    assert lease_store.list_leases(active_only=True) == []
+    assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]
+
+
+def test_crm_confirmed_lane_rejects_missing_opportunity_without_success_receipt(
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
+    store = CrmLocalStore(tmp_path)
+    target_ref = "opportunity-ref:crm-local:missing"
+    idempotency_ref = "idempotency-ref:crm-opportunity-missing-target"
+    request = CrmLocalMutationRequest(
+        mutation_kind="move_opportunity_stage",
+        target_ref=target_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+        stage_ref="stage-ref:crm-local:operator:qualified",
+    )
+
+    with pytest.raises(
+        CrmLocalCommandCenterError,
+        match="CRM_LOCAL_OPPORTUNITY_NOT_FOUND",
+    ):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert store._read_state()["mutation_receipts"] == []
     lease_store = AuthorityLeaseStore(tmp_path / "authority")
     assert lease_store.list_leases(active_only=True) == []
     assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]

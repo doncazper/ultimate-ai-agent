@@ -1416,9 +1416,9 @@ class CrmLocalStore:
             idempotency_ref=idempotency_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
-        lease_idempotency_ref = _hashed_ref(
-            "idempotency-ref:crm-local-mutation-lease",
-            payload_fingerprint_ref,
+        lease_idempotency_ref = _crm_local_mutation_lease_idempotency_ref(
+            lease_store,
+            payload_fingerprint_ref=payload_fingerprint_ref,
         )
         _requirement, _grant, lease, lease_receipt = (
             issue_authority_lease_with_backend_approval(
@@ -2150,6 +2150,9 @@ def _apply_mutation(
             if item.get("opportunity_ref") == request.target_ref:
                 item["stage_ref"] = request.stage_ref or item["stage_ref"]
                 item["stage_label"] = _safe_label_from_ref(str(item["stage_ref"]))
+                break
+        else:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_OPPORTUNITY_NOT_FOUND")
         state["pipelines"] = _rebuild_pipelines(state)
     elif request.mutation_kind == "add_note_summary_ref":
         relationship_ref = request.relationship_ref or request.target_ref
@@ -2354,6 +2357,35 @@ def _payload_fingerprint_ref(payload: dict[str, Any]) -> str:
 def _hashed_ref(prefix: str, value: str) -> str:
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}:{digest}"
+
+
+def _crm_local_mutation_lease_idempotency_ref(
+    lease_store: AuthorityLeaseStore,
+    *,
+    payload_fingerprint_ref: str,
+) -> str:
+    """Return the stable current attempt ref, advancing past revoked attempts."""
+    leases = lease_store.list_leases()
+    candidate = _hashed_ref(
+        "idempotency-ref:crm-local-mutation-lease",
+        payload_fingerprint_ref,
+    )
+    for retry_index in range(1, len(leases) + 2):
+        matching = next(
+            (
+                lease
+                for lease in leases
+                if lease.constraints.get("idempotency_ref") == candidate
+            ),
+            None,
+        )
+        if matching is None or matching.status != "revoked":
+            return candidate
+        candidate = _hashed_ref(
+            "idempotency-ref:crm-local-mutation-lease-retry",
+            f"{payload_fingerprint_ref}:{retry_index}",
+        )
+    raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_LEASE_RETRY_EXHAUSTED")
 
 
 def _crm_local_derived_ref(prefix: str, *values: str) -> str:
