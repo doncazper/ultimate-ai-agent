@@ -2629,6 +2629,10 @@ export interface CrmSocialRelationshipProjectionItem {
   freshness_state: string;
   evidence_refs: string[];
   memory_provenance_refs: string[];
+  evidence_ref_total_count: number;
+  evidence_refs_truncated: boolean;
+  memory_provenance_ref_total_count: number;
+  memory_provenance_refs_truncated: boolean;
   backend_owned: boolean;
   read_only: boolean;
   raw_content_included: boolean;

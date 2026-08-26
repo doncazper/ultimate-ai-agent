@@ -135,6 +135,36 @@ def test_crm_social_projection_truncates_with_truthful_coverage(
     assert projection.truncated is True
 
 
+def test_crm_social_projection_bounds_provenance_with_truthful_counts(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    evidence_refs = [
+        f"evidence-ref:crm-local:social-{index:03d}" for index in range(25)
+    ]
+    memory_refs = [f"memory-ref:crm-local:social-{index:03d}" for index in range(25)]
+    relationship = crm.relationships[0].model_copy(
+        update={
+            "evidence_refs": evidence_refs,
+            "memory_provenance_refs": memory_refs,
+        }
+    )
+
+    projection = build_crm_social_relationship_projection(
+        people=crm.people,
+        organizations=crm.organizations,
+        relationships=[relationship, *crm.relationships[1:]],
+    )
+    item = projection.items[0]
+
+    assert len(item.evidence_refs) == 20
+    assert item.evidence_ref_total_count == 25
+    assert item.evidence_refs_truncated is True
+    assert len(item.memory_provenance_refs) == 20
+    assert item.memory_provenance_ref_total_count == 25
+    assert item.memory_provenance_refs_truncated is True
+
+
 def test_crm_social_projection_rejects_incomplete_serialized_inventory(
     tmp_path: Path,
 ) -> None:
@@ -153,6 +183,30 @@ def test_crm_social_projection_rejects_incomplete_serialized_inventory(
         ValidationError, match="CRM_SOCIAL_RELATIONSHIP_INVENTORY_DRIFT"
     ):
         CrmLocalCommandCenterReadModel.model_validate(payload)
+
+
+def test_crm_social_projection_rejects_metadata_and_item_truth_drift(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+
+    metadata_drift = crm.model_dump(mode="python")
+    metadata_drift["social_relationship_projection"]["owner_ref"] = "owner-ref:other"
+    with pytest.raises(
+        ValidationError,
+        match="CRM_SOCIAL_RELATIONSHIP_OWNERSHIP_METADATA_DRIFT",
+    ):
+        CrmLocalCommandCenterReadModel.model_validate(metadata_drift)
+
+    item_drift = crm.model_dump(mode="python")
+    item_drift["social_relationship_projection"]["items"][0]["safe_summary"] = (
+        "Altered but safe-looking relationship summary."
+    )
+    with pytest.raises(
+        ValidationError,
+        match="CRM_SOCIAL_RELATIONSHIP_ITEM_TRUTH_DRIFT",
+    ):
+        CrmLocalCommandCenterReadModel.model_validate(item_drift)
 
 
 def test_crm_social_projection_empty_state_is_truthful(tmp_path: Path) -> None:

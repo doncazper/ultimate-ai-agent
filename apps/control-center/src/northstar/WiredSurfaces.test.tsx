@@ -819,6 +819,22 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText("Non-authoritative fallback")).toBeVisible();
   });
 
+  it("distinguishes a truncated Social page from an unselected relationship", () => {
+    const data = cloneData();
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, {
+      items: [],
+      total_item_count: 2,
+      returned_item_count: 0,
+      truncated: true,
+    });
+
+    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+
+    expect(
+      screen.getByText(/projection page is truncated/i),
+    ).toBeVisible();
+  });
+
   it("does not label nested CRM or Studio data backend-owned when route truth is fallback", () => {
     const data = cloneData();
     Object.assign(data.crmLocalCommandCenter, { backend_owned: true, read_only: true, safe_refs_only: true });

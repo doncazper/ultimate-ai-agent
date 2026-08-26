@@ -2770,6 +2770,8 @@ export async function loadControlCenterData(
     crmLocalCommandCenter?.social_relationship_projection;
   const crmSocialProjectionSafe =
     crmSocialProjection !== undefined &&
+    crmSocialProjection !== null &&
+    typeof crmSocialProjection === "object" &&
     crmSocialProjection.backend_owned === true &&
     crmSocialProjection.read_only === true &&
     crmSocialProjection.stable_deep_links === true &&
@@ -2791,11 +2793,25 @@ export async function loadControlCenterData(
         crmSocialProjection.returned_item_count) &&
     crmSocialProjection.items.every(
       (item) =>
+        item !== null &&
+        typeof item === "object" &&
         item.backend_owned === true &&
         item.read_only === true &&
         item.raw_content_included === false &&
         item.connector_runtime_enabled === false &&
-        item.external_action_enabled === false,
+        item.external_action_enabled === false &&
+        Array.isArray(item.evidence_refs) &&
+        Number.isInteger(item.evidence_ref_total_count) &&
+        item.evidence_ref_total_count >= item.evidence_refs.length &&
+        item.evidence_refs_truncated ===
+          (item.evidence_ref_total_count > item.evidence_refs.length) &&
+        Array.isArray(item.memory_provenance_refs) &&
+        Number.isInteger(item.memory_provenance_ref_total_count) &&
+        item.memory_provenance_ref_total_count >=
+          item.memory_provenance_refs.length &&
+        item.memory_provenance_refs_truncated ===
+          (item.memory_provenance_ref_total_count >
+            item.memory_provenance_refs.length),
     );
   const crmEndpointFallbackUsed =
     crmLocalCommandCenter === undefined ||

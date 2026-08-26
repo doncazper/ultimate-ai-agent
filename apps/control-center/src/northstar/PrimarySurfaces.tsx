@@ -328,7 +328,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
           <MetaRow icon="calendar" label="Follow-ups" value={String(followUps.length)} />
           <MetaRow icon="list-todo" label="Timeline events" value={String(timeline.length)} />
           <Panel title="Social relationship context" icon="users">
-            {socialContext ? <><p>{socialContext.safe_summary}</p><small className="safe-ref">{socialContext.crm_deep_link_ref}</small><p><Badge tone={socialProjectionBackendOwned && socialContext.backend_owned ? "blue" : "orange"}>{socialProjectionBackendOwned && socialContext.backend_owned ? "CRM owned · read only" : "Non-authoritative fallback"}</Badge></p></> : <p>This relationship is not in the Social context projection.</p>}
+            {socialContext ? <><p>{socialContext.safe_summary}</p><small className="safe-ref">{socialContext.crm_deep_link_ref}</small><p><Badge tone={socialProjectionBackendOwned && socialContext.backend_owned ? "blue" : "orange"}>{socialProjectionBackendOwned && socialContext.backend_owned ? "CRM owned · read only" : "Non-authoritative fallback"}</Badge></p></> : crm.social_relationship_projection.truncated ? <p>No returned Social context is available for this relationship; the projection page is truncated.</p> : <p>This relationship is not in the Social context projection.</p>}
           </Panel>
           <Panel title="Suggested actions" icon="sparkles">
             {(crm.ai_proposals.filter((item) => item.relationship_ref === selected.relationship_ref).slice(0, 3)).map((proposal) => <p key={proposal.proposal_ref}>{proposal.safe_summary} <Badge tone="orange">Proposal only</Badge></p>)}

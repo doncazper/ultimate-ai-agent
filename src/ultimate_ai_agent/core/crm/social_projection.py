@@ -21,8 +21,15 @@ CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF = (
 CRM_SOCIAL_RELATIONSHIP_PROJECTION_REF = (
     "projection-ref:crm-social-relationship-context:v1"
 )
+CRM_SOCIAL_RELATIONSHIP_OWNER_REF = "owner-ref:crm"
 CRM_SOCIAL_RELATIONSHIP_SELECTION_RULE_REF = (
     "selection-rule-ref:crm-social:person-tag-social-context"
+)
+CRM_SOCIAL_RELATIONSHIP_SOURCE_POSTURE_REF = (
+    "source-posture-ref:crm-social:reviewed-local"
+)
+CRM_SOCIAL_RELATIONSHIP_FRESHNESS_REF = (
+    "freshness-ref:crm-social:derived-from-crm-snapshot"
 )
 CRM_SOCIAL_RELATIONSHIP_TAG = "social-context"
 CRM_SOCIAL_RELATIONSHIP_CLI_REF = (
@@ -30,6 +37,7 @@ CRM_SOCIAL_RELATIONSHIP_CLI_REF = (
 )
 CRM_SOCIAL_RELATIONSHIP_API_REF = "GET /control-center/crm/relationships"
 CRM_SOCIAL_RELATIONSHIP_PAGE_LIMIT = 50
+CRM_SOCIAL_RELATIONSHIP_REF_PAGE_LIMIT = 20
 
 _UNSAFE_SUFFIX = re.compile(r"[^a-z0-9_.:-]+")
 
@@ -51,6 +59,10 @@ class CrmSocialRelationshipProjectionItem(_CrmSocialModel):
     freshness_state: str
     evidence_refs: list[str] = Field(default_factory=list, max_length=20)
     memory_provenance_refs: list[str] = Field(default_factory=list, max_length=20)
+    evidence_ref_total_count: int = Field(default=0, ge=0)
+    evidence_refs_truncated: bool = False
+    memory_provenance_ref_total_count: int = Field(default=0, ge=0)
+    memory_provenance_refs_truncated: bool = False
     backend_owned: bool = True
     read_only: bool = True
     raw_content_included: bool = False
@@ -73,6 +85,18 @@ class CrmSocialRelationshipProjectionItem(_CrmSocialModel):
             self.memory_provenance_refs,
             "memory_provenance_refs",
         )
+        if self.evidence_ref_total_count < len(self.evidence_refs):
+            raise ValueError("CRM_SOCIAL_EVIDENCE_REF_TOTAL_COUNT_INVALID")
+        if self.evidence_refs_truncated != (
+            self.evidence_ref_total_count > len(self.evidence_refs)
+        ):
+            raise ValueError("CRM_SOCIAL_EVIDENCE_REF_TRUNCATION_DRIFT")
+        if self.memory_provenance_ref_total_count < len(self.memory_provenance_refs):
+            raise ValueError("CRM_SOCIAL_MEMORY_REF_TOTAL_COUNT_INVALID")
+        if self.memory_provenance_refs_truncated != (
+            self.memory_provenance_ref_total_count > len(self.memory_provenance_refs)
+        ):
+            raise ValueError("CRM_SOCIAL_MEMORY_REF_TRUNCATION_DRIFT")
         for field_name in (
             "safe_display_label",
             "safe_summary",
@@ -103,10 +127,10 @@ class CrmSocialRelationshipProjectionItem(_CrmSocialModel):
 class CrmSocialRelationshipProjection(_CrmSocialModel):
     contract_ref: str = CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF
     projection_ref: str = CRM_SOCIAL_RELATIONSHIP_PROJECTION_REF
-    owner_ref: str = "owner-ref:crm"
+    owner_ref: str = CRM_SOCIAL_RELATIONSHIP_OWNER_REF
     selection_rule_ref: str = CRM_SOCIAL_RELATIONSHIP_SELECTION_RULE_REF
-    source_posture_ref: str = "source-posture-ref:crm-social:reviewed-local"
-    freshness_ref: str = "freshness-ref:crm-social:derived-from-crm-snapshot"
+    source_posture_ref: str = CRM_SOCIAL_RELATIONSHIP_SOURCE_POSTURE_REF
+    freshness_ref: str = CRM_SOCIAL_RELATIONSHIP_FRESHNESS_REF
     api_ref: str = CRM_SOCIAL_RELATIONSHIP_API_REF
     cli_ref: str = CRM_SOCIAL_RELATIONSHIP_CLI_REF
     items: list[CrmSocialRelationshipProjectionItem] = Field(
@@ -145,6 +169,20 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
             "cli_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
+        expected_metadata = {
+            "contract_ref": CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF,
+            "projection_ref": CRM_SOCIAL_RELATIONSHIP_PROJECTION_REF,
+            "owner_ref": CRM_SOCIAL_RELATIONSHIP_OWNER_REF,
+            "selection_rule_ref": CRM_SOCIAL_RELATIONSHIP_SELECTION_RULE_REF,
+            "source_posture_ref": CRM_SOCIAL_RELATIONSHIP_SOURCE_POSTURE_REF,
+            "freshness_ref": CRM_SOCIAL_RELATIONSHIP_FRESHNESS_REF,
+            "cli_ref": CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+        }
+        if any(
+            getattr(self, field_name) != expected
+            for field_name, expected in expected_metadata.items()
+        ):
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_OWNERSHIP_METADATA_DRIFT")
         if self.api_ref != CRM_SOCIAL_RELATIONSHIP_API_REF:
             raise ValueError("CRM_SOCIAL_RELATIONSHIP_API_REF_DRIFT")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
@@ -226,6 +264,9 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
                 and item.organization_ref not in organization_by_ref
             ):
                 raise ValueError("CRM_SOCIAL_ORGANIZATION_LINK_MISSING")
+            expected_item = _projection_item_from_relationship(relationship)
+            if item.model_dump(mode="json") != expected_item.model_dump(mode="json"):
+                raise ValueError("CRM_SOCIAL_RELATIONSHIP_ITEM_TRUTH_DRIFT")
 
 
 def build_crm_social_relationship_projection(
@@ -253,28 +294,7 @@ def build_crm_social_relationship_projection(
         person_ref = str(_value(relationship, "person_ref"))
         if person_ref not in person_by_ref:
             raise ValueError("CRM_SOCIAL_RELATIONSHIP_PERSON_MISSING")
-        suffix = _ref_suffix(relationship_ref)
-        items.append(
-            CrmSocialRelationshipProjectionItem(
-                projection_item_ref=f"projection-item-ref:crm-social:{suffix}",
-                relationship_ref=relationship_ref,
-                person_ref=person_ref,
-                organization_ref=_value(relationship, "organization_ref"),
-                crm_deep_link_ref=f"control-center-deep-link-ref:crm:{suffix}",
-                safe_display_label=str(_value(relationship, "safe_display_label")),
-                safe_summary=str(_value(relationship, "safe_summary")),
-                why_shown=(
-                    "Shown because CRM owns a reviewed relationship tagged for "
-                    "the Social relationship context projection."
-                ),
-                health_state=str(_value(relationship, "health_state")),
-                freshness_state=str(_value(relationship, "stale_state")),
-                evidence_refs=list(_value(relationship, "evidence_refs") or []),
-                memory_provenance_refs=list(
-                    _value(relationship, "memory_provenance_refs") or []
-                ),
-            )
-        )
+        items.append(_projection_item_from_relationship(relationship))
     projection = CrmSocialRelationshipProjection(
         items=items,
         total_item_count=len(selected_relationship_refs),
@@ -313,6 +333,42 @@ def _selected_relationship_refs(
                 raise ValueError("CRM_SOCIAL_RELATIONSHIP_SELECTOR_OWNER_MISMATCH")
             selected_relationship_refs.add(str(relationship_ref))
     return sorted(selected_relationship_refs)
+
+
+def _projection_item_from_relationship(
+    relationship: Any,
+) -> CrmSocialRelationshipProjectionItem:
+    relationship_ref = str(_value(relationship, "relationship_ref"))
+    evidence_refs = list(_value(relationship, "evidence_refs") or [])
+    memory_provenance_refs = list(_value(relationship, "memory_provenance_refs") or [])
+    suffix = _ref_suffix(relationship_ref)
+    return CrmSocialRelationshipProjectionItem(
+        projection_item_ref=f"projection-item-ref:crm-social:{suffix}",
+        relationship_ref=relationship_ref,
+        person_ref=str(_value(relationship, "person_ref")),
+        organization_ref=_value(relationship, "organization_ref"),
+        crm_deep_link_ref=f"control-center-deep-link-ref:crm:{suffix}",
+        safe_display_label=str(_value(relationship, "safe_display_label")),
+        safe_summary=str(_value(relationship, "safe_summary")),
+        why_shown=(
+            "Shown because CRM owns a reviewed relationship tagged for "
+            "the Social relationship context projection."
+        ),
+        health_state=str(_value(relationship, "health_state")),
+        freshness_state=str(_value(relationship, "stale_state")),
+        evidence_refs=evidence_refs[:CRM_SOCIAL_RELATIONSHIP_REF_PAGE_LIMIT],
+        evidence_ref_total_count=len(evidence_refs),
+        evidence_refs_truncated=(
+            len(evidence_refs) > CRM_SOCIAL_RELATIONSHIP_REF_PAGE_LIMIT
+        ),
+        memory_provenance_refs=memory_provenance_refs[
+            :CRM_SOCIAL_RELATIONSHIP_REF_PAGE_LIMIT
+        ],
+        memory_provenance_ref_total_count=len(memory_provenance_refs),
+        memory_provenance_refs_truncated=(
+            len(memory_provenance_refs) > CRM_SOCIAL_RELATIONSHIP_REF_PAGE_LIMIT
+        ),
+    )
 
 
 def _ref_suffix(value: str) -> str:

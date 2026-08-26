@@ -758,6 +758,35 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it.each([
+    ["null projection", (crm: Record<string, unknown>) => {
+      crm.social_relationship_projection = null;
+    }],
+    ["null projection item", (crm: Record<string, unknown>) => {
+      const projection = crm.social_relationship_projection as Record<
+        string,
+        unknown
+      >;
+      projection.items = [null];
+      projection.total_item_count = 1;
+      projection.returned_item_count = 1;
+    }],
+  ])("fails closed for a CRM response with a %s", async (_label, mutate) => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    mutate(crm);
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
   it("rejects Settings authority state that is not backend-owned", async () => {
     const routeData = baseRouteData();
     const settings = routeData[
