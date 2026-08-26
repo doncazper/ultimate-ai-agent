@@ -1222,6 +1222,11 @@ def test_schema_rejects_untyped_nested_artifacts() -> None:
         mode="json"
     )
     assert not list(validator.iter_errors(power_payload))
+    oversized_power_payload = copy.deepcopy(power_payload)
+    oversized_power_payload["cells"][0]["minimum_denominator"] = (
+        TAW00_MAX_BINOMIAL_DENOMINATOR + 1
+    )
+    assert list(validator.iter_errors(oversized_power_payload))
     power_payload["cells"][0]["untyped_override"] = True
     assert list(validator.iter_errors(power_payload))
 
