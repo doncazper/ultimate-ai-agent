@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 180 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:84, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:28 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 181 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:84, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -312,6 +312,7 @@ an idempotency conflict and never waits for or executes behind the owner.
 | GET | `/control-center/runtime-readiness/summary` | `get_control_center_runtime_readiness_summary` | `validation_only` | yes | future | yes |
 | GET | `/control-center/settings/status` | `get_control_center_settings_status` | `validation_only` | yes | future | yes |
 | GET | `/control-center/setup-assistant/summary` | `get_control_center_setup_assistant_summary` | `validation_only` | yes | future | yes |
+| GET | `/control-center/social-publishing/proposal` | `get_control_center_social_publishing_proposal` | `validation_only` | yes | future | yes |
 | GET | `/control-center/sources/readiness` | `get_control_center_sources_readiness` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/status` | `get_control_center_status` | `validation_only` | yes | future | yes |
