@@ -1,0 +1,180 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from scripts.verify_social_read_only_foundation_profile import (
+    LEDGER_PATH,
+    verify,
+)
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.crm import (
+    CRM_SOCIAL_RELATIONSHIP_API_REF,
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+    CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF,
+    CrmLocalCommandCenterReadModel,
+    CrmLocalStore,
+    build_crm_social_relationship_projection,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_crm_social_projection_is_owner_backed_and_read_only(tmp_path: Path) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    projection = crm.social_relationship_projection
+
+    assert projection.contract_ref == CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF
+    assert projection.api_ref == CRM_SOCIAL_RELATIONSHIP_API_REF
+    assert projection.cli_ref == CRM_SOCIAL_RELATIONSHIP_CLI_REF
+    assert projection.backend_owned is True
+    assert projection.read_only is True
+    assert projection.stable_deep_links is True
+    assert projection.copies_relationship_truth is False
+    assert projection.live_source_access_enabled is False
+    assert projection.connector_runtime_enabled is False
+    assert projection.provider_model_call_enabled is False
+    assert projection.publishing_enabled is False
+    assert projection.external_write_enabled is False
+    assert projection.production_authority_enabled is False
+    assert len(projection.items) == 1
+
+    item = projection.items[0]
+    assert item.relationship_ref == "relationship-ref:crm-local:alpha"
+    assert item.person_ref == "person-ref:crm-local:relationship-alpha"
+    assert item.crm_deep_link_ref.startswith("control-center-deep-link-ref:crm:")
+    assert item.backend_owned is True
+    assert item.read_only is True
+    assert item.raw_content_included is False
+    assert item.connector_runtime_enabled is False
+    assert item.external_action_enabled is False
+
+
+def test_crm_social_projection_rejects_broken_owner_links(tmp_path: Path) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    payload = crm.model_dump(mode="python")
+    payload["social_relationship_projection"]["items"][0]["person_ref"] = (
+        "person-ref:crm-local:other"
+    )
+    with pytest.raises(ValidationError, match="CRM_SOCIAL_PERSON_LINK_MISMATCH"):
+        CrmLocalCommandCenterReadModel.model_validate(payload)
+
+
+def test_crm_social_projection_empty_state_is_truthful(tmp_path: Path) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    people = [person.model_copy(update={"tags": []}) for person in crm.people]
+    projection = build_crm_social_relationship_projection(
+        people=people,
+        organizations=crm.organizations,
+        relationships=crm.relationships,
+    )
+    assert projection.items == []
+    assert projection.backend_owned is True
+    assert projection.live_source_access_enabled is False
+
+
+def test_crm_relationship_api_and_cli_share_social_projection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "crm"
+    monkeypatch.setenv("UAA_CRM_STATE_DIR", str(state_dir))
+    response = TestClient(app).get("/control-center/crm/relationships")
+    assert response.status_code == 200
+    api_projection = response.json()["data"]["social_relationship_projection"]
+    assert api_projection["contract_ref"] == (
+        CRM_SOCIAL_RELATIONSHIP_PROJECTION_CONTRACT_REF
+    )
+    assert api_projection["items"][0]["relationship_ref"] == (
+        "relationship-ref:crm-local:alpha"
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_crm.py",
+            "inspect-social-relationships",
+            "--state-dir",
+            str(state_dir),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == api_projection
+
+
+def test_social_foundation_promotion_ledger_is_exact_and_fail_closed() -> None:
+    ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+    failures, state = verify(ledger)
+    assert failures == []
+    assert state == "IMPLEMENTATION_EVIDENCE_VERIFIED_PROMOTION_PENDING"
+    assert ledger["external_human_identity_authority_configured"] is False
+    assert ledger["promotion_status"] == "pending_independent_review"
+    assert {item["decision"] for item in ledger["reviewers"]} == {"pending"}
+
+
+def test_social_foundation_verifier_rejects_tamper_and_self_promotion() -> None:
+    ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+
+    tampered = json.loads(json.dumps(ledger))
+    tampered["subject_files"][0]["sha256"] = f"sha256:{'0' * 64}"
+    failures, state = verify(tampered)
+    assert state == "INVALID"
+    assert "subject file manifest does not match" in " ".join(failures)
+
+    self_promoted = json.loads(json.dumps(ledger))
+    self_promoted["reviewers"][0].update(
+        {
+            "decision": "accepted",
+            "reviewer_ref": "reviewer-ref:social-foundation:self",
+            "acceptance_subject_digest": ledger["acceptance_subject_digest"],
+            "receipt_ref": "receipt-ref:social-foundation:self",
+        }
+    )
+    failures, state = verify(self_promoted)
+    assert state == "INVALID"
+    assert "cannot be self-asserted" in " ".join(failures)
+
+    secret_like = json.loads(json.dumps(ledger))
+    secret_like["candidate_author_ref"] = "author-ref:ghp_abcdef123456"
+    failures, state = verify(secret_like)
+    assert state == "INVALID"
+    assert failures
+
+
+def test_social_foundation_require_promoted_cli_remains_blocked() -> None:
+    default = subprocess.run(
+        [sys.executable, "scripts/verify_social_read_only_foundation_profile.py"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert default.returncode == 0, default.stdout
+    assert json.loads(default.stdout)["independent_promotion_verified"] is False
+
+    required = subprocess.run(
+        [
+            sys.executable,
+            "scripts/verify_social_read_only_foundation_profile.py",
+            "--require-promoted",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert required.returncode == 2
+    assert json.loads(required.stdout)["status"] == (
+        "IMPLEMENTATION_EVIDENCE_VERIFIED_PROMOTION_PENDING"
+    )

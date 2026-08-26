@@ -39,6 +39,11 @@ from ultimate_ai_agent.core.crm.contracts import (
     _validate_ref_list,
     _validate_safe_text,
 )
+from ultimate_ai_agent.core.crm.social_projection import (
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+    CrmSocialRelationshipProjection,
+    build_crm_social_relationship_projection,
+)
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -51,9 +56,7 @@ from ultimate_ai_agent.core.hygiene.policies import (
 from ultimate_ai_agent.core.time import utc_now
 
 
-CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF = (
-    "contract-ref:crm-local-command-center:m2:v1"
-)
+CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF = "contract-ref:crm-local-command-center:m2:v1"
 CRM_LOCAL_COMMAND_CENTER_DOC_REF = "docs-ref:uaa-crm-local-command-center-plan"
 CRM_LOCAL_COMMAND_CENTER_VERIFIER_REF = "script-ref:verify-crm-local-command-center"
 CRM_LOCAL_COMMAND_CENTER_STORAGE_REF = (
@@ -81,6 +84,7 @@ CRM_LOCAL_COMMAND_CENTER_CLI_REFS = [
     "repo-local-command:uaa-crm:inspect-pipelines",
     "repo-local-command:uaa-crm:inspect-connector-read-lanes",
     "repo-local-command:uaa-crm:inspect-storage",
+    CRM_SOCIAL_RELATIONSHIP_CLI_REF,
     "repo-local-command:uaa-crm:mutate-local",
 ]
 
@@ -90,9 +94,7 @@ CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF = "authority-action-ref:crm-local-mutati
 CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF = "lane-ref:crm-local-mutation"
 CRM_LOCAL_MUTATION_AUTHORITY_DOMAIN_REF = "authority-domain-ref:contacts"
 CRM_LOCAL_MUTATION_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
-CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF = (
-    "authority-mode-ref:ask-before-changes"
-)
+CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF = "authority-mode-ref:ask-before-changes"
 CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_BLOCKED_REF = (
     "blocked-state:crm-local-mutation-authority-lease-required"
 )
@@ -700,9 +702,7 @@ class CrmConnectorReadLaneReadModel(_CrmLocalModel):
     gateway_boundary_ref: str = (
         "gateway-ref:crm-connector-read:approved-read-gateway-required:v1"
     )
-    policy_decision_ref: str = (
-        "policy-ref:crm-connector-read:deny-until-exact-lane:v1"
-    )
+    policy_decision_ref: str = "policy-ref:crm-connector-read:deny-until-exact-lane:v1"
     approval_scope_ref: str = (
         "approval-scope-ref:crm-connector-read:per-attempt-required:v1"
     )
@@ -714,9 +714,7 @@ class CrmConnectorReadLaneReadModel(_CrmLocalModel):
     )
     proof_ref: str = "proof-ref:crm-connector-read-readiness:v1"
     evidence_ref: str = "evidence-ref:crm-connector-read-readiness:v1"
-    cli_inspection_ref: str = (
-        "repo-local-command:uaa-crm:inspect-connector-read-lanes"
-    )
+    cli_inspection_ref: str = "repo-local-command:uaa-crm:inspect-connector-read-lanes"
     api_surface_ref: str = "GET /control-center/crm/summary"
     control_center_surface_ref: str = (
         "route-ref:control-center:crm:connector-readiness-panel"
@@ -881,6 +879,7 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
     people: list[CrmPersonReadModel]
     organizations: list[CrmOrganizationReadModel]
     relationships: list[CrmRelationshipReadModel]
+    social_relationship_projection: CrmSocialRelationshipProjection
     timeline_events: list[CrmTimelineEventReadModel]
     follow_ups: list[CrmFollowUpReadModel]
     opportunities: list[CrmOpportunityReadModel]
@@ -911,6 +910,11 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
         _validate_safe_payload(self.model_dump(mode="json"), "crm_local_read_model")
         if not self.backend_owned or not self.read_only or not self.safe_refs_only:
             raise ValueError("CRM_LOCAL_READ_MODEL_SAFE_POSTURE_REQUIRED")
+        self.social_relationship_projection.validate_owner_links(
+            people=self.people,
+            organizations=self.organizations,
+            relationships=self.relationships,
+        )
         _deny_true_flags(
             self,
             [
@@ -925,7 +929,9 @@ class CrmLocalCommandCenterReadModel(_CrmLocalModel):
 
 
 class CrmLocalMutationRequest(_CrmLocalModel):
-    actor_context: ActorContext = Field(default_factory=lambda: _default_actor_context())
+    actor_context: ActorContext = Field(
+        default_factory=lambda: _default_actor_context()
+    )
     mutation_kind: Literal[
         "create_follow_up",
         "update_follow_up",
@@ -937,14 +943,17 @@ class CrmLocalMutationRequest(_CrmLocalModel):
     approval_ref: str
     safe_summary: str = "Local CRM mutation requested with safe summary only."
     relationship_ref: str | None = None
-    follow_up_status: Literal[
-        "due",
-        "upcoming",
-        "stale",
-        "blocked",
-        "proposed",
-        "completed",
-    ] | None = None
+    follow_up_status: (
+        Literal[
+            "due",
+            "upcoming",
+            "stale",
+            "blocked",
+            "proposed",
+            "completed",
+        ]
+        | None
+    ) = None
     stage_ref: str | None = None
     metadata_refs: list[str] = Field(default_factory=list)
 
@@ -958,7 +967,9 @@ class CrmLocalMutationRequest(_CrmLocalModel):
         if self.stage_ref is not None:
             _validate_ref(self.stage_ref, "stage_ref")
         _validate_optional_ref_list(self.metadata_refs, "metadata_refs")
-        _validate_safe_payload(self.model_dump(mode="json"), "crm_local_mutation_request")
+        _validate_safe_payload(
+            self.model_dump(mode="json"), "crm_local_mutation_request"
+        )
         return self
 
 
@@ -1020,7 +1031,9 @@ class CrmLocalMutationReceipt(_CrmLocalModel):
             "proof_ref",
         ]:
             _validate_ref(getattr(self, field_name), field_name)
-        _validate_safe_text(self.authority_decision_outcome, "authority_decision_outcome")
+        _validate_safe_text(
+            self.authority_decision_outcome, "authority_decision_outcome"
+        )
         if self.authority_decision_outcome not in {
             AuthorityDecisionOutcome.allow.value,
             AuthorityDecisionOutcome.ask.value,
@@ -1054,7 +1067,11 @@ def build_crm_local_command_center_read_model(
 def validate_crm_local_command_center_read_model(
     payload: CrmLocalCommandCenterReadModel | dict[str, Any],
 ) -> CrmLocalCommandCenterReadModel:
-    data = payload.model_dump(mode="python") if isinstance(payload, BaseModel) else dict(payload)
+    data = (
+        payload.model_dump(mode="python")
+        if isinstance(payload, BaseModel)
+        else dict(payload)
+    )
     _validate_safe_payload(data, "crm_local_command_center")
     return CrmLocalCommandCenterReadModel.model_validate(data)
 
@@ -1172,7 +1189,9 @@ class CrmLocalStore:
 
     def clear_demo(self, *, confirm_local_only: bool) -> CrmStorageStatusReadModel:
         if not confirm_local_only:
-            raise CrmLocalCommandCenterError("CRM_CLEAR_DEMO_LOCAL_ONLY_CONFIRM_REQUIRED")
+            raise CrmLocalCommandCenterError(
+                "CRM_CLEAR_DEMO_LOCAL_ONLY_CONFIRM_REQUIRED"
+            )
         state = _empty_state_payload()
         self._write_state(state, "event-ref:crm-local:clear-demo")
         return self.storage_status(state)
@@ -1206,9 +1225,7 @@ class CrmLocalStore:
                     "CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT"
                 )
             receipt = _find_receipt(state, str(replay["receipt_ref"]))
-            return CrmLocalMutationReceipt.model_validate(
-                {**receipt, "replayed": True}
-            )
+            return CrmLocalMutationReceipt.model_validate({**receipt, "replayed": True})
 
         approval_status, approval_reason_refs = _validate_local_mutation_approval(
             request=request,
@@ -1268,7 +1285,9 @@ class CrmLocalStore:
             ],
         )
         _apply_mutation(state, request, receipt)
-        state.setdefault("mutation_receipts", []).append(receipt.model_dump(mode="json"))
+        state.setdefault("mutation_receipts", []).append(
+            receipt.model_dump(mode="json")
+        )
         state.setdefault("mutation_replays", []).append(
             {
                 "idempotency_ref": idempotency_ref,
@@ -1363,7 +1382,9 @@ class CrmLocalStore:
             "raw_contact_details_omitted": True,
         }
 
-    def import_preview_from_csv(self, csv_path: Path, *, limit: int = 20) -> dict[str, Any]:
+    def import_preview_from_csv(
+        self, csv_path: Path, *, limit: int = 20
+    ) -> dict[str, Any]:
         rows: list[dict[str, str]] = []
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
@@ -1373,7 +1394,10 @@ class CrmLocalStore:
                 rows.append(
                     {
                         "candidate_ref": f"identity-match-candidate-ref:crm-local:csv:{index + 1}",
-                        "safe_label_ref": _hashed_ref("safe-label-ref:crm-local:csv", json.dumps(row, sort_keys=True)),
+                        "safe_label_ref": _hashed_ref(
+                            "safe-label-ref:crm-local:csv",
+                            json.dumps(row, sort_keys=True),
+                        ),
                         "review_only": "true",
                     }
                 )
@@ -1405,7 +1429,9 @@ class CrmLocalStore:
         _validate_ref(event_ref, "event_ref")
         self.state_dir.mkdir(parents=True, exist_ok=True)
         tmp = self.snapshot_file.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.write_text(
+            json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
         tmp.replace(self.snapshot_file)
         event = {
             "event_ref": event_ref,
@@ -1439,7 +1465,7 @@ def _default_state_payload(
             "organization_refs": ["organization-ref:crm-local:alpha"],
             "evidence_refs": ["evidence-ref:crm-local:alpha"],
             "memory_provenance_refs": ["memory-ref:crm-local:alpha"],
-            "tags": ["warm", "high context"],
+            "tags": ["warm", "high context", "social-context"],
         },
         {
             "person_ref": "person-ref:crm-local:relationship-beta",
@@ -1632,13 +1658,35 @@ def _default_state_payload(
         "reports": [
             _report("follow-up-debt", "Follow-up debt", "2 open follow-up refs"),
             _report("stale-promises", "Stale promises", "1 stale promise ref"),
-            _report("relationship-health", "Relationship health", "1 warm and 1 stale relationship"),
-            _report("opportunity-aging", "Opportunity aging", "1 opportunity needs review"),
-            _report("source-ref-effectiveness", "Source ref effectiveness", "Evidence coverage is partial"),
-            _report("activity-completion", "Activity completion", "1 completed or proposed activity ref"),
+            _report(
+                "relationship-health",
+                "Relationship health",
+                "1 warm and 1 stale relationship",
+            ),
+            _report(
+                "opportunity-aging", "Opportunity aging", "1 opportunity needs review"
+            ),
+            _report(
+                "source-ref-effectiveness",
+                "Source ref effectiveness",
+                "Evidence coverage is partial",
+            ),
+            _report(
+                "activity-completion",
+                "Activity completion",
+                "1 completed or proposed activity ref",
+            ),
             _report("pipeline-value", "Pipeline value", "No revenue claim recorded"),
-            _report("blocked-authority", "Blocked authority", "External sends and writes blocked"),
-            _report("memory-evidence-coverage", "Memory evidence coverage", "2 memory provenance refs"),
+            _report(
+                "blocked-authority",
+                "Blocked authority",
+                "External sends and writes blocked",
+            ),
+            _report(
+                "memory-evidence-coverage",
+                "Memory evidence coverage",
+                "2 memory provenance refs",
+            ),
         ],
         "mutation_receipts": [],
         "mutation_replays": [],
@@ -1670,12 +1718,20 @@ def _state_to_read_model_payload(
     state: dict[str, Any],
     storage_status: CrmStorageStatusReadModel,
 ) -> dict[str, Any]:
+    social_relationship_projection = build_crm_social_relationship_projection(
+        people=state.get("people", []),
+        organizations=state.get("organizations", []),
+        relationships=state.get("relationships", []),
+    )
     return {
         "authority_posture": CrmAuthorityPostureReadModel().model_dump(mode="python"),
         "storage_status": storage_status.model_dump(mode="python"),
         "people": state.get("people", []),
         "organizations": state.get("organizations", []),
         "relationships": state.get("relationships", []),
+        "social_relationship_projection": social_relationship_projection.model_dump(
+            mode="python"
+        ),
         "timeline_events": state.get("timeline_events", []),
         "follow_ups": state.get("follow_ups", []),
         "opportunities": state.get("opportunities", []),
@@ -1726,7 +1782,9 @@ def _state_to_read_model_payload(
                 "prompt-ref:crm:unblock-sends-writes",
             ],
         },
-        "import_export_posture": CrmImportExportPostureReadModel().model_dump(mode="python"),
+        "import_export_posture": CrmImportExportPostureReadModel().model_dump(
+            mode="python"
+        ),
     }
 
 
@@ -1831,7 +1889,13 @@ def _build_smart_lists(
         ("unanswered-outreach", "Unanswered outreach", rels[1:], [], []),
         ("opportunity-at-risk", "Opportunity at risk", rels[1:], [], at_risk),
         ("needs-evidence", "Needs evidence", rels[1:], [], at_risk),
-        ("ready-for-action-inbox", "Ready for Action Inbox", rels[:1], due_followups[:1], []),
+        (
+            "ready-for-action-inbox",
+            "Ready for Action Inbox",
+            rels[:1],
+            due_followups[:1],
+            [],
+        ),
         ("blocked-external-sync", "Blocked external sync", rels, [], []),
         ("recently-changed", "Recently changed", rels, due_followups, []),
     ]
@@ -1875,7 +1939,9 @@ def _apply_mutation(
             request.follow_up_status or "proposed",
         )
     elif request.mutation_kind == "create_follow_up":
-        relationship_ref = request.relationship_ref or "relationship-ref:crm-local:alpha"
+        relationship_ref = (
+            request.relationship_ref or "relationship-ref:crm-local:alpha"
+        )
         state.setdefault("follow_ups", []).append(
             _follow_up(
                 f"created:{_safe_suffix(request.target_ref)}",

@@ -111,14 +111,16 @@ owns assets; and Evidence owns proof.
 
 The displayed direction is accepted for iterative private dogfooding, so
 pixel-perfect visual approval is no longer a blocker. Full Q25 implementation
-remains deferred until the exact CRM relationship projection and strict
-independent-promotion profile are proved alongside the existing Work Board and
-Communications read projections. Passing those gates makes Social eligible for
-prioritization, not automatically next.
+remains deferred even though Work Board, Communications, and CRM now expose
+their exact owner-backed read projections. A digest-bound promotion ledger and
+verifier bind that implementation evidence but fail closed until independently
+trusted human role decisions exist. Passing that gate makes Social eligible
+for prioritization, not automatically next.
 
 See the
 [product contract](docs/product/UAA_SOCIAL_MEDIA_INTELLIGENCE_PRODUCT_CONTRACT.md),
 [private-dogfood direction acceptance](docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md),
+[fail-closed foundation profile](docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md),
 [accepted render pack](docs/design/control_center_north_star/renders/social-media-v1/README.md),
 and
 [gated future implementation prompt](docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md).
@@ -608,7 +610,8 @@ tests/                    Backend, contract, storage, verifier, and API tests
 - **Local model support**: safer inventory/status/readiness visibility.
 - **Connector contracts**: read-only email/calendar capabilities before any write authority.
 - **Social Media Intelligence**: founder-approved private-dogfood direction;
-  continue the missing CRM/profile gap before the full read-only milestone.
+  owner-backed read-only foundations are implemented, with independent profile
+  promotion still required before the full milestone.
 - **Private UI testing**: deferred `UAA-P1-087.2` functional tuning after more implementation evidence.
 
 ## Contributing

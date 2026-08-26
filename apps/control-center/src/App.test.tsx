@@ -22380,6 +22380,8 @@ function envelopeForReadEndpoint(url: string) {
       relationships: mockControlCenterData.crmLocalCommandCenter.relationships,
       people: mockControlCenterData.crmLocalCommandCenter.people,
       organizations: mockControlCenterData.crmLocalCommandCenter.organizations,
+      social_relationship_projection:
+        mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
     },
     [API_ENDPOINTS.crmTimeline]: {
       contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,

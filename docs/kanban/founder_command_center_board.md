@@ -1795,19 +1795,21 @@ and Memory. The first milestone remains read-only and preserves canonical app
 ownership.
 
 Activation gate: Work Board, CRM, and Communications must pass
-`contract-ref:social-read-only-foundation-profile:v1`. The profile is currently
-partial: Communications now has a backend-owned reviewed local projection with
-API/CLI parity and a real Control Center view; Work Board now has a strict
-backend-owned read-only `Social Content` saved projection and Control Center
-filter. The founder accepted the displayed Social direction for private
-dogfooding, so cosmetic iteration no longer blocks gap closure. The CRM Social
-relationship projection and strict independent-promotion profile
-ledger/verifier remain missing. The profile does not mark any owner product
-globally complete.
+`contract-ref:social-read-only-foundation-profile:v1`. The profile is
+implementation-complete but promotion-pending: Communications has a
+backend-owned reviewed local projection with API/CLI parity and a real Control
+Center view; Work Board has a strict backend-owned read-only `Social Content`
+saved projection and Control Center filter; CRM has an exact backend-owned
+read-only Social relationship projection with stable safe deep-link refs on
+the existing API/CLI/UI boundary. The founder accepted the displayed Social
+direction for private dogfooding, so cosmetic iteration no longer blocks gap
+closure. The digest-bound promotion ledger/verifier remains fail-closed until
+external human identity authority and all independent role decisions exist.
+The profile does not mark any owner product globally complete.
 
 Board posture: Deferred. This card is not current WIP and is not eligible as
-"what's next" while the profile lacks accepted evidence. Passing the profile
-makes it eligible for prioritization; it does not automatically
+"what's next" while independent profile promotion is pending. Passing the
+profile makes it eligible for prioritization; it does not automatically
 outrank current P0/P1 work.
 
 Execution prompt:

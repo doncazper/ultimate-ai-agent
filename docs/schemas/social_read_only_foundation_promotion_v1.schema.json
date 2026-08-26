@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-ref:social-read-only-foundation-promotion:v1",
+  "title": "Social Read-Only Foundation Promotion Ledger V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ledger_ref",
+    "profile_ref",
+    "candidate_author_ref",
+    "acceptance_subject_digest",
+    "subject_files",
+    "foundations",
+    "reviewers",
+    "external_human_identity_authority_configured",
+    "promotion_status",
+    "next_safe_action",
+    "live_source_access_enabled",
+    "connector_runtime_enabled",
+    "provider_model_call_enabled",
+    "publishing_enabled",
+    "external_write_enabled",
+    "production_authority_enabled",
+    "raw_content_included"
+  ],
+  "properties": {
+    "schema_version": {"const": "uaa-social-foundation-promotion.v1"},
+    "ledger_ref": {"const": "ledger-ref:social-read-only-foundation-promotion:v1"},
+    "profile_ref": {"const": "contract-ref:social-read-only-foundation-profile:v1"},
+    "candidate_author_ref": {"$ref": "#/$defs/safeRef"},
+    "acceptance_subject_digest": {"$ref": "#/$defs/digest"},
+    "subject_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/subjectFile"}
+    },
+    "foundations": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/foundation"}
+    },
+    "reviewers": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/reviewer"}
+    },
+    "external_human_identity_authority_configured": {"const": false},
+    "promotion_status": {"const": "pending_independent_review"},
+    "next_safe_action": {"type": "string", "minLength": 1, "maxLength": 500},
+    "live_source_access_enabled": {"const": false},
+    "connector_runtime_enabled": {"const": false},
+    "provider_model_call_enabled": {"const": false},
+    "publishing_enabled": {"const": false},
+    "external_write_enabled": {"const": false},
+    "production_authority_enabled": {"const": false},
+    "raw_content_included": {"const": false}
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?::[A-Za-z0-9][A-Za-z0-9._/-]*)+$",
+      "maxLength": 240
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "subjectFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_ref", "sha256"],
+      "properties": {
+        "path_ref": {"$ref": "#/$defs/safeRef"},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "foundation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foundation_ref",
+        "owner_ref",
+        "contract_ref",
+        "implementation_state",
+        "path_refs",
+        "api_refs",
+        "cli_refs",
+        "ui_refs",
+        "verifier_refs",
+        "evidence_refs"
+      ],
+      "properties": {
+        "foundation_ref": {"$ref": "#/$defs/safeRef"},
+        "owner_ref": {"$ref": "#/$defs/safeRef"},
+        "contract_ref": {"$ref": "#/$defs/safeRef"},
+        "implementation_state": {"const": "implemented"},
+        "path_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safeRef"}
+        },
+        "api_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 160}
+        },
+        "cli_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safeRef"}
+        },
+        "ui_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safeRef"}
+        },
+        "verifier_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safeRef"}
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/safeRef"}
+        }
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_ref",
+        "decision",
+        "reviewer_ref",
+        "acceptance_subject_digest",
+        "receipt_ref",
+        "finding_refs"
+      ],
+      "properties": {
+        "role_ref": {"$ref": "#/$defs/safeRef"},
+        "decision": {"const": "pending"},
+        "reviewer_ref": {"type": "null"},
+        "acceptance_subject_digest": {"type": "null"},
+        "receipt_ref": {"type": "null"},
+        "finding_refs": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    }
+  }
+}

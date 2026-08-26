@@ -1,7 +1,7 @@
 # Social Read-Only Integration Foundation Profile
 
-Status: founder direction accepted for private dogfood; foundation
-implementation partial; independent promotion pending.
+Status: founder direction accepted for private dogfood; all three owner
+foundation projections implemented locally; independent promotion pending.
 
 Contract ref: `contract-ref:social-read-only-foundation-profile:v1`.
 
@@ -19,14 +19,45 @@ Work Board, CRM, Communications, Messenger, or Social globally complete.
 | Owner foundation | Required Social integration | Current state |
 |---|---|---|
 | Work Board | Backend-owned board plus a typed `Social Content` saved projection | Implemented locally. Python Core owns a strict read-only saved projection and the Control Center can filter it; the displayed direction is founder-accepted for private dogfood while independent promotion remains pending. |
-| CRM | Backend-owned relationship context and stable deep-link refs | Partial. The displayed relationship direction is founder-accepted, but the exact Social relationship projection and deep-link contract still require implementation evidence. |
+| CRM | Backend-owned relationship context and stable deep-link refs | Implemented locally. CRM owns an exact tag-selected read-only Social relationship projection on the existing protected relationships route, exposes the same projection through CLI parity, and provides stable safe deep-link refs without connector, provider, publishing, or write authority. |
 | Communications | Canonical reviewed conversation summaries, typed source/freshness posture, API/CLI parity, `Social Media` and `Needs attention` UI projections | Implemented locally for a read-only reviewed-manual-import projection; the displayed direction is founder-accepted for private dogfood while independent promotion remains pending. |
 
 Founder approval removes pixel-perfect visual direction as a prerequisite for
-private-dogfood iteration. It does not fabricate the missing CRM relationship
-contract. The full Q25 read-only milestone remains deferred until every row has
-implementation evidence on one exact revision and a strict profile promotion
-ledger preserves the independent gates.
+private-dogfood iteration. All three owner projection contracts now have local
+implementation evidence, but that does not independently promote the full Q25
+milestone. The digest-bound promotion ledger remains fail-closed until external
+human identity authority and the exact independent role decisions exist.
+
+## CRM foundation contract
+
+CRM owns
+`contract-ref:crm-social-relationship-projection:v1`:
+
+- the exact `social-context` person tag selects reviewed CRM relationships;
+- every projection item binds the canonical relationship, person, optional
+  organization, evidence, memory provenance, health, and freshness refs;
+- stable `control-center-deep-link-ref:crm:*` refs let later Social surfaces
+  point back to CRM without copying relationship truth;
+- `GET /control-center/crm/relationships` and
+  `uaa_crm.py inspect-social-relationships` expose the same Python Core
+  projection;
+- the CRM Control Center inspector labels the projection CRM-owned and
+  read-only only when both route truth and nested ownership truth are current;
+- raw content, account sync, live source access, connector runtime,
+  provider/model calls, publishing, external actions, external writes, and
+  production authority remain structurally false.
+
+## Promotion evidence contract
+
+`docs/product/social_read_only_foundation_promotion_v1.json` binds the exact
+Work Board, Communications, CRM, frontend, test, schema, verifier, and profile
+files into one acceptance-subject digest. The strict schema and
+`scripts/verify_social_read_only_foundation_profile.py` reject inventory drift,
+digest tampering, duplicate ownership, missing foundation evidence,
+self-asserted decisions, secret-like durable values, and any authority
+broadening. Default verification proves implementation evidence only.
+`--require-promoted` deliberately exits nonzero while the external human
+identity authority and all independent role decisions remain unavailable.
 
 ## Work Board foundation contract
 
@@ -85,13 +116,13 @@ data and cannot act as instructions or authority.
 
 ## Remaining acceptance work
 
-1. Implement and verify the CRM relationship-context projection and stable
-   deep links.
-2. Capture current implementation evidence for Work Board and Communications
-   desktop/narrow states. Cosmetic divergence from the founder-approved
-   direction is allowed; ownership, workflow-purpose, data-boundary, or
-   authority changes require a new decision.
-3. Publish a strict independent-promotion profile ledger/verifier bound to the
-   exact implementation evidence set.
+1. Obtain independent role decisions for product/design, CRM ownership,
+   privacy/security, accessibility, and implementation through a separately
+   trusted human identity authority. Candidate-authored refs do not count.
+2. Bind those decisions to the current acceptance-subject digest. Any changed
+   normative file makes prior decisions stale.
+3. Run the verifier with `--require-promoted`; keep Q25 blocked until it passes.
 4. Only then evaluate the full Q25 read-only milestone; passing this profile
-   does not make Social automatically next.
+   does not make Social automatically next. Cosmetic divergence from the
+   founder-approved direction is allowed, while ownership, workflow-purpose,
+   data-boundary, or authority changes require a new decision.

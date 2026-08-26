@@ -1,8 +1,8 @@
 # FIN-001 Synthetic Protected-Book Kernel
 
-Status: implemented source candidate for the exact synthetic-only slice. Merge
-and Queue V2 completion evidence remain required. No real-data or supported
-deployment claim is made.
+Status: merged synthetic-only implementation from PR 428 with Queue V2
+completion and terminal evidence recorded. No real-data or supported deployment
+claim is made; independent promotion remains separate.
 
 ## What Works
 

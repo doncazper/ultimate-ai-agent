@@ -103,7 +103,8 @@ fresh-state bootstrap, current trial truth, and readability gaps were assigned
 to explicit owners without blocking queue progress or promoting authority.
 Evidence: `report-ref:queue-v2:q21:weekly-review-private-trial:v1` for
 `dev-task:queue-v2-q21-weekly-ceo-review-private-trial`.
-Queue-of-Record V2 Q25 now has two partial dependency advances, not completion:
+Queue-of-Record V2 Q25 now has all three owner foundation projections, not
+milestone completion:
 Work Board owns a strict backend read-only `Social Content` saved projection
 with existing-board lifecycle ownership, API/CLI parity through the current
 Work Board route, and a Control Center saved-view filter. Communications owns
@@ -113,9 +114,13 @@ read-only API routes, CLI parity, and a backend-wired `Social Media` / `Needs
 attention` Control Center view. Raw content, connector sync, sending, replies,
 deletes, moderation, and external writes remain blocked. The founder accepted
 the displayed Social direction for private dogfooding on 2026-08-25, so
-pixel-perfect visual approval no longer blocks iterative gap closure. Q25
-remains deferred until the CRM relationship projection is implemented and the
-strict independent-promotion profile ledger/verifier is accepted. Evidence:
+pixel-perfect visual approval no longer blocks iterative gap closure. CRM now
+owns an exact read-only Social relationship projection with stable safe
+deep-link refs on the existing API/CLI/UI boundary. A digest-bound strict
+promotion ledger and verifier bind all three foundations but remain fail-closed
+without external human identity authority and five independent role decisions.
+Q25 therefore remains deferred for independent promotion rather than missing
+implementation. Evidence:
 `docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
@@ -909,22 +914,19 @@ Goal: preserve and refine the first-party UAA Finance vision before runtime:
 continuous local books, review-and-learn categorization, receipt/context
 capture, reconciliation, spending intelligence, accountant readiness, and
 sourced business-compliance obligations integrated with the Founder Loop.
-Status: FIN-001 is the active exact `product_surface` WIP item through
-`dev-task:finance-fin001-synthetic-kernel` at coordinator revision 164. Its
-synthetic protected-book source candidate, governed CLI, focused tests, and
-verifier are implemented; exact-head review, protected merge, and coordinator
-completion evidence remain pending. The broader Queue V2 Q26 program task and
-independent real-data promotion remain blocked. No real-data storage,
+Status: FIN-001 merged in PR 428 as
+`f49346af2fd1692caa999796bef972042af5c739` after exact-head review and all
+hosted checks. Queue V2 recorded completion and its terminal packet at
+coordinator revision 166. The broader Queue V2 Q26 program task and independent
+real-data promotion remain blocked. No real-data storage,
 connector, filing, payment, professional, public-release, or production
 authority exists.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
-Next: complete exact-head review and protected merge for the implemented
-encrypted synthetic core, then record the exact coordinator completion receipt.
-Retain the independent FIN-000 gate before real-data or higher-authority
-promotion.
+Next: retain the independent FIN-000 gate before real-data, FIN-002 import, or
+higher-authority promotion. The merged FIN-001 kernel remains synthetic-only.
 Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.

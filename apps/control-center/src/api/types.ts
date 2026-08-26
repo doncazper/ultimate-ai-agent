@@ -2616,6 +2616,49 @@ export interface CrmRelationshipReadModel {
   raw_contact_details_included: boolean;
 }
 
+export interface CrmSocialRelationshipProjectionItem {
+  projection_item_ref: string;
+  relationship_ref: string;
+  person_ref: string;
+  organization_ref?: string | null;
+  crm_deep_link_ref: string;
+  safe_display_label: string;
+  safe_summary: string;
+  why_shown: string;
+  health_state: string;
+  freshness_state: string;
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  backend_owned: boolean;
+  read_only: boolean;
+  raw_content_included: boolean;
+  connector_runtime_enabled: boolean;
+  external_action_enabled: boolean;
+}
+
+export interface CrmSocialRelationshipProjection {
+  contract_ref: string;
+  projection_ref: string;
+  owner_ref: string;
+  selection_rule_ref: string;
+  source_posture_ref: string;
+  freshness_ref: string;
+  api_ref: string;
+  cli_ref: string;
+  items: CrmSocialRelationshipProjectionItem[];
+  evidence_refs: string[];
+  backend_owned: boolean;
+  read_only: boolean;
+  stable_deep_links: boolean;
+  copies_relationship_truth: boolean;
+  live_source_access_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  publishing_enabled: boolean;
+  external_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface CrmTimelineEventReadModel {
   event_ref: string;
   relationship_ref: string;
@@ -2803,6 +2846,7 @@ export interface CrmLocalCommandCenterReadModel {
   people: CrmPersonReadModel[];
   organizations: CrmOrganizationReadModel[];
   relationships: CrmRelationshipReadModel[];
+  social_relationship_projection: CrmSocialRelationshipProjection;
   timeline_events: CrmTimelineEventReadModel[];
   follow_ups: CrmFollowUpReadModel[];
   opportunities: CrmOpportunityReadModel[];

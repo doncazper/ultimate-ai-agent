@@ -788,9 +788,14 @@ describe("North Star backend wiring", () => {
     data.routeStates["/crm"].state = "backend_owned";
     data.routeStates["/coding"].state = "backend_owned";
     Object.assign(data.crmLocalCommandCenter, { backend_owned: true, read_only: true, safe_refs_only: true });
+    Object.assign(data.crmLocalCommandCenter.social_relationship_projection, { backend_owned: true });
+    for (const item of data.crmLocalCommandCenter.social_relationship_projection.items) item.backend_owned = true;
     const { rerender } = render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
     expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
+    expect(screen.getByText("Social relationship context")).toBeVisible();
+    expect(screen.getByText(/CRM owned · read only/)).toBeVisible();
+    expect(screen.getByText(/control-center-deep-link-ref:crm:/)).toBeVisible();
 
     rerender(<NorthStarControlCenter activePath="/workspace/onboarding" data={data} />);
     fireEvent.click(screen.getByRole("button", { name: "Continue to review" }));
