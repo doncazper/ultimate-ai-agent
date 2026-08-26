@@ -1807,10 +1807,12 @@ closure. The digest-bound promotion ledger/verifier remains fail-closed until
 external human identity authority and all independent role decisions exist.
 The profile does not mark any owner product globally complete.
 
-Board posture: Deferred. This card is not current WIP and is not eligible as
-"what's next" while independent profile promotion is pending. Passing the
-profile makes it eligible for prioritization; it does not automatically
-outrank current P0/P1 work.
+Board posture: Private-dogfood milestone complete. The founder accepted the
+direction and all three bounded read-only owner projections are implemented.
+Independent profile promotion remains a separate fail-closed gate and does not
+hold the local dogfood queue open. Q30 may consume this result for proposal and
+dry-run work only; no publishing or platform-write authority follows from this
+card.
 
 Execution prompt:
 `docs/prompts/implement_social_media_intelligence_after_foundation_gates.prompt.md`.

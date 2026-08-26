@@ -119,8 +119,13 @@ owns an exact read-only Social relationship projection with stable safe
 deep-link refs on the existing API/CLI/UI boundary. A digest-bound strict
 promotion ledger and verifier bind all three foundations but remain fail-closed
 without external human identity authority and five independent role decisions.
-Q25 therefore remains deferred for independent promotion rather than missing
-implementation. Evidence:
+Q25 is complete at the private-dogfood, read-only milestone tier: the founder
+accepted the direction, all three owner projections are implemented, and the
+bounded implementation verifier passes. Independent promotion remains a
+separate fail-closed gate rather than a reason to hold the private queue open.
+This completion may unlock Q30 proposal and dry-run work only; it grants no
+publishing, connector, platform-write, public-release, or production authority.
+Evidence:
 `docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
