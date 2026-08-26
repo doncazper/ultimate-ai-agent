@@ -663,6 +663,157 @@ def test_crm_confirmed_lane_rejects_missing_opportunity_without_success_receipt(
     assert [lease.status for lease in lease_store.list_leases()] == ["revoked"]
 
 
+def test_crm_confirmed_lane_advances_past_denied_lease_receipt(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-denied-then-repaired"
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+
+    monkeypatch.setenv("UAA_AUTHORITY_LEASE_KILL_SWITCH", "1")
+    with pytest.raises(
+        CrmLocalCommandCenterError,
+        match="CRM_LOCAL_MUTATION_EXACT_LEASE_ISSUANCE_DENIED",
+    ):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    assert lease_store.list_leases() == []
+    assert [item.status for item in lease_store.list_receipts()] == ["denied"]
+
+    monkeypatch.delenv("UAA_AUTHORITY_LEASE_KILL_SWITCH")
+    receipt = store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert receipt.replayed is False
+    assert [item.status for item in lease_store.list_receipts()] == [
+        "denied",
+        "issued",
+    ]
+    assert len(lease_store.list_leases(active_only=True)) == 1
+
+
+def test_crm_confirmed_lane_rejects_missing_relationship_targets(
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+    from ultimate_ai_agent.core.crm import CrmLocalCommandCenterError
+
+    store = CrmLocalStore(tmp_path)
+    for mutation_kind, target_ref in (
+        ("create_follow_up", "follow-up-ref:crm-local:new"),
+        ("add_note_summary_ref", "relationship-ref:crm-local:missing"),
+    ):
+        idempotency_ref = f"idempotency-ref:crm-missing-relationship:{mutation_kind}"
+        request = CrmLocalMutationRequest(
+            mutation_kind=mutation_kind,
+            target_ref=target_ref,
+            relationship_ref="relationship-ref:crm-local:missing",
+            approval_ref=expected_crm_local_mutation_approval_ref(
+                target_ref=target_ref,
+                idempotency_ref=idempotency_ref,
+            ),
+        )
+        with pytest.raises(
+            CrmLocalCommandCenterError,
+            match="CRM_LOCAL_RELATIONSHIP_NOT_FOUND",
+        ):
+            store.record_confirmed_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                confirmed=True,
+            )
+
+    assert store._read_state()["mutation_receipts"] == []
+    lease_store = AuthorityLeaseStore(tmp_path / "authority")
+    assert lease_store.list_leases(active_only=True) == []
+    assert [item.status for item in lease_store.list_leases()] == [
+        "revoked",
+        "revoked",
+    ]
+
+
+def test_crm_state_write_recovers_without_duplicate_audit_after_snapshot_failure(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import pytest
+
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-audit-transaction-repair"
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+    original_replace = Path.replace
+    snapshot_failure_pending = True
+
+    def fail_first_snapshot_replace(source: Path, target: Path) -> Path:
+        nonlocal snapshot_failure_pending
+        if snapshot_failure_pending and Path(target) == store.snapshot_file:
+            snapshot_failure_pending = False
+            raise OSError("simulated snapshot replacement failure")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(Path, "replace", fail_first_snapshot_replace)
+
+    with pytest.raises(OSError, match="simulated snapshot replacement failure"):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert store.snapshot_file.exists() is False
+    audit_events = [
+        json.loads(line)
+        for line in store.events_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(audit_events) == 1
+
+    receipt = store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert store.snapshot_file.exists() is True
+    assert receipt.audit_ref == audit_events[0]["event_ref"]
+    repaired_events = [
+        json.loads(line)
+        for line in store.events_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(repaired_events) == 1
+
+
 def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> None:
     store = CrmLocalStore(tmp_path)
     target_ref = "follow-up-ref:crm-local:alpha:due"

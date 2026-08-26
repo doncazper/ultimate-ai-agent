@@ -1596,7 +1596,8 @@ class CrmLocalStore:
         _validate_safe_payload(state, "crm_local_state")
         _validate_ref(event_ref, "event_ref")
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        tmp_path: Path | None = None
+        snapshot_tmp_path: Path | None = None
+        events_tmp_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(
                 mode="w",
@@ -1609,20 +1610,69 @@ class CrmLocalStore:
                 handle.write(json.dumps(state, indent=2, sort_keys=True) + "\n")
                 handle.flush()
                 os.fsync(handle.fileno())
-                tmp_path = Path(handle.name)
-            tmp_path.replace(self.snapshot_file)
+                snapshot_tmp_path = Path(handle.name)
+
+            if self.events_file.is_symlink() or (
+                self.events_file.exists() and not self.events_file.is_file()
+            ):
+                raise CrmLocalCommandCenterError("CRM_LOCAL_EVENT_LOG_UNSAFE")
+            existing_events = (
+                self.events_file.read_text(encoding="utf-8")
+                if self.events_file.exists()
+                else ""
+            )
+            event_already_recorded = any(
+                isinstance(item, dict) and item.get("event_ref") == event_ref
+                for item in (
+                    json.loads(line)
+                    for line in existing_events.splitlines()
+                    if line.strip()
+                )
+            )
+            event = {
+                "event_ref": event_ref,
+                "safe_summary": "CRM local command center state event recorded.",
+                "storage_ref": CRM_LOCAL_COMMAND_CENTER_STORAGE_REF,
+                "created_at": utc_now().isoformat(),
+                "raw_paths_omitted": True,
+            }
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_dir,
+                prefix=".crm-local-events-",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                handle.write(existing_events)
+                if existing_events and not existing_events.endswith("\n"):
+                    handle.write("\n")
+                if not event_already_recorded:
+                    handle.write(json.dumps(event, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+                events_tmp_path = Path(handle.name)
+
+            # Commit the audit log first. If snapshot replacement subsequently
+            # fails, retrying the same event ref repairs the transaction without
+            # duplicating the audit entry. A durable state change can therefore
+            # never exist without its audit event.
+            events_tmp_path.replace(self.events_file)
+            events_tmp_path = None
+            snapshot_tmp_path.replace(self.snapshot_file)
+            snapshot_tmp_path = None
+            directory_fd = os.open(self.state_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_EVENT_LOG_UNREADABLE") from exc
         finally:
-            if tmp_path is not None:
-                tmp_path.unlink(missing_ok=True)
-        event = {
-            "event_ref": event_ref,
-            "safe_summary": "CRM local command center state event recorded.",
-            "storage_ref": CRM_LOCAL_COMMAND_CENTER_STORAGE_REF,
-            "created_at": utc_now().isoformat(),
-            "raw_paths_omitted": True,
-        }
-        with self.events_file.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, sort_keys=True) + "\n")
+            if snapshot_tmp_path is not None:
+                snapshot_tmp_path.unlink(missing_ok=True)
+            if events_tmp_path is not None:
+                events_tmp_path.unlink(missing_ok=True)
 
 
 def _default_actor_context() -> ActorContext:
@@ -2136,6 +2186,7 @@ def _apply_mutation(
         relationship_ref = (
             request.relationship_ref or "relationship-ref:crm-local:alpha"
         )
+        _require_relationship_target(state, relationship_ref)
         state.setdefault("follow_ups", []).append(
             _follow_up(
                 f"created:{_safe_suffix(request.target_ref)}",
@@ -2156,6 +2207,7 @@ def _apply_mutation(
         state["pipelines"] = _rebuild_pipelines(state)
     elif request.mutation_kind == "add_note_summary_ref":
         relationship_ref = request.relationship_ref or request.target_ref
+        _require_relationship_target(state, relationship_ref)
         state.setdefault("timeline_events", []).append(
             _timeline(
                 f"note:{_safe_suffix(receipt.mutation_ref)}",
@@ -2196,6 +2248,14 @@ def _update_follow_up_status(
             item["status"] = status
             return
     raise CrmLocalCommandCenterError("CRM_LOCAL_FOLLOW_UP_NOT_FOUND")
+
+
+def _require_relationship_target(state: dict[str, Any], relationship_ref: str) -> None:
+    if not any(
+        item.get("relationship_ref") == relationship_ref
+        for item in state.get("relationships", [])
+    ):
+        raise CrmLocalCommandCenterError("CRM_LOCAL_RELATIONSHIP_NOT_FOUND")
 
 
 def _rebuild_pipelines(state: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2366,11 +2426,12 @@ def _crm_local_mutation_lease_idempotency_ref(
 ) -> str:
     """Return the stable current attempt ref, advancing past revoked attempts."""
     leases = lease_store.list_leases()
+    receipts = lease_store.list_receipts(limit=1_000_000)
     candidate = _hashed_ref(
         "idempotency-ref:crm-local-mutation-lease",
         payload_fingerprint_ref,
     )
-    for retry_index in range(1, len(leases) + 2):
+    for retry_index in range(1, len(leases) + len(receipts) + 2):
         matching = next(
             (
                 lease
@@ -2379,7 +2440,15 @@ def _crm_local_mutation_lease_idempotency_ref(
             ),
             None,
         )
-        if matching is None or matching.status != "revoked":
+        denied = any(
+            receipt.operation == "issue"
+            and receipt.idempotency_ref == candidate
+            and receipt.status == "denied"
+            for receipt in receipts
+        )
+        if matching is None and not denied:
+            return candidate
+        if matching is not None and matching.status != "revoked":
             return candidate
         candidate = _hashed_ref(
             "idempotency-ref:crm-local-mutation-lease-retry",

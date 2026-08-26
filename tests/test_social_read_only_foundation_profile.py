@@ -422,6 +422,30 @@ def test_social_foundation_cli_returns_structured_invalid_for_bad_ledger(
     assert str(tmp_path) not in output.out
 
 
+def test_social_foundation_print_subject_fails_closed_without_path_leakage(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def unavailable_subject() -> tuple[list[dict[str, str]], str]:
+        raise OSError(f"unavailable normative file at {tmp_path}")
+
+    monkeypatch.setitem(main.__globals__, "actual_subject", unavailable_subject)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verify-social-foundation", "--print-subject"],
+    )
+
+    assert main() == 1
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+    assert payload["status"] == "INVALID"
+    assert payload["failures"] == ["ACCEPTANCE_SUBJECT_COULD_NOT_BE_RESOLVED"]
+    assert output.err == ""
+    assert str(tmp_path) not in output.out
+
+
 def test_social_foundation_verifier_executes_communications_projection_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -30,6 +30,7 @@ NORMATIVE_SUBJECT_PATHS = (
     "apps/control-center/src/api/types.ts",
     "apps/control-center/src/mocks/controlCenterData.ts",
     "apps/control-center/src/northstar/PrimarySurfaces.tsx",
+    "apps/control-center/src/northstar/northStar.css",
     "apps/control-center/src/northstar/WiredSurfaces.test.tsx",
     "apps/control-center/tests/visual/foundation-surfaces.real.spec.ts",
     "apps/control-center/tests/visual/__snapshots__/desktop/crm.png",
@@ -112,6 +113,7 @@ EXPECTED_FOUNDATION_INVENTORIES = {
             "repo-path-ref:apps/control-center/src/api/types.ts",
             "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts",
             "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx",
+            "repo-path-ref:apps/control-center/src/northstar/northStar.css",
             "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx",
             "repo-path-ref:apps/control-center/tests/visual/foundation-surfaces.real.spec.ts",
             "repo-path-ref:apps/control-center/tests/visual/__snapshots__/desktop/crm.png",
@@ -569,7 +571,23 @@ def main() -> int:
     parser.add_argument("--print-subject", action="store_true")
     args = parser.parse_args()
     if args.print_subject:
-        files, digest = actual_subject()
+        try:
+            files, digest = actual_subject()
+        except (OSError, ValueError):
+            print(
+                json.dumps(
+                    {
+                        "schema_version": "uaa-social-foundation-verification.v1",
+                        "status": "INVALID",
+                        "failure_count": 1,
+                        "failures": ["ACCEPTANCE_SUBJECT_COULD_NOT_BE_RESOLVED"],
+                        "subject_files": [],
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            return 1
         print(
             json.dumps(
                 {"acceptance_subject_digest": digest, "subject_files": files},
