@@ -787,6 +787,20 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("fails closed for CRM Social ownership metadata drift", async () => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    crm.social_relationship_projection.source_posture_ref =
+      "source-posture-ref:crm-social:mock-fallback";
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+  });
+
   it("rejects Settings authority state that is not backend-owned", async () => {
     const routeData = baseRouteData();
     const settings = routeData[
@@ -1432,6 +1446,8 @@ function baseRouteData(): Record<string, unknown> {
     safe_refs_only: true,
     social_relationship_projection: {
       ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+      source_posture_ref: "source-posture-ref:crm-social:reviewed-local",
+      freshness_ref: "freshness-ref:crm-social:derived-from-crm-snapshot",
       backend_owned: true,
       items:
         mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(

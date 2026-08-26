@@ -110,6 +110,22 @@ def test_crm_social_projection_deep_links_are_collision_resistant(
     assert len({item.crm_deep_link_ref for item in projection.items}) == 2
 
 
+def test_crm_social_projection_rejects_duplicate_canonical_refs(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    duplicate = crm.relationships[0].model_copy(
+        update={"safe_summary": "A different safe summary for the duplicate."}
+    )
+
+    with pytest.raises(ValueError, match="CRM_SOCIAL_RELATIONSHIP_REF_DUPLICATE"):
+        build_crm_social_relationship_projection(
+            people=crm.people,
+            organizations=crm.organizations,
+            relationships=[crm.relationships[0], duplicate, *crm.relationships[1:]],
+        )
+
+
 def test_crm_social_projection_truncates_with_truthful_coverage(
     tmp_path: Path,
 ) -> None:
@@ -300,6 +316,23 @@ def test_social_foundation_verifier_rejects_tamper_and_self_promotion() -> None:
     failures, state = verify(swapped_owners)
     assert state == "INVALID"
     assert "exact path_refs drifted" in " ".join(failures)
+
+
+def test_social_foundation_verifier_redacts_schema_errors_and_never_crashes() -> None:
+    ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+    secret_like = "sk_live_do_not_echo_abcdef123456"
+    malformed = json.loads(json.dumps(ledger))
+    malformed["candidate_author_ref"] = f"author-ref:{secret_like}"
+    malformed["foundations"][0]["foundation_ref"] = ["not", "hashable"]
+    malformed["foundations"][1]["path_refs"][0] = {"unsafe": "shape"}
+    malformed["reviewers"][0]["role_ref"] = {"unsafe": "shape"}
+
+    failures, state = verify(malformed)
+
+    assert state == "INVALID"
+    rendered = json.dumps(failures)
+    assert secret_like not in rendered
+    assert "SCHEMA_VALIDATION_FAILED" in rendered
 
 
 def test_social_foundation_require_promoted_cli_remains_blocked() -> None:

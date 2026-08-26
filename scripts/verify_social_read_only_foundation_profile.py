@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -44,6 +45,7 @@ NORMATIVE_SUBJECT_PATHS = (
     "src/ultimate_ai_agent/core/crm/social_projection.py",
     "tests/test_communications_reviewed_projection.py",
     "tests/test_control_center_work_board.py",
+    "tests/test_crm_local_command_center.py",
     "tests/test_social_read_only_foundation_profile.py",
 )
 
@@ -110,10 +112,14 @@ EXPECTED_FOUNDATION_INVENTORIES = {
             "repo-path-ref:src/ultimate_ai_agent/core/crm/__init__.py",
             "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py",
             "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py",
+            "repo-path-ref:tests/test_crm_local_command_center.py",
             "repo-path-ref:tests/test_social_read_only_foundation_profile.py",
         ),
         "api_refs": ("GET /control-center/crm/relationships",),
-        "cli_refs": ("repo-local-command:uaa-crm:inspect-social-relationships",),
+        "cli_refs": (
+            "repo-local-command:uaa-crm:inspect-social-relationships",
+            "repo-local-command:uaa-crm:mutate-local",
+        ),
         "ui_refs": ("control-center-surface-ref:crm-social-relationship-context",),
         "verifier_refs": ("verifier-ref:social-foundation:crm",),
         "evidence_refs": ("evidence-ref:social-foundation:crm-owner-projection",),
@@ -208,6 +214,93 @@ def _iter_strings(value: Any) -> Iterable[str]:
             yield from _iter_strings(nested)
 
 
+def _verify_foundation_implementations() -> list[str]:
+    failures: list[str] = []
+    try:
+        from ultimate_ai_agent.core.control_center.work_board import (
+            WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF,
+            WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF,
+            build_work_board_read_model,
+        )
+
+        board = build_work_board_read_model()
+        social = [
+            projection
+            for projection in board.saved_projections
+            if projection.projection_ref == WORK_BOARD_SOCIAL_CONTENT_PROJECTION_REF
+        ]
+        if (
+            len(social) != 1
+            or social[0].contract_ref
+            != WORK_BOARD_SOCIAL_CONTENT_PROJECTION_CONTRACT_REF
+            or not social[0].backend_owned
+            or not social[0].read_only
+            or social[0].publishing_enabled
+            or social[0].connector_write_enabled
+        ):
+            failures.append("WORK_BOARD_FOUNDATION_CHECK_FAILED")
+    except Exception:
+        failures.append("WORK_BOARD_FOUNDATION_CHECK_FAILED")
+
+    try:
+        from ultimate_ai_agent.core.communications.contracts import (
+            ReviewedCommunicationsSnapshot,
+        )
+
+        snapshot = ReviewedCommunicationsSnapshot.model_validate(
+            {
+                "snapshot_ref": "snapshot-ref:communications:social-foundation-check",
+                "source": {
+                    "source_ref": "source-ref:communications:reviewed-manual-import",
+                    "source_kind": "reviewed_manual_import",
+                    "observed_at": "2026-08-25T00:00:00Z",
+                    "freshness": "current",
+                    "coverage_ref": "coverage-ref:communications:bounded-check",
+                    "retention_ref": "retention-ref:communications:operator-managed",
+                    "privacy_ref": "privacy-ref:communications:redacted-summary-only",
+                    "evidence_refs": [
+                        "evidence-ref:communications:social-foundation-check"
+                    ],
+                    "connector_configured": False,
+                    "live_sync_enabled": False,
+                    "external_actions_enabled": False,
+                    "raw_content_persisted": False,
+                },
+                "threads": [],
+                "items": [],
+                "raw_content_persisted": False,
+            }
+        )
+        if (
+            snapshot.source.connector_configured
+            or snapshot.source.live_sync_enabled
+            or snapshot.source.external_actions_enabled
+            or snapshot.raw_content_persisted
+        ):
+            failures.append("COMMUNICATIONS_FOUNDATION_CHECK_FAILED")
+    except Exception:
+        failures.append("COMMUNICATIONS_FOUNDATION_CHECK_FAILED")
+
+    try:
+        from ultimate_ai_agent.core.crm.local_command_center import CrmLocalStore
+
+        with tempfile.TemporaryDirectory(prefix="uaa-social-foundation-") as temp_dir:
+            crm = CrmLocalStore(Path(temp_dir) / "crm").read_model()
+        projection = crm.social_relationship_projection
+        if (
+            not projection.backend_owned
+            or not projection.read_only
+            or projection.live_source_access_enabled
+            or projection.publishing_enabled
+            or projection.external_write_enabled
+            or not projection.items
+        ):
+            failures.append("CRM_FOUNDATION_CHECK_FAILED")
+    except Exception:
+        failures.append("CRM_FOUNDATION_CHECK_FAILED")
+    return failures
+
+
 def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
     ledger = payload if payload is not None else _load()
     failures: list[str] = []
@@ -215,12 +308,12 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
     try:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         Draft202012Validator.check_schema(schema)
+        schema_errors = sorted(
+            Draft202012Validator(schema).iter_errors(ledger),
+            key=lambda error: tuple(str(part) for part in error.absolute_path),
+        )
         failures.extend(
-            f"schema validation: {error.message}"
-            for error in sorted(
-                Draft202012Validator(schema).iter_errors(ledger),
-                key=lambda error: list(error.absolute_path),
-            )
+            f"SCHEMA_VALIDATION_FAILED:{error.validator}" for error in schema_errors
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         failures.append(f"promotion schema could not be validated: {exc}")
@@ -259,6 +352,9 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append("foundation entry must be an object")
             continue
         foundation_ref = foundation.get("foundation_ref")
+        if not isinstance(foundation_ref, str):
+            failures.append("foundation_ref must be a safe string ref")
+            continue
         if foundation_ref in seen_foundations:
             failures.append(f"duplicate foundation: {foundation_ref}")
         seen_foundations.add(str(foundation_ref))
@@ -281,6 +377,11 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append(f"foundation path refs missing: {foundation_ref}")
             continue
         for path_ref in path_refs:
+            if not isinstance(path_ref, str):
+                failures.append(
+                    f"foundation contains non-string path ref: {foundation_ref}"
+                )
+                continue
             if path_ref not in subject_path_refs:
                 failures.append(f"foundation has unbound path ref: {path_ref}")
             if path_ref in assigned_paths:
@@ -314,6 +415,9 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append("reviewer entry must be an object")
             continue
         role_ref = reviewer.get("role_ref")
+        if not isinstance(role_ref, str):
+            failures.append("reviewer role_ref must be a safe string ref")
+            continue
         roles.add(str(role_ref))
         if role_ref not in EXPECTED_REVIEW_ROLES:
             failures.append(f"unknown reviewer role: {role_ref}")
@@ -332,6 +436,8 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append("pending reviewer finding_refs must be empty")
     if roles != EXPECTED_REVIEW_ROLES:
         failures.append("exact independent reviewer role inventory is incomplete")
+
+    failures.extend(_verify_foundation_implementations())
 
     if ledger.get("external_human_identity_authority_configured") is not False:
         failures.append("external identity authority cannot be asserted by this ledger")

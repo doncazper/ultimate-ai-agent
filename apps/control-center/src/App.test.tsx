@@ -22376,6 +22376,8 @@ function envelopeForReadEndpoint(url: string) {
       },
       social_relationship_projection: {
         ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+        source_posture_ref: "source-posture-ref:crm-social:reviewed-local",
+        freshness_ref: "freshness-ref:crm-social:derived-from-crm-snapshot",
         backend_owned: true,
         items:
           mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(

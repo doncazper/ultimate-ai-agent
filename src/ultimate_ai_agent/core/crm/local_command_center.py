@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.crm.contracts import (
 )
 from ultimate_ai_agent.core.crm.social_projection import (
     CRM_SOCIAL_RELATIONSHIP_CLI_REF,
+    CRM_SOCIAL_RELATIONSHIP_TAG,
     CrmSocialRelationshipProjection,
     build_crm_social_relationship_projection,
 )
@@ -938,6 +939,8 @@ class CrmLocalMutationRequest(_CrmLocalModel):
         "mark_follow_up_complete",
         "move_opportunity_stage",
         "add_note_summary_ref",
+        "select_social_context",
+        "clear_social_context",
     ]
     target_ref: str
     approval_ref: str
@@ -1968,6 +1971,23 @@ def _apply_mutation(
                 receipt.proof_ref,
             )
         )
+    elif request.mutation_kind in {
+        "select_social_context",
+        "clear_social_context",
+    }:
+        for person in state.get("people", []):
+            if person.get("person_ref") != request.target_ref:
+                continue
+            tags = list(person.get("tags", []))
+            if request.mutation_kind == "select_social_context":
+                if CRM_SOCIAL_RELATIONSHIP_TAG not in tags:
+                    tags.append(CRM_SOCIAL_RELATIONSHIP_TAG)
+            else:
+                tags = [tag for tag in tags if tag != CRM_SOCIAL_RELATIONSHIP_TAG]
+            person["tags"] = tags
+            break
+        else:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_PERSON_NOT_FOUND")
     else:
         raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_UNSUPPORTED")
 

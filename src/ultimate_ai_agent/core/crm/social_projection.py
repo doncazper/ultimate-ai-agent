@@ -231,13 +231,21 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
         organizations: Sequence[Any],
         relationships: Sequence[Any],
     ) -> None:
-        person_by_ref = {_value(item, "person_ref"): item for item in people}
-        organization_by_ref = {
-            _value(item, "organization_ref"): item for item in organizations
-        }
-        relationship_by_ref = {
-            _value(item, "relationship_ref"): item for item in relationships
-        }
+        person_by_ref = _unique_by_ref(
+            people,
+            "person_ref",
+            "CRM_SOCIAL_PERSON_REF_DUPLICATE",
+        )
+        organization_by_ref = _unique_by_ref(
+            organizations,
+            "organization_ref",
+            "CRM_SOCIAL_ORGANIZATION_REF_DUPLICATE",
+        )
+        relationship_by_ref = _unique_by_ref(
+            relationships,
+            "relationship_ref",
+            "CRM_SOCIAL_RELATIONSHIP_REF_DUPLICATE",
+        )
         expected_relationship_refs = _selected_relationship_refs(
             people=people,
             relationship_by_ref=relationship_by_ref,
@@ -275,10 +283,21 @@ def build_crm_social_relationship_projection(
     organizations: Sequence[Any],
     relationships: Sequence[Any],
 ) -> CrmSocialRelationshipProjection:
-    person_by_ref = {_value(item, "person_ref"): item for item in people}
-    relationship_by_ref = {
-        _value(item, "relationship_ref"): item for item in relationships
-    }
+    person_by_ref = _unique_by_ref(
+        people,
+        "person_ref",
+        "CRM_SOCIAL_PERSON_REF_DUPLICATE",
+    )
+    _unique_by_ref(
+        organizations,
+        "organization_ref",
+        "CRM_SOCIAL_ORGANIZATION_REF_DUPLICATE",
+    )
+    relationship_by_ref = _unique_by_ref(
+        relationships,
+        "relationship_ref",
+        "CRM_SOCIAL_RELATIONSHIP_REF_DUPLICATE",
+    )
     selected_relationship_refs = _selected_relationship_refs(
         people=people,
         relationship_by_ref=relationship_by_ref,
@@ -313,6 +332,20 @@ def _value(item: Any, field_name: str) -> Any:
     if isinstance(item, dict):
         return item.get(field_name)
     return getattr(item, field_name)
+
+
+def _unique_by_ref(
+    items: Sequence[Any],
+    field_name: str,
+    duplicate_error: str,
+) -> dict[Any, Any]:
+    result: dict[Any, Any] = {}
+    for item in items:
+        item_ref = _value(item, field_name)
+        if item_ref in result:
+            raise ValueError(duplicate_error)
+        result[item_ref] = item
+    return result
 
 
 def _selected_relationship_refs(

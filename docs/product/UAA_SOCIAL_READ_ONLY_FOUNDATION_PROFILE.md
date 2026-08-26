@@ -34,6 +34,10 @@ CRM owns
 `contract-ref:crm-social-relationship-projection:v1`:
 
 - the exact `social-context` person tag selects reviewed CRM relationships;
+- existing snapshots can add or clear that tag through the existing
+  approval-, lease-, idempotency-, audit-, and rollback-bound
+  `uaa_crm.py mutate-local` lane using `select_social_context` or
+  `clear_social_context`; no destructive reseed or manual file edit is needed;
 - every projection item binds the canonical relationship, person, optional
   organization, evidence, memory provenance, health, and freshness refs;
 - stable `control-center-deep-link-ref:crm:*` refs let later Social surfaces
@@ -59,7 +63,9 @@ files into one acceptance-subject digest. The strict schema and
 `scripts/verify_social_read_only_foundation_profile.py` reject inventory drift,
 digest tampering, duplicate ownership, missing foundation evidence,
 self-asserted decisions, secret-like durable values, and any authority
-broadening. Default verification proves implementation evidence only.
+broadening. Default verification also resolves and executes bounded Work Board,
+Communications, and CRM foundation checks; failures emit stable codes without
+echoing rejected values. It proves implementation evidence only.
 `--require-promoted` deliberately exits nonzero while the external human
 identity authority and all independent role decisions remain unavailable.
 

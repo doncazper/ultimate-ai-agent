@@ -2772,6 +2772,20 @@ export async function loadControlCenterData(
     crmSocialProjection !== undefined &&
     crmSocialProjection !== null &&
     typeof crmSocialProjection === "object" &&
+    crmSocialProjection.contract_ref ===
+      "contract-ref:crm-social-relationship-projection:v1" &&
+    crmSocialProjection.projection_ref ===
+      "projection-ref:crm-social-relationship-context:v1" &&
+    crmSocialProjection.owner_ref === "owner-ref:crm" &&
+    crmSocialProjection.selection_rule_ref ===
+      "selection-rule-ref:crm-social:person-tag-social-context" &&
+    crmSocialProjection.source_posture_ref ===
+      "source-posture-ref:crm-social:reviewed-local" &&
+    crmSocialProjection.freshness_ref ===
+      "freshness-ref:crm-social:derived-from-crm-snapshot" &&
+    crmSocialProjection.api_ref === "GET /control-center/crm/relationships" &&
+    crmSocialProjection.cli_ref ===
+      "repo-local-command:uaa-crm:inspect-social-relationships" &&
     crmSocialProjection.backend_owned === true &&
     crmSocialProjection.read_only === true &&
     crmSocialProjection.stable_deep_links === true &&

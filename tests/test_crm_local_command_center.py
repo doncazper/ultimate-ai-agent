@@ -157,6 +157,50 @@ def test_crm_local_mutation_requires_exact_approval_and_replays(
         raise AssertionError("expected idempotency conflict")
 
 
+def test_crm_social_context_selection_uses_governed_local_mutation(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(
+        tmp_path,
+        active_authority_leases=[contacts_write_authority_lease()],
+    )
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-select-beta"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+        safe_summary="Select the reviewed Beta relationship for Social context.",
+    )
+    approval_request = crm_local_mutation_approval_request(
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id=request.actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+
+    receipt = store.record_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+    )
+
+    assert receipt.local_mutation_performed is True
+    assert {
+        item.relationship_ref
+        for item in store.read_model().social_relationship_projection.items
+    } >= {"relationship-ref:crm-local:beta"}
+
+
 def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> None:
     store = CrmLocalStore(tmp_path)
     target_ref = "follow-up-ref:crm-local:alpha:due"
@@ -194,8 +238,7 @@ def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> Non
             exc.reason_refs
         )
         assert (
-            exc.required_refs["required_domain_ref"]
-            == "authority-domain-ref:contacts"
+            exc.required_refs["required_domain_ref"] == "authority-domain-ref:contacts"
         )
         assert (
             exc.required_refs["required_capability_ref"]
