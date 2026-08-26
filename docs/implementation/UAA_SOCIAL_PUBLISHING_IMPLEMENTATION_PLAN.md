@@ -4,6 +4,15 @@ Status: recovered whole-vision plan with a proposal/dry-run Q30 slice.
 Source confidence: high from archived design evidence and current Social,
 ecosystem, Action Inbox, Evidence, and external-action contracts.
 
+Implementation status: Q30-P0 through Q30-P4 are implemented locally as a
+content-free synthetic fixture kernel and repo-local CLI. Canonical Studio-owned
+draft refs, per-platform variants, fixture capability contracts, compatibility
+findings, immutable plans, exact dry-run review envelopes, independent simulated
+settlements, content-free receipts, replay conflict checks, failed-only retry
+plans, and unknown-outcome reconciliation are covered. Q30-P5 API/Control Center
+parity and Q30-P6 acceptance freeze remain next; no live adapter exists.
+Focused verifier: `scripts/verify_social_publishing_q30.py`.
+
 Q30 grants no account connection, authentication, platform read/write,
 publish/send, upload, browser, network, background scheduler, provider SDK,
 production, public, or standing authority.
@@ -267,20 +276,29 @@ prepare-approval, dry-run, settlement, and reconciliation projections.
 Verify all dependencies and record missing/blocked states. Define nouns and
 state machine. No routes, credentials, or adapters.
 
+State: implemented locally for the bounded synthetic fixture contract.
+
 ### Q30-P1: Canonical draft and variant contracts
 
 Bind Studio draft/media versions to exact platform variants and content-free
 hashes. Add deterministic fixtures and CLI inspection.
+
+State: implemented locally.
 
 ### Q30-P2: Capability registry and compatibility engine
 
 Add fixture-only Instagram/X/TikTok contracts, deterministic findings,
 unknown blocking, media-rights posture, and versioned source refs.
 
+State: implemented locally with reviewed fixture refs only.
+
 ### Q30-P3: Publish plan and exact review
 
 Build immutable plans, parent/child idempotency, readable previews/diffs,
 exact multi-target envelope, expiry, and stale/superseded handling.
+
+State: implemented locally for immutable refs, fingerprints, expiry binding,
+and exact approve/reject dry-run review; readable UI remains Q30-P5.
 
 ### Q30-P4: Deterministic dry-run transaction kernel
 
@@ -288,10 +306,15 @@ Use injected adapters only to simulate independent outcomes. Prove mixed
 settlement, replay, no-retry success, failed-only retry eligibility, unknown
 reconciliation blocking, and content-free receipts.
 
+State: implemented locally without adapters, network, persistence, or external
+side effects.
+
 ### Q30-P5: API/CLI/Control Center parity
 
 Add any accepted read/proposal routes with stable OpenAPI operation IDs, route
 classification, manifest tests, readable UI, and no execution handler.
+
+State: CLI implemented; API and readable Control Center remain next.
 
 ### Q30-P6: Security and acceptance freeze
 

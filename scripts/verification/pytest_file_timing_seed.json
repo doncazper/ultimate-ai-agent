@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 990,
+  "timed_file_count": 991,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -4353,6 +4353,11 @@
     {
       "path": "tests/test_social_read_only_foundation_profile.py",
       "seconds": 13.0,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_social_publishing_q30.py",
+      "seconds": 1.4,
       "source": "operator-supplied-advisory"
     },
     {

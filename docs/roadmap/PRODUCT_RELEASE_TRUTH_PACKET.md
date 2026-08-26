@@ -26,6 +26,16 @@ also blocked. Candidate-authored refs, keys, receipts, or completion flags
 cannot promote it, the scaffold has no `ready` result, and no routing, prompt,
 model-call, or authority behavior changed.
 
+Q30 Social publishing now has a partial local proposal/dry-run implementation:
+content-free synthetic draft and platform-variant refs, reviewed fixture
+capabilities for Instagram, X, and TikTok, deterministic compatibility
+findings, exact immutable dry-run review envelopes, independent simulated
+settlements and receipts, idempotent replay, failed-only retry plans, and
+unknown-outcome reconciliation. Python Core and CLI are implemented for P0-P4;
+API/Control Center parity and the acceptance freeze remain incomplete. No
+account, credential, platform adapter, network, upload, scheduler, publishing,
+external write, public release, or production authority is enabled.
+
 Capability Evaluation Lab V1 is implemented as a deterministic local
 verification contract. It checks four fixed UAA-native, Hermes,
 OpenClaw-contract, and GoatCitadel-comparison evidence cases with exact
