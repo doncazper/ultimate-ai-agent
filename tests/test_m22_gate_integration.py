@@ -1,5 +1,8 @@
 from pathlib import Path
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
+    default_foundation_gate_criteria,
+)
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M22_OPENAPI_PATH_COUNT,
     M22_FORBIDDEN_BACKEND_ROUTES,
@@ -42,7 +45,7 @@ def test_m22_openapi_route_guard_rejects_activation_or_probe_routes() -> None:
         expected_path_count=EXPECTED_M22_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 80
     assert "/runtime/activate" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/probe" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/local/call" in M22_FORBIDDEN_BACKEND_ROUTES
@@ -83,21 +86,45 @@ def test_m22_route_guard_allows_exact_news_signals_read_surface_only() -> None:
     assert any("OpenAPI path count" in failure for failure in failures)
 
 
-def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(tmp_path: Path) -> None:
-    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+def test_m22_gate_scans_local_runtime_contract_sources_for_forbidden_fragments(
+    tmp_path: Path,
+) -> None:
+    source_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "model_runtime"
+        / "runtime_client.py"
+    )
     source_file.parent.mkdir(parents=True)
-    source_file.write_text("import ollama\nclient.generate('hello')\n", encoding="utf-8")
+    source_file.write_text(
+        "import ollama\nclient.generate('hello')\n", encoding="utf-8"
+    )
 
     failures = m22_local_runtime_forbidden_fragment_failures(tmp_path)
 
-    assert any("src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure for failure in failures)
+    assert any(
+        "src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure
+        for failure in failures
+    )
     assert any("import ollama" in failure for failure in failures)
 
 
 def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path: Path) -> None:
-    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
+    source_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "model_runtime"
+        / "metadata_contract.py"
+    )
     source_file.parent.mkdir(parents=True)
-    source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")
+    source_file.write_text(
+        "def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n",
+        encoding="utf-8",
+    )
 
     failures = m22_local_runtime_forbidden_fragment_failures(tmp_path)
 
@@ -105,7 +132,14 @@ def test_m22_gate_scan_allows_harmless_get_method_usage(tmp_path: Path) -> None:
 
 
 def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path: Path) -> None:
-    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+    source_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "model_runtime"
+        / "runtime_client.py"
+    )
     source_file.parent.mkdir(parents=True)
     source_file.write_text(
         "import requests\n"
@@ -121,20 +155,42 @@ def test_m22_gate_scan_blocks_qualified_runtime_network_calls(tmp_path: Path) ->
 
 
 def test_verify_all_m22_helper_matches_gate_scan(tmp_path: Path) -> None:
-    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "runtime_client.py"
+    source_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "model_runtime"
+        / "runtime_client.py"
+    )
     source_file.parent.mkdir(parents=True)
-    source_file.write_text("import httpx\nhttpx.post('http://localhost')\n", encoding="utf-8")
+    source_file.write_text(
+        "import httpx\nhttpx.post('http://localhost')\n", encoding="utf-8"
+    )
 
     failures = find_m22_local_runtime_forbidden_fragment_failures(tmp_path)
 
-    assert any("src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure for failure in failures)
+    assert any(
+        "src/ultimate_ai_agent/core/model_runtime/runtime_client.py" in failure
+        for failure in failures
+    )
     assert any("import httpx" in failure for failure in failures)
 
 
 def test_verify_all_m22_helper_allows_harmless_get_method_usage(tmp_path: Path) -> None:
-    source_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "model_runtime" / "metadata_contract.py"
+    source_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "model_runtime"
+        / "metadata_contract.py"
+    )
     source_file.parent.mkdir(parents=True)
-    source_file.write_text("def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n", encoding="utf-8")
+    source_file.write_text(
+        "def read_ref(metadata):\n    return metadata.get('runtime_profile_ref')\n",
+        encoding="utf-8",
+    )
 
     failures = find_m22_local_runtime_forbidden_fragment_failures(tmp_path)
 

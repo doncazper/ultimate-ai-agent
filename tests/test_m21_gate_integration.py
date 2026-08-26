@@ -1,5 +1,8 @@
 from pathlib import Path
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator, default_foundation_gate_criteria
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator,
+    default_foundation_gate_criteria,
+)
 from ultimate_ai_agent.core.gate.evaluators import (
     EXPECTED_M21_OPENAPI_PATH_COUNT,
     M21_FORBIDDEN_BACKEND_ROUTES,
@@ -20,7 +23,10 @@ def test_m21_openwebui_bridge_contract_criterion_exists_and_passes() -> None:
     assert "m21_openwebui_bridge_contract_safe" in criteria_by_id
     criterion = criteria_by_id["m21_openwebui_bridge_contract_safe"]
     assert "contract-only" in criterion.pass_condition
-    assert "OpenWebUI is a supported local/dev conversational shell" in criterion.pass_condition
+    assert (
+        "OpenWebUI is a supported local/dev conversational shell"
+        in criterion.pass_condition
+    )
     assert "not the agent brain or product cockpit" in criterion.pass_condition
     assert "not the agent brain" in criterion.pass_condition
     assert "Agent Core remains authority" in criterion.pass_condition
@@ -51,7 +57,7 @@ def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion() -> None:
         expected_path_count=EXPECTED_M21_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 80
     assert "/openwebui" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/bridge" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/execute" in M21_FORBIDDEN_BACKEND_ROUTES
@@ -63,18 +69,32 @@ def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion() -> None:
     assert any("/chat/run" in failure for failure in failures)
 
 
-def test_m21_gate_scans_openwebui_bridge_package_for_forbidden_runtime_fragments(tmp_path: Path) -> None:
-    bridge_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "openwebui_bridge" / "runtime.py"
+def test_m21_gate_scans_openwebui_bridge_package_for_forbidden_runtime_fragments(
+    tmp_path: Path,
+) -> None:
+    bridge_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "openwebui_bridge"
+        / "runtime.py"
+    )
     bridge_file.parent.mkdir(parents=True)
     bridge_file.write_text("OPENWEBUI_API_KEY = 'blocked'\n", encoding="utf-8")
 
     failures = m21_forbidden_openwebui_runtime_fragment_failures(tmp_path)
 
-    assert any("src/ultimate_ai_agent/core/openwebui_bridge/runtime.py" in failure for failure in failures)
+    assert any(
+        "src/ultimate_ai_agent/core/openwebui_bridge/runtime.py" in failure
+        for failure in failures
+    )
     assert any("openwebui_api_key" in failure for failure in failures)
 
 
-def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_docs(tmp_path: Path) -> None:
+def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_docs(
+    tmp_path: Path,
+) -> None:
     forbidden_config = tmp_path / "sandbox" / "nested" / "openwebui.config.yml"
     allowed_doc = tmp_path / "docs" / "openwebui" / "openwebui.config.yml"
     forbidden_config.parent.mkdir(parents=True)
@@ -90,7 +110,14 @@ def test_m21_gate_recursively_rejects_forbidden_openwebui_config_paths_outside_d
 
 def test_verify_all_openwebui_helpers_match_gate_hardening(tmp_path: Path) -> None:
     config_path = tmp_path / "tools" / "openwebui_plugins" / "README.md"
-    bridge_file = tmp_path / "src" / "ultimate_ai_agent" / "core" / "openwebui_bridge" / "client.py"
+    bridge_file = (
+        tmp_path
+        / "src"
+        / "ultimate_ai_agent"
+        / "core"
+        / "openwebui_bridge"
+        / "client.py"
+    )
     config_path.parent.mkdir(parents=True)
     bridge_file.parent.mkdir(parents=True)
     config_path.write_text("blocked path\n", encoding="utf-8")
@@ -100,5 +127,8 @@ def test_verify_all_openwebui_helpers_match_gate_hardening(tmp_path: Path) -> No
     fragment_failures = find_openwebui_forbidden_runtime_fragment_failures(tmp_path)
 
     assert "tools/openwebui_plugins/README.md" in path_matches
-    assert any("src/ultimate_ai_agent/core/openwebui_bridge/client.py" in failure for failure in fragment_failures)
+    assert any(
+        "src/ultimate_ai_agent/core/openwebui_bridge/client.py" in failure
+        for failure in fragment_failures
+    )
     assert any("openwebui_cookie" in failure for failure in fragment_failures)

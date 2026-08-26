@@ -13,8 +13,13 @@ def test_m35_foundation_gate_criteria_are_registered() -> None:
     assert "m35_m36_m37_m38_remain_future" in criterion_ids
 
 
-def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M35_OPENAPI_PATH_COUNT, m35_openapi_route_failures
+def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_routes() -> (
+    None
+):
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M35_OPENAPI_PATH_COUNT,
+        m35_openapi_route_failures,
+    )
 
     failures = m35_openapi_route_failures(
         {
@@ -38,7 +43,7 @@ def test_m35_openapi_route_guard_rejects_raw_review_mutation_and_execution_route
     assert any("/files/export" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M35_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M35_OPENAPI_PATH_COUNT == 80
     assert m35_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

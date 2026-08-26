@@ -14,7 +14,10 @@ def test_m34_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m34_openapi_route_guard_rejects_file_review_and_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M34_OPENAPI_PATH_COUNT, m34_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M34_OPENAPI_PATH_COUNT,
+        m34_openapi_route_failures,
+    )
 
     failures = m34_openapi_route_failures(
         {
@@ -32,7 +35,7 @@ def test_m34_openapi_route_guard_rejects_file_review_and_execution_routes() -> N
     assert any("/memory/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M34_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M34_OPENAPI_PATH_COUNT == 80
     assert m34_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
@@ -46,17 +49,26 @@ def test_m34_active_currentness_guard_rejects_stale_planned_labels() -> None:
         }
     )
 
-    assert any("README.md must not list v0.38.0/M34 as planned/provisional" in failure for failure in failures)
-    assert any("active M33 docs must not say M34 remains planned/provisional" in failure for failure in failures)
-    assert m34_active_currentness_failures(
-        {
-            "README.md": "| v0.38.0 | M34 - Broader File Capability Review | Implemented/released |",
-            "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md": (
-                "v0.38.0 implements M34 Broader File Capability Review. "
-                "M35 remains planned/provisional."
-            ),
-        }
-    ) == []
+    assert any(
+        "README.md must not list v0.38.0/M34 as planned/provisional" in failure
+        for failure in failures
+    )
+    assert any(
+        "active M33 docs must not say M34 remains planned/provisional" in failure
+        for failure in failures
+    )
+    assert (
+        m34_active_currentness_failures(
+            {
+                "README.md": "| v0.38.0 | M34 - Broader File Capability Review | Implemented/released |",
+                "docs/tools/REDACTED_FILE_PREVIEW_POLICY.md": (
+                    "v0.38.0 implements M34 Broader File Capability Review. "
+                    "M35 remains planned/provisional."
+                ),
+            }
+        )
+        == []
+    )
 
 
 def test_m34_foundation_gate_evaluator_passes_current_contracts() -> None:

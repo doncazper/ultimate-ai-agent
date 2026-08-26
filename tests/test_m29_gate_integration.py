@@ -13,7 +13,9 @@ def test_m29_foundation_gate_criteria_are_registered() -> None:
     assert "m29_m30_remains_future" in criterion_ids
 
     criterion = next(
-        item for item in criteria if item.criterion_id == "m29_task_planning_engine_contract_safe"
+        item
+        for item in criteria
+        if item.criterion_id == "m29_task_planning_engine_contract_safe"
     )
     assert "Task Planning Engine" in criterion.pass_condition
     assert "no task execution" in criterion.pass_condition
@@ -24,7 +26,10 @@ def test_m29_foundation_gate_criteria_are_registered() -> None:
 
 
 def test_m29_openapi_route_guard_rejects_task_execution_routes() -> None:
-    from ultimate_ai_agent.core.gate.evaluators import EXPECTED_M29_OPENAPI_PATH_COUNT, m29_openapi_route_failures
+    from ultimate_ai_agent.core.gate.evaluators import (
+        EXPECTED_M29_OPENAPI_PATH_COUNT,
+        m29_openapi_route_failures,
+    )
 
     failures = m29_openapi_route_failures(
         {
@@ -43,7 +48,7 @@ def test_m29_openapi_route_guard_rejects_task_execution_routes() -> None:
     assert any("/plans/execute" in failure for failure in failures)
     assert any("/scheduler/run" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M29_OPENAPI_PATH_COUNT == 79
+    assert EXPECTED_M29_OPENAPI_PATH_COUNT == 80
     assert m29_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 
