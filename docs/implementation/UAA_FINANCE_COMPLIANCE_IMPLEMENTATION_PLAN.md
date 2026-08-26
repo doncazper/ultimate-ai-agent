@@ -94,15 +94,15 @@ added.
 ### `FIN-001` Protected local book and double-entry kernel
 
 Founder private-dogfood direction acceptance clears the FIN-000 visual
-prerequisite for this bounded package. The dependency checklist and explicit
-current-board reservation are now recorded in
-`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`; implementation may begin
-only after merge, a fresh lane-vacancy check, and an exact coordinator claim for
-`dev-task:finance-fin001-synthetic-kernel`. The encrypted SQLite and opaque
-Keychain-handle boundary applies from the first synthetic record. The decision
-does not authorize persistent real financial data, a connector, advice,
-filing, or professional-readiness claims. Those remain behind independent
-promotion and their exact later capability gates.
+prerequisite for this bounded package. The activation record merged and the
+coordinator claimed `dev-task:finance-fin001-synthetic-kernel` at revision 164.
+The implementation candidate now provides the contracts, deterministic fixture,
+protected repository, exact authority gate, and bounded CLI described in
+`docs/product/UAA_FINANCE_FIN001_SYNTHETIC_KERNEL.md`. Exact-head review, merge,
+and a coordinator completion receipt remain required. The decision does not
+authorize persistent real financial data, a connector, advice, filing, or
+professional-readiness claims. Those remain behind independent promotion and
+their exact later capability gates.
 
 Deliver:
 
@@ -118,16 +118,21 @@ Deliver:
 - CLI create/inspect/check/export parity with current PolicyEngine decision,
   exact LocalApprovalAuthority, and an active
   `capability-ref:finance/FIN-001/synthetic-book-mutation` AuthorityLease
-  with an exact registered authority-catalog binding and revalidation
+  with an exact Finance-owned authority binding and revalidation
   immediately before persistence, plus revision, idempotency, audit-receipt,
-  and rollback binding for every local mutation; coarse generic leases and
+  request-ref uniqueness, canonical path binding, owner-private cross-process
+  serialization, crash-recoverable generation commits, retryable
+  tombstone-first delete, and rollback binding for every local mutation;
+  coarse generic leases and
   denied, unknown, or stale policy, approval, and expired or revoked leases
   fail closed, and imports remain FIN-002;
 - API manifest, OpenAPI, side-effect classification, policy, approval,
   idempotency, receipt, and rollback coverage where routes later exist.
 
-Exit: a synthetic local book can be created, validated, corrected, exported,
-backed up, and restored without the UI or any connector.
+Candidate exit evidence: a synthetic local book can be created, validated,
+redacted-exported, backed up, restored, and cryptographically deleted without
+the UI or any connector. The task is not complete until protected merge and
+Queue V2 disposition evidence are recorded.
 
 ### `FIN-002` Manual capture and file import pipeline
 
