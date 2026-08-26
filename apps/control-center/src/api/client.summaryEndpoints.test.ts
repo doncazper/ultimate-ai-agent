@@ -1138,6 +1138,40 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       expect(JSON.stringify(data.capabilitySurface)).not.toContain(unsafeValue);
     }
   });
+
+  it("fails closed for malformed unselected CRM relationships", async () => {
+    async function expectFallback(
+      mutate: (relationship: Record<string, unknown>) => void,
+    ): Promise<void> {
+      const routeData = baseRouteData();
+      const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+      crm.relationships.push({
+        ...crm.relationships[0],
+        relationship_ref: "relationship-ref:crm-local:unselected",
+      });
+      mutate(crm.relationships[1]);
+      routeData[API_ENDPOINTS.crmSummary] = crm;
+      stubControlCenterFetch(routeData);
+
+      const data = await loadControlCenterData();
+
+      expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+      expect(data.routeStates["/crm"].state).toBe("degraded");
+      expect(data.connection.warnings).toContain(
+        "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+      );
+    }
+
+    await expectFallback((relationship) => {
+      delete relationship.health_state;
+    });
+    await expectFallback((relationship) => {
+      relationship.timeline_event_refs = null;
+    });
+    await expectFallback((relationship) => {
+      relationship.raw_contact_details_included = true;
+    });
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {

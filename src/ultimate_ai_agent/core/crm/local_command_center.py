@@ -76,6 +76,12 @@ CRM_LOCAL_COMMAND_CENTER_STORAGE_REF = (
 )
 CRM_LOCAL_COMMAND_CENTER_SOURCE = "python_core_crm_local_command_center_read_model"
 CRM_LOCAL_COMMAND_CENTER_SCHEMA_VERSION = "crm-local-command-center.v1"
+CRM_LOCAL_PIPELINE_STAGE_LABELS = {
+    "stage-ref:crm-local:operator:new": "New",
+    "stage-ref:crm-local:operator:qualified": "Qualified",
+    "stage-ref:crm-local:operator:needs-review": "Needs Review",
+    "stage-ref:crm-local:operator:blocked": "Blocked",
+}
 
 CRM_LOCAL_COMMAND_CENTER_ROUTE_REFS = [
     "GET /control-center/crm/summary",
@@ -981,6 +987,11 @@ class CrmLocalMutationRequest(_CrmLocalModel):
             _validate_ref(self.relationship_ref, "relationship_ref")
         if self.stage_ref is not None:
             _validate_ref(self.stage_ref, "stage_ref")
+        if self.mutation_kind == "move_opportunity_stage":
+            if self.stage_ref is None:
+                raise ValueError("CRM_LOCAL_PIPELINE_STAGE_REQUIRED")
+            if self.stage_ref not in CRM_LOCAL_PIPELINE_STAGE_LABELS:
+                raise ValueError("CRM_LOCAL_PIPELINE_STAGE_UNKNOWN")
         _validate_optional_ref_list(self.metadata_refs, "metadata_refs")
         _validate_safe_payload(
             self.model_dump(mode="json"), "crm_local_mutation_request"
@@ -1216,7 +1227,13 @@ class CrmLocalStore:
 
     def seed_demo(self) -> CrmStorageStatusReadModel:
         state = _default_state_payload(storage_state="seeded_demo", seeded_demo=True)
-        self._write_state(state, "event-ref:crm-local:seed-demo")
+        self._write_state(
+            state,
+            _crm_local_derived_ref(
+                "event-ref:crm-local:seed-demo",
+                utc_now().isoformat(),
+            ),
+        )
         return self.storage_status(state)
 
     def clear_demo(self, *, confirm_local_only: bool) -> CrmStorageStatusReadModel:
@@ -1225,7 +1242,13 @@ class CrmLocalStore:
                 "CRM_CLEAR_DEMO_LOCAL_ONLY_CONFIRM_REQUIRED"
             )
         state = _empty_state_payload()
-        self._write_state(state, "event-ref:crm-local:clear-demo")
+        self._write_state(
+            state,
+            _crm_local_derived_ref(
+                "event-ref:crm-local:clear-demo",
+                utc_now().isoformat(),
+            ),
+        )
         return self.storage_status(state)
 
     def record_local_mutation(
@@ -2081,14 +2104,8 @@ def _follow_up(
 
 
 def _build_deal_stage_summary(opportunities: list[dict[str, Any]]) -> dict[str, Any]:
-    stage_labels = {
-        "stage-ref:crm-local:operator:new": "New",
-        "stage-ref:crm-local:operator:qualified": "Qualified",
-        "stage-ref:crm-local:operator:needs-review": "Needs Review",
-        "stage-ref:crm-local:operator:blocked": "Blocked",
-    }
     stages = []
-    for stage_ref, label in stage_labels.items():
+    for stage_ref, label in CRM_LOCAL_PIPELINE_STAGE_LABELS.items():
         stages.append(
             {
                 "stage_ref": stage_ref,
@@ -2186,20 +2203,24 @@ def _apply_mutation(
         relationship_ref = (
             request.relationship_ref or "relationship-ref:crm-local:alpha"
         )
-        _require_relationship_target(state, relationship_ref)
-        state.setdefault("follow_ups", []).append(
-            _follow_up(
-                f"created:{_safe_suffix(request.target_ref)}",
-                relationship_ref,
-                request.follow_up_status or "proposed",
-                "medium",
-                request.safe_summary,
-            )
+        relationship = _require_relationship_target(state, relationship_ref)
+        follow_up = _follow_up(
+            f"created:{_safe_suffix(request.target_ref)}",
+            relationship_ref,
+            request.follow_up_status or "proposed",
+            "medium",
+            request.safe_summary,
+        )
+        state.setdefault("follow_ups", []).append(follow_up)
+        relationship.setdefault("follow_up_refs", []).append(
+            str(follow_up["follow_up_ref"])
         )
     elif request.mutation_kind == "move_opportunity_stage":
+        if request.stage_ref not in CRM_LOCAL_PIPELINE_STAGE_LABELS:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_PIPELINE_STAGE_UNKNOWN")
         for item in state.get("opportunities", []):
             if item.get("opportunity_ref") == request.target_ref:
-                item["stage_ref"] = request.stage_ref or item["stage_ref"]
+                item["stage_ref"] = request.stage_ref
                 item["stage_label"] = _safe_label_from_ref(str(item["stage_ref"]))
                 break
         else:
@@ -2250,12 +2271,13 @@ def _update_follow_up_status(
     raise CrmLocalCommandCenterError("CRM_LOCAL_FOLLOW_UP_NOT_FOUND")
 
 
-def _require_relationship_target(state: dict[str, Any], relationship_ref: str) -> None:
-    if not any(
-        item.get("relationship_ref") == relationship_ref
-        for item in state.get("relationships", [])
-    ):
-        raise CrmLocalCommandCenterError("CRM_LOCAL_RELATIONSHIP_NOT_FOUND")
+def _require_relationship_target(
+    state: dict[str, Any], relationship_ref: str
+) -> dict[str, Any]:
+    for item in state.get("relationships", []):
+        if item.get("relationship_ref") == relationship_ref:
+            return item
+    raise CrmLocalCommandCenterError("CRM_LOCAL_RELATIONSHIP_NOT_FOUND")
 
 
 def _rebuild_pipelines(state: dict[str, Any]) -> list[dict[str, Any]]:

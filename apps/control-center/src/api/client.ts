@@ -1971,6 +1971,66 @@ function crmStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0);
 }
 
+function crmRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function crmNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isSafeCrmRelationship(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.relationship_ref) &&
+    crmNonEmptyString(value.person_ref) &&
+    (value.organization_ref === null ||
+      value.organization_ref === undefined ||
+      crmNonEmptyString(value.organization_ref)) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmNonEmptyString(value.relationship_kind_ref) &&
+    ["warm", "steady", "stale", "blocked", "needs_evidence"].includes(
+      String(value.health_state),
+    ) &&
+    crmNonEmptyString(value.safe_summary) &&
+    crmNonEmptyString(value.why_shown) &&
+    crmStringArray(value.timeline_event_refs) &&
+    crmStringArray(value.follow_up_refs) &&
+    crmStringArray(value.opportunity_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    crmStringArray(value.memory_provenance_refs) &&
+    ["fresh", "stale", "conflict", "missing_evidence"].includes(String(value.stale_state)) &&
+    value.raw_contact_details_included === false
+  );
+}
+
+function isSafeCrmPerson(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.person_ref) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmStringArray(value.relationship_refs) &&
+    crmStringArray(value.organization_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    crmStringArray(value.memory_provenance_refs) &&
+    crmStringArray(value.tags) &&
+    value.raw_contact_details_included === false &&
+    value.account_sync_enabled === false
+  );
+}
+
+function isSafeCrmOrganization(value: unknown): boolean {
+  if (!crmRecord(value)) return false;
+  return (
+    crmNonEmptyString(value.organization_ref) &&
+    crmNonEmptyString(value.safe_display_label) &&
+    crmStringArray(value.relationship_refs) &&
+    crmStringArray(value.evidence_refs) &&
+    value.raw_contact_details_included === false &&
+    value.account_sync_enabled === false
+  );
+}
+
 function crmArraysEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -2002,19 +2062,11 @@ async function isSafeCrmSocialProjection(crm: CrmLocalCommandCenterReadModel | u
     projection.production_authority_enabled !== false ||
     !crmStringArray(projection.evidence_refs) ||
     !Array.isArray(crm.relationships) ||
-    !crm.relationships.every(
-      (relationship) =>
-        relationship !== null && typeof relationship === "object" && !Array.isArray(relationship),
-    ) ||
+    !crm.relationships.every(isSafeCrmRelationship) ||
     !Array.isArray(crm.people) ||
-    !crm.people.every(
-      (person) => person !== null && typeof person === "object" && !Array.isArray(person),
-    ) ||
+    !crm.people.every(isSafeCrmPerson) ||
     !Array.isArray(crm.organizations) ||
-    !crm.organizations.every(
-      (organization) =>
-        organization !== null && typeof organization === "object" && !Array.isArray(organization),
-    ) ||
+    !crm.organizations.every(isSafeCrmOrganization) ||
     !Number.isInteger(projection.total_item_count) ||
     projection.total_item_count < 0 ||
     !Number.isInteger(projection.returned_item_count) ||
@@ -2035,7 +2087,14 @@ async function isSafeCrmSocialProjection(crm: CrmLocalCommandCenterReadModel | u
   if (
     relationshipByRef.size !== crm.relationships.length ||
     personByRef.size !== crm.people.length ||
-    organizationByRef.size !== crm.organizations.length
+    organizationByRef.size !== crm.organizations.length ||
+    crm.relationships.some(
+      (relationship) =>
+        !personByRef.has(relationship.person_ref) ||
+        (relationship.organization_ref !== null &&
+          relationship.organization_ref !== undefined &&
+          !organizationByRef.has(relationship.organization_ref)),
+    )
   ) {
     return false;
   }

@@ -84,6 +84,15 @@ def test_crm_local_store_seed_clear_and_redacted_export(tmp_path: Path) -> None:
     assert cleared.state == "cleared_demo"
     assert cleared.record_counts["relationships"] == 0
 
+    store.seed_demo()
+    store.clear_demo(confirm_local_only=True)
+    event_refs = [
+        json.loads(line)["event_ref"]
+        for line in store.events_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(event_refs) == 4
+    assert len(set(event_refs)) == 4
+
 
 def test_crm_local_mutation_requires_exact_approval_and_replays(
     tmp_path: Path,
@@ -754,6 +763,69 @@ def test_crm_confirmed_lane_rejects_missing_relationship_targets(
         "revoked",
         "revoked",
     ]
+
+
+def test_crm_create_follow_up_updates_relationship_inventory(tmp_path: Path) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "follow-up-ref:crm-local:created-linked"
+    relationship_ref = "relationship-ref:crm-local:alpha"
+    idempotency_ref = "idempotency-ref:crm-create-follow-up-linked"
+    request = CrmLocalMutationRequest(
+        mutation_kind="create_follow_up",
+        target_ref=target_ref,
+        relationship_ref=relationship_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+
+    store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    model = store.read_model()
+    created = next(
+        item
+        for item in model.follow_ups
+        if item.relationship_ref == relationship_ref
+        and item.safe_summary == request.safe_summary
+    )
+    relationship = next(
+        item
+        for item in model.relationships
+        if item.relationship_ref == relationship_ref
+    )
+    assert created.follow_up_ref in relationship.follow_up_refs
+
+
+def test_crm_opportunity_move_requires_declared_stage() -> None:
+    import pytest
+
+    from pydantic import ValidationError
+
+    target_ref = "opportunity-ref:crm-local:alpha"
+    idempotency_ref = "idempotency-ref:crm-opportunity-stage-contract"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+
+    with pytest.raises(ValidationError, match="CRM_LOCAL_PIPELINE_STAGE_REQUIRED"):
+        CrmLocalMutationRequest(
+            mutation_kind="move_opportunity_stage",
+            target_ref=target_ref,
+            approval_ref=approval_ref,
+        )
+    with pytest.raises(ValidationError, match="CRM_LOCAL_PIPELINE_STAGE_UNKNOWN"):
+        CrmLocalMutationRequest(
+            mutation_kind="move_opportunity_stage",
+            target_ref=target_ref,
+            approval_ref=approval_ref,
+            stage_ref="stage-ref:crm-local:operator:unknown",
+        )
 
 
 def test_crm_state_write_recovers_without_duplicate_audit_after_snapshot_failure(
