@@ -21,6 +21,10 @@ from ultimate_ai_agent.core.crm import (
     CrmLocalCommandCenterReadModel,
     CrmLocalStore,
     build_crm_social_relationship_projection,
+    expected_crm_local_mutation_approval_ref,
+)
+from ultimate_ai_agent.core.communications.local_projection import (
+    ReviewedCommunicationsProjectionStore,
 )
 
 
@@ -271,6 +275,44 @@ def test_crm_relationship_api_and_cli_share_social_projection(
     assert json.loads(completed.stdout) == api_projection
 
 
+def test_crm_mutation_api_captures_exact_confirmed_social_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "crm"
+    monkeypatch.setenv("UAA_CRM_STATE_DIR", str(state_dir))
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-api-confirmed"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+
+    response = TestClient(app).post(
+        "/control-center/crm/local-mutations",
+        headers={
+            "X-UAA-Idempotency-Ref": idempotency_ref,
+            "X-UAA-Operator-Confirmed": "true",
+        },
+        json={
+            "mutation_kind": "select_social_context",
+            "target_ref": target_ref,
+            "approval_ref": approval_ref,
+            "safe_summary": "Select reviewed Beta context from the local API.",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    receipt = response.json()["data"]
+    assert receipt["local_mutation_performed"] is True
+    assert receipt["connector_write_performed"] is False
+    assert receipt["external_crm_write_performed"] is False
+    selected = CrmLocalStore(state_dir).read_model().social_relationship_projection
+    assert {item.relationship_ref for item in selected.items} >= {
+        "relationship-ref:crm-local:beta"
+    }
+
+
 def test_social_foundation_promotion_ledger_is_exact_and_fail_closed() -> None:
     ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
     failures, state = verify(ledger)
@@ -333,6 +375,53 @@ def test_social_foundation_verifier_redacts_schema_errors_and_never_crashes() ->
     rendered = json.dumps(failures)
     assert secret_like not in rendered
     assert "SCHEMA_VALIDATION_FAILED" in rendered
+
+    for mutate in (
+        lambda candidate: candidate["foundations"][0].__setitem__(
+            "foundation_ref", f"foundation-ref:{secret_like}"
+        ),
+        lambda candidate: candidate["foundations"][0]["path_refs"].__setitem__(
+            0, f"repo-path-ref:{secret_like}"
+        ),
+        lambda candidate: candidate["foundations"][0]["cli_refs"].__setitem__(
+            0, f"repo-local-command:{secret_like}"
+        ),
+        lambda candidate: candidate["reviewers"][0].__setitem__(
+            "role_ref", f"reviewer-role-ref:{secret_like}"
+        ),
+        lambda candidate: candidate["subject_files"][0].__setitem__(
+            "path_ref", f"repo-path-ref:{secret_like}"
+        ),
+    ):
+        candidate = json.loads(json.dumps(ledger))
+        mutate(candidate)
+        candidate_failures, candidate_state = verify(candidate)
+        assert candidate_state == "INVALID"
+        assert secret_like not in json.dumps(candidate_failures)
+
+
+def test_social_foundation_verifier_executes_communications_projection_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger = json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+
+    def broken_projection(
+        self: ReviewedCommunicationsProjectionStore,
+        *,
+        limit: int = 25,
+        needs_attention: bool | None = None,
+    ) -> object:
+        raise RuntimeError("COMMUNICATIONS_PROJECTION_BROKEN")
+
+    monkeypatch.setattr(
+        ReviewedCommunicationsProjectionStore,
+        "list_threads",
+        broken_projection,
+    )
+    failures, state = verify(ledger)
+
+    assert state == "INVALID"
+    assert "COMMUNICATIONS_FOUNDATION_CHECK_FAILED" in failures
 
 
 def test_social_foundation_require_promoted_cli_remains_blocked() -> None:

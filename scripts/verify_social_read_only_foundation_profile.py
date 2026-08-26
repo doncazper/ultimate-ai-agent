@@ -243,39 +243,101 @@ def _verify_foundation_implementations() -> list[str]:
         failures.append("WORK_BOARD_FOUNDATION_CHECK_FAILED")
 
     try:
-        from ultimate_ai_agent.core.communications.contracts import (
-            ReviewedCommunicationsSnapshot,
+        from ultimate_ai_agent.core.communications.local_projection import (
+            COMMUNICATIONS_PROJECTION_FILENAME,
+            ReviewedCommunicationsProjectionStore,
         )
 
-        snapshot = ReviewedCommunicationsSnapshot.model_validate(
-            {
-                "snapshot_ref": "snapshot-ref:communications:social-foundation-check",
-                "source": {
-                    "source_ref": "source-ref:communications:reviewed-manual-import",
-                    "source_kind": "reviewed_manual_import",
-                    "observed_at": "2026-08-25T00:00:00Z",
-                    "freshness": "current",
-                    "coverage_ref": "coverage-ref:communications:bounded-check",
-                    "retention_ref": "retention-ref:communications:operator-managed",
-                    "privacy_ref": "privacy-ref:communications:redacted-summary-only",
-                    "evidence_refs": [
-                        "evidence-ref:communications:social-foundation-check"
-                    ],
-                    "connector_configured": False,
-                    "live_sync_enabled": False,
-                    "external_actions_enabled": False,
-                    "raw_content_persisted": False,
-                },
-                "threads": [],
-                "items": [],
+        communications_payload = {
+            "schema_version": "uaa-communications-reviewed-projection.v1",
+            "snapshot_ref": "snapshot-ref:communications:social-foundation-check",
+            "source": {
+                "source_ref": "source-ref:communications:reviewed-manual-import",
+                "source_kind": "reviewed_manual_import",
+                "schema_version": "uaa-communications-reviewed-projection.v1",
+                "observed_at": "2026-08-25T00:00:00Z",
+                "freshness": "current",
+                "coverage_ref": "coverage-ref:communications:bounded-check",
+                "retention_ref": "retention-ref:communications:operator-managed",
+                "privacy_ref": "privacy-ref:communications:redacted-summary-only",
+                "evidence_refs": [
+                    "evidence-ref:communications:social-foundation-check"
+                ],
+                "connector_configured": False,
+                "live_sync_enabled": False,
+                "external_actions_enabled": False,
                 "raw_content_persisted": False,
-            }
-        )
+            },
+            "threads": [
+                {
+                    "conversation_ref": "conversation-ref:communications:social-check",
+                    "channel_ref": "channel-ref:communications:social-review",
+                    "participant_refs": [
+                        "participant-ref:communications:social-reviewer"
+                    ],
+                    "item_refs": ["item-ref:communications:social-check-1"],
+                    "latest_activity_at": "2026-08-25T00:00:00Z",
+                    "needs_attention": True,
+                    "safe_label": "Reviewed Social signal",
+                    "safe_summary": "A reviewed redacted signal needs attention.",
+                    "evidence_refs": [
+                        "evidence-ref:communications:social-thread-check"
+                    ],
+                }
+            ],
+            "items": [
+                {
+                    "item_ref": "item-ref:communications:social-check-1",
+                    "conversation_ref": "conversation-ref:communications:social-check",
+                    "sender_ref": "sender-ref:communications:reviewed-source",
+                    "item_kind": "message",
+                    "occurred_at": "2026-08-25T00:00:00Z",
+                    "safe_summary": "Reviewed redacted signal summary.",
+                    "content_fingerprint_ref": (
+                        "fingerprint-ref:communications:social-check-1"
+                    ),
+                    "relation_ref": None,
+                    "evidence_refs": ["evidence-ref:communications:social-item-check"],
+                    "content_untrusted": True,
+                    "not_instruction_authority": True,
+                    "reviewed_redacted_summary_only": True,
+                    "raw_content_omitted": True,
+                }
+            ],
+            "raw_content_persisted": False,
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="uaa-social-foundation-communications-"
+        ) as temp_dir:
+            state_dir = Path(temp_dir) / "projection"
+            state_dir.mkdir()
+            (state_dir / COMMUNICATIONS_PROJECTION_FILENAME).write_text(
+                json.dumps(communications_payload, sort_keys=True),
+                encoding="utf-8",
+            )
+            store = ReviewedCommunicationsProjectionStore(state_dir)
+            page = store.list_threads(limit=1, needs_attention=True)
+            detail = store.get_thread("conversation-ref:communications:social-check")
         if (
-            snapshot.source.connector_configured
-            or snapshot.source.live_sync_enabled
-            or snapshot.source.external_actions_enabled
-            or snapshot.raw_content_persisted
+            page.status.value != "ready"
+            or page.pagination.returned_count != 1
+            or len(page.items) != 1
+            or not page.read_only
+            or page.send_enabled
+            or page.reply_enabled
+            or page.delete_enabled
+            or page.moderate_enabled
+            or not page.raw_content_omitted
+            or detail.status.value != "ready"
+            or len(detail.items) != 1
+            or not detail.items[0].content_untrusted
+            or not detail.items[0].not_instruction_authority
+            or not detail.items[0].reviewed_redacted_summary_only
+            or not detail.items[0].raw_content_omitted
+            or detail.source.connector_configured
+            or detail.source.live_sync_enabled
+            or detail.source.external_actions_enabled
+            or detail.source.raw_content_persisted
         ):
             failures.append("COMMUNICATIONS_FOUNDATION_CHECK_FAILED")
     except Exception:
@@ -315,8 +377,8 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
         failures.extend(
             f"SCHEMA_VALIDATION_FAILED:{error.validator}" for error in schema_errors
         )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        failures.append(f"promotion schema could not be validated: {exc}")
+    except (OSError, ValueError, json.JSONDecodeError):
+        failures.append("PROMOTION_SCHEMA_COULD_NOT_BE_VALIDATED")
 
     expected_constants = {
         "schema_version": "uaa-social-foundation-promotion.v1",
@@ -332,8 +394,8 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
 
     try:
         subject_files, subject_digest = actual_subject()
-    except (OSError, ValueError) as exc:
-        failures.append(str(exc))
+    except (OSError, ValueError):
+        failures.append("ACCEPTANCE_SUBJECT_COULD_NOT_BE_RESOLVED")
         subject_files, subject_digest = [], ""
     if ledger.get("subject_files") != subject_files:
         failures.append("subject file manifest does not match the exact current files")
@@ -356,50 +418,46 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append("foundation_ref must be a safe string ref")
             continue
         if foundation_ref in seen_foundations:
-            failures.append(f"duplicate foundation: {foundation_ref}")
+            failures.append("duplicate foundation_ref")
         seen_foundations.add(str(foundation_ref))
         expected = EXPECTED_FOUNDATIONS.get(str(foundation_ref))
         if expected is None:
-            failures.append(f"unknown foundation: {foundation_ref}")
+            failures.append("unknown foundation_ref")
             continue
         if (foundation.get("owner_ref"), foundation.get("contract_ref")) != expected:
-            failures.append(f"foundation owner or contract drifted: {foundation_ref}")
+            failures.append("foundation owner or contract drifted")
         if foundation.get("implementation_state") != "implemented":
-            failures.append(f"foundation is not implemented: {foundation_ref}")
+            failures.append("foundation is not implemented")
         expected_inventory = EXPECTED_FOUNDATION_INVENTORIES[str(foundation_ref)]
         for field_name, expected_values in expected_inventory.items():
             if foundation.get(field_name) != list(expected_values):
-                failures.append(
-                    f"foundation exact {field_name} drifted: {foundation_ref}"
-                )
+                failures.append(f"foundation exact {field_name} drifted")
         path_refs = foundation.get("path_refs")
         if not isinstance(path_refs, list) or not path_refs:
-            failures.append(f"foundation path refs missing: {foundation_ref}")
+            failures.append("foundation path refs missing")
             continue
         for path_ref in path_refs:
             if not isinstance(path_ref, str):
-                failures.append(
-                    f"foundation contains non-string path ref: {foundation_ref}"
-                )
+                failures.append("foundation contains non-string path ref")
                 continue
             if path_ref not in subject_path_refs:
-                failures.append(f"foundation has unbound path ref: {path_ref}")
+                failures.append("foundation has unbound path ref")
             if path_ref in assigned_paths:
-                failures.append(f"subject path assigned more than once: {path_ref}")
+                failures.append("subject path assigned more than once")
             assigned_paths.add(str(path_ref))
         for ref_field in ("cli_refs", "ui_refs", "verifier_refs", "evidence_refs"):
             values = foundation.get(ref_field)
             if not isinstance(values, list) or (
                 ref_field in {"verifier_refs", "evidence_refs"} and not values
             ):
-                failures.append(f"foundation {ref_field} invalid: {foundation_ref}")
+                failures.append(f"foundation {ref_field} invalid")
                 continue
             for value in values:
                 if not _is_safe_ref(value):
-                    failures.append(f"foundation contains unsafe {ref_field}: {value}")
+                    failures.append(f"foundation contains unsafe {ref_field}")
         api_refs = foundation.get("api_refs")
         if not isinstance(api_refs, list):
-            failures.append(f"foundation api_refs invalid: {foundation_ref}")
+            failures.append("foundation api_refs invalid")
     if seen_foundations != set(EXPECTED_FOUNDATIONS):
         failures.append("exact foundation inventory is incomplete")
     if assigned_paths != subject_path_refs:
@@ -420,7 +478,7 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             continue
         roles.add(str(role_ref))
         if role_ref not in EXPECTED_REVIEW_ROLES:
-            failures.append(f"unknown reviewer role: {role_ref}")
+            failures.append("unknown reviewer role_ref")
         if reviewer.get("decision") != "pending":
             failures.append("independent decisions cannot be self-asserted in v1")
         if any(

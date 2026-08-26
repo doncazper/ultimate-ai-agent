@@ -801,6 +801,37 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.routeStates["/crm"].state).toBe("degraded");
   });
 
+  it.each([
+    ["safe summary", "safe_summary", "Altered safe-looking summary."],
+    [
+      "deep link",
+      "crm_deep_link_ref",
+      "control-center-deep-link-ref:crm:unbound-safe-looking-item",
+    ],
+    ["person owner", "person_ref", "person-ref:crm-local:other"],
+    [
+      "organization owner",
+      "organization_ref",
+      "organization-ref:crm-local:other",
+    ],
+    ["health", "health_state", "steady"],
+    ["freshness", "freshness_state", "stale"],
+  ])("fails closed for CRM Social item %s drift", async (_label, field, value) => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    crm.social_relationship_projection.items[0][field] = value;
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
   it("rejects Settings authority state that is not backend-owned", async () => {
     const routeData = baseRouteData();
     const settings = routeData[
@@ -1451,7 +1482,18 @@ function baseRouteData(): Record<string, unknown> {
       backend_owned: true,
       items:
         mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
-          (item) => ({ ...item, backend_owned: true }),
+          (item) => ({
+            ...item,
+            projection_item_ref:
+              "projection-item-ref:crm-social:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+            crm_deep_link_ref:
+              "control-center-deep-link-ref:crm:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+            safe_summary:
+              "Non-authoritative fallback relationship with safe refs only.",
+            why_shown:
+              "Shown because CRM owns a reviewed relationship tagged for the Social relationship context projection.",
+            backend_owned: true,
+          }),
         ),
     },
     authority_posture: {

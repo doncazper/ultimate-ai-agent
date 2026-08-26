@@ -22381,8 +22381,19 @@ function envelopeForReadEndpoint(url: string) {
         backend_owned: true,
         items:
           mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
-            (item) => ({ ...item, backend_owned: true }),
-          ),
+            (item) => ({
+              ...item,
+              projection_item_ref:
+                "projection-item-ref:crm-social:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+              crm_deep_link_ref:
+                "control-center-deep-link-ref:crm:relationship-ref:crm-local:mock-alpha-ccc98c92f1691866",
+              safe_summary:
+                "Non-authoritative fallback relationship with safe refs only.",
+              why_shown:
+                "Shown because CRM owns a reviewed relationship tagged for the Social relationship context projection.",
+              backend_owned: true,
+            }),
+        ),
       },
     },
     [API_ENDPOINTS.crmRelationships]: {

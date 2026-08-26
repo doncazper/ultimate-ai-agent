@@ -3,11 +3,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.crm import (
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
     CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
+    CrmLocalCommandCenterError,
     CrmLocalMutationRequest,
     CrmLocalStore,
     build_crm_local_command_center_read_model,
@@ -201,6 +204,88 @@ def test_crm_social_context_selection_uses_governed_local_mutation(
     } >= {"relationship-ref:crm-local:beta"}
 
 
+def test_crm_confirmed_operator_lane_captures_exact_approval_and_lease(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-confirmed-beta"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+        safe_summary="Select reviewed Beta context with exact confirmation.",
+    )
+
+    with pytest.raises(
+        CrmLocalCommandCenterError,
+        match="CRM_LOCAL_MUTATION_OPERATOR_CONFIRMATION_REQUIRED",
+    ):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=False,
+        )
+
+    receipt = store.record_confirmed_local_mutation(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert receipt.approval_status == "approved"
+    assert receipt.authority_domain_ref == "authority-domain-ref:contacts"
+    assert receipt.authority_capability_ref == "authority-capability-ref:write"
+    assert receipt.local_mutation_performed is True
+    assert receipt.connector_write_performed is False
+    assert receipt.external_crm_write_performed is False
+    assert {
+        item.relationship_ref
+        for item in store.read_model().social_relationship_projection.items
+    } >= {"relationship-ref:crm-local:beta"}
+
+
+def test_crm_social_selection_validates_prospective_owner_links_before_write(
+    tmp_path: Path,
+) -> None:
+    store = CrmLocalStore(tmp_path)
+    store.seed_demo()
+    before = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
+    before["people"][1]["relationship_refs"] = ["relationship-ref:crm-local:missing"]
+    store.snapshot_file.write_text(
+        json.dumps(before, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-invalid-link"
+    request = CrmLocalMutationRequest(
+        mutation_kind="select_social_context",
+        target_ref=target_ref,
+        approval_ref=expected_crm_local_mutation_approval_ref(
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+        ),
+    )
+
+    with pytest.raises(
+        CrmLocalCommandCenterError,
+        match="CRM_LOCAL_MUTATION_PROSPECTIVE_STATE_INVALID",
+    ):
+        store.record_confirmed_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    persisted = json.loads(store.snapshot_file.read_text(encoding="utf-8"))
+    assert "social-context" not in persisted["people"][1]["tags"]
+    assert persisted["mutation_receipts"] == []
+
+
 def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> None:
     store = CrmLocalStore(tmp_path)
     target_ref = "follow-up-ref:crm-local:alpha:due"
@@ -317,3 +402,43 @@ def test_crm_cli_inspects_connector_read_readiness(tmp_path: Path) -> None:
     assert connector["provider_model_call_enabled"] is False
     assert payload["authority_posture"]["connector_runtime_enabled"] is False
     assert payload["authority_posture"]["connector_write_enabled"] is False
+
+
+def test_crm_cli_can_capture_one_confirmed_social_selection(tmp_path: Path) -> None:
+    target_ref = "person-ref:crm-local:relationship-beta"
+    idempotency_ref = "idempotency-ref:crm-social-cli-confirmed"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_crm.py"),
+            "mutate-local",
+            "--state-dir",
+            str(tmp_path),
+            "--kind",
+            "select_social_context",
+            "--target-ref",
+            target_ref,
+            "--approval-ref",
+            approval_ref,
+            "--idempotency-ref",
+            idempotency_ref,
+            "--confirm",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    receipt = json.loads(completed.stdout)
+    assert receipt["local_mutation_performed"] is True
+    assert receipt["external_crm_write_performed"] is False
+    selected = CrmLocalStore(tmp_path).read_model().social_relationship_projection
+    assert {item.relationship_ref for item in selected.items} >= {
+        "relationship-ref:crm-local:beta"
+    }

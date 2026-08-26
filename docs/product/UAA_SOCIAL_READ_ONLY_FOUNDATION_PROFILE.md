@@ -37,7 +37,14 @@ CRM owns
 - existing snapshots can add or clear that tag through the existing
   approval-, lease-, idempotency-, audit-, and rollback-bound
   `uaa_crm.py mutate-local` lane using `select_social_context` or
-  `clear_social_context`; no destructive reseed or manual file edit is needed;
+  `clear_social_context`; `--confirm` captures the exact one-operation local
+  approval and five-minute Contacts-write lease, while the API requires the
+  same exact approval/idempotency refs plus
+  `X-UAA-Operator-Confirmed: true`; no destructive reseed or manual file edit
+  is needed;
+- a prospective full CRM read-model validation runs before persistence, so a
+  missing or cross-person owner link cannot leave the stored Social projection
+  unreadable;
 - every projection item binds the canonical relationship, person, optional
   organization, evidence, memory provenance, health, and freshness refs;
 - stable `control-center-deep-link-ref:crm:*` refs let later Social surfaces

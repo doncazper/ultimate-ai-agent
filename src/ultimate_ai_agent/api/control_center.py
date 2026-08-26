@@ -74,6 +74,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import TaskDecompositionS
 
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_control_center_routes_registered"
+_OPERATOR_CONFIRMATION_HEADER = "X-UAA-Operator-Confirmed"
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
 _task_decomposition_service_getter: _TaskDecompositionServiceGetter | None = None
 
@@ -425,15 +426,28 @@ def post_control_center_crm_local_mutation(
         default=None,
         alias=IDEMPOTENCY_REF_HEADER,
     ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _crm_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
     try:
-        receipt = CrmLocalStore.from_env().record_local_mutation(
-            request=request,
-            idempotency_ref=idempotency_ref,
+        store = CrmLocalStore.from_env()
+        receipt = (
+            store.record_confirmed_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+                confirmed=True,
+            )
+            if x_uaa_operator_confirmed
+            else store.record_local_mutation(
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
         )
     except CrmLocalCommandCenterDuplicateError as exc:
         raise HTTPException(

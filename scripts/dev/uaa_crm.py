@@ -204,9 +204,10 @@ def mutate_local(args: argparse.Namespace) -> int:
         stage_ref=args.stage_ref,
         metadata_refs=args.metadata_ref,
     )
-    receipt = _store(args).record_local_mutation(
+    receipt = _store(args).record_confirmed_local_mutation(
         request=request,
         idempotency_ref=args.idempotency_ref,
+        confirmed=args.confirm,
     )
     _print(receipt.model_dump(mode="json"), pretty=args.pretty)
     return 0
@@ -300,6 +301,14 @@ def build_parser() -> argparse.ArgumentParser:
     mutation.add_argument("--target-ref", required=True)
     mutation.add_argument("--approval-ref", required=True)
     mutation.add_argument("--idempotency-ref", required=True)
+    mutation.add_argument(
+        "--confirm",
+        action="store_true",
+        help=(
+            "Capture one exact local operator approval and five-minute Contacts "
+            "write lease for this mutation only."
+        ),
+    )
     mutation.add_argument(
         "--safe-summary",
         default="Local CRM mutation requested with safe summary only.",

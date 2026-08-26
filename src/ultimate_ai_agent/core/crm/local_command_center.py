@@ -20,13 +20,21 @@ from ultimate_ai_agent.core.approvals import (
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
     AuthorityCapability,
+    AuthorityConstraint,
+    AuthorityConstraintClaim,
+    AuthorityConstraintKind,
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseScope,
     AuthorityLeaseStore,
     TrustMode,
     build_default_authority_leases,
     evaluate_authority_request,
+)
+from ultimate_ai_agent.core.authority.approval_validation import (
+    issue_authority_lease_with_backend_approval,
 )
 from ultimate_ai_agent.core.crm.contracts import (
     CRM_COMMUNICATIONS_REQUIRED_DENIAL_REFS,
@@ -1208,19 +1216,7 @@ class CrmLocalStore:
     ) -> CrmLocalMutationReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
         state = self._read_state()
-        payload_fingerprint_ref = _payload_fingerprint_ref(
-            {
-                "contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
-                "mutation_kind": request.mutation_kind,
-                "target_ref": request.target_ref,
-                "relationship_ref": request.relationship_ref,
-                "follow_up_status": request.follow_up_status,
-                "stage_ref": request.stage_ref,
-                "safe_summary": request.safe_summary,
-                "metadata_refs": sorted(request.metadata_refs),
-                "approval_ref": request.approval_ref,
-            }
-        )
+        payload_fingerprint_ref = _local_mutation_payload_fingerprint_ref(request)
         replay = _find_replay(state, idempotency_ref)
         if replay is not None:
             if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
@@ -1288,6 +1284,14 @@ class CrmLocalStore:
             ],
         )
         _apply_mutation(state, request, receipt)
+        try:
+            validate_crm_local_command_center_read_model(
+                _state_to_read_model_payload(state, self.storage_status(state))
+            )
+        except (CrmLocalCommandCenterError, ValueError) as exc:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_PROSPECTIVE_STATE_INVALID"
+            ) from exc
         state.setdefault("mutation_receipts", []).append(
             receipt.model_dump(mode="json")
         )
@@ -1301,6 +1305,73 @@ class CrmLocalStore:
         state["storage_state"] = "local_state"
         self._write_state(state, receipt.audit_ref)
         return receipt
+
+    def record_confirmed_local_mutation(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+        confirmed: bool,
+    ) -> CrmLocalMutationReceipt:
+        """Capture one exact operator approval and lease, then mutate locally."""
+        if not confirmed:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_OPERATOR_CONFIRMATION_REQUIRED"
+            )
+        _validate_ref(idempotency_ref, "idempotency_ref")
+        expected_ref = expected_crm_local_mutation_approval_ref(
+            target_ref=request.target_ref,
+            idempotency_ref=idempotency_ref,
+        )
+        if request.approval_ref != expected_ref:
+            raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_APPROVAL_DENIED")
+
+        approvals = LocalApprovalAuthority()
+        approval_request = approvals.create_request(
+            crm_local_mutation_approval_request(
+                request=request,
+                idempotency_ref=idempotency_ref,
+            )
+        )
+        approvals.grant(
+            approval_request.approval_request_id,
+            approved_by_actor_id=request.actor_context.actor_id,
+            approval_ref=expected_ref,
+            expires_at=approval_request.expires_at,
+        )
+
+        payload_fingerprint_ref = _local_mutation_payload_fingerprint_ref(request)
+        lease_store = AuthorityLeaseStore(self.state_dir / "authority")
+        lease_request = _crm_local_mutation_lease_issue_request(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        lease_idempotency_ref = _hashed_ref(
+            "idempotency-ref:crm-local-mutation-lease",
+            payload_fingerprint_ref,
+        )
+        _requirement, _grant, lease, lease_receipt = (
+            issue_authority_lease_with_backend_approval(
+                lease_store,
+                lease_request,
+                idempotency_ref=lease_idempotency_ref,
+                approved_by_actor_id="operator-ref:local-user",
+            )
+        )
+        if lease is None or lease_receipt.status not in {"issued", "replayed"}:
+            raise CrmLocalCommandCenterError(
+                "CRM_LOCAL_MUTATION_EXACT_LEASE_ISSUANCE_DENIED"
+            )
+        confirmed_store = CrmLocalStore(
+            self.state_dir,
+            active_authority_leases=[lease],
+        )
+        return confirmed_store.record_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            approval_authority=approvals,
+        )
 
     def _local_mutation_authority_decision(
         self,
@@ -1317,19 +1388,11 @@ class CrmLocalStore:
                 or build_default_authority_leases()
             )
         )
-        resource_refs = [
-            request.target_ref,
-            f"mutation-kind-ref:crm-local:{request.mutation_kind}",
-            CRM_LOCAL_MUTATION_CONTRACT_REF,
-            idempotency_ref,
-            payload_fingerprint_ref,
-            request.approval_ref,
-        ]
-        if request.relationship_ref:
-            resource_refs.append(request.relationship_ref)
-        if request.stage_ref:
-            resource_refs.append(request.stage_ref)
-        resource_refs.extend(request.metadata_refs)
+        resource_refs = _crm_local_mutation_resource_refs(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
         authority_decision = evaluate_authority_request(
             AuthorityActionRequest(
                 action_ref=CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF,
@@ -1343,6 +1406,12 @@ class CrmLocalStore:
                 route_ref=CRM_LOCAL_MUTATION_ROUTE_REF,
                 lane_ref=CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF,
                 requested_mode=TrustMode.ask_before_changes,
+                constraint_claims=[
+                    AuthorityConstraintClaim(
+                        kind=AuthorityConstraintKind.operation_budget,
+                        value=1,
+                    )
+                ],
                 rollback_ref=(
                     "rollback-ref:crm-local:"
                     f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
@@ -2007,6 +2076,109 @@ def _update_follow_up_status(
 def _rebuild_pipelines(state: dict[str, Any]) -> list[dict[str, Any]]:
     opportunities = [dict(item) for item in state.get("opportunities", [])]
     return [_build_deal_stage_summary(opportunities)] if opportunities else []
+
+
+def _local_mutation_payload_fingerprint_ref(
+    request: CrmLocalMutationRequest,
+) -> str:
+    return _payload_fingerprint_ref(
+        {
+            "contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
+            "mutation_kind": request.mutation_kind,
+            "target_ref": request.target_ref,
+            "relationship_ref": request.relationship_ref,
+            "follow_up_status": request.follow_up_status,
+            "stage_ref": request.stage_ref,
+            "safe_summary": request.safe_summary,
+            "metadata_refs": sorted(request.metadata_refs),
+            "approval_ref": request.approval_ref,
+        }
+    )
+
+
+def _crm_local_mutation_resource_refs(
+    *,
+    request: CrmLocalMutationRequest,
+    idempotency_ref: str,
+    payload_fingerprint_ref: str,
+) -> list[str]:
+    resource_refs = [
+        request.target_ref,
+        f"mutation-kind-ref:crm-local:{request.mutation_kind}",
+        CRM_LOCAL_MUTATION_CONTRACT_REF,
+        idempotency_ref,
+        payload_fingerprint_ref,
+        request.approval_ref,
+    ]
+    if request.relationship_ref:
+        resource_refs.append(request.relationship_ref)
+    if request.stage_ref:
+        resource_refs.append(request.stage_ref)
+    resource_refs.extend(request.metadata_refs)
+    return resource_refs
+
+
+def _crm_local_mutation_lease_issue_request(
+    *,
+    request: CrmLocalMutationRequest,
+    idempotency_ref: str,
+    payload_fingerprint_ref: str,
+) -> AuthorityLeaseIssueRequest:
+    resource_refs = _crm_local_mutation_resource_refs(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+    )
+    constraint_suffix = hashlib.sha256(
+        payload_fingerprint_ref.encode("utf-8")
+    ).hexdigest()[:24]
+    return AuthorityLeaseIssueRequest(
+        mode=TrustMode.ask_before_changes,
+        scope=AuthorityLeaseScope.session,
+        requested_domains={
+            AuthorityDomain.contacts: [AuthorityCapability.write],
+        },
+        authority_constraints=[
+            AuthorityConstraint(
+                constraint_ref=(
+                    f"authority-constraint-ref:crm-local:resources:{constraint_suffix}"
+                ),
+                kind=AuthorityConstraintKind.resource_refs,
+                allowed_refs=resource_refs,
+                safe_summary=(
+                    "Restrict one confirmed CRM mutation to its exact local "
+                    "target, kind, approval, idempotency, and payload refs."
+                ),
+            ),
+            AuthorityConstraint(
+                constraint_ref=(
+                    "authority-constraint-ref:crm-local:operation-budget:"
+                    f"{constraint_suffix}"
+                ),
+                kind=AuthorityConstraintKind.operation_budget,
+                maximum=1,
+                safe_summary="Permit one exact confirmed local CRM mutation.",
+            ),
+        ],
+        constraints={
+            "exact_lane_ref": CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF,
+            "exact_action_ref": CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF,
+            "exact_contract_ref": CRM_LOCAL_MUTATION_CONTRACT_REF,
+            "exact_target_ref": request.target_ref,
+            "exact_mutation_kind_ref": (
+                f"mutation-kind-ref:crm-local:{request.mutation_kind}"
+            ),
+            "exact_idempotency_ref": idempotency_ref,
+            "exact_payload_fingerprint_ref": payload_fingerprint_ref,
+            "exact_approval_ref": request.approval_ref,
+            "exact_safe_disable_ref": CRM_LOCAL_MUTATION_SAFE_DISABLE_REF,
+        },
+        decision_reason_ref=(
+            "decision-reason-ref:crm-local-mutation:operator-confirmed"
+        ),
+        duration_minutes=5,
+        safe_summary="Issue one exact operator-confirmed local CRM mutation lease.",
+    )
 
 
 def _validate_local_mutation_approval(
