@@ -2646,6 +2646,9 @@ export interface CrmSocialRelationshipProjection {
   api_ref: string;
   cli_ref: string;
   items: CrmSocialRelationshipProjectionItem[];
+  total_item_count: number;
+  returned_item_count: number;
+  truncated: boolean;
   evidence_refs: string[];
   backend_owned: boolean;
   read_only: boolean;

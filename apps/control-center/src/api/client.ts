@@ -2766,8 +2766,40 @@ export async function loadControlCenterData(
     : undefined;
   const agentLoopThreadFallbackUsed =
     safeFounderAgentLoopThread === undefined;
+  const crmSocialProjection =
+    crmLocalCommandCenter?.social_relationship_projection;
+  const crmSocialProjectionSafe =
+    crmSocialProjection !== undefined &&
+    crmSocialProjection.backend_owned === true &&
+    crmSocialProjection.read_only === true &&
+    crmSocialProjection.stable_deep_links === true &&
+    crmSocialProjection.copies_relationship_truth === false &&
+    crmSocialProjection.live_source_access_enabled === false &&
+    crmSocialProjection.connector_runtime_enabled === false &&
+    crmSocialProjection.provider_model_call_enabled === false &&
+    crmSocialProjection.publishing_enabled === false &&
+    crmSocialProjection.external_write_enabled === false &&
+    crmSocialProjection.production_authority_enabled === false &&
+    Number.isInteger(crmSocialProjection.total_item_count) &&
+    crmSocialProjection.total_item_count >= 0 &&
+    Number.isInteger(crmSocialProjection.returned_item_count) &&
+    Array.isArray(crmSocialProjection.items) &&
+    crmSocialProjection.returned_item_count === crmSocialProjection.items.length &&
+    crmSocialProjection.total_item_count >= crmSocialProjection.returned_item_count &&
+    crmSocialProjection.truncated ===
+      (crmSocialProjection.total_item_count >
+        crmSocialProjection.returned_item_count) &&
+    crmSocialProjection.items.every(
+      (item) =>
+        item.backend_owned === true &&
+        item.read_only === true &&
+        item.raw_content_included === false &&
+        item.connector_runtime_enabled === false &&
+        item.external_action_enabled === false,
+    );
   const crmEndpointFallbackUsed =
     crmLocalCommandCenter === undefined ||
+    !crmSocialProjectionSafe ||
     crmLocalCommandCenter.backend_owned !== true ||
     crmLocalCommandCenter.safe_refs_only !== true ||
     crmLocalCommandCenter.authority_posture?.control_center_grants_authority !==

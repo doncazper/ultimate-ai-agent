@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, Sequence
 
@@ -28,6 +29,7 @@ CRM_SOCIAL_RELATIONSHIP_CLI_REF = (
     "repo-local-command:uaa-crm:inspect-social-relationships"
 )
 CRM_SOCIAL_RELATIONSHIP_API_REF = "GET /control-center/crm/relationships"
+CRM_SOCIAL_RELATIONSHIP_PAGE_LIMIT = 50
 
 _UNSAFE_SUFFIX = re.compile(r"[^a-z0-9_.:-]+")
 
@@ -109,8 +111,11 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
     cli_ref: str = CRM_SOCIAL_RELATIONSHIP_CLI_REF
     items: list[CrmSocialRelationshipProjectionItem] = Field(
         default_factory=list,
-        max_length=50,
+        max_length=CRM_SOCIAL_RELATIONSHIP_PAGE_LIMIT,
     )
+    total_item_count: int = Field(default=0, ge=0)
+    returned_item_count: int = Field(default=0, ge=0)
+    truncated: bool = False
     evidence_refs: list[str] = Field(
         default_factory=lambda: [
             "evidence-ref:social-foundation:crm-relationship-projection"
@@ -173,6 +178,12 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
             raise ValueError("CRM_SOCIAL_RELATIONSHIP_DUPLICATE_ITEM")
         if len({item.crm_deep_link_ref for item in self.items}) != len(self.items):
             raise ValueError("CRM_SOCIAL_RELATIONSHIP_DUPLICATE_DEEP_LINK")
+        if self.returned_item_count != len(self.items):
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_RETURNED_COUNT_DRIFT")
+        if self.total_item_count < self.returned_item_count:
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_TOTAL_COUNT_INVALID")
+        if self.truncated != (self.total_item_count > self.returned_item_count):
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_TRUNCATION_POSTURE_DRIFT")
         return self
 
     def validate_owner_links(
@@ -189,6 +200,17 @@ class CrmSocialRelationshipProjection(_CrmSocialModel):
         relationship_by_ref = {
             _value(item, "relationship_ref"): item for item in relationships
         }
+        expected_relationship_refs = _selected_relationship_refs(
+            people=people,
+            relationship_by_ref=relationship_by_ref,
+        )
+        expected_returned_refs = expected_relationship_refs[
+            :CRM_SOCIAL_RELATIONSHIP_PAGE_LIMIT
+        ]
+        if [item.relationship_ref for item in self.items] != expected_returned_refs:
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_INVENTORY_DRIFT")
+        if self.total_item_count != len(expected_relationship_refs):
+            raise ValueError("CRM_SOCIAL_RELATIONSHIP_TOTAL_COUNT_DRIFT")
         for item in self.items:
             relationship = relationship_by_ref.get(item.relationship_ref)
             if relationship is None:
@@ -216,14 +238,15 @@ def build_crm_social_relationship_projection(
     relationship_by_ref = {
         _value(item, "relationship_ref"): item for item in relationships
     }
-    selected_relationship_refs: set[str] = set()
-    for person in people:
-        if CRM_SOCIAL_RELATIONSHIP_TAG not in set(_value(person, "tags") or []):
-            continue
-        selected_relationship_refs.update(_value(person, "relationship_refs") or [])
+    selected_relationship_refs = _selected_relationship_refs(
+        people=people,
+        relationship_by_ref=relationship_by_ref,
+    )
 
     items: list[CrmSocialRelationshipProjectionItem] = []
-    for relationship_ref in sorted(selected_relationship_refs):
+    for relationship_ref in selected_relationship_refs[
+        :CRM_SOCIAL_RELATIONSHIP_PAGE_LIMIT
+    ]:
         relationship = relationship_by_ref.get(relationship_ref)
         if relationship is None:
             raise ValueError("CRM_SOCIAL_RELATIONSHIP_SELECTION_LINK_MISSING")
@@ -252,7 +275,12 @@ def build_crm_social_relationship_projection(
                 ),
             )
         )
-    projection = CrmSocialRelationshipProjection(items=items)
+    projection = CrmSocialRelationshipProjection(
+        items=items,
+        total_item_count=len(selected_relationship_refs),
+        returned_item_count=len(items),
+        truncated=len(selected_relationship_refs) > len(items),
+    )
     projection.validate_owner_links(
         people=people,
         organizations=organizations,
@@ -267,8 +295,29 @@ def _value(item: Any, field_name: str) -> Any:
     return getattr(item, field_name)
 
 
+def _selected_relationship_refs(
+    *,
+    people: Sequence[Any],
+    relationship_by_ref: dict[Any, Any],
+) -> list[str]:
+    selected_relationship_refs: set[str] = set()
+    for person in people:
+        if CRM_SOCIAL_RELATIONSHIP_TAG not in set(_value(person, "tags") or []):
+            continue
+        person_ref = str(_value(person, "person_ref"))
+        for relationship_ref in _value(person, "relationship_refs") or []:
+            relationship = relationship_by_ref.get(relationship_ref)
+            if relationship is None:
+                raise ValueError("CRM_SOCIAL_RELATIONSHIP_SELECTION_LINK_MISSING")
+            if _value(relationship, "person_ref") != person_ref:
+                raise ValueError("CRM_SOCIAL_RELATIONSHIP_SELECTOR_OWNER_MISMATCH")
+            selected_relationship_refs.add(str(relationship_ref))
+    return sorted(selected_relationship_refs)
+
+
 def _ref_suffix(value: str) -> str:
-    suffix = _UNSAFE_SUFFIX.sub("-", value.lower()).strip("-")
-    if not suffix:
+    normalized = _UNSAFE_SUFFIX.sub("-", value.lower()).strip("-")
+    if not normalized:
         raise ValueError("CRM_SOCIAL_RELATIONSHIP_REF_SUFFIX_INVALID")
-    return suffix[:120]
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return f"{normalized[:80]}-{digest}"

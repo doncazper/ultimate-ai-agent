@@ -22374,6 +22374,14 @@ function envelopeForReadEndpoint(url: string) {
         backend_owned: true,
         exact_local_mutation_lane_enabled: true,
       },
+      social_relationship_projection: {
+        ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+        backend_owned: true,
+        items:
+          mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
+            (item) => ({ ...item, backend_owned: true }),
+          ),
+      },
     },
     [API_ENDPOINTS.crmRelationships]: {
       contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,

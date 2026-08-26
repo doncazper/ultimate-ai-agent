@@ -67,6 +67,94 @@ def test_crm_social_projection_rejects_broken_owner_links(tmp_path: Path) -> Non
         CrmLocalCommandCenterReadModel.model_validate(payload)
 
 
+def test_crm_social_projection_rejects_cross_person_selection(tmp_path: Path) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    tagged_other_person = crm.people[0].model_copy(
+        update={
+            "person_ref": "person-ref:crm-local:other",
+            "tags": ["social-context"],
+            "relationship_refs": [crm.relationships[0].relationship_ref],
+        }
+    )
+
+    with pytest.raises(
+        ValueError, match="CRM_SOCIAL_RELATIONSHIP_SELECTOR_OWNER_MISMATCH"
+    ):
+        build_crm_social_relationship_projection(
+            people=[tagged_other_person],
+            organizations=crm.organizations,
+            relationships=crm.relationships,
+        )
+
+
+def test_crm_social_projection_deep_links_are_collision_resistant(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    common = f"relationship-ref:crm-local:{'a' * 125}"
+    refs = [f"{common}-one", f"{common}-two"]
+    relationships = [
+        crm.relationships[0].model_copy(update={"relationship_ref": relationship_ref})
+        for relationship_ref in refs
+    ]
+    person = crm.people[0].model_copy(
+        update={"tags": ["social-context"], "relationship_refs": refs}
+    )
+
+    projection = build_crm_social_relationship_projection(
+        people=[person],
+        organizations=crm.organizations,
+        relationships=relationships,
+    )
+
+    assert len({item.crm_deep_link_ref for item in projection.items}) == 2
+
+
+def test_crm_social_projection_truncates_with_truthful_coverage(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    refs = [f"relationship-ref:crm-local:social-{index:03d}" for index in range(55)]
+    relationships = [
+        crm.relationships[0].model_copy(update={"relationship_ref": relationship_ref})
+        for relationship_ref in refs
+    ]
+    person = crm.people[0].model_copy(
+        update={"tags": ["social-context"], "relationship_refs": refs}
+    )
+
+    projection = build_crm_social_relationship_projection(
+        people=[person],
+        organizations=crm.organizations,
+        relationships=relationships,
+    )
+
+    assert projection.total_item_count == 55
+    assert projection.returned_item_count == 50
+    assert len(projection.items) == 50
+    assert projection.truncated is True
+
+
+def test_crm_social_projection_rejects_incomplete_serialized_inventory(
+    tmp_path: Path,
+) -> None:
+    crm = CrmLocalStore(tmp_path / "crm").read_model()
+    payload = crm.model_dump(mode="python")
+    payload["social_relationship_projection"].update(
+        {
+            "items": [],
+            "total_item_count": 0,
+            "returned_item_count": 0,
+            "truncated": False,
+        }
+    )
+
+    with pytest.raises(
+        ValidationError, match="CRM_SOCIAL_RELATIONSHIP_INVENTORY_DRIFT"
+    ):
+        CrmLocalCommandCenterReadModel.model_validate(payload)
+
+
 def test_crm_social_projection_empty_state_is_truthful(tmp_path: Path) -> None:
     crm = CrmLocalStore(tmp_path / "crm").read_model()
     people = [person.model_copy(update={"tags": []}) for person in crm.people]
@@ -150,6 +238,14 @@ def test_social_foundation_verifier_rejects_tamper_and_self_promotion() -> None:
     failures, state = verify(secret_like)
     assert state == "INVALID"
     assert failures
+
+    swapped_owners = json.loads(json.dumps(ledger))
+    work_board_paths = swapped_owners["foundations"][0]["path_refs"]
+    crm_paths = swapped_owners["foundations"][2]["path_refs"]
+    work_board_paths[0], crm_paths[0] = crm_paths[0], work_board_paths[0]
+    failures, state = verify(swapped_owners)
+    assert state == "INVALID"
+    assert "exact path_refs drifted" in " ".join(failures)
 
 
 def test_social_foundation_require_promoted_cli_remains_blocked() -> None:

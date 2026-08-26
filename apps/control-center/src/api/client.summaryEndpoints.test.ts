@@ -739,6 +739,25 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("marks a CRM response without the Social projection as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const crm = JSON.parse(JSON.stringify(routeData[API_ENDPOINTS.crmSummary]));
+    delete crm.social_relationship_projection;
+    routeData[API_ENDPOINTS.crmSummary] = crm;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.crmLocalCommandCenter.social_relationship_projection.backend_owned).toBe(
+      false,
+    );
+    expect(data.routeStates["/crm"].state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
+
   it("rejects Settings authority state that is not backend-owned", async () => {
     const routeData = baseRouteData();
     const settings = routeData[
@@ -1382,6 +1401,14 @@ function baseRouteData(): Record<string, unknown> {
     backend_owned: true,
     read_only: true,
     safe_refs_only: true,
+    social_relationship_projection: {
+      ...mockControlCenterData.crmLocalCommandCenter.social_relationship_projection,
+      backend_owned: true,
+      items:
+        mockControlCenterData.crmLocalCommandCenter.social_relationship_projection.items.map(
+          (item) => ({ ...item, backend_owned: true }),
+        ),
+    },
     authority_posture: {
       ...mockControlCenterData.crmLocalCommandCenter.authority_posture,
       backend_owned: true,

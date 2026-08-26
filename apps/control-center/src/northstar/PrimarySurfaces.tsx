@@ -280,6 +280,14 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
     && crm.backend_owned
     && crm.read_only
     && crm.safe_refs_only;
+  const socialProjectionBackendOwned = backendOwned
+    && crm.social_relationship_projection.backend_owned
+    && crm.social_relationship_projection.items.every((item) => item.backend_owned);
+  const socialProjectionTrend = !socialProjectionBackendOwned
+    ? "fallback"
+    : crm.social_relationship_projection.truncated
+      ? `${crm.social_relationship_projection.returned_item_count} of ${crm.social_relationship_projection.total_item_count} shown`
+      : "CRM owned";
   return (
     <div className="ns-surface ns-crm">
       <Toolbar title="CRM v3" subtitle="Relationships, opportunities, and commitments">
@@ -289,7 +297,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
       </Toolbar>
       <Tabs active="People" items={["People", "Organizations", "Opportunities", "Pipeline", "Follow-ups", "Reports"]} />
       <div className="ns-kpi-strip">
-        {[`Relationships|${crm.relationships.length}|backend`, `Social links|${crm.social_relationship_projection.items.length}|CRM owned`, `Follow-ups|${crm.follow_ups.length}|safe refs`, `Opportunities|${crm.opportunities.length}|read only`, `Pipelines|${crm.pipelines.length}|local`, `Reports|${crm.reports.length}|evidence`].map((value) => {
+        {[`Relationships|${crm.relationships.length}|backend`, `Social links|${crm.social_relationship_projection.total_item_count}|${socialProjectionTrend}`, `Follow-ups|${crm.follow_ups.length}|safe refs`, `Opportunities|${crm.opportunities.length}|read only`, `Pipelines|${crm.pipelines.length}|local`, `Reports|${crm.reports.length}|evidence`].map((value) => {
           const [label, number, trend] = value.split("|");
           return <div key={label}><small>{label}</small><strong>{number}</strong><span>{trend}</span></div>;
         })}
@@ -320,7 +328,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
           <MetaRow icon="calendar" label="Follow-ups" value={String(followUps.length)} />
           <MetaRow icon="list-todo" label="Timeline events" value={String(timeline.length)} />
           <Panel title="Social relationship context" icon="users">
-            {socialContext ? <><p>{socialContext.safe_summary}</p><small className="safe-ref">{socialContext.crm_deep_link_ref}</small><p><Badge tone={backendOwned && crm.social_relationship_projection.backend_owned && socialContext.backend_owned ? "blue" : "orange"}>{backendOwned && crm.social_relationship_projection.backend_owned && socialContext.backend_owned ? "CRM owned · read only" : "Non-authoritative fallback"}</Badge></p></> : <p>This relationship is not in the Social context projection.</p>}
+            {socialContext ? <><p>{socialContext.safe_summary}</p><small className="safe-ref">{socialContext.crm_deep_link_ref}</small><p><Badge tone={socialProjectionBackendOwned && socialContext.backend_owned ? "blue" : "orange"}>{socialProjectionBackendOwned && socialContext.backend_owned ? "CRM owned · read only" : "Non-authoritative fallback"}</Badge></p></> : <p>This relationship is not in the Social context projection.</p>}
           </Panel>
           <Panel title="Suggested actions" icon="sparkles">
             {(crm.ai_proposals.filter((item) => item.relationship_ref === selected.relationship_ref).slice(0, 3)).map((proposal) => <p key={proposal.proposal_ref}>{proposal.safe_summary} <Badge tone="orange">Proposal only</Badge></p>)}

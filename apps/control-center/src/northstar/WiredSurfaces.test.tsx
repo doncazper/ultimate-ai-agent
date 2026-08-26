@@ -808,6 +808,17 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText(/File writes blocked/)).toBeVisible();
   });
 
+  it("labels Social relationship counts as fallback without backend truth", () => {
+    const data = cloneData();
+
+    render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+
+    expect(screen.getByText("Social links").closest("div")).toHaveTextContent(
+      "fallback",
+    );
+    expect(screen.getByText("Non-authoritative fallback")).toBeVisible();
+  });
+
   it("does not label nested CRM or Studio data backend-owned when route truth is fallback", () => {
     const data = cloneData();
     Object.assign(data.crmLocalCommandCenter, { backend_owned: true, read_only: true, safe_refs_only: true });

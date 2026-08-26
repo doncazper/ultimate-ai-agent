@@ -23,6 +23,9 @@ SCHEMA_PATH = ROOT / "docs/schemas/social_read_only_foundation_promotion_v1.sche
 EXTERNAL_HUMAN_IDENTITY_AUTHORITY_CONFIGURED = False
 
 NORMATIVE_SUBJECT_PATHS = (
+    "apps/control-center/src/App.test.tsx",
+    "apps/control-center/src/api/client.summaryEndpoints.test.ts",
+    "apps/control-center/src/api/client.ts",
     "apps/control-center/src/api/types.ts",
     "apps/control-center/src/mocks/controlCenterData.ts",
     "apps/control-center/src/northstar/PrimarySurfaces.tsx",
@@ -36,6 +39,7 @@ NORMATIVE_SUBJECT_PATHS = (
     "src/ultimate_ai_agent/core/communications/contracts.py",
     "src/ultimate_ai_agent/core/communications/local_projection.py",
     "src/ultimate_ai_agent/core/control_center/work_board.py",
+    "src/ultimate_ai_agent/core/crm/__init__.py",
     "src/ultimate_ai_agent/core/crm/local_command_center.py",
     "src/ultimate_ai_agent/core/crm/social_projection.py",
     "tests/test_communications_reviewed_projection.py",
@@ -60,6 +64,73 @@ EXPECTED_FOUNDATIONS = {
         "owner-ref:governance",
         "contract-ref:social-read-only-foundation-profile:v1",
     ),
+}
+EXPECTED_FOUNDATION_INVENTORIES = {
+    "foundation-ref:social-profile:work-board": {
+        "path_refs": (
+            "repo-path-ref:src/ultimate_ai_agent/core/control_center/work_board.py",
+            "repo-path-ref:tests/test_control_center_work_board.py",
+        ),
+        "api_refs": ("GET /control-center/work-board",),
+        "cli_refs": ("repo-local-command:uaa-work-board:inspect-board",),
+        "ui_refs": ("control-center-surface-ref:work-board-social-content",),
+        "verifier_refs": ("verifier-ref:social-foundation:work-board",),
+        "evidence_refs": (
+            "evidence-ref:social-foundation:work-board-owner-projection",
+        ),
+    },
+    "foundation-ref:social-profile:communications": {
+        "path_refs": (
+            "repo-path-ref:src/ultimate_ai_agent/core/communications/contracts.py",
+            "repo-path-ref:src/ultimate_ai_agent/core/communications/local_projection.py",
+            "repo-path-ref:tests/test_communications_reviewed_projection.py",
+        ),
+        "api_refs": (
+            "GET /control-center/communications/conversations",
+            "GET /control-center/communications/conversations/{conversation_ref}",
+        ),
+        "cli_refs": ("repo-local-command:uaa-communications:conversations",),
+        "ui_refs": ("control-center-surface-ref:communications-social-media",),
+        "verifier_refs": ("verifier-ref:social-foundation:communications",),
+        "evidence_refs": (
+            "evidence-ref:social-foundation:communications-owner-projection",
+        ),
+    },
+    "foundation-ref:social-profile:crm": {
+        "path_refs": (
+            "repo-path-ref:apps/control-center/src/App.test.tsx",
+            "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts",
+            "repo-path-ref:apps/control-center/src/api/client.ts",
+            "repo-path-ref:apps/control-center/src/api/types.ts",
+            "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts",
+            "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx",
+            "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx",
+            "repo-path-ref:scripts/dev/uaa_crm.py",
+            "repo-path-ref:src/ultimate_ai_agent/api/control_center.py",
+            "repo-path-ref:src/ultimate_ai_agent/core/crm/__init__.py",
+            "repo-path-ref:src/ultimate_ai_agent/core/crm/local_command_center.py",
+            "repo-path-ref:src/ultimate_ai_agent/core/crm/social_projection.py",
+            "repo-path-ref:tests/test_social_read_only_foundation_profile.py",
+        ),
+        "api_refs": ("GET /control-center/crm/relationships",),
+        "cli_refs": ("repo-local-command:uaa-crm:inspect-social-relationships",),
+        "ui_refs": ("control-center-surface-ref:crm-social-relationship-context",),
+        "verifier_refs": ("verifier-ref:social-foundation:crm",),
+        "evidence_refs": ("evidence-ref:social-foundation:crm-owner-projection",),
+    },
+    "foundation-ref:social-profile:promotion-contract": {
+        "path_refs": (
+            "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md",
+            "repo-path-ref:docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md",
+            "repo-path-ref:docs/schemas/social_read_only_foundation_promotion_v1.schema.json",
+            "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py",
+        ),
+        "api_refs": (),
+        "cli_refs": ("repo-local-command:verify-social-read-only-foundation-profile",),
+        "ui_refs": (),
+        "verifier_refs": ("verifier-ref:social-foundation:promotion-v1",),
+        "evidence_refs": ("evidence-ref:social-foundation:acceptance-subject-bound",),
+    },
 }
 EXPECTED_REVIEW_ROLES = {
     "reviewer-role-ref:social-foundation:product-design",
@@ -199,6 +270,12 @@ def verify(payload: dict[str, Any] | None = None) -> tuple[list[str], str]:
             failures.append(f"foundation owner or contract drifted: {foundation_ref}")
         if foundation.get("implementation_state") != "implemented":
             failures.append(f"foundation is not implemented: {foundation_ref}")
+        expected_inventory = EXPECTED_FOUNDATION_INVENTORIES[str(foundation_ref)]
+        for field_name, expected_values in expected_inventory.items():
+            if foundation.get(field_name) != list(expected_values):
+                failures.append(
+                    f"foundation exact {field_name} drifted: {foundation_ref}"
+                )
         path_refs = foundation.get("path_refs")
         if not isinstance(path_refs, list) or not path_refs:
             failures.append(f"foundation path refs missing: {foundation_ref}")

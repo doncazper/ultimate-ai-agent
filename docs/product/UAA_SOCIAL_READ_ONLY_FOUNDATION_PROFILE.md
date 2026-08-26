@@ -38,6 +38,8 @@ CRM owns
   organization, evidence, memory provenance, health, and freshness refs;
 - stable `control-center-deep-link-ref:crm:*` refs let later Social surfaces
   point back to CRM without copying relationship truth;
+- larger valid CRM states return a deterministic 50-item page with explicit
+  total, returned, and truncation metadata instead of failing the CRM read path;
 - `GET /control-center/crm/relationships` and
   `uaa_crm.py inspect-social-relationships` expose the same Python Core
   projection;
