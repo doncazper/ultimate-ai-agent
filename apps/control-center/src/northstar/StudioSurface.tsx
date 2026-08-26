@@ -3,6 +3,8 @@ import type { ControlCenterData } from "../api/types";
 import { Badge, Button, Icon, Panel, SearchField, Tabs } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
+type CreateView = "skills" | "presentations" | "social-publishing";
+
 const skillIdeas = [
   ["Sonoscli", "Control Sonos speakers for discovery, status, playback, volume, and grouping.", "Uncategorized", "#1 this week", "56 stars", "86K downloads", "May 11, 2026"],
   ["Gog", "Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs.", "Gmail", "#2 this week", "940 stars", "188.7K downloads", "May 11, 2026"],
@@ -18,15 +20,15 @@ const skillIdeas = [
 
 export function StudioSurface({ data }: { data: ControlCenterData }) {
   const [mode, setMode] = useState<"Chat" | "Code" | "Create">("Create");
-  const [createView, setCreateView] = useState<"skills" | "presentations">("skills");
+  const [createView, setCreateView] = useState<CreateView>("skills");
 
   return (
     <div className="ns-studio-app">
       <StudioRail mode={mode} onMode={setMode} createView={createView} onCreateView={setCreateView} />
-      {mode === "Create" && createView === "skills" ? (
-        <SkillWorkbench />
-      ) : mode === "Create" ? (
-        <PresentationWorkspace />
+      {mode === "Create" ? (
+        createView === "skills" ? <SkillWorkbench />
+          : createView === "presentations" ? <PresentationWorkspace />
+            : <SocialPublishingWorkspace data={data} />
       ) : mode === "Code" ? <StudioCodeWorkspace data={data} /> : <StudioChatWorkspace data={data} />}
     </div>
   );
@@ -38,9 +40,9 @@ function StudioRail({
   onCreateView,
   onMode,
 }: {
-  createView: "skills" | "presentations";
+  createView: CreateView;
   mode: "Chat" | "Code" | "Create";
-  onCreateView: (value: "skills" | "presentations") => void;
+  onCreateView: (value: CreateView) => void;
   onMode: (value: "Chat" | "Code" | "Create") => void;
 }) {
   return (
@@ -61,6 +63,7 @@ function StudioRail({
         <button disabled title="Choose an implemented asset surface below" type="button"><Icon name="circle-plus" size={17} /><span><strong>New asset</strong></span></button>
         <button className={createView === "skills" ? "active secondary" : "secondary"} onClick={() => onCreateView("skills")} type="button"><Icon name="shield-question" size={17} /><span><strong>Skill Workbench</strong></span></button>
         <button className={createView === "presentations" ? "active secondary" : "secondary"} onClick={() => onCreateView("presentations")} type="button"><Icon name="monitor" size={17} /><span><strong>Presentations</strong></span></button>
+        <button className={createView === "social-publishing" ? "active secondary" : "secondary"} onClick={() => onCreateView("social-publishing")} type="button"><Icon name="send" size={17} /><span><strong>Social publishing</strong></span></button>
         {[["Documents", "file-text"], ["Spreadsheets", "file-spreadsheet"], ["Media", "image"], ["Brand", "shield"]].map(([label, icon]) => <button className="secondary" disabled key={label} title={`${label} surface is not implemented`} type="button"><Icon name={icon as Parameters<typeof Icon>[0]["name"]} size={17} /><span><strong>{label}</strong></span></button>)}
         <hr /><small>Projects</small>
         <div className="ns-studio-projects"><strong><Icon name="folder" size={15} /> Founder Command Center</strong><span>Founder pitch deck</span><span>Launch brief</span><span>Quarterly model</span><span>Brand story</span></div>
@@ -117,6 +120,85 @@ function StudioComposer() {
 
 function PresentationWorkspace() {
   return <section className="ns-studio-workspace ns-presentation"><header className="ns-studio-header"><div><small>Studio / Create / Presentations</small><h1>Founder pitch deck</h1><p>Presentation · 12 slides · PowerPoint</p></div><span className="ns-studio-posture"><Icon name="shield-check" size={16} /> Local preview · Review before export</span><Button disabled title="No presentation version contract is connected">Compare versions</Button><Button disabled title="No presentation review-envelope contract is connected" tone="primary">Prepare review proposal</Button></header><Tabs active="Canvas" items={["Canvas", "Versions", "References"]} /><div className="ns-presentation-body"><aside className="ns-slide-strip">{[1, 2, 3, 4, 5, 6].map((item) => <button className={item === 1 ? "active" : ""} disabled key={item} title="Slide selection is not implemented in this preview" type="button"><small>{item}</small><span><strong>{item === 1 ? "One calm operating system" : `Slide ${item}`}</strong><i /></span></button>)}</aside><div className="ns-slide-canvas"><h2>One calm<br />operating system<br />for founder work</h2><p>Today, relationships, work, and proof—connected without hidden authority.</p><div className="ns-slide-flow">{[["eye", "Observe"], ["clipboard-list", "Plan"], ["send", "Act"], ["shield-check", "Prove"]].map(([icon, label]) => <span key={label}><Icon name={icon as Parameters<typeof Icon>[0]["name"]} size={30} /><strong>{label}</strong></span>)}</div></div><aside className="ns-presentation-inspector"><Panel title="Presentation details"><p>Format <strong>PowerPoint (.pptx)</strong></p><p>Canvas <strong>Widescreen (16:9)</strong></p><p>Slides <strong>12</strong></p></Panel><Panel title="Mode ownership"><p>Create owns assets, versions, and references.</p><p>Hands off to Work Board, Calendar, and Evidence.</p></Panel><Button disabled icon="lock">Export blocked — exact lane not implemented</Button></aside></div><StudioComposer /><div className="ns-studio-status"><span>Studio · Create</span><span>Preview fixture</span><span>v4 · 12 slides</span><span>Review required</span><span>External delivery blocked</span></div></section>;
+}
+
+function SocialPublishingWorkspace({ data }: { data: ControlCenterData }) {
+  const proposal = data.socialPublishingProposal;
+  const authoritative = data.source === "api"
+    && data.routeStates["/studio"]?.state === "backend_owned"
+    && proposal.backend_owned
+    && proposal.read_only;
+  const platformLabels = { instagram: "Instagram", x: "X", tiktok: "TikTok" } as const;
+  const findingTone = (severity: "info" | "warning" | "blocking" | "unknown") =>
+    severity === "info" ? "green" : severity === "warning" ? "orange" : "red";
+
+  return (
+    <section className="ns-studio-workspace ns-social-publishing">
+      <header className="ns-studio-header">
+        <div>
+          <small>Studio / Create / Social publishing</small>
+          <h1>Social publishing review</h1>
+          <p>{proposal.safe_summary}</p>
+        </div>
+        <span className="ns-studio-posture"><Icon name="shield-check" size={16} /> {authoritative ? "Backend-owned proposal" : "Preview fallback"} · Dry-run only</span>
+        <Badge tone="orange">No publish action</Badge>
+      </header>
+      <div className="ns-social-publishing-body">
+        <section className="ns-social-platform-grid" aria-label="Social platform variants">
+          {proposal.fixture.variants.map((variant) => {
+            const capability = proposal.fixture.capabilities.find(
+              (item) => item.platform === variant.platform,
+            );
+            const findings = proposal.fixture.findings.filter(
+              (item) => item.variant_ref === variant.variant_ref,
+            );
+            return (
+              <article className="ns-social-platform-card" key={variant.variant_ref}>
+                <header>
+                  <span className={`ns-social-platform-mark ${variant.platform}`}>{platformLabels[variant.platform].slice(0, 1)}</span>
+                  <div><h2>{platformLabels[variant.platform]}</h2><small>Fixture variant · Account not connected</small></div>
+                  <Badge tone="blue">Review</Badge>
+                </header>
+                <div className="ns-social-preview-tile"><Icon name="image" size={34} /><strong>Redacted preview</strong><small>{variant.preview_ref}</small></div>
+                <dl>
+                  <div><dt>Format</dt><dd>{variant.content_format_ref.split(":").at(-1)?.replaceAll("-", " ")}</dd></div>
+                  <div><dt>Text limit</dt><dd>{capability?.maximum_text_characters ?? "Unknown"}</dd></div>
+                  <div><dt>Media limit</dt><dd>{capability?.maximum_media_items ?? "Unknown"}</dd></div>
+                  <div><dt>Alt text</dt><dd>{variant.alt_text_ref ? "Prepared" : "Missing"}</dd></div>
+                  <div><dt>Rights</dt><dd>{variant.rights_posture.replaceAll("_", " ")}</dd></div>
+                  <div><dt>Live adapter</dt><dd>Not installed</dd></div>
+                </dl>
+                <section className="ns-social-findings" aria-label={`${platformLabels[variant.platform]} compatibility`}>
+                  {findings.map((finding) => <div key={finding.finding_ref}><Badge tone={findingTone(finding.severity)}>{finding.severity}</Badge><p>{finding.safe_summary}</p></div>)}
+                </section>
+                <footer><small>{variant.rendered_payload_fingerprint_ref}</small></footer>
+              </article>
+            );
+          })}
+        </section>
+        <aside className="ns-social-review-rail">
+          <Panel icon="clipboard-list" title="Exact review plan">
+            <dl>
+              <div><dt>Targets</dt><dd>{proposal.fixture.plan.target_refs.length}</dd></div>
+              <div><dt>Approval</dt><dd>Required</dd></div>
+              <div><dt>Mode</dt><dd>Dry-run only</dd></div>
+              <div><dt>Raw content</dt><dd>Excluded</dd></div>
+            </dl>
+            <small>{proposal.fixture.plan.plan_fingerprint_ref}</small>
+          </Panel>
+          <Panel icon="shield-alert" title="Authority stays blocked">
+            <ul>{proposal.blocked_authority_refs.map((ref) => <li key={ref}>{ref.replace("blocked-state:q30:", "").replaceAll("-", " ")}</li>)}</ul>
+          </Panel>
+          <Panel icon="activity" title="Next safe step">
+            <p>{proposal.next_safe_action}</p>
+            <small>{proposal.cli_ref}</small>
+          </Panel>
+          <Button disabled icon="lock" title="No mutation route or live adapter exists">Dry-run review is CLI-gated</Button>
+        </aside>
+      </div>
+      <div className="ns-studio-status"><span><Icon name="shield-check" size={16} /> Studio · Create</span><span>Three platform variants</span><span>Rights fixture verified</span><span>Accounts disconnected</span><span>External writes blocked</span></div>
+    </section>
+  );
 }
 
 function StudioChatWorkspace({ data }: { data: ControlCenterData }) {

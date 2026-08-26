@@ -108,6 +108,57 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("loads the backend-owned social publishing proposal as a read-only Studio surface", async () => {
+    stubControlCenterFetch(baseRouteData());
+
+    const data = await loadControlCenterData();
+
+    expect(data.socialPublishingProposal).toEqual(
+      mockControlCenterData.socialPublishingProposal,
+    );
+    expect(data.socialPublishingProposal.dry_run_only).toBe(true);
+    expect(data.socialPublishingProposal.publishing_enabled).toBe(false);
+    expect(data.socialPublishingProposal.external_write_enabled).toBe(false);
+    expect(data.routeStates["/studio"].state).toBe("backend_owned");
+  });
+
+  it("fails closed when the social publishing proposal claims write authority", async () => {
+    const routeData = baseRouteData();
+    const unsafeProposal = structuredClone(
+      mockControlCenterData.socialPublishingProposal,
+    ) as unknown as Record<string, unknown>;
+    unsafeProposal.publishing_enabled = true;
+    routeData[API_ENDPOINTS.socialPublishingProposal] = unsafeProposal;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.socialPublishingProposal).toEqual(
+      mockControlCenterData.socialPublishingProposal,
+    );
+    expect(data.routeStates["/studio"].state).toBe("degraded");
+    expect(data.routeStates["/studio"].warningRefs).toContain(
+      "SOCIAL_PUBLISHING_PROPOSAL_MOCK_FALLBACK",
+    );
+  });
+
+  it("fails closed when the social publishing platform inventory is duplicated", async () => {
+    const routeData = baseRouteData();
+    const unsafeProposal = structuredClone(
+      mockControlCenterData.socialPublishingProposal,
+    );
+    unsafeProposal.fixture.variants[2].platform = "instagram";
+    routeData[API_ENDPOINTS.socialPublishingProposal] = unsafeProposal;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.routeStates["/studio"].state).toBe("degraded");
+    expect(data.socialPublishingProposal).toEqual(
+      mockControlCenterData.socialPublishingProposal,
+    );
+  });
+
   it("accepts the backend-generated Studio visual fixture", async () => {
     stubControlCenterFetch({
       [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
@@ -1740,6 +1791,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
       backendOwnedCodingMultiAgentReview,
     [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoard,
+    [API_ENDPOINTS.socialPublishingProposal]:
+      mockControlCenterData.socialPublishingProposal,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

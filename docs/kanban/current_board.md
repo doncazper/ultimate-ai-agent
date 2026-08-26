@@ -128,16 +128,22 @@ publishing, connector, platform-write, public-release, or production authority.
 Evidence:
 `docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md` and
 `docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md`.
-Queue-of-Record V2 Q30 is active. Its P0-P4 foundation is implemented locally
-as a content-free synthetic fixture kernel with Python Core and CLI parity:
+Queue-of-Record V2 Q30 is complete at the bounded local proposal/dry-run tier.
+Its P0-P6 implementation is a content-free synthetic fixture kernel with Python
+Core, CLI, protected GET-only API, and readable Control Center Studio parity:
 Studio-owned draft refs bind exact Instagram, X, and TikTok variants;
 deterministic capability findings block unknown constraints and unverified
 rights; immutable review envelopes bind every target and payload fingerprint;
 and simulated child settlements preserve successes, limit retry to eligible
 failures, and require reconciliation before an unknown can become retryable.
-Q30-P5 API/Control Center parity and Q30-P6 acceptance freeze remain next. No
-account connection, platform adapter, network, scheduler, upload, publishing,
-or external write is enabled.
+concurrent exact replay has one owner result; the frontend fails closed to a
+clearly non-authoritative fixture; and the accepted Studio surface shows three
+platform cards, rights, compatibility, exact plan truth, and blocked authority
+without raw JSON or a Publish control. The finite acceptance freeze is recorded
+in `docs/product/UAA_SOCIAL_PUBLISHING_Q30_ACCEPTANCE_MATRIX.md`. No account
+connection, credential access, platform adapter, network, scheduler, upload,
+publishing, external write, or production authority is enabled. Later
+operator-use polish and any live platform lane are separately scoped follow-ups.
 The Queue-of-Record V2 Q07 Setup Assistant hardening slice now adds
 backend-owned `ready`/`missing`/`blocked` diagnostics and makes rollback truth
 explicit: contract refs are defined, while approval-alone availability,

@@ -16521,6 +16521,142 @@ export interface AutocorrectControlStatus {
   next_safe_action: string;
 }
 
+export type SocialPublishingPlatform = "instagram" | "x" | "tiktok";
+
+export interface SocialPublishingCapability {
+  capability_ref: string;
+  platform: SocialPublishingPlatform;
+  version_ref: string;
+  source_ref: string;
+  last_reviewed_ref: string;
+  supported_format_refs: string[];
+  maximum_text_characters: number;
+  maximum_media_items: number;
+  alt_text_supported: boolean;
+  native_scheduling_posture_ref: string;
+  correction_posture_ref: string;
+  reconciliation_posture_ref: string;
+  unknown_constraint_refs: string[];
+  live_account_configured: false;
+  provider_sdk_enabled: false;
+  network_access_enabled: false;
+  publishing_enabled: false;
+}
+
+export interface SocialPublishingVariant {
+  variant_ref: string;
+  variant_version_ref: string;
+  draft_ref: string;
+  platform: SocialPublishingPlatform;
+  account_ref: string;
+  content_format_ref: string;
+  rendered_payload_fingerprint_ref: string;
+  preview_ref: string;
+  diff_ref: string;
+  adaptation_reason_refs: string[];
+  media_version_refs: string[];
+  alt_text_ref: string | null;
+  rights_posture: "verified_fixture" | "missing" | "unknown";
+  fixture_only: true;
+  raw_content_included: false;
+}
+
+export interface SocialPublishingFinding {
+  finding_ref: string;
+  variant_ref: string;
+  platform: SocialPublishingPlatform;
+  severity: "info" | "warning" | "blocking" | "unknown";
+  constraint_ref: string;
+  safe_summary: string;
+  remedy_ref: string | null;
+  override_allowed: false;
+}
+
+export interface SocialPublishingTarget {
+  target_ref: string;
+  variant_ref: string;
+  platform: SocialPublishingPlatform;
+  account_ref: string;
+  operation_ref: string;
+  payload_fingerprint_ref: string;
+  requested_time_ref: string;
+  timezone_ref: string;
+  child_idempotency_ref: string;
+  adapter_posture_ref: string;
+  live_adapter_available: false;
+}
+
+export interface SocialPublishingProposalReadModel {
+  schema_version: "uaa-social-publishing-proposal.v1";
+  proposal_ref: string;
+  contract_ref: string;
+  status: "proposal_dry_run_ready";
+  fixture: {
+    fixture_ref: string;
+    contract_ref: string;
+    draft: {
+      draft_ref: string;
+      draft_version_ref: string;
+      owner_ref: string;
+      workspace_ref: string;
+      campaign_ref: string;
+      objective_ref: string;
+      content_fingerprint_ref: string;
+      content_preview_ref: string;
+      media_version_refs: string[];
+      link_refs: string[];
+      rights_posture: "verified_fixture" | "missing" | "unknown";
+      fixture_only: true;
+      raw_content_included: false;
+    };
+    capabilities: SocialPublishingCapability[];
+    variants: SocialPublishingVariant[];
+    findings: SocialPublishingFinding[];
+    plan: {
+      plan_ref: string;
+      plan_fingerprint_ref: string;
+      contract_ref: string;
+      draft_ref: string;
+      draft_version_ref: string;
+      parent_idempotency_ref: string;
+      target_refs: string[];
+      targets: SocialPublishingTarget[];
+      finding_refs: string[];
+      findings: SocialPublishingFinding[];
+      expires_at_ref: string;
+      safe_disable_ref: string;
+      correction_posture_ref: string;
+      reconciliation_posture_ref: string;
+      approval_required: true;
+      dry_run_only: true;
+      publishing_enabled: false;
+      external_write_enabled: false;
+    };
+    safe_summary: string;
+    next_safe_action: string;
+    live_account_access_enabled: false;
+    network_access_enabled: false;
+    background_scheduler_enabled: false;
+    publishing_enabled: false;
+  };
+  cli_ref: string;
+  blocked_authority_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  backend_owned: true;
+  read_only: true;
+  dry_run_only: true;
+  raw_content_included: false;
+  account_access_enabled: false;
+  credential_access_enabled: false;
+  network_access_enabled: false;
+  provider_sdk_enabled: false;
+  scheduler_enabled: false;
+  publishing_enabled: false;
+  external_write_enabled: false;
+  external_side_effect_performed: false;
+}
+
 export interface ControlCenterData {
   manifest: ControlCenterManifest;
   dashboard: ControlCenterDashboardSnapshot;
@@ -16605,6 +16741,7 @@ export interface ControlCenterData {
   runObservability: RunObservabilityReadModel;
   crmLocalCommandCenter: CrmLocalCommandCenterReadModel;
   crmM1FixtureShell: CrmM1FixtureShell;
+  socialPublishingProposal: SocialPublishingProposalReadModel;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
   routeStates: Record<string, ControlCenterRouteReadState>;

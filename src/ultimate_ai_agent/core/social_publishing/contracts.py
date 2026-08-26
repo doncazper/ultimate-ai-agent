@@ -9,6 +9,7 @@ from __future__ import annotations
 from enum import Enum
 import hashlib
 import json
+from threading import RLock
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -408,6 +409,32 @@ class SocialPublishingFixture(_Contract):
     publishing_enabled: Literal[False] = False
 
 
+class SocialPublishingProposalReadModel(_Contract):
+    schema_version: Literal["uaa-social-publishing-proposal.v1"] = (
+        "uaa-social-publishing-proposal.v1"
+    )
+    proposal_ref: str
+    contract_ref: Literal[CONTRACT_REF] = CONTRACT_REF
+    status: Literal["proposal_dry_run_ready"] = "proposal_dry_run_ready"
+    fixture: SocialPublishingFixture
+    cli_ref: str
+    blocked_authority_refs: tuple[str, ...] = Field(min_length=1, max_length=16)
+    safe_summary: str
+    next_safe_action: str
+    backend_owned: Literal[True] = True
+    read_only: Literal[True] = True
+    dry_run_only: Literal[True] = True
+    raw_content_included: Literal[False] = False
+    account_access_enabled: Literal[False] = False
+    credential_access_enabled: Literal[False] = False
+    network_access_enabled: Literal[False] = False
+    provider_sdk_enabled: Literal[False] = False
+    scheduler_enabled: Literal[False] = False
+    publishing_enabled: Literal[False] = False
+    external_write_enabled: Literal[False] = False
+    external_side_effect_performed: Literal[False] = False
+
+
 def _plan_fingerprint(plan: SocialPublishPlan) -> str:
     return _stable_ref(
         "social-publish-plan-fingerprint-ref",
@@ -594,6 +621,36 @@ def build_q30_fixture() -> SocialPublishingFixture:
     )
 
 
+def build_q30_proposal_read_model() -> SocialPublishingProposalReadModel:
+    fixture = build_q30_fixture()
+    return SocialPublishingProposalReadModel(
+        proposal_ref=_stable_ref(
+            "social-publishing-proposal-ref",
+            {
+                "fixture": fixture.fixture_ref,
+                "plan": fixture.plan.plan_fingerprint_ref,
+            },
+        ),
+        fixture=fixture,
+        cli_ref="repo-command-ref:uaa-social-publishing:inspect",
+        blocked_authority_refs=(
+            "blocked-state:q30:no-account-access",
+            "blocked-state:q30:no-credential-access",
+            "blocked-state:q30:no-network-access",
+            "blocked-state:q30:no-provider-sdk",
+            "blocked-state:q30:no-background-scheduler",
+            "blocked-state:q30:no-platform-write",
+            "blocked-state:q30:no-live-publish",
+        ),
+        safe_summary=(
+            "A backend-owned synthetic three-platform proposal is ready for readable dry-run review only."
+        ),
+        next_safe_action=(
+            "Review platform variants and compatibility findings; no publish action is available."
+        ),
+    )
+
+
 def build_review_envelope(
     plan: SocialPublishPlan, decision: ApprovalDecision
 ) -> SocialPublishApprovalEnvelope:
@@ -643,6 +700,7 @@ class SocialPublishingDryRunKernel:
 
     def __init__(self) -> None:
         self._results: dict[str, tuple[str, SocialDryRunResult]] = {}
+        self._lock = RLock()
 
     def execute(
         self,
@@ -683,7 +741,8 @@ class SocialPublishingDryRunKernel:
             },
         )
         replay_key = plan.parent_idempotency_ref
-        existing = self._results.get(replay_key)
+        with self._lock:
+            existing = self._results.get(replay_key)
         if existing:
             if existing[0] != request_ref:
                 raise ValueError("Q30_IDEMPOTENCY_CONFLICT")
@@ -777,7 +836,13 @@ class SocialPublishingDryRunKernel:
             reconciliation_required_target_refs=tuple(reconcile),
             next_safe_action=next_action,
         )
-        self._results[replay_key] = (request_ref, result)
+        with self._lock:
+            concurrent = self._results.get(replay_key)
+            if concurrent:
+                if concurrent[0] != request_ref:
+                    raise ValueError("Q30_IDEMPOTENCY_CONFLICT")
+                return concurrent[1].model_copy(update={"replayed": True})
+            self._results[replay_key] = (request_ref, result)
         return result
 
 

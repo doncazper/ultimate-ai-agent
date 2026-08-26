@@ -43,6 +43,7 @@ import type {
   RuntimeBackgroundJobProposalReadModel,
   RuntimeContextBudgetProposal,
   RuntimeContextBudgetSegment,
+  SocialPublishingProposalReadModel,
   RuntimeDoctorDiagnosticItem,
   RuntimeExecutionBackendCapability,
   RuntimeHardlineCommandClassification,
@@ -178,7 +179,7 @@ const mockCapabilityMaturity: CapabilityMaturityReadModel = {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 328;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 180;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 181;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -12596,6 +12597,174 @@ const mockMacOSSetupLifecycle: MacOSSetupLifecycleContract = {
   productionAuthorityEnabled: false,
 };
 
+const mockSocialPublishingPlatforms = ["instagram", "x", "tiktok"] as const;
+const mockSocialPublishingCapabilities = mockSocialPublishingPlatforms.map(
+  (platform) => ({
+    capability_ref: `platform-capability-ref:q30:${platform}:v1`,
+    platform,
+    version_ref: `platform-capability-version-ref:${platform}:fixture-v1`,
+    source_ref: `source-ref:q30-reviewed-fixture:${platform}`,
+    last_reviewed_ref: "time-ref:q30-fixture-review-20260826",
+    supported_format_refs: [`content-format-ref:${platform}:single-image`],
+    maximum_text_characters: platform === "instagram" ? 2200 : 280,
+    maximum_media_items: platform === "instagram" ? 10 : 4,
+    alt_text_supported: true,
+    native_scheduling_posture_ref: `capability-posture-ref:${platform}:unknown-live`,
+    correction_posture_ref: `correction-posture-ref:${platform}:future-gated`,
+    reconciliation_posture_ref: `reconciliation-posture-ref:${platform}:fixture-only`,
+    unknown_constraint_refs: [],
+    live_account_configured: false as const,
+    provider_sdk_enabled: false as const,
+    network_access_enabled: false as const,
+    publishing_enabled: false as const,
+  }),
+);
+const mockSocialPublishingVariants = mockSocialPublishingPlatforms.map(
+  (platform) => ({
+    variant_ref: `social-variant-ref:q30:${platform}`,
+    variant_version_ref: `social-variant-version-ref:q30:${platform}:v1`,
+    draft_ref: "social-draft-ref:q30-founder-update",
+    platform,
+    account_ref: `social-account-ref:fixture:${platform}`,
+    content_format_ref: `content-format-ref:${platform}:single-image`,
+    rendered_payload_fingerprint_ref: `social-payload-fingerprint-ref:fixture:${platform}`,
+    preview_ref: `social-preview-ref:q30:${platform}:redacted`,
+    diff_ref: `social-diff-ref:q30:${platform}:v1`,
+    adaptation_reason_refs: [
+      `adaptation-reason-ref:${platform}:format-and-cadence`,
+    ],
+    media_version_refs: ["media-version-ref:q30-product-still:v1"],
+    alt_text_ref: `alt-text-ref:q30:${platform}:reviewed-fixture`,
+    rights_posture: "verified_fixture" as const,
+    fixture_only: true as const,
+    raw_content_included: false as const,
+  }),
+);
+const mockSocialPublishingFindings = [
+  ...mockSocialPublishingPlatforms.map((platform) => ({
+    finding_ref: `social-compatibility-finding-ref:${platform}:compatible`,
+    variant_ref: `social-variant-ref:q30:${platform}`,
+    platform,
+    severity: "info" as const,
+    constraint_ref: `platform-constraint-ref:${platform}:compatible`,
+    safe_summary:
+      "Fixture variant satisfies the reviewed capability contract.",
+    remedy_ref: null,
+    override_allowed: false as const,
+  })),
+  {
+    finding_ref: "social-compatibility-finding-ref:x:concise-adaptation",
+    variant_ref: "social-variant-ref:q30:x",
+    platform: "x" as const,
+    severity: "warning" as const,
+    constraint_ref: "platform-constraint-ref:x:concise-adaptation",
+    safe_summary:
+      "Fixture variant is compatible but keeps an operator-visible adaptation warning.",
+    remedy_ref: "remedy-ref:social-publishing:x:concise-adaptation",
+    override_allowed: false as const,
+  },
+];
+const mockSocialPublishingTargets = mockSocialPublishingPlatforms.map(
+  (platform) => ({
+    target_ref: `social-target-ref:q30:${platform}`,
+    variant_ref: `social-variant-ref:q30:${platform}`,
+    platform,
+    account_ref: `social-account-ref:fixture:${platform}`,
+    operation_ref: `operation-ref:social-publishing:${platform}:create-post-dry-run`,
+    payload_fingerprint_ref: `social-payload-fingerprint-ref:fixture:${platform}`,
+    requested_time_ref: `requested-time-ref:q30:${platform}:fixture-window`,
+    timezone_ref: "timezone-ref:america-los-angeles",
+    child_idempotency_ref: `idempotency-ref:q30:${platform}:fixture-v1`,
+    adapter_posture_ref: `adapter-posture-ref:${platform}:not-installed`,
+    live_adapter_available: false as const,
+  }),
+);
+const mockSocialPublishingProposal: SocialPublishingProposalReadModel = {
+  schema_version: "uaa-social-publishing-proposal.v1",
+  proposal_ref: "social-publishing-proposal-ref:q30:mock-fallback",
+  contract_ref: "contract-ref:social-publishing:q30-dry-run:v1",
+  status: "proposal_dry_run_ready",
+  fixture: {
+    fixture_ref: "fixture-ref:social-publishing:q30-founder-update",
+    contract_ref: "contract-ref:social-publishing:q30-dry-run:v1",
+    draft: {
+      draft_ref: "social-draft-ref:q30-founder-update",
+      draft_version_ref: "social-draft-version-ref:q30-founder-update:v1",
+      owner_ref: "owner-ref:studio",
+      workspace_ref: "workspace-ref:founder-private",
+      campaign_ref: "campaign-ref:q30-private-dogfood",
+      objective_ref: "objective-ref:q30-product-update",
+      content_fingerprint_ref: "content-fingerprint-ref:q30:mock-fallback",
+      content_preview_ref: "content-preview-ref:q30:redacted",
+      media_version_refs: ["media-version-ref:q30-product-still:v1"],
+      link_refs: ["link-ref:q30-product-update"],
+      rights_posture: "verified_fixture",
+      fixture_only: true,
+      raw_content_included: false,
+    },
+    capabilities: mockSocialPublishingCapabilities,
+    variants: mockSocialPublishingVariants,
+    findings: mockSocialPublishingFindings,
+    plan: {
+      plan_ref: "social-publish-plan-ref:q30-founder-update:v1",
+      plan_fingerprint_ref: "social-publish-plan-fingerprint-ref:q30:mock-fallback",
+      contract_ref: "contract-ref:social-publishing:q30-dry-run:v1",
+      draft_ref: "social-draft-ref:q30-founder-update",
+      draft_version_ref: "social-draft-version-ref:q30-founder-update:v1",
+      parent_idempotency_ref: "idempotency-ref:q30:founder-update:v1",
+      target_refs: mockSocialPublishingTargets.map((target) => target.target_ref),
+      targets: mockSocialPublishingTargets,
+      finding_refs: mockSocialPublishingFindings.map(
+        (finding) => finding.finding_ref,
+      ),
+      findings: mockSocialPublishingFindings,
+      expires_at_ref: "expiry-ref:q30:fixture-review-window",
+      safe_disable_ref: "safe-disable-ref:social-publishing:q30-default-deny",
+      correction_posture_ref: "correction-posture-ref:q30:new-plan-required",
+      reconciliation_posture_ref:
+        "reconciliation-posture-ref:q30:unknown-blocks-retry",
+      approval_required: true,
+      dry_run_only: true,
+      publishing_enabled: false,
+      external_write_enabled: false,
+    },
+    safe_summary:
+      "A synthetic three-platform publish bundle is ready for exact dry-run review only.",
+    next_safe_action:
+      "Review the exact fixture bundle without connecting accounts.",
+    live_account_access_enabled: false,
+    network_access_enabled: false,
+    background_scheduler_enabled: false,
+    publishing_enabled: false,
+  },
+  cli_ref: "repo-command-ref:uaa-social-publishing:inspect",
+  blocked_authority_refs: [
+    "blocked-state:q30:no-account-access",
+    "blocked-state:q30:no-credential-access",
+    "blocked-state:q30:no-network-access",
+    "blocked-state:q30:no-provider-sdk",
+    "blocked-state:q30:no-background-scheduler",
+    "blocked-state:q30:no-platform-write",
+    "blocked-state:q30:no-live-publish",
+  ],
+  safe_summary:
+    "A synthetic three-platform proposal is ready for readable dry-run review only.",
+  next_safe_action:
+    "Review platform variants and compatibility findings; no publish action is available.",
+  backend_owned: true,
+  read_only: true,
+  dry_run_only: true,
+  raw_content_included: false,
+  account_access_enabled: false,
+  credential_access_enabled: false,
+  network_access_enabled: false,
+  provider_sdk_enabled: false,
+  scheduler_enabled: false,
+  publishing_enabled: false,
+  external_write_enabled: false,
+  external_side_effect_performed: false,
+};
+
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
   connection: {
@@ -12616,6 +12785,7 @@ export const mockControlCenterData: ControlCenterData = {
     "/trust": mockRouteState("Trust", "/trust", "GET /control-center/trust-authority/matrix"),
     "/coding": mockRouteState("Coding", "/coding", "GET /control-center/coding/session"),
     "/work-board": mockRouteState("Work Board", "/work-board", "GET /control-center/work-board"),
+    "/studio": mockRouteState("Studio", "/studio", "GET /control-center/social-publishing/proposal"),
     "/memory": mockRouteState("Memory", "/memory", "GET /control-center/memory/review"),
     "/evidence": mockRouteState("Evidence", "/evidence", "GET /control-center/evidence/timeline"),
     "/settings": mockRouteState("Settings", "/settings", "GET /control-center/settings/status"),
@@ -12631,6 +12801,7 @@ export const mockControlCenterData: ControlCenterData = {
       "GET /control-center/communications/conversations",
     ),
   },
+  socialPublishingProposal: mockSocialPublishingProposal,
   settingsStatus: {
     schema_version: "uaa-control-center-settings-status.v1",
     module_id: "settings",

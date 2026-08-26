@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Verify the bounded Q30 P0-P4 proposal and dry-run implementation."""
+"""Verify the bounded Q30 proposal, dry-run, API/UI, and acceptance freeze."""
 
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from ultimate_ai_agent.core.social_publishing.contracts import (
     ApprovalDecision,
@@ -12,6 +14,7 @@ from ultimate_ai_agent.core.social_publishing.contracts import (
     SocialPublishingDryRunKernel,
     build_retry_plan,
     build_q30_fixture,
+    build_q30_proposal_read_model,
     build_review_envelope,
     build_scenario,
     reconcile_unknown_settlement,
@@ -53,6 +56,23 @@ def verify() -> list[str]:
     ):
         failures.append("Q30 fixture grants prohibited authority")
 
+    proposal = build_q30_proposal_read_model()
+    if not (
+        proposal.backend_owned
+        and proposal.read_only
+        and proposal.dry_run_only
+        and not proposal.raw_content_included
+        and not proposal.account_access_enabled
+        and not proposal.credential_access_enabled
+        and not proposal.network_access_enabled
+        and not proposal.provider_sdk_enabled
+        and not proposal.scheduler_enabled
+        and not proposal.publishing_enabled
+        and not proposal.external_write_enabled
+        and not proposal.external_side_effect_performed
+    ):
+        failures.append("Q30 proposal read model authority posture drifted")
+
     envelope = build_review_envelope(
         fixture.plan, ApprovalDecision.approved_for_dry_run
     )
@@ -91,6 +111,76 @@ def verify() -> list[str]:
         for item in (*mixed.receipts, *unknown.receipts)
     ):
         failures.append("Q30 dry-run receipt claims an external side effect")
+
+    concurrent_kernel = SocialPublishingDryRunKernel()
+    success_scenario = build_scenario(fixture.plan, "success")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        concurrent_results = list(
+            pool.map(
+                lambda _: concurrent_kernel.execute(
+                    plan=fixture.plan,
+                    envelope=envelope,
+                    scenario=success_scenario,
+                ),
+                range(8),
+            )
+        )
+    if (
+        len({item.result_ref for item in concurrent_results}) != 1
+        or sum(item.replayed for item in concurrent_results) != 7
+    ):
+        failures.append("Q30 concurrent exact replay ownership drifted")
+
+    from ultimate_ai_agent.api.app import app
+    from ultimate_ai_agent.api.manifest import build_api_manifest
+
+    route_path = "/control-center/social-publishing/proposal"
+    openapi_path = app.openapi().get("paths", {}).get(route_path, {})
+    if set(openapi_path) != {"get"}:
+        failures.append("Q30 API route is missing or exposes a mutation method")
+    manifest_routes = {
+        (item.method, item.path): item for item in build_api_manifest(app).routes
+    }
+    route = manifest_routes.get(("GET", route_path))
+    if route is None or (
+        route.route_classification != "local_readonly"
+        or route.side_effect_class != "validation_only"
+    ):
+        failures.append("Q30 API route classification drifted")
+
+    repository_root = Path(__file__).resolve().parents[1]
+    studio_source = (
+        repository_root / "apps/control-center/src/northstar/StudioSurface.tsx"
+    ).read_text(encoding="utf-8")
+    for marker in (
+        "Social publishing review",
+        "No publish action",
+        "Account not connected",
+        "Dry-run review is CLI-gated",
+    ):
+        if marker not in studio_source:
+            failures.append(f"Q30 readable Studio marker missing: {marker}")
+    if "name: /^Publish$/" not in (
+        repository_root
+        / "apps/control-center/src/northstar/NorthStarControlCenter.test.tsx"
+    ).read_text(encoding="utf-8"):
+        failures.append("Q30 Studio no-Publish-control assertion is missing")
+
+    acceptance_matrix = (
+        repository_root / "docs/product/UAA_SOCIAL_PUBLISHING_Q30_ACCEPTANCE_MATRIX.md"
+    )
+    if not acceptance_matrix.is_file():
+        failures.append("Q30 acceptance matrix is missing")
+    else:
+        matrix_text = acceptance_matrix.read_text(encoding="utf-8")
+        for marker in (
+            "Concurrent exact replay",
+            "Unknown settlement",
+            "GET-only API",
+            "No live publishing authority",
+        ):
+            if marker not in matrix_text:
+                failures.append(f"Q30 acceptance matrix marker missing: {marker}")
     return failures
 
 
@@ -101,13 +191,13 @@ def main() -> int:
             {
                 "schema_version": "uaa-social-publishing-q30-verification.v1",
                 "status": (
-                    "Q30_P0_P4_VERIFIED_P5_P6_PENDING"
+                    "Q30_VERIFIED_PROPOSAL_DRY_RUN_COMPLETE"
                     if not failures
-                    else "Q30_P0_P4_VERIFICATION_FAILED"
+                    else "Q30_VERIFICATION_FAILED"
                 ),
                 "failures": failures,
-                "api_control_center_parity_complete": False,
-                "acceptance_freeze_complete": False,
+                "api_control_center_parity_complete": not failures,
+                "acceptance_freeze_complete": not failures,
                 "publishing_enabled": False,
                 "external_side_effect_performed": False,
             },

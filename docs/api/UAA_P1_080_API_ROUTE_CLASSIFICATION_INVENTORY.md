@@ -28,12 +28,12 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 30 |
+| `local_readonly` | 31 |
 | `local_sensitive` | 203 |
 | `mutating_requires_authority` | 120 |
 
-The current OpenAPI path count is `354` and `/api/manifest` currently reports
-`356` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `355` and `/api/manifest` currently reports
+`357` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the

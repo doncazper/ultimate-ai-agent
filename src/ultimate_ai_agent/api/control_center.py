@@ -66,6 +66,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
 )
+from ultimate_ai_agent.core.social_publishing import build_q30_proposal_read_model
 from ultimate_ai_agent.core.task_decomposition import (
     api_safety as task_decomposition_api_safety,
 )
@@ -130,6 +131,20 @@ def get_control_center_status() -> ResultEnvelope:
         service="ControlCenterAPI",
         trace_id="system",
         data=dashboard.system_status.model_dump(mode="json"),
+    )
+
+
+@router.get("/social-publishing/proposal", response_model=ResultEnvelope)
+def get_social_publishing_proposal() -> ResultEnvelope:
+    proposal = build_q30_proposal_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_social_publishing_proposal",
+        service="ControlCenterSocialPublishingAPI",
+        trace_id=proposal.proposal_ref,
+        data=proposal.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:q30:proposal-dry-run-read-model"}],
+        redactions_applied=["content-free-refs-only", "no-post-body"],
     )
 
 

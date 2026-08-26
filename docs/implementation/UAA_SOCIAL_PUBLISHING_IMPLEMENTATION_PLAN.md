@@ -1,16 +1,18 @@
 # UAA Cross-Platform Social Publishing Implementation Plan
 
-Status: recovered whole-vision plan with a proposal/dry-run Q30 slice.
+Status: recovered whole-vision plan with the bounded proposal/dry-run Q30 slice complete.
 Source confidence: high from archived design evidence and current Social,
 ecosystem, Action Inbox, Evidence, and external-action contracts.
 
-Implementation status: Q30-P0 through Q30-P4 are implemented locally as a
-content-free synthetic fixture kernel and repo-local CLI. Canonical Studio-owned
+Implementation status: Q30-P0 through Q30-P6 are implemented locally as a
+content-free synthetic fixture kernel, repo-local CLI, protected GET-only API,
+and readable Studio review surface. Canonical Studio-owned
 draft refs, per-platform variants, fixture capability contracts, compatibility
 findings, immutable plans, exact dry-run review envelopes, independent simulated
 settlements, content-free receipts, replay conflict checks, failed-only retry
-plans, and unknown-outcome reconciliation are covered. Q30-P5 API/Control Center
-parity and Q30-P6 acceptance freeze remain next; no live adapter exists.
+plans, unknown-outcome reconciliation, concurrent exact replay, read-only route
+classification, frontend fail-closed fallback, and the finite acceptance matrix
+are covered. No live adapter or execution handler exists.
 Focused verifier: `scripts/verify_social_publishing_q30.py`.
 
 Q30 grants no account connection, authentication, platform read/write,
@@ -298,7 +300,7 @@ Build immutable plans, parent/child idempotency, readable previews/diffs,
 exact multi-target envelope, expiry, and stale/superseded handling.
 
 State: implemented locally for immutable refs, fingerprints, expiry binding,
-and exact approve/reject dry-run review; readable UI remains Q30-P5.
+and exact approve/reject dry-run review with readable Studio inspection.
 
 ### Q30-P4: Deterministic dry-run transaction kernel
 
@@ -314,13 +316,20 @@ side effects.
 Add any accepted read/proposal routes with stable OpenAPI operation IDs, route
 classification, manifest tests, readable UI, and no execution handler.
 
-State: CLI implemented; API and readable Control Center remain next.
+State: implemented for CLI plus protected GET-only API and backend-wired,
+readable Control Center Studio cards. The API has no mutation method and the UI
+has no Publish control.
 
 ### Q30-P6: Security and acceptance freeze
 
 Run redaction, authority, rights, stale revision, replay, concurrency, unknown
 outcome, and product-language tests. Record platform live adapters as blocked
 follow-ups, not implied completion.
+
+State: complete for the bounded local proposal/dry-run tier. The finite evidence
+is frozen in `docs/product/UAA_SOCIAL_PUBLISHING_Q30_ACCEPTANCE_MATRIX.md`.
+Later visual polish is allowed without reopening Q30 unless the contract or
+authority boundary changes.
 
 ### Later SP-LIVE lanes
 

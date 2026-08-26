@@ -67,6 +67,7 @@ import type {
   ResultEnvelope,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  SocialPublishingProposalReadModel,
   RuntimeApprovalBridgeReadModel,
   RuntimeBackgroundJobsReadModel,
   RuntimeLspDiagnosticsReadModel,
@@ -334,6 +335,71 @@ export function consumeLocalApiBearerFromLocation(): boolean {
 
 export function resetControlCenterReadLimiterForTests(): void {
   defaultControlCenterReadLimiter.reset();
+}
+
+function isSafeSocialPublishingProposal(
+  value: SocialPublishingProposalReadModel | undefined,
+): value is SocialPublishingProposalReadModel {
+  if (
+    value === undefined ||
+    value.schema_version !== "uaa-social-publishing-proposal.v1" ||
+    value.status !== "proposal_dry_run_ready" ||
+    value.backend_owned !== true ||
+    value.read_only !== true ||
+    value.dry_run_only !== true ||
+    value.raw_content_included !== false ||
+    value.account_access_enabled !== false ||
+    value.credential_access_enabled !== false ||
+    value.network_access_enabled !== false ||
+    value.provider_sdk_enabled !== false ||
+    value.scheduler_enabled !== false ||
+    value.publishing_enabled !== false ||
+    value.external_write_enabled !== false ||
+    value.external_side_effect_performed !== false ||
+    !Array.isArray(value.fixture?.variants) ||
+    !Array.isArray(value.fixture?.capabilities) ||
+    !Array.isArray(value.fixture?.findings) ||
+    value.fixture.variants.length !== 3 ||
+    value.fixture.capabilities.length !== 3
+  ) {
+    return false;
+  }
+  const expectedPlatforms = new Set<
+    SocialPublishingProposalReadModel["fixture"]["variants"][number]["platform"]
+  >(["instagram", "x", "tiktok"]);
+  const variantPlatforms = new Set(
+    value.fixture.variants.map((variant) => variant.platform),
+  );
+  const capabilityPlatforms = new Set(
+    value.fixture.capabilities.map((capability) => capability.platform),
+  );
+  return (
+    variantPlatforms.size === expectedPlatforms.size &&
+    capabilityPlatforms.size === expectedPlatforms.size &&
+    [...expectedPlatforms].every(
+      (platform) =>
+        variantPlatforms.has(platform) && capabilityPlatforms.has(platform),
+    ) &&
+    value.fixture.draft.raw_content_included === false &&
+    value.fixture.plan.approval_required === true &&
+    value.fixture.plan.dry_run_only === true &&
+    value.fixture.plan.publishing_enabled === false &&
+    value.fixture.plan.external_write_enabled === false &&
+    value.fixture.variants.every(
+      (variant) =>
+        expectedPlatforms.has(variant.platform) &&
+        variant.fixture_only === true &&
+        variant.raw_content_included === false,
+    ) &&
+    value.fixture.capabilities.every(
+      (capability) =>
+        expectedPlatforms.has(capability.platform) &&
+        capability.live_account_configured === false &&
+        capability.provider_sdk_enabled === false &&
+        capability.network_access_enabled === false &&
+        capability.publishing_enabled === false,
+    )
+  );
 }
 
 function localApiBearerForRequest(): string | null {
@@ -2238,6 +2304,11 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const socialPublishingProposalSettledPromise = Promise.allSettled([
+    read<SocialPublishingProposalReadModel>(
+      API_ENDPOINTS.socialPublishingProposal,
+    ),
+  ] as const);
   const crmReadPromise = read<CrmLocalCommandCenterReadModel>(
     API_ENDPOINTS.crmSummary,
   );
@@ -2501,6 +2572,8 @@ export async function loadControlCenterData(
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const socialPublishingProposalResult =
+    await socialPublishingProposalSettledPromise;
   const communicationsProjectionResult =
     await communicationsProjectionSettledPromise;
   const capabilitySurfaceResult = await capabilitySurfaceSettledPromise;
@@ -2694,6 +2767,14 @@ export async function loadControlCenterData(
   const codingLivePreview = fulfilledValue(results[41]);
   const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const unsafeSocialPublishingProposal = fulfilledValue(
+    socialPublishingProposalResult[0],
+  );
+  const socialPublishingProposal = isSafeSocialPublishingProposal(
+    unsafeSocialPublishingProposal,
+  )
+    ? unsafeSocialPublishingProposal
+    : undefined;
   const communicationsProjection = fulfilledValue(
     communicationsProjectionResult[0],
   );
@@ -2985,6 +3066,8 @@ export async function loadControlCenterData(
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
   ];
+  const socialPublishingProposalFallbackUsed =
+    socialPublishingProposal === undefined;
   const safeCapabilitySurface = isSafeControlCenterCapabilitySurface(
     capabilitySurface,
   )
@@ -3199,6 +3282,16 @@ export async function loadControlCenterData(
       endpointReturned: workBoard !== undefined,
       warningRefs: workBoardEndpointFallbackWarningRefs,
       usedFallback: workBoardFallbackUsed,
+    }),
+    routeReadStateInput({
+      route: "/studio",
+      surfaceLabel: "Studio social publishing",
+      backendRouteRef: "GET /control-center/social-publishing/proposal",
+      endpointReturned: unsafeSocialPublishingProposal !== undefined,
+      warningRefs: socialPublishingProposalFallbackUsed
+        ? ["SOCIAL_PUBLISHING_PROPOSAL_MOCK_FALLBACK"]
+        : [],
+      usedFallback: socialPublishingProposalFallbackUsed,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -3911,6 +4004,8 @@ export async function loadControlCenterData(
     codingMultiAgentReview:
       safeCodingMultiAgentReview ?? mockControlCenterData.codingMultiAgentReview,
     workBoard: workBoardFallbackUsed ? mockControlCenterData.workBoard : workBoard,
+    socialPublishingProposal:
+      socialPublishingProposal ?? mockControlCenterData.socialPublishingProposal,
     communicationsProjection:
       communicationsProjection ?? mockControlCenterData.communicationsProjection,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
