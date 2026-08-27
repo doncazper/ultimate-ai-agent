@@ -157,7 +157,7 @@ def main() -> int:
     verify_scores.add_argument("--scores", type=Path, required=True)
     verify_scores.add_argument("--adjudications", type=Path, required=True)
     verify_scores.add_argument("--pair-manifest", type=Path, required=True)
-    verify_scores.add_argument("--randomization", type=Path, required=True)
+    verify_scores.add_argument("--randomization", type=Path)
 
     verify_power = subparsers.add_parser("verify-power-analysis")
     verify_power.add_argument("--receipt", type=Path, required=True)
@@ -260,18 +260,23 @@ def main() -> int:
             score_payload = _json(args.scores)
             adjudication_payload = _json(args.adjudications)
             pair_manifest_payload = _json(args.pair_manifest)
-            randomization_payload = _json(args.randomization)
+            randomization_payload = (
+                _json(args.randomization) if args.randomization is not None else None
+            )
             _validate_safe(score_payload)
             _validate_safe(adjudication_payload)
             _validate_safe(pair_manifest_payload)
-            _validate_safe(randomization_payload)
+            if randomization_payload is not None:
+                _validate_safe(randomization_payload)
             pair_manifest = PairManifest.model_validate(pair_manifest_payload)
             score_bundle = BlindScoreBundle.model_validate(score_payload)
             adjudication_bundle = AdjudicationBundle.model_validate(
                 adjudication_payload
             )
-            randomization_bundle = RandomizationBundle.model_validate(
-                randomization_payload
+            randomization_bundle = (
+                RandomizationBundle.model_validate(randomization_payload)
+                if randomization_payload is not None
+                else None
             )
             if any(
                 digest != pair_manifest.manifest_digest_ref

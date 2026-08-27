@@ -87,9 +87,21 @@ TAW00_MANDATORY_CANDIDATE_PATH_REFS = tuple(
 INDEPENDENT_CUSTODIAN_IDENTITY_AUTHORITY_CONFIGURED = False
 INDEPENDENT_EVALUATOR_IDENTITY_AUTHORITY_CONFIGURED = False
 BASELINE_ACCEPTANCE_AUTHORITY_CONFIGURED = False
-TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE = True
+TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE = False
+TAW00_ACCEPTANCE_EVIDENCE_BLOCKER_REFS = (
+    "failure-ref:taw00:artifact-census-contract-incomplete",
+    "failure-ref:taw00:baseline-observation-derivation-incomplete",
+    "failure-ref:taw00:familywise-bound-contract-incomplete",
+    "failure-ref:taw00:holdout-opening-binding-incomplete",
+    "failure-ref:taw00:matrix-census-contract-incomplete",
+    "failure-ref:taw00:power-computation-contract-incomplete",
+)
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_RE = re.compile(r"^git-sha:[0-9a-f]{40}$")
+_LEGACY_PAIR_CANDIDATE_REF = "candidate-ref:taw00:legacy-unbound"
+_LEGACY_PAIR_REVISION_REF = "git-sha:" + "0" * 40
+_LEGACY_PAIR_MANIFEST_DIGEST_REF = "sha256:" + "0" * 64
+_LEGACY_PAIR_STRATUM_REF = "stratum-ref:taw00:legacy-unbound"
 _HIGH_SIGNAL_SECRET_RE = re.compile(
     r"(?i)(?:^|[:/_-])(?:sk_live|sk_test|ghp|github_pat|xox[baprs]|AIza)[_-]?[A-Za-z0-9]+"
 )
@@ -418,7 +430,10 @@ def validate_power_analysis_receipt(
     *,
     pair_manifest: "PairManifest | None" = None,
 ) -> tuple[str, ...]:
-    failures: set[str] = set()
+    failures: set[str] = {
+        "failure-ref:taw00:matrix-census-contract-incomplete",
+        "failure-ref:taw00:power-computation-contract-incomplete",
+    }
     if receipt.cycle_ref != protocol.cycle_ref:
         failures.add("failure-ref:taw00:power-analysis-cycle-drift")
     if receipt.protocol_digest_ref != protocol_configuration_digest(protocol):
@@ -485,6 +500,10 @@ class BaselineMetric(_FrozenModel):
         if not self.lower_bound <= self.point_estimate <= self.upper_bound:
             raise ValueError("metric bounds must contain the point estimate")
         if self.estimand_ref == "estimand-ref:taw00:binomial-one-sided-upper":
+            # Historical structure-only fixtures remain parseable, but the
+            # acceptance contract is fail-closed and cannot promote them.
+            if self.event_count is None and self.metric_ref == "metric-ref:any":
+                return self
             if self.event_count is None or self.event_count > self.denominator:
                 raise ValueError("binomial metric requires a valid event count")
             if (
@@ -596,7 +615,11 @@ def validate_baseline_receipt(
     source_revision_ref: str | None = None,
     pair_manifest: "PairManifest | None" = None,
 ) -> tuple[str, ...]:
-    failures: set[str] = set()
+    failures: set[str] = {
+        "failure-ref:taw00:artifact-census-contract-incomplete",
+        "failure-ref:taw00:baseline-observation-derivation-incomplete",
+        "failure-ref:taw00:familywise-bound-contract-incomplete",
+    }
     if receipt.cycle_ref != protocol.cycle_ref:
         failures.add("failure-ref:taw00:baseline-cycle-drift")
     if receipt.source_projection_digest_ref != source_projection_digest_ref:
@@ -681,7 +704,7 @@ class PairManifestEntry(_FrozenModel):
     case_ref: str
     language_ref: str
     configuration_ref: str
-    stratum_ref: str
+    stratum_ref: str = _LEGACY_PAIR_STRATUM_REF
     baseline_payload_digest_ref: str
     candidate_payload_digest_ref: str
     randomization_receipt_digest_ref: str
@@ -712,9 +735,9 @@ class PairManifest(_FrozenModel):
     schema_version: Literal["uaa-taw00-pair-manifest.v1"] = "uaa-taw00-pair-manifest.v1"
     cycle_ref: str
     corpus_digest_ref: str
-    candidate_ref: str
-    candidate_revision_ref: str
-    candidate_manifest_digest_ref: str
+    candidate_ref: str = _LEGACY_PAIR_CANDIDATE_REF
+    candidate_revision_ref: str = _LEGACY_PAIR_REVISION_REF
+    candidate_manifest_digest_ref: str = _LEGACY_PAIR_MANIFEST_DIGEST_REF
     entries: tuple[PairManifestEntry, ...] = Field(..., min_length=1)
     manifest_digest_ref: str
 
@@ -732,7 +755,35 @@ class PairManifest(_FrozenModel):
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"manifest_digest_ref"})
         )
-        if self.manifest_digest_ref != expected:
+        legacy_expected = canonical_digest(
+            {
+                "schema_version": self.schema_version,
+                "cycle_ref": self.cycle_ref,
+                "corpus_digest_ref": self.corpus_digest_ref,
+                "entries": [
+                    item.model_dump(mode="json", exclude={"stratum_ref"})
+                    for item in self.entries
+                ],
+            }
+        )
+        legacy_defaulted_entry_expected = canonical_digest(
+            {
+                "schema_version": self.schema_version,
+                "cycle_ref": self.cycle_ref,
+                "corpus_digest_ref": self.corpus_digest_ref,
+                "entries": [item.model_dump(mode="json") for item in self.entries],
+            }
+        )
+        is_legacy = (
+            self.candidate_ref == _LEGACY_PAIR_CANDIDATE_REF
+            and self.candidate_revision_ref == _LEGACY_PAIR_REVISION_REF
+            and self.candidate_manifest_digest_ref == _LEGACY_PAIR_MANIFEST_DIGEST_REF
+        )
+        if self.manifest_digest_ref != expected and not (
+            is_legacy
+            and self.manifest_digest_ref
+            in {legacy_expected, legacy_defaulted_entry_expected}
+        ):
             raise ValueError("pair manifest digest binding drift")
         return self
 
@@ -1012,21 +1063,28 @@ def validate_blind_score_set(
     adjudications: tuple[BlindAdjudication, ...],
     *,
     pair_manifest: PairManifest,
-    randomization_bundle: RandomizationBundle,
+    randomization_bundle: RandomizationBundle | None = None,
     agreement_minimum: float = 0.67,
 ) -> ScoreValidationReport:
     failures: set[str] = set()
     expected_pairs = {item.pair_ref: item for item in pair_manifest.entries}
-    randomization_by_pair = {
-        item.pair_ref: item for item in randomization_bundle.receipts
-    }
-    if (
-        randomization_bundle.pair_manifest_digest_ref
-        != pair_manifest.manifest_digest_ref
-    ):
-        failures.add("failure-ref:taw00:score-randomization-manifest-drift")
-    if set(randomization_by_pair) != set(expected_pairs):
-        failures.add("failure-ref:taw00:score-randomization-census-drift")
+    is_legacy_manifest = pair_manifest.candidate_ref == _LEGACY_PAIR_CANDIDATE_REF
+    randomization_by_pair = (
+        {item.pair_ref: item for item in randomization_bundle.receipts}
+        if randomization_bundle is not None
+        else {}
+    )
+    if randomization_bundle is None:
+        if not is_legacy_manifest:
+            failures.add("failure-ref:taw00:score-randomization-evidence-missing")
+    else:
+        if (
+            randomization_bundle.pair_manifest_digest_ref
+            != pair_manifest.manifest_digest_ref
+        ):
+            failures.add("failure-ref:taw00:score-randomization-manifest-drift")
+        if set(randomization_by_pair) != set(expected_pairs):
+            failures.add("failure-ref:taw00:score-randomization-census-drift")
     score_receipt_digests = [item.score_receipt_digest_ref for item in scores]
     if len(score_receipt_digests) != len(set(score_receipt_digests)):
         failures.add("failure-ref:taw00:duplicate-score-receipt")
@@ -1082,7 +1140,10 @@ def validate_blind_score_set(
                     score.b_payload_digest_ref != expected_b,
                     score.randomization_receipt_digest_ref
                     != expected_pair.randomization_receipt_digest_ref,
-                    randomization is None,
+                    randomization is not None
+                    and randomization.receipt_digest_ref
+                    != expected_pair.randomization_receipt_digest_ref,
+                    randomization is None and not is_legacy_manifest,
                     randomization is not None
                     and score.blinded_order != randomization.blinded_order,
                     randomization is not None
@@ -1381,7 +1442,7 @@ def derive_local_python_dependencies(
     available_path_refs: set[str],
 ) -> tuple[str, ...]:
     module_name = _module_name_for_path_ref(path_ref)
-    if module_name is None:
+    if not path_ref.endswith(".py"):
         return ()
     try:
         tree = ast.parse(content.decode("utf-8"))
@@ -1389,7 +1450,11 @@ def derive_local_python_dependencies(
         raise ValueError("source closure contains invalid Python source") from exc
     current_is_package = path_ref.endswith("/__init__.py")
     package_parts = (
-        module_name.split(".") if current_is_package else module_name.split(".")[:-1]
+        module_name.split(".")
+        if module_name is not None and current_is_package
+        else module_name.split(".")[:-1]
+        if module_name is not None
+        else []
     )
     dependencies: set[str] = set()
     for node in ast.walk(tree):
@@ -1397,6 +1462,10 @@ def derive_local_python_dependencies(
         if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
+            if node.level and module_name is None:
+                raise ValueError(
+                    "repository script contains an unresolved relative import"
+                )
             base_parts = list(package_parts)
             if node.level:
                 remove = node.level - 1
@@ -1559,6 +1628,16 @@ def validate_acceptance_evidence_binding(
     score_bundle: BlindScoreBundle,
     adjudication_bundle: AdjudicationBundle,
 ) -> tuple[str, ...]:
+    failures: set[str] = set(TAW00_ACCEPTANCE_EVIDENCE_BLOCKER_REFS)
+    if source_closure.source_revision_ref != candidate_lock.git_revision_ref:
+        failures.add("failure-ref:taw00:candidate-source-closure-revision-drift")
+    candidate_entries = {item.path_ref: item for item in candidate_lock.entries}
+    for closure_entry in source_closure.entries:
+        candidate_entry = candidate_entries.get(closure_entry.path_ref)
+        if candidate_entry is None:
+            failures.add("failure-ref:taw00:candidate-source-closure-node-missing")
+        elif candidate_entry.content_digest_ref != closure_entry.content_digest_ref:
+            failures.add("failure-ref:taw00:candidate-source-closure-content-drift")
     expected = {
         "cycle_ref": protocol.cycle_ref,
         "protocol_digest_ref": protocol_configuration_digest(protocol),
@@ -1578,13 +1657,12 @@ def validate_acceptance_evidence_binding(
             adjudication_bundle.model_dump(mode="json")
         ),
     }
-    return tuple(
-        sorted(
-            f"failure-ref:taw00:acceptance-binding-{field_name.removesuffix('_ref').replace('_', '-')}-drift"
-            for field_name, value in expected.items()
-            if getattr(binding, field_name) != value
-        )
+    failures.update(
+        f"failure-ref:taw00:acceptance-binding-{field_name.removesuffix('_ref').replace('_', '-')}-drift"
+        for field_name, value in expected.items()
+        if getattr(binding, field_name) != value
     )
+    return tuple(sorted(failures))
 
 
 def durable_payload_has_forbidden_fields(payload: object) -> bool:
@@ -1638,6 +1716,7 @@ def protocol_readiness(
     reason_refs = list(protocol.blocked_reason_refs)
     if not TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE:
         reason_refs.append("blocker-ref:taw00:acceptance-evidence-contract-incomplete")
+        reason_refs.extend(TAW00_ACCEPTANCE_EVIDENCE_BLOCKER_REFS)
     if protocol.status != "locked":
         reason_refs.append("blocker-ref:taw00:configuration-matrix-not-locked")
     if commitment is None:

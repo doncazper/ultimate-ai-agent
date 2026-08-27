@@ -1,6 +1,6 @@
-# TAW-00 Fail-Closed Evaluation Acceptance Contracts
+# TAW-00 Fail-Closed Evaluation Scaffold
 
-Status: acceptance contracts implemented; external configuration and evidence pending
+Status: scaffold implemented; acceptance evidence contract incomplete; external configuration and evidence pending
 
 Baseline: v0.104.0 / 0.104.0
 
@@ -12,7 +12,7 @@ Source projection: `docs/evals/tool_aware_cognition_taw00_source_projection_v1.j
 
 ## Boundary
 
-This slice implements fail-closed TAW-00 evaluation acceptance contracts without changing
+This slice implements a fail-closed TAW-00 evaluation scaffold without changing
 the Turn Contract Router, chat path, prompts, policy, model-visible formatting,
 model/provider behavior, or runtime authority. Capability Evaluation Lab V1
 remains the deterministic capability-task contract. TAW-00 scaffolds separate
@@ -26,7 +26,7 @@ product languages, local-model configurations, or hardware/backend classes, so
 the scaffold leaves those arrays empty and reports exact blockers. Convenience
 defaults would narrow the acceptance population without authority.
 
-## Implemented Acceptance Contracts
+## Implemented Scaffold Contracts
 
 - deterministic synthetic development-corpus manifests store generator/version,
   safe parameter/category/rubric refs, immutable case refs, and generated-content
@@ -59,8 +59,10 @@ defaults would narrow the acceptance population without authority.
   candidate manifest;
 - selected pure-Python paired and clustered bootstrap helpers, Holm step-down
   thresholds, and ordinal Krippendorff alpha provide deterministic scaffold
-  statistics. Typed power receipts must cover the exact metric/stratum census,
-  bind the frozen protocol, and prove the pair census meets every denominator;
+  statistics. Typed power receipts cover the declared metric/stratum census and
+  bind the frozen protocol, but they do not yet independently derive the
+  denominator from a power calculation or cover the complete
+  language/configuration/hardware/stratum matrix;
 - a content-addressed candidate lock records named-revision bytes and keeps
   evidence-only deltas disjoint. Pair manifests bind its exact candidate ref,
   Git revision, and manifest digest;
@@ -72,10 +74,11 @@ defaults would narrow the acceptance population without authority.
   non-literal dynamic-import nodes. The
   checked-in historical projection remains explicitly partial and cannot pass
   that closure gate;
-- one acceptance-evidence binding digest links the frozen protocol, power
+- one provisional acceptance-evidence binding digest links the frozen protocol, power
   receipt, source projection and closure, candidate lock, pair manifest,
   baseline, randomization, score, and adjudication bundles so any changed link
-  stales the result;
+  stales the result. It cannot validate as acceptance proof while the incomplete
+  contracts below remain explicit failures;
 - repository CLI and verifier surfaces operate on content-safe JSON only. Their
   only subprocess is fixed-argument, read-only `git show` for revision-bound
   verification; they add no model, provider, network, browser, mutation, or
@@ -107,23 +110,47 @@ identity. Promotion is deliberately fail-closed until separately reviewed,
 externally anchored custodian, evaluator, and baseline-acceptance identity
 authorities exist. Candidate-generated attestations cannot open those gates.
 
+## Incomplete Acceptance Evidence Contracts
+
+The scaffold deliberately reports these code-owned failures on every
+acceptance-oriented validation path:
+
+- power denominators are not independently recomputed from pre-registered
+  assumptions;
+- the exact language/configuration/hardware/stratum matrix census is not bound;
+- baseline estimates and intervals are not recomputed from a typed exhaustive
+  observation/artifact census;
+- familywise binomial bounds are not yet derived under the registered Holm
+  family;
+- the sealed holdout commitment, verified opening, and revealed holdout corpus
+  digest are not bound end to end;
+- the durable artifact census and recursive content-safety proof are not yet
+  typed and exhaustive.
+
+The source-closure verifier now parses repository `scripts/*.py` roots, score
+validation binds each pair to the exact randomization receipt, and candidate
+acceptance checks require the candidate revision and manifest to contain the
+same transitive closure bytes. Those repairs do not complete the six contracts
+above.
+
 ## Remaining TAW-00 Gate
 
 Before any routing or prompt change:
 
-1. freeze the truthful supported language, model-configuration, and
+1. complete and independently review the six code-owned evidence contracts
+   listed above;
+2. freeze the truthful supported language, model-configuration, and
    hardware/backend sets through review;
-2. configure externally anchored custodian/evaluator/baseline-acceptance identity
+3. configure externally anchored custodian/evaluator/baseline-acceptance identity
    authority and have an independent custodian create the public commitment
    before the candidate is built;
-3. collect the accepted-current same-model behavior-preserving baseline with
+4. collect the accepted-current same-model behavior-preserving baseline with
    transient raw prompts/responses and redacted durable receipts;
-4. obtain two independent language-qualified blind scores per pair and a third
+5. obtain two independent language-qualified blind scores per pair and a third
    independent qualified adjudicator for disagreements;
-5. lock and verify the complete candidate manifest before any one-time holdout
+6. lock and verify the complete candidate manifest before any one-time holdout
    release.
 
 Until those steps pass, TAW-00 and Q22 remain blocked before behavior change.
-This slice removes the code-owned acceptance-contract blocker and narrows the
-old facility-unavailable blocker to external configuration, identity,
-measurement, and review inputs; it does not complete TAW-00 or Q22.
+This slice keeps the code-owned acceptance-contract blocker explicit and narrows
+its exact remaining work. It does not complete TAW-00 or Q22.

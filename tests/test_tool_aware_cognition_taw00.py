@@ -99,7 +99,29 @@ def _case_spec(index: int = 1) -> DevelopmentCaseSpec:
     )
 
 
-def _pair_manifest(
+def _pair_manifest(*pair_numbers: int) -> PairManifest:
+    entries = tuple(
+        PairManifestEntry(
+            pair_ref=f"pair-ref:taw00:{pair}",
+            case_ref=f"case-ref:taw00:{pair}",
+            language_ref="language-ref:test-language",
+            configuration_ref="configuration-ref:taw00:test",
+            baseline_payload_digest_ref="sha256:" + f"{pair:064x}"[-64:],
+            candidate_payload_digest_ref="sha256:" + f"{pair + 100:064x}"[-64:],
+            randomization_receipt_digest_ref="sha256:" + f"{pair + 200:064x}"[-64:],
+        )
+        for pair in pair_numbers
+    )
+    payload = {
+        "schema_version": "uaa-taw00-pair-manifest.v1",
+        "cycle_ref": "cycle-ref:taw00:test",
+        "corpus_digest_ref": "sha256:" + "9" * 64,
+        "entries": [item.model_dump(mode="json") for item in entries],
+    }
+    return PairManifest(**payload, manifest_digest_ref=canonical_digest(payload))
+
+
+def _bound_pair_manifest(
     *pair_numbers: int, candidate_lock: CandidateLock | None = None
 ) -> PairManifest:
     entries = []
@@ -166,7 +188,43 @@ def _pair_manifest(
     return PairManifest(**payload, manifest_digest_ref=canonical_digest(payload))
 
 
-def _score(
+def _score(pair: int, evaluator: int, value: int) -> BlindScore:
+    manifest_entry = _pair_manifest(pair).entries[0]
+    baseline_label = "a" if evaluator % 2 else "b"
+    baseline_digest = manifest_entry.baseline_payload_digest_ref
+    candidate_digest = manifest_entry.candidate_payload_digest_ref
+    payload = {
+        "pair_ref": f"pair-ref:taw00:{pair}",
+        "cycle_ref": "cycle-ref:taw00:test",
+        "language_ref": "language-ref:test-language",
+        "configuration_ref": "configuration-ref:taw00:test",
+        "evaluator_ref": f"evaluator-ref:taw00:{evaluator}",
+        "language_qualification_ref": f"qualification-ref:taw00:{evaluator}",
+        "blinded_order": "a_then_b" if evaluator % 2 else "b_then_a",
+        "baseline_label": baseline_label,
+        "a_payload_digest_ref": baseline_digest
+        if baseline_label == "a"
+        else candidate_digest,
+        "b_payload_digest_ref": candidate_digest
+        if baseline_label == "a"
+        else baseline_digest,
+        "randomization_receipt_digest_ref": manifest_entry.randomization_receipt_digest_ref,
+        "a_dimension_scores": {dimension: value for dimension in TAW00_DIMENSIONS},
+        "b_dimension_scores": {dimension: value for dimension in TAW00_DIMENSIONS},
+    }
+    return BlindScore(
+        **payload,
+        score_receipt_digest_ref=canonical_digest(
+            {
+                "schema_version": "uaa-taw00-blind-score.v1",
+                **payload,
+                "raw_content_persisted": False,
+            }
+        ),
+    )
+
+
+def _bound_score(
     pair: int,
     evaluator: int,
     value: int,
@@ -175,7 +233,7 @@ def _score(
 ) -> BlindScore:
     manifest_entry = next(
         entry
-        for entry in (pair_manifest or _pair_manifest(pair)).entries
+        for entry in (pair_manifest or _bound_pair_manifest(pair)).entries
         if entry.pair_ref == f"pair-ref:taw00:{pair}"
     )
     baseline_label = "a" if pair % 2 else "b"
@@ -507,20 +565,22 @@ def test_binomial_upper_bound_is_exact_and_numerator_bound() -> None:
 
 def test_power_receipt_and_randomization_bind_exact_candidate_pair_census() -> None:
     candidate_lock = _candidate_lock()
-    pair_manifest = _pair_manifest(1, 2, candidate_lock=candidate_lock)
+    pair_manifest = _bound_pair_manifest(1, 2, candidate_lock=candidate_lock)
     protocol = _locked_protocol(pair_manifest)
     power_receipt = _power_receipt(protocol)
-    assert (
+    assert set(
         validate_power_analysis_receipt(
             power_receipt, protocol, pair_manifest=pair_manifest
         )
-        == ()
-    )
+    ) == {
+        "failure-ref:taw00:matrix-census-contract-incomplete",
+        "failure-ref:taw00:power-computation-contract-incomplete",
+    }
     assert "failure-ref:taw00:pair-census-below-power-gate" in (
         validate_power_analysis_receipt(
             power_receipt,
             protocol,
-            pair_manifest=_pair_manifest(1, candidate_lock=candidate_lock),
+            pair_manifest=_bound_pair_manifest(1, candidate_lock=candidate_lock),
         )
     )
 
@@ -545,7 +605,7 @@ def test_power_receipt_and_randomization_bind_exact_candidate_pair_census() -> N
     )
     with pytest.raises(ValidationError, match="not balanced"):
         _randomization_bundle(
-            _pair_manifest(1, 3, candidate_lock=candidate_lock),
+            _bound_pair_manifest(1, 3, candidate_lock=candidate_lock),
             candidate_lock,
         )
 
@@ -628,11 +688,19 @@ def test_source_dependency_closure_detects_missing_transitive_import() -> None:
             b"import importlib\nimportlib.import_module(module_name)\n",
             available_path_refs=set(content_by_path),
         )
+    script_dependency_ref = (
+        "repo-path-ref:src/ultimate_ai_agent/core/approvals/authority.py"
+    )
+    assert derive_local_python_dependencies(
+        "repo-path-ref:scripts/example.py",
+        b"from ultimate_ai_agent.core.approvals import authority\n",
+        available_path_refs={script_dependency_ref},
+    ) == (script_dependency_ref,)
 
 
 def test_acceptance_binding_stales_when_any_candidate_result_link_changes() -> None:
     candidate_lock = _candidate_lock()
-    pair_manifest = _pair_manifest(1, candidate_lock=candidate_lock)
+    pair_manifest = _bound_pair_manifest(1, candidate_lock=candidate_lock)
     protocol = _locked_protocol(pair_manifest)
     power = _power_receipt(protocol)
     projection_payload = {
@@ -711,8 +779,8 @@ def test_acceptance_binding_stales_when_any_candidate_result_link_changes() -> N
     scores = BlindScoreBundle(
         pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
         scores=(
-            _score(1, 1, 2, pair_manifest=pair_manifest),
-            _score(1, 2, 2, pair_manifest=pair_manifest),
+            _bound_score(1, 1, 2, pair_manifest=pair_manifest),
+            _bound_score(1, 2, 2, pair_manifest=pair_manifest),
         ),
     )
     adjudications = AdjudicationBundle(
@@ -754,23 +822,102 @@ def test_acceptance_binding_stales_when_any_candidate_result_link_changes() -> N
         "score_bundle": scores,
         "adjudication_bundle": adjudications,
     }
-    assert validate_acceptance_evidence_binding(binding, **kwargs) == ()
+    binding_failures = validate_acceptance_evidence_binding(binding, **kwargs)
+    assert "failure-ref:taw00:artifact-census-contract-incomplete" in binding_failures
+    assert "failure-ref:taw00:holdout-opening-binding-incomplete" in binding_failures
+    mismatched_closure = closure.model_copy(
+        update={"source_revision_ref": "git-sha:" + "b" * 40}
+    )
+    assert "failure-ref:taw00:candidate-source-closure-revision-drift" in (
+        validate_acceptance_evidence_binding(
+            binding, **{**kwargs, "source_closure": mismatched_closure}
+        )
+    )
     stale = binding.model_copy(update={"candidate_revision_ref": "git-sha:" + "b" * 40})
     assert validate_acceptance_evidence_binding(stale, **kwargs)
 
 
 def test_blind_scoring_requires_two_evaluators_and_independent_adjudication() -> None:
+    valid = validate_blind_score_set(
+        (_score(1, 1, 2), _score(1, 2, 2), _score(2, 1, 4), _score(2, 2, 4)),
+        (),
+        pair_manifest=_pair_manifest(1, 2),
+    )
+    assert valid.valid is True
+    assert set(valid.agreement_by_language_dimension) == {
+        "language-ref:test-language|helpfulness",
+        "language-ref:test-language|instruction_following",
+        "language-ref:test-language|tone",
+        "language-ref:test-language|response_relevance",
+    }
+
+    disagreement = validate_blind_score_set(
+        (_score(1, 1, 2), _score(1, 2, 3)),
+        (),
+        pair_manifest=_pair_manifest(1),
+    )
+    assert disagreement.valid is False
+    assert "failure-ref:taw00:unresolved-disagreement" in disagreement.failure_refs
+
+    adjudication_payload = {
+        "pair_ref": "pair-ref:taw00:1",
+        "language_ref": "language-ref:test-language",
+        "configuration_ref": "configuration-ref:taw00:test",
+        "cycle_ref": "cycle-ref:taw00:test",
+        "dimension_ref": "helpfulness",
+        "adjudicator_ref": "evaluator-ref:taw00:1",
+        "language_qualification_ref": "qualification-ref:taw00:adjudicator",
+        "blinded_order": "a_then_b",
+        "baseline_label": "a",
+        "a_payload_digest_ref": _pair_manifest(1)
+        .entries[0]
+        .baseline_payload_digest_ref,
+        "b_payload_digest_ref": _pair_manifest(1)
+        .entries[0]
+        .candidate_payload_digest_ref,
+        "randomization_receipt_digest_ref": _pair_manifest(1)
+        .entries[0]
+        .randomization_receipt_digest_ref,
+        "final_a_score": 2,
+        "final_b_score": 3,
+    }
+    adjudication = BlindAdjudication(
+        **adjudication_payload,
+        receipt_digest_ref=canonical_digest(
+            {
+                "schema_version": "uaa-taw00-adjudication.v1",
+                **adjudication_payload,
+            }
+        ),
+    )
+    self_adjudicated = validate_blind_score_set(
+        (_score(1, 1, 2), _score(1, 2, 3)),
+        (adjudication,),
+        pair_manifest=_pair_manifest(1),
+    )
+    assert "failure-ref:taw00:adjudicator-not-independent" in (
+        self_adjudicated.failure_refs
+    )
+    truncated = validate_blind_score_set(
+        (_score(1, 1, 2), _score(1, 2, 2)),
+        (),
+        pair_manifest=_pair_manifest(1, 2),
+    )
+    assert "failure-ref:taw00:incomplete-pair-census" in truncated.failure_refs
+
+
+def test_bound_blind_scoring_requires_randomization_and_pair_binding() -> None:
     candidate_lock = _candidate_lock()
-    full_manifest = _pair_manifest(1, 2, candidate_lock=candidate_lock)
+    full_manifest = _bound_pair_manifest(1, 2, candidate_lock=candidate_lock)
     full_randomization = _randomization_bundle(full_manifest, candidate_lock)
-    pair_one_manifest = _pair_manifest(1, candidate_lock=candidate_lock)
+    pair_one_manifest = _bound_pair_manifest(1, candidate_lock=candidate_lock)
     pair_one_randomization = _randomization_bundle(pair_one_manifest, candidate_lock)
     valid = validate_blind_score_set(
         (
-            _score(1, 1, 2, pair_manifest=full_manifest),
-            _score(1, 2, 2, pair_manifest=full_manifest),
-            _score(2, 1, 4, pair_manifest=full_manifest),
-            _score(2, 2, 4, pair_manifest=full_manifest),
+            _bound_score(1, 1, 2, pair_manifest=full_manifest),
+            _bound_score(1, 2, 2, pair_manifest=full_manifest),
+            _bound_score(2, 1, 4, pair_manifest=full_manifest),
+            _bound_score(2, 2, 4, pair_manifest=full_manifest),
         ),
         (),
         pair_manifest=full_manifest,
@@ -783,26 +930,44 @@ def test_blind_scoring_requires_two_evaluators_and_independent_adjudication() ->
         "language-ref:test-language|tone",
         "language-ref:test-language|response_relevance",
     }
-    tampered_order = _score(1, 1, 2, pair_manifest=full_manifest).model_copy(
+    tampered_order = _bound_score(1, 1, 2, pair_manifest=full_manifest).model_copy(
         update={"blinded_order": "b_then_a"}
     )
     order_drift = validate_blind_score_set(
         (
             tampered_order,
-            _score(1, 2, 2, pair_manifest=full_manifest),
-            _score(2, 1, 4, pair_manifest=full_manifest),
-            _score(2, 2, 4, pair_manifest=full_manifest),
+            _bound_score(1, 2, 2, pair_manifest=full_manifest),
+            _bound_score(2, 1, 4, pair_manifest=full_manifest),
+            _bound_score(2, 2, 4, pair_manifest=full_manifest),
         ),
         (),
         pair_manifest=full_manifest,
         randomization_bundle=full_randomization,
     )
     assert "failure-ref:taw00:score-pair-binding-drift" in order_drift.failure_refs
+    wrong_receipt = full_randomization.receipts[0].model_copy(
+        update={"receipt_digest_ref": "sha256:" + "f" * 64}
+    )
+    wrong_bundle = full_randomization.model_copy(
+        update={"receipts": (wrong_receipt, *full_randomization.receipts[1:])}
+    )
+    receipt_drift = validate_blind_score_set(
+        (
+            _bound_score(1, 1, 2, pair_manifest=full_manifest),
+            _bound_score(1, 2, 2, pair_manifest=full_manifest),
+            _bound_score(2, 1, 4, pair_manifest=full_manifest),
+            _bound_score(2, 2, 4, pair_manifest=full_manifest),
+        ),
+        (),
+        pair_manifest=full_manifest,
+        randomization_bundle=wrong_bundle,
+    )
+    assert "failure-ref:taw00:score-pair-binding-drift" in receipt_drift.failure_refs
 
     disagreement = validate_blind_score_set(
         (
-            _score(1, 1, 2, pair_manifest=pair_one_manifest),
-            _score(1, 2, 3, pair_manifest=pair_one_manifest),
+            _bound_score(1, 1, 2, pair_manifest=pair_one_manifest),
+            _bound_score(1, 2, 3, pair_manifest=pair_one_manifest),
         ),
         (),
         pair_manifest=pair_one_manifest,
@@ -844,8 +1009,8 @@ def test_blind_scoring_requires_two_evaluators_and_independent_adjudication() ->
     )
     self_adjudicated = validate_blind_score_set(
         (
-            _score(1, 1, 2, pair_manifest=pair_one_manifest),
-            _score(1, 2, 3, pair_manifest=pair_one_manifest),
+            _bound_score(1, 1, 2, pair_manifest=pair_one_manifest),
+            _bound_score(1, 2, 3, pair_manifest=pair_one_manifest),
         ),
         (adjudication,),
         pair_manifest=pair_one_manifest,
@@ -856,8 +1021,8 @@ def test_blind_scoring_requires_two_evaluators_and_independent_adjudication() ->
     )
     truncated = validate_blind_score_set(
         (
-            _score(1, 1, 2, pair_manifest=full_manifest),
-            _score(1, 2, 2, pair_manifest=full_manifest),
+            _bound_score(1, 1, 2, pair_manifest=full_manifest),
+            _bound_score(1, 2, 2, pair_manifest=full_manifest),
         ),
         (),
         pair_manifest=full_manifest,
@@ -944,10 +1109,9 @@ def test_baseline_receipt_requires_locked_metric_census_and_current_acceptance()
         metric_ref="metric-ref:any",
         stratum_ref="stratum-ref:taw00:test",
         denominator=1,
-        event_count=0,
         point_estimate=0,
         lower_bound=0,
-        upper_bound=binomial_one_sided_upper_bound(0, 1),
+        upper_bound=0,
         estimator_ref="estimator-ref:taw00:paired-bootstrap",
         estimand_ref="estimand-ref:taw00:binomial-one-sided-upper",
         evidence_digest_ref="sha256:" + "3" * 64,
@@ -1097,15 +1261,18 @@ def test_baseline_receipt_enforces_absolute_and_relative_acceptance_bounds() -> 
         )
 
     passing = receipt_with(p95_upper=5.0, quality_lower=-5.0)
-    assert (
+    assert set(
         validate_baseline_receipt(
             passing,
             protocol,
             source_projection_digest_ref="sha256:" + "f" * 64,
             pair_manifest_digest_ref="sha256:" + "2" * 64,
         )
-        == ()
-    )
+    ) == {
+        "failure-ref:taw00:artifact-census-contract-incomplete",
+        "failure-ref:taw00:baseline-observation-derivation-incomplete",
+        "failure-ref:taw00:familywise-bound-contract-incomplete",
+    }
     relative_failure = validate_baseline_receipt(
         receipt_with(p95_upper=6.0, quality_lower=-5.0),
         protocol,
@@ -1145,7 +1312,7 @@ def test_pending_protocol_reports_external_inputs_without_inventing_defaults() -
     )
     assert (
         "blocker-ref:taw00:acceptance-evidence-contract-incomplete"
-        not in report["reason_refs"]
+        in report["reason_refs"]
     )
 
 
@@ -1216,8 +1383,26 @@ def test_schema_rejects_untyped_nested_artifacts() -> None:
     }
     assert list(validator.iter_errors(metric_payload))
 
+
+def test_schema_rejects_untyped_power_and_randomization_artifacts() -> None:
+    validator = verifier.Draft202012Validator(verifier._load(verifier.SCHEMA))
+    corpus = build_development_corpus_manifest(
+        corpus_ref="corpus-ref:taw00:development-v1",
+        deterministic_seed_ref="seed-ref:taw00:development-v1",
+        seed_material=b"public-development-seed-material",
+        specs=(_case_spec(),),
+    ).model_dump(mode="json")
+    corpus["cases"] = ["not-a-case-object"]
+    assert list(validator.iter_errors(corpus))
+
+    metric_payload = {
+        "schema_version": "uaa-taw00-baseline-receipt.v1",
+        "metrics": ["not-a-metric-object"],
+    }
+    assert list(validator.iter_errors(metric_payload))
+
     candidate_lock = _candidate_lock()
-    pair_manifest = _pair_manifest(1, candidate_lock=candidate_lock)
+    pair_manifest = _bound_pair_manifest(1, candidate_lock=candidate_lock)
     power_payload = _power_receipt(_locked_protocol(pair_manifest)).model_dump(
         mode="json"
     )
@@ -1241,8 +1426,151 @@ def test_schema_rejects_untyped_nested_artifacts() -> None:
 def test_acceptance_oriented_cli_commands_remain_non_authoritative(
     tmp_path, monkeypatch, capsys
 ) -> None:
+    pair_manifest = _pair_manifest(1)
+    commitment = build_holdout_commitment(
+        cycle_ref="cycle-ref:taw00:test",
+        custodian_ref="custodian-ref:taw00:independent",
+        creation_order_evidence_ref="evidence-ref:taw00:pre-candidate",
+        custodian_attestation_ref="attestation-ref:taw00:independent-custodian",
+        secret_key=b"k" * 32,
+        private_manifest=(
+            '{"schema_version":"uaa-taw00-private-holdout.v1",'
+            '"cycle_ref":"cycle-ref:taw00:test",'
+            '"corpus_ref":"corpus-ref:taw00:holdout-v1",'
+            '"deterministic_seed_ref":"seed-ref:taw00:holdout-v1",'
+            f'"seed_material_hex":"{"ab" * 32}",'
+            '"cases":[{"case_ref":"case-ref:taw00:holdout-1",'
+            '"category_ref":"category-ref:taw00:ordinary-chat",'
+            '"rubric_ref":"rubric-ref:taw00:ordinary-chat-quality-v1",'
+            '"parameter_refs":["parameter-ref:taw00:neutral-tone"],'
+            '"variant_index":1}],"synthetic_only":true}'
+        ).encode(),
+    )
+    metric = BaselineMetric(
+        metric_ref="metric-ref:any",
+        stratum_ref="stratum-ref:taw00:test",
+        denominator=1,
+        point_estimate=0,
+        lower_bound=0,
+        upper_bound=0,
+        estimator_ref="estimator-ref:taw00:paired-bootstrap",
+        estimand_ref="estimand-ref:taw00:binomial-one-sided-upper",
+        evidence_digest_ref="sha256:" + "3" * 64,
+    )
+    projection_payload = verifier._load(verifier.SOURCE_PROJECTION)
+    receipt_payload = {
+        "schema_version": "uaa-taw00-baseline-receipt.v1",
+        "baseline_ref": "baseline-ref:taw00:test",
+        "cycle_ref": "cycle-ref:taw00:initial",
+        "evaluator_revision_ref": projection_payload["source_revision_ref"],
+        "evaluator_environment_digest_ref": "sha256:" + "4" * 64,
+        "catalog_digest_ref": "sha256:" + "5" * 64,
+        "model_artifact_digest_ref": "sha256:" + "6" * 64,
+        "tokenizer_digest_ref": "sha256:" + "7" * 64,
+        "inference_config_digest_ref": "sha256:" + "8" * 64,
+        "prompt_format_digest_ref": "sha256:" + "9" * 64,
+        "ttft_ordering_receipt_digest_ref": "sha256:" + "a" * 64,
+        "cache_state_receipt_digest_ref": "sha256:" + "b" * 64,
+        "baseline_payload_digest_ref": "sha256:" + "c" * 64,
+        "candidate_payload_digest_ref": "sha256:" + "d" * 64,
+        "metrics": [metric.model_dump(mode="json")],
+        "failure_refs": [],
+        "artifact_census_digest_ref": "sha256:" + "e" * 64,
+        "source_projection_digest_ref": projection_payload["projection_digest_ref"],
+        "pair_manifest_digest_ref": pair_manifest.manifest_digest_ref,
+        "accepted_current": True,
+        "acceptance_receipt_ref": "acceptance-ref:taw00:test",
+        "complete": True,
+        "raw_content_persisted": False,
+        "runtime_authority_added": False,
+    }
+    receipt = BaselineReceipt(
+        **receipt_payload,
+        receipt_digest_ref=canonical_digest(receipt_payload),
+    )
+    scores = BlindScoreBundle(
+        pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
+        scores=(_score(1, 1, 2), _score(1, 2, 2)),
+    )
+    adjudications = AdjudicationBundle(
+        pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
+        adjudications=(),
+    )
+
+    def write(name: str, payload: object):
+        path = tmp_path / name
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    commitment_path = write("commitment.json", commitment.model_dump(mode="json"))
+    receipt_path = write("receipt.json", receipt.model_dump(mode="json"))
+    protocol_path = write("protocol.json", verifier._load(verifier.PROTOCOL))
+    projection_path = write("projection.json", projection_payload)
+    pair_path = write("pairs.json", pair_manifest.model_dump(mode="json"))
+    scores_path = write("scores.json", scores.model_dump(mode="json"))
+    adjudications_path = write(
+        "adjudications.json", adjudications.model_dump(mode="json")
+    )
+
+    monkeypatch.setattr(
+        baseline_cli.sys,
+        "argv",
+        [
+            "run_tool_aware_baseline.py",
+            "verify-public-commitment",
+            "--commitment",
+            str(commitment_path),
+        ],
+    )
+    assert baseline_cli.main() == 2
+    assert "structure_valid_but_acceptance_blocked" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        baseline_cli.sys,
+        "argv",
+        [
+            "run_tool_aware_baseline.py",
+            "verify-baseline-receipt",
+            "--receipt",
+            str(receipt_path),
+            "--protocol",
+            str(protocol_path),
+            "--source-projection",
+            str(projection_path),
+            "--pair-manifest",
+            str(pair_path),
+        ],
+    )
+    assert baseline_cli.main() == 2
+    baseline_output = capsys.readouterr().out
+    assert "receipt_consistency_only_acceptance_blocked" in baseline_output
+    assert all(word not in baseline_output for word in ('"ready"', '"verified"'))
+
+    monkeypatch.setattr(
+        baseline_cli.sys,
+        "argv",
+        [
+            "run_tool_aware_baseline.py",
+            "verify-score-receipts",
+            "--scores",
+            str(scores_path),
+            "--adjudications",
+            str(adjudications_path),
+            "--pair-manifest",
+            str(pair_path),
+        ],
+    )
+    assert baseline_cli.main() == 2
+    score_output = capsys.readouterr().out
+    assert "receipt_consistency_only_acceptance_blocked" in score_output
+    assert '"valid"' not in score_output
+
+
+def test_bound_acceptance_cli_commands_remain_non_authoritative(
+    tmp_path, monkeypatch, capsys
+) -> None:
     candidate_lock = _candidate_lock()
-    pair_manifest = _pair_manifest(1, candidate_lock=candidate_lock)
+    pair_manifest = _bound_pair_manifest(1, candidate_lock=candidate_lock)
     commitment = build_holdout_commitment(
         cycle_ref="cycle-ref:taw00:test",
         custodian_ref="custodian-ref:taw00:independent",
@@ -1308,8 +1636,8 @@ def test_acceptance_oriented_cli_commands_remain_non_authoritative(
     scores = BlindScoreBundle(
         pair_manifest_digest_ref=pair_manifest.manifest_digest_ref,
         scores=(
-            _score(1, 1, 2, pair_manifest=pair_manifest),
-            _score(1, 2, 2, pair_manifest=pair_manifest),
+            _bound_score(1, 1, 2, pair_manifest=pair_manifest),
+            _bound_score(1, 2, 2, pair_manifest=pair_manifest),
         ),
     )
     adjudications = AdjudicationBundle(

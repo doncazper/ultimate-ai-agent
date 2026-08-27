@@ -177,7 +177,7 @@ def verify(
             failures.append("TAW-00 convergence ledger shape drifted")
         if (
             ledger.get("status")
-            != "acceptance_contracts_implemented_external_inputs_pending"
+            != "fail_closed_scaffold_acceptance_contract_incomplete"
         ):
             failures.append("TAW-00 convergence ledger overclaims completion")
         for item in requirements:
@@ -258,7 +258,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print("TAW-00 fail-closed acceptance-contract verification passed.")
+    print("TAW-00 fail-closed scaffold verification passed.")
     return 0
 
 
