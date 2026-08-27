@@ -87,6 +87,20 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_fin002_synthetic_import_com
 CLI output is a redacted structural read model. It never prints raw fixture
 rows or grants mutation authority.
 
+## Cumulative CI Posture
+
+The merged FIN-002B tree also includes a test-only scheduling hardening for the
+durable goal/event aggregate snapshot proof. The test now observes an explicit
+writer-start barrier, keeps the writer blocked while the aggregate read lock is
+held, captures worker failures, and uses the repository's bounded concurrency
+wait posture. This removes a runner-contention race without changing Finance,
+goal-runtime, lock, mutation, or authority behavior.
+
+FIN-002B completion evidence must bind a later cumulative exact-head run that
+contains both the synthetic commit lane and this test hardening. A prior run
+with an unrelated failed shard or a test-corpus retirement failure is not
+accepted as green evidence, even when its code has already been merged.
+
 ## Next Safe Slice
 
 Exercise the merged synthetic preview and commit loop through private dogfood,
