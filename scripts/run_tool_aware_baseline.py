@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +42,17 @@ from ultimate_ai_agent.core.evals.tool_aware_corpus import (  # noqa: E402
     DevelopmentCorpusManifest,
     DevelopmentManifestBuildSpec,
     HoldoutCommitment,
+    HoldoutOpeningReceipt,
     build_development_corpus_manifest,
+)
+from ultimate_ai_agent.core.evals.tool_aware_evidence import (  # noqa: E402
+    ArtifactCensus,
+    CompleteAcceptanceEvidenceBinding,
+    ComputedPowerAnalysisReceipt,
+    EvaluationMatrixCensus,
+    FamilywiseBoundReceipt,
+    ObservationCensus,
+    validate_complete_acceptance_evidence,
 )
 
 DEFAULT_PROTOCOL = ROOT / "docs/evals/tool_aware_cognition_taw00_protocol_v1.json"
@@ -132,6 +143,74 @@ def _baseline_verification_failures(
     return tuple(sorted(failures))
 
 
+def _complete_artifact_payloads(
+    payloads: Mapping[str, object],
+) -> dict[str, tuple[str, object]]:
+    names = {
+        "adjudications": "adjudications",
+        "candidate_lock": "candidate-lock",
+        "computed_power": "computed-power",
+        "familywise_bounds": "familywise-bounds",
+        "commitment": "holdout-commitment",
+        "holdout_opening": "holdout-opening",
+        "power_analysis": "legacy-power",
+        "matrix_census": "matrix-census",
+        "observations": "observation-census",
+        "pair_manifest": "pair-manifest",
+        "protocol": "protocol",
+        "randomization": "randomization",
+        "scores": "scores",
+        "source_closure": "source-closure",
+        "source_projection": "source-projection",
+    }
+    return {
+        f"artifact-ref:taw00:{artifact_name}": (
+            f"schema-ref:taw00:{artifact_name}",
+            payloads[payload_name],
+        )
+        for payload_name, artifact_name in names.items()
+    }
+
+
+def _validate_complete_payloads(payloads: Mapping[str, object]) -> tuple[str, ...]:
+    return validate_complete_acceptance_evidence(
+        CompleteAcceptanceEvidenceBinding.model_validate(payloads["complete_binding"]),
+        legacy_binding=AcceptanceEvidenceBinding.model_validate(payloads["binding"]),
+        protocol=TAW00Protocol.model_validate(payloads["protocol"]),
+        legacy_power_analysis=PowerAnalysisReceipt.model_validate(
+            payloads["power_analysis"]
+        ),
+        source_projection=SourceProjection.model_validate(
+            payloads["source_projection"]
+        ),
+        source_closure=SourceDependencyClosure.model_validate(
+            payloads["source_closure"]
+        ),
+        candidate_lock=CandidateLock.model_validate(payloads["candidate_lock"]),
+        pair_manifest=PairManifest.model_validate(payloads["pair_manifest"]),
+        baseline_receipt=BaselineReceipt.model_validate(payloads["baseline_receipt"]),
+        randomization_bundle=RandomizationBundle.model_validate(
+            payloads["randomization"]
+        ),
+        score_bundle=BlindScoreBundle.model_validate(payloads["scores"]),
+        adjudication_bundle=AdjudicationBundle.model_validate(
+            payloads["adjudications"]
+        ),
+        commitment=HoldoutCommitment.model_validate(payloads["commitment"]),
+        opening=HoldoutOpeningReceipt.model_validate(payloads["holdout_opening"]),
+        matrix=EvaluationMatrixCensus.model_validate(payloads["matrix_census"]),
+        computed_power=ComputedPowerAnalysisReceipt.model_validate(
+            payloads["computed_power"]
+        ),
+        observations=ObservationCensus.model_validate(payloads["observations"]),
+        familywise_bounds=FamilywiseBoundReceipt.model_validate(
+            payloads["familywise_bounds"]
+        ),
+        artifact_census=ArtifactCensus.model_validate(payloads["artifact_census"]),
+        artifact_payloads=_complete_artifact_payloads(payloads),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="TAW-00 content-safe baseline facility"
@@ -186,6 +265,30 @@ def main() -> int:
     verify_binding.add_argument("--scores", type=Path, required=True)
     verify_binding.add_argument("--adjudications", type=Path, required=True)
 
+    verify_complete = subparsers.add_parser("verify-complete-evidence")
+    for option in (
+        "binding",
+        "complete-binding",
+        "protocol",
+        "power-analysis",
+        "source-projection",
+        "source-closure",
+        "candidate-lock",
+        "pair-manifest",
+        "baseline-receipt",
+        "randomization",
+        "scores",
+        "adjudications",
+        "commitment",
+        "holdout-opening",
+        "matrix-census",
+        "computed-power",
+        "observations",
+        "familywise-bounds",
+        "artifact-census",
+    ):
+        verify_complete.add_argument(f"--{option}", type=Path, required=True)
+
     readiness = subparsers.add_parser("report-readiness")
     readiness.add_argument("--protocol", type=Path, default=DEFAULT_PROTOCOL)
     readiness.add_argument("--commitment", type=Path, required=True)
@@ -202,6 +305,13 @@ def main() -> int:
     readiness.add_argument("--acceptance-binding", type=Path, required=True)
     readiness.add_argument("--scores", type=Path, required=True)
     readiness.add_argument("--adjudications", type=Path, required=True)
+    readiness.add_argument("--holdout-opening", type=Path, required=True)
+    readiness.add_argument("--matrix-census", type=Path, required=True)
+    readiness.add_argument("--computed-power", type=Path, required=True)
+    readiness.add_argument("--observations", type=Path, required=True)
+    readiness.add_argument("--familywise-bounds", type=Path, required=True)
+    readiness.add_argument("--artifact-census", type=Path, required=True)
+    readiness.add_argument("--complete-binding", type=Path, required=True)
 
     args = parser.parse_args()
     try:
@@ -421,6 +531,40 @@ def main() -> int:
                 }
             )
             return 2
+        elif args.command == "verify-complete-evidence":
+            payloads = {
+                name: _json(getattr(args, name))
+                for name in (
+                    "binding",
+                    "complete_binding",
+                    "protocol",
+                    "power_analysis",
+                    "source_projection",
+                    "source_closure",
+                    "candidate_lock",
+                    "pair_manifest",
+                    "baseline_receipt",
+                    "randomization",
+                    "scores",
+                    "adjudications",
+                    "commitment",
+                    "holdout_opening",
+                    "matrix_census",
+                    "computed_power",
+                    "observations",
+                    "familywise_bounds",
+                    "artifact_census",
+                )
+            }
+            _validate_safe(payloads)
+            failures = _validate_complete_payloads(payloads)
+            _emit(
+                {
+                    "status": "complete_contract_consistency_only_external_acceptance_blocked",
+                    "failure_refs": failures,
+                }
+            )
+            return 2
         elif args.command == "report-readiness":
             protocol = _validate_protocol(args.protocol)
             artifacts = {
@@ -438,6 +582,13 @@ def main() -> int:
                     ("acceptance_binding", args.acceptance_binding),
                     ("scores", args.scores),
                     ("adjudications", args.adjudications),
+                    ("holdout_opening", args.holdout_opening),
+                    ("matrix_census", args.matrix_census),
+                    ("computed_power", args.computed_power),
+                    ("observations", args.observations),
+                    ("familywise_bounds", args.familywise_bounds),
+                    ("artifact_census", args.artifact_census),
+                    ("complete_binding", args.complete_binding),
                 )
             }
             _validate_safe(artifacts)
@@ -536,6 +687,9 @@ def main() -> int:
                 score_bundle=score_bundle,
                 adjudication_bundle=adjudication_bundle,
             )
+            complete_failures = _validate_complete_payloads(
+                {**artifacts, "binding": artifacts["acceptance_binding"]}
+            )
             report = protocol_readiness(
                 protocol,
                 commitment=commitment,
@@ -558,6 +712,8 @@ def main() -> int:
                 randomization_failures=randomization_failures,
                 acceptance_binding_verified=not binding_failures,
                 acceptance_binding_failures=binding_failures,
+                complete_evidence_verified=not complete_failures,
+                complete_evidence_failures=complete_failures,
             )
             _emit(report)
             if report["status"] != "ready":

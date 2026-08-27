@@ -197,6 +197,46 @@ class HoldoutCommitment(_FrozenModel):
         return self
 
 
+class HoldoutOpeningReceipt(_FrozenModel):
+    """Public proof that a transient private manifest opened one commitment."""
+
+    schema_version: Literal["uaa-taw00-holdout-opening.v1"] = (
+        "uaa-taw00-holdout-opening.v1"
+    )
+    cycle_ref: str
+    custodian_ref: str
+    commitment_digest_ref: str
+    revealed_manifest_digest_ref: str
+    revealed_case_census_digest_ref: str
+    opening_attestation_ref: str
+    receipt_digest_ref: str
+    commitment_verified: Literal[True] = True
+    private_key_persisted: Literal[False] = False
+    private_manifest_persisted: Literal[False] = False
+    raw_content_persisted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_opening(self) -> "HoldoutOpeningReceipt":
+        for value, field_name in (
+            (self.cycle_ref, "cycle_ref"),
+            (self.custodian_ref, "custodian_ref"),
+            (self.opening_attestation_ref, "opening_attestation_ref"),
+        ):
+            _ref(value, field_name)
+        for value, field_name in (
+            (self.commitment_digest_ref, "commitment_digest_ref"),
+            (self.revealed_manifest_digest_ref, "revealed_manifest_digest_ref"),
+            (self.revealed_case_census_digest_ref, "revealed_case_census_digest_ref"),
+        ):
+            _digest(value, field_name)
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"receipt_digest_ref"})
+        )
+        if self.receipt_digest_ref != expected:
+            raise ValueError("holdout opening receipt digest binding drift")
+        return self
+
+
 class PrivateHoldoutManifest(_FrozenModel):
     """Custodian-only manifest. It must never be written into the candidate repo."""
 
@@ -393,3 +433,56 @@ def verify_holdout_commitment(
     except ValueError:
         return False
     return hmac.compare_digest(expected.commitment_digest, commitment.commitment_digest)
+
+
+def build_holdout_opening_receipt(
+    commitment: HoldoutCommitment,
+    *,
+    opening_attestation_ref: str,
+    secret_key: bytes,
+    private_manifest: bytes,
+) -> HoldoutOpeningReceipt:
+    """Verify transient custody inputs and emit only content-safe public digests."""
+    if not verify_holdout_commitment(
+        commitment,
+        secret_key=secret_key,
+        private_manifest=private_manifest,
+    ):
+        raise ValueError("private holdout material does not open the commitment")
+    try:
+        parsed = json.loads(private_manifest.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("private holdout manifest must be canonical JSON") from exc
+    manifest = PrivateHoldoutManifest.model_validate(parsed)
+    canonical_manifest = json.dumps(
+        manifest.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    ).encode()
+    case_census = [
+        {
+            "case_ref": case.case_ref,
+            "category_ref": case.category_ref,
+            "rubric_ref": case.rubric_ref,
+            "parameter_refs": case.parameter_refs,
+            "variant_index": case.variant_index,
+        }
+        for case in manifest.cases
+    ]
+    payload = {
+        "schema_version": "uaa-taw00-holdout-opening.v1",
+        "cycle_ref": commitment.cycle_ref,
+        "custodian_ref": commitment.custodian_ref,
+        "commitment_digest_ref": commitment.commitment_digest,
+        "revealed_manifest_digest_ref": (
+            f"sha256:{hashlib.sha256(canonical_manifest).hexdigest()}"
+        ),
+        "revealed_case_census_digest_ref": canonical_digest(case_census),
+        "opening_attestation_ref": opening_attestation_ref,
+        "commitment_verified": True,
+        "private_key_persisted": False,
+        "private_manifest_persisted": False,
+        "raw_content_persisted": False,
+    }
+    return HoldoutOpeningReceipt(
+        **payload,
+        receipt_digest_ref=canonical_digest(payload),
+    )

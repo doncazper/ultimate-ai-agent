@@ -1,6 +1,6 @@
 # TAW-00 Fail-Closed Evaluation Scaffold
 
-Status: scaffold implemented; acceptance evidence contract incomplete; external configuration and evidence pending
+Status: acceptance evidence contract implemented; external configuration, identity authority, and evidence pending
 
 Baseline: v0.104.0 / 0.104.0
 
@@ -12,7 +12,7 @@ Source projection: `docs/evals/tool_aware_cognition_taw00_source_projection_v1.j
 
 ## Boundary
 
-This slice implements a fail-closed TAW-00 evaluation scaffold without changing
+This slice implements a fail-closed TAW-00 evaluation contract without changing
 the Turn Contract Router, chat path, prompts, policy, model-visible formatting,
 model/provider behavior, or runtime authority. Capability Evaluation Lab V1
 remains the deterministic capability-task contract. TAW-00 scaffolds separate
@@ -26,7 +26,7 @@ product languages, local-model configurations, or hardware/backend classes, so
 the scaffold leaves those arrays empty and reports exact blockers. Convenience
 defaults would narrow the acceptance population without authority.
 
-## Implemented Scaffold Contracts
+## Implemented Evidence Contracts
 
 - deterministic synthetic development-corpus manifests store generator/version,
   safe parameter/category/rubric refs, immutable case refs, and generated-content
@@ -58,11 +58,16 @@ defaults would narrow the acceptance population without authority.
   receipts bind every pair, label/order decision, payload digest, and exact
   candidate manifest;
 - selected pure-Python paired and clustered bootstrap helpers, Holm step-down
-  thresholds, and ordinal Krippendorff alpha provide deterministic scaffold
-  statistics. Typed power receipts cover the declared metric/stratum census and
-  bind the frozen protocol, but they do not yet independently derive the
-  denominator from a power calculation or cover the complete
-  language/configuration/hardware/stratum matrix;
+  thresholds, ordinal Krippendorff alpha, exact binomial tails, and deterministic
+  normal-bound power calculations provide reproducible statistics. Computed
+  power receipts bind preregistered effect, variance, alpha, target-power, and
+  recomputed denominator values to the complete metric/stratum census;
+- an exact evaluation-matrix census binds the full reviewed
+  language/configuration/hardware/stratum cross product and every canonical pair;
+- an exhaustive observation census binds every pair/metric observation, enforces
+  estimand-specific shapes, and deterministically derives every baseline metric;
+- a Holm-family receipt recomputes ordering probabilities, adjusted one-sided
+  alphas, and exact Clopper-Pearson bounds from that observation census;
 - a content-addressed candidate lock records named-revision bytes and keeps
   evidence-only deltas disjoint. Pair manifests bind its exact candidate ref,
   Git revision, and manifest digest;
@@ -74,11 +79,11 @@ defaults would narrow the acceptance population without authority.
   non-literal dynamic-import nodes. The
   checked-in historical projection remains explicitly partial and cannot pass
   that closure gate;
-- one provisional acceptance-evidence binding digest links the frozen protocol, power
+- one complete acceptance-evidence binding digest links the frozen protocol, power
   receipt, source projection and closure, candidate lock, pair manifest,
-  baseline, randomization, score, and adjudication bundles so any changed link
-  stales the result. It cannot validate as acceptance proof while the incomplete
-  contracts below remain explicit failures;
+  baseline, randomization, score, adjudication, verified holdout opening,
+  matrix, observation, familywise-bound, and exhaustive recursive-safe artifact
+  census so any changed link stales the result;
 - repository CLI and verifier surfaces operate on content-safe JSON only. Their
   only subprocess is fixed-argument, read-only `git show` for revision-bound
   verification; they add no model, provider, network, browser, mutation, or
@@ -94,7 +99,8 @@ PYTHONPATH=src .venv/bin/python scripts/run_tool_aware_baseline.py validate-prot
 `report-readiness` requires explicit paths for the commitment, development
 corpus, pair manifest, power analysis, baseline receipt, source projection,
 source closure, candidate lock, randomization bundle, score/adjudication
-bundles, and acceptance binding. It exits 2 while any external trust input is
+bundles, acceptance bindings, holdout opening, matrix census, computed power,
+observation census, familywise bounds, and artifact census. It exits 2 while any external trust input is
 absent. The facility has no reachable `ready` state. Acceptance-oriented
 subcommands report only structure or receipt consistency and exit 2; those
 results are not external acceptance evidence. The development-manifest command
@@ -102,43 +108,28 @@ produces a reconstructible synthetic manifest from a strict local spec.
 
 The custodian command belongs on the independent machine. Its private manifest
 and HMAC key must stay outside the repository and any shared or synced
-filesystem. Only the public commitment JSON may return to the candidate-building
-environment.
+filesystem. Only the public commitment and opening-receipt JSON may return to
+the candidate-building environment.
 
 Key possession and a safe custodian/evaluator ref do not prove independent human
 identity. Promotion is deliberately fail-closed until separately reviewed,
 externally anchored custodian, evaluator, and baseline-acceptance identity
 authorities exist. Candidate-generated attestations cannot open those gates.
 
-## Incomplete Acceptance Evidence Contracts
+## Remaining External Evidence
 
-The scaffold deliberately reports these code-owned failures on every
-acceptance-oriented validation path:
-
-- power denominators are not independently recomputed from pre-registered
-  assumptions;
-- the exact language/configuration/hardware/stratum matrix census is not bound;
-- baseline estimates and intervals are not recomputed from a typed exhaustive
-  observation/artifact census;
-- familywise binomial bounds are not yet derived under the registered Holm
-  family;
-- the sealed holdout commitment, verified opening, and revealed holdout corpus
-  digest are not bound end to end;
-- the durable artifact census and recursive content-safety proof are not yet
-  typed and exhaustive.
-
-The source-closure verifier now parses repository `scripts/*.py` roots, score
-validation binds each pair to the exact randomization receipt, and candidate
-acceptance checks require the candidate revision and manifest to contain the
-same transitive closure bytes. Those repairs do not complete the six contracts
-above.
+The six formerly code-owned gaps are now typed, digest-bound, recursively
+content-safe, and covered by tamper tests. `verify-complete-evidence` can prove
+internal consistency, but deliberately exits 2 and does not claim human
+acceptance. The supported matrix still needs truthful independent freeze; the
+custodian/evaluator/baseline-acceptance identity authorities remain external;
+and no actual baseline or blind-score evidence has been collected.
 
 ## Remaining TAW-00 Gate
 
 Before any routing or prompt change:
 
-1. complete and independently review the six code-owned evidence contracts
-   listed above;
+1. independently review this complete code-owned evidence contract;
 2. freeze the truthful supported language, model-configuration, and
    hardware/backend sets through review;
 3. configure externally anchored custodian/evaluator/baseline-acceptance identity

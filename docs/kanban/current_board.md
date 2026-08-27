@@ -17,15 +17,15 @@ runtime authority and is not completion evidence. Canonical plan:
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`; ordered
 execution record:
 `docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`.
-Q22 / TAW-00 posture: a fail-closed evaluation scaffold now covers reconstructible
+Q22 / TAW-00 posture: a fail-closed evaluation contract now covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,
 metric-specific threshold checks, revision-bound root/candidate inventories,
-typed power receipt shapes, exact marginal binomial bounds, candidate-bound
-randomization, transitive source-closure verification, provisional result-chain
-binding, CLI, and static verification. The power calculation, exact matrix,
-observation derivation, familywise-bound, holdout-opening, and exhaustive
-artifact-census contracts remain incomplete. It is not an accepted baseline or
-promotion proof. Supported matrices, externally anchored reviewer identities,
+recomputed power denominators, exact matrix and observation censuses, Holm
+familywise binomial bounds, candidate-bound randomization, transitive
+source-closure verification, transient verified holdout opening, exhaustive
+recursive-safe artifact census, complete result-chain binding, CLI, and static
+verification. It is not an accepted baseline or promotion proof. Supported
+matrices, externally anchored reviewer identities,
 actual evaluation measurements, and an accepted-current baseline also remain
 blocked. The facility has
 no `ready` result. No routing, prompt,

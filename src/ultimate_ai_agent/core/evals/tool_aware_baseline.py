@@ -78,16 +78,21 @@ TAW00_MANDATORY_CANDIDATE_PATH_REFS = tuple(
         "docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md",
         "scripts/run_tool_aware_baseline.py",
         "scripts/run_tool_aware_holdout_custodian.py",
+        "scripts/run_tool_aware_holdout_opening.py",
         "scripts/verify_tool_aware_cognition_taw00.py",
         "src/ultimate_ai_agent/core/evals/tool_aware_baseline.py",
         "src/ultimate_ai_agent/core/evals/tool_aware_corpus.py",
+        "src/ultimate_ai_agent/core/evals/tool_aware_evidence.py",
         "src/ultimate_ai_agent/core/evals/tool_aware_statistics.py",
     )
 )
 INDEPENDENT_CUSTODIAN_IDENTITY_AUTHORITY_CONFIGURED = False
 INDEPENDENT_EVALUATOR_IDENTITY_AUTHORITY_CONFIGURED = False
 BASELINE_ACCEPTANCE_AUTHORITY_CONFIGURED = False
-TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE = False
+# The repository now contains the complete typed contract. Individual evidence
+# bundles remain fail-closed until the v2 bundle verifies and external identity
+# authorities supply the independent custody and acceptance evidence.
+TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE = True
 TAW00_ACCEPTANCE_EVIDENCE_BLOCKER_REFS = (
     "failure-ref:taw00:artifact-census-contract-incomplete",
     "failure-ref:taw00:baseline-observation-derivation-incomplete",
@@ -473,6 +478,7 @@ class BaselineMetric(_FrozenModel):
     lower_bound: float
     upper_bound: float
     baseline_reference_value: float | None = None
+    confidence_level: float = Field(default=0.95, gt=0, lt=1)
     estimator_ref: str
     estimand_ref: str
     evidence_digest_ref: str
@@ -516,7 +522,9 @@ class BaselineMetric(_FrozenModel):
                 raise ValueError("binomial metric values must remain within [0, 1]")
             expected_point = self.event_count / self.denominator
             expected_upper = binomial_one_sided_upper_bound(
-                self.event_count, self.denominator
+                self.event_count,
+                self.denominator,
+                confidence=self.confidence_level,
             )
             if not math.isclose(self.point_estimate, expected_point, abs_tol=1e-12):
                 raise ValueError("binomial point estimate disagrees with event count")
@@ -1712,9 +1720,11 @@ def protocol_readiness(
     randomization_failures: tuple[str, ...] = (),
     acceptance_binding_verified: bool = False,
     acceptance_binding_failures: tuple[str, ...] = (),
+    complete_evidence_verified: bool = False,
+    complete_evidence_failures: tuple[str, ...] = (),
 ) -> dict[str, object]:
     reason_refs = list(protocol.blocked_reason_refs)
-    if not TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE:
+    if not complete_evidence_verified:
         reason_refs.append("blocker-ref:taw00:acceptance-evidence-contract-incomplete")
         reason_refs.extend(TAW00_ACCEPTANCE_EVIDENCE_BLOCKER_REFS)
     if protocol.status != "locked":
@@ -1802,6 +1812,7 @@ def protocol_readiness(
     if not acceptance_binding_verified:
         reason_refs.append("blocker-ref:taw00:acceptance-evidence-binding-unverified")
     reason_refs.extend(acceptance_binding_failures)
+    reason_refs.extend(complete_evidence_failures)
     return {
         "protocol_ref": protocol.protocol_ref,
         "cycle_ref": protocol.cycle_ref,

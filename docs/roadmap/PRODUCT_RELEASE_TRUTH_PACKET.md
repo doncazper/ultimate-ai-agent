@@ -15,14 +15,14 @@ post-merge verified before that comparison begins. The plan preserves the
 configured local model and grants no runtime authority; it is not shipped
 product evidence.
 
-TAW-00 now has a fail-closed evaluation scaffold for reconstructible synthetic
+TAW-00 now has a fail-closed evaluation contract for reconstructible synthetic
 development manifests, public holdout commitments, baseline and blind-score
-receipt shapes, typed power analysis, exact binomial bounds, candidate-bound
-randomization, transitive source-closure verification, provisional result-chain
-binding, revision-bound root/candidate inventories, CLI, and static
-verification. Power computation, exact matrix census, observation derivation,
-familywise bounds, holdout opening, and exhaustive artifact census remain
-explicitly incomplete. It is not an accepted baseline or promotion proof. Supported
+receipt shapes, recomputed power analysis, exact matrix and observation
+censuses, exact Holm-familywise binomial bounds, candidate-bound randomization,
+transitive source-closure verification, transient verified holdout opening,
+exhaustive recursive-safe artifact census, complete result-chain binding,
+revision-bound root/candidate inventories, CLI, and static verification. It is
+not an accepted baseline or promotion proof. Supported
 matrices, externally anchored reviewer identities, actual measurements, and
 human acceptance remain blocked. Candidate-authored refs, keys, receipts, or
 completion flags cannot promote it, the facility has no `ready` result, and no routing, prompt,

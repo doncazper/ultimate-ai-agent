@@ -8,11 +8,12 @@ remaining-queue manifest,
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. This program
 extends the existing Turn Contract Router, preserves the local model as UAA's
 language/reasoning engine, and grants no runtime authority by itself.
-The fail-closed TAW-00 evaluation scaffold is documented in
+The fail-closed TAW-00 evaluation contract is documented in
 `docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md`; its checked-in protocol
-retains explicit code-owned blockers for typed power, matrix, observation,
-familywise-bound, holdout-opening, and artifact-census evidence contracts. It
-also remains blocked on truthful supported-matrix freeze, independent holdout
+now includes typed computed-power, exhaustive matrix/observation,
+Holm-familywise bound, verified holdout-opening, recursive artifact-census, and
+complete result-binding contracts. It remains blocked on truthful
+supported-matrix freeze, independent holdout
 custody/evaluator identity authority, actual measurements, and an
 externally accepted-current baseline before any routing or prompt change.
 Candidate-generated safe refs, keys, receipts, or completion booleans cannot
