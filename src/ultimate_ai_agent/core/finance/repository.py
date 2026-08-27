@@ -692,6 +692,21 @@ class FinanceRepository:
             self._recover_pending_commit()
             return self._load_snapshot_locked(request_ref=request_ref)
 
+    def load_snapshot_read_only(self, *, request_ref: str) -> FinanceSnapshot:
+        """Load a stable generation without creating files or recovering writes."""
+
+        self._ensure_private_root(create=False)
+        with self._read_lock():
+            try:
+                os.lstat(self.pending_commit_path)
+            except FileNotFoundError:
+                pass
+            else:
+                raise FinanceRepositoryError(
+                    "FINANCE_PENDING_COMMIT_REQUIRES_MUTATING_RECOVERY"
+                )
+            return self._load_snapshot_locked(request_ref=request_ref)
+
     def _load_snapshot_locked(self, *, request_ref: str) -> FinanceSnapshot:
         validate_task_ref(request_ref, "finance_read_request_ref")
         metadata = self._read_metadata()
@@ -1126,6 +1141,35 @@ class FinanceRepository:
             ):
                 raise FinanceRepositoryError("FINANCE_REPOSITORY_LOCK_INVALID")
             fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+
+    @contextmanager
+    def _read_lock(self):
+        """Acquire the existing repository lock without creating or writing it."""
+
+        try:
+            linked = os.lstat(self.lock_path)
+        except FileNotFoundError:
+            raise FinanceRepositoryError("FINANCE_REPOSITORY_LOCK_MISSING") from None
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(self.lock_path, flags)
+        try:
+            metadata = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_uid != os.getuid()
+                or metadata.st_mode & 0o077
+                or (metadata.st_dev, metadata.st_ino) != (linked.st_dev, linked.st_ino)
+            ):
+                raise FinanceRepositoryError("FINANCE_REPOSITORY_LOCK_INVALID")
+            fcntl.flock(descriptor, fcntl.LOCK_SH)
             yield
         finally:
             try:

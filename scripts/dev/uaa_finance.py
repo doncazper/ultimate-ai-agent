@@ -294,13 +294,15 @@ def command_run(args: argparse.Namespace) -> int:
 
 
 def command_read(args: argparse.Namespace) -> int:
+    """Emit a redacted, integrity, export, or non-mutating review read model."""
+
     repository = FinanceRepository(args.repository_dir, crypto_backend=_backend(args))
     if args.command == "inspect":
         payload = repository.export_redacted(request_ref=args.request_ref)
     elif args.command == "check":
         payload = repository.check_integrity(request_ref=args.request_ref)
     elif args.command == "review":
-        snapshot = repository.load_snapshot(request_ref=args.request_ref)
+        snapshot = repository.load_snapshot_read_only(request_ref=args.request_ref)
         payload = build_finance_review_projection(snapshot).model_dump(mode="json")
     else:
         payload = repository.export_redacted(request_ref=args.request_ref)
@@ -309,6 +311,8 @@ def command_read(args: argparse.Namespace) -> int:
 
 
 def parser() -> argparse.ArgumentParser:
+    """Build the bounded Finance CLI parser."""
+
     result = argparse.ArgumentParser(description=__doc__)
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--repository-dir", type=Path, required=True)

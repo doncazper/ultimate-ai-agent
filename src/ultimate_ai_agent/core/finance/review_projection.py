@@ -53,6 +53,8 @@ class FinanceReviewItem(_FinanceModel):
 
     @model_validator(mode="after")
     def validate_item_binding(self) -> "FinanceReviewItem":
+        """Require canonical refs and the fixed review reason contract."""
+
         expected = stable_finance_ref(
             "review-item-ref:finance/FIN-003",
             self.model_dump(mode="json", exclude={"review_item_ref"}),
@@ -87,6 +89,8 @@ class FinanceReviewBatch(_FinanceModel):
 
     @model_validator(mode="after")
     def validate_batch_binding(self) -> "FinanceReviewBatch":
+        """Require a unique, counted, and content-bound item set."""
+
         if self.item_count != len(self.review_item_refs):
             raise ValueError("FIN003_REVIEW_BATCH_COUNT_INVALID")
         if len(self.review_item_refs) != len(set(self.review_item_refs)):
@@ -123,6 +127,8 @@ class FinanceActionInboxProjection(_FinanceModel):
 
     @model_validator(mode="after")
     def validate_action_binding(self) -> "FinanceActionInboxProjection":
+        """Require the fixed safe action and canonical projection ref."""
+
         if self.next_safe_action_ref != FIN003_NEXT_SAFE_ACTION_REF:
             raise ValueError("FIN003_NEXT_SAFE_ACTION_REF_INVALID")
         expected = stable_finance_ref(
@@ -164,6 +170,8 @@ class FinanceReviewProjection(_FinanceModel):
 
     @model_validator(mode="after")
     def validate_projection_binding(self) -> "FinanceReviewProjection":
+        """Cross-bind the ranked item, batch, action, and source graphs."""
+
         item_refs = tuple(item.review_item_ref for item in self.review_items)
         batch_item_refs = tuple(
             item_ref
@@ -172,10 +180,26 @@ class FinanceReviewProjection(_FinanceModel):
         )
         batch_refs = tuple(batch.review_batch_ref for batch in self.review_batches)
         action_batch_refs = tuple(item.review_batch_ref for item in self.action_inbox)
+        if len(item_refs) != len(set(item_refs)):
+            raise ValueError("FIN003_REVIEW_ITEM_REF_DUPLICATE")
+        if len(batch_refs) != len(set(batch_refs)):
+            raise ValueError("FIN003_REVIEW_BATCH_REF_DUPLICATE")
+        action_refs = tuple(item.action_projection_ref for item in self.action_inbox)
+        if len(action_refs) != len(set(action_refs)):
+            raise ValueError("FIN003_ACTION_PROJECTION_REF_DUPLICATE")
         if item_refs != batch_item_refs:
             raise ValueError("FIN003_REVIEW_PROJECTION_ITEM_GRAPH_INVALID")
         if batch_refs != action_batch_refs:
             raise ValueError("FIN003_REVIEW_PROJECTION_ACTION_GRAPH_INVALID")
+        items_by_ref = {item.review_item_ref: item for item in self.review_items}
+        for batch in self.review_batches:
+            for item_ref in batch.review_item_refs:
+                item = items_by_ref[item_ref]
+                if (
+                    item.book_ref != batch.book_ref
+                    or item.import_commit_ref != batch.import_commit_ref
+                ):
+                    raise ValueError("FIN003_REVIEW_BATCH_SCOPE_INVALID")
         if tuple(item.rank for item in self.review_items) != tuple(
             range(1, len(self.review_items) + 1)
         ):
@@ -204,6 +228,8 @@ def _review_item(
     candidate_ref: str,
     journal_entry_ref: str,
 ) -> FinanceReviewItem:
+    """Build one content-bound review item."""
+
     payload = {
         "rank": rank,
         "book_ref": book_ref,
@@ -230,6 +256,8 @@ def _review_batch(
     import_commit_ref: str,
     review_item_refs: tuple[str, ...],
 ) -> FinanceReviewBatch:
+    """Build one content-bound review batch."""
+
     payload = {
         "rank": rank,
         "book_ref": book_ref,
@@ -252,6 +280,8 @@ def _review_batch(
 def _action_projection(
     *, rank: int, review_batch_ref: str
 ) -> FinanceActionInboxProjection:
+    """Build one content-bound Action Inbox pointer."""
+
     payload = {"rank": rank, "review_batch_ref": review_batch_ref}
     provisional = FinanceActionInboxProjection.model_construct(
         action_projection_ref="action-projection-ref:finance/FIN-003:pending",
@@ -281,11 +311,26 @@ def build_finance_review_projection(
         raise ValueError("FIN003_REVIEW_SOURCE_POSTURE_DENIED")
 
     entries = {item.journal_entry_ref: item for item in snapshot.journal_entries}
-    reversed_refs = {
-        item.reverses_journal_entry_ref
+    reversal_by_target = {
+        item.reverses_journal_entry_ref: item.journal_entry_ref
         for item in snapshot.journal_entries
         if item.reverses_journal_entry_ref is not None
     }
+
+    def imported_entry_is_active(journal_entry_ref: str) -> bool:
+        """Resolve an exact reversal chain using even/odd parity."""
+
+        current_ref = journal_entry_ref
+        seen: set[str] = set()
+        reversal_count = 0
+        while current_ref in reversal_by_target:
+            if current_ref in seen:
+                raise ValueError("FIN003_REVERSAL_CHAIN_CYCLE")
+            seen.add(current_ref)
+            current_ref = reversal_by_target[current_ref]
+            reversal_count += 1
+        return reversal_count % 2 == 0
+
     records = sorted(
         snapshot.import_commits,
         key=lambda item: (-item.before_revision, item.commit_ref),
@@ -300,7 +345,7 @@ def build_finance_review_projection(
         for candidate_ref, journal_entry_ref in zip(
             record.candidate_refs, record.journal_entry_refs, strict=True
         ):
-            if journal_entry_ref in reversed_refs:
+            if not imported_entry_is_active(journal_entry_ref):
                 continue
             entry = entries.get(journal_entry_ref)
             if entry is None:

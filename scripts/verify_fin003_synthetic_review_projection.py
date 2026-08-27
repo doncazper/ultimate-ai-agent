@@ -31,6 +31,7 @@ from ultimate_ai_agent.core.finance.review_projection import (  # noqa: E402
 BOOK_FIXTURE_REF = "fixture-ref:finance/FIN-001:balanced-local-book:v1"
 IMPORT_FIXTURE_REF = "fixture-ref:finance/FIN-002:synthetic-csv-clean:v1"
 REQUIRED_PATHS = (
+    "src/ultimate_ai_agent/core/finance/repository.py",
     "src/ultimate_ai_agent/core/finance/review_projection.py",
     "scripts/dev/uaa_finance.py",
     "tests/test_fin003_synthetic_review_projection.py",
@@ -46,6 +47,8 @@ REQUIRED_DOC_PHRASES = (
 
 
 def _committed_snapshot() -> FinanceSnapshot:
+    """Construct the exact synthetic committed snapshot used by this verifier."""
+
     fixture = load_finance_fixture(BOOK_FIXTURE_REF)
     manifest = load_finance_fixture_manifest()
     before = FinanceSnapshot(
@@ -74,6 +77,8 @@ def _committed_snapshot() -> FinanceSnapshot:
 
 
 def verify() -> list[str]:
+    """Return every bounded FIN-003 verification failure."""
+
     failures: list[str] = []
     for relative in REQUIRED_PATHS:
         path = ROOT / relative
@@ -119,6 +124,7 @@ def verify() -> list[str]:
     if (
         '"review"' not in cli_source
         or "build_finance_review_projection" not in cli_source
+        or "load_snapshot_read_only" not in cli_source
     ):
         failures.append("FIN003 CLI inspection command missing")
     doc_text = (
@@ -133,6 +139,8 @@ def verify() -> list[str]:
 
 
 def main() -> int:
+    """Print a stable verifier result and return its process status."""
+
     failures = verify()
     if failures:
         for failure in failures:
