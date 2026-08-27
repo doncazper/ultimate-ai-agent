@@ -146,6 +146,18 @@ commit, repository mutation, real-data, OCR, connector, API, or UI authority.
 See `docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
 `scripts/verify_fin002_synthetic_import_preview.py`.
 
+`FIN-002B` implements the separately approval-bound synthetic import commit.
+One exact `capability-ref:finance/FIN-002/synthetic-import-commit` request binds
+the allowlisted fixture manifest, current preview, candidate refs, source
+fingerprint refs, protected repository, expected revision, approval, session
+lease, idempotency, safe-disable, and rollback contract. The repository repeats
+the preview and fingerprint census under its single-writer lock immediately
+before an atomic encrypted generation commit. Candidates post only as balanced
+synthetic suspense entries with content-free lineage and before/after proof.
+There is no arbitrary file, pasted content, real-data, additional-format, OCR,
+connector, API, or UI input or authority. See
+`scripts/verify_fin002_synthetic_import_commit.py`.
+
 The remaining FIN-002 work below stays planned and separately gated:
 
 Deliver:

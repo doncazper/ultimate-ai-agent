@@ -14,6 +14,8 @@ from ultimate_ai_agent.core.finance.authority import (
     FinanceMutationRequest,
 )
 from ultimate_ai_agent.core.finance.models import stable_finance_ref
+from ultimate_ai_agent.core.finance.import_preview import preview_synthetic_csv_fixture
+from ultimate_ai_agent.core.finance.import_commit import FinanceImportCommitProof
 from ultimate_ai_agent.core.finance.repository import (
     FinanceBackupMetadata,
     FinanceMutationOperation,
@@ -64,7 +66,11 @@ class FinanceKernelService:
         backup_path: Path | None = None,
         safe_disable_engaged: Callable[[], bool] | None = None,
         kill_switch_engaged: Callable[[], bool] | None = None,
-    ) -> FinanceMutationReceipt | tuple[FinanceBackupMetadata, FinanceMutationReceipt]:
+    ) -> (
+        FinanceMutationReceipt
+        | tuple[FinanceBackupMetadata, FinanceMutationReceipt]
+        | tuple[FinanceImportCommitProof, FinanceMutationReceipt]
+    ):
         self._validate_path_bindings(request, backup_path=backup_path)
         now_provider = clock or (lambda: datetime.now(UTC))
         disabled = safe_disable_engaged or (lambda: False)
@@ -85,6 +91,23 @@ class FinanceKernelService:
         revalidate = authorize
         if request.operation == FinanceMutationOperation.create.value:
             return self.repository.create_from_fixture(
+                permit=permit,
+                revalidate=revalidate,
+            )
+        if request.operation == FinanceMutationOperation.import_commit.value:
+            assert request.fixture_ref is not None
+            snapshot = self.repository.load_snapshot(request_ref=request.request_ref)
+            existing_fingerprints = tuple(
+                ref
+                for item in snapshot.import_commits
+                for ref in item.source_fingerprint_refs
+            )
+            import_preview = preview_synthetic_csv_fixture(
+                request.fixture_ref,
+                existing_fingerprint_refs=existing_fingerprints,
+            )
+            return self.repository.commit_import(
+                import_preview,
                 permit=permit,
                 revalidate=revalidate,
             )

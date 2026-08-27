@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 993,
+  "timed_file_count": 994,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1273,6 +1273,11 @@
     {
       "path": "tests/test_fin001_synthetic_kernel.py",
       "seconds": 4.5,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_fin002_synthetic_import_commit.py",
+      "seconds": 0.7,
       "source": "operator-supplied-advisory"
     },
     {

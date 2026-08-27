@@ -47,6 +47,19 @@ from ultimate_ai_agent.core.finance.repository import (
     FinanceMutationOperation,
     FinanceMutationPermit,
 )
+from ultimate_ai_agent.core.finance.import_commit import (
+    FIN002_IMPORT_BUDGET_REF,
+    FIN002_IMPORT_EXACT_TARGET_REF,
+    FIN002_IMPORT_KILL_SWITCH_REF,
+    FIN002_IMPORT_READINESS_REF,
+    FIN002_IMPORT_ROLLBACK_CONTRACT_REF,
+    FIN002_IMPORT_SAFE_DISABLE_REF,
+    FIN002_IMPORT_START_DEADLINE_REF,
+    FIN002_SYNTHETIC_IMPORT_COMMIT_ADAPTER_REF,
+    FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF,
+    FIN002_SYNTHETIC_IMPORT_COMMIT_LANE_REF,
+    FIN002_SYNTHETIC_IMPORT_COMMIT_TOOL_REF,
+)
 from ultimate_ai_agent.core.finance.models import stable_finance_ref
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
@@ -110,6 +123,11 @@ class FinanceMutationRequest(BaseModel):
     repository_ref: str
     fixture_ref: str | None = None
     target_ref: str | None = None
+    import_preview_ref: str | None = None
+    import_profile_ref: str | None = None
+    import_fixture_manifest_ref: str | None = None
+    import_candidate_refs: tuple[str, ...] = Field(default=(), max_length=128)
+    import_source_fingerprint_refs: tuple[str, ...] = Field(default=(), max_length=128)
     expected_revision: int = Field(..., ge=0)
     request_ref: str
     idempotency_ref: str
@@ -120,7 +138,8 @@ class FinanceMutationRequest(BaseModel):
     exact_scope_ref: str | None = None
     action_envelope_ref: str | None = None
     safe_disable_ref: Literal[
-        "safe-disable-ref:finance/FIN-001:synthetic-mutations"
+        "safe-disable-ref:finance/FIN-001:synthetic-mutations",
+        "safe-disable-ref:finance/FIN-002/synthetic-import-commit",
     ] = FINANCE_SAFE_DISABLE_REF
     synthetic_fixture_only: Literal[True] = True
     raw_financial_values_included: Literal[False] = False
@@ -139,16 +158,48 @@ class FinanceMutationRequest(BaseModel):
         for name, value in payload.items():
             if name.endswith("_ref") and value is not None:
                 validate_task_ref(str(value), f"finance_mutation_request_{name}")
+            elif name.endswith("_refs"):
+                for ref in value:
+                    validate_task_ref(str(ref), f"finance_mutation_request_{name}")
         if self.operation == "create":
             if (
                 self.fixture_ref is None
                 or self.target_ref is not None
                 or self.expected_revision != 0
+                or self.import_preview_ref is not None
+                or self.import_profile_ref is not None
+                or self.import_fixture_manifest_ref is not None
+                or self.import_candidate_refs
+                or self.import_source_fingerprint_refs
+                or self.safe_disable_ref != FINANCE_SAFE_DISABLE_REF
             ):
                 raise ValueError("FINANCE_CREATE_REQUEST_SCOPE_INVALID")
+        elif self.operation == "import_commit":
+            if (
+                self.fixture_ref is None
+                or self.target_ref is not None
+                or self.expected_revision < 1
+                or self.import_preview_ref is None
+                or self.import_profile_ref is None
+                or self.import_fixture_manifest_ref is None
+                or not self.import_candidate_refs
+                or len(self.import_candidate_refs)
+                != len(self.import_source_fingerprint_refs)
+                or self.safe_disable_ref != FIN002_IMPORT_SAFE_DISABLE_REF
+            ):
+                raise ValueError("FIN002_IMPORT_COMMIT_REQUEST_SCOPE_INVALID")
         else:
             if self.fixture_ref is not None:
                 raise ValueError("FINANCE_NONCREATE_FIXTURE_REF_DENIED")
+            if (
+                self.import_preview_ref is not None
+                or self.import_profile_ref is not None
+                or self.import_fixture_manifest_ref is not None
+                or self.import_candidate_refs
+                or self.import_source_fingerprint_refs
+                or self.safe_disable_ref != FINANCE_SAFE_DISABLE_REF
+            ):
+                raise ValueError("FINANCE_NONIMPORT_BINDING_DENIED")
             if self.operation in {"backup", "restore"} and self.target_ref is None:
                 raise ValueError("FINANCE_BACKUP_TARGET_REF_REQUIRED")
             if self.operation == "delete" and self.target_ref is not None:
@@ -173,28 +224,34 @@ class FinanceMutationPreview(BaseModel):
     action_envelope_ref: str
     expected_approval_ref: str
     approval_request: ApprovalRequest
-    resource_refs: tuple[str, ...] = Field(..., min_length=12, max_length=64)
+    resource_refs: tuple[str, ...] = Field(..., min_length=12, max_length=320)
     policy_revision_ref: Literal["policy-revision-ref:finance/FIN-001:v1"] = (
         FINANCE_POLICY_REVISION_REF
     )
     capability_ref: Literal[
-        "capability-ref:finance/FIN-001/synthetic-book-mutation"
+        "capability-ref:finance/FIN-001/synthetic-book-mutation",
+        "capability-ref:finance/FIN-002/synthetic-import-commit",
     ] = FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF
-    lane_ref: Literal["authority-lane-ref:finance/FIN-001/synthetic-book-mutation"] = (
-        FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF
-    )
+    lane_ref: Literal[
+        "authority-lane-ref:finance/FIN-001/synthetic-book-mutation",
+        "authority-lane-ref:finance/FIN-002/synthetic-import-commit",
+    ] = FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF
     adapter_ref: Literal[
-        "authority-adapter-ref:finance/FIN-001/synthetic-book-repository:v1"
+        "authority-adapter-ref:finance/FIN-001/synthetic-book-repository:v1",
+        "authority-adapter-ref:finance/FIN-002/protected-import-commit:v1",
     ] = FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF
-    tool_ref: Literal["tool-ref:finance/FIN-001/synthetic-book-mutation:v1"] = (
-        FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF
-    )
+    tool_ref: Literal[
+        "tool-ref:finance/FIN-001/synthetic-book-mutation:v1",
+        "tool-ref:finance/FIN-002/synthetic-import-commit:v1",
+    ] = FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF
     safe_disable_ref: Literal[
-        "safe-disable-ref:finance/FIN-001:synthetic-mutations"
+        "safe-disable-ref:finance/FIN-001:synthetic-mutations",
+        "safe-disable-ref:finance/FIN-002/synthetic-import-commit",
     ] = FINANCE_SAFE_DISABLE_REF
-    rollback_ref: Literal["rollback-ref:finance/FIN-001:reversal-or-restore"] = (
-        FINANCE_ROLLBACK_REF
-    )
+    rollback_ref: Literal[
+        "rollback-ref:finance/FIN-001:reversal-or-restore",
+        "rollback-contract-ref:finance/FIN-002/reversal-or-restore:v1",
+    ] = FINANCE_ROLLBACK_REF
     prepared_at: datetime
     expires_at: datetime
     mutation_performed: Literal[False] = False
@@ -223,6 +280,34 @@ class FinanceMutationPreview(BaseModel):
             raise ValueError("FINANCE_PREVIEW_EXPIRY_INVALID")
         if tuple(self.approval_request.resource_refs) != self.resource_refs:
             raise ValueError("FINANCE_PREVIEW_APPROVAL_RESOURCES_DRIFTED")
+        expected_contract = (
+            (
+                FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF,
+                FIN002_SYNTHETIC_IMPORT_COMMIT_LANE_REF,
+                FIN002_SYNTHETIC_IMPORT_COMMIT_ADAPTER_REF,
+                FIN002_SYNTHETIC_IMPORT_COMMIT_TOOL_REF,
+                FIN002_IMPORT_SAFE_DISABLE_REF,
+                FIN002_IMPORT_ROLLBACK_CONTRACT_REF,
+            )
+            if self.capability_ref == FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF
+            else (
+                FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
+                FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF,
+                FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF,
+                FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+                FINANCE_SAFE_DISABLE_REF,
+                FINANCE_ROLLBACK_REF,
+            )
+        )
+        if (
+            self.capability_ref,
+            self.lane_ref,
+            self.adapter_ref,
+            self.tool_ref,
+            self.safe_disable_ref,
+            self.rollback_ref,
+        ) != expected_contract:
+            raise ValueError("FINANCE_PREVIEW_AUTHORITY_CONTRACT_MISMATCH")
         expected = stable_finance_ref(
             "finance-mutation-preview-ref",
             self.model_dump(mode="json", exclude={"preview_ref"}),
@@ -331,10 +416,168 @@ def build_finance_mutation_capability_manifest() -> CapabilityManifest:
     )
 
 
+def build_finance_import_commit_capability_manifest() -> CapabilityManifest:
+    return CapabilityManifest(
+        id="finance.synthetic-import-commit",
+        version="1.0.0",
+        kind=CapabilityKind.deterministic,
+        name="FIN-002 exact synthetic import commit",
+        description=(
+            "Commit one current allowlisted synthetic preview into the protected book."
+        ),
+        owner="python-agent-core",
+        tags=["finance", "synthetic", "import", "local", "governed"],
+        examples=["Commit the exact current clean synthetic CSV preview."],
+        anti_examples=[
+            "Accept a caller file, pasted content, real statement, or changed preview."
+        ],
+        input_schema={
+            "type": "object",
+            "required": [
+                "operation",
+                "repository_ref",
+                "fixture_ref",
+                "import_preview_ref",
+                "import_profile_ref",
+                "import_fixture_manifest_ref",
+                "import_candidate_refs",
+                "import_source_fingerprint_refs",
+                "expected_revision",
+                "safe_disable_ref",
+                "request_ref",
+                "idempotency_ref",
+            ],
+            "properties": {
+                "operation": {"const": "import_commit"},
+                "repository_ref": {"type": "string"},
+                "fixture_ref": {"type": "string"},
+                "import_preview_ref": {"type": "string"},
+                "import_profile_ref": {"type": "string"},
+                "import_fixture_manifest_ref": {"type": "string"},
+                "import_candidate_refs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 128,
+                },
+                "import_source_fingerprint_refs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 128,
+                },
+                "expected_revision": {"type": "integer", "minimum": 1},
+                "safe_disable_ref": {"const": FIN002_IMPORT_SAFE_DISABLE_REF},
+                "request_ref": {"type": "string"},
+                "idempotency_ref": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["receipt_ref", "commit_ref", "rollback_ref"],
+            "additionalProperties": False,
+        },
+        input_modes=["safe_refs_only", "allowlisted_fixture_preview_only"],
+        output_modes=["content_free_receipt", "redacted_commit_proof"],
+        side_effects=SideEffectLevel.write,
+        risk_level=RiskLevel.medium,
+        authority_level=CapabilityAuthorityLevel.mutating,
+        approval_required=True,
+        deterministic=True,
+        rollback_supported=True,
+        receipt_required=True,
+        privacy_level=CapabilityPrivacyLevel.sensitive,
+        evidence_required=True,
+        memory_write_allowed=False,
+        context_injection_allowed=False,
+        provider_runtime_allowed=False,
+        browser_runtime_allowed=False,
+        connector_write_allowed=False,
+        auth_scopes=[],
+        data_classes=["synthetic_finance_refs_only"],
+        allowed_coordination_modes=[CoordinationMode.direct_tool],
+        concurrency_safe=False,
+        single_writer_required=True,
+        context_policy=ContextPolicy(
+            required_context_keys=[
+                "policy_revision_ref",
+                "request_fingerprint_ref",
+                "idempotency_key",
+            ],
+            allow_memory_refs=False,
+            allow_raw_content=False,
+        ),
+        runtime_policy=RuntimePolicy(
+            timeout_seconds=60,
+            max_retries=0,
+            max_concurrency=1,
+            deterministic=True,
+        ),
+        safety=SafetyPolicy(
+            allow_parallel=False,
+            require_single_writer=True,
+            approval_required=True,
+            max_risk_level=RiskLevel.medium,
+            max_side_effect_level=SideEffectLevel.write,
+        ),
+        quality=QualitySignals(
+            confidence_score=1.0,
+            owner_reviewed=True,
+            deprecated=False,
+        ),
+        metadata={
+            "capability_ref": FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF,
+            "fixture_ref_allowlist_only": True,
+            "preview_revalidation_required": True,
+            "fingerprint_census_revalidation_required": True,
+            "real_financial_data_allowed": False,
+            "api_route_added": False,
+            "control_center_action_added": False,
+        },
+    )
+
+
 class FinanceMutationGate:
     def __init__(self, *, policy_engine: PolicyEngine | None = None) -> None:
         self.capability = build_finance_mutation_capability_manifest()
+        self.import_commit_capability = (
+            build_finance_import_commit_capability_manifest()
+        )
         self.policy = policy_engine or PolicyEngine(default_max_risk=RiskLevel.medium)
+
+    def _authority_contract(self, request: FinanceMutationRequest) -> dict[str, object]:
+        if request.operation == FinanceMutationOperation.import_commit.value:
+            return {
+                "program": "FIN-002",
+                "capability": self.import_commit_capability,
+                "capability_ref": FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF,
+                "lane_ref": FIN002_SYNTHETIC_IMPORT_COMMIT_LANE_REF,
+                "adapter_ref": FIN002_SYNTHETIC_IMPORT_COMMIT_ADAPTER_REF,
+                "tool_ref": FIN002_SYNTHETIC_IMPORT_COMMIT_TOOL_REF,
+                "safe_disable_ref": FIN002_IMPORT_SAFE_DISABLE_REF,
+                "rollback_ref": FIN002_IMPORT_ROLLBACK_CONTRACT_REF,
+                "readiness_ref": FIN002_IMPORT_READINESS_REF,
+                "budget_ref": FIN002_IMPORT_BUDGET_REF,
+                "start_deadline_ref": FIN002_IMPORT_START_DEADLINE_REF,
+                "kill_switch_ref": FIN002_IMPORT_KILL_SWITCH_REF,
+                "target_ref": FIN002_IMPORT_EXACT_TARGET_REF,
+            }
+        return {
+            "program": "FIN-001",
+            "capability": self.capability,
+            "capability_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
+            "lane_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF,
+            "adapter_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF,
+            "tool_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+            "safe_disable_ref": FINANCE_SAFE_DISABLE_REF,
+            "rollback_ref": FINANCE_ROLLBACK_REF,
+            "readiness_ref": FINANCE_READINESS_REF,
+            "budget_ref": FINANCE_BUDGET_REF,
+            "start_deadline_ref": FINANCE_START_DEADLINE_REF,
+            "kill_switch_ref": FINANCE_KILL_SWITCH_REF,
+            "target_ref": FINANCE_EXACT_TARGET_REF,
+        }
 
     def prepare(
         self,
@@ -343,6 +586,7 @@ class FinanceMutationGate:
         now: datetime | None = None,
     ) -> FinanceMutationPreview:
         current = now or datetime.now(UTC)
+        contract = self._authority_contract(request)
         if current.tzinfo is None:
             raise ValueError("FINANCE_TRUSTED_TIME_REQUIRED")
         payload_fingerprint_ref = stable_finance_ref(
@@ -361,18 +605,18 @@ class FinanceMutationGate:
                 "idempotency_ref": request.idempotency_ref,
                 "payload_fingerprint_ref": payload_fingerprint_ref,
                 "policy_revision_ref": request.policy_revision_ref,
-                "capability_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
+                "capability_ref": contract["capability_ref"],
             },
         )
         expected_approval_ref = stable_finance_ref(
-            "approval-ref:finance/FIN-001",
+            f"approval-ref:finance/{contract['program']}",
             {
                 "exact_scope_ref": exact_scope_ref,
                 "payload_fingerprint_ref": payload_fingerprint_ref,
             },
         )
         action_envelope_ref = stable_finance_ref(
-            "action-envelope-ref:finance/FIN-001",
+            f"action-envelope-ref:finance/{contract['program']}",
             {
                 "approval_ref": expected_approval_ref,
                 "exact_scope_ref": exact_scope_ref,
@@ -388,7 +632,7 @@ class FinanceMutationGate:
         expires_at = current + timedelta(minutes=FINANCE_APPROVAL_TTL_MINUTES)
         approval_request = ApprovalRequest(
             approval_request_id=stable_finance_ref(
-                "approval-request-ref:finance/FIN-001",
+                f"approval-request-ref:finance/{contract['program']}",
                 {
                     "request_ref": request.request_ref,
                     "exact_scope_ref": exact_scope_ref,
@@ -405,7 +649,7 @@ class FinanceMutationGate:
             ),
             requested_action=f"finance_synthetic_{request.operation}",
             purpose=(
-                "Approve one exact fixture-selected FIN-001 synthetic local mutation."
+                "Approve one exact fixture-selected protected synthetic Finance mutation."
             ),
             risk_level=ApprovalRiskLevel.high,
             data_classification=DataClassification(
@@ -423,7 +667,7 @@ class FinanceMutationGate:
                 retention_policy="retention-ref:finance:synthetic-local-only",
             ),
             resource_refs=list(resource_refs),
-            tool_id=FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+            tool_id=str(contract["tool_ref"]),
             event_ref=action_envelope_ref,
             trace_id=request.request_ref,
             created_at=current,
@@ -432,6 +676,7 @@ class FinanceMutationGate:
                 "policy_revision_ref": FINANCE_POLICY_REVISION_REF,
                 "synthetic_fixture_only": True,
                 "real_financial_data_allowed": False,
+                "capability_ref": contract["capability_ref"],
             },
         )
         payload = {
@@ -441,6 +686,12 @@ class FinanceMutationGate:
             "expected_approval_ref": expected_approval_ref,
             "approval_request": approval_request,
             "resource_refs": resource_refs,
+            "capability_ref": contract["capability_ref"],
+            "lane_ref": contract["lane_ref"],
+            "adapter_ref": contract["adapter_ref"],
+            "tool_ref": contract["tool_ref"],
+            "safe_disable_ref": contract["safe_disable_ref"],
+            "rollback_ref": contract["rollback_ref"],
             "prepared_at": current,
             "expires_at": expires_at,
         }
@@ -466,6 +717,7 @@ class FinanceMutationGate:
         kill_switch_engaged: bool = False,
     ) -> FinanceMutationPermit:
         current = now or datetime.now(UTC)
+        contract = self._authority_contract(request)
         expected = self.prepare(
             request,
             now=preview.prepared_at,
@@ -496,7 +748,7 @@ class FinanceMutationGate:
         if not policy_allows and not policy_requires_exact_approval:
             raise FinanceAuthorityError("FINANCE_POLICY_DENIED")
         policy_decision_ref = stable_finance_ref(
-            "policy-decision-ref:finance/FIN-001",
+            f"policy-decision-ref:finance/{contract['program']}",
             {
                 "decision": policy_decision.model_dump(mode="json"),
                 "policy_revision_ref": FINANCE_POLICY_REVISION_REF,
@@ -514,7 +766,7 @@ class FinanceMutationGate:
         if not approval_decision.allowed:
             raise FinanceAuthorityError("FINANCE_LOCAL_APPROVAL_DENIED")
         approval_decision_ref = stable_finance_ref(
-            "approval-decision-ref:finance/FIN-001",
+            f"approval-decision-ref:finance/{contract['program']}",
             {
                 "approval_ref": preview.expected_approval_ref,
                 "exact_scope_ref": preview.exact_scope_ref,
@@ -534,7 +786,7 @@ class FinanceMutationGate:
         if exact_lease is None:
             raise FinanceAuthorityError("FINANCE_EXACT_AUTHORITY_LEASE_DENIED")
         authority_decision_ref = stable_finance_ref(
-            "authority-decision-ref:finance/FIN-001",
+            f"authority-decision-ref:finance/{contract['program']}",
             {
                 "lease_ref": exact_lease.lease_ref,
                 "exact_scope_ref": preview.exact_scope_ref,
@@ -547,6 +799,11 @@ class FinanceMutationGate:
             "repository_ref": request.repository_ref,
             "fixture_ref": request.fixture_ref,
             "target_ref": request.target_ref,
+            "import_preview_ref": request.import_preview_ref,
+            "import_profile_ref": request.import_profile_ref,
+            "import_fixture_manifest_ref": request.import_fixture_manifest_ref,
+            "import_candidate_refs": request.import_candidate_refs,
+            "import_source_fingerprint_refs": request.import_source_fingerprint_refs,
             "expected_revision": request.expected_revision,
             "request_ref": request.request_ref,
             "idempotency_ref": request.idempotency_ref,
@@ -557,8 +814,9 @@ class FinanceMutationGate:
             "authority_lease_ref": exact_lease.lease_ref,
             "authority_decision_ref": authority_decision_ref,
             "exact_scope_ref": preview.exact_scope_ref,
-            "safe_disable_ref": FINANCE_SAFE_DISABLE_REF,
-            "rollback_ref": FINANCE_ROLLBACK_REF,
+            "safe_disable_ref": contract["safe_disable_ref"],
+            "rollback_ref": contract["rollback_ref"],
+            "capability_ref": contract["capability_ref"],
         }
         provisional = FinanceMutationPermit.model_construct(
             permit_ref="finance-mutation-permit-ref:pending",
@@ -575,11 +833,13 @@ class FinanceMutationGate:
         request: FinanceMutationRequest,
         preview: FinanceMutationPreview,
     ):
+        contract = self._authority_contract(request)
+        capability = contract["capability"]
         task = TaskEnvelope(
             task_id=request.request_ref,
             user_request="Apply one exact synthetic Finance fixture mutation.",
             objective="Return one content-free protected repository receipt.",
-            scope=[FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF],
+            scope=[str(contract["capability_ref"])],
             out_of_scope=[
                 "real financial data",
                 "arbitrary financial values",
@@ -588,10 +848,10 @@ class FinanceMutationGate:
                 "filing or advice",
                 "API or Control Center mutation",
             ],
-            selected_capability_ids=[self.capability.id],
-            allowed_tool_ids=[FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF],
+            selected_capability_ids=[capability.id],
+            allowed_tool_ids=[str(contract["tool_ref"])],
             acceptance_criteria=[
-                "Persist only the selected deterministic fixture under exact authority."
+                "Persist only the exact current allowlisted synthetic fixture under exact authority."
             ],
             budget={"operation_count": 1, "external_cost_microusd": 0},
             context={
@@ -601,12 +861,12 @@ class FinanceMutationGate:
             },
         )
         return self.policy.can_execute(
-            self.capability,
+            capability,
             task,
             {
-                "allowed_capability_ids": [self.capability.id],
+                "allowed_capability_ids": [capability.id],
                 "max_risk_level": RiskLevel.medium.value,
-                "capability_health": {self.capability.id: "healthy"},
+                "capability_health": {capability.id: "healthy"},
                 "coordination_mode": CoordinationMode.direct_tool.value,
                 "policy_revision_ref": request.policy_revision_ref,
                 "request_fingerprint_ref": preview.payload_fingerprint_ref,
@@ -614,19 +874,20 @@ class FinanceMutationGate:
             },
         )
 
-    @staticmethod
     def _resource_refs(
+        self,
         *,
         request: FinanceMutationRequest,
         payload_fingerprint_ref: str,
         exact_scope_ref: str,
         action_envelope_ref: str,
     ) -> tuple[str, ...]:
+        contract = self._authority_contract(request)
         refs = {
-            FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF,
-            FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
-            FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF,
-            FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+            str(contract["lane_ref"]),
+            str(contract["capability_ref"]),
+            str(contract["adapter_ref"]),
+            str(contract["tool_ref"]),
             request.repository_ref,
             request.request_ref,
             request.idempotency_ref,
@@ -634,20 +895,29 @@ class FinanceMutationGate:
             payload_fingerprint_ref,
             exact_scope_ref,
             action_envelope_ref,
-            FINANCE_SAFE_DISABLE_REF,
-            FINANCE_ROLLBACK_REF,
-            FINANCE_READINESS_REF,
-            FINANCE_BUDGET_REF,
-            FINANCE_START_DEADLINE_REF,
-            FINANCE_KILL_SWITCH_REF,
-            FINANCE_EXACT_TARGET_REF,
-            f"finance-operation-ref:FIN-001:{request.operation}",
+            str(contract["safe_disable_ref"]),
+            str(contract["rollback_ref"]),
+            str(contract["readiness_ref"]),
+            str(contract["budget_ref"]),
+            str(contract["start_deadline_ref"]),
+            str(contract["kill_switch_ref"]),
+            str(contract["target_ref"]),
+            f"finance-operation-ref:{contract['program']}:{request.operation}",
             f"finance-revision-ref:{request.expected_revision}",
         }
         if request.fixture_ref is not None:
             refs.add(request.fixture_ref)
         if request.target_ref is not None:
             refs.add(request.target_ref)
+        for ref in (
+            request.import_preview_ref,
+            request.import_profile_ref,
+            request.import_fixture_manifest_ref,
+        ):
+            if ref is not None:
+                refs.add(ref)
+        refs.update(request.import_candidate_refs)
+        refs.update(request.import_source_fingerprint_refs)
         return tuple(sorted(refs))
 
     @staticmethod
@@ -657,18 +927,28 @@ class FinanceMutationGate:
         *,
         now: datetime,
     ) -> AuthorityLease | None:
+        if preview.capability_ref == FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF:
+            start_deadline_ref = FIN002_IMPORT_START_DEADLINE_REF
+            readiness_ref = FIN002_IMPORT_READINESS_REF
+            budget_ref = FIN002_IMPORT_BUDGET_REF
+            kill_switch_ref = FIN002_IMPORT_KILL_SWITCH_REF
+        else:
+            start_deadline_ref = FINANCE_START_DEADLINE_REF
+            readiness_ref = FINANCE_READINESS_REF
+            budget_ref = FINANCE_BUDGET_REF
+            kill_switch_ref = FINANCE_KILL_SWITCH_REF
         expected_constraints = {
-            "exact_lane_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF,
-            "exact_capability_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
-            "exact_adapter_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF,
-            "exact_tool_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+            "exact_lane_ref": preview.lane_ref,
+            "exact_capability_ref": preview.capability_ref,
+            "exact_adapter_ref": preview.adapter_ref,
+            "exact_tool_ref": preview.tool_ref,
             "exact_request_fingerprint_ref": preview.payload_fingerprint_ref,
-            "exact_start_deadline_ref": FINANCE_START_DEADLINE_REF,
-            "exact_readiness_ref": FINANCE_READINESS_REF,
-            "exact_budget_ref": FINANCE_BUDGET_REF,
-            "exact_safe_disable_ref": FINANCE_SAFE_DISABLE_REF,
-            "exact_rollback_ref": FINANCE_ROLLBACK_REF,
-            "exact_kill_switch_ref": FINANCE_KILL_SWITCH_REF,
+            "exact_start_deadline_ref": start_deadline_ref,
+            "exact_readiness_ref": readiness_ref,
+            "exact_budget_ref": budget_ref,
+            "exact_safe_disable_ref": preview.safe_disable_ref,
+            "exact_rollback_ref": preview.rollback_ref,
+            "exact_kill_switch_ref": kill_switch_ref,
         }
         store_constraint_keys = {
             "decision_reason_ref",
@@ -710,8 +990,8 @@ class FinanceMutationGate:
                 and domains == {"workspace": ["write"]}
                 and required_constraints_match
                 and store_constraints_valid
-                and lease.safe_disable_ref == FINANCE_SAFE_DISABLE_REF
-                and lease.rollback_ref == FINANCE_ROLLBACK_REF
+                and lease.safe_disable_ref == preview.safe_disable_ref
+                and lease.rollback_ref == preview.rollback_ref
                 and lease.kill_switch_ref
                 in {None, "kill-switch-ref:authority-lease-local"}
                 and not lease.unsupported_adapter_refs
@@ -738,6 +1018,19 @@ def build_finance_lease_issue_request(
 ) -> AuthorityLeaseIssueRequest:
     """Build the exact session lease; issuing it remains approval-authority work."""
 
+    if preview.capability_ref == FIN002_SYNTHETIC_IMPORT_COMMIT_CAPABILITY_REF:
+        program = "FIN-002"
+        start_deadline_ref = FIN002_IMPORT_START_DEADLINE_REF
+        readiness_ref = FIN002_IMPORT_READINESS_REF
+        budget_ref = FIN002_IMPORT_BUDGET_REF
+        kill_switch_ref = FIN002_IMPORT_KILL_SWITCH_REF
+    else:
+        program = "FIN-001"
+        start_deadline_ref = FINANCE_START_DEADLINE_REF
+        readiness_ref = FINANCE_READINESS_REF
+        budget_ref = FINANCE_BUDGET_REF
+        kill_switch_ref = FINANCE_KILL_SWITCH_REF
+
     return AuthorityLeaseIssueRequest(
         mode=TrustMode.ask_before_changes,
         scope=AuthorityLeaseScope.session,
@@ -746,7 +1039,7 @@ def build_finance_lease_issue_request(
         authority_constraints=[
             AuthorityConstraint(
                 constraint_ref=stable_finance_ref(
-                    "authority-constraint-ref:finance/FIN-001:resources",
+                    f"authority-constraint-ref:finance/{program}:resources",
                     {"payload_fingerprint_ref": preview.payload_fingerprint_ref},
                 ),
                 kind=AuthorityConstraintKind.resource_refs,
@@ -757,7 +1050,7 @@ def build_finance_lease_issue_request(
             ),
             AuthorityConstraint(
                 constraint_ref=stable_finance_ref(
-                    "authority-constraint-ref:finance/FIN-001:operations",
+                    f"authority-constraint-ref:finance/{program}:operations",
                     {"payload_fingerprint_ref": preview.payload_fingerprint_ref},
                 ),
                 kind=AuthorityConstraintKind.operation_budget,
@@ -766,7 +1059,7 @@ def build_finance_lease_issue_request(
             ),
             AuthorityConstraint(
                 constraint_ref=stable_finance_ref(
-                    "authority-constraint-ref:finance/FIN-001:cost",
+                    f"authority-constraint-ref:finance/{program}:cost",
                     {"payload_fingerprint_ref": preview.payload_fingerprint_ref},
                 ),
                 kind=AuthorityConstraintKind.cost_budget_microusd,
@@ -775,25 +1068,25 @@ def build_finance_lease_issue_request(
             ),
         ],
         constraints={
-            "exact_lane_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_LANE_REF,
-            "exact_capability_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_CAPABILITY_REF,
-            "exact_adapter_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_ADAPTER_REF,
-            "exact_tool_ref": FINANCE_SYNTHETIC_BOOK_MUTATION_TOOL_REF,
+            "exact_lane_ref": preview.lane_ref,
+            "exact_capability_ref": preview.capability_ref,
+            "exact_adapter_ref": preview.adapter_ref,
+            "exact_tool_ref": preview.tool_ref,
             "exact_request_fingerprint_ref": preview.payload_fingerprint_ref,
-            "exact_start_deadline_ref": FINANCE_START_DEADLINE_REF,
-            "exact_readiness_ref": FINANCE_READINESS_REF,
-            "exact_budget_ref": FINANCE_BUDGET_REF,
-            "exact_safe_disable_ref": FINANCE_SAFE_DISABLE_REF,
-            "exact_rollback_ref": FINANCE_ROLLBACK_REF,
-            "exact_kill_switch_ref": FINANCE_KILL_SWITCH_REF,
+            "exact_start_deadline_ref": start_deadline_ref,
+            "exact_readiness_ref": readiness_ref,
+            "exact_budget_ref": budget_ref,
+            "exact_safe_disable_ref": preview.safe_disable_ref,
+            "exact_rollback_ref": preview.rollback_ref,
+            "exact_kill_switch_ref": kill_switch_ref,
         },
         decision_reason_ref=stable_finance_ref(
-            "decision-reason-ref:finance/FIN-001:lease",
+            f"decision-reason-ref:finance/{program}:lease",
             {"payload_fingerprint_ref": preview.payload_fingerprint_ref},
         ),
         duration_minutes=FINANCE_APPROVAL_TTL_MINUTES,
         safe_summary=(
-            "Issue one exact session-scoped lease for a synthetic FIN-001 mutation."
+            "Issue one exact session-scoped lease for a synthetic Finance mutation."
         ),
     )
 
@@ -818,7 +1111,7 @@ def build_exact_finance_lease(
         constraints=request.constraints,
         issued_at=issued_at,
         expires_at=expires_at,
-        safe_disable_ref=FINANCE_SAFE_DISABLE_REF,
-        rollback_ref=FINANCE_ROLLBACK_REF,
-        safe_summary=("Exact session lease for one fixture-selected FIN-001 mutation."),
+        safe_disable_ref=preview.safe_disable_ref,
+        rollback_ref=preview.rollback_ref,
+        safe_summary=("Exact session lease for one fixture-selected Finance mutation."),
     )

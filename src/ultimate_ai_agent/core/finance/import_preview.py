@@ -163,6 +163,7 @@ def _preview_ref(
     *,
     fixture_ref: str,
     profile_ref: str,
+    import_fixture_manifest_ref: str,
     candidate_refs: tuple[str, ...],
     duplicate_fingerprint_refs: tuple[str, ...],
     quarantine_refs: tuple[str, ...],
@@ -172,6 +173,7 @@ def _preview_ref(
         {
             "fixture_ref": fixture_ref,
             "profile_ref": profile_ref,
+            "import_fixture_manifest_ref": import_fixture_manifest_ref,
             "candidate_refs": list(candidate_refs),
             "duplicate_fingerprint_refs": list(duplicate_fingerprint_refs),
             "quarantine_refs": list(quarantine_refs),
@@ -197,6 +199,7 @@ class SyntheticImportPreview(_ImportModel):
     preview_ref: str
     fixture_ref: str
     profile_ref: str
+    import_fixture_manifest_ref: str
     observations: tuple[SourceObservation, ...] = Field(default=(), max_length=128)
     candidates: tuple[TransactionCandidate, ...] = Field(default=(), max_length=128)
     duplicate_fingerprint_refs: tuple[str, ...] = Field(default=(), max_length=128)
@@ -278,6 +281,7 @@ class SyntheticImportPreview(_ImportModel):
         expected_preview_ref = _preview_ref(
             fixture_ref=self.fixture_ref,
             profile_ref=self.profile_ref,
+            import_fixture_manifest_ref=self.import_fixture_manifest_ref,
             candidate_refs=candidate_refs,
             duplicate_fingerprint_refs=self.duplicate_fingerprint_refs,
             quarantine_refs=tuple(item.quarantine_ref for item in self.quarantines),
@@ -297,6 +301,7 @@ class SyntheticImportPreview(_ImportModel):
             "preview_ref": self.preview_ref,
             "fixture_ref": self.fixture_ref,
             "profile_ref": self.profile_ref,
+            "import_fixture_manifest_ref": self.import_fixture_manifest_ref,
             "counts": {
                 "rows": self.row_count,
                 "accepted": self.accepted_count,
@@ -556,9 +561,11 @@ def preview_synthetic_csv_fixture(
         )
 
     candidate_refs = tuple(item.candidate_ref for item in candidates)
+    import_fixture_manifest_ref = synthetic_import_fixture_manifest_ref()
     preview_ref = _preview_ref(
         fixture_ref=fixture_ref,
         profile_ref=fixture.profile_ref,
+        import_fixture_manifest_ref=import_fixture_manifest_ref,
         candidate_refs=candidate_refs,
         duplicate_fingerprint_refs=tuple(duplicates),
         quarantine_refs=tuple(item.quarantine_ref for item in quarantines),
@@ -575,6 +582,7 @@ def preview_synthetic_csv_fixture(
         preview_ref=preview_ref,
         fixture_ref=fixture_ref,
         profile_ref=fixture.profile_ref,
+        import_fixture_manifest_ref=import_fixture_manifest_ref,
         observations=tuple(observations),
         candidates=tuple(candidates),
         duplicate_fingerprint_refs=tuple(duplicates),
