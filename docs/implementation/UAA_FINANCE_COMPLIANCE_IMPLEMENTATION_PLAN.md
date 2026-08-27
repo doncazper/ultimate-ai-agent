@@ -137,6 +137,17 @@ recorded; this does not activate FIN-002 or real-data handling.
 
 ### `FIN-002` Manual capture and file import pipeline
 
+`FIN-002A` is implemented as a synthetic CSV import preview only. It accepts
+three deterministic allowlisted fixture refs, produces typed source
+observations and transaction candidates, detects semantic duplicates,
+quarantines malformed or formula-shaped rows without retaining raw values, and
+binds a no-op rollback proof. It has no arbitrary file/content input and no
+commit, repository mutation, real-data, OCR, connector, API, or UI authority.
+See `docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
+`scripts/verify_fin002_synthetic_import_preview.py`.
+
+The remaining FIN-002 work below stays planned and separately gated:
+
 Deliver:
 
 - manual transaction capture;

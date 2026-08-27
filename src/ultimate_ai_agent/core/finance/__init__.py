@@ -1,4 +1,4 @@
-"""Synthetic-only FIN-001 protected local book kernel."""
+"""Synthetic-only Finance kernel and import-preview contracts."""
 
 from ultimate_ai_agent.core.finance.fixtures import (
     FinanceFixtureManifest,
@@ -13,15 +13,37 @@ from ultimate_ai_agent.core.finance.models import (
     LegalEntity,
     Posting,
 )
+from ultimate_ai_agent.core.finance.import_preview import (
+    FinanceImportPreviewError,
+    ImportQuarantine,
+    ImportRollbackProof,
+    SourceObservation,
+    SyntheticCsvImportFixture,
+    SyntheticImportPreview,
+    TransactionCandidate,
+    load_synthetic_import_fixture_manifest,
+    preview_synthetic_csv_fixture,
+    synthetic_import_fixture_manifest_ref,
+)
 
 __all__ = [
     "Book",
     "FinanceFixtureManifest",
+    "FinanceImportPreviewError",
     "FinanceSnapshot",
     "FinancialAccount",
     "JournalEntry",
+    "ImportQuarantine",
+    "ImportRollbackProof",
     "LegalEntity",
     "Posting",
+    "SourceObservation",
+    "SyntheticCsvImportFixture",
+    "SyntheticImportPreview",
+    "TransactionCandidate",
     "load_finance_fixture",
     "load_finance_fixture_manifest",
+    "load_synthetic_import_fixture_manifest",
+    "preview_synthetic_csv_fixture",
+    "synthetic_import_fixture_manifest_ref",
 ]
