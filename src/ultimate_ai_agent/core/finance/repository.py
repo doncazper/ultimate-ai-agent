@@ -744,7 +744,7 @@ class FinanceRepository:
         return snapshot
 
     def check_integrity(self, *, request_ref: str) -> dict[str, Any]:
-        snapshot = self.load_snapshot(request_ref=request_ref)
+        snapshot = self.load_snapshot_read_only(request_ref=request_ref)
         return {
             "schema_version": "uaa-finance-integrity-check.v1",
             "repository_ref": snapshot.repository_ref,
@@ -761,7 +761,9 @@ class FinanceRepository:
         }
 
     def export_redacted(self, *, request_ref: str) -> dict[str, Any]:
-        return self.load_snapshot(request_ref=request_ref).redacted_read_model()
+        return self.load_snapshot_read_only(
+            request_ref=request_ref
+        ).redacted_read_model()
 
     def backup(
         self,

@@ -298,13 +298,16 @@ def test_read_only_snapshot_load_does_not_recover_pending_commit(
     pending_path.chmod(0o600)
     repository = FinanceRepository(root, crypto_backend=object())
 
-    with pytest.raises(
-        FinanceRepositoryError,
-        match="FINANCE_PENDING_COMMIT_REQUIRES_MUTATING_RECOVERY",
+    for reader in (
+        repository.load_snapshot_read_only,
+        repository.check_integrity,
+        repository.export_redacted,
     ):
-        repository.load_snapshot_read_only(
-            request_ref="request-ref:finance:fin003-read-only-pending"
-        )
+        with pytest.raises(
+            FinanceRepositoryError,
+            match="FINANCE_PENDING_COMMIT_REQUIRES_MUTATING_RECOVERY",
+        ):
+            reader(request_ref="request-ref:finance:fin003-read-only-pending")
 
     assert pending_path.read_bytes() == pending_payload
     assert lock_path.read_bytes() == b""
