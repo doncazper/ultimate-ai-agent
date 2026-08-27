@@ -1,14 +1,14 @@
 {
   "ledger_ref": "ledger-ref:taw00:convergence:v1",
   "protocol_ref": "protocol-ref:taw00:baseline:v1",
-  "status": "fail_closed_scaffold_acceptance_contract_incomplete",
+  "status": "fail_closed_acceptance_contract_complete_external_evidence_pending",
   "requirements": [
     {"requirement_ref": "requirement-ref:taw00:capability-lab-reuse", "state": "implemented", "evidence_refs": ["contract-ref:capability-evaluation-lab:v1"]},
     {"requirement_ref": "requirement-ref:taw00:development-corpus", "state": "implemented", "evidence_refs": ["schema-ref:taw00:development-corpus:v1", "contract-ref:taw00:exact-development-reconstruction:v1"]},
-    {"requirement_ref": "requirement-ref:taw00:holdout-commitment", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:holdout-commitment:v1"]},
-    {"requirement_ref": "requirement-ref:taw00:blind-scoring", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:blind-score:v1", "schema-ref:taw00:adjudication:v1", "schema-ref:taw00:randomization-receipt:v1", "failure-ref:taw00:baseline-observation-derivation-incomplete"]},
-    {"requirement_ref": "requirement-ref:taw00:statistics", "state": "scaffolded", "evidence_refs": ["estimator-ref:taw00:paired-bootstrap", "estimator-ref:taw00:evaluator-clustered", "estimator-ref:taw00:holm-step-down", "estimator-ref:taw00:krippendorff-ordinal", "estimator-ref:taw00:binomial-clopper-pearson-one-sided", "failure-ref:taw00:power-computation-contract-incomplete", "failure-ref:taw00:familywise-bound-contract-incomplete"]},
-    {"requirement_ref": "requirement-ref:taw00:candidate-lock", "state": "scaffolded", "evidence_refs": ["schema-ref:taw00:candidate-lock:v1", "schema-ref:taw00:source-dependency-closure:v1", "failure-ref:taw00:artifact-census-contract-incomplete", "failure-ref:taw00:holdout-opening-binding-incomplete"]},
+    {"requirement_ref": "requirement-ref:taw00:holdout-commitment", "state": "implemented", "evidence_refs": ["schema-ref:taw00:holdout-commitment:v1", "schema-ref:taw00:holdout-opening:v1", "contract-ref:taw00:transient-hmac-opening:v1"]},
+    {"requirement_ref": "requirement-ref:taw00:blind-scoring", "state": "implemented", "evidence_refs": ["schema-ref:taw00:blind-score:v1", "schema-ref:taw00:adjudication:v1", "schema-ref:taw00:randomization-receipt:v1", "schema-ref:taw00:observation-census:v1"]},
+    {"requirement_ref": "requirement-ref:taw00:statistics", "state": "implemented", "evidence_refs": ["estimator-ref:taw00:paired-bootstrap", "estimator-ref:taw00:evaluator-clustered", "estimator-ref:taw00:holm-step-down", "estimator-ref:taw00:krippendorff-ordinal", "estimator-ref:taw00:binomial-clopper-pearson-one-sided", "schema-ref:taw00:computed-power-analysis:v1", "schema-ref:taw00:familywise-bounds:v1"]},
+    {"requirement_ref": "requirement-ref:taw00:candidate-lock", "state": "implemented", "evidence_refs": ["schema-ref:taw00:candidate-lock:v1", "schema-ref:taw00:source-dependency-closure:v1", "schema-ref:taw00:artifact-census:v1", "schema-ref:taw00:complete-acceptance-binding:v1"]},
     {"requirement_ref": "requirement-ref:taw00:supported-matrices", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:supported-matrices-not-frozen"]},
     {"requirement_ref": "requirement-ref:taw00:independent-custody", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:independent-holdout-custodian-pending", "blocker-ref:taw00:independent-custodian-identity-authority-missing", "blocker-ref:taw00:independent-evaluator-identity-authority-missing"]},
     {"requirement_ref": "requirement-ref:taw00:accepted-current-baseline", "state": "blocked", "evidence_refs": ["blocker-ref:taw00:baseline-measurement-pending", "blocker-ref:taw00:external-baseline-acceptance-authority-missing"]},
@@ -18,5 +18,5 @@
   "prompt_changes_added": false,
   "runtime_model_calls_added": false,
   "authority_added": false,
-  "next_safe_action": "Complete the typed power, matrix, observation, familywise-bound, holdout-opening, and artifact-census contracts before freezing external matrices or collecting acceptance evidence."
+  "next_safe_action": "Independently freeze the truthful supported matrix, configure externally anchored custodian and evaluator identity authorities, then collect the acceptance-bound evidence bundle without changing routing or prompts."
 }

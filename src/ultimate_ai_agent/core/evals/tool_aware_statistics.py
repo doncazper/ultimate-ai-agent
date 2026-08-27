@@ -3,9 +3,63 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Mapping, Sequence
+from statistics import NormalDist
 
 
 TAW00_MAX_BINOMIAL_DENOMINATOR = 10_000
+
+
+def normal_approximation_minimum_denominator(
+    *,
+    target_effect_size: float,
+    variance_bound: float,
+    one_sided_alpha: float,
+    target_power: float,
+) -> int:
+    """Deterministically recompute a conservative preregistered sample size."""
+    if not math.isfinite(target_effect_size) or target_effect_size <= 0:
+        raise ValueError("target_effect_size must be finite and positive")
+    if not math.isfinite(variance_bound) or variance_bound <= 0:
+        raise ValueError("variance_bound must be finite and positive")
+    if not 0 < one_sided_alpha < 1:
+        raise ValueError("one_sided_alpha must be between zero and one")
+    if not 0.5 < target_power < 1:
+        raise ValueError("target_power must be between one half and one")
+    normal = NormalDist()
+    z_alpha = normal.inv_cdf(1 - one_sided_alpha)
+    z_power = normal.inv_cdf(target_power)
+    denominator = math.ceil(
+        variance_bound * ((z_alpha + z_power) / target_effect_size) ** 2
+    )
+    if denominator > TAW00_MAX_BINOMIAL_DENOMINATOR:
+        raise ValueError("computed denominator exceeds the bounded verification limit")
+    return max(1, denominator)
+
+
+def binomial_lower_tail_probability(
+    event_count: int,
+    denominator: int,
+    *,
+    null_rate: float,
+) -> float:
+    """Exact P[X <= event_count] under a preregistered binomial null rate."""
+    if denominator < 1 or event_count < 0 or event_count > denominator:
+        raise ValueError("invalid binomial event count or denominator")
+    if denominator > TAW00_MAX_BINOMIAL_DENOMINATOR:
+        raise ValueError("binomial denominator exceeds the bounded verification limit")
+    if not 0 < null_rate < 1:
+        raise ValueError("null_rate must be between zero and one")
+    terms = []
+    for observed in range(0, event_count + 1):
+        log_mass = (
+            math.lgamma(denominator + 1)
+            - math.lgamma(observed + 1)
+            - math.lgamma(denominator - observed + 1)
+            + observed * math.log(null_rate)
+            + (denominator - observed) * math.log1p(-null_rate)
+        )
+        terms.append(math.exp(log_mass))
+    return min(1.0, math.fsum(terms))
 
 
 def binomial_one_sided_upper_bound(

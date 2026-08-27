@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
+    TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE,
     TAW00Protocol,
     SourceProjection,
     durable_payload_has_forbidden_fields,
@@ -41,9 +42,11 @@ EXPECTED_REQUIREMENTS = {
 FACILITY_FILES = (
     "src/ultimate_ai_agent/core/evals/tool_aware_baseline.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_corpus.py",
+    "src/ultimate_ai_agent/core/evals/tool_aware_evidence.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_statistics.py",
     "scripts/run_tool_aware_baseline.py",
     "scripts/run_tool_aware_holdout_custodian.py",
+    "scripts/run_tool_aware_holdout_opening.py",
 )
 FORBIDDEN_RUNTIME_TOKENS = (
     "import requests",
@@ -144,6 +147,8 @@ def verify(
             )
         if protocol.status != "pending_configuration_freeze":
             failures.append("checked-in protocol must not claim a locked configuration")
+        if not TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE:
+            failures.append("TAW-00 typed acceptance evidence contract is incomplete")
     except Exception as exc:  # noqa: BLE001
         failures.append(f"TAW-00 protocol validation failed: {exc}")
 
@@ -177,7 +182,7 @@ def verify(
             failures.append("TAW-00 convergence ledger shape drifted")
         if (
             ledger.get("status")
-            != "fail_closed_scaffold_acceptance_contract_incomplete"
+            != "fail_closed_acceptance_contract_complete_external_evidence_pending"
         ):
             failures.append("TAW-00 convergence ledger overclaims completion")
         for item in requirements:
@@ -258,7 +263,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print("TAW-00 fail-closed scaffold verification passed.")
+    print("TAW-00 fail-closed acceptance contract verification passed.")
     return 0
 
 
