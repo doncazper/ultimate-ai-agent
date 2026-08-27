@@ -1845,13 +1845,16 @@ Today, Action Inbox, and ECO-008 ChangeSets are accepted. The local product
 precedes live bank or compliance connections; every adapter, accountant-access
 lane, payment, and filing handoff requires separate promotion.
 
-Board posture: Blocked pending activation-record merge and explicit coordinator
-unblock. The
-separately bounded `dev-task:finance-fin001-synthetic-kernel` reserves the next
-`product_surface` slot, but is not In Progress until a fresh lane-vacancy check
-and coordinator claim receipt exist. The checklist and claim procedure are in
-`docs/product/UAA_FINANCE_FIN001_ACTIVATION_RECORD.md`. The broader Queue V2 Q26
-program task and later Finance milestones remain blocked/deferred.
+Board posture: FIN-001 merged in PR 428 and its separate queue task is complete.
+The broader Queue V2 Q26 program and independent real-data promotion remain
+blocked, but synthetic-only subordinate slices may proceed under separate
+scope, WIP, claim, review, and merge evidence.
+
+Bounded continuation: `dev-task:finance-fin002-synthetic-import-preview` is a
+separate claimed product-surface slice. It implements allowlisted synthetic CSV
+preview, duplicate/quarantine posture, and no-op rollback proof only. It grants
+no arbitrary input, import commit, protected-document persistence, OCR,
+connector, real-data, API, or UI authority.
 
 Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,

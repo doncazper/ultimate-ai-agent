@@ -599,7 +599,13 @@ public release, and production authority remain false. Evidence:
 `docs/product/finance_fin001_activation_v1.json` and
 `scripts/verify_fin001_activation.py`; implementation candidate:
 `docs/product/UAA_FINANCE_FIN001_SYNTHETIC_KERNEL.md` and
-`scripts/verify_fin001_synthetic_kernel.py`.
+`scripts/verify_fin001_synthetic_kernel.py`. FIN-002A adds only deterministic
+allowlisted synthetic CSV preview, safe-ref observations/candidates,
+duplicate/quarantine posture, redacted CLI output, and a no-op rollback proof.
+It adds no caller-supplied file/content input, persistence, import commit, OCR,
+connector, real-data, API, UI, or production authority. Evidence:
+`docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
+`scripts/verify_fin002_synthetic_import_preview.py`.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|
