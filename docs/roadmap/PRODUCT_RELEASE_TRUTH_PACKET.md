@@ -602,10 +602,15 @@ public release, and production authority remain false. Evidence:
 `scripts/verify_fin001_synthetic_kernel.py`. FIN-002A adds only deterministic
 allowlisted synthetic CSV preview, safe-ref observations/candidates,
 duplicate/quarantine posture, redacted CLI output, and a no-op rollback proof.
-It adds no caller-supplied file/content input, persistence, import commit, OCR,
-connector, real-data, API, UI, or production authority. Evidence:
+FIN-002B separately adds one exact approval- and lease-bound commit of a current
+allowlisted preview into the encrypted FIN-001 repository. It revalidates the
+preview and fingerprint census under the repository lock, creates balanced
+synthetic suspense entries, and returns content-free before/after and rollback
+proof. Neither lane adds caller-supplied file/content input, arbitrary values,
+OCR, connector, real-data, API, UI, professional, or production authority. Evidence:
 `docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
-`scripts/verify_fin002_synthetic_import_preview.py`.
+`scripts/verify_fin002_synthetic_import_preview.py` plus
+`scripts/verify_fin002_synthetic_import_commit.py`.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|

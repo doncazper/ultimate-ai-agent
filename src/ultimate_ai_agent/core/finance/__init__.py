@@ -8,10 +8,17 @@ from ultimate_ai_agent.core.finance.fixtures import (
 from ultimate_ai_agent.core.finance.models import (
     Book,
     FinanceSnapshot,
+    FinanceImportCommitRecord,
     FinancialAccount,
     JournalEntry,
     LegalEntity,
     Posting,
+)
+from ultimate_ai_agent.core.finance.import_commit import (
+    FinanceImportCommitError,
+    FinanceImportCommitProof,
+    build_import_commit_proof,
+    build_import_commit_record,
 )
 from ultimate_ai_agent.core.finance.import_preview import (
     FinanceImportPreviewError,
@@ -30,6 +37,9 @@ __all__ = [
     "Book",
     "FinanceFixtureManifest",
     "FinanceImportPreviewError",
+    "FinanceImportCommitError",
+    "FinanceImportCommitProof",
+    "FinanceImportCommitRecord",
     "FinanceSnapshot",
     "FinancialAccount",
     "JournalEntry",
@@ -41,6 +51,8 @@ __all__ = [
     "SyntheticCsvImportFixture",
     "SyntheticImportPreview",
     "TransactionCandidate",
+    "build_import_commit_proof",
+    "build_import_commit_record",
     "load_finance_fixture",
     "load_finance_fixture_manifest",
     "load_synthetic_import_fixture_manifest",

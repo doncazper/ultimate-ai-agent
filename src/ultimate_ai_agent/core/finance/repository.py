@@ -34,6 +34,16 @@ from ultimate_ai_agent.core.finance.fixtures import (
     load_finance_fixture_manifest,
 )
 from ultimate_ai_agent.core.finance.models import FinanceSnapshot, stable_finance_ref
+from ultimate_ai_agent.core.finance.import_preview import (
+    SyntheticImportPreview,
+    preview_synthetic_csv_fixture,
+)
+from ultimate_ai_agent.core.finance.import_commit import (
+    FinanceImportCommitError,
+    FinanceImportCommitProof,
+    build_import_commit_proof,
+    build_import_commit_record,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_task_ref,
@@ -60,6 +70,7 @@ class FinanceRepositoryError(RuntimeError):
 
 class FinanceMutationOperation(str, Enum):
     create = "create"
+    import_commit = "import_commit"
     backup = "backup"
     restore = "restore"
     delete = "delete"
@@ -76,6 +87,11 @@ class FinanceMutationPermit(BaseModel):
     repository_ref: str
     fixture_ref: str | None = None
     target_ref: str | None = None
+    import_preview_ref: str | None = None
+    import_profile_ref: str | None = None
+    import_fixture_manifest_ref: str | None = None
+    import_candidate_refs: tuple[str, ...] = Field(default=(), max_length=128)
+    import_source_fingerprint_refs: tuple[str, ...] = Field(default=(), max_length=128)
     expected_revision: StrictInt = Field(..., ge=0)
     request_ref: str
     idempotency_ref: str
@@ -89,7 +105,8 @@ class FinanceMutationPermit(BaseModel):
     safe_disable_ref: str
     rollback_ref: str
     capability_ref: Literal[
-        "capability-ref:finance/FIN-001/synthetic-book-mutation"
+        "capability-ref:finance/FIN-001/synthetic-book-mutation",
+        "capability-ref:finance/FIN-002/synthetic-import-commit",
     ] = "capability-ref:finance/FIN-001/synthetic-book-mutation"
     current_policy_validated: Literal[True] = True
     current_approval_validated: Literal[True] = True
@@ -110,15 +127,61 @@ class FinanceMutationPermit(BaseModel):
         for name, value in payload.items():
             if name.endswith("_ref") and value is not None:
                 validate_task_ref(str(value), f"finance_permit_{name}")
+            elif name.endswith("_refs"):
+                for ref in value:
+                    validate_task_ref(str(ref), f"finance_permit_{name}")
         if self.operation == FinanceMutationOperation.create.value:
             if (
                 self.fixture_ref is None
                 or self.target_ref is not None
                 or self.expected_revision != 0
+                or self.import_preview_ref is not None
+                or self.import_profile_ref is not None
+                or self.import_fixture_manifest_ref is not None
+                or self.import_candidate_refs
+                or self.import_source_fingerprint_refs
+                or self.capability_ref
+                != "capability-ref:finance/FIN-001/synthetic-book-mutation"
+                or self.safe_disable_ref
+                != "safe-disable-ref:finance/FIN-001:synthetic-mutations"
+                or self.rollback_ref
+                != "rollback-ref:finance/FIN-001:reversal-or-restore"
             ):
                 raise ValueError("FINANCE_CREATE_PERMIT_SCOPE_INVALID")
+        elif self.operation == FinanceMutationOperation.import_commit.value:
+            if (
+                self.fixture_ref is None
+                or self.target_ref is not None
+                or self.expected_revision < 1
+                or self.import_preview_ref is None
+                or self.import_profile_ref is None
+                or self.import_fixture_manifest_ref is None
+                or not self.import_candidate_refs
+                or len(self.import_candidate_refs)
+                != len(self.import_source_fingerprint_refs)
+                or self.capability_ref
+                != "capability-ref:finance/FIN-002/synthetic-import-commit"
+                or self.safe_disable_ref
+                != "safe-disable-ref:finance/FIN-002/synthetic-import-commit"
+                or self.rollback_ref
+                != "rollback-contract-ref:finance/FIN-002/reversal-or-restore:v1"
+            ):
+                raise ValueError("FIN002_IMPORT_COMMIT_PERMIT_SCOPE_INVALID")
         elif self.fixture_ref is not None:
             raise ValueError("FINANCE_NONCREATE_FIXTURE_REF_DENIED")
+        elif (
+            self.import_preview_ref is not None
+            or self.import_profile_ref is not None
+            or self.import_fixture_manifest_ref is not None
+            or self.import_candidate_refs
+            or self.import_source_fingerprint_refs
+            or self.capability_ref
+            != "capability-ref:finance/FIN-001/synthetic-book-mutation"
+            or self.safe_disable_ref
+            != "safe-disable-ref:finance/FIN-001:synthetic-mutations"
+            or self.rollback_ref != "rollback-ref:finance/FIN-001:reversal-or-restore"
+        ):
+            raise ValueError("FINANCE_NONIMPORT_BINDING_DENIED")
         if self.operation in {"backup", "restore"} and self.target_ref is None:
             raise ValueError("FINANCE_BACKUP_TARGET_REF_REQUIRED")
         if self.operation == "delete" and self.target_ref is not None:
@@ -435,6 +498,193 @@ class FinanceRepository:
                     backup_created=backup_created or primary_created,
                 )
             raise
+
+    def commit_import(
+        self,
+        preview: SyntheticImportPreview,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> tuple[FinanceImportCommitProof, FinanceMutationReceipt]:
+        """Atomically commit one current allowlisted synthetic preview."""
+
+        self._ensure_private_root(create=False)
+        with self._mutation_lock():
+            self._recover_pending_commit()
+            return self._commit_import_locked(
+                preview,
+                permit=permit,
+                revalidate=revalidate,
+            )
+
+    def _commit_import_locked(
+        self,
+        preview: SyntheticImportPreview,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> tuple[FinanceImportCommitProof, FinanceMutationReceipt]:
+        self._require_permit(permit, FinanceMutationOperation.import_commit)
+        replay = self._find_logged_replay(permit)
+        if replay is not None:
+            if replay.after_snapshot_ref is None:
+                raise FinanceRepositoryError("FIN002_IMPORT_REPLAY_PROOF_MISSING")
+            snapshot = self._load_snapshot_locked(request_ref=permit.request_ref)
+            record = next(
+                (
+                    item
+                    for item in snapshot.import_commits
+                    if item.preview_ref == permit.import_preview_ref
+                    and item.commit_ref in replay.proof_refs
+                ),
+                None,
+            )
+            if record is None:
+                raise FinanceRepositoryError("FIN002_IMPORT_REPLAY_RECORD_MISSING")
+            replayed = replay.model_copy(update={"replayed": True})
+            return (
+                build_import_commit_proof(
+                    record=record,
+                    mutation_receipt_ref=replayed.receipt_ref,
+                    after_snapshot_ref=replayed.after_snapshot_ref,
+                    replayed=True,
+                ),
+                replayed,
+            )
+
+        metadata = self._read_metadata()
+        self._require_repository_binding(permit, metadata)
+        before = self._load_snapshot_locked(request_ref=permit.request_ref)
+        if before.revision != permit.expected_revision:
+            raise FinanceRepositoryError("FINANCE_STALE_REVISION")
+        self._require_current_import_preview(permit, preview, before)
+        try:
+            record, entries = build_import_commit_record(preview, before=before)
+        except FinanceImportCommitError as exc:
+            raise FinanceRepositoryError(str(exc)) from None
+
+        prepared = self._receipt(
+            permit=permit,
+            phase="prepared",
+            before_revision=before.revision,
+            after_revision=before.revision + 1,
+            before_snapshot_ref=before.snapshot_ref,
+            after_snapshot_ref=None,
+            proof_refs=(
+                preview.preview_ref,
+                preview.import_fixture_manifest_ref,
+                record.commit_ref,
+                record.rollback_ref,
+            ),
+        )
+        self._require_revalidated(permit, revalidate)
+        self._require_current_import_preview(permit, preview, before)
+        self._append_receipt(prepared)
+
+        applied_fixture_refs = before.applied_fixture_refs
+        if preview.fixture_ref not in applied_fixture_refs:
+            applied_fixture_refs = (*applied_fixture_refs, preview.fixture_ref)
+        after = before.model_copy(
+            update={
+                "revision": before.revision + 1,
+                "generation": before.generation + 1,
+                "applied_fixture_refs": applied_fixture_refs,
+                "journal_entries": (*before.journal_entries, *entries),
+                "import_commits": (*before.import_commits, record),
+            }
+        )
+        # Force all graph, balance, lineage, and safe-ref validators after update.
+        after = FinanceSnapshot.model_validate(after.model_dump(mode="python"))
+
+        connection = self._new_connection()
+        try:
+            self._write_snapshot(connection, after)
+            self._record_idempotency(connection, permit, prepared.receipt_ref)
+            serialized = connection.serialize()
+        finally:
+            connection.close()
+        ciphertext = self.crypto.seal(
+            key_handle_ref=metadata.key_handle_ref,
+            key_version_ref=metadata.key_version_ref,
+            context_ref=metadata.envelope_context_ref,
+            request_ref=permit.request_ref,
+            plaintext=serialized,
+        )
+        updated_metadata = metadata.model_copy(
+            update={
+                "ciphertext_ref": ciphertext_ref(ciphertext),
+                "generation": after.generation,
+            }
+        )
+        committed = self._receipt(
+            permit=permit,
+            phase="committed",
+            before_revision=before.revision,
+            after_revision=after.revision,
+            before_snapshot_ref=before.snapshot_ref,
+            after_snapshot_ref=after.snapshot_ref,
+            proof_refs=(
+                preview.preview_ref,
+                preview.import_fixture_manifest_ref,
+                record.commit_ref,
+                record.rollback_ref,
+                updated_metadata.ciphertext_ref,
+            ),
+        )
+        self._require_revalidated(permit, revalidate)
+        self._require_current_import_preview(permit, preview, before)
+        self._stage_and_commit_generation(
+            metadata=updated_metadata,
+            ciphertext=ciphertext,
+            committed=committed,
+        )
+        return (
+            build_import_commit_proof(
+                record=record,
+                mutation_receipt_ref=committed.receipt_ref,
+                after_snapshot_ref=after.snapshot_ref,
+            ),
+            committed,
+        )
+
+    @staticmethod
+    def _require_current_import_preview(
+        permit: FinanceMutationPermit,
+        preview: SyntheticImportPreview,
+        snapshot: FinanceSnapshot,
+    ) -> None:
+        existing_fingerprints = tuple(
+            ref
+            for item in snapshot.import_commits
+            for ref in item.source_fingerprint_refs
+        )
+        try:
+            current = preview_synthetic_csv_fixture(
+                preview.fixture_ref,
+                existing_fingerprint_refs=existing_fingerprints,
+            )
+        except (ValueError, RuntimeError):
+            raise FinanceRepositoryError(
+                "FIN002_IMPORT_PREVIEW_REVALIDATION_FAILED"
+            ) from None
+        expected_bindings = (
+            permit.fixture_ref,
+            permit.import_preview_ref,
+            permit.import_profile_ref,
+            permit.import_fixture_manifest_ref,
+            permit.import_candidate_refs,
+            permit.import_source_fingerprint_refs,
+        )
+        actual_bindings = (
+            current.fixture_ref,
+            current.preview_ref,
+            current.profile_ref,
+            current.import_fixture_manifest_ref,
+            tuple(item.candidate_ref for item in current.candidates),
+            tuple(item.source_fingerprint_ref for item in current.observations),
+        )
+        if current != preview or expected_bindings != actual_bindings:
+            raise FinanceRepositoryError("FIN002_IMPORT_PREVIEW_STALE")
 
     def load_snapshot(self, *, request_ref: str) -> FinanceSnapshot:
         self._ensure_private_root(create=False)

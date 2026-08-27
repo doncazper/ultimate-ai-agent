@@ -32,6 +32,13 @@ from ultimate_ai_agent.core.finance.crypto import (  # noqa: E402
     MacOSFinanceCryptoBackend,
 )
 from ultimate_ai_agent.core.finance.models import stable_finance_ref  # noqa: E402
+from ultimate_ai_agent.core.finance.import_commit import (  # noqa: E402
+    FIN002_IMPORT_SAFE_DISABLE_REF,
+    FinanceImportCommitProof,
+)
+from ultimate_ai_agent.core.finance.import_preview import (  # noqa: E402
+    preview_synthetic_csv_fixture,
+)
 from ultimate_ai_agent.core.finance.repository import FinanceRepository  # noqa: E402
 from ultimate_ai_agent.core.finance.service import (  # noqa: E402
     FinanceKernelService,
@@ -99,14 +106,55 @@ def _authority_state_dir(repository_dir: Path) -> Path:
 
 def _request(args: argparse.Namespace) -> FinanceMutationRequest:
     backup_path = getattr(args, "backup_path", None)
+    import_fixture_ref = getattr(args, "import_fixture_ref", None)
+    import_preview = None
+    if args.operation == "import_commit":
+        if import_fixture_ref is None:
+            raise ValueError("FIN002_IMPORT_FIXTURE_REF_REQUIRED")
+        snapshot = _service(args).repository.load_snapshot(request_ref=args.request_ref)
+        existing_fingerprints = tuple(
+            ref
+            for item in snapshot.import_commits
+            for ref in item.source_fingerprint_refs
+        )
+        import_preview = preview_synthetic_csv_fixture(
+            import_fixture_ref,
+            existing_fingerprint_refs=existing_fingerprints,
+        )
     return FinanceMutationRequest(
         operation=args.operation,
         repository_ref=finance_repository_ref(args.repository_dir),
-        fixture_ref=FIXTURE_REF if args.operation == "create" else None,
+        fixture_ref=(
+            FIXTURE_REF
+            if args.operation == "create"
+            else import_fixture_ref
+            if args.operation == "import_commit"
+            else None
+        ),
         target_ref=finance_target_ref(backup_path) if backup_path else None,
+        import_preview_ref=(import_preview.preview_ref if import_preview else None),
+        import_profile_ref=(import_preview.profile_ref if import_preview else None),
+        import_fixture_manifest_ref=(
+            import_preview.import_fixture_manifest_ref if import_preview else None
+        ),
+        import_candidate_refs=(
+            tuple(item.candidate_ref for item in import_preview.candidates)
+            if import_preview
+            else ()
+        ),
+        import_source_fingerprint_refs=(
+            tuple(item.source_fingerprint_ref for item in import_preview.observations)
+            if import_preview
+            else ()
+        ),
         expected_revision=args.expected_revision,
         request_ref=args.request_ref,
         idempotency_ref=args.idempotency_ref,
+        safe_disable_ref=(
+            FIN002_IMPORT_SAFE_DISABLE_REF
+            if args.operation == "import_commit"
+            else "safe-disable-ref:finance/FIN-001:synthetic-mutations"
+        ),
     )
 
 
@@ -217,11 +265,17 @@ def command_run(args: argparse.Namespace) -> int:
         safe_disable_engaged=lambda: args.safe_disable_engaged,
     )
     if isinstance(result, tuple):
-        backup, receipt = result
-        payload = {
-            "backup": backup.model_dump(mode="json"),
-            "receipt": receipt.model_dump(mode="json"),
-        }
+        evidence, receipt = result
+        if isinstance(evidence, FinanceImportCommitProof):
+            payload = {
+                "import_commit": evidence.model_dump(mode="json"),
+                "receipt": receipt.model_dump(mode="json"),
+            }
+        else:
+            payload = {
+                "backup": evidence.model_dump(mode="json"),
+                "receipt": receipt.model_dump(mode="json"),
+            }
     else:
         payload = {"receipt": result.model_dump(mode="json")}
     _json(
@@ -258,12 +312,15 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("status", parents=[shared]).set_defaults(func=command_status)
     prepare = commands.add_parser("prepare", parents=[shared])
     prepare.add_argument(
-        "--operation", choices=("create", "backup", "restore", "delete"), required=True
+        "--operation",
+        choices=("create", "import_commit", "backup", "restore", "delete"),
+        required=True,
     )
     prepare.add_argument("--expected-revision", type=int, required=True)
     prepare.add_argument("--request-ref", required=True)
     prepare.add_argument("--idempotency-ref", required=True)
     prepare.add_argument("--backup-path", type=Path)
+    prepare.add_argument("--import-fixture-ref")
     prepare.set_defaults(func=command_prepare)
     run = commands.add_parser("run", parents=[shared])
     run.add_argument("--bundle", type=Path, required=True)

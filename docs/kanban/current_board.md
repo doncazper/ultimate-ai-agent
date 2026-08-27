@@ -946,7 +946,10 @@ coordinator revision 166. The broader Queue V2 Q26 program task and independent
 real-data promotion remain blocked. FIN-002A now provides an allowlisted
 synthetic CSV import preview with typed observations/candidates, semantic
 duplicate detection, bounded quarantine, redacted CLI output, and a no-op
-rollback proof. It performs no import commit or persistence. No real-data storage,
+rollback proof. FIN-002B now provides one separately approval-bound synthetic import commit:
+it revalidates the exact preview and fingerprint census under the
+protected repository lock, writes balanced suspense entries atomically, and
+returns content-free before/after and rollback evidence. No real-data storage,
 connector, filing, payment, professional, public-release, or production
 authority exists.
 Scope: the product contract, privacy-safe workflow case study, implementation
@@ -954,9 +957,9 @@ sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
 Next: retain the independent FIN-000 gate before real-data, arbitrary file
-import, or higher-authority promotion. A later exact lane may bind synthetic
-FIN-002A previews into an approval-bound FIN-001 repository mutation. The
-merged FIN-001 kernel and FIN-002A preview remain synthetic-only.
+import, or higher-authority promotion. Exercise FIN-002A/FIN-002B through
+private dogfood, then scope FIN-003 review projections separately. The merged
+FIN-001 kernel and FIN-002 preview/commit loop remain synthetic-only.
 Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.

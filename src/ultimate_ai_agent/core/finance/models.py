@@ -171,6 +171,67 @@ class JournalEntry(_FinanceModel):
         return self
 
 
+class FinanceImportCommitRecord(_FinanceModel):
+    """Content-free lineage for one committed FIN-002 synthetic preview."""
+
+    schema_version: Literal["uaa-finance-import-commit-record.v1"] = (
+        "uaa-finance-import-commit-record.v1"
+    )
+    commit_ref: str
+    preview_ref: str
+    fixture_ref: str
+    profile_ref: str
+    import_fixture_manifest_ref: str
+    before_snapshot_ref: str
+    before_revision: StrictInt = Field(..., ge=1)
+    observation_refs: tuple[str, ...] = Field(..., min_length=1, max_length=128)
+    source_fingerprint_refs: tuple[str, ...] = Field(..., min_length=1, max_length=128)
+    candidate_refs: tuple[str, ...] = Field(..., min_length=1, max_length=128)
+    journal_entry_refs: tuple[str, ...] = Field(..., min_length=1, max_length=128)
+    rollback_ref: str
+    synthetic_only: Literal[True] = True
+    raw_source_content_persisted: Literal[False] = False
+    real_financial_data_included: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_commit_binding(self) -> "FinanceImportCommitRecord":
+        lengths = {
+            len(self.observation_refs),
+            len(self.source_fingerprint_refs),
+            len(self.candidate_refs),
+            len(self.journal_entry_refs),
+        }
+        if len(lengths) != 1:
+            raise ValueError("FIN002_IMPORT_COMMIT_LINEAGE_COUNT_MISMATCH")
+        for refs, code in (
+            (self.observation_refs, "FIN002_IMPORT_OBSERVATION_REF_DUPLICATE"),
+            (
+                self.source_fingerprint_refs,
+                "FIN002_IMPORT_SOURCE_FINGERPRINT_DUPLICATE",
+            ),
+            (self.candidate_refs, "FIN002_IMPORT_CANDIDATE_REF_DUPLICATE"),
+            (self.journal_entry_refs, "FIN002_IMPORT_JOURNAL_REF_DUPLICATE"),
+        ):
+            if len(refs) != len(set(refs)):
+                raise ValueError(code)
+        expected_rollback_ref = stable_finance_ref(
+            "rollback-ref:finance/FIN-002:synthetic-import-commit",
+            {
+                "before_snapshot_ref": self.before_snapshot_ref,
+                "journal_entry_refs": list(self.journal_entry_refs),
+            },
+        )
+        if self.rollback_ref != expected_rollback_ref:
+            raise ValueError("FIN002_IMPORT_ROLLBACK_REF_INVALID")
+        expected_commit_ref = stable_finance_ref(
+            "import-commit-ref:finance/FIN-002",
+            self.model_dump(mode="json", exclude={"commit_ref"}),
+        )
+        if self.commit_ref != expected_commit_ref:
+            raise ValueError("FIN002_IMPORT_COMMIT_REF_INVALID")
+        return self
+
+
 class FinanceSnapshot(_FinanceModel):
     schema_version: Literal["finance-schema:v1"] = FINANCE_SCHEMA_VERSION
     repository_ref: str
@@ -182,6 +243,9 @@ class FinanceSnapshot(_FinanceModel):
     legal_entities: tuple[LegalEntity, ...] = Field(default=(), max_length=64)
     accounts: tuple[FinancialAccount, ...] = Field(default=(), max_length=512)
     journal_entries: tuple[JournalEntry, ...] = Field(default=(), max_length=10_000)
+    import_commits: tuple[FinanceImportCommitRecord, ...] = Field(
+        default=(), max_length=10_000
+    )
     safe_disable_enabled: StrictBool = True
     synthetic_only: Literal[True] = True
     real_financial_data_allowed: Literal[False] = False
@@ -195,11 +259,13 @@ class FinanceSnapshot(_FinanceModel):
         entity_refs = [entity.legal_entity_ref for entity in self.legal_entities]
         account_refs = [account.account_ref for account in self.accounts]
         entry_refs = [entry.journal_entry_ref for entry in self.journal_entries]
+        import_commit_refs = [item.commit_ref for item in self.import_commits]
         for refs, code in (
             (book_refs, "FINANCE_BOOK_REF_DUPLICATE"),
             (entity_refs, "FINANCE_ENTITY_REF_DUPLICATE"),
             (account_refs, "FINANCE_ACCOUNT_REF_DUPLICATE"),
             (entry_refs, "FINANCE_JOURNAL_ENTRY_REF_DUPLICATE"),
+            (import_commit_refs, "FIN002_IMPORT_COMMIT_REF_DUPLICATE"),
         ):
             if len(refs) != len(set(refs)):
                 raise ValueError(code)
@@ -229,6 +295,45 @@ class FinanceSnapshot(_FinanceModel):
         entries_by_ref = {
             entry.journal_entry_ref: entry for entry in self.journal_entries
         }
+        imported_observation_refs: set[str] = set()
+        imported_fingerprint_refs: set[str] = set()
+        imported_candidate_refs: set[str] = set()
+        imported_journal_refs: set[str] = set()
+        for record in self.import_commits:
+            if record.before_revision >= self.revision:
+                raise ValueError("FIN002_IMPORT_COMMIT_REVISION_INVALID")
+            if record.fixture_ref not in self.applied_fixture_refs:
+                raise ValueError("FIN002_IMPORT_FIXTURE_NOT_APPLIED")
+            for refs, seen, duplicate_code in (
+                (
+                    record.observation_refs,
+                    imported_observation_refs,
+                    "FIN002_IMPORT_OBSERVATION_REUSED",
+                ),
+                (
+                    record.source_fingerprint_refs,
+                    imported_fingerprint_refs,
+                    "FIN002_IMPORT_SOURCE_FINGERPRINT_REUSED",
+                ),
+                (
+                    record.candidate_refs,
+                    imported_candidate_refs,
+                    "FIN002_IMPORT_CANDIDATE_REUSED",
+                ),
+                (
+                    record.journal_entry_refs,
+                    imported_journal_refs,
+                    "FIN002_IMPORT_JOURNAL_REUSED",
+                ),
+            ):
+                if seen.intersection(refs):
+                    raise ValueError(duplicate_code)
+                seen.update(refs)
+            for journal_ref in record.journal_entry_refs:
+                if journal_ref not in known_entries:
+                    raise ValueError("FIN002_IMPORT_JOURNAL_REF_UNKNOWN")
+                if entries_by_ref[journal_ref].fixture_ref != record.fixture_ref:
+                    raise ValueError("FIN002_IMPORT_JOURNAL_FIXTURE_MISMATCH")
         reversed_targets: set[str] = set()
         for entry in self.journal_entries:
             if (
@@ -282,6 +387,25 @@ class FinanceSnapshot(_FinanceModel):
         }
 
     def redacted_read_model(self) -> dict[str, Any]:
+        counts = {
+            "books": len(self.books),
+            "legal_entities": len(self.legal_entities),
+            "accounts": len(self.accounts),
+            "journal_entries": len(self.journal_entries),
+            "postings": sum(len(entry.postings) for entry in self.journal_entries),
+        }
+        if self.import_commits:
+            counts.update(
+                {
+                    "import_commits": len(self.import_commits),
+                    "imported_observations": sum(
+                        len(item.observation_refs) for item in self.import_commits
+                    ),
+                    "imported_candidates": sum(
+                        len(item.candidate_refs) for item in self.import_commits
+                    ),
+                }
+            )
         return {
             "schema_version": "uaa-finance-synthetic-read-model.v1",
             "repository_ref": self.repository_ref,
@@ -291,13 +415,7 @@ class FinanceSnapshot(_FinanceModel):
             "applied_fixture_refs": list(self.applied_fixture_refs),
             "revision": self.revision,
             "generation": self.generation,
-            "counts": {
-                "books": len(self.books),
-                "legal_entities": len(self.legal_entities),
-                "accounts": len(self.accounts),
-                "journal_entries": len(self.journal_entries),
-                "postings": sum(len(entry.postings) for entry in self.journal_entries),
-            },
+            "counts": counts,
             "balance_proof_ref": stable_finance_ref(
                 "finance-balance-proof-ref",
                 self.account_balances(),
