@@ -23,7 +23,7 @@ DUPLICATE_FIXTURE_REF = "fixture-ref:finance/FIN-002:synthetic-csv-duplicate:v1"
 ADVERSARIAL_FIXTURE_REF = "fixture-ref:finance/FIN-002:synthetic-csv-adversarial:v1"
 EXPECTED_MANIFEST_REF = (
     "fixture-manifest-ref:finance/FIN-002:sha256:"
-    "c76f8728cf10aa5402b89be4d936779dc6023404f650531535f586d8b0d705de"
+    "cc14f2beb2fe339752fcb59de76fe50662358caefe612ed6e730524e9e6cfbf8"
 )
 
 
@@ -37,6 +37,14 @@ def test_manifest_is_exact_allowlisted_and_synthetic_only() -> None:
     }
     assert all(item.synthetic_only for item in fixtures)
     assert all(not item.arbitrary_operator_input_allowed for item in fixtures)
+    assert all(
+        item.book_ref == "book-ref:finance:synthetic-primary" for item in fixtures
+    )
+    assert all(
+        item.account_ref == "financial-account-ref:finance:synthetic-cash"
+        for item in fixtures
+    )
+    assert all(item.commodity_ref == "commodity-ref:finance:USD" for item in fixtures)
 
 
 def test_clean_fixture_produces_typed_preview_and_noop_rollback_proof() -> None:
@@ -90,6 +98,13 @@ def test_adversarial_rows_are_quarantined_without_raw_values() -> None:
         "unsafe_cell",
     }
     serialized = json.dumps(preview.redacted_read_model(), sort_keys=True)
+    assert {
+        (item["row_position_ref"], item["reason"])
+        for item in preview.redacted_read_model()["quarantines"]
+    } == {
+        (quarantine.row_position_ref, quarantine.reason)
+        for quarantine in preview.quarantines
+    }
     for forbidden in ("synthetic-formula", "vendor-e", "amount_minor"):
         assert forbidden not in serialized
 
@@ -142,6 +157,22 @@ def test_preview_contract_rejects_count_and_rollback_binding_tamper() -> None:
     )
     with pytest.raises(
         ValidationError, match="FIN002_CANDIDATE_OBSERVATION_BINDING_MISMATCH"
+    ):
+        SyntheticImportPreview.model_validate(payload)
+
+    payload = preview.model_dump(mode="python")
+    payload["candidates"][0]["amount_minor"] += 1
+    with pytest.raises(
+        ValidationError, match="FIN002_CANDIDATE_SOURCE_BINDING_MISMATCH"
+    ):
+        SyntheticImportPreview.model_validate(payload)
+
+    payload = preview.model_dump(mode="python")
+    payload["candidates"][0]["evidence_refs"] = (
+        payload["candidates"][0]["observation_ref"],
+    )
+    with pytest.raises(
+        ValidationError, match="FIN002_CANDIDATE_SOURCE_BINDING_MISMATCH"
     ):
         SyntheticImportPreview.model_validate(payload)
 

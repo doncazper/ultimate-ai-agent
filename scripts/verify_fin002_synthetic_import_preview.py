@@ -16,7 +16,7 @@ from ultimate_ai_agent.core.finance.import_preview import (
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_MANIFEST_REF = (
     "fixture-manifest-ref:finance/FIN-002:sha256:"
-    "c76f8728cf10aa5402b89be4d936779dc6023404f650531535f586d8b0d705de"
+    "cc14f2beb2fe339752fcb59de76fe50662358caefe612ed6e730524e9e6cfbf8"
 )
 EXPECTED_FIXTURE_REFS = {
     "fixture-ref:finance/FIN-002:synthetic-csv-adversarial:v1",

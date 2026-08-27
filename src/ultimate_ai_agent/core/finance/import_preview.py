@@ -241,6 +241,22 @@ class SyntheticImportPreview(_ImportModel):
         )
         if observation_refs != candidate_observation_refs:
             raise ValueError("FIN002_CANDIDATE_OBSERVATION_BINDING_MISMATCH")
+        for observation, candidate in zip(
+            self.observations, self.candidates, strict=True
+        ):
+            if (
+                candidate.book_ref != observation.book_ref
+                or candidate.account_ref != observation.account_ref
+                or candidate.commodity_ref != observation.commodity_ref
+                or candidate.direction != observation.direction
+                or candidate.amount_minor != observation.amount_minor
+                or candidate.evidence_refs
+                != (
+                    observation.observation_ref,
+                    observation.source_fingerprint_ref,
+                )
+            ):
+                raise ValueError("FIN002_CANDIDATE_SOURCE_BINDING_MISMATCH")
         for refs, code in (
             (observation_refs, "FIN002_OBSERVATION_REF_DUPLICATE"),
             (
@@ -289,7 +305,14 @@ class SyntheticImportPreview(_ImportModel):
             },
             "candidate_refs": [item.candidate_ref for item in self.candidates],
             "duplicate_fingerprint_refs": list(self.duplicate_fingerprint_refs),
-            "quarantine_refs": [item.quarantine_ref for item in self.quarantines],
+            "quarantines": [
+                {
+                    "quarantine_ref": item.quarantine_ref,
+                    "row_position_ref": item.row_position_ref,
+                    "reason": item.reason,
+                }
+                for item in self.quarantines
+            ],
             "rollback_ref": self.rollback_proof.rollback_ref,
             "synthetic_only": True,
             "raw_source_content_included": False,
@@ -344,9 +367,9 @@ def _fixture_contract(fixture_ref: str) -> SyntheticCsvImportFixture:
         raise FinanceImportPreviewError("FIN002_FIXTURE_REF_UNKNOWN") from exc
     return SyntheticCsvImportFixture(
         fixture_ref=fixture_ref,
-        book_ref="book-ref:finance/FIN-001:synthetic-local-book",
-        account_ref="account-ref:finance/FIN-001:operating-cash",
-        commodity_ref="commodity-ref:finance:usd",
+        book_ref="book-ref:finance:synthetic-primary",
+        account_ref="financial-account-ref:finance:synthetic-cash",
+        commodity_ref="commodity-ref:finance:USD",
         csv_sha256_ref=f"sha256:{hashlib.sha256(content.encode()).hexdigest()}",
         expected_row_count=row_count,
         expected_accepted_count=accepted,
