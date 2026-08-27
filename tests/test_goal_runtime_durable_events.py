@@ -7562,46 +7562,64 @@ def test_aggregate_snapshot_blocks_cross_store_mutation_until_complete(
     original_load = service._events._load_events  # noqa: SLF001
     reader_entered = threading.Event()
     release_reader = threading.Event()
+    writer_started = threading.Event()
     snapshot_holder: list[object] = []
     edit_holder: list[PersistentGoal] = []
+    errors: list[BaseException] = []
 
     def slow_load() -> list[DurableRunEvent]:
         events = original_load()
         reader_entered.set()
-        assert release_reader.wait(timeout=5)
+        assert release_reader.wait(timeout=15)
         return events
 
     monkeypatch.setattr(service._events, "_load_events", slow_load)  # noqa: SLF001
 
-    reader = threading.Thread(
-        target=lambda: snapshot_holder.append(
-            build_runtime_run_events_read_model(service=service)
-        )
-    )
-    reader.start()
-    assert reader_entered.wait(timeout=5)
-    writer = threading.Thread(
-        target=lambda: edit_holder.append(
-            _edit_goal(
-                service,
-                created.goal_ref,
-                GoalEditRequest(
-                    expected_version=created.version,
-                    text_redaction_posture=("operator_authored_redacted_summary_only"),
-                    objective="The writer advances only after the snapshot.",
-                ),
-                idempotency_ref="idempotency-ref:aggregate-snapshot:edit",
+    def read_snapshot() -> None:
+        try:
+            snapshot_holder.append(
+                build_runtime_run_events_read_model(service=service)
             )
-        )
-    )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    def edit_goal() -> None:
+        writer_started.set()
+        try:
+            edit_holder.append(
+                _edit_goal(
+                    service,
+                    created.goal_ref,
+                    GoalEditRequest(
+                        expected_version=created.version,
+                        text_redaction_posture=(
+                            "operator_authored_redacted_summary_only"
+                        ),
+                        objective="The writer advances only after the snapshot.",
+                    ),
+                    idempotency_ref="idempotency-ref:aggregate-snapshot:edit",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    reader = threading.Thread(target=read_snapshot)
+    reader.start()
+    assert reader_entered.wait(timeout=15)
+    writer = threading.Thread(target=edit_goal)
     writer.start()
+    assert writer_started.wait(timeout=15)
+    writer.join(timeout=0.2)
     assert writer.is_alive()
     release_reader.set()
-    reader.join(timeout=5)
-    writer.join(timeout=5)
+    reader.join(timeout=15)
+    writer.join(timeout=15)
 
     assert not reader.is_alive()
     assert not writer.is_alive()
+    assert errors == []
+    assert len(snapshot_holder) == 1
+    assert len(edit_holder) == 1
     snapshot = snapshot_holder[0]
     assert snapshot.goal_lifecycle.goals[0].version == created.version
     assert edit_holder[0].version == created.version + 1
