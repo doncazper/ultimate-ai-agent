@@ -610,7 +610,13 @@ proof. Neither lane adds caller-supplied file/content input, arbitrary values,
 OCR, connector, real-data, API, UI, professional, or production authority. Evidence:
 `docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
 `scripts/verify_fin002_synthetic_import_preview.py` plus
-`scripts/verify_fin002_synthetic_import_commit.py`.
+`scripts/verify_fin002_synthetic_import_commit.py`. FIN-003 adds only a
+deterministic synthetic read-only Finance Review and Action Inbox projection
+over current commit lineage. It exposes safe refs and `needs_review` posture,
+not amounts, observations, decisions, rules, persistence, API/UI, or new
+authority. Evidence:
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_PROJECTION.md` and
+`scripts/verify_fin003_synthetic_review_projection.py`.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|

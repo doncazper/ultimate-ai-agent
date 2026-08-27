@@ -40,6 +40,9 @@ from ultimate_ai_agent.core.finance.import_preview import (  # noqa: E402
     preview_synthetic_csv_fixture,
 )
 from ultimate_ai_agent.core.finance.repository import FinanceRepository  # noqa: E402
+from ultimate_ai_agent.core.finance.review_projection import (  # noqa: E402
+    build_finance_review_projection,
+)
 from ultimate_ai_agent.core.finance.service import (  # noqa: E402
     FinanceKernelService,
     finance_repository_ref,
@@ -291,11 +294,16 @@ def command_run(args: argparse.Namespace) -> int:
 
 
 def command_read(args: argparse.Namespace) -> int:
+    """Emit a redacted, integrity, export, or non-mutating review read model."""
+
     repository = FinanceRepository(args.repository_dir, crypto_backend=_backend(args))
     if args.command == "inspect":
         payload = repository.export_redacted(request_ref=args.request_ref)
     elif args.command == "check":
         payload = repository.check_integrity(request_ref=args.request_ref)
+    elif args.command == "review":
+        snapshot = repository.load_snapshot_read_only(request_ref=args.request_ref)
+        payload = build_finance_review_projection(snapshot).model_dump(mode="json")
     else:
         payload = repository.export_redacted(request_ref=args.request_ref)
     _json(payload)
@@ -303,6 +311,8 @@ def command_read(args: argparse.Namespace) -> int:
 
 
 def parser() -> argparse.ArgumentParser:
+    """Build the bounded Finance CLI parser."""
+
     result = argparse.ArgumentParser(description=__doc__)
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--repository-dir", type=Path, required=True)
@@ -328,7 +338,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--confirmed", action="store_true")
     run.add_argument("--safe-disable-engaged", action="store_true")
     run.set_defaults(func=command_run)
-    for name in ("inspect", "check", "export"):
+    for name in ("inspect", "check", "export", "review"):
         read = commands.add_parser(name, parents=[shared])
         read.add_argument("--request-ref", required=True)
         read.set_defaults(func=command_read)

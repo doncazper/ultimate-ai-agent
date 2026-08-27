@@ -184,6 +184,18 @@ truthfully listed rather than implied.
 
 ### `FIN-003` Review inbox, rules, and learning loop
 
+The first bounded FIN-003 slice is implemented as a synthetic-only, read-only
+Finance Review and Action Inbox projection over current FIN-002B import-commit
+lineage. It emits deterministic content-bound safe refs, `needs_review`
+posture, fixed reasons/consequences, and `confidence_posture=not_scored`; it
+does not expose financial values or observations and adds no categorization,
+decision, mutation, rule, arbitrary-input, API, UI, connector, or real-data
+authority. See
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_PROJECTION.md` and
+`scripts/verify_fin003_synthetic_review_projection.py`.
+
+The remaining FIN-003 work below stays planned and separately gated:
+
 Deliver:
 
 - Finance review read model and Action Inbox projections;

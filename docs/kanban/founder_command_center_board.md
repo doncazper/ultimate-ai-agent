@@ -1850,11 +1850,12 @@ The broader Queue V2 Q26 program and independent real-data promotion remain
 blocked, but synthetic-only subordinate slices may proceed under separate
 scope, WIP, claim, review, and merge evidence.
 
-Bounded continuation: `dev-task:finance-fin002-synthetic-import-preview` is a
-separate claimed product-surface slice. It implements allowlisted synthetic CSV
-preview, duplicate/quarantine posture, and no-op rollback proof only. It grants
-no arbitrary input, import commit, protected-document persistence, OCR,
-connector, real-data, API, or UI authority.
+Bounded continuation: FIN-002A preview and the separately approval-bound
+FIN-002B exact synthetic commit are merged. FIN-003's first subordinate slice
+adds a deterministic synthetic-only, read-only Finance Review and Action Inbox
+projection over current import lineage. It grants no review decision, rule,
+canonical inbox persistence, arbitrary input, protected-document persistence,
+OCR, connector, real-data, API, or UI authority.
 
 Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,
