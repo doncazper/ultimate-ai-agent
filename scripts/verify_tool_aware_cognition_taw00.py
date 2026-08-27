@@ -175,7 +175,10 @@ def verify(
             "next_safe_action",
         }:
             failures.append("TAW-00 convergence ledger shape drifted")
-        if ledger.get("status") != "scaffold_implemented_acceptance_contracts_pending":
+        if (
+            ledger.get("status")
+            != "fail_closed_scaffold_acceptance_contract_incomplete"
+        ):
             failures.append("TAW-00 convergence ledger overclaims completion")
         for item in requirements:
             if not isinstance(item, dict) or set(item) != {
@@ -255,7 +258,7 @@ def main() -> int:
         for failure in failures:
             print(f"FAIL: {failure}")
         return 1
-    print("TAW-00 fail-closed evaluation scaffold verification passed.")
+    print("TAW-00 fail-closed scaffold verification passed.")
     return 0
 
 
