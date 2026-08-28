@@ -33,9 +33,11 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
     TAW00_DIMENSIONS,
     TAW00_MANDATORY_CANDIDATE_PATH_REFS,
     TAW00_REQUIRED_METRICS,
+    TAW00FounderDogfoodProfile,
     TAW00Protocol,
     derive_local_python_dependencies,
     durable_payload_has_forbidden_fields,
+    founder_dogfood_readiness,
     protocol_configuration_digest,
     protocol_readiness,
     validate_acceptance_evidence_binding,
@@ -1314,6 +1316,71 @@ def test_pending_protocol_reports_external_inputs_without_inventing_defaults() -
         "blocker-ref:taw00:acceptance-evidence-contract-incomplete"
         in report["reason_refs"]
     )
+
+
+def test_founder_dogfood_profile_accepts_bounded_q22_implementation() -> None:
+    profile = TAW00FounderDogfoodProfile.model_validate(
+        verifier._load(verifier.FOUNDER_DOGFOOD_PROFILE)
+    )
+    report = founder_dogfood_readiness(profile)
+    profiles = {item.profile_ref: item for item in profile.inference_profiles}
+
+    assert profile.language_refs == ("language-ref:en",)
+    assert profile.hardware_family_refs == (
+        "hardware-family-ref:mac",
+        "hardware-family-ref:windows",
+    )
+    local = profiles["inference-profile-ref:taw00:qwen-3.8-27b-128k-local"]
+    assert local.model_ref == "model-ref:qwen-3.8-27b"
+    assert local.context_window_ref == "context-window-ref:128k"
+    assert (
+        profiles["inference-profile-ref:taw00:openai-chatgpt-api"].surface_ref
+        == "inference-surface-ref:openai-api"
+    )
+    assert (
+        profiles["inference-profile-ref:taw00:openai-codex-api"].surface_ref
+        == "inference-surface-ref:openai-api"
+    )
+    assert report["status"] == "accepted_for_bounded_implementation"
+    assert report["implementation_ready"] is True
+    assert report["independent_promotion_ready"] is False
+    assert report["runtime_model_calls_added"] is False
+    assert report["provider_calls_added"] is False
+    assert report["authority_added"] is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("language_refs", ["language-ref:en", "language-ref:es"]),
+        ("same_host_baseline_required", False),
+        ("public_quality_claims_allowed", True),
+        ("provider_calls_added", True),
+        ("independent_promotion_required", False),
+    ),
+)
+def test_founder_dogfood_profile_fails_closed_on_scope_drift(
+    field: str, value: object
+) -> None:
+    payload = copy.deepcopy(verifier._load(verifier.FOUNDER_DOGFOOD_PROFILE))
+    payload[field] = value
+
+    with pytest.raises(ValidationError):
+        TAW00FounderDogfoodProfile.model_validate(payload)
+
+
+def test_founder_dogfood_cli_reports_implementation_not_promotion(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        "sys.argv", ["run_tool_aware_baseline.py", "report-founder-dogfood-readiness"]
+    )
+
+    assert baseline_cli.main() == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["implementation_ready"] is True
+    assert report["independent_promotion_ready"] is False
+    assert report["provider_calls_added"] is False
 
 
 def test_source_projection_is_revision_bound_and_closed() -> None:

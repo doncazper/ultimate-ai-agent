@@ -1,0 +1,63 @@
+{
+  "schema_version": "uaa-taw00-founder-dogfood-profile.v1",
+  "profile_ref": "profile-ref:taw00:founder-dogfood:v1",
+  "status": "accepted_for_bounded_implementation",
+  "founder_decision_ref": "decision-ref:taw00:founder-private-dogfood:20260828",
+  "language_refs": [
+    "language-ref:en"
+  ],
+  "inference_profiles": [
+    {
+      "profile_ref": "inference-profile-ref:taw00:qwen-3.8-27b-128k-local",
+      "surface_ref": "inference-surface-ref:local-model",
+      "model_ref": "model-ref:qwen-3.8-27b",
+      "context_window_ref": "context-window-ref:128k",
+      "exact_identity_state": "artifact-digest-required-before-measurement",
+      "runtime_authority_granted": false
+    },
+    {
+      "profile_ref": "inference-profile-ref:taw00:openai-chatgpt-api",
+      "surface_ref": "inference-surface-ref:openai-api",
+      "model_ref": "model-ref:openai:chatgpt-configured",
+      "context_window_ref": null,
+      "exact_identity_state": "exact-model-id-required-before-measurement",
+      "runtime_authority_granted": false
+    },
+    {
+      "profile_ref": "inference-profile-ref:taw00:openai-codex-api",
+      "surface_ref": "inference-surface-ref:openai-api",
+      "model_ref": "model-ref:openai:codex-configured",
+      "context_window_ref": null,
+      "exact_identity_state": "exact-model-id-required-before-measurement",
+      "runtime_authority_granted": false
+    }
+  ],
+  "hardware_family_refs": [
+    "hardware-family-ref:mac",
+    "hardware-family-ref:windows"
+  ],
+  "hardware_evidence_policy_ref": "hardware-policy-ref:taw00:per-run-observed-same-host-baseline",
+  "same_host_baseline_required": true,
+  "cross_host_latency_promotion_allowed": false,
+  "private_dogfood_only": true,
+  "independent_promotion_required": true,
+  "public_quality_claims_allowed": false,
+  "runtime_model_calls_added": false,
+  "provider_calls_added": false,
+  "authority_added": false,
+  "no_second_model_call_for_ordinary_chat": true,
+  "safe_disable_required": true,
+  "rollback_required": true,
+  "redacted_evidence_required": true,
+  "measurement_prerequisite_refs": [
+    "prerequisite-ref:taw00:qwen-artifact-digest",
+    "prerequisite-ref:taw00:openai-chatgpt-exact-model-id",
+    "prerequisite-ref:taw00:openai-codex-exact-model-id",
+    "prerequisite-ref:taw00:per-run-hardware-profile"
+  ],
+  "blocked_promotion_refs": [
+    "blocker-ref:taw00:independent-custodian-identity-authority-missing",
+    "blocker-ref:taw00:independent-evaluator-identity-authority-missing",
+    "blocker-ref:taw00:external-baseline-acceptance-authority-missing"
+  ]
+}

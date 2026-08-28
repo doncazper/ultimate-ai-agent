@@ -2,6 +2,9 @@
 
 Status: Ordered, user-authorized queue item.
 
+Current execution posture: active under founder-private-dogfood acceptance;
+independent promotion remains gated.
+
 Date: 2026-07-28.
 
 Canonical plan:
@@ -21,6 +24,11 @@ Canonical ordered manifest and structured authority boundary:
    before the final GoatCitadel comparison.
 3. At that pre-Goat boundary, execute TAW-00 through TAW-08 as one
    dependency-aware finite program.
+   Bounded implementation uses the founder profile: English, Qwen 3.8 27B with
+   128K local context, configured ChatGPT/Codex OpenAI API profiles, and
+   per-run observed Mac/Windows hardware with same-host comparisons. The
+   profile adds no model/provider runtime authority. Independent holdout and
+   blind-scoring evidence remain required for later independent promotion.
    Independent implementation and verification may run concurrently after
    shared contracts are stable; merge admission follows the evidence
    dependency order.
@@ -63,7 +71,10 @@ does not replace or retrain it.
 
 ## Completion Evidence
 
-The queue item is not complete when these documents merge. Completion requires
-the TAW-00 through TAW-08 implementation sequence, exact-head acceptance, the
-quality and latency thresholds in the canonical plan, post-merge verification,
-and an updated queue record that points to the accepted evidence.
+The queue item is not complete when these documents merge. Founder-private
+dogfood completion requires the TAW-00 through TAW-08 bounded implementation
+sequence, deterministic development evidence, exact-head acceptance,
+safe-disable and rollback proof, post-merge verification, and an updated queue
+record. Independent promotion additionally requires the sealed holdout,
+external identity, blind-scoring, and acceptance evidence in the canonical
+plan; founder acceptance cannot substitute for those stronger claims.

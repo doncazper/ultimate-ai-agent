@@ -4,6 +4,48 @@
   "$defs": {
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "safe_ref": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9._/-]*)+$"},
+    "founder_inference_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_ref", "surface_ref", "model_ref", "context_window_ref", "exact_identity_state", "runtime_authority_granted"],
+      "properties": {
+        "profile_ref": {"$ref": "#/$defs/safe_ref"},
+        "surface_ref": {"enum": ["inference-surface-ref:local-model", "inference-surface-ref:openai-api"]},
+        "model_ref": {"$ref": "#/$defs/safe_ref"},
+        "context_window_ref": {"oneOf": [{"$ref": "#/$defs/safe_ref"}, {"type": "null"}]},
+        "exact_identity_state": {"enum": ["artifact-digest-required-before-measurement", "exact-model-id-required-before-measurement"]},
+        "runtime_authority_granted": {"const": false}
+      }
+    },
+    "founder_dogfood_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "profile_ref", "status", "founder_decision_ref", "language_refs", "inference_profiles", "hardware_family_refs", "hardware_evidence_policy_ref", "same_host_baseline_required", "cross_host_latency_promotion_allowed", "private_dogfood_only", "independent_promotion_required", "public_quality_claims_allowed", "runtime_model_calls_added", "provider_calls_added", "authority_added", "no_second_model_call_for_ordinary_chat", "safe_disable_required", "rollback_required", "redacted_evidence_required", "measurement_prerequisite_refs", "blocked_promotion_refs"],
+      "properties": {
+        "schema_version": {"const": "uaa-taw00-founder-dogfood-profile.v1"},
+        "profile_ref": {"const": "profile-ref:taw00:founder-dogfood:v1"},
+        "status": {"const": "accepted_for_bounded_implementation"},
+        "founder_decision_ref": {"$ref": "#/$defs/safe_ref"},
+        "language_refs": {"const": ["language-ref:en"]},
+        "inference_profiles": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/founder_inference_profile"}, "uniqueItems": true},
+        "hardware_family_refs": {"const": ["hardware-family-ref:mac", "hardware-family-ref:windows"]},
+        "hardware_evidence_policy_ref": {"const": "hardware-policy-ref:taw00:per-run-observed-same-host-baseline"},
+        "same_host_baseline_required": {"const": true},
+        "cross_host_latency_promotion_allowed": {"const": false},
+        "private_dogfood_only": {"const": true},
+        "independent_promotion_required": {"const": true},
+        "public_quality_claims_allowed": {"const": false},
+        "runtime_model_calls_added": {"const": false},
+        "provider_calls_added": {"const": false},
+        "authority_added": {"const": false},
+        "no_second_model_call_for_ordinary_chat": {"const": true},
+        "safe_disable_required": {"const": true},
+        "rollback_required": {"const": true},
+        "redacted_evidence_required": {"const": true},
+        "measurement_prerequisite_refs": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/safe_ref"}, "uniqueItems": true},
+        "blocked_promotion_refs": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/safe_ref"}, "uniqueItems": true}
+      }
+    },
     "protocol": {
       "type": "object", "additionalProperties": false,
       "required": ["schema_version", "protocol_ref", "plan_ref", "capability_lab_ref", "status", "cycle_ref", "supported_language_refs", "model_configuration_refs", "hardware_backend_refs", "supported_stratum_refs", "catalog_state_refs", "rubric_ref", "language_qualification_protocol_ref", "exact_case_recovery_protocol_ref", "estimator_refs", "metric_census", "power_analysis_receipt_digest_ref", "expected_pair_manifest_digest_ref", "acceptance_affecting_path_refs", "source_projection_path_refs", "holm_familywise_alpha", "agreement_minimum", "ordinary_chat_margin_points", "false_positive_upper_bound", "unsafe_authority_upper_bound", "behavior_preserving_only", "runtime_model_calls_added", "routing_changes_added", "prompt_changes_added", "authority_added", "blocked_reason_refs"],
@@ -70,6 +112,7 @@
     "acceptance_evidence_binding": {"type": "object", "additionalProperties": false, "required": ["schema_version", "cycle_ref", "protocol_digest_ref", "power_analysis_receipt_digest_ref", "source_projection_digest_ref", "source_closure_digest_ref", "candidate_ref", "candidate_revision_ref", "candidate_manifest_digest_ref", "pair_manifest_digest_ref", "baseline_receipt_digest_ref", "randomization_bundle_digest_ref", "score_bundle_digest_ref", "adjudication_bundle_digest_ref", "binding_digest_ref", "raw_content_persisted"], "properties": {"schema_version": {"const": "uaa-taw00-acceptance-evidence-binding.v1"}, "cycle_ref": {"$ref": "#/$defs/safe_ref"}, "protocol_digest_ref": {"$ref": "#/$defs/digest"}, "power_analysis_receipt_digest_ref": {"$ref": "#/$defs/digest"}, "source_projection_digest_ref": {"$ref": "#/$defs/digest"}, "source_closure_digest_ref": {"$ref": "#/$defs/digest"}, "candidate_ref": {"$ref": "#/$defs/safe_ref"}, "candidate_revision_ref": {"type": "string", "pattern": "^git-sha:[0-9a-f]{40}$"}, "candidate_manifest_digest_ref": {"$ref": "#/$defs/digest"}, "pair_manifest_digest_ref": {"$ref": "#/$defs/digest"}, "baseline_receipt_digest_ref": {"$ref": "#/$defs/digest"}, "randomization_bundle_digest_ref": {"$ref": "#/$defs/digest"}, "score_bundle_digest_ref": {"$ref": "#/$defs/digest"}, "adjudication_bundle_digest_ref": {"$ref": "#/$defs/digest"}, "binding_digest_ref": {"$ref": "#/$defs/digest"}, "raw_content_persisted": {"const": false}}}
   },
   "oneOf": [
+    {"$ref": "#/$defs/founder_dogfood_profile"},
     {"$ref": "#/$defs/protocol"},
     {"$ref": "#/$defs/development_corpus"},
     {"$ref": "#/$defs/holdout_commitment"},

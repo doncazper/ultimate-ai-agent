@@ -14,13 +14,18 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE,
+    TAW00FounderDogfoodProfile,
     TAW00Protocol,
     SourceProjection,
     durable_payload_has_forbidden_fields,
+    founder_dogfood_readiness,
     protocol_readiness,
 )
 
 PROTOCOL = ROOT / "docs/evals/tool_aware_cognition_taw00_protocol_v1.json"
+FOUNDER_DOGFOOD_PROFILE = (
+    ROOT / "docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json"
+)
 LEDGER = ROOT / "docs/evals/tool_aware_cognition_taw00_convergence_ledger_v1.json"
 SOURCE_PROJECTION = (
     ROOT / "docs/evals/tool_aware_cognition_taw00_source_projection_v1.json"
@@ -40,6 +45,7 @@ EXPECTED_REQUIREMENTS = {
     "requirement-ref:taw00:routing-or-prompt-change",
 }
 FACILITY_FILES = (
+    "docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json",
     "src/ultimate_ai_agent/core/evals/tool_aware_baseline.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_corpus.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_evidence.py",
@@ -115,6 +121,7 @@ def _git_bytes(revision_ref: str, path_ref: str) -> bytes:
 def verify(
     *,
     protocol_payload: object | None = None,
+    founder_dogfood_payload: object | None = None,
     ledger_payload: object | None = None,
     source_projection_payload: object | None = None,
     check_files: bool = True,
@@ -153,6 +160,39 @@ def verify(
         failures.append(f"TAW-00 protocol validation failed: {exc}")
 
     try:
+        founder_payload = (
+            founder_dogfood_payload
+            if founder_dogfood_payload is not None
+            else _load(FOUNDER_DOGFOOD_PROFILE)
+        )
+        if validator is not None:
+            failures.extend(
+                "TAW-00 founder dogfood schema validation failed: " + error.message
+                for error in validator.iter_errors(founder_payload)
+            )
+        if durable_payload_has_forbidden_fields(founder_payload):
+            failures.append("TAW-00 founder dogfood profile contains forbidden fields")
+        founder_profile = TAW00FounderDogfoodProfile.model_validate(founder_payload)
+        founder_report = founder_dogfood_readiness(founder_profile)
+        if founder_report["status"] != "accepted_for_bounded_implementation":
+            failures.append(
+                "TAW-00 founder dogfood profile is not implementation-ready"
+            )
+        if founder_report["independent_promotion_ready"] is not False:
+            failures.append("TAW-00 founder dogfood profile overclaims promotion")
+        if any(
+            founder_report[field] is not False
+            for field in (
+                "runtime_model_calls_added",
+                "provider_calls_added",
+                "authority_added",
+            )
+        ):
+            failures.append("TAW-00 founder dogfood profile grants runtime authority")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"TAW-00 founder dogfood validation failed: {exc}")
+
+    try:
         ledger = ledger_payload if ledger_payload is not None else _load(LEDGER)
         if not isinstance(ledger, dict):
             raise ValueError("ledger must be an object")
@@ -182,7 +222,7 @@ def verify(
             failures.append("TAW-00 convergence ledger shape drifted")
         if (
             ledger.get("status")
-            != "fail_closed_acceptance_contract_complete_external_evidence_pending"
+            != "founder_dogfood_implementation_accepted_independent_promotion_pending"
         ):
             failures.append("TAW-00 convergence ledger overclaims completion")
         for item in requirements:
