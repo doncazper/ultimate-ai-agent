@@ -24,9 +24,12 @@ hardware. Same-host before/after evidence is required; this profile grants no
 model/provider call or runtime authority. The bounded TAW-01 slice now provides a typed, fingerprinted,
 content-free capability-awareness envelope and rejects stale, malformed,
 duplicate, substituted, or cross-source-inconsistent catalogs without changing
-chat routing or enabling execution. Q22 advances next to bounded TAW-02
-familiarity and uncertainty assessment with deterministic development evidence,
-safe-disable, rollback, and redaction.
+chat routing or enabling execution. The bounded TAW-02 slice now derives all
+nine canonical familiarity states with stable reasons and fail-closed
+precedence while retaining relevance, availability, policy/safety, authority,
+input, approval, readiness, and terminal proof as separate dimensions. Q22
+advances next to bounded TAW-03 progressive retrieval; safe-disable, rollback,
+redaction, and independent promotion remain required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,
