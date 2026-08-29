@@ -32,6 +32,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     load_developer_queue_record_manifest,
     queue_record_canonical_item_contract_ref,
     queue_record_health_contract_refs,
+    queue_record_legacy_source_acceptance_ref_from_values,
     queue_record_manifest_contract_refs,
 )
 from uaa_developer_orchestrator.recovery import (  # noqa: E402
@@ -103,6 +104,44 @@ def _register_node(
             node_ref=node_ref,
             idempotency_ref=f"{idempotency_ref}-heartbeat",
         )
+
+
+def _reconciliation_approval(
+    coordinator: DeveloperWorkCoordinator,
+    *,
+    canonical_contract_refs: dict[str, str],
+    task_revision_refs: dict[str, str],
+    legacy_transition_refs: dict[str, str],
+    legacy_source_refs: dict[str, list[str]],
+    idempotency_ref: str,
+) -> tuple[object, str, object, int]:
+    snapshot_revision = coordinator.inspect().revision
+    actor_context = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="local_test_operator",
+        authority_source="explicit_user_request",
+    )
+    request = coordinator_module.build_developer_queue_reconciliation_approval_request(
+        canonical_contract_refs=canonical_contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs=legacy_transition_refs,
+        legacy_source_refs=legacy_source_refs,
+        expected_snapshot_revision=snapshot_revision,
+        idempotency_ref=idempotency_ref,
+        actor_context=actor_context,
+    )
+    authority = coordinator_module.LocalApprovalAuthority()
+    authority.create_request(request)
+    approval_ref = (
+        "approval-ref:test-queue-reconciliation-"
+        f"{request.resource_refs[0].rsplit(':', maxsplit=1)[-1]}"
+    )
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    return authority, approval_ref, actor_context, snapshot_revision
 
 
 class _HistoricalMergeSubprocess:
@@ -489,13 +528,11 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     assert admitted.func(admitted) == 0
     first_payload = json.loads(capsys.readouterr().out)
     assert first_payload["replayed_receipt_count"] == 0
-    assert first_payload["reconciliation_replayed"] is False
     assert first_payload["queue_of_record_health"]["admission_gap_detected"] is False
 
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 37
-    assert replay_payload["reconciliation_replayed"] is True
     view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
     assert len(view.tasks) == 37
     assert [task.queue_order for task in view.tasks] == list(range(37))
@@ -693,7 +730,6 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     payload = json.loads(capsys.readouterr().out)
     assert payload["selected_item_ids"] == ["Q32", "Q33", "Q34", "Q35", "Q36"]
     assert payload["replayed_receipt_count"] == 0
-    assert payload["reconciliation_replayed"] is False
     assert payload["queue_of_record_health"]["admission_gap_detected"] is False
     view = coordinator.inspect()
     assert len(view.tasks) == 37
@@ -702,7 +738,6 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert selected.func(selected) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 5
-    assert replay_payload["reconciliation_replayed"] is True
 
     snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
     for task in snapshot["tasks"]:
@@ -716,15 +751,31 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    reconciliation_idempotency_ref = (
+        "idempotency-ref:queue-v2-after-dependency-completion"
+    )
+    preview_reconciliation = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-reconciliation",
+            "--idempotency-ref",
+            reconciliation_idempotency_ref,
+        ]
+    )
+    assert preview_reconciliation.func(preview_reconciliation) == 0
+    reconciliation_preview = json.loads(capsys.readouterr().out)
     reconcile = parser.parse_args(
         [
             "--state-dir",
             str(state_dir),
             "reconcile-queue-v2",
             "--idempotency-ref",
-            "idempotency-ref:queue-v2-after-dependency-completion",
+            reconciliation_idempotency_ref,
             "--confirm-reconciliation",
             "reconcile-queue-v2",
+            "--approve-exact-scope",
+            reconciliation_preview["approval_scope_ref"],
         ]
     )
     assert reconcile.func(reconcile) == 0
@@ -848,16 +899,85 @@ def test_queue_v2_claims_require_current_durable_contract_reconciliation(
     assert coordinator.inspect().tasks[0].dependency_ready is False
 
     task_revision_ref = coordinator.current_task_revision_ref(q00.task_ref)
+    current_contract_refs = {
+        q00.task_ref: queue_record_manifest_contract_refs(manifest)[q00.task_ref]
+    }
+    reconciliation_idempotency_ref = "idempotency-ref:reconcile-q00-current"
+    authority, approval_ref, actor_context, snapshot_revision = (
+        _reconciliation_approval(
+            coordinator,
+            canonical_contract_refs=current_contract_refs,
+            task_revision_refs={q00.task_ref: task_revision_ref},
+            legacy_transition_refs={},
+            legacy_source_refs={},
+            idempotency_ref=reconciliation_idempotency_ref,
+        )
+    )
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="RECONCILIATION_APPROVAL_INVALID",
+    ):
+        coordinator.reconcile_canonical_queue_contracts(
+            canonical_contract_refs=current_contract_refs,
+            task_revision_refs={q00.task_ref: task_revision_ref},
+            legacy_transition_refs={},
+            legacy_source_refs={},
+            expected_snapshot_revision=snapshot_revision,
+            idempotency_ref="idempotency-ref:reconcile-q00-unapproved",
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=actor_context,
+        )
     reconciliation = coordinator.reconcile_canonical_queue_contracts(
-        canonical_contract_refs={
-            q00.task_ref: queue_record_manifest_contract_refs(manifest)[q00.task_ref]
-        },
+        canonical_contract_refs=current_contract_refs,
         task_revision_refs={q00.task_ref: task_revision_ref},
         legacy_transition_refs={},
-        idempotency_ref="idempotency-ref:reconcile-q00-current",
+        legacy_source_refs={},
+        expected_snapshot_revision=snapshot_revision,
+        idempotency_ref=reconciliation_idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
     )
     assert reconciliation.event_kind == "queue_contracts_reconciled"
     assert coordinator.inspect().tasks[0].dependency_ready is True
+    reconciliation_receipt = json.loads(
+        coordinator.receipts_path.read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert reconciliation_receipt["reconciliation_ref"] == (
+        coordinator.inspect().canonical_queue_reconciliation_ref
+    )
+    assert reconciliation_receipt["reconciliation_contract_refs"] == (
+        current_contract_refs
+    )
+    assert reconciliation_receipt["reconciliation_task_revision_refs"] == {
+        q00.task_ref: task_revision_ref
+    }
+    assert reconciliation_receipt["approval_scope_ref"].startswith(
+        "developer-queue-reconciliation-scope-ref:sha256:"
+    )
+    assert reconciliation_receipt["approval_proof_ref"].startswith(
+        "developer-work-approval-proof-ref:sha256:"
+    )
+    with pytest.raises(ValueError, match="reconciliation evidence is not bound"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **reconciliation_receipt,
+                "reconciliation_task_revision_refs": {
+                    q00.task_ref: "developer-work-task-revision-ref:sha256:tampered"
+                },
+            }
+        )
+    non_reconciliation_receipt = json.loads(
+        coordinator.receipts_path.read_text(encoding="utf-8").splitlines()[0]
+    )
+    with pytest.raises(ValueError, match="reconciliation evidence is orphaned"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **non_reconciliation_receipt,
+                "reconciliation_ref": reconciliation_receipt["reconciliation_ref"],
+            }
+        )
     reconciled_snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
     with pytest.raises(ValueError, match="reconciliation ref is not bound"):
         coordinator_module.DeveloperWorkQueueSnapshot.model_validate(
@@ -880,15 +1000,35 @@ def test_queue_v2_claims_require_current_durable_contract_reconciliation(
     changed_manifest = manifest.model_copy(
         update={"items": [changed_q00_item, *manifest.items[1:]]}
     )
-    invalidation = coordinator.reconcile_canonical_queue_contracts(
-        canonical_contract_refs={
-            q00.task_ref: queue_record_manifest_contract_refs(changed_manifest)[
-                q00.task_ref
-            ]
-        },
+    changed_contract_refs = {
+        q00.task_ref: queue_record_manifest_contract_refs(changed_manifest)[
+            q00.task_ref
+        ]
+    }
+    invalidation_idempotency_ref = "idempotency-ref:reconcile-q00-source-drift"
+    (
+        invalidation_authority,
+        invalidation_approval_ref,
+        invalidation_actor,
+        invalidation_revision,
+    ) = _reconciliation_approval(
+        coordinator,
+        canonical_contract_refs=changed_contract_refs,
         task_revision_refs={q00.task_ref: task_revision_ref},
         legacy_transition_refs={},
-        idempotency_ref="idempotency-ref:reconcile-q00-source-drift",
+        legacy_source_refs={},
+        idempotency_ref=invalidation_idempotency_ref,
+    )
+    invalidation = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs=changed_contract_refs,
+        task_revision_refs={q00.task_ref: task_revision_ref},
+        legacy_transition_refs={},
+        legacy_source_refs={},
+        expected_snapshot_revision=invalidation_revision,
+        idempotency_ref=invalidation_idempotency_ref,
+        approval_authority=invalidation_authority,
+        approval_ref=invalidation_approval_ref,
+        actor_context=invalidation_actor,
     )
     assert invalidation.event_kind == "queue_contracts_invalidated"
     assert coordinator.inspect().canonical_queue_reconciliation_ref is None
@@ -902,6 +1042,114 @@ def test_queue_v2_claims_require_current_durable_contract_reconciliation(
             node_ref="node-ref:queue-reconcile",
             idempotency_ref="idempotency-ref:claim-q00-after-source-drift",
         )
+
+
+def test_queue_v2_reconciliation_invalidates_all_tasks_after_any_revision_change(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    manifest = load_developer_queue_record_manifest(ROOT)
+    q00, q01 = build_developer_queue_record_drafts(ROOT)[:2]
+    coordinator.add_task(q00, idempotency_ref="idempotency-ref:add-q00-global")
+    coordinator.add_task(q01, idempotency_ref="idempotency-ref:add-q01-global")
+    contract_refs = {
+        task_ref: contract_ref
+        for task_ref, contract_ref in queue_record_manifest_contract_refs(
+            manifest
+        ).items()
+        if task_ref in {q00.task_ref, q01.task_ref}
+    }
+    task_revision_refs = {
+        task_ref: coordinator.current_task_revision_ref(task_ref)
+        for task_ref in contract_refs
+    }
+    idempotency_ref = "idempotency-ref:reconcile-global-task-revisions"
+    authority, approval_ref, actor_context, snapshot_revision = (
+        _reconciliation_approval(
+            coordinator,
+            canonical_contract_refs=contract_refs,
+            task_revision_refs=task_revision_refs,
+            legacy_transition_refs={},
+            legacy_source_refs={},
+            idempotency_ref=idempotency_ref,
+        )
+    )
+    coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs=contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs={},
+        legacy_source_refs={},
+        expected_snapshot_revision=snapshot_revision,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+    assert all(task.dependency_ready for task in coordinator.inspect().tasks)
+
+    coordinator.block(
+        task_ref=q00.task_ref,
+        blocker_refs=["blocker-ref:global-reconciliation-drift"],
+        idempotency_ref="idempotency-ref:block-q00-global",
+    )
+
+    q01_view = next(
+        task for task in coordinator.inspect().tasks if task.task_ref == q01.task_ref
+    )
+    assert q01_view.dependency_ready is False
+
+
+def test_queue_v2_reconciliation_rejects_fabricated_legacy_transition_suffix(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
+        (
+            ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json"
+        ).read_text(encoding="utf-8")
+    ).model_copy(update={"depends_on_task_refs": [], "dependency_contract_refs": {}})
+    coordinator.initialize(idempotency_ref="idempotency-ref:init-legacy-suffix")
+    _inject_legacy_queue_task(coordinator, legacy_q31)
+    manifest_q31 = load_developer_queue_record_manifest(ROOT).items[31]
+    source_refs = manifest_q31.source_refs
+    task_revision_ref = coordinator.current_task_revision_ref(legacy_q31.task_ref)
+    contract_ref = queue_record_canonical_item_contract_ref(
+        legacy_q31.model_copy(update={"canonical_source_refs": source_refs})
+    )
+    exact_transition_ref = queue_record_legacy_source_acceptance_ref_from_values(
+        item_id="Q31",
+        task_ref=legacy_q31.task_ref,
+        source_refs=source_refs,
+        legacy_fingerprint_ref=legacy_q31.canonical_source_fingerprint_ref,
+    )
+    fabricated_transition_ref = f"{exact_transition_ref}-fabricated"
+    idempotency_ref = "idempotency-ref:reconcile-fabricated-legacy-suffix"
+    authority, approval_ref, actor_context, snapshot_revision = (
+        _reconciliation_approval(
+            coordinator,
+            canonical_contract_refs={legacy_q31.task_ref: contract_ref},
+            task_revision_refs={legacy_q31.task_ref: task_revision_ref},
+            legacy_transition_refs={legacy_q31.task_ref: fabricated_transition_ref},
+            legacy_source_refs={legacy_q31.task_ref: source_refs},
+            idempotency_ref=idempotency_ref,
+        )
+    )
+
+    receipt = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs={legacy_q31.task_ref: contract_ref},
+        task_revision_refs={legacy_q31.task_ref: task_revision_ref},
+        legacy_transition_refs={legacy_q31.task_ref: fabricated_transition_ref},
+        legacy_source_refs={legacy_q31.task_ref: source_refs},
+        expected_snapshot_revision=snapshot_revision,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+
+    assert receipt.event_kind == "queue_contracts_invalidated"
+    assert coordinator.inspect().canonical_queue_reconciliation_ref is None
+    assert coordinator.inspect().tasks[0].dependency_ready is False
 
 
 def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(

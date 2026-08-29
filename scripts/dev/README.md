@@ -25,7 +25,8 @@ authority.
 .venv/bin/python scripts/dev/uaa_founder_loop.py promote-action-envelope --today-item-ref briefing:storage-state-first-loop --idempotency-ref idempotency-ref:local-review
 .venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
 .venv/bin/python scripts/dev/uaa_developer_queue.py admit-queue-v2 --idempotency-prefix idempotency-ref:queue-v2-admission --confirm-admission admit-queue-v2 --pretty
-.venv/bin/python scripts/dev/uaa_developer_queue.py reconcile-queue-v2 --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --confirm-reconciliation reconcile-queue-v2 --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py preview-queue-v2-reconciliation --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py reconcile-queue-v2 --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --confirm-reconciliation reconcile-queue-v2 --approve-exact-scope developer-queue-reconciliation-scope-ref:sha256:copy-exact-preview-value --pretty
 .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
 ```
 

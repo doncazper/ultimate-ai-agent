@@ -359,22 +359,42 @@ def queue_record_legacy_source_acceptance_ref(
 ) -> str:
     """Bind one explicit legacy fingerprint to this item's current source set."""
 
+    return queue_record_legacy_source_acceptance_ref_from_values(
+        item_id=item.item_id,
+        task_ref=queue_record_task_ref(item),
+        source_refs=item.source_refs,
+        legacy_fingerprint_ref=legacy_fingerprint_ref,
+    )
+
+
+def queue_record_legacy_source_acceptance_ref_from_values(
+    *,
+    item_id: str,
+    task_ref: str,
+    source_refs: Sequence[str],
+    legacy_fingerprint_ref: str,
+) -> str:
+    """Recompute an exact legacy transition without reading a manifest file."""
+
     validate_task_ref(
         legacy_fingerprint_ref, "developer_queue_legacy_source_fingerprint_ref"
     )
+    validate_task_ref(task_ref, "developer_queue_legacy_source_task_ref")
+    for source_ref in source_refs:
+        validate_task_ref(source_ref, "developer_queue_legacy_source_ref")
     legacy_digest = legacy_fingerprint_ref.rsplit(":", maxsplit=1)[-1]
-    source_refs = [
+    material_source_refs = [
         ref
-        for ref in item.source_refs
+        for ref in source_refs
         if not ref.startswith(QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX)
     ]
     digest = hashlib.sha256(
         json.dumps(
             {
-                "item_id": item.item_id,
-                "task_ref": queue_record_task_ref(item),
+                "item_id": item_id,
+                "task_ref": task_ref,
                 "legacy_fingerprint_ref": legacy_fingerprint_ref,
-                "source_refs": source_refs,
+                "source_refs": material_source_refs,
             },
             sort_keys=True,
             separators=(",", ":"),

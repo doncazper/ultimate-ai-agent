@@ -126,20 +126,38 @@ manifest. Editing those sources without refreshing the explicit transition ref
 fails manifest validation; unrelated item edits do not invalidate the binding.
 
 Canonical claims also require a durable source-aware contract reconciliation
-bound to the exact task revisions reviewed. Admission and queued amendment
-commands refresh that reconciliation after their own mutations. Any stale,
-incomplete, or source-drifted reconciliation durably clears claim readiness;
-the coordinator never resolves this gate from an ambient worktree manifest.
-After a later task transition, run the explicit reconciliation command before
-the next canonical claim:
+bound to the exact task revisions reviewed. Admission, queued amendment, and
+later task transitions invalidate that reconciliation; none of those commands
+may silently grant a replacement approval. Any stale, incomplete, or
+source-drifted reconciliation clears claim readiness, and the coordinator never
+resolves this gate from an ambient worktree manifest. After the final intended
+queue mutation, first preview the complete approval scope without mutation:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-reconciliation \
+  --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --pretty
+```
+
+Review and copy the exact `approval_scope_ref`. The scope binds the complete
+canonical contract map, every current task revision, every legacy transition
+and source binding, the current snapshot revision, the actor, and the
+idempotency ref. Then reconcile that unchanged state:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   reconcile-queue-v2 \
   --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation \
-  --confirm-reconciliation reconcile-queue-v2 --pretty
+  --confirm-reconciliation reconcile-queue-v2 \
+  --approve-exact-scope developer-queue-reconciliation-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
 ```
+
+An intervening mutation makes the preview stale and requires a new preview.
+The durable receipt preserves the reviewed maps, snapshot revision, result ref,
+approval scope, approving actor ref, and proof ref for restart and audit.
 
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
