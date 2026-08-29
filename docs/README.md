@@ -38,6 +38,13 @@ exact-bound deterministic compact cache and schema-limited untrusted-data
 hydration, retains blocked and unavailable matches for classification, and
 binds catalog/schema/environment/provenance/review/token-accounting evidence
 without model/provider calls, prompt assembly, routing changes, or authority.
+TAW-04's bounded chat-shadow contract is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW04_CHAT_SHADOW.md`. It records deterministic
+candidate, clarification, outcome-uncertainty, and safe-disable evidence while
+the accepted legacy direct-chat route remains operator-visible. It adds zero
+model calls, exposes no manifest to a model, preserves ordinary no-tool chat on
+awareness failure, and grants no proposal, approval, execution, provider, web,
+skill, or authority behavior.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one

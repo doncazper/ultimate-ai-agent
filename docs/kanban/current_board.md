@@ -32,8 +32,14 @@ now also has bounded TAW-03 deterministic compact retrieval and schema-limited
 manifest hydration with exact catalog/schema/environment and token-accounting
 bindings. Blocked and unavailable registered matches remain classification
 evidence but cannot become proposal- or execution-eligible. Q22 advances next
-to TAW-04 evidence-only shadow chat integration; safe-disable, rollback,
-redaction, and independent promotion remain required gates.
+with bounded TAW-04 evidence-only chat-shadow decisions that preserve the
+operator-visible legacy route, add zero model calls, recommend clarification
+only for material-effect ambiguity, and safe-disable awareness failures while
+ordinary no-tool chat remains available. The complete catalog-injection field
+inventory is predeclared, but its response census remains blocked until a
+future no-effect active replay. Q22 advances next to TAW-05 outcome evidence;
+runtime integration, rollback, redaction, and independent promotion remain
+required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,

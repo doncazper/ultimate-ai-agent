@@ -65,6 +65,17 @@ bindings. Unreviewed imported or A2A-derived text is excluded. Chat integration,
 prompt assembly, model/provider calls, proposals, approvals, capability
 execution, and authority remain absent and gated to later slices.
 
+The founder-private-dogfood TAW-04 chat-shadow contract is present and
+verified. It records deterministic candidate, material-effect clarification,
+outcome-uncertainty, and safe-disable evidence while preserving the accepted
+legacy route and ordinary no-tool chat. Shadow output adds zero model calls,
+changes no model context, exposes no manifests to a model, and cannot activate
+skills, construct proposals, request approval, execute, call providers, fetch
+the web, or grant authority. CLI/API inspection refs share one Python Core
+projection. Catalog-injection cases are predeclared for every accepted field
+path, but the response-level census remains explicitly blocked until a future
+complete no-effect active replay; no promotion result is claimed.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility
