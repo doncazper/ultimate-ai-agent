@@ -571,6 +571,56 @@ class DeveloperWorkQueueSnapshot(BaseModel):
             self.canonical_queue_contract_refs
         ):
             raise ValueError("developer queue reconciliation ref is orphaned")
+        if self.canonical_queue_reconciliation_ref is not None:
+            expected_reconciliation_ref = _hash_ref(
+                "developer-queue-reconciliation-ref",
+                {
+                    "canonical_contract_refs": self.canonical_queue_contract_refs,
+                    "task_revision_refs": self.canonical_queue_task_revision_refs,
+                    "legacy_transition_refs": (
+                        self.canonical_queue_legacy_transition_refs
+                    ),
+                },
+            )
+            if self.canonical_queue_reconciliation_ref != expected_reconciliation_ref:
+                raise ValueError("developer queue reconciliation ref is not bound")
+            canonical_tasks = {
+                task.task_ref: task
+                for task in self.tasks
+                if (
+                    task.task_ref.startswith("dev-task:queue-v2-")
+                    or task.canonical_task_ref.startswith(
+                        "canonical-task-ref:queue-v2/"
+                    )
+                    or task.canonical_source_ref.startswith(
+                        "repo-ref:developer-queue-v2/"
+                    )
+                )
+            }
+            if set(self.canonical_queue_contract_refs) != set(canonical_tasks):
+                raise ValueError("developer queue reconciliation is incomplete")
+            expected_legacy_refs = {
+                task_ref
+                for task_ref, task in canonical_tasks.items()
+                if task.canonical_item_contract_ref is None
+            }
+            if set(self.canonical_queue_legacy_transition_refs) != (
+                expected_legacy_refs
+            ):
+                raise ValueError("developer queue legacy reconciliation is incomplete")
+            for (
+                task_ref,
+                transition_ref,
+            ) in self.canonical_queue_legacy_transition_refs.items():
+                fingerprint_digest = canonical_tasks[
+                    task_ref
+                ].canonical_source_fingerprint_ref.rsplit(":", maxsplit=1)[-1]
+                if not transition_ref.startswith(
+                    f"legacy-source-acceptance-ref:sha256:{fingerprint_digest}:"
+                ):
+                    raise ValueError(
+                        "developer queue legacy reconciliation binding is invalid"
+                    )
         for task in self.tasks:
             if not set(task.depends_on_task_refs).issubset(known):
                 raise ValueError("developer work task dependency missing")
@@ -1094,6 +1144,16 @@ class DeveloperWorkCoordinator:
                 update={
                     "revision": snapshot.revision + 1,
                     "tasks": [*snapshot.tasks, task],
+                    **(
+                        {
+                            "canonical_queue_contract_refs": {},
+                            "canonical_queue_task_revision_refs": {},
+                            "canonical_queue_legacy_transition_refs": {},
+                            "canonical_queue_reconciliation_ref": None,
+                        }
+                        if self._is_canonical_queue_task(task)
+                        else {}
+                    ),
                 }
             )
             receipt = self._receipt(
@@ -1253,6 +1313,10 @@ class DeveloperWorkCoordinator:
                     update={
                         "revision": snapshot.revision + 1,
                         "tasks": self._replace_task(snapshot, replacement),
+                        "canonical_queue_contract_refs": {},
+                        "canonical_queue_task_revision_refs": {},
+                        "canonical_queue_legacy_transition_refs": {},
+                        "canonical_queue_reconciliation_ref": None,
                     }
                 )
                 receipt = self._receipt(
@@ -1334,9 +1398,11 @@ class DeveloperWorkCoordinator:
                 == set(task_revision_refs)
                 == set(canonical_tasks)
             )
-            legacy_keys_valid = set(legacy_transition_refs).issubset(
-                set(canonical_tasks)
-            )
+            legacy_keys_valid = set(legacy_transition_refs) == {
+                task_ref
+                for task_ref, task in canonical_tasks.items()
+                if task.canonical_item_contract_ref is None
+            }
             revisions_current = exact_keys and all(
                 task_revision_refs[task_ref] == developer_work_task_revision_ref(task)
                 for task_ref, task in canonical_tasks.items()

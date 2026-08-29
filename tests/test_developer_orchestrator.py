@@ -858,6 +858,16 @@ def test_queue_v2_claims_require_current_durable_contract_reconciliation(
     )
     assert reconciliation.event_kind == "queue_contracts_reconciled"
     assert coordinator.inspect().tasks[0].dependency_ready is True
+    reconciled_snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="reconciliation ref is not bound"):
+        coordinator_module.DeveloperWorkQueueSnapshot.model_validate(
+            {
+                **reconciled_snapshot,
+                "canonical_queue_contract_refs": {
+                    q00.task_ref: "planning-item-contract-ref:sha256:tampered"
+                },
+            }
+        )
 
     changed_q00_item = manifest.items[0].model_copy(
         update={
