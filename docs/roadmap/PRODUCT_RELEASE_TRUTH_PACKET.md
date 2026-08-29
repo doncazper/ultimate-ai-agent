@@ -52,8 +52,18 @@ availability, policy/safety, authority-lane posture, typed-input completeness,
 approval validation, readiness, and terminal proof remain separately
 inspectable. Missing, corrupt, stale, over-budget, substituted, ambiguous, or
 contradictory evidence cannot construct proposals, request approval, execute,
-or grant authority. Progressive retrieval, chat integration, model/provider
-calls, and capability execution remain absent and gated to later slices.
+or grant authority.
+
+The founder-private-dogfood TAW-03 progressive retrieval contract is present
+and verified. It builds a deterministic local compact cache, ranks bounded
+candidate refs, retains unavailable and policy/authority-blocked matches for
+familiarity classification, and filters effect/schema incompatibility before
+proposal eligibility. Tier 2 renders at most eight reviewed typed manifests as
+escaped, quoted, schema-limited untrusted data under exact byte, token, context,
+catalog, schema, policy, availability, environment, provenance, and review
+bindings. Unreviewed imported or A2A-derived text is excluded. Chat integration,
+prompt assembly, model/provider calls, proposals, approvals, capability
+execution, and authority remain absent and gated to later slices.
 
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture

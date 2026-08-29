@@ -142,8 +142,10 @@ safe-disable, rollback, redacted evidence, and no new authority in this
 rebaseline slice. It does not activate a local model or provider, call an API,
 select exact OpenAI model IDs, or claim cross-host latency comparability.
 
-The next safe implementation step is TAW-01 capability evidence envelopes.
-Each later behavior slice still needs deterministic development-corpus tests,
+TAW-01 capability evidence, TAW-02 familiarity assessment, and TAW-03 bounded
+progressive retrieval are now present as non-authorizing contracts. The next
+safe implementation step is TAW-04 evidence-only shadow chat integration and
+clarification behavior. Each later behavior slice still needs deterministic development-corpus tests,
 before/after evidence, and rollback. Founder feedback may refine the private
 dogfood candidate through ordinary reviewed PRs.
 
