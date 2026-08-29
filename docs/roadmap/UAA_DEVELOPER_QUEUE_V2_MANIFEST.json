@@ -428,7 +428,7 @@
       "source_refs": ["canonical-task-ref:ECO-005", "canonical-task-ref:CRM-FC-000", "repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md"],
       "scope_refs": ["scope-ref:queue-v2/Q32/real-private-crm-data", "scope-ref:queue-v2/Q32/complete-record-lifecycle", "scope-ref:queue-v2/Q32/import-export-backup-recovery", "scope-ref:queue-v2/Q32/private-multi-computer-use"],
       "guardrail_refs": ["scope-ref:queue-v2/Q32/no-fixture-primary-truth", "scope-ref:queue-v2/Q32/no-external-crm-write", "scope-ref:queue-v2/Q32/no-public-or-production-claim"],
-      "depends_on_item_ids": ["Q31"], "merge_after_item_ids": [],
+      "depends_on_item_ids": ["Q15", "Q31"], "merge_after_item_ids": [],
       "branch_ref": "branch-ref:codex/q32-crm-functional-adoption", "worktree_ref": "worktree-ref:queue-v2/q32-crm-functional-adoption", "workstream_ref": "workstream-ref:functional-adoption",
       "next_safe_action": "Use the accepted CRM foundation and Q31 findings to prove one real founder-private daily CRM loop end to end, then route only noncritical polish forward."
     },

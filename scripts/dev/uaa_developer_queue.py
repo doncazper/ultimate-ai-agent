@@ -28,6 +28,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     assess_developer_queue_record_health,
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
+    queue_record_task_contract_ref,
 )
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperWorkspaceScout,
@@ -132,6 +133,10 @@ def inspect(args: argparse.Namespace) -> int:
         "queue_of_record_health": assess_developer_queue_record_health(
             manifest=queue_manifest,
             task_states={task.task_ref: task.state for task in queue.tasks},
+            task_contract_refs={
+                task.task_ref: queue_record_task_contract_ref(task)
+                for task in queue.tasks
+            },
         ).model_dump(mode="json"),
         "legacy_recovery_status": {
             "artifact_status": "superseded_historical_evidence",
@@ -190,6 +195,10 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     health = assess_developer_queue_record_health(
         manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
+        task_contract_refs={
+            task.task_ref: queue_record_task_contract_ref(task)
+            for task in queue.tasks
+        },
     )
     return _print(
         {
@@ -197,6 +206,46 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
             "selected_item_ids": selected_item_ids,
             "receipt_refs": [receipt.receipt_ref for receipt in receipts],
             "replayed_receipt_count": sum(receipt.replayed for receipt in receipts),
+            "queue_of_record_health": health.model_dump(mode="json"),
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
+def amend_queue_v2_item(args: argparse.Namespace) -> int:
+    if args.confirm_amendment != "amend-queue-v2-item":
+        raise ValueError("DEVELOPER_QUEUE_V2_AMENDMENT_CONFIRMATION_REQUIRED")
+    manifest = load_developer_queue_record_manifest(ROOT)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    draft_by_item_id = {
+        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
+    }
+    coordinator = _coordinator(args)
+    receipt = coordinator.amend_queued_task(
+        draft_by_item_id[args.item_id],
+        expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        idempotency_ref=args.idempotency_ref,
+    )
+    queue = coordinator.inspect()
+    health = assess_developer_queue_record_health(
+        manifest=manifest,
+        task_states={task.task_ref: task.state for task in queue.tasks},
+        task_contract_refs={
+            task.task_ref: queue_record_task_contract_ref(task)
+            for task in queue.tasks
+        },
+    )
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_amendment_receipt.v1",
+            "item_id": args.item_id,
+            "receipt_ref": receipt.receipt_ref,
+            "replayed": receipt.replayed,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -432,6 +481,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     queue_v2_command.add_argument("--pretty", action="store_true")
     queue_v2_command.set_defaults(func=admit_queue_v2)
+
+    amend_queue_v2_command = subparsers.add_parser(
+        "amend-queue-v2-item",
+        help=(
+            "Idempotently replace one never-claimed queued Queue V2 contract under "
+            "its exact prior source fingerprint."
+        ),
+    )
+    amend_queue_v2_command.add_argument(
+        "--item-id",
+        required=True,
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+    )
+    amend_queue_v2_command.add_argument(
+        "--expected-current-fingerprint-ref", required=True
+    )
+    amend_queue_v2_command.add_argument("--idempotency-ref", required=True)
+    amend_queue_v2_command.add_argument("--confirm-amendment", required=True)
+    amend_queue_v2_command.add_argument("--pretty", action="store_true")
+    amend_queue_v2_command.set_defaults(func=amend_queue_v2_item)
 
     register_node_command = subparsers.add_parser(
         "register-node",

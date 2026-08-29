@@ -29,6 +29,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     assess_developer_queue_record_health,
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
+    queue_record_task_contract_ref,
 )
 from uaa_developer_orchestrator.recovery import (  # noqa: E402
     assess_developer_queue_recovery_health,
@@ -414,7 +415,7 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
     assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
         manifest.items[31].scope_refs
     )
-    assert manifest.items[32].depends_on_item_ids == ["Q31"]
+    assert manifest.items[32].depends_on_item_ids == ["Q15", "Q31"]
     assert "scope-ref:queue-v2/Q33/chat-usability-parity" in (
         manifest.items[33].scope_refs
     )
@@ -474,6 +475,10 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     health = assess_developer_queue_record_health(
         manifest=load_developer_queue_record_manifest(ROOT),
         task_states={task.task_ref: task.state for task in view.tasks},
+        task_contract_refs={
+            task.task_ref: queue_record_task_contract_ref(task)
+            for task in view.tasks
+        },
     )
     assert health.queue_starvation_detected is False
     assert health.admitted_item_count == 37
@@ -486,7 +491,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     state_dir = tmp_path / "state"
     coordinator = DeveloperWorkCoordinator(state_dir=state_dir)
     drafts = build_developer_queue_record_drafts(ROOT)
-    for draft in drafts[:32]:
+    for draft in drafts[:31]:
         coordinator.add_task(
             draft,
             idempotency_ref=(
@@ -494,8 +499,59 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
                 f"{draft.task_ref.removeprefix('dev-task:')}"
             ),
         )
+    legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
+        (ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json")
+        .read_text(encoding="utf-8")
+    )
+    coordinator.add_task(
+        legacy_q31,
+        idempotency_ref="idempotency-ref:queue-v2-existing:queue-v2-q31",
+    )
+
+    pre_amendment_view = coordinator.inspect()
+    pre_amendment_health = assess_developer_queue_record_health(
+        manifest=load_developer_queue_record_manifest(ROOT),
+        task_states={task.task_ref: task.state for task in pre_amendment_view.tasks},
+        task_contract_refs={
+            task.task_ref: queue_record_task_contract_ref(task)
+            for task in pre_amendment_view.tasks
+        },
+    )
+    assert pre_amendment_health.record_drift_detected is True
+    assert pre_amendment_health.stale_contract_task_refs == [legacy_q31.task_ref]
 
     parser = build_parser()
+    amendment = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "amend-queue-v2-item",
+            "--item-id",
+            "Q31",
+            "--expected-current-fingerprint-ref",
+            legacy_q31.canonical_source_fingerprint_ref,
+            "--idempotency-ref",
+            "idempotency-ref:queue-v2-q31-chat-observation-amendment",
+            "--confirm-amendment",
+            "amend-queue-v2-item",
+        ]
+    )
+    assert amendment.func(amendment) == 0
+    amendment_payload = json.loads(capsys.readouterr().out)
+    assert amendment_payload["item_id"] == "Q31"
+    assert amendment_payload["replayed"] is False
+    assert amendment_payload["queue_of_record_health"]["record_drift_detected"] is False
+    amended_q31 = next(
+        task for task in coordinator.inspect().tasks if task.task_ref == legacy_q31.task_ref
+    )
+    assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
+        amended_q31.in_scope_refs
+    )
+
+    assert amendment.func(amendment) == 0
+    replayed_amendment = json.loads(capsys.readouterr().out)
+    assert replayed_amendment["replayed"] is True
+
     selected_args = [
         "--state-dir",
         str(state_dir),
@@ -545,6 +601,56 @@ def test_queue_v2_cli_rejects_duplicate_selective_admission(
 
     with pytest.raises(ValueError, match="DUPLICATE_ITEM_SELECTION"):
         selected.func(selected)
+
+
+def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    original = _draft("dev-task:amend")
+    replacement = original.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:replacement"
+            ),
+            "in_scope_refs": ["scope-ref:amend/owned", "scope-ref:amend/expanded"],
+        }
+    )
+    coordinator.add_task(original, idempotency_ref="idempotency-ref:add-amend")
+
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="AMENDMENT_FINGERPRINT_CONFLICT",
+    ):
+        coordinator.amend_queued_task(
+            replacement,
+            expected_current_fingerprint_ref=(
+                "planning-fingerprint-ref:sha256:wrong"
+            ),
+            idempotency_ref="idempotency-ref:amend-wrong-fingerprint",
+        )
+
+    _register_node(
+        coordinator,
+        "node-ref:mac",
+        idempotency_ref="idempotency-ref:register-amend-node",
+    )
+    coordinator.claim_task(
+        task_ref=original.task_ref,
+        node_ref="node-ref:mac",
+        idempotency_ref="idempotency-ref:claim-amend",
+    )
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="AMENDMENT_STATE_INVALID",
+    ):
+        coordinator.amend_queued_task(
+            replacement,
+            expected_current_fingerprint_ref=(
+                original.canonical_source_fingerprint_ref
+            ),
+            idempotency_ref="idempotency-ref:amend-claimed",
+        )
 
 
 def test_blocked_task_requires_an_explicit_unblock_before_reclaim(

@@ -65,6 +65,7 @@ DeveloperWorkEventKind = Literal[
     "node_registered",
     "node_heartbeat",
     "task_added",
+    "task_amended",
     "task_claimed",
     "task_heartbeat",
     "task_released",
@@ -559,6 +560,8 @@ class DeveloperWorkQueueTaskView(BaseModel):
     branch_ref: str
     worktree_ref: str
     worktree_posture: DeveloperWorktreePosture
+    workstream_ref: str
+    depends_on_task_refs: list[str] = Field(default_factory=list)
     dependency_ready: bool
     safe_summary: str
     next_safe_action: str
@@ -893,6 +896,109 @@ class DeveloperWorkCoordinator:
             )
             next_snapshot = next_snapshot.model_copy(
                 update={"tasks": [*snapshot.tasks, updated_task]}
+            )
+            self._commit_mutation(next_snapshot, receipt)
+            return receipt
+
+    def amend_queued_task(
+        self,
+        draft: DeveloperWorkTaskDraft,
+        *,
+        expected_current_fingerprint_ref: str,
+        idempotency_ref: str,
+    ) -> DeveloperWorkQueueReceipt:
+        """Replace one never-claimed queued draft under an exact source binding."""
+
+        validate_task_ref(
+            expected_current_fingerprint_ref,
+            "developer_work_amend_expected_fingerprint_ref",
+        )
+        validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
+        with self._locked():
+            snapshot = self._load_snapshot()
+            payload = {
+                "event_kind": "task_amended",
+                "expected_current_fingerprint_ref": expected_current_fingerprint_ref,
+                "draft": draft.model_dump(mode="json"),
+            }
+            replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
+            if replay is not None:
+                return replay
+            task = self._find_task(snapshot, draft.task_ref)
+            pristine_queued = (
+                task.state == "queued"
+                and task.claim_generation == 0
+                and task.latest_heartbeat_ref is None
+                and not task.blocker_refs
+                and not task.completion_evidence_refs
+                and task.cancellation_reason_ref is None
+                and task.terminal_scope_packet_ref is None
+                and not task.scope_dispositions
+            )
+            if not pristine_queued:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_AMENDMENT_STATE_INVALID"
+                )
+            if (
+                task.canonical_source_fingerprint_ref
+                != expected_current_fingerprint_ref
+            ):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_AMENDMENT_FINGERPRINT_CONFLICT"
+                )
+            immutable_fields = (
+                "task_ref",
+                "queue_order",
+                "canonical_task_ref",
+                "canonical_source_ref",
+                "scope_contract_ref",
+                "branch_ref",
+                "worktree_ref",
+                "workstream_ref",
+            )
+            if any(
+                getattr(task, field) != getattr(draft, field)
+                for field in immutable_fields
+            ):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_AMENDMENT_IDENTITY_CONFLICT"
+                )
+            if task.canonical_source_fingerprint_ref == (
+                draft.canonical_source_fingerprint_ref
+            ):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_AMENDMENT_NO_CHANGE"
+                )
+            missing_dependencies = set(draft.depends_on_task_refs) - {
+                item.task_ref for item in snapshot.tasks
+            }
+            if missing_dependencies:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
+                )
+            replacement = DeveloperWorkTask(**draft.model_dump(mode="json"))
+            next_snapshot = snapshot.model_copy(
+                update={
+                    "revision": snapshot.revision + 1,
+                    "tasks": self._replace_task(snapshot, replacement),
+                }
+            )
+            receipt = self._receipt(
+                event_kind="task_amended",
+                task_ref=task.task_ref,
+                idempotency_ref=idempotency_ref,
+                payload=payload,
+                revision=next_snapshot.revision,
+                safe_summary=(
+                    "A never-claimed queued task contract was amended under an exact "
+                    "prior fingerprint; no work was claimed or dispatched."
+                ),
+            )
+            replacement = replacement.model_copy(
+                update={"latest_receipt_ref": receipt.receipt_ref}
+            )
+            next_snapshot = next_snapshot.model_copy(
+                update={"tasks": self._replace_task(next_snapshot, replacement)}
             )
             self._commit_mutation(next_snapshot, receipt)
             return receipt
@@ -1364,6 +1470,8 @@ class DeveloperWorkCoordinator:
                     branch_ref=task.branch_ref,
                     worktree_ref=task.worktree_ref,
                     worktree_posture=task.worktree_posture,
+                    workstream_ref=task.workstream_ref,
+                    depends_on_task_refs=task.depends_on_task_refs,
                     dependency_ready=all(
                         known_by_ref[dependency].state == "completed"
                         for dependency in task.depends_on_task_refs

@@ -105,6 +105,14 @@ normal claim path after proving the named isolated branch/worktree and next
 gate. The eleven authority-heavy entries are descriptive gated records and are
 not admitted as executable tasks.
 
+A reviewed manifest extension may also change a still-queued predecessor
+contract. `amend-queue-v2-item` replaces only a never-claimed queued record,
+requires the exact prior canonical-source fingerprint, preserves the task's
+identity and worktree bindings, and emits a durable amendment receipt. It
+fails closed for claimed, previously claimed, blocked, review, or terminal
+tasks. Queue health reports semantic contract drift separately from missing
+admission so an appended wave cannot conceal an obsolete predecessor scope.
+
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
 evidence. Their former recovery command now fails closed with
@@ -112,6 +120,14 @@ evidence. Their former recovery command now fails closed with
 from duplicating work already represented by Q00-Q36.
 
 ```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  amend-queue-v2-item \
+  --item-id Q31 \
+  --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
+  --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment \
+  --confirm-amendment amend-queue-v2-item --pretty
+
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   admit-queue-v2 \
@@ -124,7 +140,8 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 
 If admission is interrupted, rerun it with the same idempotency prefix. Exact
 receipts replay and only the uncommitted tail is admitted. A successful
-inspection reports thirty-seven admitted records and no starvation risk. Use
+inspection reports thirty-seven admitted records, no contract drift, and no
+starvation risk. Use
 repeatable `--item-id` arguments to admit only a reviewed manifest extension
 without replaying the unchanged prefix of the queue. The
 two current owner-held units are claimed separately so admission cannot create

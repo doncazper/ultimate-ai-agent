@@ -80,6 +80,7 @@ item rather than disappearing into a comparison report.
 
 ### Q32 — CRM Functional Adoption
 
+Begin only after both the Q15 CRM foundation and Q31 comparison are terminal.
 Use the first-class private CRM with real founder-owned records. Prove the
 contact, organization, property, opportunity, activity, follow-up, priority,
 search, archive/correction, import/export, backup/recovery, and private

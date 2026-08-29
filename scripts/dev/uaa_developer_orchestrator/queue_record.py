@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.planning.validation import (
 )
 
 from uaa_developer_orchestrator.coordinator import DeveloperWorkTaskDraft
+from uaa_developer_orchestrator.coordinator import DeveloperWorkQueueTaskView
 
 
 QUEUE_RECORD_MANIFEST_PATH = "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
@@ -232,8 +233,10 @@ class DeveloperQueueRecordManifest(BaseModel):
         goat_item = self.items[31]
         if goat_item.slug != "final-goatcitadel-comparison":
             raise ValueError("Q31 must remain the final GoatCitadel comparison")
-        if self.items[32].depends_on_item_ids != ["Q31"]:
-            raise ValueError("Wave 6 must begin after the Q31 comparison gate")
+        if self.items[32].depends_on_item_ids != ["Q15", "Q31"]:
+            raise ValueError(
+                "Wave 6 must begin after the CRM foundation and Q31 comparison gate"
+            )
         if any(item.wave_id != "wave-6" for item in self.items[32:]):
             raise ValueError("Q32 through Q36 must remain in wave-6")
         if self.items[-1].slug != "cross-module-adoption-closure":
@@ -258,8 +261,10 @@ class DeveloperQueueRecordHealth(BaseModel):
     claimed_item_count: int = Field(..., ge=0)
     gated_item_count: Literal[11] = 11
     unadmitted_task_refs: list[str] = Field(default_factory=list)
+    stale_contract_task_refs: list[str] = Field(default_factory=list)
     superseded_task_refs_present: list[str] = Field(default_factory=list)
     admission_gap_detected: bool
+    record_drift_detected: bool
     queue_starvation_detected: bool
     stale_pull_request_triage_pending_count: Literal[2] = 2
     risk_refs: list[str] = Field(default_factory=list)
@@ -276,6 +281,7 @@ class DeveloperQueueRecordHealth(BaseModel):
         validate_task_ref(self.queue_ref, "developer_queue_record_health_queue_ref")
         for value in [
             *self.unadmitted_task_refs,
+            *self.stale_contract_task_refs,
             *self.superseded_task_refs_present,
             *self.risk_refs,
         ]:
@@ -322,6 +328,107 @@ def load_developer_queue_record_manifest(
 
 def queue_record_task_ref(item: DeveloperQueueRecordItem) -> str:
     return f"dev-task:queue-v2-{item.item_id.lower()}-{item.slug}"
+
+
+def _task_contract_ref(payload: dict[str, object]) -> str:
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return f"planning-contract-ref:sha256:{digest[:24]}"
+
+
+def _task_contract_payload(
+    *,
+    task_ref: str,
+    queue_order: int,
+    title: str,
+    safe_summary: str,
+    priority: str,
+    concurrency: str,
+    wip_lane: str,
+    in_scope_refs: list[str],
+    out_of_scope_refs: list[str],
+    sol_thinking_level: str,
+    branch_ref: str,
+    worktree_ref: str,
+    workstream_ref: str,
+    depends_on_task_refs: list[str],
+    next_safe_action: str,
+) -> dict[str, object]:
+    return {
+        "task_ref": task_ref,
+        "queue_order": queue_order,
+        "title": title,
+        "safe_summary": safe_summary,
+        "priority": priority,
+        "concurrency": concurrency,
+        "wip_lane": wip_lane,
+        "in_scope_refs": in_scope_refs,
+        "out_of_scope_refs": out_of_scope_refs,
+        "sol_thinking_level": sol_thinking_level,
+        "branch_ref": branch_ref,
+        "worktree_ref": worktree_ref,
+        "workstream_ref": workstream_ref,
+        "depends_on_task_refs": depends_on_task_refs,
+        "next_safe_action": next_safe_action,
+    }
+
+
+def queue_record_task_contract_ref(
+    task: DeveloperWorkTaskDraft | DeveloperWorkQueueTaskView,
+) -> str:
+    """Fingerprint the queue-owned task contract, excluding whole-manifest digest."""
+
+    return _task_contract_ref(
+        _task_contract_payload(
+            task_ref=task.task_ref,
+            queue_order=task.queue_order,
+            title=task.title,
+            safe_summary=task.safe_summary,
+            priority=task.priority,
+            concurrency=task.concurrency,
+            wip_lane=task.wip_lane,
+            in_scope_refs=task.in_scope_refs,
+            out_of_scope_refs=task.out_of_scope_refs,
+            sol_thinking_level=task.sol_thinking_level,
+            branch_ref=task.branch_ref,
+            worktree_ref=task.worktree_ref,
+            workstream_ref=task.workstream_ref,
+            depends_on_task_refs=task.depends_on_task_refs,
+            next_safe_action=task.next_safe_action,
+        )
+    )
+
+
+def _manifest_item_contract_ref(
+    item: DeveloperQueueRecordItem,
+    *,
+    task_ref_by_item_id: Mapping[str, str],
+) -> str:
+    return _task_contract_ref(
+        _task_contract_payload(
+            task_ref=task_ref_by_item_id[item.item_id],
+            queue_order=item.queue_order,
+            title=f"{item.item_id} {item.title}",
+            safe_summary=item.result_summary,
+            priority=item.priority,
+            concurrency=item.concurrency,
+            wip_lane=item.wip_lane,
+            in_scope_refs=item.scope_refs,
+            out_of_scope_refs=item.guardrail_refs,
+            sol_thinking_level=(
+                "xhigh" if item.concurrency == "exclusive" else "high"
+            ),
+            branch_ref=item.branch_ref,
+            worktree_ref=item.worktree_ref,
+            workstream_ref=item.workstream_ref,
+            depends_on_task_refs=[
+                task_ref_by_item_id[dependency]
+                for dependency in item.depends_on_item_ids
+            ],
+            next_safe_action=item.next_safe_action,
+        )
+    )
 
 
 def build_developer_queue_record_drafts(
@@ -383,9 +490,27 @@ def assess_developer_queue_record_health(
     *,
     manifest: DeveloperQueueRecordManifest,
     task_states: Mapping[str, str],
+    task_contract_refs: Mapping[str, str] | None = None,
 ) -> DeveloperQueueRecordHealth:
     expected_refs = [queue_record_task_ref(item) for item in manifest.items]
     unadmitted_refs = [ref for ref in expected_refs if ref not in task_states]
+    task_ref_by_item_id = {
+        item.item_id: queue_record_task_ref(item) for item in manifest.items
+    }
+    expected_contract_refs = {
+        task_ref_by_item_id[item.item_id]: _manifest_item_contract_ref(
+            item,
+            task_ref_by_item_id=task_ref_by_item_id,
+        )
+        for item in manifest.items
+    }
+    observed_contract_refs = task_contract_refs or {}
+    stale_contract_refs = [
+        ref
+        for ref in expected_refs
+        if ref in observed_contract_refs
+        and observed_contract_refs[ref] != expected_contract_refs[ref]
+    ]
     admitted_count = len(expected_refs) - len(unadmitted_refs)
     nonterminal_count = sum(
         task_states.get(ref) in {"queued", "claimed", "blocked", "review"}
@@ -395,7 +520,7 @@ def assess_developer_queue_record_health(
     superseded_refs = sorted(
         ref for ref in task_states if ref.startswith("dev-task:recovery-")
     )
-    admission_gap = bool(unadmitted_refs)
+    admission_gap = bool(unadmitted_refs or stale_contract_refs)
     starvation = admission_gap and nonterminal_count == 0
     risk_refs = [
         *([QUEUE_RECORD_STARVATION_RISK_REF] if starvation else []),
@@ -415,10 +540,10 @@ def assess_developer_queue_record_health(
             "within the three distinct WIP lanes."
         )
     elif admission_gap:
-        summary = "Queue-of-Record V2 is only partially admitted."
+        summary = "Queue-of-Record V2 has missing or stale durable records."
         next_action = (
-            "Idempotently admit the remaining V2 records without duplicating owners or "
-            "activating gated work."
+            "Idempotently amend exact stale queued contracts and admit remaining V2 "
+            "records without duplicating owners or activating gated work."
         )
     elif superseded_refs:
         summary = "Queue-of-Record V2 is admitted but superseded recovery tasks remain."
@@ -438,8 +563,10 @@ def assess_developer_queue_record_health(
         nonterminal_item_count=nonterminal_count,
         claimed_item_count=claimed_count,
         unadmitted_task_refs=unadmitted_refs,
+        stale_contract_task_refs=stale_contract_refs,
         superseded_task_refs_present=superseded_refs,
         admission_gap_detected=admission_gap,
+        record_drift_detected=bool(stale_contract_refs),
         queue_starvation_detected=starvation,
         risk_refs=risk_refs,
         safe_summary=summary,
