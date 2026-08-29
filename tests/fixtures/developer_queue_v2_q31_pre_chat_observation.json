@@ -1,0 +1,49 @@
+{
+  "acceptance_refs": [
+    "acceptance-ref:queue-v2/Q31/result",
+    "acceptance-ref:queue-v2/Q31/scope"
+  ],
+  "branch_ref": "branch-ref:codex/q31-final-goatcitadel-comparison",
+  "canonical_source_fingerprint_ref": "planning-fingerprint-ref:sha256:172be181716f7b8863a28b37",
+  "canonical_source_ref": "repo-ref:developer-queue-v2/Q31",
+  "canonical_task_ref": "canonical-task-ref:queue-v2/Q31",
+  "concurrency": "exclusive",
+  "depends_on_task_refs": [
+    "dev-task:queue-v2-q10-hermes-openclaw-parity-rebaseline",
+    "dev-task:queue-v2-q21-weekly-ceo-review-private-trial",
+    "dev-task:queue-v2-q22-tool-aware-cognition-taw00-08",
+    "dev-task:queue-v2-q24-news-signals",
+    "dev-task:queue-v2-q25-social-media-intelligence",
+    "dev-task:queue-v2-q28-autocorrect-controls",
+    "dev-task:queue-v2-q29-governed-self-improvement",
+    "dev-task:queue-v2-q30-social-publishing-dry-run"
+  ],
+  "in_scope_refs": [
+    "scope-ref:queue-v2/Q31/core-agent-product-parity",
+    "scope-ref:queue-v2/Q31/gap-owner-routing"
+  ],
+  "merge_gate_refs": [
+    "merge-gate-ref:queue-v2/Q31/independent-review",
+    "merge-gate-ref:queue-v2/Q31/exact-head-ci"
+  ],
+  "next_safe_action": "Run only after the core dependency set is accepted; include Finance evidence without blocking core parity unless the rubric requires it.",
+  "out_of_scope_refs": [
+    "scope-ref:queue-v2/Q31/no-inflated-parity",
+    "scope-ref:queue-v2/Q31/finance-nonblocking-unless-rubric-bound"
+  ],
+  "priority": "p1",
+  "queue_order": 31,
+  "safe_summary": "Run an exact-revision skepticism-first core comparison and route every remaining gap to an explicit owner.",
+  "scope_contract_ref": "scope-contract-ref:queue-v2/Q31",
+  "sol_thinking_level": "xhigh",
+  "task_ref": "dev-task:queue-v2-q31-final-goatcitadel-comparison",
+  "title": "Q31 Final GoatCitadel comparison",
+  "verifier_refs": [
+    "verifier-ref:queue-v2/Q31/focused",
+    "verifier-ref:queue-v2/Q31/redaction"
+  ],
+  "wip_lane": "verification_read_only",
+  "workstream_ref": "workstream-ref:goat-comparison",
+  "worktree_posture": "isolated_required",
+  "worktree_ref": "worktree-ref:queue-v2/q31-final-goatcitadel-comparison"
+}
