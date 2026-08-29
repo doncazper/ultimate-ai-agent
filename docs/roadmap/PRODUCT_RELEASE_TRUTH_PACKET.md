@@ -34,6 +34,17 @@ completion flags cannot promote it, the independent facility has no `ready`
 result, and no routing, prompt, model-call, provider-call, or authority behavior
 changed.
 
+The founder-private-dogfood capability-evidence contract for TAW-01 is present
+and verified. Registered
+capability manifests and exact operation schemas can now produce deterministic,
+content-free awareness envelopes bound to schema fingerprints, availability,
+policy, approval class, safe-disable, rollback, terminal proof, evaluation,
+review, and expiry evidence. Duplicate, malformed, stale, substituted, or
+inconsistent catalogs fail closed. This evidence layer does not perform
+retrieval, familiarity classification, chat integration, model/provider calls,
+or capability execution; those remain later TAW slices and existing authority
+gates.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility
