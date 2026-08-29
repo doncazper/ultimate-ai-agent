@@ -12,10 +12,15 @@ from ultimate_ai_agent.core.capabilities import (
     CapabilityMatchEvidence,
     CapabilityRegistry,
     ChatShadowEvidence,
+    CapabilityHydrationResult,
     CoordinationMode,
     FamiliarityAssessmentEvidence,
     FamiliarityState,
+    HydrationSourceEvidence,
+    HydrationTokenAccounting,
+    ManifestTokenCount,
     PolicyDecisionStatus,
+    RetrievalConstraints,
     SafetyPolicy,
     ShadowChatAction,
     SideEffectLevel,
@@ -24,11 +29,16 @@ from ultimate_ai_agent.core.capabilities import (
     build_capability_awareness_catalog,
     build_catalog_injection_cases,
     build_chat_shadow_inspection,
+    build_progressive_capability_cache,
+    discover_capabilities,
     evaluate_chat_shadow,
+    hydrate_capability_manifests,
     operation_schema_from_manifest,
 )
+from ultimate_ai_agent.core.capabilities import chat_shadow, retrieval
 from ultimate_ai_agent.core.capabilities.chat_shadow import (
     TAW04_API_INSPECTION_REF,
+    TAW04_ACCEPTED_LEGACY_ROUTE_REF,
     TAW04_CATALOG_INJECTION_FIELD_PATHS,
     TAW04_CLI_INSPECTION_REF,
     TAW04_SAFE_DISABLE_REF,
@@ -37,18 +47,21 @@ from ultimate_ai_agent.core.capabilities.enums import RiskLevel
 
 
 EVAL_SET_REF = "evaluation-set-ref:taw02:sha256:" + "4" * 64
-LEGACY_ROUTE_REF = "route-ref:taw04:accepted-legacy-direct-chat"
+LEGACY_ROUTE_REF = TAW04_ACCEPTED_LEGACY_ROUTE_REF
 SAFE_DISABLE_REF = TAW04_SAFE_DISABLE_REF
 
 
-def _catalog(*, two: bool = False):
+def _catalog(*, two: bool = False, same_effect: bool = False):
     registry = CapabilityRegistry()
     operations = []
     bindings = []
-    definitions = (
+    definitions = [
         ("read-notes", SideEffectLevel.read),
-        ("write-notes", SideEffectLevel.write),
-    )[: 2 if two else 1]
+        (
+            "read-notes-copy" if same_effect else "write-notes",
+            SideEffectLevel.read if same_effect else SideEffectLevel.write,
+        ),
+    ][: 2 if two else 1]
     for suffix, effect in definitions:
         mutating = effect == SideEffectLevel.write
         manifest = CapabilityManifest(
@@ -131,7 +144,7 @@ def _catalog(*, two: bool = False):
         generated_at_epoch_seconds=100,
         expires_at_epoch_seconds=200,
     )
-    return catalog
+    return catalog, tuple(operations)
 
 
 def _match(envelope, *, semantic: bool = False) -> CapabilityMatchEvidence:
@@ -149,7 +162,10 @@ def _match(envelope, *, semantic: bool = False) -> CapabilityMatchEvidence:
 
 
 def _assessment(*, state: str = "supported"):
-    catalog = _catalog(two=state == "ambiguous")
+    catalog, operations = _catalog(
+        two=state in {"ambiguous", "ambiguous_same_effect"},
+        same_effect=state == "ambiguous_same_effect",
+    )
     matches = tuple(
         _match(item, semantic=index == 1)
         for index, item in enumerate(catalog.envelopes)
@@ -192,19 +208,76 @@ def _assessment(*, state: str = "supported"):
         terminal_outcome=terminal,
         evaluation_set_fingerprint_ref=EVAL_SET_REF,
     )
-    return assess_familiarity(
-        evidence,
-        catalog=None if state == "unavailable" else catalog,
+    return (
+        assess_familiarity(
+            evidence,
+            catalog=None if state == "unavailable" else catalog,
+        ),
+        catalog,
+        operations,
     )
 
 
-def _evidence(assessment, *, effects=()):
+def _evidence(assessment_bundle):
+    assessment, catalog, _operations = assessment_bundle
     return ChatShadowEvidence(
         awareness_status=AwarenessEvidenceStatus.valid,
-        legacy_route_ref=LEGACY_ROUTE_REF,
-        safe_disable_ref=SAFE_DISABLE_REF,
         assessment=assessment,
-        material_effect_refs=effects,
+        catalog=catalog,
+        observed_at_epoch_seconds=150,
+    )
+
+
+def _hydration(catalog, operations):
+    environment_ref = "environment-fingerprint-ref:taw04:test"
+    cache = build_progressive_capability_cache(
+        catalog,
+        operation_schemas=operations,
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
+    )
+    shortlist = discover_capabilities(
+        cache,
+        normalized_request="read write notes",
+        constraints=RetrievalConstraints(
+            accepted_effect_classes=(SideEffectLevel.read, SideEffectLevel.write)
+        ),
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
+    )
+    sources = tuple(
+        HydrationSourceEvidence(
+            operation_id=item.operation_id,
+            source_kind="canonical_registered",
+            provenance_ref=item.provenance_ref,
+            review_ref=item.review_ref,
+            reviewed=True,
+        )
+        for item in sorted(operations, key=lambda value: value.operation_id)
+    )
+    accounting = HydrationTokenAccounting(
+        backend_ref="backend-ref:taw04:qwen-3-8-27b-local",
+        tokenizer_artifact_ref="artifact-ref:taw04:qwen-vocabulary",
+        tokenizer_fingerprint_ref="artifact-fingerprint-ref:taw04:qwen-v1",
+        prompt_format_ref="prompt-format-ref:taw04:not-assembled",
+        estimator_ref="estimator-ref:taw04:conservative-v1",
+        model_context_tokens=128_000,
+        non_hydration_prompt_tokens=1_000,
+        reserved_output_tokens=4_000,
+        manifest_counts=tuple(
+            ManifestTokenCount(operation_id=item.operation_id, estimated_tokens=100)
+            for item in sorted(operations, key=lambda value: value.operation_id)
+        ),
+    )
+    return hydrate_capability_manifests(
+        shortlist,
+        cache,
+        catalog,
+        operation_schemas=operations,
+        source_evidence=sources,
+        token_accounting=accounting,
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
     )
 
 
@@ -222,8 +295,6 @@ def test_awareness_failures_safe_disable_to_ordinary_chat(status) -> None:
     decision = evaluate_chat_shadow(
         ChatShadowEvidence(
             awareness_status=status,
-            legacy_route_ref=LEGACY_ROUTE_REF,
-            safe_disable_ref=SAFE_DISABLE_REF,
         )
     )
     assert decision.action == ShadowChatAction.preserve_direct_chat
@@ -249,25 +320,23 @@ def test_supported_capability_is_shadow_evidence_only() -> None:
 
 
 def test_clarification_is_recommended_only_for_materially_different_effects() -> None:
-    assessment = _assessment(state="ambiguous")
-    material = evaluate_chat_shadow(
-        _evidence(
-            assessment,
-            effects=("effect-ref:taw04:read", "effect-ref:taw04:write"),
-        )
-    )
+    material = evaluate_chat_shadow(_evidence(_assessment(state="ambiguous")))
     assert material.action == ShadowChatAction.recommend_clarification
     assert material.clarification_posture == "shadow_recommended"
     assert material.operator_visible_routing_changed is False
 
-    non_material = evaluate_chat_shadow(_evidence(assessment))
+    non_material = evaluate_chat_shadow(
+        _evidence(_assessment(state="ambiguous_same_effect"))
+    )
     assert non_material.action == ShadowChatAction.preserve_direct_chat
     assert non_material.clarification_posture == "not_applicable"
 
 
 def test_missing_capability_evidence_blocks_proposal_but_preserves_chat() -> None:
-    decision = evaluate_chat_shadow(_evidence(_assessment(state="unavailable")))
-    assert decision.action == ShadowChatAction.block_capability_proposal
+    decision = evaluate_chat_shadow(
+        ChatShadowEvidence(awareness_status=AwarenessEvidenceStatus.corrupt)
+    )
+    assert decision.action == ShadowChatAction.preserve_direct_chat
     assert decision.safe_disable_engaged is True
     assert decision.ordinary_no_tool_chat_preserved is True
     assert decision.selected_operation_refs == ()
@@ -295,7 +364,7 @@ def test_copied_decision_cannot_bypass_route_binding() -> None:
     copied = decision.model_copy(
         update={"operator_visible_route_ref": "route-ref:taw04:substituted"}
     )
-    with pytest.raises(ValidationError, match="operator-visible route"):
+    with pytest.raises(ValidationError, match="literal_error"):
         build_chat_shadow_inspection(copied)
 
 
@@ -303,9 +372,71 @@ def test_safe_disable_target_is_not_caller_selectable() -> None:
     with pytest.raises(ValidationError, match="literal_error"):
         ChatShadowEvidence(
             awareness_status=AwarenessEvidenceStatus.stale,
-            legacy_route_ref=LEGACY_ROUTE_REF,
             safe_disable_ref="safe-disable-ref:taw04:substituted",
         )
+    with pytest.raises(ValidationError, match="literal_error"):
+        ChatShadowEvidence(
+            awareness_status=AwarenessEvidenceStatus.stale,
+            legacy_route_ref="route-ref:taw04:substituted",
+        )
+
+
+def test_valid_awareness_revalidates_catalog_freshness() -> None:
+    assessment, catalog, _operations = _assessment()
+    with pytest.raises(ValidationError, match="stale"):
+        ChatShadowEvidence(
+            awareness_status=AwarenessEvidenceStatus.valid,
+            assessment=assessment,
+            catalog=catalog,
+            observed_at_epoch_seconds=201,
+        )
+
+
+def test_hydration_requires_per_candidate_envelope_and_schema_tuple() -> None:
+    assessment, catalog, operations = _assessment(state="ambiguous")
+    hydration = _hydration(catalog, operations)
+    assert len(hydration.manifests) == 2
+    first, second = hydration.manifests
+    swapped = first.model_copy(
+        update={
+            "envelope_fingerprint_ref": second.envelope_fingerprint_ref,
+            "operation_schema_fingerprint_ref": second.operation_schema_fingerprint_ref,
+        }
+    )
+    payload = hydration.model_dump(mode="json")
+    payload["manifests"] = [
+        swapped.model_dump(mode="json"),
+        second.model_dump(mode="json"),
+    ]
+    payload_without_fingerprint = dict(payload)
+    payload_without_fingerprint.pop("hydration_fingerprint_ref")
+    payload["hydration_fingerprint_ref"] = retrieval._fingerprint(
+        payload_without_fingerprint,
+        prefix="capability-hydration-ref:taw03",
+    )
+    substituted = CapabilityHydrationResult.model_validate(payload)
+    with pytest.raises(ValidationError, match="non-candidate bound evidence"):
+        ChatShadowEvidence(
+            awareness_status=AwarenessEvidenceStatus.valid,
+            assessment=assessment,
+            catalog=catalog,
+            hydration=substituted,
+            observed_at_epoch_seconds=150,
+        )
+
+
+def test_decision_rejects_recomputed_action_state_drift() -> None:
+    decision = evaluate_chat_shadow(_evidence(_assessment()))
+    payload = decision.model_dump(mode="json")
+    payload["action"] = ShadowChatAction.block_capability_proposal.value
+    payload_without_fingerprint = dict(payload)
+    payload_without_fingerprint.pop("decision_fingerprint_ref")
+    payload["decision_fingerprint_ref"] = chat_shadow._fingerprint(
+        payload_without_fingerprint,
+        prefix="chat-shadow-decision-ref:taw04",
+    )
+    with pytest.raises(ValidationError, match="action-state matrix drift"):
+        build_chat_shadow_inspection(payload)
 
 
 def test_catalog_injection_inventory_is_complete_and_non_model_visible() -> None:

@@ -17,7 +17,6 @@ def verify() -> None:
     decision = evaluate_chat_shadow(
         ChatShadowEvidence(
             awareness_status=AwarenessEvidenceStatus.over_budget,
-            legacy_route_ref="route-ref:taw04:verification-legacy-chat",
         )
     )
     if (

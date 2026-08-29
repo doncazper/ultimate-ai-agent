@@ -7,6 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.capabilities.awareness import (
+    CapabilityAwarenessCatalog,
+    validate_capability_awareness_catalog,
+)
 from ultimate_ai_agent.core.capabilities.familiarity import (
     FamiliarityAssessment,
     FamiliarityState,
@@ -20,13 +24,16 @@ TAW04_ROUTER_REF = "router-ref:taw04:evidence-only-shadow-v1"
 TAW04_CLI_INSPECTION_REF = "inspection-ref:taw04:cli:v1"
 TAW04_API_INSPECTION_REF = "inspection-ref:taw04:api:v1"
 TAW04_SAFE_DISABLE_REF = "safe-disable-ref:taw04:accepted-legacy-router"
+TAW04_ACCEPTED_LEGACY_ROUTE_REF = "route-ref:taw04:accepted-legacy-direct-chat"
 TAW04_CATALOG_INJECTION_FIELD_PATHS = (
     "aliases",
     "availability_metadata",
+    "capability_id",
     "description",
     "effect_metadata",
     "examples",
     "input_schema",
+    "operation_id",
     "operation_metadata",
     "output_schema",
     "preconditions",
@@ -92,27 +99,85 @@ class ChatShadowEvidence(_FrozenModel):
         "uaa-taw04-chat-shadow-evidence.v1"
     )
     awareness_status: AwarenessEvidenceStatus
-    legacy_route_ref: str
+    legacy_route_ref: Literal["route-ref:taw04:accepted-legacy-direct-chat"] = (
+        TAW04_ACCEPTED_LEGACY_ROUTE_REF
+    )
     safe_disable_ref: Literal["safe-disable-ref:taw04:accepted-legacy-router"] = (
         TAW04_SAFE_DISABLE_REF
     )
     assessment: FamiliarityAssessment | None = None
+    catalog: CapabilityAwarenessCatalog | None = None
     hydration: CapabilityHydrationResult | None = None
-    material_effect_refs: tuple[str, ...] = Field(default=(), max_length=8)
+    observed_at_epoch_seconds: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_evidence(self) -> "ChatShadowEvidence":
         _validate_ref(self.legacy_route_ref, "legacy_route_ref")
         _validate_ref(self.safe_disable_ref, "safe_disable_ref")
-        _validate_refs(self.material_effect_refs, "material_effect_refs")
         if self.awareness_status == AwarenessEvidenceStatus.valid:
-            if self.assessment is None:
-                raise ValueError("valid awareness requires an exact assessment")
-        elif self.assessment is not None or self.hydration is not None:
+            if (
+                self.assessment is None
+                or self.catalog is None
+                or self.observed_at_epoch_seconds is None
+            ):
+                raise ValueError(
+                    "valid awareness requires exact assessment, catalog, and observation evidence"
+                )
+        elif any(
+            value is not None
+            for value in (
+                self.assessment,
+                self.catalog,
+                self.hydration,
+                self.observed_at_epoch_seconds,
+            )
+        ):
             raise ValueError("invalid awareness cannot carry trusted derived evidence")
+        validated_catalog: CapabilityAwarenessCatalog | None = None
+        if self.catalog is not None and self.assessment is not None:
+            validated_catalog = validate_capability_awareness_catalog(
+                self.catalog.model_dump(mode="python"),
+                expected_catalog_epoch_ref=self.assessment.catalog_epoch_ref,
+                expected_availability_epoch_ref=self.assessment.availability_epoch_ref,
+                expected_policy_snapshot_ref=self.assessment.policy_snapshot_ref,
+                observed_at_epoch_seconds=self.observed_at_epoch_seconds,
+            )
+            if (
+                self.assessment.catalog_fingerprint_ref is None
+                or validated_catalog.catalog_fingerprint_ref
+                != self.assessment.catalog_fingerprint_ref
+            ):
+                raise ValueError("assessment and catalog fingerprint binding mismatch")
+            envelope_by_operation = {
+                item.operation_id: item for item in validated_catalog.envelopes
+            }
+            candidate_envelopes = tuple(
+                envelope_by_operation.get(operation_id)
+                for operation_id in self.assessment.candidate_operation_refs
+            )
+            if any(item is None for item in candidate_envelopes):
+                raise ValueError("assessment contains a non-catalog candidate")
+            expected_envelope_refs = tuple(
+                sorted(item.envelope_fingerprint_ref for item in candidate_envelopes)
+            )
+            expected_schema_refs = tuple(
+                sorted(
+                    item.operation_schema_fingerprint_ref
+                    for item in candidate_envelopes
+                )
+            )
+            if (
+                expected_envelope_refs
+                != self.assessment.candidate_envelope_fingerprint_refs
+                or expected_schema_refs
+                != self.assessment.candidate_operation_schema_fingerprint_refs
+            ):
+                raise ValueError("assessment candidate catalog binding mismatch")
         if self.hydration is not None:
-            if self.assessment is None:
-                raise ValueError("hydration requires an exact assessment")
+            if self.assessment is None or validated_catalog is None:
+                raise ValueError(
+                    "hydration requires exact assessment and catalog evidence"
+                )
             if (
                 self.assessment.catalog_fingerprint_ref is None
                 or self.hydration.catalog_fingerprint_ref
@@ -120,23 +185,20 @@ class ChatShadowEvidence(_FrozenModel):
             ):
                 raise ValueError("assessment and hydration catalog binding mismatch")
             candidate_refs = set(self.assessment.candidate_operation_refs)
-            envelope_refs = set(self.assessment.candidate_envelope_fingerprint_refs)
-            operation_schema_refs = set(
-                self.assessment.candidate_operation_schema_fingerprint_refs
-            )
+            envelope_by_operation = {
+                item.operation_id: item for item in validated_catalog.envelopes
+            }
             if any(
                 item.operation_id not in candidate_refs
-                or item.envelope_fingerprint_ref not in envelope_refs
-                or item.operation_schema_fingerprint_ref not in operation_schema_refs
+                or item.envelope_fingerprint_ref
+                != envelope_by_operation[item.operation_id].envelope_fingerprint_ref
+                or item.operation_schema_fingerprint_ref
+                != envelope_by_operation[
+                    item.operation_id
+                ].operation_schema_fingerprint_ref
                 for item in self.hydration.manifests
             ):
                 raise ValueError("hydration contains non-candidate bound evidence")
-        if (
-            self.assessment is None
-            or self.assessment.state != FamiliarityState.ambiguous
-        ):
-            if self.material_effect_refs:
-                raise ValueError("material effect refs are valid only for ambiguity")
         return self
 
 
@@ -152,8 +214,8 @@ class ChatShadowDecision(_FrozenModel):
     awareness_status: AwarenessEvidenceStatus
     action: ShadowChatAction
     reason_refs: tuple[str, ...] = Field(..., min_length=1)
-    legacy_route_ref: str
-    operator_visible_route_ref: str
+    legacy_route_ref: Literal["route-ref:taw04:accepted-legacy-direct-chat"]
+    operator_visible_route_ref: Literal["route-ref:taw04:accepted-legacy-direct-chat"]
     safe_disable_ref: Literal["safe-disable-ref:taw04:accepted-legacy-router"]
     safe_disable_engaged: bool
     familiarity_state: FamiliarityState | None
@@ -207,6 +269,36 @@ class ChatShadowDecision(_FrozenModel):
             raise ValueError("non-clarification decisions cannot carry a contract ref")
         if self.safe_disable_engaged and self.selected_operation_refs:
             raise ValueError("safe-disable cannot retain selected operations")
+        expected_action = _derive_shadow_action(
+            awareness_status=self.awareness_status,
+            familiarity_state=self.familiarity_state,
+            material_effect_refs=self.material_effect_refs,
+        )
+        if (
+            self.action != expected_action[0]
+            or self.reason_refs != expected_action[1]
+            or self.safe_disable_engaged != expected_action[2]
+            or self.clarification_posture != expected_action[3]
+            or self.clarification_contract_ref != expected_action[4]
+        ):
+            raise ValueError("chat shadow action-state matrix drift")
+        if self.awareness_status == AwarenessEvidenceStatus.valid:
+            if (
+                self.familiarity_state is None
+                or self.assessment_fingerprint_ref is None
+            ):
+                raise ValueError(
+                    "valid awareness requires exact assessment output evidence"
+                )
+        elif any(
+            value is not None
+            for value in (
+                self.familiarity_state,
+                self.assessment_fingerprint_ref,
+                self.hydration_fingerprint_ref,
+            )
+        ):
+            raise ValueError("invalid awareness cannot publish derived output evidence")
         expected = _fingerprint(
             self.model_dump(mode="json", exclude={"decision_fingerprint_ref"}),
             prefix="chat-shadow-decision-ref:taw04",
@@ -307,6 +399,109 @@ def _selected_operations(
     )
 
 
+def _material_effect_refs(evidence: ChatShadowEvidence) -> tuple[str, ...]:
+    if (
+        evidence.assessment is None
+        or evidence.catalog is None
+        or evidence.assessment.state != FamiliarityState.ambiguous
+    ):
+        return ()
+    candidate_refs = set(evidence.assessment.candidate_operation_refs)
+    return tuple(
+        sorted(
+            {
+                f"effect-class-ref:taw04:{item.effect_class.value}"
+                for item in evidence.catalog.envelopes
+                if item.operation_id in candidate_refs
+            }
+        )
+    )
+
+
+def _derive_shadow_action(
+    *,
+    awareness_status: AwarenessEvidenceStatus,
+    familiarity_state: FamiliarityState | None,
+    material_effect_refs: tuple[str, ...],
+) -> tuple[
+    ShadowChatAction,
+    tuple[str, ...],
+    bool,
+    Literal["not_applicable", "shadow_recommended"],
+    str | None,
+]:
+    if awareness_status != AwarenessEvidenceStatus.valid:
+        if familiarity_state is not None or material_effect_refs:
+            raise ValueError("invalid awareness cannot derive familiarity routing")
+        return (
+            ShadowChatAction.preserve_direct_chat,
+            (f"reason-ref:taw04:awareness-{awareness_status.value}",),
+            True,
+            "not_applicable",
+            None,
+        )
+    if familiarity_state is None:
+        raise ValueError("valid awareness requires a familiarity state")
+    if familiarity_state == FamiliarityState.capability_evidence_unavailable:
+        return (
+            ShadowChatAction.block_capability_proposal,
+            ("reason-ref:taw04:capability-evidence-unavailable",),
+            True,
+            "not_applicable",
+            None,
+        )
+    if familiarity_state == FamiliarityState.outcome_uncertain:
+        return (
+            ShadowChatAction.record_outcome_uncertain,
+            ("reason-ref:taw04:durable-terminal-proof-required",),
+            False,
+            "not_applicable",
+            None,
+        )
+    if familiarity_state == FamiliarityState.ambiguous:
+        if len(material_effect_refs) >= 2:
+            return (
+                ShadowChatAction.recommend_clarification,
+                ("reason-ref:taw04:material-effect-ambiguity",),
+                False,
+                "shadow_recommended",
+                "turn-contract-ref:taw04:ask-clarifying-question",
+            )
+        return (
+            ShadowChatAction.preserve_direct_chat,
+            ("reason-ref:taw04:non-material-ambiguity",),
+            False,
+            "not_applicable",
+            None,
+        )
+    if familiarity_state in {
+        FamiliarityState.familiar_authority_blocked,
+        FamiliarityState.familiar_unavailable,
+    }:
+        return (
+            ShadowChatAction.block_capability_proposal,
+            (f"reason-ref:taw04:{familiarity_state.value}",),
+            False,
+            "not_applicable",
+            None,
+        )
+    if familiarity_state == FamiliarityState.novel_unsupported:
+        return (
+            ShadowChatAction.preserve_direct_chat,
+            ("reason-ref:taw04:no-supported-capability",),
+            False,
+            "not_applicable",
+            None,
+        )
+    return (
+        ShadowChatAction.record_capability_candidate,
+        (f"reason-ref:taw04:{familiarity_state.value}",),
+        False,
+        "not_applicable",
+        None,
+    )
+
+
 def evaluate_chat_shadow(
     evidence: ChatShadowEvidence | dict[str, Any],
 ) -> ChatShadowDecision:
@@ -317,50 +512,26 @@ def evaluate_chat_shadow(
     )
     assessment = evidence_model.assessment
     hydration = evidence_model.hydration
-    safe_disable = evidence_model.awareness_status != AwarenessEvidenceStatus.valid
-    action = ShadowChatAction.preserve_direct_chat
-    reason_refs: tuple[str, ...]
-    clarification_posture: Literal["not_applicable", "shadow_recommended"] = (
-        "not_applicable"
+    material_effect_refs = _material_effect_refs(evidence_model)
+    familiarity_state = assessment.state if assessment is not None else None
+    (
+        action,
+        reason_refs,
+        safe_disable,
+        clarification_posture,
+        clarification_contract_ref,
+    ) = _derive_shadow_action(
+        awareness_status=evidence_model.awareness_status,
+        familiarity_state=familiarity_state,
+        material_effect_refs=material_effect_refs,
     )
-    clarification_contract_ref: str | None = None
     selected_operation_refs: tuple[str, ...] = ()
-
-    if safe_disable:
-        reason_refs = (
-            f"reason-ref:taw04:awareness-{evidence_model.awareness_status.value}",
-        )
-    elif assessment is None:  # pragma: no cover - enforced by the model
-        raise ValueError("valid awareness requires an assessment")
-    elif assessment.state == FamiliarityState.capability_evidence_unavailable:
-        safe_disable = True
-        action = ShadowChatAction.block_capability_proposal
-        reason_refs = ("reason-ref:taw04:capability-evidence-unavailable",)
-    elif assessment.state == FamiliarityState.outcome_uncertain:
-        action = ShadowChatAction.record_outcome_uncertain
-        reason_refs = ("reason-ref:taw04:durable-terminal-proof-required",)
-    elif assessment.state == FamiliarityState.ambiguous:
-        if len(evidence_model.material_effect_refs) >= 2:
-            action = ShadowChatAction.recommend_clarification
-            clarification_posture = "shadow_recommended"
-            clarification_contract_ref = (
-                "turn-contract-ref:taw04:ask-clarifying-question"
-            )
-            reason_refs = ("reason-ref:taw04:material-effect-ambiguity",)
-        else:
-            reason_refs = ("reason-ref:taw04:non-material-ambiguity",)
-    elif assessment.state in {
-        FamiliarityState.familiar_authority_blocked,
-        FamiliarityState.familiar_unavailable,
-    }:
-        action = ShadowChatAction.block_capability_proposal
-        reason_refs = (f"reason-ref:taw04:{assessment.state.value}",)
-    elif assessment.state == FamiliarityState.novel_unsupported:
-        reason_refs = ("reason-ref:taw04:no-supported-capability",)
-    else:
+    if (
+        assessment is not None
+        and not safe_disable
+        and action == ShadowChatAction.record_capability_candidate
+    ):
         selected_operation_refs = _selected_operations(assessment, hydration)
-        action = ShadowChatAction.record_capability_candidate
-        reason_refs = (f"reason-ref:taw04:{assessment.state.value}",)
 
     payload: dict[str, Any] = {
         "awareness_status": evidence_model.awareness_status,
@@ -370,7 +541,7 @@ def evaluate_chat_shadow(
         "operator_visible_route_ref": evidence_model.legacy_route_ref,
         "safe_disable_ref": evidence_model.safe_disable_ref,
         "safe_disable_engaged": safe_disable,
-        "familiarity_state": assessment.state if assessment is not None else None,
+        "familiarity_state": familiarity_state,
         "assessment_fingerprint_ref": (
             assessment.assessment_fingerprint_ref if assessment is not None else None
         ),
@@ -378,7 +549,7 @@ def evaluate_chat_shadow(
             hydration.hydration_fingerprint_ref if hydration is not None else None
         ),
         "selected_operation_refs": selected_operation_refs,
-        "material_effect_refs": evidence_model.material_effect_refs,
+        "material_effect_refs": material_effect_refs,
         "clarification_posture": clarification_posture,
         "clarification_contract_ref": clarification_contract_ref,
     }
@@ -468,6 +639,7 @@ __all__ = [
     "ChatShadowInspection",
     "ShadowChatAction",
     "TAW04_API_INSPECTION_REF",
+    "TAW04_ACCEPTED_LEGACY_ROUTE_REF",
     "TAW04_CATALOG_INJECTION_FIELD_PATHS",
     "TAW04_CLI_INSPECTION_REF",
     "TAW04_CONTRACT_REF",
