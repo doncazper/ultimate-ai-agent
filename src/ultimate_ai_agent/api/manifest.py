@@ -52,6 +52,8 @@ CAPABILITIES_DECLARED = [
     "control_center_read_only_dashboard",
     "control_center_capability_availability_read_model",
     "capability_availability_request_scoped_invocation_decisions",
+    "tool_aware_operator_diagnostics_shared_read_model",
+    "tool_aware_operator_diagnostics_cli_api_parity",
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
@@ -548,6 +550,9 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_hrr_vector_db",
     "control_center_memory_hrr_context_injection",
     "control_center_plugin_enablement",
+    "tool_aware_operator_diagnostics_as_runtime_authority",
+    "tool_aware_operator_diagnostics_model_provider_or_tool_execution",
+    "tool_aware_operator_diagnostics_control_center_surface",
     "control_center_provider_setup_guide_as_credential_enrollment",
     "control_center_provider_setup_guide_as_billing_authority",
     "control_center_provider_setup_guide_runtime_pricing_fetch",
@@ -696,6 +701,7 @@ WEB_ACCESS_POSTURE = {
 }
 
 ROUTE_GROUPS_BY_PREFIX = {
+    "/api/capability-diagnostics": "capability-diagnostics",
     "/api/runtime": "governed-runtime",
     "/api": "api-boundary",
     "/health": "system",

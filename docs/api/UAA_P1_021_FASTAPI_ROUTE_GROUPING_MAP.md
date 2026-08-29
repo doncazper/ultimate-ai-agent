@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `355`.
+Current OpenAPI path count: `356`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `357`
-- OpenAPI paths: `355`
+- Manifest route operations: `358`
+- OpenAPI paths: `356`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -19,6 +19,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 |---|---:|---|---|---|---|---|---|---|
 | `adapter-boundary` | 1 | `core-runtime` | `contracts_service` | future auth required | `validation_only`:1 | low | stable/generated from path; unique | partial_backend_not_product_ready |
 | `api-boundary` | 1 | `api-boundary` | `api_service` | future auth required | `none`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `capability-diagnostics` | 1 | `capability-awareness` | `capability_diagnostics_service` | protected local bearer required | `validation_only`:1 | medium | stable/generated from path; unique | preview_available_not_execution |
 | `approval-authority` | 4 | `approval-authority` | `approval_service` | future auth required | `validation_only`:4 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -61,6 +62,7 @@ validate the exact request-scoped authority boundary.
 |---|---|---|---|---|---|---|
 | POST | `/adapter-manifest/validate` | `post_adapter_manifest_validate` | `validation_only` | yes | future | yes |
 | GET | `/api/manifest` | `get_api_manifest` | `none` | no | future | yes |
+| POST | `/api/capability-diagnostics/preview` | `preview_tool_aware_capability_diagnostics` | `validation_only` | yes | future | yes |
 | GET | `/api/runtime/approval-bridge` | `get_api_runtime_approval_bridge` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/authority-decisions/preview` | `post_api_runtime_authority_decisions_preview` | `validation_only` | yes | future | yes |
 | GET | `/api/runtime/authority-domain-readiness` | `get_api_runtime_authority_domain_readiness` | `local_dev_workspace_only` | no | future | yes |

@@ -19,6 +19,9 @@ ROUTE_STATUS_MANIFEST = ROOT / "docs/control_center/route_status_manifest.json"
 EVIDENCE_BEHAVIOR_BY_ROUTE_GROUP = {
     "adapter-boundary": "validation decision refs",
     "api-boundary": "manifest metadata refs",
+    "capability-diagnostics": (
+        "bounded route, familiarity, approval, limitation, and evidence refs"
+    ),
     "approval-authority": "approval validation refs",
     "consent": "consent validation refs",
     "context-budget": "context budget validation refs",
