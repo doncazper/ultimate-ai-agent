@@ -18,5 +18,5 @@
   "prompt_changes_added": false,
   "runtime_model_calls_added": false,
   "authority_added": false,
-  "next_safe_action": "Implement TAW-03 bounded progressive capability retrieval over the merged TAW-01 evidence and TAW-02 familiarity contracts; retain independent custody, blind scoring, and promotion acceptance as later public-quality gates."
+  "next_safe_action": "Implement TAW-04 evidence-only shadow chat integration and clarification behavior over the merged TAW-01 through TAW-03 contracts; retain independent custody, blind scoring, and promotion acceptance as later public-quality gates."
 }

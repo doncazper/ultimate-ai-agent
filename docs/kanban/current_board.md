@@ -28,7 +28,11 @@ chat routing or enabling execution. The bounded TAW-02 slice now derives all
 nine canonical familiarity states with stable reasons and fail-closed
 precedence while retaining relevance, availability, policy/safety, authority,
 input, approval, readiness, and terminal proof as separate dimensions. Q22
-advances next to bounded TAW-03 progressive retrieval; safe-disable, rollback,
+now also has bounded TAW-03 deterministic compact retrieval and schema-limited
+manifest hydration with exact catalog/schema/environment and token-accounting
+bindings. Blocked and unavailable registered matches remain classification
+evidence but cannot become proposal- or execution-eligible. Q22 advances next
+to TAW-04 evidence-only shadow chat integration; safe-disable, rollback,
 redaction, and independent promotion remain required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible

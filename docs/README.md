@@ -32,6 +32,12 @@ separate relevance, availability, policy/safety, authority, input, approval,
 readiness, and terminal-proof dimensions; derives all nine canonical states;
 and rejects stale, substituted, ambiguous, or contradictory evidence without
 constructing a proposal or changing chat routing.
+TAW-03's bounded progressive-retrieval contract is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW03_PROGRESSIVE_RETRIEVAL.md`. It adds an
+exact-bound deterministic compact cache and schema-limited untrusted-data
+hydration, retains blocked and unavailable matches for classification, and
+binds catalog/schema/environment/provenance/review/token-accounting evidence
+without model/provider calls, prompt assembly, routing changes, or authority.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one
