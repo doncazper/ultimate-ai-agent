@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -16,14 +16,14 @@ TAW05_PROJECTOR_REF = "projector-ref:taw05:recomputable-receipts:v1"
 TAW05_MAX_OBSERVATIONS = 4_096
 
 
-class TerminalReceiptStatus(StrEnum):
+class TerminalReceiptStatus(str, Enum):
     succeeded = "succeeded"
     failed = "failed"
     canceled = "canceled"
     rolled_back = "rolled_back"
 
 
-class OutcomeObservationClass(StrEnum):
+class OutcomeObservationClass(str, Enum):
     succeeded = "succeeded"
     failed = "failed"
     canceled = "canceled"
@@ -306,6 +306,7 @@ class OutcomePriorEvidence(_FrozenModel):
     prior_evidence_ref: str
     projection_fingerprint_ref: str
     contract_fingerprint_ref: str
+    policy_fingerprint_ref: str
     operation_schema_fingerprint_ref: str
     policy_snapshot_ref: str
     evaluator_revision_ref: str
@@ -327,6 +328,11 @@ class OutcomePriorEvidence(_FrozenModel):
             self.contract_fingerprint_ref,
             "contract_fingerprint_ref",
             "outcome-contract-ref:taw05",
+        )
+        _validate_sha256_ref(
+            self.policy_fingerprint_ref,
+            "policy_fingerprint_ref",
+            "outcome-policy-ref:taw05",
         )
         _validate_sha256_ref(
             self.operation_schema_fingerprint_ref,
@@ -464,6 +470,18 @@ class CapabilityOutcomeProjection(_FrozenModel):
         _validate_refs(self.prior_reason_refs, "prior_reason_refs")
         if self.attempt_inventory_count != len(self.observations):
             raise ValueError("attempt inventory count must equal observation census")
+        attempt_refs = tuple(
+            item.execution_attempt_ref for item in self.observations
+        )
+        durable_start_refs = tuple(
+            item.durable_start_evidence_ref for item in self.observations
+        )
+        if len(attempt_refs) != len(set(attempt_refs)):
+            raise ValueError("projection observations must have unique attempt refs")
+        if len(durable_start_refs) != len(set(durable_start_refs)):
+            raise ValueError(
+                "projection observations must have unique durable start refs"
+            )
         observation_counts = {
             outcome_class: sum(
                 item.outcome_class == outcome_class for item in self.observations
@@ -557,6 +575,7 @@ class OperatorCorrectionDecision(_FrozenModel):
         "uaa-taw05-operator-correction-decision.v1"
     )
     correction_ref: str
+    evidence_fingerprint_ref: str
     disposition: Literal["blocked", "eligible_for_separate_durable_promotion"]
     reason_refs: tuple[str, ...] = Field(..., min_length=1)
     durable_eval_eligible: bool
@@ -578,6 +597,11 @@ class OperatorCorrectionDecision(_FrozenModel):
     @model_validator(mode="after")
     def validate_decision(self) -> "OperatorCorrectionDecision":
         _validate_ref(self.correction_ref, "correction_ref")
+        _validate_sha256_ref(
+            self.evidence_fingerprint_ref,
+            "evidence_fingerprint_ref",
+            "correction-evidence-ref:taw05",
+        )
         _validate_refs(self.reason_refs, "reason_refs")
         if self.durable_eval_eligible != (
             self.disposition == "eligible_for_separate_durable_promotion"
@@ -595,6 +619,7 @@ class OperatorCorrectionDecision(_FrozenModel):
 class OutcomeLifecycleEvidence(_FrozenModel):
     proposal_ref: str | None = None
     approval_ref: str | None = None
+    contract: CapabilityOutcomeContract | None = None
     start_evidence: AttemptStartEvidence | None = None
     terminal_receipt: TerminalReceiptEvidence | None = None
 
@@ -608,7 +633,13 @@ class OutcomeLifecycleEvidence(_FrozenModel):
                 _validate_ref(value, field_name)
         if self.terminal_receipt is not None and self.start_evidence is None:
             raise ValueError("terminal receipt requires exact durable start evidence")
+        if self.start_evidence is not None:
+            if self.contract is None:
+                raise ValueError("durable start lifecycle requires governing contract")
+            _validate_start_contract_binding(self.contract, self.start_evidence)
         if self.start_evidence is not None and self.terminal_receipt is not None:
+            assert self.contract is not None
+            _validate_receipt_contract_binding(self.contract, self.terminal_receipt)
             _validate_start_receipt_binding(
                 self.start_evidence,
                 self.terminal_receipt,
@@ -1073,6 +1104,8 @@ def project_capability_outcomes(
         current = (
             prior_model.contract_fingerprint_ref
             == contract_model.contract_fingerprint_ref
+            and prior_model.policy_fingerprint_ref
+            == policy_model.policy_fingerprint_ref
             and prior_model.operation_schema_fingerprint_ref
             == contract_model.operation_schema_fingerprint_ref
             and prior_model.policy_snapshot_ref == policy_model.policy_snapshot_ref
@@ -1171,6 +1204,10 @@ def evaluate_operator_correction(
     )
     payload: dict[str, Any] = {
         "correction_ref": evidence_model.correction_ref,
+        "evidence_fingerprint_ref": _fingerprint(
+            evidence_model.model_dump(mode="json"),
+            prefix="correction-evidence-ref:taw05",
+        ),
         "disposition": (
             "eligible_for_separate_durable_promotion" if eligible else "blocked"
         ),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from enum import Enum
 
 import pytest
 from pydantic import ValidationError
@@ -9,6 +10,7 @@ from ultimate_ai_agent.core.capabilities import (
     CapabilityOutcomeProjection,
     OperatorCorrectionEvidence,
     OutcomeLifecycleEvidence,
+    OutcomeObservationClass,
     OutcomePriorEvidence,
     TerminalReceiptStatus,
     build_attempt_start_evidence,
@@ -25,13 +27,17 @@ from ultimate_ai_agent.core.capabilities import outcomes
 OPERATION_SCHEMA_REF = "operation-schema-ref:taw01:sha256:" + "a" * 64
 
 
-def _policy(*, evaluator_revision_ref: str = "evaluator-revision-ref:taw05:v1"):
+def _policy(
+    *,
+    evaluator_revision_ref: str = "evaluator-revision-ref:taw05:v1",
+    repository_hard_max_window_seconds: int = 300,
+):
     return build_outcome_evaluation_policy(
         policy_snapshot_ref="policy-snapshot-ref:taw05:v1",
         evaluator_revision_ref=evaluator_revision_ref,
         reviewed_completion_sla_ref="completion-sla-ref:taw05:reviewed-v1",
         reviewed_completion_sla_seconds=60,
-        repository_hard_max_window_seconds=300,
+        repository_hard_max_window_seconds=repository_hard_max_window_seconds,
         clock_source_ref="clock-source-ref:taw05:monotonic-v1",
     )
 
@@ -88,6 +94,11 @@ def _projection_payload_with_fingerprint(projection, **updates):
         prefix="outcome-projection-ref:taw05",
     )
     return payload
+
+
+def test_terminal_enums_use_the_python_310_compatible_string_enum_pattern() -> None:
+    assert TerminalReceiptStatus.__bases__ == (str, Enum)
+    assert OutcomeObservationClass.__bases__ == (str, Enum)
 
 
 def test_projection_recomputes_complete_census_and_keeps_authority_zero() -> None:
@@ -159,6 +170,32 @@ def test_exact_replay_is_deduplicated() -> None:
     assert projection.attempt_inventory_count == 1
     assert projection.terminal_count == 1
     assert projection.succeeded_count == 1
+
+
+def test_projection_deserialization_rejects_duplicate_observation_identities() -> None:
+    policy = _policy()
+    contract = _contract(policy=policy)
+    projection = project_capability_outcomes(
+        policy=policy,
+        contract=contract,
+        starts=(_start(contract, 1),),
+        receipts=(),
+        as_of_epoch_seconds=200,
+    )
+    observation = projection.observations[0].model_dump(mode="json")
+    duplicated = _projection_payload_with_fingerprint(
+        projection,
+        attempt_inventory_count=2,
+        unresolved_overdue_count=2,
+        non_success_count=2,
+        health_rate_denominator=2,
+        reliability_rate_denominator=2,
+        familiarity_rate_denominator=2,
+        observations=(observation, observation),
+    )
+
+    with pytest.raises(ValidationError, match="unique attempt refs"):
+        CapabilityOutcomeProjection.model_validate(duplicated)
 
 
 def test_conflicting_attempt_or_receipt_reuse_invalidates_projection() -> None:
@@ -310,6 +347,7 @@ def test_priors_are_non_authoritative_and_stale_bindings_are_invalidated() -> No
         prior_evidence_ref="prior-evidence-ref:taw05:one",
         projection_fingerprint_ref=baseline.projection_fingerprint_ref,
         contract_fingerprint_ref=contract.contract_fingerprint_ref,
+        policy_fingerprint_ref=policy.policy_fingerprint_ref,
         operation_schema_fingerprint_ref=contract.operation_schema_fingerprint_ref,
         policy_snapshot_ref=policy.policy_snapshot_ref,
         evaluator_revision_ref=policy.evaluator_revision_ref,
@@ -339,6 +377,41 @@ def test_priors_are_non_authoritative_and_stale_bindings_are_invalidated() -> No
     assert current.non_success_count == stale.non_success_count == 1
 
 
+def test_prior_policy_fingerprint_change_invalidates_otherwise_matching_prior() -> None:
+    policy = _policy()
+    contract = _contract(policy=policy)
+    start = _start(contract, 1)
+    baseline = project_capability_outcomes(
+        policy=policy,
+        contract=contract,
+        starts=(start,),
+        receipts=(),
+        as_of_epoch_seconds=200,
+    )
+    prior = OutcomePriorEvidence(
+        prior_evidence_ref="prior-evidence-ref:taw05:policy-change",
+        projection_fingerprint_ref=baseline.projection_fingerprint_ref,
+        contract_fingerprint_ref=contract.contract_fingerprint_ref,
+        policy_fingerprint_ref=policy.policy_fingerprint_ref,
+        operation_schema_fingerprint_ref=contract.operation_schema_fingerprint_ref,
+        policy_snapshot_ref=policy.policy_snapshot_ref,
+        evaluator_revision_ref=policy.evaluator_revision_ref,
+    )
+    revised_policy = _policy(repository_hard_max_window_seconds=600)
+
+    projection = project_capability_outcomes(
+        policy=revised_policy,
+        contract=contract,
+        starts=(start,),
+        receipts=(),
+        as_of_epoch_seconds=200,
+        prior=prior,
+    )
+
+    assert revised_policy.policy_fingerprint_ref != policy.policy_fingerprint_ref
+    assert projection.prior_status == "invalidated_stale"
+
+
 def test_lifecycle_marks_only_started_missing_terminal_as_uncertain() -> None:
     contract = _contract()
     start = _start(contract, 1)
@@ -351,10 +424,14 @@ def test_lifecycle_marks_only_started_missing_terminal_as_uncertain() -> None:
         )
     )
     uncertain = project_outcome_lifecycle(
-        OutcomeLifecycleEvidence(start_evidence=start)
+        OutcomeLifecycleEvidence(contract=contract, start_evidence=start)
     )
     terminal = project_outcome_lifecycle(
-        OutcomeLifecycleEvidence(start_evidence=start, terminal_receipt=receipt)
+        OutcomeLifecycleEvidence(
+            contract=contract,
+            start_evidence=start,
+            terminal_receipt=receipt,
+        )
     )
 
     assert ordinary.posture == "ordinary_canonical_lifecycle"
@@ -370,6 +447,13 @@ def test_lifecycle_marks_only_started_missing_terminal_as_uncertain() -> None:
     assert not terminal.public_claim_made
     assert not terminal.authority_granted
     assert not terminal.production_authority_granted
+
+
+def test_lifecycle_requires_governing_contract_for_durable_start() -> None:
+    contract = _contract()
+
+    with pytest.raises(ValidationError, match="requires governing contract"):
+        OutcomeLifecycleEvidence(start_evidence=_start(contract, 1))
 
 
 def test_lifecycle_rejects_receipt_from_a_different_contract() -> None:
@@ -401,10 +485,35 @@ def test_lifecycle_rejects_receipt_from_a_different_contract() -> None:
         substituted_payload
     )
 
-    with pytest.raises(ValueError, match="durable start binding mismatch"):
+    with pytest.raises(ValueError, match="outcome contract binding mismatch"):
         OutcomeLifecycleEvidence(
+            contract=contract,
             start_evidence=start,
             terminal_receipt=substituted_receipt,
+        )
+
+
+def test_lifecycle_rejects_terminal_status_ref_rebound_outside_contract() -> None:
+    contract = _contract()
+    start = _start(contract, 1)
+    receipt = _receipt(contract, start, TerminalReceiptStatus.succeeded)
+    rebound_payload = receipt.model_dump(mode="python")
+    rebound_payload["terminal_status"] = TerminalReceiptStatus.failed
+    rebound_payload["receipt_fingerprint_ref"] = outcomes._fingerprint(
+        {
+            key: value
+            for key, value in rebound_payload.items()
+            if key != "receipt_fingerprint_ref"
+        },
+        prefix="terminal-receipt-ref:taw05",
+    )
+    rebound_receipt = outcomes.TerminalReceiptEvidence.model_validate(rebound_payload)
+
+    with pytest.raises(ValueError, match="outcome contract binding mismatch"):
+        OutcomeLifecycleEvidence(
+            contract=contract,
+            start_evidence=start,
+            terminal_receipt=rebound_receipt,
         )
 
 
@@ -451,6 +560,42 @@ def test_operator_corrections_require_transformation_review_and_safety() -> None
     )
     assert eligible.model_call_count == 0
     assert eligible.second_ordinary_chat_model_call_count == 0
+
+
+def test_correction_decision_fingerprint_binds_exact_reviewed_evidence() -> None:
+    first = OperatorCorrectionEvidence(
+        correction_ref="correction-ref:taw05:shared",
+        source_revision_ref="source-revision-ref:taw05:first",
+        transformation_kind="fully_redacted",
+        transformed_fixture_ref="transformed-fixture-ref:taw05:first",
+        review_status="accepted",
+        independent_review_ref="independent-review-ref:taw05:first",
+        content_safety_status="passed",
+        content_safety_receipt_ref="content-safety-receipt-ref:taw05:first",
+    )
+    second = first.model_copy(
+        update={
+            "source_revision_ref": "source-revision-ref:taw05:second",
+            "transformed_fixture_ref": "transformed-fixture-ref:taw05:second",
+            "independent_review_ref": "independent-review-ref:taw05:second",
+            "content_safety_receipt_ref": (
+                "content-safety-receipt-ref:taw05:second"
+            ),
+        }
+    )
+
+    first_decision = evaluate_operator_correction(first)
+    second_decision = evaluate_operator_correction(second)
+
+    assert first_decision.correction_ref == second_decision.correction_ref
+    assert (
+        first_decision.evidence_fingerprint_ref
+        != second_decision.evidence_fingerprint_ref
+    )
+    assert (
+        first_decision.decision_fingerprint_ref
+        != second_decision.decision_fingerprint_ref
+    )
 
 
 def test_raw_correction_content_and_recomputed_count_drift_are_rejected() -> None:

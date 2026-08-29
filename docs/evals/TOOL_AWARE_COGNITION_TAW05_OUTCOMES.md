@@ -15,10 +15,13 @@ fingerprint, and—when present—one immutable terminal receipt. The reviewed S
 is the projection window and cannot exceed the repository hard maximum.
 
 Terminal receipts use the closed status set `succeeded`, `failed`, `canceled`,
-and `rolled_back`. Exact start and receipt replays are deduplicated. Reusing an
-attempt, durable-start ref, or receipt identity with conflicting fingerprints
-invalidates the projection. A terminal receipt without its exact bound start,
-or evidence outside the as-of census, also fails closed.
+and `rolled_back` through a Python 3.10-compatible string enum. Exact start and
+receipt replays are deduplicated before projection. Reusing an attempt,
+durable-start ref, or receipt identity with conflicting fingerprints—or
+deserializing a projection with duplicate observation identities—invalidates
+the projection. A terminal receipt without its exact bound start and governing
+contract, a status/ref pair outside that contract's closed map, or evidence
+outside the as-of census also fails closed.
 
 ## Recomputable Census
 
@@ -45,8 +48,9 @@ inventory, terminal split, live/overdue counts, denominators, and integer
 success basis points.
 
 Prior projections never supply counts or authority. A matching prior is only
-reported as current non-authoritative evidence. A contract, operation-schema,
-policy, or evaluator mismatch marks it stale and invalidated.
+reported as current non-authoritative evidence. Its exact policy fingerprint,
+contract, operation-schema, policy snapshot, and evaluator revision bindings
+must remain current; any mismatch marks it stale and invalidated.
 
 ## Operator Corrections
 
@@ -55,7 +59,9 @@ correction can become only `eligible_for_separate_durable_promotion` when it has
 a synthetic or fully redacted fixture ref, accepted independent-review ref,
 and passing content-safety receipt ref. The decision writes no fixture and
 performs no promotion. Untransformed, unreviewed, rejected, or safety-unverified
-corrections remain blocked.
+corrections remain blocked. Each decision is fingerprint-bound to the complete
+validated correction evidence, so reusing a correction ref cannot rebind a
+decision to different fixture, review, or safety evidence.
 
 ## Inspection Boundary
 
@@ -74,11 +80,12 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_tool_aware_cognition_taw05.
 ```
 
 The focused suite covers the full terminal/live/overdue census, denominator
-rules, exact replay dedupe, conflicting identity reuse, orphan and cross-bound
-receipts, timestamp and environment binding, reviewed-window bounds, bounded
-iterables, stale priors, lifecycle posture, safe correction promotion
-eligibility, raw-field rejection, count recomputation, and all zero-authority
-invariants.
+rules, exact replay dedupe, deserialized duplicate rejection, conflicting
+identity reuse, orphan and cross-bound receipts, terminal status-map binding,
+timestamp and environment binding, reviewed-window bounds, Python 3.10 enum
+compatibility, bounded iterables, exact-policy stale priors, lifecycle posture,
+correction-evidence binding, safe correction promotion eligibility, raw-field
+rejection, count recomputation, and all zero-authority invariants.
 
 ## Next Slice
 
