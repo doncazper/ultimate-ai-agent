@@ -372,6 +372,42 @@ def test_lifecycle_marks_only_started_missing_terminal_as_uncertain() -> None:
     assert not terminal.production_authority_granted
 
 
+def test_lifecycle_rejects_receipt_from_a_different_contract() -> None:
+    contract = _contract()
+    start = _start(contract, 1)
+    receipt = _receipt(contract, start, TerminalReceiptStatus.succeeded)
+    other_contract = _contract(
+        policy=_policy(evaluator_revision_ref="evaluator-revision-ref:taw05:v2")
+    )
+    substituted_payload = receipt.model_dump(mode="python")
+    substituted_payload.update(
+        operation_id=other_contract.operation_id,
+        contract_fingerprint_ref=other_contract.contract_fingerprint_ref,
+        operation_schema_fingerprint_ref=(
+            other_contract.operation_schema_fingerprint_ref
+        ),
+        policy_snapshot_ref=other_contract.policy_snapshot_ref,
+        evaluator_revision_ref=other_contract.evaluator_revision_ref,
+    )
+    substituted_payload["receipt_fingerprint_ref"] = outcomes._fingerprint(
+        {
+            key: value
+            for key, value in substituted_payload.items()
+            if key != "receipt_fingerprint_ref"
+        },
+        prefix="terminal-receipt-ref:taw05",
+    )
+    substituted_receipt = outcomes.TerminalReceiptEvidence.model_validate(
+        substituted_payload
+    )
+
+    with pytest.raises(ValueError, match="durable start binding mismatch"):
+        OutcomeLifecycleEvidence(
+            start_evidence=start,
+            terminal_receipt=substituted_receipt,
+        )
+
+
 def test_operator_corrections_require_transformation_review_and_safety() -> None:
     blocked = evaluate_operator_correction(
         OperatorCorrectionEvidence(

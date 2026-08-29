@@ -904,9 +904,15 @@ def _validate_start_receipt_binding(
     receipt: TerminalReceiptEvidence,
 ) -> None:
     if (
-        receipt.execution_attempt_ref != start.execution_attempt_ref
+        receipt.operation_id != start.operation_id
+        or receipt.execution_attempt_ref != start.execution_attempt_ref
         or receipt.durable_start_evidence_ref != start.durable_start_evidence_ref
         or receipt.start_fingerprint_ref != start.start_fingerprint_ref
+        or receipt.contract_fingerprint_ref != start.contract_fingerprint_ref
+        or receipt.operation_schema_fingerprint_ref
+        != start.operation_schema_fingerprint_ref
+        or receipt.policy_snapshot_ref != start.policy_snapshot_ref
+        or receipt.evaluator_revision_ref != start.evaluator_revision_ref
         or receipt.environment_class_ref != start.environment_class_ref
         or receipt.terminal_at_epoch_seconds < start.started_at_epoch_seconds
     ):
