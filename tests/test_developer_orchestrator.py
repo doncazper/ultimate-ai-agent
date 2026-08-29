@@ -505,7 +505,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         "--confirm-admission",
         "admit-queue-v2",
     ]
-    for index in range(32, 37):
+    for index in reversed(range(32, 37)):
         selected_args.extend(["--item-id", f"Q{index:02d}"])
     selected = parser.parse_args(selected_args)
 

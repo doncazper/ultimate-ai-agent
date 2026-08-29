@@ -165,7 +165,12 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     known_item_ids = {item.item_id for item in manifest.items}
     if set(requested_item_ids) - known_item_ids:
         raise ValueError("DEVELOPER_QUEUE_V2_UNKNOWN_ITEM_SELECTION")
-    selected_item_ids = requested_item_ids or [item.item_id for item in manifest.items]
+    requested_item_id_set = set(requested_item_ids)
+    selected_item_ids = [
+        item.item_id
+        for item in manifest.items
+        if not requested_item_ids or item.item_id in requested_item_id_set
+    ]
     draft_by_item_id = {
         item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
     }
