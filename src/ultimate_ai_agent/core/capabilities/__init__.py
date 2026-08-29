@@ -64,6 +64,8 @@ __all__ = [
     "CoordinationRiskLevel",
     "Coordinator",
     "DeterministicSelector",
+    "DiagnosticApprovalPosture",
+    "DiagnosticOperatorStatus",
     "HandoffAdapter",
     "HumanGateAdapter",
     "FileCoordinatorStateStore",
@@ -126,6 +128,8 @@ __all__ = [
     "TerminalReceiptStatus",
     "TerminalStatusBinding",
     "TerminalOutcomeEvidence",
+    "ToolAwareDiagnosticRequest",
+    "ToolAwareOperatorDiagnostic",
     "TelemetryEvent",
     "TelemetrySink",
     "ToolAdapter",
@@ -144,6 +148,7 @@ __all__ = [
     "build_capability_outcome_contract",
     "build_catalog_injection_cases",
     "build_chat_shadow_inspection",
+    "build_tool_aware_operator_diagnostic",
     "build_progressive_capability_cache",
     "build_outcome_evaluation_policy",
     "build_terminal_receipt_evidence",
@@ -175,6 +180,13 @@ __all__ = [
 
 
 _EXPORT_GROUPS = {
+    "ultimate_ai_agent.core.capabilities.diagnostics": {
+        "DiagnosticApprovalPosture",
+        "DiagnosticOperatorStatus",
+        "ToolAwareDiagnosticRequest",
+        "ToolAwareOperatorDiagnostic",
+        "build_tool_aware_operator_diagnostic",
+    },
     "ultimate_ai_agent.core.capabilities.chat_shadow": {
         "AwarenessEvidenceStatus",
         "CatalogInjectionCase",

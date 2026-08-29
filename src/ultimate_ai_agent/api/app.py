@@ -18,6 +18,9 @@ from ultimate_ai_agent.api.cors import (
     apply_loopback_cors_response_headers,
     configure_loopback_cors,
 )
+from ultimate_ai_agent.api.capability_diagnostics import (
+    register_capability_diagnostic_routes,
+)
 from ultimate_ai_agent.api.communications import register_communications_routes
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
@@ -43,6 +46,10 @@ from ultimate_ai_agent.api.provider_setup import register_provider_setup_routes
 from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     rate_limit_failure,
+)
+from ultimate_ai_agent.api.request_validation import (
+    safe_request_validation_error_response,
+    sanitize_validation_errors as sanitize_validation_errors,
 )
 from ultimate_ai_agent.api.routes.runtime_pilot_service import register_governed_runtime_routes
 from ultimate_ai_agent.api.routes.system_service import register_system_routes
@@ -310,6 +317,7 @@ register_founder_exact_action_routes(app)
 register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
 register_communications_routes(app)
+register_capability_diagnostic_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()
@@ -419,39 +427,6 @@ class RuntimeSmokeReportValidatePayload(BaseModel):
 class ApprovalValidatePayload(BaseModel):
     validation_request: dict
     grants: List[dict] = Field(default_factory=list)
-
-def sanitize_validation_errors(errors: list[dict]) -> list[dict]:
-    sanitized = []
-    for error in errors:
-        sanitized_error = {
-            "type": error.get("type", "validation_error"),
-            "loc": [_sanitize_validation_location(part) for part in error.get("loc", [])],
-            "msg": error.get("msg", "Validation failed."),
-        }
-        if contains_secret_like(sanitized_error["msg"]):
-            sanitized_error["msg"] = "Validation failed."
-        sanitized.append(sanitized_error)
-    return sanitized
-
-def _sanitize_validation_location(part: object) -> str:
-    text = str(part)
-    sensitive_keys = {
-        "api_key",
-        "auth_token",
-        "client_secret",
-        "credential_value",
-        "password",
-        "private_key",
-        "raw_secret",
-        "secret",
-        "secret_value",
-        "token",
-    }
-    normalized = text.lower().replace("-", "_")
-    if normalized in sensitive_keys or contains_secret_like(text):
-        return "[redacted]"
-    return text
-
 
 def safe_exception_message(code: str) -> str:
     return f"{code} failed safely; details are redacted."
@@ -612,31 +587,6 @@ def _safe_task_decomposition_payload(payload: object, *, redact_read_refs: bool 
         redact_read_refs=redact_read_refs,
     )
 
-
-def safe_request_validation_error_response(request: Request, exc: RequestValidationError) -> JSONResponse:
-    envelope = ResultEnvelope(
-        success=False,
-        operation="request_validation",
-        service="API",
-        trace_id="system",
-        error=ErrorEnvelope(
-            code="REQUEST_VALIDATION_FAILED",
-            category=ErrorCategory.validation_error,
-            safe_message="Request validation failed.",
-            severity=Severity.medium,
-            retryable=False,
-            details_redacted=True,
-            source="FastAPI",
-            caused_by=["RequestValidationError"],
-            metadata={
-                "path": request.url.path,
-                "error_count": len(exc.errors()),
-                "validation_errors": sanitize_validation_errors(exc.errors()),
-            },
-        ),
-        redactions_applied=["validation_input"],
-    )
-    return JSONResponse(status_code=422, content=envelope.model_dump(mode="json"))
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> Any:

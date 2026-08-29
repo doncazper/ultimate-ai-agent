@@ -42,9 +42,15 @@ durable starts to exact immutable terminal receipts, recomputes a complete
 non-authoritative terminal/live/overdue census, treats overdue starts as
 uncertain non-successes, invalidates stale priors, and gates safe-ref-only
 operator corrections for separate reviewed promotion without writing or
-learning. Q22 advances next to TAW-06 operator diagnostics; runtime integration,
-rollback, redaction, TAW-07/08 acceptance, and independent promotion remain
-required gates.
+learning. Bounded TAW-06 operator diagnostics now derive fixed readable route,
+familiarity, approval, limitation, and next-step text from the exact TAW-04
+inspection through one redacted Python Core read model. The stdin CLI and
+protected validation-only API have exact JSON parity and stable OpenAPI,
+manifest, side-effect, and auth posture. No Control Center surface, ordinary-chat
+change, model context, proposal, approval grant, execution, provider call,
+connector, external write, or authority is added. Q22 advances next to TAW-07
+quality, latency, and adversarial hardening; TAW-07/08 acceptance and independent
+promotion remain required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,

@@ -52,6 +52,13 @@ counts overdue started attempts as uncertain non-successes, invalidates stale
 priors, and gates correction refs for separate reviewed promotion without
 durable statistics mutation, model/provider calls, execution, external writes,
 online training, automatic learning, or authority.
+TAW-06's bounded operator-diagnostic contract is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md`. It maps the validated
+TAW-04 route and familiarity evidence into fixed human-readable limitations,
+approval posture, and next steps through one shared Python Core read model.
+The stdin CLI and protected validation-only API have exact JSON parity, while
+ordinary chat, model context, proposals, approvals, execution, provider calls,
+connectors, external writes, Control Center, and authority remain unchanged.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one

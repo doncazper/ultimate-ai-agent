@@ -326,6 +326,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "redacted_observability",
         "run_attached_approval_queue",
         "task_decomposition",
+        "tool_aware_capability_diagnostics",
         "turn_contract_router_diagnostic",
         "uaa_runtime_control_plane",
         "visual_proof",
