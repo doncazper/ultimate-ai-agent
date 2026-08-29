@@ -37,8 +37,13 @@ operator-visible legacy route, add zero model calls, recommend clarification
 only for material-effect ambiguity, and safe-disable awareness failures while
 ordinary no-tool chat remains available. The complete catalog-injection field
 inventory is predeclared, but its response census remains blocked until a
-future no-effect active replay. Q22 advances next to TAW-05 outcome evidence;
-runtime integration, rollback, redaction, and independent promotion remain
+future no-effect active replay. Bounded TAW-05 outcome evidence now binds
+durable starts to exact immutable terminal receipts, recomputes a complete
+non-authoritative terminal/live/overdue census, treats overdue starts as
+uncertain non-successes, invalidates stale priors, and gates safe-ref-only
+operator corrections for separate reviewed promotion without writing or
+learning. Q22 advances next to TAW-06 operator diagnostics; runtime integration,
+rollback, redaction, TAW-07/08 acceptance, and independent promotion remain
 required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible

@@ -76,6 +76,20 @@ projection. Catalog-injection cases are predeclared for every accepted field
 path, but the response-level census remains explicitly blocked until a future
 complete no-effect active replay; no promotion result is claimed.
 
+The founder-private-dogfood TAW-05 outcome-evidence contract is present and
+verified. Exact durable starts and immutable terminal receipts produce a
+bounded, deterministic, non-authoritative census with explicit terminal,
+still-live, and unresolved-overdue populations. Overdue started attempts stay
+`outcome_uncertain` and count as non-successes; proposal and approval records
+without a start retain their ordinary lifecycle posture. Exact replay is
+deduplicated, conflicting identity reuse fails closed, and stale schema,
+policy, evaluator, or contract priors cannot affect counts. Safe-ref-only
+operator corrections require synthetic or fully redacted transformation,
+independent review, and content-safety evidence merely to become eligible for
+a separate durable promotion. No durable statistics handler, fixture write,
+automatic promotion, online training, runtime execution, model/provider call,
+connector, external write, or authority is added.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility
