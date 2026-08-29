@@ -45,6 +45,13 @@ the accepted legacy direct-chat route remains operator-visible. It adds zero
 model calls, exposes no manifest to a model, preserves ordinary no-tool chat on
 awareness failure, and grants no proposal, approval, execution, provider, web,
 skill, or authority behavior.
+TAW-05's bounded outcome-evidence contract is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW05_OUTCOMES.md`. It projects immutable,
+exactly bound start and terminal-receipt refs into a recomputable census,
+counts overdue started attempts as uncertain non-successes, invalidates stale
+priors, and gates correction refs for separate reviewed promotion without
+durable statistics mutation, model/provider calls, execution, external writes,
+online training, automatic learning, or authority.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one
