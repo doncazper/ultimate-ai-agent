@@ -52,7 +52,7 @@ chat and operator-surface behavior, then route evidence-ranked UAA-native
 adaptations without copying competitor code or branding. The active Wave 6
 order is:
 
-1. Q32 CRM functional adoption — blocked until both Q15 and Q31 are terminal.
+1. Q32 CRM functional adoption — blocked until both Q15 and Q31 are completed.
 2. Q33 founder operating loop and chat usability adoption — blocked by Q32.
 3. Q34 News and source intelligence functional adoption — blocked by Q33.
 4. Q35 vertical modules functional adoption — blocked by Q26 and Q34.

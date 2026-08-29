@@ -1,7 +1,7 @@
 # Founder Functional Adoption Program
 
 Status: planned Queue V2 Wave 6 program. It begins only after Q31, the final
-GoatCitadel comparison, is terminal. It grants no new runtime, provider,
+GoatCitadel comparison, is completed. It grants no new runtime, provider,
 browser, connector-write, shell, public-distribution, or production authority.
 
 ## Outcome
@@ -80,7 +80,7 @@ item rather than disappearing into a comparison report.
 
 ### Q32 — CRM Functional Adoption
 
-Begin only after both the Q15 CRM foundation and Q31 comparison are terminal.
+Begin only after both the Q15 CRM foundation and Q31 comparison are completed.
 Use the first-class private CRM with real founder-owned records. Prove the
 contact, organization, property, opportunity, activity, follow-up, priority,
 search, archive/correction, import/export, backup/recovery, and private

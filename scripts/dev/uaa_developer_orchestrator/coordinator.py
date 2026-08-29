@@ -11,6 +11,17 @@ from typing import Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.approvals import (
+    ApprovalRequest,
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+    LocalApprovalAuthority,
+)
+from ultimate_ai_agent.core.hygiene.actor_context import ActorContext
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -37,6 +48,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FULL_MERGE_COMMIT_REF_RE = re.compile(r"^merge-commit-ref:([0-9a-f]{40})$")
 MERGE_EVIDENCE_TARGET_REF = "refs/remotes/origin/main"
 MERGE_GATED_BLOCKER_PR_RE = re.compile(r"(?:^|[/:_-])pr([0-9]+)(?:[/:_-]|$)")
+DEVELOPER_WORK_TASK_AMENDMENT_ACTION = "amend_developer_queue_contract"
 
 DeveloperWorkPriority = Literal["p0", "p1", "p2", "p3"]
 DeveloperWorkState = Literal[
@@ -106,6 +118,59 @@ def _hash_ref(prefix: str, value: object) -> str:
     )
     return (
         f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+    )
+
+
+def build_developer_work_task_amendment_approval_request(
+    draft: "DeveloperWorkTaskDraft",
+    *,
+    expected_current_fingerprint_ref: str,
+    idempotency_ref: str,
+    actor_context: ActorContext,
+) -> ApprovalRequest:
+    """Build the exact local approval scope for one queued-contract amendment."""
+
+    validate_task_ref(
+        expected_current_fingerprint_ref,
+        "developer_work_amend_expected_fingerprint_ref",
+    )
+    validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
+    scope_ref = _hash_ref(
+        "developer-work-amendment-scope-ref",
+        {
+            "task_ref": draft.task_ref,
+            "expected_current_fingerprint_ref": expected_current_fingerprint_ref,
+            "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
+            "replacement_contract": draft.model_dump(mode="json"),
+            "idempotency_ref": idempotency_ref,
+        },
+    )
+    return ApprovalRequest(
+        approval_request_id=_hash_ref(
+            "approval-request-ref",
+            {"action": DEVELOPER_WORK_TASK_AMENDMENT_ACTION, "scope_ref": scope_ref},
+        ),
+        run_id=idempotency_ref,
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id=draft.task_ref,
+        actor_context=actor_context,
+        requested_action=DEVELOPER_WORK_TASK_AMENDMENT_ACTION,
+        purpose="Amend one pristine queued developer contract under exact local scope.",
+        risk_level=ApprovalRiskLevel.high,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="local_developer_work_coordinator",
+            reason="The authoritative local developer queue is project-private state.",
+            allowed_sinks=["local_developer_work_coordinator"],
+            forbidden_sinks=["provider", "public_network"],
+            requires_redaction=True,
+        ),
+        resource_refs=[
+            scope_ref,
+            draft.task_ref,
+            expected_current_fingerprint_ref,
+            draft.canonical_source_fingerprint_ref,
+        ],
     )
 
 
@@ -906,102 +971,130 @@ class DeveloperWorkCoordinator:
         *,
         expected_current_fingerprint_ref: str,
         idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority,
+        approval_ref: str,
+        actor_context: ActorContext,
     ) -> DeveloperWorkQueueReceipt:
-        """Replace one never-claimed queued draft under an exact source binding."""
+        """Replace one never-claimed queued draft under exact source and approval."""
 
         validate_task_ref(
             expected_current_fingerprint_ref,
             "developer_work_amend_expected_fingerprint_ref",
         )
         validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
-        with self._locked():
-            snapshot = self._load_snapshot()
-            payload = {
-                "event_kind": "task_amended",
-                "expected_current_fingerprint_ref": expected_current_fingerprint_ref,
-                "draft": draft.model_dump(mode="json"),
-            }
-            replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
-            if replay is not None:
-                return replay
-            task = self._find_task(snapshot, draft.task_ref)
-            pristine_queued = (
-                task.state == "queued"
-                and task.claim_generation == 0
-                and task.latest_heartbeat_ref is None
-                and not task.blocker_refs
-                and not task.completion_evidence_refs
-                and task.cancellation_reason_ref is None
-                and task.terminal_scope_packet_ref is None
-                and not task.scope_dispositions
-            )
-            if not pristine_queued:
-                raise DeveloperWorkQueueConflictError(
-                    "DEVELOPER_WORK_TASK_AMENDMENT_STATE_INVALID"
-                )
-            if (
-                task.canonical_source_fingerprint_ref
-                != expected_current_fingerprint_ref
-            ):
-                raise DeveloperWorkQueueConflictError(
-                    "DEVELOPER_WORK_TASK_AMENDMENT_FINGERPRINT_CONFLICT"
-                )
-            immutable_fields = (
-                "task_ref",
-                "queue_order",
-                "canonical_task_ref",
-                "canonical_source_ref",
-                "scope_contract_ref",
-                "branch_ref",
-                "worktree_ref",
-                "workstream_ref",
-            )
-            if any(
-                getattr(task, field) != getattr(draft, field)
-                for field in immutable_fields
-            ):
-                raise DeveloperWorkQueueConflictError(
-                    "DEVELOPER_WORK_TASK_AMENDMENT_IDENTITY_CONFLICT"
-                )
-            if task.canonical_source_fingerprint_ref == (
-                draft.canonical_source_fingerprint_ref
-            ):
-                raise DeveloperWorkQueueConflictError(
-                    "DEVELOPER_WORK_TASK_AMENDMENT_NO_CHANGE"
-                )
-            missing_dependencies = set(draft.depends_on_task_refs) - {
-                item.task_ref for item in snapshot.tasks
-            }
-            if missing_dependencies:
-                raise DeveloperWorkQueueConflictError(
-                    "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
-                )
-            replacement = DeveloperWorkTask(**draft.model_dump(mode="json"))
-            next_snapshot = snapshot.model_copy(
-                update={
-                    "revision": snapshot.revision + 1,
-                    "tasks": self._replace_task(snapshot, replacement),
+        validate_task_ref(approval_ref, "developer_work_amend_approval_ref")
+        approval_request = build_developer_work_task_amendment_approval_request(
+            draft,
+            expected_current_fingerprint_ref=expected_current_fingerprint_ref,
+            idempotency_ref=idempotency_ref,
+            actor_context=actor_context,
+        )
+        approval_scope_ref = approval_request.resource_refs[0]
+        with approval_authority.hold_validation_lock():
+            with self._locked():
+                snapshot = self._load_snapshot()
+                payload = {
+                    "event_kind": "task_amended",
+                    "expected_current_fingerprint_ref": (
+                        expected_current_fingerprint_ref
+                    ),
+                    "approval_ref": approval_ref,
+                    "approval_scope_ref": approval_scope_ref,
+                    "draft": draft.model_dump(mode="json"),
                 }
-            )
-            receipt = self._receipt(
-                event_kind="task_amended",
-                task_ref=task.task_ref,
-                idempotency_ref=idempotency_ref,
-                payload=payload,
-                revision=next_snapshot.revision,
-                safe_summary=(
-                    "A never-claimed queued task contract was amended under an exact "
-                    "prior fingerprint; no work was claimed or dispatched."
-                ),
-            )
-            replacement = replacement.model_copy(
-                update={"latest_receipt_ref": receipt.receipt_ref}
-            )
-            next_snapshot = next_snapshot.model_copy(
-                update={"tasks": self._replace_task(next_snapshot, replacement)}
-            )
-            self._commit_mutation(next_snapshot, receipt)
-            return receipt
+                replay = self._replay(
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                )
+                if replay is not None:
+                    return replay
+                approval = approval_authority.validate_for_request(
+                    approval_request,
+                    approval_ref,
+                )
+                if not approval.allowed:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_APPROVAL_INVALID"
+                    )
+                task = self._find_task(snapshot, draft.task_ref)
+                pristine_queued = (
+                    task.state == "queued"
+                    and task.claim_generation == 0
+                    and task.latest_heartbeat_ref is None
+                    and not task.blocker_refs
+                    and not task.completion_evidence_refs
+                    and task.cancellation_reason_ref is None
+                    and task.terminal_scope_packet_ref is None
+                    and not task.scope_dispositions
+                )
+                if not pristine_queued:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_STATE_INVALID"
+                    )
+                if (
+                    task.canonical_source_fingerprint_ref
+                    != expected_current_fingerprint_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_FINGERPRINT_CONFLICT"
+                    )
+                immutable_fields = (
+                    "task_ref",
+                    "queue_order",
+                    "canonical_task_ref",
+                    "canonical_source_ref",
+                    "scope_contract_ref",
+                    "branch_ref",
+                    "worktree_ref",
+                    "workstream_ref",
+                )
+                if any(
+                    getattr(task, field) != getattr(draft, field)
+                    for field in immutable_fields
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_IDENTITY_CONFLICT"
+                    )
+                if task.canonical_source_fingerprint_ref == (
+                    draft.canonical_source_fingerprint_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_NO_CHANGE"
+                    )
+                missing_dependencies = set(draft.depends_on_task_refs) - {
+                    item.task_ref for item in snapshot.tasks
+                }
+                if missing_dependencies:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
+                    )
+                replacement = DeveloperWorkTask(**draft.model_dump(mode="json"))
+                next_snapshot = snapshot.model_copy(
+                    update={
+                        "revision": snapshot.revision + 1,
+                        "tasks": self._replace_task(snapshot, replacement),
+                    }
+                )
+                receipt = self._receipt(
+                    event_kind="task_amended",
+                    task_ref=task.task_ref,
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                    revision=next_snapshot.revision,
+                    safe_summary=(
+                        "A never-claimed queued task contract was amended under exact "
+                        "local approval and its prior fingerprint; no work was claimed "
+                        "or dispatched."
+                    ),
+                )
+                replacement = replacement.model_copy(
+                    update={"latest_receipt_ref": receipt.receipt_ref}
+                )
+                next_snapshot = next_snapshot.model_copy(
+                    update={"tasks": self._replace_task(next_snapshot, replacement)}
+                )
+                self._commit_mutation(next_snapshot, receipt)
+                return receipt
 
     def claim_next(
         self,
@@ -1438,7 +1531,6 @@ class DeveloperWorkCoordinator:
             raise ValueError("developer work inspect node refs must be unique")
         with self._locked():
             snapshot = self._load_snapshot()
-        known_by_ref = {task.task_ref: task for task in snapshot.tasks}
         active_exclusive = next(
             (
                 task.task_ref
@@ -1472,10 +1564,7 @@ class DeveloperWorkCoordinator:
                     worktree_posture=task.worktree_posture,
                     workstream_ref=task.workstream_ref,
                     depends_on_task_refs=task.depends_on_task_refs,
-                    dependency_ready=all(
-                        known_by_ref[dependency].state == "completed"
-                        for dependency in task.depends_on_task_refs
-                    ),
+                    dependency_ready=self._dependencies_complete(snapshot, task),
                     safe_summary=task.safe_summary,
                     next_safe_action=task.next_safe_action,
                     blocker_refs=task.blocker_refs,
@@ -1811,8 +1900,34 @@ class DeveloperWorkCoordinator:
         task: DeveloperWorkTask,
     ) -> bool:
         by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
-        return all(
+        if not all(
             by_ref[ref].state == "completed" for ref in task.depends_on_task_refs
+        ):
+            return False
+        canonical_dependencies = [
+            by_ref[ref]
+            for ref in task.depends_on_task_refs
+            if ref.startswith("dev-task:queue-v2-")
+        ]
+        if not canonical_dependencies:
+            return True
+        try:
+            from uaa_developer_orchestrator.queue_record import (
+                build_developer_queue_record_drafts,
+                queue_record_task_contract_ref,
+            )
+
+            expected_by_ref = {
+                draft.task_ref: queue_record_task_contract_ref(draft)
+                for draft in build_developer_queue_record_drafts(REPO_ROOT)
+            }
+        except (OSError, TypeError, ValueError):
+            return False
+        return all(
+            dependency.task_ref in expected_by_ref
+            and queue_record_task_contract_ref(dependency)
+            == expected_by_ref[dependency.task_ref]
+            for dependency in canonical_dependencies
         )
 
     @staticmethod

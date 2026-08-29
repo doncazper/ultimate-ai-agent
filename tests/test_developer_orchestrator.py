@@ -21,6 +21,7 @@ from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperWorkQueueConflictError,
     DeveloperWorkNode,
     DeveloperWorkTaskDraft,
+    build_developer_work_task_amendment_approval_request,
 )
 from uaa_developer_orchestrator.planning import (  # noqa: E402
     build_developer_planning_catalog,
@@ -42,6 +43,12 @@ from uaa_developer_orchestrator.scout import (  # noqa: E402
     GitMetadataCommandResult,
 )
 from uaa_developer_queue import build_parser  # noqa: E402
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.hygiene.actor_context import (  # noqa: E402
+    ActorContext,
+    ActorType,
+    AuthoritySource,
+)
 
 
 def _draft(
@@ -100,6 +107,38 @@ def _register_node(
             node_ref=node_ref,
             idempotency_ref=f"{idempotency_ref}-heartbeat",
         )
+
+
+def _amendment_approval(
+    draft: DeveloperWorkTaskDraft,
+    *,
+    expected_current_fingerprint_ref: str,
+    idempotency_ref: str,
+) -> tuple[LocalApprovalAuthority, str, ActorContext, str]:
+    actor_context = ActorContext(
+        actor_type=ActorType.human_user,
+        actor_id="local_test_operator",
+        authority_source=AuthoritySource.explicit_user_request,
+    )
+    request = build_developer_work_task_amendment_approval_request(
+        draft,
+        expected_current_fingerprint_ref=expected_current_fingerprint_ref,
+        idempotency_ref=idempotency_ref,
+        actor_context=actor_context,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(request)
+    scope_ref = request.resource_refs[0]
+    approval_ref = (
+        "approval-ref:test-developer-queue-amendment-"
+        f"{scope_ref.rsplit(':', maxsplit=1)[-1]}"
+    )
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    return authority, approval_ref, actor_context, scope_ref
 
 
 class _HistoricalMergeSubprocess:
@@ -476,8 +515,7 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
         manifest=load_developer_queue_record_manifest(ROOT),
         task_states={task.task_ref: task.state for task in view.tasks},
         task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task)
-            for task in view.tasks
+            task.task_ref: queue_record_task_contract_ref(task) for task in view.tasks
         },
     )
     assert health.queue_starvation_detected is False
@@ -500,8 +538,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             ),
         )
     legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
-        (ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json")
-        .read_text(encoding="utf-8")
+        (
+            ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json"
+        ).read_text(encoding="utf-8")
     )
     coordinator.add_task(
         legacy_q31,
@@ -521,6 +560,15 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert pre_amendment_health.stale_contract_task_refs == [legacy_q31.task_ref]
 
     parser = build_parser()
+    q31_replacement = build_developer_queue_record_drafts(ROOT)[31]
+    amendment_idempotency_ref = (
+        "idempotency-ref:queue-v2-q31-chat-observation-amendment"
+    )
+    _, _, _, amendment_scope_ref = _amendment_approval(
+        q31_replacement,
+        expected_current_fingerprint_ref=(legacy_q31.canonical_source_fingerprint_ref),
+        idempotency_ref=amendment_idempotency_ref,
+    )
     amendment = parser.parse_args(
         [
             "--state-dir",
@@ -531,9 +579,11 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             "--expected-current-fingerprint-ref",
             legacy_q31.canonical_source_fingerprint_ref,
             "--idempotency-ref",
-            "idempotency-ref:queue-v2-q31-chat-observation-amendment",
+            amendment_idempotency_ref,
             "--confirm-amendment",
             "amend-queue-v2-item",
+            "--approve-exact-scope",
+            amendment_scope_ref,
         ]
     )
     assert amendment.func(amendment) == 0
@@ -542,7 +592,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert amendment_payload["replayed"] is False
     assert amendment_payload["queue_of_record_health"]["record_drift_detected"] is False
     amended_q31 = next(
-        task for task in coordinator.inspect().tasks if task.task_ref == legacy_q31.task_ref
+        task
+        for task in coordinator.inspect().tasks
+        if task.task_ref == legacy_q31.task_ref
     )
     assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
         amended_q31.in_scope_refs
@@ -618,16 +670,44 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
     )
     coordinator.add_task(original, idempotency_ref="idempotency-ref:add-amend")
 
+    missing_approval_actor = ActorContext(
+        actor_type=ActorType.human_user,
+        actor_id="local_test_operator",
+        authority_source=AuthoritySource.explicit_user_request,
+    )
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="AMENDMENT_APPROVAL_INVALID",
+    ):
+        coordinator.amend_queued_task(
+            replacement,
+            expected_current_fingerprint_ref=(
+                original.canonical_source_fingerprint_ref
+            ),
+            idempotency_ref="idempotency-ref:amend-without-approval",
+            approval_authority=LocalApprovalAuthority(),
+            approval_ref="approval-ref:unknown-amendment",
+            actor_context=missing_approval_actor,
+        )
+
+    wrong_fingerprint_ref = "planning-fingerprint-ref:sha256:wrong"
+    wrong_idempotency_ref = "idempotency-ref:amend-wrong-fingerprint"
+    wrong_authority, wrong_approval_ref, wrong_actor, _ = _amendment_approval(
+        replacement,
+        expected_current_fingerprint_ref=wrong_fingerprint_ref,
+        idempotency_ref=wrong_idempotency_ref,
+    )
     with pytest.raises(
         DeveloperWorkQueueConflictError,
         match="AMENDMENT_FINGERPRINT_CONFLICT",
     ):
         coordinator.amend_queued_task(
             replacement,
-            expected_current_fingerprint_ref=(
-                "planning-fingerprint-ref:sha256:wrong"
-            ),
-            idempotency_ref="idempotency-ref:amend-wrong-fingerprint",
+            expected_current_fingerprint_ref=wrong_fingerprint_ref,
+            idempotency_ref=wrong_idempotency_ref,
+            approval_authority=wrong_authority,
+            approval_ref=wrong_approval_ref,
+            actor_context=wrong_actor,
         )
 
     _register_node(
@@ -644,12 +724,73 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
         DeveloperWorkQueueConflictError,
         match="AMENDMENT_STATE_INVALID",
     ):
+        claimed_idempotency_ref = "idempotency-ref:amend-claimed"
+        claimed_authority, claimed_approval_ref, claimed_actor, _ = _amendment_approval(
+            replacement,
+            expected_current_fingerprint_ref=(
+                original.canonical_source_fingerprint_ref
+            ),
+            idempotency_ref=claimed_idempotency_ref,
+        )
         coordinator.amend_queued_task(
             replacement,
             expected_current_fingerprint_ref=(
                 original.canonical_source_fingerprint_ref
             ),
-            idempotency_ref="idempotency-ref:amend-claimed",
+            idempotency_ref=claimed_idempotency_ref,
+            approval_authority=claimed_authority,
+            approval_ref=claimed_approval_ref,
+            actor_context=claimed_actor,
+        )
+
+
+def test_stale_completed_q31_does_not_unlock_q32(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
+        (
+            ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json"
+        ).read_text(encoding="utf-8")
+    ).model_copy(update={"depends_on_task_refs": []})
+    q32 = build_developer_queue_record_drafts(ROOT)[32].model_copy(
+        update={"depends_on_task_refs": [legacy_q31.task_ref]}
+    )
+    coordinator.add_task(
+        legacy_q31,
+        idempotency_ref="idempotency-ref:add-stale-completed-q31",
+    )
+    coordinator.add_task(q32, idempotency_ref="idempotency-ref:add-q32-after-stale")
+    _register_node(
+        coordinator,
+        "node-ref:mac",
+        idempotency_ref="idempotency-ref:register-stale-dependency-node",
+    )
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    stale_task = next(
+        task for task in snapshot["tasks"] if task["task_ref"] == legacy_q31.task_ref
+    )
+    stale_task["state"] = "completed"
+    stale_task["completion_evidence_refs"] = ["evidence-ref:stale-q31-completed"]
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    assert (
+        next(
+            task
+            for task in coordinator.inspect().tasks
+            if task.task_ref == q32.task_ref
+        ).dependency_ready
+        is False
+    )
+    with pytest.raises(
+        DeveloperWorkQueueClaimError,
+        match="DEPENDENCIES_INCOMPLETE",
+    ):
+        coordinator.claim_task(
+            task_ref=q32.task_ref,
+            node_ref="node-ref:mac",
+            idempotency_ref="idempotency-ref:claim-q32-after-stale-q31",
         )
 
 

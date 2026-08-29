@@ -19,6 +19,7 @@ from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperWorkQueueError,
     DeveloperWorkNode,
     DeveloperWorkTaskDraft,
+    build_developer_work_task_amendment_approval_request,
 )
 from uaa_developer_orchestrator.planning import (  # noqa: E402
     build_developer_planning_catalog,
@@ -32,6 +33,12 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
 )
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperWorkspaceScout,
+)
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.hygiene.actor_context import (  # noqa: E402
+    ActorContext,
+    ActorType,
+    AuthoritySource,
 )
 
 
@@ -196,8 +203,7 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
         manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
         task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task)
-            for task in queue.tasks
+            task.task_ref: queue_record_task_contract_ref(task) for task in queue.tasks
         },
     )
     return _print(
@@ -225,19 +231,53 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
     draft_by_item_id = {
         item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
     }
-    coordinator = _coordinator(args)
-    receipt = coordinator.amend_queued_task(
-        draft_by_item_id[args.item_id],
+    draft = draft_by_item_id[args.item_id]
+    actor_context = ActorContext(
+        actor_type=ActorType.human_user,
+        actor_id="local_founder_operator",
+        actor_display_name="Local founder operator",
+        authority_source=AuthoritySource.explicit_user_request,
+        execution_contract_id="developer_queue_v2_exact_amendment",
+    )
+    approval_request = build_developer_work_task_amendment_approval_request(
+        draft,
         expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
         idempotency_ref=args.idempotency_ref,
+        actor_context=actor_context,
+    )
+    exact_scope_ref = approval_request.resource_refs[0]
+    if args.approve_exact_scope != exact_scope_ref:
+        raise ValueError(
+            f"DEVELOPER_QUEUE_V2_AMENDMENT_EXACT_APPROVAL_REQUIRED:{exact_scope_ref}"
+        )
+    approval_authority = LocalApprovalAuthority()
+    approval_authority.create_request(approval_request)
+    approval_ref = (
+        "approval-ref:developer-queue-amendment-"
+        f"{exact_scope_ref.rsplit(':', maxsplit=1)[-1]}"
+    )
+    approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+        approval_ref=approval_ref,
+    )
+    coordinator = _coordinator(args)
+    receipt = coordinator.amend_queued_task(
+        draft,
+        expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        idempotency_ref=args.idempotency_ref,
+        approval_authority=approval_authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
     )
     queue = coordinator.inspect()
     health = assess_developer_queue_record_health(
         manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
         task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task)
-            for task in queue.tasks
+            task.task_ref: queue_record_task_contract_ref(task) for task in queue.tasks
         },
     )
     return _print(
@@ -246,6 +286,7 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
             "item_id": args.item_id,
             "receipt_ref": receipt.receipt_ref,
             "replayed": receipt.replayed,
+            "approval_scope_ref": exact_scope_ref,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -499,6 +540,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     amend_queue_v2_command.add_argument("--idempotency-ref", required=True)
     amend_queue_v2_command.add_argument("--confirm-amendment", required=True)
+    amend_queue_v2_command.add_argument("--approve-exact-scope", required=True)
     amend_queue_v2_command.add_argument("--pretty", action="store_true")
     amend_queue_v2_command.set_defaults(func=amend_queue_v2_item)
 
