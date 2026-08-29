@@ -5,6 +5,7 @@ import copy
 import pytest
 from pydantic import ValidationError
 
+from ultimate_ai_agent.core.capabilities import retrieval
 from ultimate_ai_agent.core.capabilities import (
     CapabilityAwarenessBinding,
     CapabilityHealthStatus,
@@ -457,6 +458,20 @@ def test_tier1_revalidates_copied_cache_and_environment_binding() -> None:
         )
 
 
+@pytest.mark.parametrize("observed_at", [-1, float("nan"), True])
+def test_tier1_rejects_invalid_observation_timestamps(observed_at: object) -> None:
+    with pytest.raises(ValueError, match="non-negative integer"):
+        discover_capabilities(
+            _cache(),
+            normalized_request="review records",
+            constraints=RetrievalConstraints(
+                accepted_effect_classes=(SideEffectLevel.read,)
+            ),
+            environment_fingerprint_ref=ENVIRONMENT_REF,
+            observed_at_epoch_seconds=observed_at,  # type: ignore[arg-type]
+        )
+
+
 def test_tier2_hydrates_bounded_schema_limited_untrusted_data() -> None:
     catalog, operations = _catalog_fixture()
     cache = _cache(catalog, operations)
@@ -590,6 +605,45 @@ def test_tier2_enforces_entry_byte_token_and_context_ceilings() -> None:
             environment_fingerprint_ref=ENVIRONMENT_REF,
             observed_at_epoch_seconds=150,
             max_latency_milliseconds=201,
+        )
+
+
+def test_tier2_bounds_schema_fields_before_manifest_materialization() -> None:
+    manifest_payload = _manifest("oversized-schema").model_dump(mode="python")
+    manifest_payload["input_schema"] = {
+        "type": "object",
+        "properties": {
+            f"field_{index:03d}": {"type": "string"} for index in range(129)
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+    manifest = CapabilityManifest.model_validate(manifest_payload)
+    registry = CapabilityRegistry()
+    registry.register(manifest, object())
+    operation = _operation(manifest, "oversized-schema")
+    catalog = build_capability_awareness_catalog(
+        registry,
+        operation_schemas=(operation,),
+        bindings=(_binding(operation.operation_id),),
+        catalog_epoch_ref="catalog-epoch-ref:taw03:oversized-schema",
+        availability_epoch_ref="availability-epoch-ref:taw03:oversized-schema",
+        generated_at_epoch_seconds=100,
+        expires_at_epoch_seconds=200,
+    )
+    cache = _cache(catalog, (operation,))
+    shortlist = _shortlist(cache)
+
+    with pytest.raises(ValueError, match="schema field budget exceeded"):
+        hydrate_capability_manifests(
+            shortlist,
+            cache,
+            catalog,
+            operation_schemas=(operation,),
+            source_evidence=_sources((operation,)),
+            token_accounting=_accounting((operation,)),
+            environment_fingerprint_ref=ENVIRONMENT_REF,
+            observed_at_epoch_seconds=150,
         )
 
 
@@ -734,3 +788,40 @@ def test_tier2_revalidates_tampered_shortlist_and_catalog() -> None:
             environment_fingerprint_ref=ENVIRONMENT_REF,
             observed_at_epoch_seconds=150,
         )
+
+
+def test_tier2_recomputes_eligibility_from_bound_cache() -> None:
+    catalog, operations = _catalog_fixture()
+    cache = _cache(catalog, operations)
+    shortlist = _shortlist(cache)
+    payload = copy.deepcopy(shortlist.model_dump(mode="json"))
+    candidate = next(
+        item
+        for item in payload["candidates"]
+        if item["operation_id"] == "operation-ref:taw03:policy-denied-read"
+    )
+    candidate["policy_decision_status"] = "allowed"
+    candidate["block_reason_codes"] = []
+    candidate["proposal_eligible"] = True
+    payload["shortlist_fingerprint_ref"] = retrieval._fingerprint(
+        {
+            key: value
+            for key, value in payload.items()
+            if key != "shortlist_fingerprint_ref"
+        },
+        prefix="capability-shortlist-ref:taw03",
+    )
+
+    result = hydrate_capability_manifests(
+        payload,
+        cache,
+        catalog,
+        operation_schemas=operations,
+        source_evidence=_sources(operations),
+        token_accounting=_accounting(operations),
+        environment_fingerprint_ref=ENVIRONMENT_REF,
+        observed_at_epoch_seconds=150,
+    )
+
+    assert "operation-ref:taw03:policy-denied-read" in result.excluded_operation_refs
+    assert "source_binding_mismatch" in result.excluded_reason_codes

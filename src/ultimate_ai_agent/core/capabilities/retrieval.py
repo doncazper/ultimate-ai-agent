@@ -39,6 +39,7 @@ HARD_MAX_HYDRATION_BYTES = 32 * 1024
 HARD_MAX_HYDRATION_TOKENS = 4096
 HARD_MAX_HYDRATION_LATENCY_MILLISECONDS = 200
 HARD_MAX_CACHE_BUILD_LATENCY_MILLISECONDS = 300
+HARD_MAX_SCHEMA_FIELDS = 128
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _SAFE_SCHEMA_TYPE = {
     "array",
@@ -87,6 +88,12 @@ def _validate_sha256_ref(value: str, field_name: str, prefix: str) -> None:
         or any(character not in "0123456789abcdef" for character in suffix)
     ):
         raise ValueError(f"{field_name} must be an exact {prefix} sha256 ref")
+
+
+def _validate_observed_at_epoch_seconds(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("observed_at_epoch_seconds must be a non-negative integer")
+    return value
 
 
 def _bounded_validated_models(
@@ -336,6 +343,7 @@ class CapabilityShortlist(_FrozenModel):
     catalog_fingerprint_ref: str
     environment_fingerprint_ref: str
     evaluator_ref: str
+    constraints: RetrievalConstraints
     candidates: tuple[RetrievalCandidate, ...] = Field(
         default=(), max_length=HARD_MAX_SHORTLIST_ENTRIES
     )
@@ -720,6 +728,36 @@ def _score_entry(
     return max(1, min(10_000, score))
 
 
+def _derive_candidate_eligibility(
+    entry: CompactCapabilityEntry,
+    constraints: RetrievalConstraints,
+) -> tuple[bool, bool, tuple[str, ...]]:
+    effect_compatible = entry.effect_class in constraints.accepted_effect_classes
+    schema_compatible = (
+        not constraints.accepted_input_schema_fingerprint_refs
+        or entry.required_input_schema_fingerprint_ref
+        in constraints.accepted_input_schema_fingerprint_refs
+    )
+    reasons: list[str] = []
+    if entry.availability_status != "available":
+        reasons.append("unavailable")
+    if entry.policy_decision_status not in {
+        PolicyDecisionStatus.allowed,
+        PolicyDecisionStatus.approval_required,
+    }:
+        reasons.append("policy_blocked")
+    if entry.authority_lane_status == "blocked" or (
+        entry.effect_class not in {SideEffectLevel.none, SideEffectLevel.read}
+        and entry.authority_lane_status != "graduated"
+    ):
+        reasons.append("authority_blocked")
+    if not effect_compatible:
+        reasons.append("effect_incompatible")
+    if not schema_compatible:
+        reasons.append("schema_incompatible")
+    return effect_compatible, schema_compatible, tuple(sorted(set(reasons)))
+
+
 def discover_capabilities(
     cache: ProgressiveCapabilityCache | Mapping[str, Any],
     *,
@@ -732,6 +770,9 @@ def discover_capabilities(
     max_latency_milliseconds: int = HARD_MAX_SHORTLIST_LATENCY_MILLISECONDS,
 ) -> CapabilityShortlist:
     started = time.perf_counter_ns()
+    observed_at_epoch_seconds = _validate_observed_at_epoch_seconds(
+        observed_at_epoch_seconds
+    )
     if not 1 <= top_k <= HARD_MAX_SHORTLIST_ENTRIES:
         raise ValueError("shortlist entry budget may only tighten the hard ceiling")
     if not 1 <= max_query_bytes <= HARD_MAX_QUERY_BYTES:
@@ -768,32 +809,9 @@ def discover_capabilities(
     candidates: list[RetrievalCandidate] = []
     if status != "over_budget":
         for rank, (score, entry) in enumerate(ranked[:top_k], start=1):
-            effect_compatible = (
-                entry.effect_class in constraints_model.accepted_effect_classes
+            effect_compatible, schema_compatible, reasons = (
+                _derive_candidate_eligibility(entry, constraints_model)
             )
-            schema_compatible = (
-                not constraints_model.accepted_input_schema_fingerprint_refs
-                or entry.required_input_schema_fingerprint_ref
-                in constraints_model.accepted_input_schema_fingerprint_refs
-            )
-            reasons: list[str] = []
-            if entry.availability_status != "available":
-                reasons.append("unavailable")
-            if entry.policy_decision_status not in {
-                PolicyDecisionStatus.allowed,
-                PolicyDecisionStatus.approval_required,
-            }:
-                reasons.append("policy_blocked")
-            if entry.authority_lane_status == "blocked" or (
-                entry.effect_class not in {SideEffectLevel.none, SideEffectLevel.read}
-                and entry.authority_lane_status != "graduated"
-            ):
-                reasons.append("authority_blocked")
-            if not effect_compatible:
-                reasons.append("effect_incompatible")
-            if not schema_compatible:
-                reasons.append("schema_incompatible")
-            reasons = sorted(set(reasons))
             candidates.append(
                 RetrievalCandidate(
                     rank=rank,
@@ -808,7 +826,7 @@ def discover_capabilities(
                     effect_compatible=effect_compatible,
                     schema_compatible=schema_compatible,
                     proposal_eligible=not reasons,
-                    block_reason_codes=tuple(reasons),
+                    block_reason_codes=reasons,
                 )
             )
         status = "ready" if candidates else "no_match"
@@ -822,6 +840,7 @@ def discover_capabilities(
         "catalog_fingerprint_ref": cache_model.catalog_fingerprint_ref,
         "environment_fingerprint_ref": cache_model.environment_fingerprint_ref,
         "evaluator_ref": cache_model.evaluator_ref,
+        "constraints": constraints_model.model_dump(mode="json"),
         "candidates": tuple(candidates),
         "query_bytes_observed": query_bytes,
         "entry_budget": top_k,
@@ -851,9 +870,20 @@ def discover_capabilities(
 
 
 def _schema_limited_fields(schema: Mapping[str, Any]) -> list[dict[str, Any]]:
-    required = set(schema.get("required", []))
+    properties = schema.get("properties", {})
+    required_items = schema.get("required", [])
+    if not isinstance(properties, Mapping) or not isinstance(
+        required_items, (list, tuple)
+    ):
+        raise ValueError("input schema fields must use bounded object collections")
+    if (
+        len(properties) > HARD_MAX_SCHEMA_FIELDS
+        or len(required_items) > HARD_MAX_SCHEMA_FIELDS
+    ):
+        raise ValueError("input schema field budget exceeded")
+    required = set(required_items)
     fields: list[dict[str, Any]] = []
-    for name, definition in sorted(schema.get("properties", {}).items()):
+    for name, definition in sorted(properties.items()):
         field_type = definition.get("type", "unknown")
         if not isinstance(field_type, str) or field_type not in _SAFE_SCHEMA_TYPE:
             field_type = "unknown"
@@ -907,6 +937,9 @@ def hydrate_capability_manifests(
     max_latency_milliseconds: int = HARD_MAX_HYDRATION_LATENCY_MILLISECONDS,
 ) -> CapabilityHydrationResult:
     started = time.perf_counter_ns()
+    observed_at_epoch_seconds = _validate_observed_at_epoch_seconds(
+        observed_at_epoch_seconds
+    )
     if not 1 <= max_manifests <= HARD_MAX_HYDRATED_MANIFESTS:
         raise ValueError("manifest budget may only tighten the hard ceiling")
     if not 1 <= max_bytes <= HARD_MAX_HYDRATION_BYTES:
@@ -967,6 +1000,7 @@ def hydrate_capability_manifests(
     counts = {
         item.operation_id: item.estimated_tokens for item in accounting.manifest_counts
     }
+    cache_entries = {item.operation_id: item for item in cache_model.entries}
     envelopes = {item.operation_id: item for item in catalog_model.envelopes}
     available_context = (
         accounting.model_context_tokens
@@ -993,7 +1027,32 @@ def hydrate_capability_manifests(
         operation = operations.get(operation_id)
         source = sources.get(operation_id)
         envelope = envelopes.get(operation_id)
-        if operation is None or source is None or envelope is None:
+        cache_entry = cache_entries.get(operation_id)
+        if (
+            operation is None
+            or source is None
+            or envelope is None
+            or cache_entry is None
+        ):
+            excluded[operation_id] = "source_binding_mismatch"
+            continue
+        effect_compatible, schema_compatible, block_reason_codes = (
+            _derive_candidate_eligibility(cache_entry, shortlist_model.constraints)
+        )
+        if (
+            candidate.capability_id != cache_entry.capability_id
+            or candidate.envelope_fingerprint_ref
+            != cache_entry.envelope_fingerprint_ref
+            or candidate.operation_schema_fingerprint_ref
+            != cache_entry.operation_schema_fingerprint_ref
+            or candidate.availability_status != cache_entry.availability_status
+            or candidate.policy_decision_status != cache_entry.policy_decision_status
+            or candidate.authority_lane_status != cache_entry.authority_lane_status
+            or candidate.effect_compatible != effect_compatible
+            or candidate.schema_compatible != schema_compatible
+            or candidate.block_reason_codes != block_reason_codes
+            or candidate.proposal_eligible != (not block_reason_codes)
+        ):
             excluded[operation_id] = "source_binding_mismatch"
             continue
         if source.source_kind in {"imported", "a2a_derived"} and not source.reviewed:

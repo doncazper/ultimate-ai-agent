@@ -38,8 +38,10 @@ materialization rather than after it.
 `discover_capabilities` performs bounded deterministic lexical ranking over
 the reviewed compact metadata. The normalized operator request is transient.
 Neither it nor a reversible encoding is stored in the shortlist, receipt, log,
-or output. The output contains safe candidate refs, scores, compatibility
-decisions, fixed budgets, and fingerprints only.
+or output. The output contains safe candidate refs, scores, the exact retrieval
+constraints, compatibility decisions, fixed budgets, and fingerprints only.
+Observation timestamps must be finite non-negative integers before any
+freshness comparison.
 
 Unavailable, policy-blocked, and authority-blocked matches remain in the
 shortlist. They cannot become proposal-eligible. Effect and schema
@@ -62,6 +64,11 @@ schema fingerprints, and schema-limited input field names, required flags, and
 primitive types. Free-form schema descriptions and other arbitrary schema
 keywords are not rendered. Markup and reserved envelope-marker text are escaped
 so catalog strings cannot create a second raw instruction/data delimiter.
+Hydration recomputes availability, policy, authority-lane, effect, schema,
+block-reason, and proposal eligibility from the bound cache and exact retrieval
+constraints rather than trusting caller-supplied shortlist fields. Input schema
+properties and required-field collections are capped at 128 entries before the
+renderer sorts or materializes its schema-limited field list.
 
 Source kind, provenance ref, review ref, and review state are bound per
 operation. Unreviewed imported or A2A-derived text is excluded. Missing token
@@ -103,7 +110,8 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_tool_aware_cognition_taw03.
 ```
 
 The focused tests cover deterministic cache construction; copied-instance,
-schema, catalog, source, and environment substitution; stale and over-budget
-evidence; blocked-match retention; effect/schema filters; transient request
-handling; unreviewed imported-text exclusion; escaped data rendering; exact
-context ceilings; and non-authority literals.
+schema, catalog, source, eligibility, and environment substitution; invalid
+observation timestamps; stale and over-budget evidence; blocked-match
+retention; effect/schema filters; transient request handling; bounded schema
+field collection; unreviewed imported-text exclusion; escaped data rendering;
+exact context ceilings; and non-authority literals.
