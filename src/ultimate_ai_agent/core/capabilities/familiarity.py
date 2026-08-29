@@ -746,11 +746,12 @@ def assess_familiarity(
 ) -> FamiliarityAssessment:
     """Derive one canonical familiarity state without proposing or executing work."""
 
-    validated_evidence = (
-        evidence
+    evidence_payload = (
+        evidence.model_dump(mode="python")
         if isinstance(evidence, FamiliarityAssessmentEvidence)
-        else FamiliarityAssessmentEvidence.model_validate(dict(evidence))
+        else dict(evidence)
     )
+    validated_evidence = FamiliarityAssessmentEvidence.model_validate(evidence_payload)
 
     validated_catalog: CapabilityAwarenessCatalog | None = None
     catalog_failure: FamiliarityReasonCode | None = None

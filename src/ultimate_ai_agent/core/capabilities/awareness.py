@@ -772,11 +772,12 @@ def validate_capability_awareness_catalog(
         raise ValueError("observed time must be an integer epoch second")
     if observed_at_epoch_seconds < 0 or not math.isfinite(observed_at_epoch_seconds):
         raise ValueError("observed time must be non-negative and finite")
-    validated = (
-        catalog
+    payload = (
+        catalog.model_dump(mode="python")
         if isinstance(catalog, CapabilityAwarenessCatalog)
-        else CapabilityAwarenessCatalog.model_validate(dict(catalog))
+        else dict(catalog)
     )
+    validated = CapabilityAwarenessCatalog.model_validate(payload)
     if validated.catalog_epoch_ref != expected_catalog_epoch_ref:
         raise ValueError("awareness catalog epoch is stale or substituted")
     if validated.availability_epoch_ref != expected_availability_epoch_ref:

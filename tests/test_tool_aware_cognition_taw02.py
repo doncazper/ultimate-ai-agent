@@ -311,6 +311,21 @@ def test_stale_catalog_and_substituted_candidate_fail_closed() -> None:
         FamiliarityReasonCode.capability_evidence_substituted,
     )
 
+    copied_catalog = catalog.model_copy(
+        update={
+            "expires_at_epoch_seconds": 999,
+            "catalog_fingerprint_ref": (
+                "awareness-catalog-ref:taw01:sha256:" + "c" * 64
+            ),
+        }
+    )
+    copied_evidence = _evidence(catalog).model_copy(
+        update={"observed_at_epoch_seconds": 201}
+    )
+    copied_result = assess_familiarity(copied_evidence, catalog=copied_catalog)
+    assert copied_result.state == FamiliarityState.capability_evidence_unavailable
+    assert copied_result.reason_codes == (FamiliarityReasonCode.catalog_corrupt,)
+
 
 def test_policy_and_terminal_precedence_are_fail_closed() -> None:
     catalog = _catalog()
@@ -427,6 +442,15 @@ def test_malformed_and_inconsistent_evidence_is_rejected() -> None:
     )
     with pytest.raises(ValueError, match="scope-substituted"):
         assess_familiarity(substituted_approval, catalog=mutating_catalog)
+
+    copied_denial = _evidence(catalog).model_copy(
+        update={
+            "policy_decision_status": PolicyDecisionStatus.denied,
+            "policy_reason_refs": (),
+        }
+    )
+    with pytest.raises(ValidationError, match="requires exact reason refs"):
+        assess_familiarity(copied_denial, catalog=catalog)
 
 
 def test_assessment_fingerprint_rejects_tampering() -> None:

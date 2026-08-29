@@ -206,6 +206,23 @@ def test_catalog_validation_rejects_stale_or_substituted_epochs() -> None:
             observed_at_epoch_seconds=150,
         )
 
+    copied = catalog.model_copy(
+        update={
+            "expires_at_epoch_seconds": 999,
+            "catalog_fingerprint_ref": (
+                "awareness-catalog-ref:taw01:sha256:" + "b" * 64
+            ),
+        }
+    )
+    with pytest.raises(ValidationError, match="binding drift|binding is inconsistent"):
+        validate_capability_awareness_catalog(
+            copied,
+            expected_catalog_epoch_ref="catalog-epoch-ref:test:one",
+            expected_availability_epoch_ref="availability-epoch-ref:test:one",
+            expected_policy_snapshot_ref="policy-snapshot-ref:test:v1",
+            observed_at_epoch_seconds=201,
+        )
+
 
 def test_tampered_or_extra_envelope_fields_fail_closed() -> None:
     payload = _catalog().model_dump(mode="json")
