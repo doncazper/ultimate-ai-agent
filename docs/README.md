@@ -21,6 +21,11 @@ truthful supported-matrix freeze, holdout custody/evaluator identity authority,
 actual measurements, and an externally accepted-current baseline.
 Candidate-generated safe refs, keys, receipts, or completion booleans cannot
 open that later gate.
+TAW-01's founder-dogfood capability-evidence contract is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW01_CAPABILITY_EVIDENCE.md`. It projects
+registered manifests and exact operation schemas into typed, content-free,
+fingerprinted awareness envelopes; it rejects stale or inconsistent evidence
+and grants no routing, model/provider, execution, or authority behavior.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one

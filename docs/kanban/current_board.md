@@ -21,9 +21,12 @@ Q22 / TAW-00 posture: founder-private-dogfood implementation is accepted for
 English, Qwen 3.8 27B with a 128K local context window, separately configured
 ChatGPT and Codex OpenAI API profiles, and per-run observed Mac/Windows
 hardware. Same-host before/after evidence is required; this profile grants no
-model/provider call or runtime authority. Q22 is active for bounded TAW-01
-implementation with deterministic development evidence, safe-disable,
-rollback, and redaction.
+model/provider call or runtime authority. The bounded TAW-01 slice now provides a typed, fingerprinted,
+content-free capability-awareness envelope and rejects stale, malformed,
+duplicate, substituted, or cross-source-inconsistent catalogs without changing
+chat routing or enabling execution. Q22 advances next to bounded TAW-02
+familiarity and uncertainty assessment with deterministic development evidence,
+safe-disable, rollback, and redaction.
 
 A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,

@@ -22,6 +22,9 @@ __all__ = [
     "CallableCapabilityAdapter",
     "CapabilityAdapter",
     "CapabilityApprovalGrant",
+    "CapabilityAwarenessBinding",
+    "CapabilityAwarenessCatalog",
+    "CapabilityAwarenessEnvelope",
     "CapabilityAuthorityLevel",
     "CapabilityCatalogEntry",
     "CapabilityCostClass",
@@ -32,6 +35,7 @@ __all__ = [
     "CapabilityKind",
     "CapabilityLatencyClass",
     "CapabilityManifest",
+    "CapabilityOperationSchema",
     "CapabilityPack",
     "CapabilityPolicy",
     "CapabilityPrivacyLevel",
@@ -97,6 +101,7 @@ __all__ = [
     "build_a2a_blocked_receipt",
     "build_a2a_handoff_proposal",
     "build_a2a_replay_audit_record",
+    "build_capability_awareness_catalog",
     "capability_is_foundation_blocked",
     "capability",
     "default_foundation_capability_registry",
@@ -108,15 +113,26 @@ __all__ = [
     "evaluate_mcp_exact_approval_binding",
     "evaluate_a2a_exact_approval_binding",
     "mcp_tool_metadata_to_capability_candidate",
+    "operation_schema_from_manifest",
     "render_compact_catalog",
     "select_capabilities",
     "tool_capability",
+    "validate_capability_awareness_catalog",
     "wrap_agent",
     "wrap_tool",
 ]
 
 
 _EXPORT_GROUPS = {
+    "ultimate_ai_agent.core.capabilities.awareness": {
+        "CapabilityAwarenessBinding",
+        "CapabilityAwarenessCatalog",
+        "CapabilityAwarenessEnvelope",
+        "CapabilityOperationSchema",
+        "build_capability_awareness_catalog",
+        "operation_schema_from_manifest",
+        "validate_capability_awareness_catalog",
+    },
     "ultimate_ai_agent.core.capabilities.adapters": {
         "AgentAdapter",
         "CallableCapabilityAdapter",
