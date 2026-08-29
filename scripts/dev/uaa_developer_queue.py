@@ -157,8 +157,21 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     if args.confirm_admission != "admit-queue-v2":
         raise ValueError("DEVELOPER_QUEUE_V2_ADMISSION_CONFIRMATION_REQUIRED")
     coordinator = _coordinator(args)
+    manifest = load_developer_queue_record_manifest(ROOT)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    requested_item_ids = list(args.item_id or [])
+    if len(requested_item_ids) != len(set(requested_item_ids)):
+        raise ValueError("DEVELOPER_QUEUE_V2_DUPLICATE_ITEM_SELECTION")
+    known_item_ids = {item.item_id for item in manifest.items}
+    if set(requested_item_ids) - known_item_ids:
+        raise ValueError("DEVELOPER_QUEUE_V2_UNKNOWN_ITEM_SELECTION")
+    selected_item_ids = requested_item_ids or [item.item_id for item in manifest.items]
+    draft_by_item_id = {
+        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
+    }
     receipts = []
-    for draft in build_developer_queue_record_drafts(ROOT):
+    for item_id in selected_item_ids:
+        draft = draft_by_item_id[item_id]
         receipts.append(
             coordinator.add_task(
                 draft,
@@ -170,12 +183,13 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
         )
     queue = coordinator.inspect()
     health = assess_developer_queue_record_health(
-        manifest=load_developer_queue_record_manifest(ROOT),
+        manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
     )
     return _print(
         {
             "schema_version": "uaa.developer_queue_admission_receipt.v2",
+            "selected_item_ids": selected_item_ids,
             "receipt_refs": [receipt.receipt_ref for receipt in receipts],
             "replayed_receipt_count": sum(receipt.replayed for receipt in receipts),
             "queue_of_record_health": health.model_dump(mode="json"),
@@ -396,12 +410,21 @@ def build_parser() -> argparse.ArgumentParser:
     queue_v2_command = subparsers.add_parser(
         "admit-queue-v2",
         help=(
-            "Idempotently admit the authoritative Q00-Q31 records without claiming "
+            "Idempotently admit the authoritative Q00-Q36 records without claiming "
             "or dispatching work."
         ),
     )
     queue_v2_command.add_argument("--idempotency-prefix", required=True)
     queue_v2_command.add_argument("--confirm-admission", required=True)
+    queue_v2_command.add_argument(
+        "--item-id",
+        action="append",
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        help=(
+            "Admit only this canonical item. Repeat for a bounded manifest extension; "
+            "omit to admit the complete queue."
+        ),
+    )
     queue_v2_command.add_argument("--pretty", action="store_true")
     queue_v2_command.set_defaults(func=admit_queue_v2)
 

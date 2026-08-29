@@ -395,13 +395,13 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
     manifest = load_developer_queue_record_manifest(ROOT)
     drafts = build_developer_queue_record_drafts(ROOT)
 
-    assert len(manifest.items) == 32
+    assert len(manifest.items) == 37
     assert len(manifest.gated_items) == 11
-    assert len(drafts) == 32
+    assert len(drafts) == 37
     assert [item.item_id for item in manifest.items] == [
-        f"Q{index:02d}" for index in range(32)
+        f"Q{index:02d}" for index in range(37)
     ]
-    assert [draft.queue_order for draft in drafts] == list(range(32))
+    assert [draft.queue_order for draft in drafts] == list(range(37))
     assert [draft.wip_lane for draft in drafts[:3]] == [
         "product_surface",
         "shared_core",
@@ -409,8 +409,16 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
     ]
     assert manifest.items[0].existing_owner_ref is not None
     assert manifest.items[1].existing_owner_ref is not None
-    assert "Q22" in manifest.items[-1].depends_on_item_ids
-    assert "Q26" not in manifest.items[-1].depends_on_item_ids
+    assert "Q22" in manifest.items[31].depends_on_item_ids
+    assert "Q26" not in manifest.items[31].depends_on_item_ids
+    assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
+        manifest.items[31].scope_refs
+    )
+    assert manifest.items[32].depends_on_item_ids == ["Q31"]
+    assert "scope-ref:queue-v2/Q33/chat-usability-parity" in (
+        manifest.items[33].scope_refs
+    )
+    assert manifest.items[-1].depends_on_item_ids == ["Q32", "Q33", "Q34", "Q35"]
     assert manifest.policy.legacy_recovery_admission_enabled is False
 
 
@@ -458,17 +466,85 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
 
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
-    assert replay_payload["replayed_receipt_count"] == 32
+    assert replay_payload["replayed_receipt_count"] == 37
     view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
-    assert len(view.tasks) == 32
-    assert [task.queue_order for task in view.tasks] == list(range(32))
+    assert len(view.tasks) == 37
+    assert [task.queue_order for task in view.tasks] == list(range(37))
 
     health = assess_developer_queue_record_health(
         manifest=load_developer_queue_record_manifest(ROOT),
         task_states={task.task_ref: task.state for task in view.tasks},
     )
     assert health.queue_starvation_detected is False
-    assert health.admitted_item_count == 32
+    assert health.admitted_item_count == 37
+
+
+def test_queue_v2_cli_selectively_admits_a_manifest_extension(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state_dir = tmp_path / "state"
+    coordinator = DeveloperWorkCoordinator(state_dir=state_dir)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    for draft in drafts[:32]:
+        coordinator.add_task(
+            draft,
+            idempotency_ref=(
+                "idempotency-ref:queue-v2-existing:"
+                f"{draft.task_ref.removeprefix('dev-task:')}"
+            ),
+        )
+
+    parser = build_parser()
+    selected_args = [
+        "--state-dir",
+        str(state_dir),
+        "admit-queue-v2",
+        "--idempotency-prefix",
+        "idempotency-ref:queue-v2-functional-adoption",
+        "--confirm-admission",
+        "admit-queue-v2",
+    ]
+    for index in range(32, 37):
+        selected_args.extend(["--item-id", f"Q{index:02d}"])
+    selected = parser.parse_args(selected_args)
+
+    assert selected.func(selected) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_item_ids"] == ["Q32", "Q33", "Q34", "Q35", "Q36"]
+    assert payload["replayed_receipt_count"] == 0
+    assert payload["queue_of_record_health"]["admission_gap_detected"] is False
+    view = coordinator.inspect()
+    assert len(view.tasks) == 37
+    assert [task.queue_order for task in view.tasks] == list(range(37))
+
+    assert selected.func(selected) == 0
+    replay_payload = json.loads(capsys.readouterr().out)
+    assert replay_payload["replayed_receipt_count"] == 5
+
+
+def test_queue_v2_cli_rejects_duplicate_selective_admission(
+    tmp_path: Path,
+) -> None:
+    parser = build_parser()
+    selected = parser.parse_args(
+        [
+            "--state-dir",
+            str(tmp_path / "state"),
+            "admit-queue-v2",
+            "--idempotency-prefix",
+            "idempotency-ref:queue-v2-functional-adoption",
+            "--confirm-admission",
+            "admit-queue-v2",
+            "--item-id",
+            "Q32",
+            "--item-id",
+            "Q32",
+        ]
+    )
+
+    with pytest.raises(ValueError, match="DUPLICATE_ITEM_SELECTION"):
+        selected.func(selected)
 
 
 def test_blocked_task_requires_an_explicit_unblock_before_reclaim(

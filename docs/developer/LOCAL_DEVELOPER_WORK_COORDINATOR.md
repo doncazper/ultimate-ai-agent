@@ -92,7 +92,7 @@ checks, verifier, and merge gates before any developer Git mutation is added.
 ## Queue-of-Record V2
 
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json` is the authoritative
-developer queue. It contains the complete Q00-Q31 dependency-wave order, exact
+developer queue. It contains the complete Q00-Q36 dependency-wave order, exact
 WIP lanes, merge-order constraints for overlapping recovery work, two stale
 draft pull-request triage records, eleven visible gated programs, and the
 programs that must remain embedded rather than becoming duplicate top-level
@@ -100,7 +100,7 @@ tasks.
 
 Admission is explicit, idempotent, and ledger-only. It creates no agent,
 branch, worktree, commit, pull request, connector, provider call, or product
-authority. It admits all thirty-two records but claims none. Owners use the
+authority. It admits all thirty-seven records but claims none. Owners use the
 normal claim path after proving the named isolated branch/worktree and next
 gate. The eleven authority-heavy entries are descriptive gated records and are
 not admitted as executable tasks.
@@ -109,7 +109,7 @@ The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
 evidence. Their former recovery command now fails closed with
 `DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2`; this prevents the rescued subset
-from duplicating work already represented by Q00-Q31.
+from duplicating work already represented by Q00-Q36.
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
@@ -124,7 +124,9 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 
 If admission is interrupted, rerun it with the same idempotency prefix. Exact
 receipts replay and only the uncommitted tail is admitted. A successful
-inspection reports thirty-two admitted records and no starvation risk. The
+inspection reports thirty-seven admitted records and no starvation risk. Use
+repeatable `--item-id` arguments to admit only a reviewed manifest extension
+without replaying the unchanged prefix of the queue. The
 two current owner-held units are claimed separately so admission cannot create
 or duplicate workers.
 

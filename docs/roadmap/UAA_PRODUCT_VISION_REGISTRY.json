@@ -48,7 +48,12 @@
     "Q28": "required",
     "Q29": "required",
     "Q30": "required",
-    "Q31": "required"
+    "Q31": "required",
+    "Q32": "not_required",
+    "Q33": "not_required",
+    "Q34": "not_required",
+    "Q35": "not_required",
+    "Q36": "not_required"
   },
   "completion_evidence_catalog": {},
   "items": [
@@ -297,12 +302,12 @@
       "current_slice": {
         "name": "exact-revision skepticism-first comparison",
         "scope_status": "bounded_evaluation_slice",
-        "outcome": "Score demonstrated system-level agent capability across exact revisions and route residual gaps without importing competitor code or inflating parity."
+        "outcome": "Score demonstrated system-level agent capability across exact revisions, directly observe comparable chat and operator workflows, and route residual gaps or transferable patterns without importing competitor code or inflating parity."
       },
       "whole_vision": {
         "status": "planned",
         "outcome": "A repeatable closing benchmark that tells whether UAA's reasoning, planning, memory, learning, tools, authority, evidence, UX, parity, extensibility, and complete operator loop are stronger, weaker, or intentionally different from GoatCitadel.",
-        "future_stages": ["exact revision inventory", "16-component scorecard", "capability parity matrix", "skeptical evidence review", "separate UAA-native gap tasks", "final durable report"],
+        "future_stages": ["exact revision inventory", "16-component scorecard", "direct chat and operator-surface observation", "capability parity matrix", "skeptical evidence review", "ranked reciprocal-learning ledger", "separate UAA-native gap tasks", "final durable report"],
         "completion_evidence_refs": []
       },
       "canonical_source_paths": [
@@ -312,7 +317,7 @@
         "docs/prompts/remaining_queue_recovery/11_final_goatcitadel_comparison.md"
       ],
       "historical_source_refs": ["codex-thread-ref:019f4046-a55b-7491-8123-13bf706a0df2"],
-      "guardrail_refs": ["guardrail-ref:code-and-tests-outrank-roadmap", "guardrail-ref:no-raw-model-intelligence-score", "guardrail-ref:unknown-from-evidence", "guardrail-ref:no-parity-inflation"],
+      "guardrail_refs": ["guardrail-ref:code-and-tests-outrank-roadmap", "guardrail-ref:direct-observation-required-for-usability", "guardrail-ref:no-competitor-code-or-brand-copy", "guardrail-ref:no-raw-model-intelligence-score", "guardrail-ref:unknown-from-evidence", "guardrail-ref:no-parity-inflation"],
       "recovery_note": "Archive review recovered the original 16-component taxonomy, scoring scale, evidence hierarchy, output structure, and anti-inflation rules."
     }
   ]

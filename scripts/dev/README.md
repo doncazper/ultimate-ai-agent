@@ -44,7 +44,8 @@ uses a recoverable snapshot/receipt transaction journal, prevents active
 branch/worktree collisions, enforces a three-claim global WIP cap with one
 shared-core, one product-surface, and one verification/read-only task, and
 exposes exact completion or cancellation plus a terminal scope-packet archive
-gate. Its guarded V2 command materializes the authoritative Q00-Q31 queue;
+gate. Its guarded V2 command materializes the authoritative Q00-Q36 queue and
+supports exact `--item-id` selection for a reviewed manifest extension;
 `inspect` treats zero admitted V2 work as starvation. The older recovery
 command fails closed because that source set is superseded. It provides fixed
 read-only local Git

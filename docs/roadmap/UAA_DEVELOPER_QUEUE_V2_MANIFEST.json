@@ -30,7 +30,8 @@
     {"wave_id": "wave-2", "title": "Shared application foundation", "objective": "Build reusable local data, Tasks, Boards, Calendar, and CRM cores."},
     {"wave_id": "wave-3", "title": "Integrated founder loop", "objective": "Join the application cores into a coherent private founder workflow."},
     {"wave_id": "wave-4", "title": "Cognition integrations and vertical products", "objective": "Add tool-aware cognition, read-only sources, and governed vertical products."},
-    {"wave_id": "wave-5", "title": "Core acceptance", "objective": "Run the final skepticism-first core parity comparison and route remaining gaps."}
+    {"wave_id": "wave-5", "title": "Core acceptance", "objective": "Run the final skepticism-first core parity comparison, directly inspect the chat and operator experience, and route remaining gaps."},
+    {"wave_id": "wave-6", "title": "Founder functional adoption", "objective": "Turn the accepted foundations and comparison findings into sustained founder-private daily-use workflows before noncritical polish."}
   ],
   "items": [
     {
@@ -410,14 +411,74 @@
     {
       "queue_order": 31, "wave_id": "wave-5", "item_id": "Q31", "slug": "final-goatcitadel-comparison",
       "title": "Final GoatCitadel comparison",
-      "result_summary": "Run an exact-revision skepticism-first core comparison and route every remaining gap to an explicit owner.",
+      "result_summary": "Run an exact-revision skepticism-first core comparison, directly inspect GoatCitadel's chat and visual interaction surfaces, and route every remaining gap or transferable pattern to an explicit owner.",
       "queue_status": "queued", "priority": "p1", "concurrency": "exclusive", "wip_lane": "verification_read_only",
       "source_refs": ["canonical-task-ref:queue-09-final-goat-comparison"],
-      "scope_refs": ["scope-ref:queue-v2/Q31/core-agent-product-parity", "scope-ref:queue-v2/Q31/gap-owner-routing"],
-      "guardrail_refs": ["scope-ref:queue-v2/Q31/no-inflated-parity", "scope-ref:queue-v2/Q31/finance-nonblocking-unless-rubric-bound"],
+      "scope_refs": ["scope-ref:queue-v2/Q31/core-agent-product-parity", "scope-ref:queue-v2/Q31/chat-surface-direct-observation", "scope-ref:queue-v2/Q31/interaction-behavior-and-recovery", "scope-ref:queue-v2/Q31/gap-and-borrowing-owner-routing"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q31/no-inflated-parity", "scope-ref:queue-v2/Q31/no-screenshot-only-usability-claim", "scope-ref:queue-v2/Q31/no-competitor-code-or-brand-copy", "scope-ref:queue-v2/Q31/finance-nonblocking-unless-rubric-bound"],
       "depends_on_item_ids": ["Q10", "Q21", "Q22", "Q24", "Q25", "Q28", "Q29", "Q30"], "merge_after_item_ids": [],
       "branch_ref": "branch-ref:codex/q31-final-goatcitadel-comparison", "worktree_ref": "worktree-ref:queue-v2/q31-final-goatcitadel-comparison", "workstream_ref": "workstream-ref:goat-comparison",
-      "next_safe_action": "Run only after the core dependency set is accepted; include Finance evidence without blocking core parity unless the rubric requires it."
+      "next_safe_action": "Run only after the core dependency set is accepted; directly exercise GoatCitadel and UAA chat tasks, capture redacted visual and interaction evidence, rank original UAA adaptations, and include Finance evidence without blocking core parity unless the rubric requires it."
+    },
+    {
+      "queue_order": 32, "wave_id": "wave-6", "item_id": "Q32", "slug": "crm-functional-adoption",
+      "title": "CRM functional adoption",
+      "result_summary": "Make the private CRM usable as a sustained founder workflow with real operator-owned records, complete lifecycle operations, recovery, import/export, backup, and private multi-computer continuity.",
+      "queue_status": "queued", "priority": "p0", "concurrency": "parallel_safe", "wip_lane": "product_surface",
+      "source_refs": ["canonical-task-ref:ECO-005", "canonical-task-ref:CRM-FC-000", "repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md"],
+      "scope_refs": ["scope-ref:queue-v2/Q32/real-private-crm-data", "scope-ref:queue-v2/Q32/complete-record-lifecycle", "scope-ref:queue-v2/Q32/import-export-backup-recovery", "scope-ref:queue-v2/Q32/private-multi-computer-use"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q32/no-fixture-primary-truth", "scope-ref:queue-v2/Q32/no-external-crm-write", "scope-ref:queue-v2/Q32/no-public-or-production-claim"],
+      "depends_on_item_ids": ["Q31"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q32-crm-functional-adoption", "worktree_ref": "worktree-ref:queue-v2/q32-crm-functional-adoption", "workstream_ref": "workstream-ref:functional-adoption",
+      "next_safe_action": "Use the accepted CRM foundation and Q31 findings to prove one real founder-private daily CRM loop end to end, then route only noncritical polish forward."
+    },
+    {
+      "queue_order": 33, "wave_id": "wave-6", "item_id": "Q33", "slug": "founder-operating-loop-adoption",
+      "title": "Founder operating loop functional adoption",
+      "result_summary": "Make Setup, chat, Today, Inbox, Tasks, Boards, Calendar, Knowledge, Memory, Plans, Actions, and Evidence operate as one readable daily founder loop.",
+      "queue_status": "queued", "priority": "p0", "concurrency": "parallel_safe", "wip_lane": "product_surface",
+      "source_refs": ["repo-ref:docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md", "repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md", "comparison-ref:queue-v2/Q31/chat-surface-findings"],
+      "scope_refs": ["scope-ref:queue-v2/Q33/chat-usability-parity", "scope-ref:queue-v2/Q33/cross-surface-daily-loop", "scope-ref:queue-v2/Q33/create-edit-organize-search-archive-recover", "scope-ref:queue-v2/Q33/readable-state-and-next-action"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q33/no-ui-only-product-truth", "scope-ref:queue-v2/Q33/no-critical-raw-json-or-cli-dependency", "scope-ref:queue-v2/Q33/no-standing-or-external-authority", "scope-ref:queue-v2/Q33/no-competitor-code-or-brand-copy"],
+      "depends_on_item_ids": ["Q32"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q33-founder-operating-loop-adoption", "worktree_ref": "worktree-ref:queue-v2/q33-founder-operating-loop-adoption", "workstream_ref": "workstream-ref:functional-adoption",
+      "next_safe_action": "Implement the highest-value Q31 chat and cockpit adaptations through backend-owned contracts, then prove the normal founder loop without operator-critical CLI or raw-JSON fallback."
+    },
+    {
+      "queue_order": 34, "wave_id": "wave-6", "item_id": "Q34", "slug": "news-source-intelligence-adoption",
+      "title": "News and source intelligence functional adoption",
+      "result_summary": "Make authorized source intake, provenance, freshness, deduplication, clustering, ranking, preferences, and Briefing delivery useful in the normal private founder loop.",
+      "queue_status": "queued", "priority": "p1", "concurrency": "parallel_safe", "wip_lane": "shared_core",
+      "source_refs": ["canonical-task-ref:News-and-Signals", "repo-ref:docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md", "repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md"],
+      "scope_refs": ["scope-ref:queue-v2/Q34/authorized-source-intake", "scope-ref:queue-v2/Q34/provenance-freshness-and-deduplication", "scope-ref:queue-v2/Q34/operator-ranking-preferences", "scope-ref:queue-v2/Q34/today-and-briefing-delivery"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q34/no-unrestricted-browsing", "scope-ref:queue-v2/Q34/no-authenticated-browser-action", "scope-ref:queue-v2/Q34/no-source-content-as-authority", "scope-ref:queue-v2/Q34/no-production-claim"],
+      "depends_on_item_ids": ["Q33"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q34-news-source-intelligence-adoption", "worktree_ref": "worktree-ref:queue-v2/q34-news-source-intelligence-adoption", "workstream_ref": "workstream-ref:functional-adoption",
+      "next_safe_action": "Exercise the existing News foundation with authorized founder-private sources and close every core path needed to inspect, tune, recover, and consume a useful briefing."
+    },
+    {
+      "queue_order": 35, "wave_id": "wave-6", "item_id": "Q35", "slug": "vertical-modules-functional-adoption",
+      "title": "Vertical modules functional adoption",
+      "result_summary": "Make Finance, Communications, Social Intelligence, publishing dry-run, Proposal Intelligence, corrections, and improvement review usable through coherent founder-private workflows.",
+      "queue_status": "queued", "priority": "p1", "concurrency": "parallel_safe", "wip_lane": "product_surface",
+      "source_refs": ["repo-ref:docs/roadmap/UAA_PRODUCT_VISION_REGISTRY.md", "repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md"],
+      "scope_refs": ["scope-ref:queue-v2/Q35/finance-review-workflow", "scope-ref:queue-v2/Q35/communications-and-social-workflows", "scope-ref:queue-v2/Q35/proposal-correction-and-improvement-review", "scope-ref:queue-v2/Q35/honest-cross-module-state"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q35/no-bank-filing-or-account-mutation", "scope-ref:queue-v2/Q35/no-autonomous-send-or-publish", "scope-ref:queue-v2/Q35/no-unreviewed-self-modification", "scope-ref:queue-v2/Q35/no-authority-escalation"],
+      "depends_on_item_ids": ["Q26", "Q34"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q35-vertical-modules-functional-adoption", "worktree_ref": "worktree-ref:queue-v2/q35-vertical-modules-functional-adoption", "workstream_ref": "workstream-ref:functional-adoption",
+      "next_safe_action": "Reconcile the Finance acceptance dependency, then prove each vertical's real review loop while retaining approval and external-write boundaries."
+    },
+    {
+      "queue_order": 36, "wave_id": "wave-6", "item_id": "Q36", "slug": "cross-module-adoption-closure",
+      "title": "Cross-module founder adoption closure",
+      "result_summary": "Prove sustained founder-private use across the adopted modules, close foundational workflow gaps, and create a bounded evidence-ranked polish backlog from actual use.",
+      "queue_status": "queued", "priority": "p1", "concurrency": "exclusive", "wip_lane": "verification_read_only",
+      "source_refs": ["repo-ref:docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md", "comparison-ref:queue-v2/Q31/product-experience-findings"],
+      "scope_refs": ["scope-ref:queue-v2/Q36/founder-private-functional-proof", "scope-ref:queue-v2/Q36/cross-module-continuity", "scope-ref:queue-v2/Q36/failure-recovery-and-backup-proof", "scope-ref:queue-v2/Q36/use-informed-polish-backlog"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q36/no-foundation-gap-labeled-polish", "scope-ref:queue-v2/Q36/no-public-or-production-readiness-claim", "scope-ref:queue-v2/Q36/no-new-runtime-authority", "scope-ref:queue-v2/Q36/no-endless-edge-case-chase"],
+      "depends_on_item_ids": ["Q32", "Q33", "Q34", "Q35"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q36-cross-module-adoption-closure", "worktree_ref": "worktree-ref:queue-v2/q36-cross-module-adoption-closure", "workstream_ref": "workstream-ref:functional-adoption",
+      "next_safe_action": "Run finite representative founder workflows across the adopted surfaces; repair foundational blockers, classify noncritical polish, and stop after the bounded acceptance cycle."
     }
   ],
   "gated_items": [
