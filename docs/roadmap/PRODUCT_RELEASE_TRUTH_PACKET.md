@@ -45,6 +45,16 @@ retrieval, familiarity classification, chat integration, model/provider calls,
 or capability execution; those remain later TAW slices and existing authority
 gates.
 
+The founder-private-dogfood TAW-02 familiarity assessor is present as a
+deterministic evidence contract. It derives all nine canonical states with
+stable reason codes and mandatory fail-closed precedence. Semantic relevance,
+availability, policy/safety, authority-lane posture, typed-input completeness,
+approval validation, readiness, and terminal proof remain separately
+inspectable. Missing, corrupt, stale, over-budget, substituted, ambiguous, or
+contradictory evidence cannot construct proposals, request approval, execute,
+or grant authority. Progressive retrieval, chat integration, model/provider
+calls, and capability execution remain absent and gated to later slices.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility

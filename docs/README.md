@@ -26,6 +26,12 @@ TAW-01's founder-dogfood capability-evidence contract is documented in
 registered manifests and exact operation schemas into typed, content-free,
 fingerprinted awareness envelopes; it rejects stale or inconsistent evidence
 and grants no routing, model/provider, execution, or authority behavior.
+TAW-02's deterministic familiarity and uncertainty assessor is documented in
+`docs/evals/TOOL_AWARE_COGNITION_TAW02_FAMILIARITY_ASSESSMENT.md`. It preserves
+separate relevance, availability, policy/safety, authority, input, approval,
+readiness, and terminal-proof dimensions; derives all nine canonical states;
+and rejects stale, substituted, ambiguous, or contradictory evidence without
+constructing a proposal or changing chat routing.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one
