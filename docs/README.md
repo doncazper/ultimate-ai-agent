@@ -8,16 +8,19 @@ remaining-queue manifest,
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. This program
 extends the existing Turn Contract Router, preserves the local model as UAA's
 language/reasoning engine, and grants no runtime authority by itself.
-The fail-closed TAW-00 evaluation contract is documented in
+The two-stage TAW-00 evaluation contract is documented in
 `docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md`; its checked-in protocol
 now includes typed computed-power, exhaustive matrix/observation,
 Holm-familywise bound, verified holdout-opening, recursive artifact-census, and
-complete result-binding contracts. It remains blocked on truthful
-supported-matrix freeze, independent holdout
-custody/evaluator identity authority, actual measurements, and an
-externally accepted-current baseline before any routing or prompt change.
+complete result-binding contracts. The founder-private-dogfood profile accepts
+bounded English-first implementation for Qwen 3.8 27B / 128K locally,
+separately configured ChatGPT and Codex OpenAI API profiles, and per-run
+observed Mac/Windows hardware with same-host comparisons. It grants no
+model/provider runtime authority. Independent promotion remains blocked on a
+truthful supported-matrix freeze, holdout custody/evaluator identity authority,
+actual measurements, and an externally accepted-current baseline.
 Candidate-generated safe refs, keys, receipts, or completion booleans cannot
-open those gates, and the facility has no `ready` result.
+open that later gate.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
 Q31 in dependency waves, limits active work to one shared-core, one

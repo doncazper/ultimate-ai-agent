@@ -27,8 +27,10 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     SourceDependencyClosure,
     SourceProjection,
     TAW00_ACCEPTANCE_EVIDENCE_CONTRACT_COMPLETE,
+    TAW00FounderDogfoodProfile,
     TAW00Protocol,
     durable_payload_has_forbidden_fields,
+    founder_dogfood_readiness,
     protocol_readiness,
     validate_acceptance_evidence_binding,
     validate_baseline_receipt,
@@ -56,6 +58,9 @@ from ultimate_ai_agent.core.evals.tool_aware_evidence import (  # noqa: E402
 )
 
 DEFAULT_PROTOCOL = ROOT / "docs/evals/tool_aware_cognition_taw00_protocol_v1.json"
+DEFAULT_FOUNDER_DOGFOOD_PROFILE = (
+    ROOT / "docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json"
+)
 DEFAULT_SOURCE_PROJECTION = (
     ROOT / "docs/evals/tool_aware_cognition_taw00_source_projection_v1.json"
 )
@@ -313,11 +318,24 @@ def main() -> int:
     readiness.add_argument("--artifact-census", type=Path, required=True)
     readiness.add_argument("--complete-binding", type=Path, required=True)
 
+    founder_readiness = subparsers.add_parser("report-founder-dogfood-readiness")
+    founder_readiness.add_argument(
+        "--profile", type=Path, default=DEFAULT_FOUNDER_DOGFOOD_PROFILE
+    )
+
     args = parser.parse_args()
     try:
         if args.command == "validate-protocol":
             protocol = _validate_protocol(args.protocol)
             _emit({"protocol_ref": protocol.protocol_ref, "status": protocol.status})
+        elif args.command == "report-founder-dogfood-readiness":
+            payload = _json(args.profile)
+            _validate_safe(payload)
+            profile = TAW00FounderDogfoodProfile.model_validate(payload)
+            report = founder_dogfood_readiness(profile)
+            _emit(report)
+            if not report["implementation_ready"]:
+                return 2
         elif args.command == "generate-development-manifest":
             spec = DevelopmentManifestBuildSpec.model_validate(_json(args.spec))
             manifest = build_development_corpus_manifest(

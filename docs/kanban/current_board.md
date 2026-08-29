@@ -17,19 +17,27 @@ runtime authority and is not completion evidence. Canonical plan:
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md`; ordered
 execution record:
 `docs/roadmap/UAA_TOOL_AWARE_COGNITION_QUEUE_INSERTION.md`.
-Q22 / TAW-00 posture: a fail-closed evaluation contract now covers reconstructible
+Q22 / TAW-00 posture: founder-private-dogfood implementation is accepted for
+English, Qwen 3.8 27B with a 128K local context window, separately configured
+ChatGPT and Codex OpenAI API profiles, and per-run observed Mac/Windows
+hardware. Same-host before/after evidence is required; this profile grants no
+model/provider call or runtime authority. Q22 is active for bounded TAW-01
+implementation with deterministic development evidence, safe-disable,
+rollback, and redaction.
+
+A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,
 metric-specific threshold checks, revision-bound root/candidate inventories,
 recomputed power denominators, exact matrix and observation censuses, Holm
 familywise binomial bounds, candidate-bound randomization, transitive
 source-closure verification, transient verified holdout opening, exhaustive
 recursive-safe artifact census, complete result-chain binding, CLI, and static
-verification. It is not an accepted baseline or promotion proof. Supported
-matrices, externally anchored reviewer identities,
-actual evaluation measurements, and an accepted-current baseline also remain
-blocked. The facility has
-no `ready` result. No routing, prompt,
-model-call, or authority change may begin on this evidence alone.
+verification. Independent supported matrices, externally anchored reviewer
+identities, actual evaluation measurements, and an accepted-current baseline
+remain blocked for independent, public, multi-user, or production quality
+claims. The independent facility has no `ready` result. Founder acceptance is
+not represented as independent acceptance, and this rebaseline adds no routing,
+prompt, model call, provider call, or authority change by itself.
 The exact intervening item order, pre-Goat insertion boundary, and
 machine-readable no-new-authority declaration are pinned in
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`.

@@ -1,6 +1,6 @@
 # TAW-00 Fail-Closed Evaluation Scaffold
 
-Status: acceptance evidence contract implemented; external configuration, identity authority, and evidence pending
+Status: founder private-dogfood implementation accepted; independent promotion evidence pending
 
 Baseline: v0.104.0 / 0.104.0
 
@@ -10,17 +10,32 @@ Convergence ledger: `docs/evals/tool_aware_cognition_taw00_convergence_ledger_v1
 
 Source projection: `docs/evals/tool_aware_cognition_taw00_source_projection_v1.json`
 
+Founder profile: `docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json`
+
 ## Boundary
 
-This slice implements a fail-closed TAW-00 evaluation contract without changing
+This slice implements two separate gates without changing
 the Turn Contract Router, chat path, prompts, policy, model-visible formatting,
 model/provider behavior, or runtime authority. Capability Evaluation Lab V1
 remains the deterministic capability-task contract. TAW-00 scaffolds separate
 contracts for paired ordinary-chat quality and future routing measurements; the
-two forms of evidence are not interchangeable, and this slice cannot produce
-acceptance or promotion proof without the separately anchored external inputs.
+two forms of evidence are not interchangeable.
 
-The checked-in protocol is deliberately `pending_configuration_freeze`.
+The founder-private-dogfood gate now accepts bounded English-first Q22
+implementation for one explicitly selected local profile, Qwen 3.8 27B with a
+128K context window, plus separately identified ChatGPT and Codex OpenAI API
+profiles. Exact local artifact/tokenizer/runtime digests and exact OpenAI API
+model IDs remain required before measurements for those profiles. Mac and
+Windows hardware are recorded per run; quality and latency comparisons use the
+same host rather than pretending unlike computers form one latency class.
+
+The independent-promotion gate remains fail-closed. It still requires external
+custody, blind scoring, identity authority, and the complete acceptance bundle
+before public, multi-user, production, or independently validated quality
+claims. Founder acceptance is not represented as independent acceptance.
+
+The checked-in independent-promotion protocol remains deliberately
+`pending_configuration_freeze`.
 Repository evidence does not identify a complete authoritative set of supported
 product languages, local-model configurations, or hardware/backend classes, so
 the scaffold leaves those arrays empty and reports exact blockers. Convenience
@@ -94,6 +109,7 @@ defaults would narrow the acceptance population without authority.
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw00.py
 PYTHONPATH=src .venv/bin/python scripts/run_tool_aware_baseline.py validate-protocol
+PYTHONPATH=src .venv/bin/python scripts/run_tool_aware_baseline.py report-founder-dogfood-readiness
 ```
 
 `report-readiness` requires explicit paths for the commitment, development
@@ -116,7 +132,22 @@ identity. Promotion is deliberately fail-closed until separately reviewed,
 externally anchored custodian, evaluator, and baseline-acceptance identity
 authorities exist. Candidate-generated attestations cannot open those gates.
 
-## Remaining External Evidence
+## Founder Private-Dogfood Gate
+
+The founder profile is accepted for bounded implementation only. It fixes the
+initial product scope to English, Qwen 3.8 27B / 128K locally, configured
+ChatGPT and Codex OpenAI API profiles, and observed Mac/Windows runs. It requires
+the zero-extra-model-call ordinary-chat path, same-host baseline comparisons,
+safe-disable, rollback, redacted evidence, and no new authority in this
+rebaseline slice. It does not activate a local model or provider, call an API,
+select exact OpenAI model IDs, or claim cross-host latency comparability.
+
+The next safe implementation step is TAW-01 capability evidence envelopes.
+Each later behavior slice still needs deterministic development-corpus tests,
+before/after evidence, and rollback. Founder feedback may refine the private
+dogfood candidate through ordinary reviewed PRs.
+
+## Remaining Independent-Promotion Evidence
 
 The six formerly code-owned gaps are now typed, digest-bound, recursively
 content-safe, and covered by tamper tests. `verify-complete-evidence` can prove
@@ -125,9 +156,9 @@ acceptance. The supported matrix still needs truthful independent freeze; the
 custodian/evaluator/baseline-acceptance identity authorities remain external;
 and no actual baseline or blind-score evidence has been collected.
 
-## Remaining TAW-00 Gate
+## Remaining Independent-Promotion Gate
 
-Before any routing or prompt change:
+Before independent or public promotion:
 
 1. independently review this complete code-owned evidence contract;
 2. freeze the truthful supported language, model-configuration, and
@@ -142,6 +173,7 @@ Before any routing or prompt change:
 6. lock and verify the complete candidate manifest before any one-time holdout
    release.
 
-Until those steps pass, TAW-00 and Q22 remain blocked before behavior change.
-This slice keeps the code-owned acceptance-contract blocker explicit and narrows
-its exact remaining work. It does not complete TAW-00 or Q22.
+Until those steps pass, independent promotion remains blocked. They do not
+block bounded founder-private-dogfood implementation under the checked-in
+founder profile. This rebaseline opens Q22 implementation but does not complete
+TAW-00 through TAW-08 and does not grant runtime model/provider authority.

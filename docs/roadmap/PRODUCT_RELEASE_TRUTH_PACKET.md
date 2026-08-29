@@ -15,18 +15,24 @@ post-merge verified before that comparison begins. The plan preserves the
 configured local model and grants no runtime authority; it is not shipped
 product evidence.
 
-TAW-00 now has a fail-closed evaluation contract for reconstructible synthetic
-development manifests, public holdout commitments, baseline and blind-score
+TAW-00 now has a founder-private-dogfood implementation profile plus a separate
+fail-closed independent-promotion contract. The founder profile is English-first
+for Qwen 3.8 27B / 128K locally, separately configured ChatGPT and Codex OpenAI
+API profiles, and per-run observed Mac/Windows hardware with same-host
+comparisons. It adds no model/provider runtime authority. The promotion
+contract covers reconstructible synthetic development manifests, public
+holdout commitments, baseline and blind-score
 receipt shapes, recomputed power analysis, exact matrix and observation
 censuses, exact Holm-familywise binomial bounds, candidate-bound randomization,
 transitive source-closure verification, transient verified holdout opening,
 exhaustive recursive-safe artifact census, complete result-chain binding,
-revision-bound root/candidate inventories, CLI, and static verification. It is
-not an accepted baseline or promotion proof. Supported
+revision-bound root/candidate inventories, CLI, and static verification. The
+founder profile is not an independent baseline or promotion proof. Independent
 matrices, externally anchored reviewer identities, actual measurements, and
 human acceptance remain blocked. Candidate-authored refs, keys, receipts, or
-completion flags cannot promote it, the facility has no `ready` result, and no routing, prompt,
-model-call, or authority behavior changed.
+completion flags cannot promote it, the independent facility has no `ready`
+result, and no routing, prompt, model-call, provider-call, or authority behavior
+changed.
 
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture

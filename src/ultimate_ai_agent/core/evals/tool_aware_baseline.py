@@ -32,6 +32,7 @@ from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 TAW00_PROTOCOL_REF = "protocol-ref:taw00:baseline:v1"
 TAW00_PLAN_REF = "plan-ref:tool-aware-cognition-and-chat-quality:v1"
 TAW00_CAPABILITY_LAB_REF = "contract-ref:capability-evaluation-lab:v1"
+TAW00_FOUNDER_DOGFOOD_PROFILE_REF = "profile-ref:taw00:founder-dogfood:v1"
 TAW00_DIMENSIONS = (
     "helpfulness",
     "instruction_following",
@@ -73,6 +74,7 @@ TAW00_ACCEPTANCE_SPECS: dict[str, tuple[str, float, float | None]] = {
 TAW00_MANDATORY_CANDIDATE_PATH_REFS = tuple(
     f"repo-path-ref:{path}"
     for path in (
+        "docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json",
         "docs/evals/tool_aware_cognition_taw00_protocol_v1.json",
         "docs/schemas/tool_aware_cognition_taw00.schema.json",
         "docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md",
@@ -414,6 +416,154 @@ class TAW00Protocol(_FrozenModel):
                 "pending protocol cannot partially freeze acceptance inputs"
             )
         return self
+
+
+class FounderDogfoodInferenceProfile(_FrozenModel):
+    profile_ref: str
+    surface_ref: Literal[
+        "inference-surface-ref:local-model",
+        "inference-surface-ref:openai-api",
+    ]
+    model_ref: str
+    context_window_ref: str | None = None
+    exact_identity_state: Literal[
+        "artifact-digest-required-before-measurement",
+        "exact-model-id-required-before-measurement",
+    ]
+    runtime_authority_granted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_profile(self) -> "FounderDogfoodInferenceProfile":
+        for value, field_name in (
+            (self.profile_ref, "profile_ref"),
+            (self.surface_ref, "surface_ref"),
+            (self.model_ref, "model_ref"),
+        ):
+            _ref(value, field_name)
+        if self.context_window_ref is not None:
+            _ref(self.context_window_ref, "context_window_ref")
+        if self.surface_ref == "inference-surface-ref:local-model":
+            if self.exact_identity_state != (
+                "artifact-digest-required-before-measurement"
+            ):
+                raise ValueError("local model profile requires an artifact digest")
+            if self.context_window_ref is None:
+                raise ValueError("local model profile requires a context window")
+        elif self.exact_identity_state != (
+            "exact-model-id-required-before-measurement"
+        ):
+            raise ValueError("OpenAI API profile requires an exact model id")
+        return self
+
+
+class TAW00FounderDogfoodProfile(_FrozenModel):
+    schema_version: Literal["uaa-taw00-founder-dogfood-profile.v1"] = (
+        "uaa-taw00-founder-dogfood-profile.v1"
+    )
+    profile_ref: Literal["profile-ref:taw00:founder-dogfood:v1"] = (
+        TAW00_FOUNDER_DOGFOOD_PROFILE_REF
+    )
+    status: Literal["accepted_for_bounded_implementation"]
+    founder_decision_ref: str
+    language_refs: tuple[str, ...]
+    inference_profiles: tuple[FounderDogfoodInferenceProfile, ...]
+    hardware_family_refs: tuple[str, ...]
+    hardware_evidence_policy_ref: Literal[
+        "hardware-policy-ref:taw00:per-run-observed-same-host-baseline"
+    ]
+    same_host_baseline_required: Literal[True] = True
+    cross_host_latency_promotion_allowed: Literal[False] = False
+    private_dogfood_only: Literal[True] = True
+    independent_promotion_required: Literal[True] = True
+    public_quality_claims_allowed: Literal[False] = False
+    runtime_model_calls_added: Literal[False] = False
+    provider_calls_added: Literal[False] = False
+    authority_added: Literal[False] = False
+    no_second_model_call_for_ordinary_chat: Literal[True] = True
+    safe_disable_required: Literal[True] = True
+    rollback_required: Literal[True] = True
+    redacted_evidence_required: Literal[True] = True
+    measurement_prerequisite_refs: tuple[str, ...]
+    blocked_promotion_refs: tuple[str, ...]
+
+    @model_validator(mode="after")
+    def validate_founder_profile(self) -> "TAW00FounderDogfoodProfile":
+        _ref(self.founder_decision_ref, "founder_decision_ref")
+        if self.language_refs != ("language-ref:en",):
+            raise ValueError("founder dogfood language scope must remain English-only")
+        if self.hardware_family_refs != (
+            "hardware-family-ref:mac",
+            "hardware-family-ref:windows",
+        ):
+            raise ValueError(
+                "founder dogfood hardware scope must cover Mac and Windows"
+            )
+        _ref(self.hardware_evidence_policy_ref, "hardware_evidence_policy_ref")
+        _refs(self.measurement_prerequisite_refs, "measurement_prerequisite_refs")
+        _refs(self.blocked_promotion_refs, "blocked_promotion_refs")
+
+        profiles = {item.profile_ref: item for item in self.inference_profiles}
+        expected_refs = {
+            "inference-profile-ref:taw00:qwen-3.8-27b-128k-local",
+            "inference-profile-ref:taw00:openai-chatgpt-api",
+            "inference-profile-ref:taw00:openai-codex-api",
+        }
+        if set(profiles) != expected_refs or len(profiles) != len(expected_refs):
+            raise ValueError("founder dogfood inference profile census drifted")
+        local_profile = profiles["inference-profile-ref:taw00:qwen-3.8-27b-128k-local"]
+        if (
+            local_profile.surface_ref != "inference-surface-ref:local-model"
+            or local_profile.model_ref != "model-ref:qwen-3.8-27b"
+            or local_profile.context_window_ref != "context-window-ref:128k"
+        ):
+            raise ValueError("Qwen 3.8 27B 128K local profile drifted")
+        for profile_ref, model_ref in (
+            (
+                "inference-profile-ref:taw00:openai-chatgpt-api",
+                "model-ref:openai:chatgpt-configured",
+            ),
+            (
+                "inference-profile-ref:taw00:openai-codex-api",
+                "model-ref:openai:codex-configured",
+            ),
+        ):
+            profile = profiles[profile_ref]
+            if (
+                profile.surface_ref != "inference-surface-ref:openai-api"
+                or profile.model_ref != model_ref
+                or profile.context_window_ref is not None
+            ):
+                raise ValueError("OpenAI API founder profile drifted")
+        required_promotion_blockers = {
+            "blocker-ref:taw00:independent-custodian-identity-authority-missing",
+            "blocker-ref:taw00:independent-evaluator-identity-authority-missing",
+            "blocker-ref:taw00:external-baseline-acceptance-authority-missing",
+        }
+        if not required_promotion_blockers <= set(self.blocked_promotion_refs):
+            raise ValueError("independent promotion blockers must remain explicit")
+        return self
+
+
+def founder_dogfood_readiness(
+    profile: TAW00FounderDogfoodProfile,
+) -> dict[str, object]:
+    """Report bounded implementation readiness without granting runtime authority."""
+
+    return {
+        "profile_ref": profile.profile_ref,
+        "status": "accepted_for_bounded_implementation",
+        "implementation_ready": True,
+        "independent_promotion_ready": False,
+        "language_refs": list(profile.language_refs),
+        "inference_profile_refs": [
+            item.profile_ref for item in profile.inference_profiles
+        ],
+        "hardware_family_refs": list(profile.hardware_family_refs),
+        "reason_refs": sorted(profile.blocked_promotion_refs),
+        "runtime_model_calls_added": False,
+        "provider_calls_added": False,
+        "authority_added": False,
+    }
 
 
 def protocol_configuration_digest(protocol: TAW00Protocol) -> str:

@@ -667,8 +667,18 @@ catalog states, and
 unsupported-request categories before results are observed. An interval that
 crosses a threshold is a failed promotion gate.
 
+Founder-private-dogfood implementation uses the separately versioned
+`profile-ref:taw00:founder-dogfood:v1`. Its initial scope is English, Qwen 3.8
+27B with a 128K context window for local use, configured ChatGPT and Codex
+OpenAI API profiles, and per-run observed Mac/Windows hardware. Exact local
+artifact/runtime identities and exact OpenAI API model IDs are bound before a
+measurement uses those profiles. Baseline and candidate are compared on the
+same host; unlike hosts do not share one latency promotion result. This founder
+profile permits bounded implementation and iterative private use, but it is not
+an independent or public-quality acceptance matrix.
+
 TAW-00 freezes the complete supported product-language set before cases or
-candidate results are observed. Every supported language is a mandatory
+candidate results are observed for independent promotion. Every supported language is a mandatory
 evaluation stratum with predeclared, power-justified counts for ordinary chat,
 tool-required routing, unsupported requests, and paired direct-chat quality.
 Within each language and every applicable language-by-catalog-state
@@ -683,8 +693,8 @@ every applicable intersection metric in the predeclared Holm-adjusted family.
 Missing or underpowered language or intersection evidence is a failed TAW-08
 gate rather than permission to pool it into a larger stratum.
 
-TAW-00 also freezes the complete supported local-model configuration matrix:
-model artifact, backend/runtime, tokenizer and context limit, inference
+TAW-00 also freezes the complete supported local-model configuration matrix
+for independent promotion: model artifact, backend/runtime, tokenizer and context limit, inference
 settings, and prompt-format version. Every supported configuration is a
 mandatory evaluation stratum for the applicable routing and paired
 ordinary-chat quality gates, and every stratum must independently clear those
@@ -725,6 +735,14 @@ separately reviewed output-verification protocol in section 7.1 makes its
 original scored outputs independently auditable.
 
 ### 7.1 Evaluation governance
+
+There are two distinct review levels. During founder-private dogfood, the
+founder may accept, reject, or roll back a bounded candidate using deterministic
+development cases, same-host before/after evidence, redacted receipts, and
+hands-on product use. That decision must be labeled founder acceptance and
+cannot support independent, public, multi-user, or production quality claims.
+The independent holdout, blind scoring, and identity requirements below remain
+the promotion gate for those stronger claims.
 
 The ordinary-chat comparison must be a true paired test. Baseline and UAA
 outputs use the same frozen user case, model artifact, tokenizer, context
@@ -1234,6 +1252,16 @@ coding, one broad local qualification, exact-head hosted CI/review, merge,
 proportional post-merge verification, and cleanup.
 
 ### TAW-00 — Convergence ledger and evaluation baseline
+
+- Record the founder-private-dogfood scope separately from independent
+  promotion: English initially; Qwen 3.8 27B / 128K locally; separately
+  identified ChatGPT and Codex OpenAI API profiles; per-run observed Mac and
+  Windows hardware; same-host comparisons; and no runtime/provider authority
+  granted by the profile.
+- Permit bounded TAW-01 through TAW-07 implementation under founder acceptance
+  with deterministic development evidence, safe-disable, rollback, and
+  redaction. Retain the sealed independent TAW-08 promotion gate before public
+  or independently validated quality claims.
 
 - Map every requirement in this plan to the existing Turn Contract Router,
   capability registry, skill disclosure, chat route, and authority system.
