@@ -29,7 +29,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     assess_developer_queue_record_health,
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
-    queue_record_task_contract_ref,
+    queue_record_health_contract_refs,
 )
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperWorkspaceScout,
@@ -140,10 +140,9 @@ def inspect(args: argparse.Namespace) -> int:
         "queue_of_record_health": assess_developer_queue_record_health(
             manifest=queue_manifest,
             task_states={task.task_ref: task.state for task in queue.tasks},
-            task_contract_refs={
-                task.task_ref: queue_record_task_contract_ref(task)
-                for task in queue.tasks
-            },
+            task_contract_refs=queue_record_health_contract_refs(
+                queue_manifest, queue.tasks
+            ),
         ).model_dump(mode="json"),
         "legacy_recovery_status": {
             "artifact_status": "superseded_historical_evidence",
@@ -202,9 +201,7 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     health = assess_developer_queue_record_health(
         manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
-        task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task) for task in queue.tasks
-        },
+        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
     )
     return _print(
         {
@@ -225,13 +222,17 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
 
 def _queue_v2_amendment_context(
     args: argparse.Namespace,
-) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str]:
+) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str, str]:
     manifest = load_developer_queue_record_manifest(ROOT)
     drafts = build_developer_queue_record_drafts(ROOT)
     draft_by_item_id = {
         item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
     }
     draft = draft_by_item_id[args.item_id]
+    coordinator = _coordinator(args)
+    current_task_revision_ref = getattr(
+        args, "expected_current_task_revision_ref", None
+    ) or coordinator.current_task_revision_ref(draft.task_ref)
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
@@ -242,23 +243,32 @@ def _queue_v2_amendment_context(
     approval_request = build_developer_work_task_amendment_approval_request(
         draft,
         expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        expected_current_task_revision_ref=current_task_revision_ref,
         idempotency_ref=args.idempotency_ref,
         actor_context=actor_context,
     )
     exact_scope_ref = approval_request.resource_refs[0]
-    return manifest, draft, actor_context, approval_request, exact_scope_ref
+    return (
+        manifest,
+        draft,
+        actor_context,
+        approval_request,
+        exact_scope_ref,
+        current_task_revision_ref,
+    )
 
 
 def preview_queue_v2_amendment(args: argparse.Namespace) -> int:
-    _, draft, _, approval_request, exact_scope_ref = _queue_v2_amendment_context(args)
+    _, draft, _, approval_request, exact_scope_ref, current_task_revision_ref = (
+        _queue_v2_amendment_context(args)
+    )
     return _print(
         {
             "schema_version": "uaa.developer_queue_amendment_preview.v1",
             "item_id": args.item_id,
             "task_ref": draft.task_ref,
-            "expected_current_fingerprint_ref": (
-                args.expected_current_fingerprint_ref
-            ),
+            "expected_current_fingerprint_ref": (args.expected_current_fingerprint_ref),
+            "current_task_revision_ref": current_task_revision_ref,
             "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
             "approval_request_ref": approval_request.approval_request_id,
             "approval_scope_ref": exact_scope_ref,
@@ -276,9 +286,14 @@ def preview_queue_v2_amendment(args: argparse.Namespace) -> int:
 def amend_queue_v2_item(args: argparse.Namespace) -> int:
     if args.confirm_amendment != "amend-queue-v2-item":
         raise ValueError("DEVELOPER_QUEUE_V2_AMENDMENT_CONFIRMATION_REQUIRED")
-    manifest, draft, actor_context, approval_request, exact_scope_ref = (
-        _queue_v2_amendment_context(args)
-    )
+    (
+        manifest,
+        draft,
+        actor_context,
+        approval_request,
+        exact_scope_ref,
+        current_task_revision_ref,
+    ) = _queue_v2_amendment_context(args)
     if args.approve_exact_scope != exact_scope_ref:
         raise ValueError(
             f"DEVELOPER_QUEUE_V2_AMENDMENT_EXACT_APPROVAL_REQUIRED:{exact_scope_ref}"
@@ -300,6 +315,7 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
     receipt = coordinator.amend_queued_task(
         draft,
         expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        expected_current_task_revision_ref=current_task_revision_ref,
         idempotency_ref=args.idempotency_ref,
         approval_authority=approval_authority,
         approval_ref=approval_ref,
@@ -309,9 +325,7 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
     health = assess_developer_queue_record_health(
         manifest=manifest,
         task_states={task.task_ref: task.state for task in queue.tasks},
-        task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task) for task in queue.tasks
-        },
+        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
     )
     return _print(
         {
@@ -570,6 +584,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     amend_queue_v2_command.add_argument(
         "--expected-current-fingerprint-ref", required=True
+    )
+    amend_queue_v2_command.add_argument(
+        "--expected-current-task-revision-ref", required=True
     )
     amend_queue_v2_command.add_argument("--idempotency-ref", required=True)
     amend_queue_v2_command.add_argument("--confirm-amendment", required=True)

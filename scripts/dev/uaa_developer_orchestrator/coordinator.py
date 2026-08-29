@@ -125,6 +125,7 @@ def build_developer_work_task_amendment_approval_request(
     draft: "DeveloperWorkTaskDraft",
     *,
     expected_current_fingerprint_ref: str,
+    expected_current_task_revision_ref: str,
     idempotency_ref: str,
     actor_context: ActorContext,
 ) -> ApprovalRequest:
@@ -134,12 +135,17 @@ def build_developer_work_task_amendment_approval_request(
         expected_current_fingerprint_ref,
         "developer_work_amend_expected_fingerprint_ref",
     )
+    validate_task_ref(
+        expected_current_task_revision_ref,
+        "developer_work_amend_expected_task_revision_ref",
+    )
     validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
     scope_ref = _hash_ref(
         "developer-work-amendment-scope-ref",
         {
             "task_ref": draft.task_ref,
             "expected_current_fingerprint_ref": expected_current_fingerprint_ref,
+            "expected_current_task_revision_ref": (expected_current_task_revision_ref),
             "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
             "replacement_contract": draft.model_dump(mode="json"),
             "idempotency_ref": idempotency_ref,
@@ -169,9 +175,16 @@ def build_developer_work_task_amendment_approval_request(
             scope_ref,
             draft.task_ref,
             expected_current_fingerprint_ref,
+            expected_current_task_revision_ref,
             draft.canonical_source_fingerprint_ref,
         ],
     )
+
+
+def developer_work_task_revision_ref(task: "DeveloperWorkTask") -> str:
+    """Fingerprint the exact durable task state used by an amendment preview."""
+
+    return _hash_ref("developer-work-task-revision-ref", task.model_dump(mode="json"))
 
 
 def developer_coordinator_state_dir() -> Path:
@@ -637,6 +650,12 @@ class DeveloperWorkQueueReceipt(BaseModel):
         populated_proof_values = [
             value for value in proof_values.values() if value is not None
         ]
+        if self.event_kind == "task_amended" and len(populated_proof_values) != len(
+            proof_values
+        ):
+            raise ValueError(
+                "developer work amendment receipt approval proof is required"
+            )
         if populated_proof_values and len(populated_proof_values) != len(proof_values):
             raise ValueError("developer work receipt approval proof is incomplete")
         if populated_proof_values:
@@ -1044,6 +1063,7 @@ class DeveloperWorkCoordinator:
         draft: DeveloperWorkTaskDraft,
         *,
         expected_current_fingerprint_ref: str,
+        expected_current_task_revision_ref: str,
         idempotency_ref: str,
         approval_authority: LocalApprovalAuthority,
         approval_ref: str,
@@ -1055,11 +1075,16 @@ class DeveloperWorkCoordinator:
             expected_current_fingerprint_ref,
             "developer_work_amend_expected_fingerprint_ref",
         )
+        validate_task_ref(
+            expected_current_task_revision_ref,
+            "developer_work_amend_expected_task_revision_ref",
+        )
         validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
         validate_task_ref(approval_ref, "developer_work_amend_approval_ref")
         approval_request = build_developer_work_task_amendment_approval_request(
             draft,
             expected_current_fingerprint_ref=expected_current_fingerprint_ref,
+            expected_current_task_revision_ref=expected_current_task_revision_ref,
             idempotency_ref=idempotency_ref,
             actor_context=actor_context,
         )
@@ -1071,6 +1096,9 @@ class DeveloperWorkCoordinator:
                     "event_kind": "task_amended",
                     "expected_current_fingerprint_ref": (
                         expected_current_fingerprint_ref
+                    ),
+                    "expected_current_task_revision_ref": (
+                        expected_current_task_revision_ref
                     ),
                     "approval_ref": approval_ref,
                     "approval_scope_ref": approval_scope_ref,
@@ -1097,6 +1125,13 @@ class DeveloperWorkCoordinator:
                         "DEVELOPER_WORK_TASK_AMENDMENT_APPROVAL_INVALID"
                     )
                 task = self._find_task(snapshot, draft.task_ref)
+                if (
+                    developer_work_task_revision_ref(task)
+                    != expected_current_task_revision_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_REVISION_CONFLICT"
+                    )
                 pristine_queued = (
                     task.state == "queued"
                     and task.claim_generation == 0
@@ -1191,6 +1226,14 @@ class DeveloperWorkCoordinator:
                 )
                 self._commit_mutation(next_snapshot, receipt)
                 return receipt
+
+    def current_task_revision_ref(self, task_ref: str) -> str:
+        """Return a non-mutating revision binding for one exact durable task."""
+
+        validate_task_ref(task_ref, "developer_work_task_revision_task_ref")
+        with self._locked():
+            task = self._find_task(self._load_snapshot(), task_ref)
+            return developer_work_task_revision_ref(task)
 
     def claim_next(
         self,

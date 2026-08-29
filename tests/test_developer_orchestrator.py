@@ -31,7 +31,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
     queue_record_canonical_item_contract_ref,
-    queue_record_task_contract_ref,
+    queue_record_health_contract_refs,
 )
 from uaa_developer_orchestrator.recovery import (  # noqa: E402
     assess_developer_queue_recovery_health,
@@ -500,10 +500,9 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     health = assess_developer_queue_record_health(
         manifest=load_developer_queue_record_manifest(ROOT),
         task_states={task.task_ref: task.state for task in view.tasks},
-        task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task)
-            for task in view.tasks
-        },
+        task_contract_refs=queue_record_health_contract_refs(
+            load_developer_queue_record_manifest(ROOT), view.tasks
+        ),
     )
     assert health.queue_starvation_detected is False
     assert health.admitted_item_count == 37
@@ -526,8 +525,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             ),
         )
     legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
-        (ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json")
-        .read_text(encoding="utf-8")
+        (
+            ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json"
+        ).read_text(encoding="utf-8")
     )
     _inject_legacy_queue_task(coordinator, legacy_q31)
 
@@ -535,10 +535,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     pre_amendment_health = assess_developer_queue_record_health(
         manifest=load_developer_queue_record_manifest(ROOT),
         task_states={task.task_ref: task.state for task in pre_amendment_view.tasks},
-        task_contract_refs={
-            task.task_ref: queue_record_task_contract_ref(task)
-            for task in pre_amendment_view.tasks
-        },
+        task_contract_refs=queue_record_health_contract_refs(
+            load_developer_queue_record_manifest(ROOT), pre_amendment_view.tasks
+        ),
     )
     assert pre_amendment_health.record_drift_detected is True
     assert pre_amendment_health.stale_contract_task_refs == [legacy_q31.task_ref]
@@ -553,12 +552,16 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         actor_id="local_test_operator",
         authority_source="explicit_user_request",
     )
+    amendment_task_revision_ref = coordinator.current_task_revision_ref(
+        legacy_q31.task_ref
+    )
     amendment_scope_ref = (
         coordinator_module.build_developer_work_task_amendment_approval_request(
             q31_replacement,
             expected_current_fingerprint_ref=(
                 legacy_q31.canonical_source_fingerprint_ref
             ),
+            expected_current_task_revision_ref=amendment_task_revision_ref,
             idempotency_ref=amendment_idempotency_ref,
             actor_context=amendment_actor,
         ).resource_refs[0]
@@ -580,6 +583,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert preview.func(preview) == 0
     preview_payload = json.loads(capsys.readouterr().out)
     assert preview_payload["approval_scope_ref"] == amendment_scope_ref
+    assert preview_payload["current_task_revision_ref"] == amendment_task_revision_ref
     assert preview_payload["queue_mutation_performed"] is False
     assert coordinator.inspect().revision == revision_before_preview
     amendment = parser.parse_args(
@@ -591,6 +595,8 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             "Q31",
             "--expected-current-fingerprint-ref",
             legacy_q31.canonical_source_fingerprint_ref,
+            "--expected-current-task-revision-ref",
+            amendment_task_revision_ref,
             "--idempotency-ref",
             amendment_idempotency_ref,
             "--confirm-amendment",
@@ -605,7 +611,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert amendment_payload["replayed"] is False
     assert amendment_payload["queue_of_record_health"]["record_drift_detected"] is False
     amended_q31 = next(
-        task for task in coordinator.inspect().tasks if task.task_ref == legacy_q31.task_ref
+        task
+        for task in coordinator.inspect().tasks
+        if task.task_ref == legacy_q31.task_ref
     )
     assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
         amended_q31.in_scope_refs
@@ -629,6 +637,19 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             {
                 **amendment_receipt,
                 "approval_scope_ref": "developer-work-amendment-scope-ref:sha256:tampered",
+            }
+        )
+    with pytest.raises(
+        ValueError, match="amendment receipt approval proof is required"
+    ):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **amendment_receipt,
+                "approval_ref": None,
+                "approval_scope_ref": None,
+                "approving_actor_ref": None,
+                "prior_fingerprint_ref": None,
+                "approval_proof_ref": None,
             }
         )
 
@@ -669,9 +690,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             q31_replacement.task_ref,
         }:
             task["state"] = "completed"
-            task["completion_evidence_refs"] = [
-                "evidence-ref:dependency-completed"
-            ]
+            task["completion_evidence_refs"] = ["evidence-ref:dependency-completed"]
     coordinator.state_path.write_text(
         json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -682,7 +701,9 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         tmp_path / "unrelated-worktree-without-manifest",
     )
     q32_view = next(
-        task for task in coordinator.inspect().tasks if task.task_ref == drafts[32].task_ref
+        task
+        for task in coordinator.inspect().tasks
+        if task.task_ref == drafts[32].task_ref
     )
     assert q32_view.dependency_ready is True
     assert set(q32_view.dependency_contract_refs) == set(q32_view.depends_on_task_refs)
@@ -749,6 +770,32 @@ def test_queue_v2_item_contract_binds_source_refs_without_global_drift() -> None
     )
 
 
+def test_queue_v2_health_reports_source_only_contract_drift() -> None:
+    manifest = load_developer_queue_record_manifest(ROOT)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    q32_item = manifest.items[32].model_copy(
+        update={
+            "source_refs": [
+                *manifest.items[32].source_refs,
+                "canonical-task-ref:CRM-FUNCTIONAL-SOURCE-DRIFT",
+            ]
+        }
+    )
+    changed_manifest = manifest.model_copy(
+        update={"items": [*manifest.items[:32], q32_item, *manifest.items[33:]]}
+    )
+    q32 = DeveloperWorkTask(**drafts[32].model_dump(mode="json"))
+
+    health = assess_developer_queue_record_health(
+        manifest=changed_manifest,
+        task_states={q32.task_ref: q32.state},
+        task_contract_refs=queue_record_health_contract_refs(changed_manifest, [q32]),
+    )
+
+    assert q32.task_ref in health.stale_contract_task_refs
+    assert health.record_drift_detected is True
+
+
 def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(
     tmp_path: Path,
 ) -> None:
@@ -775,16 +822,22 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
         *,
         expected_current_fingerprint_ref: str,
         idempotency_ref: str,
-    ) -> tuple[object, str, object]:
+        expected_current_task_revision_ref: str | None = None,
+    ) -> tuple[object, str, object, str]:
         actor_context = coordinator_module.ActorContext(
             actor_type="human_user",
             actor_id="local_test_operator",
             authority_source="explicit_user_request",
         )
+        task_revision_ref = (
+            expected_current_task_revision_ref
+            or coordinator.current_task_revision_ref(draft.task_ref)
+        )
         request = (
             coordinator_module.build_developer_work_task_amendment_approval_request(
                 draft,
                 expected_current_fingerprint_ref=expected_current_fingerprint_ref,
+                expected_current_task_revision_ref=task_revision_ref,
                 idempotency_ref=idempotency_ref,
                 actor_context=actor_context,
             )
@@ -800,7 +853,12 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
             approved_by_actor_id=actor_context.actor_id,
             approval_ref=approval_ref,
         )
-        return authority, approval_ref, actor_context
+        return (
+            authority,
+            approval_ref,
+            actor_context,
+            task_revision_ref,
+        )
 
     coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
     original = _draft("dev-task:amend")
@@ -828,6 +886,9 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
             expected_current_fingerprint_ref=(
                 original.canonical_source_fingerprint_ref
             ),
+            expected_current_task_revision_ref=(
+                coordinator.current_task_revision_ref(original.task_ref)
+            ),
             idempotency_ref="idempotency-ref:amend-without-approval",
             approval_authority=coordinator_module.LocalApprovalAuthority(),
             approval_ref="approval-ref:unknown-amendment",
@@ -836,7 +897,12 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
 
     wrong_fingerprint_ref = "planning-fingerprint-ref:sha256:wrong"
     wrong_idempotency_ref = "idempotency-ref:amend-wrong-fingerprint"
-    wrong_authority, wrong_approval_ref, wrong_actor = amendment_approval(
+    (
+        wrong_authority,
+        wrong_approval_ref,
+        wrong_actor,
+        wrong_task_revision_ref,
+    ) = amendment_approval(
         replacement,
         expected_current_fingerprint_ref=wrong_fingerprint_ref,
         idempotency_ref=wrong_idempotency_ref,
@@ -848,6 +914,7 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
         coordinator.amend_queued_task(
             replacement,
             expected_current_fingerprint_ref=wrong_fingerprint_ref,
+            expected_current_task_revision_ref=wrong_task_revision_ref,
             idempotency_ref=wrong_idempotency_ref,
             approval_authority=wrong_authority,
             approval_ref=wrong_approval_ref,
@@ -869,7 +936,12 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
         match="AMENDMENT_STATE_INVALID",
     ):
         claimed_idempotency_ref = "idempotency-ref:amend-claimed"
-        claimed_authority, claimed_approval_ref, claimed_actor = amendment_approval(
+        (
+            claimed_authority,
+            claimed_approval_ref,
+            claimed_actor,
+            claimed_task_revision_ref,
+        ) = amendment_approval(
             replacement,
             expected_current_fingerprint_ref=(
                 original.canonical_source_fingerprint_ref
@@ -881,10 +953,79 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
             expected_current_fingerprint_ref=(
                 original.canonical_source_fingerprint_ref
             ),
+            expected_current_task_revision_ref=claimed_task_revision_ref,
             idempotency_ref=claimed_idempotency_ref,
             approval_authority=claimed_authority,
             approval_ref=claimed_approval_ref,
             actor_context=claimed_actor,
+        )
+
+
+def test_task_amendment_rejects_approval_after_intervening_task_revision(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    original = _draft("dev-task:amend-revision")
+    replacement = original.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:replacement-revision"
+            ),
+            "in_scope_refs": [
+                "scope-ref:amend-revision/owned",
+                "scope-ref:amend-revision/expanded",
+            ],
+        }
+    )
+    coordinator.add_task(original, idempotency_ref="idempotency-ref:add-amend-revision")
+    stale_task_revision_ref = coordinator.current_task_revision_ref(original.task_ref)
+    actor_context = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="local_test_operator",
+        authority_source="explicit_user_request",
+    )
+    idempotency_ref = "idempotency-ref:amend-stale-task-revision"
+    request = coordinator_module.build_developer_work_task_amendment_approval_request(
+        replacement,
+        expected_current_fingerprint_ref=original.canonical_source_fingerprint_ref,
+        expected_current_task_revision_ref=stale_task_revision_ref,
+        idempotency_ref=idempotency_ref,
+        actor_context=actor_context,
+    )
+    authority = coordinator_module.LocalApprovalAuthority()
+    authority.create_request(request)
+    approval_ref = "approval-ref:test-amend-stale-task-revision"
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    coordinator.block(
+        task_ref=original.task_ref,
+        blocker_refs=["blocker-ref:intervening-review"],
+        idempotency_ref="idempotency-ref:block-amend-revision",
+    )
+    coordinator.unblock(
+        task_ref=original.task_ref,
+        expected_blocker_ref="blocker-ref:intervening-review",
+        evidence_ref="evidence-ref:intervening-review-cleared",
+        idempotency_ref="idempotency-ref:unblock-amend-revision",
+    )
+
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="AMENDMENT_REVISION_CONFLICT",
+    ):
+        coordinator.amend_queued_task(
+            replacement,
+            expected_current_fingerprint_ref=(
+                original.canonical_source_fingerprint_ref
+            ),
+            expected_current_task_revision_ref=stale_task_revision_ref,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=actor_context,
         )
 
 

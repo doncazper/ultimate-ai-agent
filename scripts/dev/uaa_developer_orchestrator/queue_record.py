@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Literal, Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -25,9 +25,7 @@ QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF = (
     "developer-risk-ref:queue-v2-superseded-task-present"
 )
 QUEUE_RECORD_ITEM_COUNT = 37
-QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX = (
-    "legacy-source-acceptance-ref:sha256:"
-)
+QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX = "legacy-source-acceptance-ref:sha256:"
 
 
 class DeveloperQueueRecordPolicy(BaseModel):
@@ -182,7 +180,9 @@ class DeveloperQueueRecordStalePullRequest(BaseModel):
         for value in [self.title, self.state, self.disposition]:
             validate_safe_task_text(value, "developer_queue_record_pr_text")
         for value in [self.head_sha, self.base_sha]:
-            if len(value) != 40 or any(character not in "0123456789abcdef" for character in value):
+            if len(value) != 40 or any(
+                character not in "0123456789abcdef" for character in value
+            ):
                 raise ValueError("queue record pull request SHA is invalid")
         return self
 
@@ -241,9 +241,7 @@ class DeveloperQueueRecordManifest(BaseModel):
                 parts = source_ref.split(":")
                 if len(parts) != 5 or parts[3] != "sha256":
                     raise ValueError("queue legacy source acceptance ref is invalid")
-                legacy_fingerprint_ref = (
-                    f"planning-fingerprint-ref:sha256:{parts[2]}"
-                )
+                legacy_fingerprint_ref = f"planning-fingerprint-ref:sha256:{parts[2]}"
                 if source_ref != queue_record_legacy_source_acceptance_ref(
                     item, legacy_fingerprint_ref
                 ):
@@ -307,9 +305,15 @@ class DeveloperQueueRecordHealth(BaseModel):
             validate_task_ref(value, "developer_queue_record_health_ref")
         for value in [self.safe_summary, self.next_safe_action]:
             validate_safe_task_text(value, "developer_queue_record_health_text")
-        if self.queue_starvation_detected and QUEUE_RECORD_STARVATION_RISK_REF not in self.risk_refs:
+        if (
+            self.queue_starvation_detected
+            and QUEUE_RECORD_STARVATION_RISK_REF not in self.risk_refs
+        ):
             raise ValueError("queue starvation risk binding is missing")
-        if self.superseded_task_refs_present and QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF not in self.risk_refs:
+        if (
+            self.superseded_task_refs_present
+            and QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF not in self.risk_refs
+        ):
             raise ValueError("superseded task risk binding is missing")
         return self
 
@@ -377,8 +381,7 @@ def queue_record_legacy_source_acceptance_ref(
         ).encode("utf-8")
     ).hexdigest()[:24]
     return (
-        f"{QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX}{legacy_digest}:"
-        f"sha256:{digest}"
+        f"{QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX}{legacy_digest}:sha256:{digest}"
     )
 
 
@@ -498,29 +501,120 @@ def _manifest_item_contract_ref(
     task_ref_by_item_id: Mapping[str, str],
 ) -> str:
     return _task_contract_ref(
-        _task_contract_payload(
-            task_ref=task_ref_by_item_id[item.item_id],
-            queue_order=item.queue_order,
-            title=f"{item.item_id} {item.title}",
-            safe_summary=item.result_summary,
-            priority=item.priority,
-            concurrency=item.concurrency,
-            wip_lane=item.wip_lane,
-            in_scope_refs=item.scope_refs,
-            out_of_scope_refs=item.guardrail_refs,
-            sol_thinking_level=(
-                "xhigh" if item.concurrency == "exclusive" else "high"
+        {
+            **_task_contract_payload(
+                task_ref=task_ref_by_item_id[item.item_id],
+                queue_order=item.queue_order,
+                title=f"{item.item_id} {item.title}",
+                safe_summary=item.result_summary,
+                priority=item.priority,
+                concurrency=item.concurrency,
+                wip_lane=item.wip_lane,
+                in_scope_refs=item.scope_refs,
+                out_of_scope_refs=item.guardrail_refs,
+                sol_thinking_level=(
+                    "xhigh" if item.concurrency == "exclusive" else "high"
+                ),
+                branch_ref=item.branch_ref,
+                worktree_ref=item.worktree_ref,
+                workstream_ref=item.workstream_ref,
+                depends_on_task_refs=[
+                    task_ref_by_item_id[dependency]
+                    for dependency in item.depends_on_item_ids
+                ],
+                next_safe_action=item.next_safe_action,
             ),
-            branch_ref=item.branch_ref,
-            worktree_ref=item.worktree_ref,
-            workstream_ref=item.workstream_ref,
-            depends_on_task_refs=[
-                task_ref_by_item_id[dependency]
-                for dependency in item.depends_on_item_ids
+            "canonical_task_ref": f"canonical-task-ref:queue-v2/{item.item_id}",
+            "canonical_source_ref": f"repo-ref:developer-queue-v2/{item.item_id}",
+            "canonical_source_refs": item.source_refs,
+            "scope_contract_ref": f"scope-contract-ref:queue-v2/{item.item_id}",
+            "worktree_posture": "isolated_required",
+            "acceptance_refs": [
+                f"acceptance-ref:queue-v2/{item.item_id}/result",
+                f"acceptance-ref:queue-v2/{item.item_id}/scope",
             ],
-            next_safe_action=item.next_safe_action,
+            "verifier_refs": [
+                f"verifier-ref:queue-v2/{item.item_id}/focused",
+                f"verifier-ref:queue-v2/{item.item_id}/redaction",
+            ],
+            "merge_gate_refs": [
+                f"merge-gate-ref:queue-v2/{item.item_id}/independent-review",
+                f"merge-gate-ref:queue-v2/{item.item_id}/exact-head-ci",
+            ],
+        }
+    ).replace("planning-contract-ref:", "planning-item-contract-ref:", 1)
+
+
+def queue_record_health_contract_refs(
+    manifest: DeveloperQueueRecordManifest,
+    tasks: Sequence[
+        DeveloperWorkTask | DeveloperWorkTaskDraft | DeveloperWorkQueueTaskView
+    ],
+) -> dict[str, str]:
+    """Project source-aware contracts while honoring explicit legacy transitions."""
+
+    task_ref_by_item_id = {
+        item.item_id: queue_record_task_ref(item) for item in manifest.items
+    }
+    item_by_task_ref = {
+        task_ref_by_item_id[item.item_id]: item for item in manifest.items
+    }
+    observed: dict[str, str] = {}
+    for task in tasks:
+        item = item_by_task_ref.get(task.task_ref)
+        if item is None:
+            continue
+        if task.canonical_item_contract_ref is not None:
+            computed_ref = queue_record_canonical_item_contract_ref(task)
+            observed[task.task_ref] = (
+                computed_ref
+                if task.canonical_item_contract_ref == computed_ref
+                else _task_contract_ref(
+                    {
+                        "stored_canonical_item_contract_ref": (
+                            task.canonical_item_contract_ref
+                        ),
+                        "computed_canonical_item_contract_ref": computed_ref,
+                    }
+                ).replace("planning-contract-ref:", "planning-item-contract-ref:", 1)
+            )
+            continue
+        legacy_acceptance_ref = queue_record_legacy_source_acceptance_ref(
+            item, task.canonical_source_fingerprint_ref
         )
-    )
+        legacy_task_current = queue_record_task_contract_ref(
+            task
+        ) == _task_contract_ref(
+            _task_contract_payload(
+                task_ref=task_ref_by_item_id[item.item_id],
+                queue_order=item.queue_order,
+                title=f"{item.item_id} {item.title}",
+                safe_summary=item.result_summary,
+                priority=item.priority,
+                concurrency=item.concurrency,
+                wip_lane=item.wip_lane,
+                in_scope_refs=item.scope_refs,
+                out_of_scope_refs=item.guardrail_refs,
+                sol_thinking_level=(
+                    "xhigh" if item.concurrency == "exclusive" else "high"
+                ),
+                branch_ref=item.branch_ref,
+                worktree_ref=item.worktree_ref,
+                workstream_ref=item.workstream_ref,
+                depends_on_task_refs=[
+                    task_ref_by_item_id[dependency]
+                    for dependency in item.depends_on_item_ids
+                ],
+                next_safe_action=item.next_safe_action,
+            )
+        )
+        if legacy_task_current and legacy_acceptance_ref in item.source_refs:
+            observed[task.task_ref] = _manifest_item_contract_ref(
+                item, task_ref_by_item_id=task_ref_by_item_id
+            )
+        else:
+            observed[task.task_ref] = queue_record_canonical_item_contract_ref(task)
+    return observed
 
 
 def build_developer_queue_record_drafts(
@@ -552,9 +646,7 @@ def build_developer_queue_record_drafts(
             scope_contract_ref=f"scope-contract-ref:queue-v2/{item.item_id}",
             in_scope_refs=item.scope_refs,
             out_of_scope_refs=item.guardrail_refs,
-            sol_thinking_level=(
-                "xhigh" if item.concurrency == "exclusive" else "high"
-            ),
+            sol_thinking_level=("xhigh" if item.concurrency == "exclusive" else "high"),
             branch_ref=item.branch_ref,
             worktree_ref=item.worktree_ref,
             workstream_ref=item.workstream_ref,
@@ -626,11 +718,7 @@ def assess_developer_queue_record_health(
     starvation = admission_gap and nonterminal_count == 0
     risk_refs = [
         *([QUEUE_RECORD_STARVATION_RISK_REF] if starvation else []),
-        *(
-            [QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF]
-            if superseded_refs
-            else []
-        ),
+        *([QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF] if superseded_refs else []),
     ]
     if starvation:
         summary = (

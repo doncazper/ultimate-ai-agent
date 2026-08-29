@@ -139,8 +139,10 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment --pretty
 ```
 
-Review and copy the preview's exact `approval_scope_ref`, then pass it without
-editing it:
+Review and copy the preview's exact `approval_scope_ref` and
+`current_task_revision_ref`, then pass both without editing them. The revision
+binding makes the approval stale after any intervening task transition, even if
+the task later returns to queued state:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
@@ -148,6 +150,7 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   amend-queue-v2-item \
   --item-id Q31 \
   --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
+  --expected-current-task-revision-ref developer-work-task-revision-ref:sha256:copy-exact-preview-value \
   --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment \
   --confirm-amendment amend-queue-v2-item \
   --approve-exact-scope developer-work-amendment-scope-ref:sha256:copy-exact-preview-value \
