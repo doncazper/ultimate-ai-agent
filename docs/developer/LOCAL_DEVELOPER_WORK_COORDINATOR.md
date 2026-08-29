@@ -112,7 +112,8 @@ never-claimed queued record, requires both that exact scope and the exact prior
 canonical-source fingerprint, preserves the task's identity and worktree
 bindings, and emits a durable amendment receipt containing safe approval,
 scope, approving-actor, and prior-fingerprint refs bound by an authorization
-proof fingerprint. It fails closed for
+proof fingerprint. The proof also persists and binds the exact pre-amendment
+task-revision ref so it remains independently auditable after replacement. It fails closed for
 claimed, previously claimed, blocked, review, or terminal tasks. Queue health
 reports semantic contract drift separately from missing admission so an
 appended wave cannot conceal an obsolete predecessor scope.
@@ -123,6 +124,22 @@ is accepted only when its exact historical fingerprint has a reviewed
 `legacy-source-acceptance-ref` bound to that item's current source set in the
 manifest. Editing those sources without refreshing the explicit transition ref
 fails manifest validation; unrelated item edits do not invalidate the binding.
+
+Canonical claims also require a durable source-aware contract reconciliation
+bound to the exact task revisions reviewed. Admission and queued amendment
+commands refresh that reconciliation after their own mutations. Any stale,
+incomplete, or source-drifted reconciliation durably clears claim readiness;
+the coordinator never resolves this gate from an ambient worktree manifest.
+After a later task transition, run the explicit reconciliation command before
+the next canonical claim:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  reconcile-queue-v2 \
+  --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation \
+  --confirm-reconciliation reconcile-queue-v2 --pretty
+```
 
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical

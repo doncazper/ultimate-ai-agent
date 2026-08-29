@@ -78,6 +78,8 @@ DeveloperWorkEventKind = Literal[
     "node_heartbeat",
     "task_added",
     "task_amended",
+    "queue_contracts_reconciled",
+    "queue_contracts_invalidated",
     "task_claimed",
     "task_heartbeat",
     "task_released",
@@ -515,13 +517,31 @@ class DeveloperWorkQueueSnapshot(BaseModel):
     revision: int = Field(default=0, ge=0)
     nodes: list[DeveloperWorkNode] = Field(default_factory=list)
     tasks: list[DeveloperWorkTask] = Field(default_factory=list)
+    canonical_queue_contract_refs: dict[str, str] = Field(default_factory=dict)
+    canonical_queue_task_revision_refs: dict[str, str] = Field(default_factory=dict)
+    canonical_queue_legacy_transition_refs: dict[str, str] = Field(default_factory=dict)
+    canonical_queue_reconciliation_ref: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def validate_snapshot(self) -> "DeveloperWorkQueueSnapshot":
         _validate_refs(
-            [self.contract_ref, self.coordinator_ref],
+            [
+                self.contract_ref,
+                self.coordinator_ref,
+                *self.canonical_queue_contract_refs.keys(),
+                *self.canonical_queue_contract_refs.values(),
+                *self.canonical_queue_task_revision_refs.keys(),
+                *self.canonical_queue_task_revision_refs.values(),
+                *self.canonical_queue_legacy_transition_refs.keys(),
+                *self.canonical_queue_legacy_transition_refs.values(),
+                *(
+                    [self.canonical_queue_reconciliation_ref]
+                    if self.canonical_queue_reconciliation_ref is not None
+                    else []
+                ),
+            ],
             "developer_work_snapshot_ref",
         )
         task_refs = [task.task_ref for task in self.tasks]
@@ -531,6 +551,26 @@ class DeveloperWorkQueueSnapshot(BaseModel):
         if len(node_refs) != len(set(node_refs)):
             raise ValueError("developer work queue node refs must be unique")
         known = set(task_refs)
+        reconciliation_key_sets = {
+            frozenset(self.canonical_queue_contract_refs),
+            frozenset(self.canonical_queue_task_revision_refs),
+        }
+        if len(reconciliation_key_sets) != 1:
+            raise ValueError("developer queue reconciliation key sets differ")
+        if not set(self.canonical_queue_legacy_transition_refs).issubset(
+            set(self.canonical_queue_contract_refs)
+        ):
+            raise ValueError("developer queue legacy reconciliation ref is orphaned")
+        if not set(self.canonical_queue_contract_refs).issubset(known):
+            raise ValueError("developer queue reconciliation task is missing")
+        if self.canonical_queue_contract_refs and (
+            self.canonical_queue_reconciliation_ref is None
+        ):
+            raise ValueError("developer queue reconciliation ref is missing")
+        if self.canonical_queue_reconciliation_ref is not None and not (
+            self.canonical_queue_contract_refs
+        ):
+            raise ValueError("developer queue reconciliation ref is orphaned")
         for task in self.tasks:
             if not set(task.depends_on_task_refs).issubset(known):
                 raise ValueError("developer work task dependency missing")
@@ -589,6 +629,7 @@ class DeveloperWorkQueueReceipt(BaseModel):
     approval_scope_ref: str | None = None
     approving_actor_ref: str | None = None
     prior_fingerprint_ref: str | None = None
+    prior_task_revision_ref: str | None = None
     approval_proof_ref: str | None = None
 
     model_config = ConfigDict(extra="forbid")
@@ -620,6 +661,11 @@ class DeveloperWorkQueueReceipt(BaseModel):
                     else []
                 ),
                 *(
+                    [self.prior_task_revision_ref]
+                    if self.prior_task_revision_ref is not None
+                    else []
+                ),
+                *(
                     [self.approval_proof_ref]
                     if self.approval_proof_ref is not None
                     else []
@@ -646,6 +692,7 @@ class DeveloperWorkQueueReceipt(BaseModel):
             "approval_scope_ref": self.approval_scope_ref,
             "approving_actor_ref": self.approving_actor_ref,
             "prior_fingerprint_ref": self.prior_fingerprint_ref,
+            "prior_task_revision_ref": self.prior_task_revision_ref,
         }
         populated_proof_values = [
             value for value in proof_values.values() if value is not None
@@ -739,6 +786,8 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
     revision: int = Field(..., ge=0)
     nodes: list[DeveloperWorkNode] = Field(default_factory=list)
     tasks: list[DeveloperWorkQueueTaskView] = Field(default_factory=list)
+    canonical_queue_reconciliation_ref: str | None = None
+    canonical_queue_reconciled_task_refs: list[str] = Field(default_factory=list)
     next_task_by_node_ref: dict[str, str | None] = Field(default_factory=dict)
     global_exclusive_wip_limit: Literal[1] = (
         DEVELOPER_COORDINATOR_GLOBAL_EXCLUSIVE_WIP_LIMIT
@@ -777,6 +826,12 @@ class DeveloperWorkCoordinatorReadModel(BaseModel):
                     else []
                 ),
                 *self.archive_ready_task_refs,
+                *(
+                    [self.canonical_queue_reconciliation_ref]
+                    if self.canonical_queue_reconciliation_ref is not None
+                    else []
+                ),
+                *self.canonical_queue_reconciled_task_refs,
                 *(
                     task_ref
                     for task_ref in self.active_task_by_wip_lane.values()
@@ -1217,6 +1272,7 @@ class DeveloperWorkCoordinator:
                         "actor-ref", approval_grant.approved_by_actor_id
                     ),
                     prior_fingerprint_ref=expected_current_fingerprint_ref,
+                    prior_task_revision_ref=expected_current_task_revision_ref,
                 )
                 replacement = replacement.model_copy(
                     update={"latest_receipt_ref": receipt.receipt_ref}
@@ -1234,6 +1290,123 @@ class DeveloperWorkCoordinator:
         with self._locked():
             task = self._find_task(self._load_snapshot(), task_ref)
             return developer_work_task_revision_ref(task)
+
+    def reconcile_canonical_queue_contracts(
+        self,
+        *,
+        canonical_contract_refs: dict[str, str],
+        task_revision_refs: dict[str, str],
+        legacy_transition_refs: dict[str, str],
+        idempotency_ref: str,
+    ) -> DeveloperWorkQueueReceipt:
+        """Bind claim readiness to one explicit durable Queue V2 reconciliation."""
+
+        validate_task_ref(idempotency_ref, "developer_queue_reconcile_idempotency_ref")
+        _validate_refs(
+            [
+                *canonical_contract_refs.keys(),
+                *canonical_contract_refs.values(),
+                *task_revision_refs.keys(),
+                *task_revision_refs.values(),
+                *legacy_transition_refs.keys(),
+                *legacy_transition_refs.values(),
+            ],
+            "developer_queue_reconcile_ref",
+        )
+        with self._locked():
+            snapshot = self._load_snapshot()
+            payload = {
+                "event_kind": "queue_contracts_reconciled",
+                "canonical_contract_refs": canonical_contract_refs,
+                "task_revision_refs": task_revision_refs,
+                "legacy_transition_refs": legacy_transition_refs,
+            }
+            replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
+            if replay is not None:
+                return replay
+            canonical_tasks = {
+                task.task_ref: task
+                for task in snapshot.tasks
+                if self._is_canonical_queue_task(task)
+            }
+            exact_keys = (
+                set(canonical_contract_refs)
+                == set(task_revision_refs)
+                == set(canonical_tasks)
+            )
+            legacy_keys_valid = set(legacy_transition_refs).issubset(
+                set(canonical_tasks)
+            )
+            revisions_current = exact_keys and all(
+                task_revision_refs[task_ref] == developer_work_task_revision_ref(task)
+                for task_ref, task in canonical_tasks.items()
+            )
+            contracts_current = exact_keys and all(
+                (
+                    canonical_contract_refs[task_ref]
+                    == self._durable_task_contract_ref(task)
+                    if task.canonical_item_contract_ref is not None
+                    else task_ref in legacy_transition_refs
+                    and legacy_transition_refs[task_ref].startswith(
+                        "legacy-source-acceptance-ref:sha256:"
+                        f"{task.canonical_source_fingerprint_ref.rsplit(':', maxsplit=1)[-1]}:"
+                    )
+                )
+                for task_ref, task in canonical_tasks.items()
+            )
+            reconciled = (
+                bool(canonical_tasks)
+                and exact_keys
+                and legacy_keys_valid
+                and revisions_current
+                and contracts_current
+            )
+            reconciliation_ref = (
+                _hash_ref(
+                    "developer-queue-reconciliation-ref",
+                    {
+                        "canonical_contract_refs": canonical_contract_refs,
+                        "task_revision_refs": task_revision_refs,
+                        "legacy_transition_refs": legacy_transition_refs,
+                    },
+                )
+                if reconciled
+                else None
+            )
+            next_snapshot = snapshot.model_copy(
+                update={
+                    "revision": snapshot.revision + 1,
+                    "canonical_queue_contract_refs": (
+                        canonical_contract_refs if reconciled else {}
+                    ),
+                    "canonical_queue_task_revision_refs": (
+                        task_revision_refs if reconciled else {}
+                    ),
+                    "canonical_queue_legacy_transition_refs": (
+                        legacy_transition_refs if reconciled else {}
+                    ),
+                    "canonical_queue_reconciliation_ref": reconciliation_ref,
+                }
+            )
+            receipt = self._receipt(
+                event_kind=(
+                    "queue_contracts_reconciled"
+                    if reconciled
+                    else "queue_contracts_invalidated"
+                ),
+                idempotency_ref=idempotency_ref,
+                payload=payload,
+                revision=next_snapshot.revision,
+                safe_summary=(
+                    "Canonical Queue V2 contracts and exact task revisions were "
+                    "durably reconciled for claim readiness."
+                    if reconciled
+                    else "Canonical Queue V2 claim readiness was invalidated because "
+                    "the submitted reconciliation was stale or incomplete."
+                ),
+            )
+            self._commit_mutation(next_snapshot, receipt)
+            return receipt
 
     def claim_next(
         self,
@@ -1680,6 +1853,12 @@ class DeveloperWorkCoordinator:
         )
         return DeveloperWorkCoordinatorReadModel(
             revision=snapshot.revision,
+            canonical_queue_reconciliation_ref=(
+                snapshot.canonical_queue_reconciliation_ref
+            ),
+            canonical_queue_reconciled_task_refs=sorted(
+                snapshot.canonical_queue_contract_refs
+            ),
             nodes=sorted(snapshot.nodes, key=lambda node: node.node_ref),
             tasks=[
                 DeveloperWorkQueueTaskView(
@@ -2151,6 +2330,13 @@ class DeveloperWorkCoordinator:
             by_ref[ref].state == "completed" for ref in task.depends_on_task_refs
         ):
             return False
+        if not cls._canonical_queue_reconciliation_current(snapshot, task):
+            return False
+        if not all(
+            cls._canonical_queue_reconciliation_current(snapshot, by_ref[ref])
+            for ref in task.depends_on_task_refs
+        ):
+            return False
         try:
             cls._durable_task_contract_ref(task)
         except (DeveloperWorkQueueConflictError, OSError, TypeError, ValueError):
@@ -2167,6 +2353,39 @@ class DeveloperWorkCoordinator:
             )
         except (DeveloperWorkQueueConflictError, OSError, TypeError, ValueError):
             return False
+
+    @classmethod
+    def _canonical_queue_reconciliation_current(
+        cls,
+        snapshot: DeveloperWorkQueueSnapshot,
+        task: DeveloperWorkTask,
+    ) -> bool:
+        if not cls._is_canonical_queue_task(task):
+            return True
+        if snapshot.canonical_queue_reconciliation_ref is None:
+            return False
+        canonical_task_refs = {
+            candidate.task_ref
+            for candidate in snapshot.tasks
+            if cls._is_canonical_queue_task(candidate)
+        }
+        if set(snapshot.canonical_queue_contract_refs) != canonical_task_refs:
+            return False
+        if snapshot.canonical_queue_task_revision_refs.get(
+            task.task_ref
+        ) != developer_work_task_revision_ref(task):
+            return False
+        reconciled_contract_ref = snapshot.canonical_queue_contract_refs.get(
+            task.task_ref
+        )
+        if reconciled_contract_ref is None:
+            return False
+        if task.canonical_item_contract_ref is not None:
+            try:
+                return reconciled_contract_ref == cls._durable_task_contract_ref(task)
+            except (DeveloperWorkQueueConflictError, TypeError, ValueError):
+                return False
+        return task.task_ref in snapshot.canonical_queue_legacy_transition_refs
 
     @staticmethod
     def _archive_ready(task: DeveloperWorkTask) -> bool:
@@ -2240,6 +2459,7 @@ class DeveloperWorkCoordinator:
         approval_scope_ref: str | None = None,
         approving_actor_ref: str | None = None,
         prior_fingerprint_ref: str | None = None,
+        prior_task_revision_ref: str | None = None,
     ) -> DeveloperWorkQueueReceipt:
         payload_fingerprint_ref = _hash_ref("developer-work-payload-ref", payload)
         approval_proof = {
@@ -2247,6 +2467,7 @@ class DeveloperWorkCoordinator:
             "approval_scope_ref": approval_scope_ref,
             "approving_actor_ref": approving_actor_ref,
             "prior_fingerprint_ref": prior_fingerprint_ref,
+            "prior_task_revision_ref": prior_task_revision_ref,
         }
         approval_proof_ref = (
             _hash_ref("developer-work-approval-proof-ref", approval_proof)
@@ -2275,6 +2496,7 @@ class DeveloperWorkCoordinator:
             approval_scope_ref=approval_scope_ref,
             approving_actor_ref=approving_actor_ref,
             prior_fingerprint_ref=prior_fingerprint_ref,
+            prior_task_revision_ref=prior_task_revision_ref,
             approval_proof_ref=approval_proof_ref,
         )
 

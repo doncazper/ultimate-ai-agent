@@ -617,6 +617,22 @@ def queue_record_health_contract_refs(
     return observed
 
 
+def queue_record_manifest_contract_refs(
+    manifest: DeveloperQueueRecordManifest,
+) -> dict[str, str]:
+    """Return the current source-aware contract for every manifest item."""
+
+    task_ref_by_item_id = {
+        item.item_id: queue_record_task_ref(item) for item in manifest.items
+    }
+    return {
+        task_ref_by_item_id[item.item_id]: _manifest_item_contract_ref(
+            item, task_ref_by_item_id=task_ref_by_item_id
+        )
+        for item in manifest.items
+    }
+
+
 def build_developer_queue_record_drafts(
     root: Path | None = None,
 ) -> list[DeveloperWorkTaskDraft]:

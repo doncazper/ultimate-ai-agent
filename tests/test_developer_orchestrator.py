@@ -32,6 +32,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     load_developer_queue_record_manifest,
     queue_record_canonical_item_contract_ref,
     queue_record_health_contract_refs,
+    queue_record_manifest_contract_refs,
 )
 from uaa_developer_orchestrator.recovery import (  # noqa: E402
     assess_developer_queue_recovery_health,
@@ -488,11 +489,13 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     assert admitted.func(admitted) == 0
     first_payload = json.loads(capsys.readouterr().out)
     assert first_payload["replayed_receipt_count"] == 0
+    assert first_payload["reconciliation_replayed"] is False
     assert first_payload["queue_of_record_health"]["admission_gap_detected"] is False
 
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 37
+    assert replay_payload["reconciliation_replayed"] is True
     view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
     assert len(view.tasks) == 37
     assert [task.queue_order for task in view.tasks] == list(range(37))
@@ -618,8 +621,13 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
         amended_q31.in_scope_refs
     )
-    amendment_receipt = json.loads(
-        coordinator.receipts_path.read_text(encoding="utf-8").splitlines()[-1]
+    amendment_receipt = next(
+        receipt
+        for receipt in map(
+            json.loads,
+            coordinator.receipts_path.read_text(encoding="utf-8").splitlines(),
+        )
+        if receipt["event_kind"] == "task_amended"
     )
     assert amendment_receipt["approval_scope_ref"] == amendment_scope_ref
     assert amendment_receipt["approval_ref"].startswith(
@@ -629,6 +637,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert amendment_receipt["prior_fingerprint_ref"] == (
         legacy_q31.canonical_source_fingerprint_ref
     )
+    assert amendment_receipt["prior_task_revision_ref"] == amendment_task_revision_ref
     assert amendment_receipt["approval_proof_ref"].startswith(
         "developer-work-approval-proof-ref:sha256:"
     )
@@ -637,6 +646,15 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             {
                 **amendment_receipt,
                 "approval_scope_ref": "developer-work-amendment-scope-ref:sha256:tampered",
+            }
+        )
+    with pytest.raises(ValueError, match="approval proof is not bound"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **amendment_receipt,
+                "prior_task_revision_ref": (
+                    "developer-work-task-revision-ref:sha256:tampered"
+                ),
             }
         )
     with pytest.raises(
@@ -649,6 +667,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
                 "approval_scope_ref": None,
                 "approving_actor_ref": None,
                 "prior_fingerprint_ref": None,
+                "prior_task_revision_ref": None,
                 "approval_proof_ref": None,
             }
         )
@@ -674,6 +693,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     payload = json.loads(capsys.readouterr().out)
     assert payload["selected_item_ids"] == ["Q32", "Q33", "Q34", "Q35", "Q36"]
     assert payload["replayed_receipt_count"] == 0
+    assert payload["reconciliation_replayed"] is False
     assert payload["queue_of_record_health"]["admission_gap_detected"] is False
     view = coordinator.inspect()
     assert len(view.tasks) == 37
@@ -682,6 +702,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert selected.func(selected) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 5
+    assert replay_payload["reconciliation_replayed"] is True
 
     snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
     for task in snapshot["tasks"]:
@@ -694,6 +715,22 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     coordinator.state_path.write_text(
         json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    reconcile = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "reconcile-queue-v2",
+            "--idempotency-ref",
+            "idempotency-ref:queue-v2-after-dependency-completion",
+            "--confirm-reconciliation",
+            "reconcile-queue-v2",
+        ]
+    )
+    assert reconcile.func(reconcile) == 0
+    reconciliation_payload = json.loads(capsys.readouterr().out)
+    assert reconciliation_payload["canonical_queue_reconciliation_ref"].startswith(
+        "developer-queue-reconciliation-ref:sha256:"
     )
     monkeypatch.setattr(
         coordinator_module,
@@ -794,6 +831,67 @@ def test_queue_v2_health_reports_source_only_contract_drift() -> None:
 
     assert q32.task_ref in health.stale_contract_task_refs
     assert health.record_drift_detected is True
+
+
+def test_queue_v2_claims_require_current_durable_contract_reconciliation(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    manifest = load_developer_queue_record_manifest(ROOT)
+    q00 = build_developer_queue_record_drafts(ROOT)[0]
+    coordinator.add_task(q00, idempotency_ref="idempotency-ref:add-q00-reconcile")
+    _register_node(
+        coordinator,
+        "node-ref:queue-reconcile",
+        idempotency_ref="idempotency-ref:register-queue-reconcile",
+    )
+    assert coordinator.inspect().tasks[0].dependency_ready is False
+
+    task_revision_ref = coordinator.current_task_revision_ref(q00.task_ref)
+    reconciliation = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs={
+            q00.task_ref: queue_record_manifest_contract_refs(manifest)[q00.task_ref]
+        },
+        task_revision_refs={q00.task_ref: task_revision_ref},
+        legacy_transition_refs={},
+        idempotency_ref="idempotency-ref:reconcile-q00-current",
+    )
+    assert reconciliation.event_kind == "queue_contracts_reconciled"
+    assert coordinator.inspect().tasks[0].dependency_ready is True
+
+    changed_q00_item = manifest.items[0].model_copy(
+        update={
+            "source_refs": [
+                *manifest.items[0].source_refs,
+                "canonical-task-ref:Q00-SOURCE-ONLY-DRIFT",
+            ]
+        }
+    )
+    changed_manifest = manifest.model_copy(
+        update={"items": [changed_q00_item, *manifest.items[1:]]}
+    )
+    invalidation = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs={
+            q00.task_ref: queue_record_manifest_contract_refs(changed_manifest)[
+                q00.task_ref
+            ]
+        },
+        task_revision_refs={q00.task_ref: task_revision_ref},
+        legacy_transition_refs={},
+        idempotency_ref="idempotency-ref:reconcile-q00-source-drift",
+    )
+    assert invalidation.event_kind == "queue_contracts_invalidated"
+    assert coordinator.inspect().canonical_queue_reconciliation_ref is None
+    assert coordinator.inspect().tasks[0].dependency_ready is False
+    with pytest.raises(
+        DeveloperWorkQueueClaimError,
+        match="DEPENDENCIES_INCOMPLETE",
+    ):
+        coordinator.claim_task(
+            task_ref=q00.task_ref,
+            node_ref="node-ref:queue-reconcile",
+            idempotency_ref="idempotency-ref:claim-q00-after-source-drift",
+        )
 
 
 def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(

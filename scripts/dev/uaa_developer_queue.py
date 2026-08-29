@@ -26,10 +26,14 @@ from uaa_developer_orchestrator.planning import (  # noqa: E402
     find_planning_candidate,
 )
 from uaa_developer_orchestrator.queue_record import (  # noqa: E402
+    DeveloperQueueRecordManifest,
     assess_developer_queue_record_health,
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
     queue_record_health_contract_refs,
+    queue_record_legacy_source_acceptance_ref,
+    queue_record_manifest_contract_refs,
+    queue_record_task_ref,
 )
 from uaa_developer_orchestrator.scout import (  # noqa: E402
     DeveloperWorkspaceScout,
@@ -164,6 +168,79 @@ def recover_remaining_queue(args: argparse.Namespace) -> int:
     raise ValueError("DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2")
 
 
+def _reconcile_current_queue_v2(
+    coordinator: DeveloperWorkCoordinator,
+    manifest: DeveloperQueueRecordManifest,
+    *,
+    idempotency_ref: str,
+) -> object:
+    queue = coordinator.inspect()
+    admitted_task_refs = {task.task_ref for task in queue.tasks}
+    contract_refs = {
+        task_ref: contract_ref
+        for task_ref, contract_ref in queue_record_manifest_contract_refs(
+            manifest
+        ).items()
+        if task_ref in admitted_task_refs
+    }
+    task_revision_refs = {
+        task_ref: coordinator.current_task_revision_ref(task_ref)
+        for task_ref in contract_refs
+    }
+    item_by_task_ref = {queue_record_task_ref(item): item for item in manifest.items}
+    legacy_transition_refs: dict[str, str] = {}
+    for task in queue.tasks:
+        if task.task_ref not in contract_refs or task.canonical_item_contract_ref:
+            continue
+        item = item_by_task_ref[task.task_ref]
+        transition_ref = queue_record_legacy_source_acceptance_ref(
+            item, task.canonical_source_fingerprint_ref
+        )
+        if transition_ref in item.source_refs:
+            legacy_transition_refs[task.task_ref] = transition_ref
+    receipt = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs=contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs=legacy_transition_refs,
+        idempotency_ref=idempotency_ref,
+    )
+    if receipt.event_kind != "queue_contracts_reconciled":
+        raise DeveloperWorkQueueError(
+            "DEVELOPER_QUEUE_V2_CONTRACT_RECONCILIATION_REQUIRED"
+        )
+    return receipt
+
+
+def reconcile_queue_v2(args: argparse.Namespace) -> int:
+    if args.confirm_reconciliation != "reconcile-queue-v2":
+        raise ValueError("DEVELOPER_QUEUE_V2_RECONCILIATION_CONFIRMATION_REQUIRED")
+    coordinator = _coordinator(args)
+    manifest = load_developer_queue_record_manifest(ROOT)
+    receipt = _reconcile_current_queue_v2(
+        coordinator,
+        manifest,
+        idempotency_ref=args.idempotency_ref,
+    )
+    queue = coordinator.inspect()
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_reconciliation_receipt.v1",
+            "receipt_ref": receipt.receipt_ref,
+            "replayed": receipt.replayed,
+            "canonical_queue_reconciliation_ref": (
+                queue.canonical_queue_reconciliation_ref
+            ),
+            "reconciled_task_refs": queue.canonical_queue_reconciled_task_refs,
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
 def admit_queue_v2(args: argparse.Namespace) -> int:
     if args.confirm_admission != "admit-queue-v2":
         raise ValueError("DEVELOPER_QUEUE_V2_ADMISSION_CONFIRMATION_REQUIRED")
@@ -197,6 +274,11 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
                 ),
             )
         )
+    reconciliation_receipt = _reconcile_current_queue_v2(
+        coordinator,
+        manifest,
+        idempotency_ref=f"{args.idempotency_prefix}:contract-reconciliation",
+    )
     queue = coordinator.inspect()
     health = assess_developer_queue_record_health(
         manifest=manifest,
@@ -209,6 +291,8 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
             "selected_item_ids": selected_item_ids,
             "receipt_refs": [receipt.receipt_ref for receipt in receipts],
             "replayed_receipt_count": sum(receipt.replayed for receipt in receipts),
+            "reconciliation_receipt_ref": reconciliation_receipt.receipt_ref,
+            "reconciliation_replayed": reconciliation_receipt.replayed,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -321,6 +405,11 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
         approval_ref=approval_ref,
         actor_context=actor_context,
     )
+    reconciliation_receipt = _reconcile_current_queue_v2(
+        coordinator,
+        manifest,
+        idempotency_ref=f"{args.idempotency_ref}:contract-reconciliation",
+    )
     queue = coordinator.inspect()
     health = assess_developer_queue_record_health(
         manifest=manifest,
@@ -334,6 +423,8 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
             "receipt_ref": receipt.receipt_ref,
             "replayed": receipt.replayed,
             "approval_scope_ref": exact_scope_ref,
+            "reconciliation_receipt_ref": reconciliation_receipt.receipt_ref,
+            "reconciliation_replayed": reconciliation_receipt.replayed,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -569,6 +660,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     queue_v2_command.add_argument("--pretty", action="store_true")
     queue_v2_command.set_defaults(func=admit_queue_v2)
+
+    reconcile_queue_v2_command = subparsers.add_parser(
+        "reconcile-queue-v2",
+        help=(
+            "Durably reconcile source-aware Queue V2 contracts and exact task "
+            "revisions before canonical claims may resume."
+        ),
+    )
+    reconcile_queue_v2_command.add_argument("--idempotency-ref", required=True)
+    reconcile_queue_v2_command.add_argument("--confirm-reconciliation", required=True)
+    reconcile_queue_v2_command.add_argument("--pretty", action="store_true")
+    reconcile_queue_v2_command.set_defaults(func=reconcile_queue_v2)
 
     amend_queue_v2_command = subparsers.add_parser(
         "amend-queue-v2-item",
