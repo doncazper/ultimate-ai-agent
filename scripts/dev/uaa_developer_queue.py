@@ -223,9 +223,9 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     )
 
 
-def amend_queue_v2_item(args: argparse.Namespace) -> int:
-    if args.confirm_amendment != "amend-queue-v2-item":
-        raise ValueError("DEVELOPER_QUEUE_V2_AMENDMENT_CONFIRMATION_REQUIRED")
+def _queue_v2_amendment_context(
+    args: argparse.Namespace,
+) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str]:
     manifest = load_developer_queue_record_manifest(ROOT)
     drafts = build_developer_queue_record_drafts(ROOT)
     draft_by_item_id = {
@@ -246,6 +246,39 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
         actor_context=actor_context,
     )
     exact_scope_ref = approval_request.resource_refs[0]
+    return manifest, draft, actor_context, approval_request, exact_scope_ref
+
+
+def preview_queue_v2_amendment(args: argparse.Namespace) -> int:
+    _, draft, _, approval_request, exact_scope_ref = _queue_v2_amendment_context(args)
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_amendment_preview.v1",
+            "item_id": args.item_id,
+            "task_ref": draft.task_ref,
+            "expected_current_fingerprint_ref": (
+                args.expected_current_fingerprint_ref
+            ),
+            "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
+            "approval_request_ref": approval_request.approval_request_id,
+            "approval_scope_ref": exact_scope_ref,
+            "queue_mutation_performed": False,
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
+def amend_queue_v2_item(args: argparse.Namespace) -> int:
+    if args.confirm_amendment != "amend-queue-v2-item":
+        raise ValueError("DEVELOPER_QUEUE_V2_AMENDMENT_CONFIRMATION_REQUIRED")
+    manifest, draft, actor_context, approval_request, exact_scope_ref = (
+        _queue_v2_amendment_context(args)
+    )
     if args.approve_exact_scope != exact_scope_ref:
         raise ValueError(
             f"DEVELOPER_QUEUE_V2_AMENDMENT_EXACT_APPROVAL_REQUIRED:{exact_scope_ref}"
@@ -543,6 +576,25 @@ def build_parser() -> argparse.ArgumentParser:
     amend_queue_v2_command.add_argument("--approve-exact-scope", required=True)
     amend_queue_v2_command.add_argument("--pretty", action="store_true")
     amend_queue_v2_command.set_defaults(func=amend_queue_v2_item)
+
+    preview_amendment_command = subparsers.add_parser(
+        "preview-queue-v2-amendment",
+        help=(
+            "Preview the exact non-mutating LocalApprovalAuthority scope for one "
+            "Queue V2 amendment."
+        ),
+    )
+    preview_amendment_command.add_argument(
+        "--item-id",
+        required=True,
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+    )
+    preview_amendment_command.add_argument(
+        "--expected-current-fingerprint-ref", required=True
+    )
+    preview_amendment_command.add_argument("--idempotency-ref", required=True)
+    preview_amendment_command.add_argument("--pretty", action="store_true")
+    preview_amendment_command.set_defaults(func=preview_queue_v2_amendment)
 
     register_node_command = subparsers.add_parser(
         "register-node",

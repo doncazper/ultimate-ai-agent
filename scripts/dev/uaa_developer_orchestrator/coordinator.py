@@ -268,6 +268,8 @@ class DeveloperWorkTaskDraft(BaseModel):
     canonical_task_ref: str = Field(..., min_length=1)
     canonical_source_ref: str = Field(..., min_length=1)
     canonical_source_fingerprint_ref: str = Field(..., min_length=1)
+    canonical_source_refs: list[str] = Field(default_factory=list)
+    canonical_item_contract_ref: str | None = None
     scope_contract_ref: str = Field(..., min_length=1)
     in_scope_refs: list[str] = Field(default_factory=list)
     out_of_scope_refs: list[str] = Field(default_factory=list)
@@ -294,6 +296,12 @@ class DeveloperWorkTaskDraft(BaseModel):
                 self.canonical_task_ref,
                 self.canonical_source_ref,
                 self.canonical_source_fingerprint_ref,
+                *self.canonical_source_refs,
+                *(
+                    [self.canonical_item_contract_ref]
+                    if self.canonical_item_contract_ref is not None
+                    else []
+                ),
                 self.scope_contract_ref,
                 self.workstream_ref,
                 *self.in_scope_refs,
@@ -418,6 +426,7 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
     cancellation_reason_ref: str | None = None
     terminal_scope_packet_ref: str | None = None
     latest_receipt_ref: str | None = None
+    dependency_contract_refs: dict[str, str] = Field(default_factory=dict)
     scope_dispositions: list[DeveloperScopeDisposition] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -449,6 +458,8 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
                     if self.latest_receipt_ref is not None
                     else []
                 ),
+                *self.dependency_contract_refs.keys(),
+                *self.dependency_contract_refs.values(),
             ],
             "developer_work_task_state_ref",
         )
@@ -475,6 +486,10 @@ class DeveloperWorkTask(DeveloperWorkTaskDraft):
         findings = [item.finding_ref for item in self.scope_dispositions]
         if len(findings) != len(set(findings)):
             raise ValueError("developer scope findings must be unique")
+        if not set(self.dependency_contract_refs).issubset(
+            set(self.depends_on_task_refs)
+        ):
+            raise ValueError("developer dependency contract ref is not a dependency")
         return self
 
 
@@ -557,6 +572,11 @@ class DeveloperWorkQueueReceipt(BaseModel):
     product_runtime_authority_granted: bool = False
     raw_paths_included: bool = False
     raw_content_included: bool = False
+    approval_ref: str | None = None
+    approval_scope_ref: str | None = None
+    approving_actor_ref: str | None = None
+    prior_fingerprint_ref: str | None = None
+    approval_proof_ref: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -570,6 +590,27 @@ class DeveloperWorkQueueReceipt(BaseModel):
                 self.occurred_at_ref,
                 *([self.task_ref] if self.task_ref is not None else []),
                 *([self.node_ref] if self.node_ref is not None else []),
+                *([self.approval_ref] if self.approval_ref is not None else []),
+                *(
+                    [self.approval_scope_ref]
+                    if self.approval_scope_ref is not None
+                    else []
+                ),
+                *(
+                    [self.approving_actor_ref]
+                    if self.approving_actor_ref is not None
+                    else []
+                ),
+                *(
+                    [self.prior_fingerprint_ref]
+                    if self.prior_fingerprint_ref is not None
+                    else []
+                ),
+                *(
+                    [self.approval_proof_ref]
+                    if self.approval_proof_ref is not None
+                    else []
+                ),
             ],
             "developer_work_receipt_ref",
         )
@@ -587,6 +628,25 @@ class DeveloperWorkQueueReceipt(BaseModel):
         enabled = [name for name, value in forbidden.items() if value]
         if enabled:
             raise ValueError(f"developer work receipt enabled {enabled[0]}")
+        proof_values = {
+            "approval_ref": self.approval_ref,
+            "approval_scope_ref": self.approval_scope_ref,
+            "approving_actor_ref": self.approving_actor_ref,
+            "prior_fingerprint_ref": self.prior_fingerprint_ref,
+        }
+        populated_proof_values = [
+            value for value in proof_values.values() if value is not None
+        ]
+        if populated_proof_values and len(populated_proof_values) != len(proof_values):
+            raise ValueError("developer work receipt approval proof is incomplete")
+        if populated_proof_values:
+            expected_proof_ref = _hash_ref(
+                "developer-work-approval-proof-ref", proof_values
+            )
+            if self.approval_proof_ref != expected_proof_ref:
+                raise ValueError("developer work receipt approval proof is not bound")
+        elif self.approval_proof_ref is not None:
+            raise ValueError("developer work receipt approval proof is orphaned")
         return self
 
 
@@ -612,6 +672,8 @@ class DeveloperWorkQueueTaskView(BaseModel):
     canonical_task_ref: str
     canonical_source_ref: str
     canonical_source_fingerprint_ref: str
+    canonical_source_refs: list[str] = Field(default_factory=list)
+    canonical_item_contract_ref: str | None = None
     scope_contract_ref: str
     in_scope_refs: list[str] = Field(default_factory=list)
     out_of_scope_refs: list[str] = Field(default_factory=list)
@@ -627,6 +689,7 @@ class DeveloperWorkQueueTaskView(BaseModel):
     worktree_posture: DeveloperWorktreePosture
     workstream_ref: str
     depends_on_task_refs: list[str] = Field(default_factory=list)
+    dependency_contract_refs: dict[str, str] = Field(default_factory=dict)
     dependency_ready: bool
     safe_summary: str
     next_safe_action: str
@@ -914,6 +977,7 @@ class DeveloperWorkCoordinator:
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
+            self._validate_canonical_queue_draft(draft)
             if any(task.task_ref == draft.task_ref for task in snapshot.tasks):
                 raise DeveloperWorkQueueConflictError(
                     "DEVELOPER_WORK_TASK_REF_CONFLICT"
@@ -925,6 +989,7 @@ class DeveloperWorkCoordinator:
                 raise DeveloperWorkQueueConflictError(
                     "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
                 )
+            self._validate_canonical_dependencies_for_admission(snapshot, draft)
             if any(
                 task.state not in {"completed", "canceled"}
                 and task.branch_ref == draft.branch_ref
@@ -941,7 +1006,16 @@ class DeveloperWorkCoordinator:
                 raise DeveloperWorkQueueConflictError(
                     "DEVELOPER_WORK_WORKTREE_REF_CONFLICT"
                 )
-            task = DeveloperWorkTask(**draft.model_dump(mode="json"))
+            dependency_contract_refs = {
+                dependency_ref: self._durable_task_contract_ref(
+                    self._find_task(snapshot, dependency_ref)
+                )
+                for dependency_ref in draft.depends_on_task_refs
+            }
+            task = DeveloperWorkTask(
+                **draft.model_dump(mode="json"),
+                dependency_contract_refs=dependency_contract_refs,
+            )
             next_snapshot = snapshot.model_copy(
                 update={
                     "revision": snapshot.revision + 1,
@@ -1008,11 +1082,17 @@ class DeveloperWorkCoordinator:
                 )
                 if replay is not None:
                     return replay
+                self._validate_canonical_queue_draft(draft)
                 approval = approval_authority.validate_for_request(
                     approval_request,
                     approval_ref,
                 )
                 if not approval.allowed:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_AMENDMENT_APPROVAL_INVALID"
+                    )
+                approval_grant = approval_authority.get_grant(approval_ref)
+                if approval_grant is None:
                     raise DeveloperWorkQueueConflictError(
                         "DEVELOPER_WORK_TASK_AMENDMENT_APPROVAL_INVALID"
                     )
@@ -1068,7 +1148,17 @@ class DeveloperWorkCoordinator:
                     raise DeveloperWorkQueueConflictError(
                         "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
                     )
-                replacement = DeveloperWorkTask(**draft.model_dump(mode="json"))
+                self._validate_canonical_dependencies_for_admission(snapshot, draft)
+                dependency_contract_refs = {
+                    dependency_ref: self._durable_task_contract_ref(
+                        self._find_task(snapshot, dependency_ref)
+                    )
+                    for dependency_ref in draft.depends_on_task_refs
+                }
+                replacement = DeveloperWorkTask(
+                    **draft.model_dump(mode="json"),
+                    dependency_contract_refs=dependency_contract_refs,
+                )
                 next_snapshot = snapshot.model_copy(
                     update={
                         "revision": snapshot.revision + 1,
@@ -1086,6 +1176,12 @@ class DeveloperWorkCoordinator:
                         "local approval and its prior fingerprint; no work was claimed "
                         "or dispatched."
                     ),
+                    approval_ref=approval_ref,
+                    approval_scope_ref=approval_scope_ref,
+                    approving_actor_ref=_hash_ref(
+                        "actor-ref", approval_grant.approved_by_actor_id
+                    ),
+                    prior_fingerprint_ref=expected_current_fingerprint_ref,
                 )
                 replacement = replacement.model_copy(
                     update={"latest_receipt_ref": receipt.receipt_ref}
@@ -1549,6 +1645,8 @@ class DeveloperWorkCoordinator:
                     canonical_task_ref=task.canonical_task_ref,
                     canonical_source_ref=task.canonical_source_ref,
                     canonical_source_fingerprint_ref=task.canonical_source_fingerprint_ref,
+                    canonical_source_refs=task.canonical_source_refs,
+                    canonical_item_contract_ref=task.canonical_item_contract_ref,
                     scope_contract_ref=task.scope_contract_ref,
                     in_scope_refs=task.in_scope_refs,
                     out_of_scope_refs=task.out_of_scope_refs,
@@ -1564,6 +1662,7 @@ class DeveloperWorkCoordinator:
                     worktree_posture=task.worktree_posture,
                     workstream_ref=task.workstream_ref,
                     depends_on_task_refs=task.depends_on_task_refs,
+                    dependency_contract_refs=task.dependency_contract_refs,
                     dependency_ready=self._dependencies_complete(snapshot, task),
                     safe_summary=task.safe_summary,
                     next_safe_action=task.next_safe_action,
@@ -1895,7 +1994,112 @@ class DeveloperWorkCoordinator:
         return None
 
     @staticmethod
+    def _is_canonical_queue_task(task: DeveloperWorkTaskDraft) -> bool:
+        return (
+            task.task_ref.startswith("dev-task:queue-v2-")
+            or task.canonical_task_ref.startswith("canonical-task-ref:queue-v2/")
+            or task.canonical_source_ref.startswith("repo-ref:developer-queue-v2/")
+        )
+
+    @classmethod
+    def _validate_canonical_queue_draft(cls, draft: DeveloperWorkTaskDraft) -> None:
+        """Reserve the Queue V2 namespace for an exact manifest-derived draft."""
+
+        if not cls._is_canonical_queue_task(draft):
+            return
+        try:
+            from uaa_developer_orchestrator.queue_record import (
+                build_developer_queue_record_drafts,
+            )
+
+            expected = next(
+                (
+                    candidate
+                    for candidate in build_developer_queue_record_drafts(REPO_ROOT)
+                    if candidate.task_ref == draft.task_ref
+                ),
+                None,
+            )
+        except (OSError, TypeError, ValueError):
+            expected = None
+        if expected is None or expected.model_dump(mode="json") != draft.model_dump(
+            mode="json"
+        ):
+            raise DeveloperWorkQueueConflictError(
+                "DEVELOPER_WORK_CANONICAL_TASK_CONTRACT_INVALID"
+            )
+
+    @classmethod
+    def _validate_canonical_dependencies_for_admission(
+        cls,
+        snapshot: DeveloperWorkQueueSnapshot,
+        draft: DeveloperWorkTaskDraft,
+    ) -> None:
+        if not cls._is_canonical_queue_task(draft):
+            return
+        from uaa_developer_orchestrator.queue_record import (
+            build_developer_queue_record_drafts,
+            load_developer_queue_record_manifest,
+            queue_record_legacy_source_acceptance_ref,
+            queue_record_task_ref,
+            queue_record_task_contract_ref,
+        )
+
+        expected_by_ref = {
+            candidate.task_ref: candidate
+            for candidate in build_developer_queue_record_drafts(REPO_ROOT)
+        }
+        actual_by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
+        manifest_item_by_ref = {
+            queue_record_task_ref(item): item
+            for item in load_developer_queue_record_manifest(REPO_ROOT).items
+        }
+        for dependency_ref in draft.depends_on_task_refs:
+            expected = expected_by_ref.get(dependency_ref)
+            actual = actual_by_ref.get(dependency_ref)
+            if expected is None or actual is None:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_CANONICAL_DEPENDENCY_CONTRACT_INVALID"
+                )
+            if actual.canonical_item_contract_ref is not None:
+                current = actual.canonical_item_contract_ref == (
+                    expected.canonical_item_contract_ref
+                )
+            else:
+                item = manifest_item_by_ref[dependency_ref]
+                legacy_acceptance_ref = queue_record_legacy_source_acceptance_ref(
+                    item, actual.canonical_source_fingerprint_ref
+                )
+                current = (
+                    queue_record_task_contract_ref(actual)
+                    == queue_record_task_contract_ref(expected)
+                    and legacy_acceptance_ref in item.source_refs
+                )
+            if not current:
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_WORK_CANONICAL_DEPENDENCY_CONTRACT_INVALID"
+                )
+
+    @staticmethod
+    def _durable_task_contract_ref(task: DeveloperWorkTask) -> str:
+        from uaa_developer_orchestrator.queue_record import (
+            queue_record_canonical_item_contract_ref,
+            queue_record_task_contract_ref,
+        )
+
+        if task.canonical_item_contract_ref is None:
+            return queue_record_task_contract_ref(task)
+        if task.canonical_item_contract_ref != (
+            queue_record_canonical_item_contract_ref(task)
+        ):
+            raise DeveloperWorkQueueConflictError(
+                "DEVELOPER_WORK_CANONICAL_TASK_CONTRACT_INVALID"
+            )
+        return task.canonical_item_contract_ref
+
+    @classmethod
     def _dependencies_complete(
+        cls,
         snapshot: DeveloperWorkQueueSnapshot,
         task: DeveloperWorkTask,
     ) -> bool:
@@ -1904,31 +2108,22 @@ class DeveloperWorkCoordinator:
             by_ref[ref].state == "completed" for ref in task.depends_on_task_refs
         ):
             return False
-        canonical_dependencies = [
-            by_ref[ref]
-            for ref in task.depends_on_task_refs
-            if ref.startswith("dev-task:queue-v2-")
-        ]
-        if not canonical_dependencies:
-            return True
         try:
-            from uaa_developer_orchestrator.queue_record import (
-                build_developer_queue_record_drafts,
-                queue_record_task_contract_ref,
-            )
-
-            expected_by_ref = {
-                draft.task_ref: queue_record_task_contract_ref(draft)
-                for draft in build_developer_queue_record_drafts(REPO_ROOT)
-            }
-        except (OSError, TypeError, ValueError):
+            cls._durable_task_contract_ref(task)
+        except (DeveloperWorkQueueConflictError, OSError, TypeError, ValueError):
             return False
-        return all(
-            dependency.task_ref in expected_by_ref
-            and queue_record_task_contract_ref(dependency)
-            == expected_by_ref[dependency.task_ref]
-            for dependency in canonical_dependencies
-        )
+        if task.canonical_item_contract_ref is None:
+            return True
+        if set(task.dependency_contract_refs) != set(task.depends_on_task_refs):
+            return False
+        try:
+            return all(
+                task.dependency_contract_refs[dependency_ref]
+                == cls._durable_task_contract_ref(by_ref[dependency_ref])
+                for dependency_ref in task.depends_on_task_refs
+            )
+        except (DeveloperWorkQueueConflictError, OSError, TypeError, ValueError):
+            return False
 
     @staticmethod
     def _archive_ready(task: DeveloperWorkTask) -> bool:
@@ -1998,8 +2193,23 @@ class DeveloperWorkCoordinator:
         safe_summary: str,
         task_ref: str | None = None,
         node_ref: str | None = None,
+        approval_ref: str | None = None,
+        approval_scope_ref: str | None = None,
+        approving_actor_ref: str | None = None,
+        prior_fingerprint_ref: str | None = None,
     ) -> DeveloperWorkQueueReceipt:
         payload_fingerprint_ref = _hash_ref("developer-work-payload-ref", payload)
+        approval_proof = {
+            "approval_ref": approval_ref,
+            "approval_scope_ref": approval_scope_ref,
+            "approving_actor_ref": approving_actor_ref,
+            "prior_fingerprint_ref": prior_fingerprint_ref,
+        }
+        approval_proof_ref = (
+            _hash_ref("developer-work-approval-proof-ref", approval_proof)
+            if all(value is not None for value in approval_proof.values())
+            else None
+        )
         return DeveloperWorkQueueReceipt(
             receipt_ref=_hash_ref(
                 "developer-work-receipt-ref",
@@ -2007,6 +2217,7 @@ class DeveloperWorkCoordinator:
                     "event_kind": event_kind,
                     "idempotency_ref": idempotency_ref,
                     "payload": payload,
+                    "approval_proof_ref": approval_proof_ref,
                 },
             ),
             event_kind=event_kind,
@@ -2017,6 +2228,11 @@ class DeveloperWorkCoordinator:
             revision=revision,
             occurred_at_ref=_hash_ref("time-ref", utc_now().isoformat()),
             safe_summary=safe_summary,
+            approval_ref=approval_ref,
+            approval_scope_ref=approval_scope_ref,
+            approving_actor_ref=approving_actor_ref,
+            prior_fingerprint_ref=prior_fingerprint_ref,
+            approval_proof_ref=approval_proof_ref,
         )
 
     def _load_snapshot(self) -> DeveloperWorkQueueSnapshot:

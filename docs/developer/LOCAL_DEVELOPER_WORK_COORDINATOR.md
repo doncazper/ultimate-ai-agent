@@ -106,12 +106,23 @@ gate. The eleven authority-heavy entries are descriptive gated records and are
 not admitted as executable tasks.
 
 A reviewed manifest extension may also change a still-queued predecessor
-contract. `amend-queue-v2-item` replaces only a never-claimed queued record,
-requires the exact prior canonical-source fingerprint, preserves the task's
-identity and worktree bindings, and emits a durable amendment receipt. It
-fails closed for claimed, previously claimed, blocked, review, or terminal
-tasks. Queue health reports semantic contract drift separately from missing
-admission so an appended wave cannot conceal an obsolete predecessor scope.
+contract. First use `preview-queue-v2-amendment` to obtain and review the exact
+approval scope without mutation. `amend-queue-v2-item` then replaces only a
+never-claimed queued record, requires both that exact scope and the exact prior
+canonical-source fingerprint, preserves the task's identity and worktree
+bindings, and emits a durable amendment receipt containing safe approval,
+scope, approving-actor, and prior-fingerprint refs bound by an authorization
+proof fingerprint. It fails closed for
+claimed, previously claimed, blocked, review, or terminal tasks. Queue health
+reports semantic contract drift separately from missing admission so an
+appended wave cannot conceal an obsolete predecessor scope.
+
+New and amended canonical records carry source-aware per-item contracts and
+durable dependency bindings. A legacy prerequisite that predates those fields
+is accepted only when its exact historical fingerprint has a reviewed
+`legacy-source-acceptance-ref` bound to that item's current source set in the
+manifest. Editing those sources without refreshing the explicit transition ref
+fails manifest validation; unrelated item edits do not invalidate the binding.
 
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
@@ -122,11 +133,25 @@ from duplicating work already represented by Q00-Q36.
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-amendment \
+  --item-id Q31 \
+  --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
+  --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment --pretty
+```
+
+Review and copy the preview's exact `approval_scope_ref`, then pass it without
+editing it:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   amend-queue-v2-item \
   --item-id Q31 \
   --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
   --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment \
-  --confirm-amendment amend-queue-v2-item --pretty
+  --confirm-amendment amend-queue-v2-item \
+  --approve-exact-scope developer-work-amendment-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \

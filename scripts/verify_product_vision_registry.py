@@ -227,7 +227,11 @@ def verify(
         if isinstance(queue_item, dict):
             queue_refs = queue_item.get("source_refs")
             queue_ref_set = (
-                set(queue_refs)
+                {
+                    ref
+                    for ref in queue_refs
+                    if not ref.startswith("legacy-source-acceptance-ref:")
+                }
                 if isinstance(queue_refs, list)
                 and all(isinstance(ref, str) for ref in queue_refs)
                 else set()

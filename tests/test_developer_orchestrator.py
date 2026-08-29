@@ -20,6 +20,7 @@ from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperWorkQueueClaimError,
     DeveloperWorkQueueConflictError,
     DeveloperWorkNode,
+    DeveloperWorkTask,
     DeveloperWorkTaskDraft,
 )
 from uaa_developer_orchestrator.planning import (  # noqa: E402
@@ -29,6 +30,7 @@ from uaa_developer_orchestrator.queue_record import (  # noqa: E402
     assess_developer_queue_record_health,
     build_developer_queue_record_drafts,
     load_developer_queue_record_manifest,
+    queue_record_canonical_item_contract_ref,
     queue_record_task_contract_ref,
 )
 from uaa_developer_orchestrator.recovery import (  # noqa: E402
@@ -118,6 +120,29 @@ class _HistoricalMergeSubprocess:
                 "refs/remotes/origin/main",
             ]
         return _subprocess.run(args, **kwargs)  # type: ignore[call-overload]
+
+
+def _inject_legacy_queue_task(
+    coordinator: DeveloperWorkCoordinator,
+    draft: DeveloperWorkTaskDraft,
+    *,
+    state: str = "queued",
+) -> None:
+    """Model a pre-hardening durable record without reopening legacy admission."""
+
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    task = DeveloperWorkTask(
+        **draft.model_dump(mode="json"),
+        state=state,
+        completion_evidence_refs=(
+            ["evidence-ref:legacy-completion"] if state == "completed" else []
+        ),
+    )
+    snapshot["tasks"].append(task.model_dump(mode="json"))
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 subprocess = _HistoricalMergeSubprocess()
@@ -487,6 +512,7 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
 def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_dir = tmp_path / "state"
     coordinator = DeveloperWorkCoordinator(state_dir=state_dir)
@@ -503,10 +529,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         (ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json")
         .read_text(encoding="utf-8")
     )
-    coordinator.add_task(
-        legacy_q31,
-        idempotency_ref="idempotency-ref:queue-v2-existing:queue-v2-q31",
-    )
+    _inject_legacy_queue_task(coordinator, legacy_q31)
 
     pre_amendment_view = coordinator.inspect()
     pre_amendment_health = assess_developer_queue_record_health(
@@ -540,6 +563,25 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
             actor_context=amendment_actor,
         ).resource_refs[0]
     )
+    revision_before_preview = coordinator.inspect().revision
+    preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-amendment",
+            "--item-id",
+            "Q31",
+            "--expected-current-fingerprint-ref",
+            legacy_q31.canonical_source_fingerprint_ref,
+            "--idempotency-ref",
+            amendment_idempotency_ref,
+        ]
+    )
+    assert preview.func(preview) == 0
+    preview_payload = json.loads(capsys.readouterr().out)
+    assert preview_payload["approval_scope_ref"] == amendment_scope_ref
+    assert preview_payload["queue_mutation_performed"] is False
+    assert coordinator.inspect().revision == revision_before_preview
     amendment = parser.parse_args(
         [
             "--state-dir",
@@ -568,6 +610,27 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert "scope-ref:queue-v2/Q31/chat-surface-direct-observation" in (
         amended_q31.in_scope_refs
     )
+    amendment_receipt = json.loads(
+        coordinator.receipts_path.read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert amendment_receipt["approval_scope_ref"] == amendment_scope_ref
+    assert amendment_receipt["approval_ref"].startswith(
+        "approval-ref:developer-queue-amendment-"
+    )
+    assert amendment_receipt["approving_actor_ref"].startswith("actor-ref:sha256:")
+    assert amendment_receipt["prior_fingerprint_ref"] == (
+        legacy_q31.canonical_source_fingerprint_ref
+    )
+    assert amendment_receipt["approval_proof_ref"].startswith(
+        "developer-work-approval-proof-ref:sha256:"
+    )
+    with pytest.raises(ValueError, match="approval proof is not bound"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **amendment_receipt,
+                "approval_scope_ref": "developer-work-amendment-scope-ref:sha256:tampered",
+            }
+        )
 
     assert amendment.func(amendment) == 0
     replayed_amendment = json.loads(capsys.readouterr().out)
@@ -599,6 +662,31 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 5
 
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    for task in snapshot["tasks"]:
+        if task["task_ref"] in {
+            drafts[15].task_ref,
+            q31_replacement.task_ref,
+        }:
+            task["state"] = "completed"
+            task["completion_evidence_refs"] = [
+                "evidence-ref:dependency-completed"
+            ]
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        coordinator_module,
+        "REPO_ROOT",
+        tmp_path / "unrelated-worktree-without-manifest",
+    )
+    q32_view = next(
+        task for task in coordinator.inspect().tasks if task.task_ref == drafts[32].task_ref
+    )
+    assert q32_view.dependency_ready is True
+    assert set(q32_view.dependency_contract_refs) == set(q32_view.depends_on_task_refs)
+
 
 def test_queue_v2_cli_rejects_duplicate_selective_admission(
     tmp_path: Path,
@@ -622,6 +710,61 @@ def test_queue_v2_cli_rejects_duplicate_selective_admission(
 
     with pytest.raises(ValueError, match="DUPLICATE_ITEM_SELECTION"):
         selected.func(selected)
+
+
+def test_queue_v2_namespace_rejects_counterfeit_contract(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    counterfeit = build_developer_queue_record_drafts(ROOT)[32].model_copy(
+        update={"depends_on_task_refs": []}
+    )
+
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="CANONICAL_TASK_CONTRACT_INVALID",
+    ):
+        coordinator.add_task(
+            counterfeit,
+            idempotency_ref="idempotency-ref:add-counterfeit-q32",
+        )
+
+
+def test_queue_v2_item_contract_binds_source_refs_without_global_drift() -> None:
+    drafts = build_developer_queue_record_drafts(ROOT)
+    q31 = drafts[31]
+    changed_q31 = q31.model_copy(
+        update={
+            "canonical_source_refs": [
+                *q31.canonical_source_refs,
+                "repo-ref:queue-v2/source-only-change",
+            ],
+            "canonical_item_contract_ref": None,
+        }
+    )
+
+    assert queue_record_canonical_item_contract_ref(changed_q31) != (
+        q31.canonical_item_contract_ref
+    )
+    assert queue_record_canonical_item_contract_ref(drafts[30]) == (
+        drafts[30].canonical_item_contract_ref
+    )
+
+
+def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json"
+    target.parent.mkdir(parents=True)
+    payload = json.loads(
+        (ROOT / "docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    q15 = next(item for item in payload["items"] if item["item_id"] == "Q15")
+    q15["source_refs"].append("canonical-task-ref:CRM-FC-SOURCE-DRIFT")
+    target.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="MANIFEST_INVALID"):
+        load_developer_queue_record_manifest(tmp_path)
 
 
 def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
@@ -747,52 +890,35 @@ def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
 
 def test_stale_completed_q31_does_not_unlock_q32(tmp_path: Path) -> None:
     coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
-    legacy_q31 = DeveloperWorkTaskDraft.model_validate_json(
-        (
-            ROOT / "tests/fixtures/developer_queue_v2_q31_pre_chat_observation.json"
-        ).read_text(encoding="utf-8")
-    ).model_copy(update={"depends_on_task_refs": []})
-    q32 = build_developer_queue_record_drafts(ROOT)[32].model_copy(
-        update={"depends_on_task_refs": [legacy_q31.task_ref]}
-    )
-    coordinator.add_task(
-        legacy_q31,
-        idempotency_ref="idempotency-ref:add-stale-completed-q31",
-    )
-    coordinator.add_task(q32, idempotency_ref="idempotency-ref:add-q32-after-stale")
-    _register_node(
-        coordinator,
-        "node-ref:mac",
-        idempotency_ref="idempotency-ref:register-stale-dependency-node",
-    )
-    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
-    stale_task = next(
-        task for task in snapshot["tasks"] if task["task_ref"] == legacy_q31.task_ref
-    )
-    stale_task["state"] = "completed"
-    stale_task["completion_evidence_refs"] = ["evidence-ref:stale-q31-completed"]
-    coordinator.state_path.write_text(
-        json.dumps(snapshot, sort_keys=True),
-        encoding="utf-8",
-    )
-
-    assert (
-        next(
-            task
-            for task in coordinator.inspect().tasks
-            if task.task_ref == q32.task_ref
-        ).dependency_ready
-        is False
-    )
-    with pytest.raises(
-        DeveloperWorkQueueClaimError,
-        match="DEPENDENCIES_INCOMPLETE",
-    ):
-        coordinator.claim_task(
-            task_ref=q32.task_ref,
-            node_ref="node-ref:mac",
-            idempotency_ref="idempotency-ref:claim-q32-after-stale-q31",
+    drafts = build_developer_queue_record_drafts(ROOT)
+    for draft in drafts[:31]:
+        coordinator.add_task(
+            draft,
+            idempotency_ref=(
+                "idempotency-ref:add-current-prerequisite:"
+                f"{draft.task_ref.removeprefix('dev-task:')}"
+            ),
         )
+    legacy_q31 = drafts[31].model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:172be181716f7b8863a28b37"
+            ),
+            "canonical_source_refs": [],
+            "canonical_item_contract_ref": None,
+        }
+    )
+    _inject_legacy_queue_task(coordinator, legacy_q31, state="completed")
+    q32 = drafts[32]
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="CANONICAL_DEPENDENCY_CONTRACT_INVALID",
+    ):
+        coordinator.add_task(
+            q32,
+            idempotency_ref="idempotency-ref:add-q32-after-stale-q31",
+        )
+    assert q32.task_ref not in {task.task_ref for task in coordinator.inspect().tasks}
 
 
 def test_blocked_task_requires_an_explicit_unblock_before_reclaim(

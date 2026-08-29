@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.planning.validation import (
     validate_task_ref,
 )
 
+from uaa_developer_orchestrator.coordinator import DeveloperWorkTask
 from uaa_developer_orchestrator.coordinator import DeveloperWorkTaskDraft
 from uaa_developer_orchestrator.coordinator import DeveloperWorkQueueTaskView
 
@@ -24,6 +25,9 @@ QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF = (
     "developer-risk-ref:queue-v2-superseded-task-present"
 )
 QUEUE_RECORD_ITEM_COUNT = 37
+QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX = (
+    "legacy-source-acceptance-ref:sha256:"
+)
 
 
 class DeveloperQueueRecordPolicy(BaseModel):
@@ -229,6 +233,21 @@ class DeveloperQueueRecordManifest(BaseModel):
                 raise ValueError("queue dependencies must reference earlier items")
             if not set(item.merge_after_item_ids).issubset(seen):
                 raise ValueError("queue merge ordering must reference earlier items")
+            for source_ref in item.source_refs:
+                if not source_ref.startswith(
+                    QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX
+                ):
+                    continue
+                parts = source_ref.split(":")
+                if len(parts) != 5 or parts[3] != "sha256":
+                    raise ValueError("queue legacy source acceptance ref is invalid")
+                legacy_fingerprint_ref = (
+                    f"planning-fingerprint-ref:sha256:{parts[2]}"
+                )
+                if source_ref != queue_record_legacy_source_acceptance_ref(
+                    item, legacy_fingerprint_ref
+                ):
+                    raise ValueError("queue legacy source acceptance binding is stale")
             seen.add(item.item_id)
         goat_item = self.items[31]
         if goat_item.slug != "final-goatcitadel-comparison":
@@ -330,6 +349,39 @@ def queue_record_task_ref(item: DeveloperQueueRecordItem) -> str:
     return f"dev-task:queue-v2-{item.item_id.lower()}-{item.slug}"
 
 
+def queue_record_legacy_source_acceptance_ref(
+    item: DeveloperQueueRecordItem,
+    legacy_fingerprint_ref: str,
+) -> str:
+    """Bind one explicit legacy fingerprint to this item's current source set."""
+
+    validate_task_ref(
+        legacy_fingerprint_ref, "developer_queue_legacy_source_fingerprint_ref"
+    )
+    legacy_digest = legacy_fingerprint_ref.rsplit(":", maxsplit=1)[-1]
+    source_refs = [
+        ref
+        for ref in item.source_refs
+        if not ref.startswith(QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX)
+    ]
+    digest = hashlib.sha256(
+        json.dumps(
+            {
+                "item_id": item.item_id,
+                "task_ref": queue_record_task_ref(item),
+                "legacy_fingerprint_ref": legacy_fingerprint_ref,
+                "source_refs": source_refs,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()[:24]
+    return (
+        f"{QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX}{legacy_digest}:"
+        f"sha256:{digest}"
+    )
+
+
 def _task_contract_ref(payload: dict[str, object]) -> str:
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -375,7 +427,7 @@ def _task_contract_payload(
 
 
 def queue_record_task_contract_ref(
-    task: DeveloperWorkTaskDraft | DeveloperWorkQueueTaskView,
+    task: DeveloperWorkTask | DeveloperWorkTaskDraft | DeveloperWorkQueueTaskView,
 ) -> str:
     """Fingerprint the queue-owned task contract, excluding whole-manifest digest."""
 
@@ -398,6 +450,46 @@ def queue_record_task_contract_ref(
             next_safe_action=task.next_safe_action,
         )
     )
+
+
+def queue_record_canonical_item_contract_ref(
+    task: DeveloperWorkTask | DeveloperWorkTaskDraft | DeveloperWorkQueueTaskView,
+) -> str:
+    """Fingerprint one Queue V2 item, including its exact source refs.
+
+    The digest intentionally excludes the whole-manifest fingerprint so an
+    unrelated item edit cannot invalidate this admitted item.
+    """
+
+    return _task_contract_ref(
+        {
+            **_task_contract_payload(
+                task_ref=task.task_ref,
+                queue_order=task.queue_order,
+                title=task.title,
+                safe_summary=task.safe_summary,
+                priority=task.priority,
+                concurrency=task.concurrency,
+                wip_lane=task.wip_lane,
+                in_scope_refs=task.in_scope_refs,
+                out_of_scope_refs=task.out_of_scope_refs,
+                sol_thinking_level=task.sol_thinking_level,
+                branch_ref=task.branch_ref,
+                worktree_ref=task.worktree_ref,
+                workstream_ref=task.workstream_ref,
+                depends_on_task_refs=task.depends_on_task_refs,
+                next_safe_action=task.next_safe_action,
+            ),
+            "canonical_task_ref": task.canonical_task_ref,
+            "canonical_source_ref": task.canonical_source_ref,
+            "canonical_source_refs": task.canonical_source_refs,
+            "scope_contract_ref": task.scope_contract_ref,
+            "worktree_posture": task.worktree_posture,
+            "acceptance_refs": task.acceptance_refs,
+            "verifier_refs": task.verifier_refs,
+            "merge_gate_refs": task.merge_gate_refs,
+        }
+    ).replace("planning-contract-ref:", "planning-item-contract-ref:", 1)
 
 
 def _manifest_item_contract_ref(
@@ -441,8 +533,9 @@ def build_developer_queue_record_drafts(
     task_ref_by_item_id = {
         item.item_id: queue_record_task_ref(item) for item in manifest.items
     }
-    return [
-        DeveloperWorkTaskDraft(
+    drafts: list[DeveloperWorkTaskDraft] = []
+    for item in manifest.items:
+        draft = DeveloperWorkTaskDraft(
             task_ref=task_ref_by_item_id[item.item_id],
             queue_order=item.queue_order,
             title=f"{item.item_id} {item.title}",
@@ -455,6 +548,7 @@ def build_developer_queue_record_drafts(
             canonical_source_fingerprint_ref=(
                 f"planning-fingerprint-ref:sha256:{manifest_digest[:24]}"
             ),
+            canonical_source_refs=item.source_refs,
             scope_contract_ref=f"scope-contract-ref:queue-v2/{item.item_id}",
             in_scope_refs=item.scope_refs,
             out_of_scope_refs=item.guardrail_refs,
@@ -482,8 +576,16 @@ def build_developer_queue_record_drafts(
             ],
             next_safe_action=item.next_safe_action,
         )
-        for item in manifest.items
-    ]
+        drafts.append(
+            draft.model_copy(
+                update={
+                    "canonical_item_contract_ref": (
+                        queue_record_canonical_item_contract_ref(draft)
+                    )
+                }
+            )
+        )
+    return drafts
 
 
 def assess_developer_queue_record_health(
