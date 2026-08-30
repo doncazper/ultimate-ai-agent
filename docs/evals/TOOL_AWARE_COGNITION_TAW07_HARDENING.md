@@ -50,7 +50,10 @@ safe evidence ref.
 The candidate remains no-effect. Healthy candidate-shadow observations reconstruct
 each transient synthetic payload and run it through the bounded familiarity,
 progressive-retrieval/hydration, and TAW-04 chat-shadow path; the evaluator then
-compares that result with the accepted action matrix. Every degraded state and every explicit
+classifies the request from its bounded parameter refs rather than the embedded
+manifest category label. Each catalog-injection case places instruction-shaped
+data into its named catalog field before the same path is evaluated. The evaluator
+then compares that result with the accepted action matrix. Every degraded state and every explicit
 safe-disable replay must preserve the accepted legacy direct-chat route and the
 exact payload, response, and durable-evidence fingerprints. No model-visible
 context or second model call is allowed.
@@ -74,7 +77,8 @@ development gates:
 - route, payload, response, and durable-evidence safe-disable equivalence;
 - per-observation routing, hydration, and context budgets;
 - per-category p95 of paired candidate-minus-baseline time-to-first-token margins,
-  checked against both absolute and relative limits; and
+  with the relative margin computed per pair before ranking, checked against both
+  absolute and relative limits; and
 - founder-private paired quality deltas for helpfulness, instruction following,
   tone, and response relevance.
 
@@ -94,14 +98,16 @@ candidate evidence before TAW-08 acceptance.
 ## Fail-Closed Behavior
 
 The evaluator rejects an oversized corpus before materializing the observation
-matrix; missing, extra, or duplicate matrix identities; incomplete legacy or
+matrix; any drift from the exact `2/2/2/1/1/1/15` category census; missing, extra,
+or duplicate matrix identities; incomplete legacy or
 paired-quality or metric censuses; candidate/corpus rebinding; incomplete catalog-injection
 coverage; malformed digests; covered-tree drift; and unknown fields. Baseline and
 candidate response fingerprints are independently bound by each paired-quality
 observation, so genuine candidate wording may differ. Substituted legacy response or durable
 evidence fingerprints, exceeded budgets, negative quality drift, or a validated
-decision mismatch produce a failed report. Report status and fingerprint are
-recomputed from the exact evidence.
+decision mismatch produce a failed report. Every report binds the canonical
+policy fingerprint, including the thresholds actually used. Report status and
+fingerprint are recomputed from the exact evidence.
 
 The models use Python-3.10-compatible string enums. Durable evidence contains no
 raw prompts, responses, provider payloads, local paths, logs, usernames,

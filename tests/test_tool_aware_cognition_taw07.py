@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.evals.tool_aware_hardening import (
     ReplayMode,
     TAW07_CATALOG_STATES,
     TAW07_CATEGORY_ACTIONS,
+    TAW07_CATEGORY_CENSUS,
     TAW07_REPLAY_MODES,
     TAW07DevelopmentObservation,
     TAW07HardeningPolicy,
@@ -41,9 +42,7 @@ from ultimate_ai_agent.core.evals.tool_aware_hardening import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CORPUS_PATH = (
-    ROOT / "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json"
-)
+CORPUS_PATH = ROOT / "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json"
 CANDIDATE_REVISION = "git-sha:" + "7" * 40
 CANDIDATE_DIGEST = "sha256:" + "8" * 64
 
@@ -113,8 +112,7 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
                         routing_latency_milliseconds=5,
                         hydration_latency_milliseconds=(
                             10
-                            if case.category_ref
-                            == "category-ref:taw07:supported-tool"
+                            if case.category_ref == "category-ref:taw07:supported-tool"
                             and state == CatalogState.healthy
                             and mode == ReplayMode.candidate_shadow
                             else 0
@@ -172,7 +170,9 @@ def _evaluate(
     )
 
 
-def test_founder_development_matrix_passes_without_authority_or_promotion_claim() -> None:
+def test_founder_development_matrix_passes_without_authority_or_promotion_claim() -> (
+    None
+):
     corpus = _corpus()
     report = _evaluate(corpus)
     assert report.status == HardeningStatus.passed_founder_development
@@ -198,6 +198,59 @@ def test_development_manifest_is_reconstructible_and_covers_injection_fields() -
         assert payload.system_text
         assert payload.user_text
     _evaluate(corpus)
+
+
+def test_catalog_injection_cases_build_distinct_poisoned_catalog_evidence() -> None:
+    corpus = _corpus()
+    decisions = []
+    for case in corpus.cases:
+        if case.category_ref != "category-ref:taw07:catalog-injection":
+            continue
+        decision = build_taw07_source_decision(
+            case_payload=reconstruct_development_case_payload(corpus, case.case_ref),
+            catalog_state=CatalogState.healthy,
+            replay_mode=ReplayMode.candidate_shadow,
+        )
+        assert decision.action == ShadowChatAction.preserve_direct_chat
+        assert decision.selected_operation_refs == ()
+        assert decision.model_context_changed is False
+        decisions.append(decision)
+    assert len(decisions) == 15
+    assert len({item.assessment_fingerprint_ref for item in decisions}) == len(
+        decisions
+    )
+
+
+def test_development_corpus_requires_the_exact_category_census() -> None:
+    corpus = _corpus()
+    specs = tuple(
+        DevelopmentCaseSpec(
+            case_ref=case.case_ref,
+            category_ref=(
+                "category-ref:taw07:ordinary-chat"
+                if case.case_ref == "case-ref:taw07:supported-tool-01"
+                else case.category_ref
+            ),
+            rubric_ref=case.rubric_ref,
+            parameter_refs=case.parameter_refs,
+            variant_index=case.variant_index,
+        )
+        for case in corpus.cases
+    )
+    drifted = build_development_corpus_manifest(
+        corpus_ref="corpus-ref:taw07:category-drift",
+        deterministic_seed_ref="seed-ref:taw07:category-drift",
+        seed_material=b"c" * 32,
+        specs=specs,
+    )
+    with pytest.raises(ValueError, match="category census"):
+        evaluate_taw07_hardening(
+            policy=_policy(drifted),
+            corpus=drifted,
+            legacy_bindings=(),
+            observations=(),
+            quality_observations=(),
+        )
 
 
 def test_missing_or_duplicate_matrix_identity_fails_closed() -> None:
@@ -257,7 +310,9 @@ def test_safe_disable_substitution_produces_failed_report() -> None:
             "response_fingerprint_ref": "response-ref:taw07:substituted",
         }
     )
-    next_observations = tuple(changed if item is target else item for item in observations)
+    next_observations = tuple(
+        changed if item is target else item for item in observations
+    )
     report = evaluate_taw07_hardening(
         policy=_policy(corpus),
         corpus=corpus,
@@ -325,9 +380,7 @@ def test_valid_but_rebound_source_decision_is_rejected() -> None:
     )
     changed = bind_taw07_observation(
         **{
-            **target.model_dump(
-                mode="python", exclude={"observation_fingerprint_ref"}
-            ),
+            **target.model_dump(mode="python", exclude={"observation_fingerprint_ref"}),
             "source_decision": rebound,
         }
     )
@@ -370,7 +423,9 @@ def test_latency_context_and_quality_failures_are_visible() -> None:
         policy=_policy(corpus),
         corpus=corpus,
         legacy_bindings=bindings,
-        observations=tuple(changed if item is target else item for item in observations),
+        observations=tuple(
+            changed if item is target else item for item in observations
+        ),
         quality_observations=(changed_score, *quality[1:]),
     )
     assert report.status == HardeningStatus.failed
@@ -386,7 +441,9 @@ def test_ttft_absolute_and_relative_budget_is_recomputed() -> None:
     changed = tuple(
         bind_taw07_observation(
             **{
-                **item.model_dump(mode="python", exclude={"observation_fingerprint_ref"}),
+                **item.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
                 "candidate_ttft_milliseconds": 106,
             }
         )
@@ -432,6 +489,92 @@ def test_ttft_uses_paired_category_margins() -> None:
     )
     assert report.p95_ttft_margin_milliseconds == 6
     assert report.status == HardeningStatus.failed
+
+
+def test_ttft_relative_margin_is_paired_before_category_p95() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    target_category = "category-ref:taw07:unsupported-request"
+    target_index = 0
+    changed = []
+    for item in observations:
+        values = item.model_dump(mode="python", exclude={"observation_fingerprint_ref"})
+        if item.category_ref == target_category:
+            if target_index < 2:
+                values["baseline_ttft_milliseconds"] = 100
+                values["candidate_ttft_milliseconds"] = 106
+            else:
+                values["baseline_ttft_milliseconds"] = 1_000
+                values["candidate_ttft_milliseconds"] = 1_000
+            target_index += 1
+        else:
+            values["baseline_ttft_milliseconds"] = 1_000
+            values["candidate_ttft_milliseconds"] = 1_000
+        changed.append(bind_taw07_observation(**values))
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=tuple(changed),
+        quality_observations=quality,
+    )
+    assert report.p95_ttft_margin_milliseconds == 6
+    assert report.status == HardeningStatus.failed
+
+
+def test_performance_denominator_counts_every_category_ttft_gate() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    changed = tuple(
+        bind_taw07_observation(
+            **{
+                **item.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
+                "routing_latency_milliseconds": 101,
+                "candidate_ttft_milliseconds": 106,
+            }
+        )
+        for item in observations
+    )
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=changed,
+        quality_observations=quality,
+    )
+    metric = next(
+        item
+        for item in report.metric_results
+        if item.metric_ref == "metric-ref:taw07:performance-budget-failure"
+    )
+    assert metric.denominator == len(observations) + len(TAW07_CATEGORY_CENSUS)
+    assert metric.event_count == len(observations) + len(TAW07_CATEGORY_CENSUS)
+
+
+def test_report_binds_the_exact_policy_thresholds_used() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    strict_policy = _policy(corpus)
+    relaxed_policy = strict_policy.model_copy(
+        update={"maximum_routing_latency_milliseconds": 1_000}
+    )
+    strict = evaluate_taw07_hardening(
+        policy=strict_policy,
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=observations,
+        quality_observations=quality,
+    )
+    relaxed = evaluate_taw07_hardening(
+        policy=relaxed_policy,
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=observations,
+        quality_observations=quality,
+    )
+    assert strict.policy_fingerprint_ref != relaxed.policy_fingerprint_ref
 
 
 def test_holdout_and_authority_fields_fail_closed() -> None:
@@ -536,7 +679,9 @@ def test_corpus_bound_is_checked_before_observation_matrix_materialization() -> 
         )
 
 
-def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums() -> None:
+def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums() -> (
+    None
+):
     corpus = _corpus()
     payload = _passing_inputs(corpus)[1][0].model_dump(mode="json")
     payload["raw_prompt"] = "not allowed"
@@ -552,11 +697,11 @@ def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums(
         assert "StrEnum" not in (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_reconstructed_payload_drives_candidate_decision() -> None:
+def test_reconstructed_payload_uses_parameters_not_embedded_category_label() -> None:
     corpus = _corpus()
     case = corpus.cases[0]
     payload = reconstruct_development_case_payload(corpus, case.case_ref)
-    changed = payload.model_copy(
+    relabeled = payload.model_copy(
         update={
             "user_text": payload.user_text.replace(
                 "category-ref:taw07:ordinary-chat",
@@ -565,7 +710,22 @@ def test_reconstructed_payload_drives_candidate_decision() -> None:
         }
     )
     decision = build_taw07_source_decision(
-        case_payload=changed,
+        case_payload=relabeled,
+        catalog_state=CatalogState.healthy,
+        replay_mode=ReplayMode.candidate_shadow,
+    )
+    assert decision.action == ShadowChatAction.preserve_direct_chat
+
+    reparameterized = payload.model_copy(
+        update={
+            "user_text": payload.user_text.replace(
+                "parameter-ref:taw07:neutral-conversation",
+                "parameter-ref:taw07:reviewed-read-operation",
+            )
+        }
+    )
+    decision = build_taw07_source_decision(
+        case_payload=reparameterized,
         catalog_state=CatalogState.healthy,
         replay_mode=ReplayMode.candidate_shadow,
     )
