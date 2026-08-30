@@ -530,7 +530,6 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
 def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_dir = tmp_path / "state"
     parser = build_parser()
@@ -632,15 +631,6 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
             }
         )
 
-    monkeypatch.setattr(
-        queue_cli_module,
-        "build_developer_queue_record_drafts",
-        lambda _root: (_ for _ in ()).throw(
-            AssertionError(
-                "ambient manifest drafts must not rebuild an admission retry"
-            )
-        ),
-    )
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 1
@@ -657,6 +647,60 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     )
     assert health.queue_starvation_detected is False
     assert health.admitted_item_count == 37
+
+
+def test_queue_v2_admission_retry_uses_durable_receipt_context(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_dir = tmp_path / "state"
+    parser = build_parser()
+    idempotency_ref = "idempotency-ref:durable-admission-retry"
+    preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-admission",
+            "--idempotency-prefix",
+            idempotency_ref,
+            "--item-id",
+            "Q00",
+        ]
+    )
+    assert preview.func(preview) == 0
+    preview_payload = json.loads(capsys.readouterr().out)
+    admission = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "admit-queue-v2",
+            "--idempotency-prefix",
+            idempotency_ref,
+            "--item-id",
+            "Q00",
+            "--expected-snapshot-revision",
+            str(preview_payload["expected_snapshot_revision"]),
+            "--confirm-admission",
+            "admit-queue-v2",
+            "--approve-exact-scope",
+            preview_payload["approval_scope_ref"],
+        ]
+    )
+    assert admission.func(admission) == 0
+    assert json.loads(capsys.readouterr().out)["replayed_receipt_count"] == 0
+
+    monkeypatch.setattr(
+        queue_cli_module,
+        "build_developer_queue_record_drafts",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError(
+                "ambient manifest drafts must not rebuild an admission retry"
+            )
+        ),
+    )
+    assert admission.func(admission) == 0
+    assert json.loads(capsys.readouterr().out)["replayed_receipt_count"] == 1
 
 
 def test_queue_v2_cli_selectively_admits_a_manifest_extension(
