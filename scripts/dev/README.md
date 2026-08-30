@@ -24,7 +24,12 @@ authority.
 .venv/bin/python scripts/dev/uaa_founder_loop.py inspect
 .venv/bin/python scripts/dev/uaa_founder_loop.py promote-action-envelope --today-item-ref briefing:storage-state-first-loop --idempotency-ref idempotency-ref:local-review
 .venv/bin/python scripts/dev/uaa_developer_queue.py catalog --pretty
-.venv/bin/python scripts/dev/uaa_developer_queue.py admit-queue-v2 --idempotency-prefix idempotency-ref:queue-v2-admission --confirm-admission admit-queue-v2 --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py preview-queue-v2-admission --idempotency-prefix idempotency-ref:queue-v2-admission --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py admit-queue-v2 --idempotency-prefix idempotency-ref:queue-v2-admission --expected-snapshot-revision 0 --confirm-admission admit-queue-v2 --approve-exact-scope developer-queue-admission-scope-ref:sha256:copy-exact-preview-value --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py preview-queue-v2-reconciliation --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py reconcile-queue-v2 --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --confirm-reconciliation reconcile-queue-v2 --approve-exact-scope developer-queue-reconciliation-scope-ref:sha256:copy-exact-preview-value --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py preview-queue-v2-inactive-migration --item-id Q31 --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior --migration-evidence-ref evidence-ref:reviewed-contract-migration --idempotency-ref idempotency-ref:queue-v2-reviewed-migration --pretty
+.venv/bin/python scripts/dev/uaa_developer_queue.py migrate-queue-v2-inactive-item --item-id Q31 --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior --expected-current-task-revision-ref developer-work-task-revision-ref:sha256:copy-exact-preview-value --migration-evidence-ref evidence-ref:reviewed-contract-migration --idempotency-ref idempotency-ref:queue-v2-reviewed-migration --confirm-migration migrate-queue-v2-inactive-item --approve-exact-scope developer-work-completed-migration-scope-ref:sha256:copy-exact-preview-value --pretty
 .venv/bin/python scripts/dev/uaa_developer_queue.py scout --pretty
 ```
 
@@ -44,7 +49,9 @@ uses a recoverable snapshot/receipt transaction journal, prevents active
 branch/worktree collisions, enforces a three-claim global WIP cap with one
 shared-core, one product-surface, and one verification/read-only task, and
 exposes exact completion or cancellation plus a terminal scope-packet archive
-gate. Its guarded V2 command materializes the authoritative Q00-Q31 queue;
+gate. Its guarded V2 command materializes the authoritative Q00-Q36 queue and
+supports exact `--item-id` selection plus prior-fingerprint-bound amendment of
+a never-claimed queued record for a reviewed manifest extension;
 `inspect` treats zero admitted V2 work as starvation. The older recovery
 command fails closed because that source set is superseded. It provides fixed
 read-only local Git
