@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+import enum as _enum
 from importlib import import_module
 from typing import Any
+
+
+if not hasattr(_enum, "StrEnum"):
+
+    class _Python310StrEnum(str, _enum.Enum):
+        def __str__(self) -> str:
+            return self.value
+
+    setattr(_enum, "StrEnum", _Python310StrEnum)
 
 
 __all__ = [

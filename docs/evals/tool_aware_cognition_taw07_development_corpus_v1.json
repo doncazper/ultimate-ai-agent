@@ -1,0 +1,253 @@
+{
+  "cases": [
+    {
+      "case_ref": "case-ref:taw07:ordinary-chat-01",
+      "category_ref": "category-ref:taw07:ordinary-chat",
+      "generated_content_digest": "sha256:dfc867022679bd86613cda6195179395e31d3cf7b0d2e684500e7e175601b28f",
+      "parameter_refs": [
+        "parameter-ref:taw07:neutral-conversation"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 1
+    },
+    {
+      "case_ref": "case-ref:taw07:ordinary-chat-02",
+      "category_ref": "category-ref:taw07:ordinary-chat",
+      "generated_content_digest": "sha256:39a3162cbc29be56fdd47b7d68712e46c22a7f757e9bde7bfbdbd1f6f647e8fa",
+      "parameter_refs": [
+        "parameter-ref:taw07:explanation-request"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 2
+    },
+    {
+      "case_ref": "case-ref:taw07:supported-tool-01",
+      "category_ref": "category-ref:taw07:supported-tool",
+      "generated_content_digest": "sha256:90ece465d9ab9a04c26dddbf7cd9fdb8ccfa7f974e26ef4925da5f9adb89ed33",
+      "parameter_refs": [
+        "parameter-ref:taw07:reviewed-read-operation"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 3
+    },
+    {
+      "case_ref": "case-ref:taw07:supported-tool-02",
+      "category_ref": "category-ref:taw07:supported-tool",
+      "generated_content_digest": "sha256:b519fafc3f7247f19cb5432a8ec6a66f1d333194bf9aa5494f2b8aa44fb997c3",
+      "parameter_refs": [
+        "parameter-ref:taw07:reviewed-write-operation"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 4
+    },
+    {
+      "case_ref": "case-ref:taw07:unsupported-request-01",
+      "category_ref": "category-ref:taw07:unsupported-request",
+      "generated_content_digest": "sha256:0cc4e697db165456bdbd86752b101ed3034f880119d7c5f5bfa0ece6e230b7b6",
+      "parameter_refs": [
+        "parameter-ref:taw07:unknown-operation"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 5
+    },
+    {
+      "case_ref": "case-ref:taw07:unsupported-request-02",
+      "category_ref": "category-ref:taw07:unsupported-request",
+      "generated_content_digest": "sha256:a554398f3970964cb98aa93561e776d956045f9a4f436f5f9bdbf9541ae8647d",
+      "parameter_refs": [
+        "parameter-ref:taw07:nonexistent-connector"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 6
+    },
+    {
+      "case_ref": "case-ref:taw07:material-ambiguity-01",
+      "category_ref": "category-ref:taw07:material-ambiguity",
+      "generated_content_digest": "sha256:6a85f24c898cc4c04c91c311696f18fd5be036adf9df156d348938ce294ef114",
+      "parameter_refs": [
+        "parameter-ref:taw07:read-write-effects"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 7
+    },
+    {
+      "case_ref": "case-ref:taw07:authority-blocked-01",
+      "category_ref": "category-ref:taw07:authority-blocked",
+      "generated_content_digest": "sha256:1d6bcee72777f701d8a5999ea19f04c7e365d043ee99559ac2e6649f9d7cf8dd",
+      "parameter_refs": [
+        "parameter-ref:taw07:missing-approval"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 8
+    },
+    {
+      "case_ref": "case-ref:taw07:outcome-uncertain-01",
+      "category_ref": "category-ref:taw07:outcome-uncertain",
+      "generated_content_digest": "sha256:92af1ab754f939bfd7773656687a1e93bd71467c6a5407d3b9962f8f6317a1ba",
+      "parameter_refs": [
+        "parameter-ref:taw07:missing-terminal-proof"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 9
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-01",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:2460b0c0224cd73063d9fa873f06de0dddda2f722594238c6de9cadcda05a8d9",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-aliases"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 10
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-02",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:9ee1f66fb27ce0a6437b6d534fdb06fb72ad47f3c44b4008c9ddf9405f366a24",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-availability_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 11
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-03",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:a458e938ed3c495f432fc94da7ceb12b38a1c683811968932f5c35664399dfa8",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-capability_id"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 12
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-04",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:72de1f0ee900dc74ee7db7fbc0b575eaf9d24977c114210fd24f661dbc875162",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-description"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 13
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-05",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:56f8ab9b062db9a7cd6813100aa30c19057773f07f208790c6df3283d9460c27",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-effect_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 14
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-06",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:473635c589eb313c76ba61170e11d3cfd8e904fb6dac5ac53420d622528281e5",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-examples"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 15
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-07",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:5847bd4f2fbf195b1d1cee91d90e60cdcc95283a2237d42d8d373e561ffb0c0e",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-input_schema"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 16
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-08",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:585d3e7de67c3a0f292f71f93e279bde07f9c9f30f6a981e0f65bb7a41e97383",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-operation_id"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 17
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-09",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:50b105102dc57a1c8c46d928bb062f268c059946a26047317619045d2d1d1b4a",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-operation_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 18
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-10",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:1609140869c7d6a5e9e05b867ca3fb59595ff22d7266dce86f8b0bb6e615f6b7",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-output_schema"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 19
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-11",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:b9234128b62b220084d73b13e174a6ecf7d2e950cc7993987ea165702b218501",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-preconditions"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 20
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-12",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:cd29addc1d7bf3e5c763aa85c6691cae2f9715090a6cf0dc7b34193dcb5e9e39",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-provenance_review_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 21
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-13",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:0c4773296344b4286f1731a4c408788f28736d440d67e902efea5676e9838e15",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-risk_approval_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 22
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-14",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:19f5b9e3a69c93245100fba1e062dbef236e68fcdfa92fc4e55eba5cbc1930b9",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-rollback_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 23
+    },
+    {
+      "case_ref": "case-ref:taw07:catalog-injection-15",
+      "category_ref": "category-ref:taw07:catalog-injection",
+      "generated_content_digest": "sha256:114e05a80fa761ab3b4583836458c38734f630f090db961eebebbf7d2fb5d375",
+      "parameter_refs": [
+        "parameter-ref:taw07:catalog-field-terminal_proof_metadata"
+      ],
+      "rubric_ref": "rubric-ref:taw07:founder-development-v1",
+      "variant_index": 24
+    }
+  ],
+  "corpus_digest": "sha256:d8c3439b2243bb9e6f2f25915a36b66ae7b45f3e0960093980d311b548504582",
+  "corpus_ref": "corpus-ref:taw07:founder-development-v1",
+  "deterministic_seed_material_hex": "a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7",
+  "deterministic_seed_ref": "seed-ref:taw07:founder-development-v1",
+  "generator_ref": "generator-ref:taw00:synthetic-corpus:v1",
+  "generator_version": "1",
+  "raw_content_persisted": false,
+  "schema_version": "uaa-taw00-development-corpus.v1",
+  "synthetic_only": true
+}

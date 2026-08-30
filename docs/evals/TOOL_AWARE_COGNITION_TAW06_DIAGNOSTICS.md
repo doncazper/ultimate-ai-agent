@@ -107,7 +107,8 @@ and zero-authority invariants.
 
 ## Next Slice
 
-TAW-07 remains responsible for development-corpus quality, latency, fault,
-safe-disable, and adversarial hardening under the accepted sealed-holdout
-boundary. TAW-06 does not complete Q22; TAW-07, TAW-08, founder-dogfood
-acceptance, and later independent promotion remain required.
+TAW-07 now provides the bounded development-corpus quality, latency, fault,
+safe-disable, and adversarial hardening contract under the accepted founder
+profile without opening an independent holdout. TAW-06 does not complete Q22;
+TAW-08 founder-dogfood acceptance and later independent promotion remain
+required.

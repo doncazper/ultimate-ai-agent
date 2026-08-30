@@ -27,6 +27,7 @@ SYSTEM_MAP_CAPABILITY_SOURCE_MODULES = (
     "ultimate_ai_agent.core.communications.matrix_sync.adapter",
     "ultimate_ai_agent.core.control_center.founder_loop_mission",
     "ultimate_ai_agent.core.device_capabilities.manifests",
+    "ultimate_ai_agent.core.evals.tool_aware_hardening",
     "ultimate_ai_agent.core.files.manager",
     "ultimate_ai_agent.core.finance.authority",
     "ultimate_ai_agent.core.governed_browser.contracts",
