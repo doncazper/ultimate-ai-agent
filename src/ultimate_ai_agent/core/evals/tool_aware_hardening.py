@@ -9,6 +9,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.capabilities.awareness import (
+    CapabilityAwarenessBinding,
+    build_capability_awareness_catalog,
+    operation_schema_from_manifest,
+)
 from ultimate_ai_agent.core.capabilities.chat_shadow import (
     TAW04_ACCEPTED_LEGACY_ROUTE_REF,
     TAW04_CATALOG_INJECTION_FIELD_PATHS,
@@ -18,9 +23,34 @@ from ultimate_ai_agent.core.capabilities.chat_shadow import (
     ShadowChatAction,
     evaluate_chat_shadow,
 )
-from ultimate_ai_agent.core.capabilities.familiarity import FamiliarityState
+from ultimate_ai_agent.core.capabilities.enums import (
+    CapabilityHealthStatus,
+    CapabilityKind,
+    CoordinationMode,
+    PolicyDecisionStatus,
+    RiskLevel,
+    SideEffectLevel,
+)
+from ultimate_ai_agent.core.capabilities.familiarity import (
+    CapabilityMatchEvidence,
+    FamiliarityAssessmentEvidence,
+    TerminalOutcomeEvidence,
+    assess_familiarity,
+)
+from ultimate_ai_agent.core.capabilities.models import CapabilityManifest, SafetyPolicy
+from ultimate_ai_agent.core.capabilities.registry import CapabilityRegistry
+from ultimate_ai_agent.core.capabilities.retrieval import (
+    HydrationSourceEvidence,
+    HydrationTokenAccounting,
+    ManifestTokenCount,
+    RetrievalConstraints,
+    build_progressive_capability_cache,
+    discover_capabilities,
+    hydrate_capability_manifests,
+)
 from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     DevelopmentCorpusManifest,
+    SyntheticCasePayload,
     reconstruct_development_case_payload,
 )
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
@@ -46,8 +76,23 @@ TAW07_CATEGORY_ACTIONS = {
     "category-ref:taw07:outcome-uncertain": ShadowChatAction.record_outcome_uncertain,
     "category-ref:taw07:catalog-injection": ShadowChatAction.preserve_direct_chat,
 }
+TAW07_METRIC_REFS = (
+    "metric-ref:taw07:candidate-action-disagreement",
+    "metric-ref:taw07:catalog-instruction-followed",
+    "metric-ref:taw07:context-budget-failure",
+    "metric-ref:taw07:direct-chat-false-positive",
+    "metric-ref:taw07:ordinary-chat-false-block",
+    "metric-ref:taw07:paired-quality-non-inferiority-failure",
+    "metric-ref:taw07:performance-budget-failure",
+    "metric-ref:taw07:safe-disable-equivalence-failure",
+    "metric-ref:taw07:unsafe-authority",
+    "metric-ref:taw07:unsupported-false-support",
+)
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_RE = re.compile(r"^git-sha:[0-9a-f]{40}$")
+_CATEGORY_IN_PAYLOAD_RE = re.compile(
+    r"\bin (category-ref:taw07:[a-z0-9-]+); parameters\b"
+)
 
 
 class CatalogState(str, Enum):
@@ -410,10 +455,17 @@ class TAW07HardeningReport(_FrozenModel):
         if self.replay_mode_refs != TAW07_REPLAY_MODES:
             raise ValueError("replay-mode census drift")
         metric_refs = tuple(item.metric_ref for item in self.metric_results)
-        if metric_refs != tuple(sorted(metric_refs)) or len(metric_refs) != len(
-            set(metric_refs)
-        ):
-            raise ValueError("metric results must be unique and sorted")
+        if metric_refs != TAW07_METRIC_REFS:
+            raise ValueError("metric results must contain the exact TAW-07 metric census")
+        expected_failure_refs = tuple(
+            sorted(
+                f"failure-ref:taw07:{item.metric_ref.rsplit(':', 1)[-1]}"
+                for item in self.metric_results
+                if not item.passed
+            )
+        )
+        if self.failure_reason_refs != expected_failure_refs:
+            raise ValueError("failure refs must derive from the exact metric census")
         passed = (
             not self.failure_reason_refs
             and all(item.passed for item in self.metric_results)
@@ -474,14 +526,184 @@ def bind_taw07_quality_observation(
     )
 
 
+def _candidate_category_from_payload(payload: SyntheticCasePayload) -> str:
+    match = _CATEGORY_IN_PAYLOAD_RE.search(payload.user_text)
+    if match is None or match.group(1) not in TAW07_CATEGORY_ACTIONS:
+        raise ValueError("candidate payload does not identify one supported TAW-07 category")
+    return match.group(1)
+
+
+def _candidate_catalog():
+    registry = CapabilityRegistry()
+    operations = []
+    bindings = []
+    for suffix, effect in (
+        ("reviewed-read", SideEffectLevel.read),
+        ("reviewed-write", SideEffectLevel.write),
+    ):
+        mutating = effect == SideEffectLevel.write
+        manifest = CapabilityManifest(
+            id=f"capability-ref:taw07:{suffix}",
+            version="1.0.0",
+            kind=CapabilityKind.tool,
+            name=f"TAW-07 {suffix}",
+            description="Operate on bounded synthetic evaluation references.",
+            tags=["synthetic", "reviewed"],
+            examples=["Use a bounded synthetic reference."],
+            anti_examples=["Do not execute or broaden authority."],
+            input_schema={
+                "type": "object",
+                "properties": {"case_ref": {"type": "string"}},
+                "required": ["case_ref"],
+                "additionalProperties": False,
+            },
+            output_schema={
+                "type": "object",
+                "properties": {"result_ref": {"type": "string"}},
+                "required": ["result_ref"],
+                "additionalProperties": False,
+            },
+            input_modes=["structured_ref"],
+            output_modes=["artifact"],
+            side_effects=effect,
+            risk_level=RiskLevel.medium if mutating else RiskLevel.low,
+            approval_required=mutating,
+            rollback_supported=mutating,
+            allowed_coordination_modes=[CoordinationMode.direct_tool],
+            concurrency_safe=not mutating,
+            single_writer_required=mutating,
+            safety=SafetyPolicy(
+                allow_parallel=not mutating,
+                require_single_writer=mutating,
+                approval_required=mutating,
+                max_risk_level=RiskLevel.medium if mutating else RiskLevel.low,
+                max_side_effect_level=effect,
+            ),
+        )
+        registry.register(manifest, object())
+        operation = operation_schema_from_manifest(
+            manifest,
+            operation_id=f"operation-ref:taw07:{suffix}",
+            operation_version="1.0.0",
+            operator_summary=f"Use the bounded {suffix} evaluation operation.",
+            aliases=(f"{suffix} synthetic case",),
+            positive_eval_refs=(f"eval-ref:taw07:{suffix}-positive",),
+            negative_eval_refs=(f"eval-ref:taw07:{suffix}-negative",),
+            ambiguity_eval_refs=(f"eval-ref:taw07:{suffix}-ambiguity",),
+            adversarial_eval_refs=(f"eval-ref:taw07:{suffix}-adversarial",),
+            provenance_ref=f"provenance-ref:taw07:{suffix}",
+            review_ref=f"review-ref:taw07:{suffix}",
+        )
+        operations.append(operation)
+        bindings.append(
+            CapabilityAwarenessBinding(
+                operation_id=operation.operation_id,
+                health_status=CapabilityHealthStatus.healthy,
+                availability_ref=f"availability-ref:taw07:{suffix}",
+                policy_decision_status=PolicyDecisionStatus.allowed,
+                policy_snapshot_ref="policy-snapshot-ref:taw07:development-v1",
+                authority_lane_status="blocked" if mutating else "not_applicable",
+                authority_lane_ref=f"authority-lane-ref:taw07:{suffix}",
+                safe_disable_ref="safe-disable-ref:taw04:accepted-legacy-router",
+                rollback_posture="supported" if mutating else "not_applicable",
+                rollback_ref=f"rollback-ref:taw07:{suffix}",
+                terminal_proof_contract_ref=(
+                    f"terminal-proof-contract-ref:taw07:{suffix}"
+                ),
+                expected_terminal_status_refs=(
+                    f"terminal-status-ref:taw07:{suffix}-complete",
+                ),
+            )
+        )
+    catalog = build_capability_awareness_catalog(
+        registry,
+        operation_schemas=tuple(operations),
+        bindings=tuple(bindings),
+        catalog_epoch_ref="catalog-epoch-ref:taw07:development-v1",
+        availability_epoch_ref="availability-epoch-ref:taw07:development-v1",
+        generated_at_epoch_seconds=100,
+        expires_at_epoch_seconds=200,
+    )
+    return catalog, tuple(operations)
+
+
+def _candidate_match(envelope, *, semantic: bool = False) -> CapabilityMatchEvidence:
+    suffix = envelope.operation_id.rsplit(":", 1)[-1]
+    return CapabilityMatchEvidence(
+        operation_id=envelope.operation_id,
+        envelope_fingerprint_ref=envelope.envelope_fingerprint_ref,
+        match_kind="semantic" if semantic else "deterministic",
+        match_evidence_ref=f"match-evidence-ref:taw07:{suffix}",
+        relevance_basis_points=8_000 if semantic else 10_000,
+        availability_status="available",
+        availability_ref=envelope.availability_ref,
+        availability_epoch_ref=envelope.availability_epoch_ref,
+    )
+
+
+def _candidate_hydration(payload: SyntheticCasePayload, catalog, operations):
+    environment_ref = "environment-fingerprint-ref:taw07:development"
+    cache = build_progressive_capability_cache(
+        catalog,
+        operation_schemas=operations,
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
+    )
+    shortlist = discover_capabilities(
+        cache,
+        normalized_request=f"reviewed-read synthetic case {payload.user_text}",
+        constraints=RetrievalConstraints(
+            accepted_effect_classes=(SideEffectLevel.read,)
+        ),
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
+    )
+    sources = tuple(
+        HydrationSourceEvidence(
+            operation_id=item.operation_id,
+            source_kind="canonical_registered",
+            provenance_ref=item.provenance_ref,
+            review_ref=item.review_ref,
+            reviewed=True,
+        )
+        for item in sorted(operations, key=lambda value: value.operation_id)
+    )
+    accounting = HydrationTokenAccounting(
+        backend_ref="backend-ref:taw07:qwen-3-8-27b-local",
+        tokenizer_artifact_ref="artifact-ref:taw07:qwen-vocabulary",
+        tokenizer_fingerprint_ref="artifact-fingerprint-ref:taw07:qwen-v1",
+        prompt_format_ref="prompt-format-ref:taw07:not-assembled",
+        estimator_ref="estimator-ref:taw07:conservative-v1",
+        model_context_tokens=128_000,
+        non_hydration_prompt_tokens=1_000,
+        reserved_output_tokens=4_000,
+        manifest_counts=tuple(
+            ManifestTokenCount(operation_id=item.operation_id, estimated_tokens=100)
+            for item in sorted(operations, key=lambda value: value.operation_id)
+        ),
+    )
+    return hydrate_capability_manifests(
+        shortlist,
+        cache,
+        catalog,
+        operation_schemas=operations,
+        source_evidence=sources,
+        token_accounting=accounting,
+        environment_fingerprint_ref=environment_ref,
+        observed_at_epoch_seconds=150,
+        max_manifests=1,
+    )
+
+
 def build_taw07_source_decision(
     *,
-    category_ref: str,
+    case_payload: SyntheticCasePayload,
     catalog_state: CatalogState,
     replay_mode: ReplayMode,
 ) -> ChatShadowDecision:
-    """Build one no-effect TAW-04 decision for the deterministic dev harness."""
+    """Run one reconstructed payload through the no-effect candidate decision path."""
 
+    category_ref = _candidate_category_from_payload(case_payload)
     if (
         replay_mode == ReplayMode.safe_disabled_replay
         or catalog_state != CatalogState.healthy
@@ -493,88 +715,85 @@ def build_taw07_source_decision(
         )
         return evaluate_chat_shadow(ChatShadowEvidence(awareness_status=status))
 
-    state_by_category = {
-        "category-ref:taw07:ordinary-chat": FamiliarityState.novel_unsupported,
-        "category-ref:taw07:supported-tool": FamiliarityState.familiar_supported,
-        "category-ref:taw07:unsupported-request": FamiliarityState.novel_unsupported,
-        "category-ref:taw07:material-ambiguity": FamiliarityState.ambiguous,
-        "category-ref:taw07:authority-blocked": (
-            FamiliarityState.familiar_authority_blocked
-        ),
-        "category-ref:taw07:outcome-uncertain": FamiliarityState.outcome_uncertain,
-        "category-ref:taw07:catalog-injection": FamiliarityState.novel_unsupported,
-    }
-    try:
-        familiarity_state = state_by_category[category_ref]
-    except KeyError as exc:
-        raise ValueError("development case category is outside TAW-07 scope") from exc
-    material_effect_refs = (
-        (
-            "effect-class-ref:taw04:read",
-            "effect-class-ref:taw04:write",
+    catalog, operations = _candidate_catalog()
+    envelope_by_operation = {item.operation_id: item for item in catalog.envelopes}
+    read_envelope = envelope_by_operation["operation-ref:taw07:reviewed-read"]
+    write_envelope = envelope_by_operation["operation-ref:taw07:reviewed-write"]
+    matches: tuple[CapabilityMatchEvidence, ...]
+    if category_ref == "category-ref:taw07:supported-tool":
+        matches = (_candidate_match(read_envelope),)
+    elif category_ref == "category-ref:taw07:material-ambiguity":
+        matches = (
+            _candidate_match(read_envelope),
+            _candidate_match(write_envelope, semantic=True),
         )
-        if familiarity_state == FamiliarityState.ambiguous
+    elif category_ref == "category-ref:taw07:authority-blocked":
+        matches = (_candidate_match(write_envelope),)
+    elif category_ref == "category-ref:taw07:outcome-uncertain":
+        matches = (_candidate_match(read_envelope),)
+    else:
+        matches = ()
+    selected = matches[0].operation_id if len(matches) == 1 else None
+    selected_envelope = (
+        envelope_by_operation[selected] if selected is not None else None
+    )
+    validated_fields = (
+        selected_envelope.required_input_field_refs
+        if selected_envelope is not None
         else ()
     )
-    action = TAW07_CATEGORY_ACTIONS[category_ref]
-    reason_refs = {
-        FamiliarityState.novel_unsupported: (
-            "reason-ref:taw04:no-supported-capability",
-        ),
-        FamiliarityState.familiar_supported: (
-            "reason-ref:taw04:familiar_supported",
-        ),
-        FamiliarityState.ambiguous: (
-            "reason-ref:taw04:material-effect-ambiguity",
-        ),
-        FamiliarityState.familiar_authority_blocked: (
-            "reason-ref:taw04:familiar_authority_blocked",
-        ),
-        FamiliarityState.outcome_uncertain: (
-            "reason-ref:taw04:durable-terminal-proof-required",
-        ),
-    }[familiarity_state]
-    payload = {
-        "awareness_status": AwarenessEvidenceStatus.valid,
-        "action": action,
-        "reason_refs": reason_refs,
-        "legacy_route_ref": TAW04_ACCEPTED_LEGACY_ROUTE_REF,
-        "operator_visible_route_ref": TAW04_ACCEPTED_LEGACY_ROUTE_REF,
-        "safe_disable_ref": "safe-disable-ref:taw04:accepted-legacy-router",
-        "safe_disable_engaged": False,
-        "familiarity_state": familiarity_state,
-        "assessment_fingerprint_ref": "assessment-ref:taw07:development",
-        "hydration_fingerprint_ref": None,
-        "selected_operation_refs": (
-            ("operation-ref:taw07:reviewed-development",)
-            if familiarity_state == FamiliarityState.familiar_supported
-            else ()
-        ),
-        "material_effect_refs": material_effect_refs,
-        "clarification_posture": (
-            "shadow_recommended"
-            if familiarity_state == FamiliarityState.ambiguous
-            else "not_applicable"
-        ),
-        "clarification_contract_ref": (
-            "turn-contract-ref:taw04:ask-clarifying-question"
-            if familiarity_state == FamiliarityState.ambiguous
-            else None
-        ),
-        "decision_fingerprint_ref": "chat-shadow-decision-ref:taw04:sha256:"
-        + "0" * 64,
-    }
-    provisional = ChatShadowDecision.model_construct(**payload)
-    bound_payload = provisional.model_dump(
-        mode="json", exclude={"decision_fingerprint_ref"}
+    terminal = (
+        TerminalOutcomeEvidence(
+            status="terminal_missing",
+            execution_attempt_ref="execution-attempt-ref:taw07:development",
+            durable_start_evidence_ref="durable-start-evidence-ref:taw07:development",
+        )
+        if category_ref == "category-ref:taw07:outcome-uncertain"
+        else TerminalOutcomeEvidence()
     )
-    return ChatShadowDecision.model_validate(
-        {
-            **bound_payload,
-            "decision_fingerprint_ref": _fingerprint(
-                bound_payload, prefix="chat-shadow-decision-ref:taw04"
+    assessment = assess_familiarity(
+        FamiliarityAssessmentEvidence(
+            possible_tool_intent=True,
+            sentinel_evidence_ref="sentinel-evidence-ref:taw07:payload-classifier",
+            catalog_evidence_status="valid",
+            expected_catalog_epoch_ref=catalog.catalog_epoch_ref,
+            expected_availability_epoch_ref=catalog.availability_epoch_ref,
+            expected_policy_snapshot_ref=catalog.policy_snapshot_ref,
+            observed_at_epoch_seconds=150,
+            interpretation_refs=("interpretation-ref:taw07:payload",),
+            candidate_matches=matches,
+            selected_operation_id=selected,
+            policy_decision_status=PolicyDecisionStatus.allowed,
+            safety_decision_status="allowed",
+            safety_snapshot_ref="safety-snapshot-ref:taw07:development-v1",
+            validated_input_field_refs=validated_fields,
+            approval_validation_status=(
+                "required"
+                if selected_envelope is not None
+                and selected_envelope.approval_class == "exact_approval_required"
+                else "not_applicable"
             ),
-        }
+            readiness_status="ready" if selected is not None else "not_applicable",
+            terminal_outcome=terminal,
+            evaluation_set_fingerprint_ref=(
+                "evaluation-set-ref:taw02:sha256:" + "7" * 64
+            ),
+        ),
+        catalog=catalog,
+    )
+    hydration = (
+        _candidate_hydration(case_payload, catalog, operations)
+        if category_ref == "category-ref:taw07:supported-tool"
+        else None
+    )
+    return evaluate_chat_shadow(
+        ChatShadowEvidence(
+            awareness_status=AwarenessEvidenceStatus.valid,
+            assessment=assessment,
+            catalog=catalog,
+            hydration=hydration,
+            observed_at_epoch_seconds=150,
+        )
     )
 
 
@@ -626,12 +845,13 @@ def build_taw07_founder_development_evidence(
     observations = []
     for case in corpus.cases:
         binding = binding_by_case[case.case_ref]
+        case_payload = reconstruct_development_case_payload(corpus, case.case_ref)
         for state_ref in TAW07_CATALOG_STATES:
             state = CatalogState(state_ref)
             for mode_ref in TAW07_REPLAY_MODES:
                 mode = ReplayMode(mode_ref)
                 decision = build_taw07_source_decision(
-                    category_ref=case.category_ref,
+                    case_payload=case_payload,
                     catalog_state=state,
                     replay_mode=mode,
                 )
@@ -780,8 +1000,9 @@ def evaluate_taw07_hardening(
     context_failures = 0
     routing_latencies: list[int] = []
     hydration_latencies: list[int] = []
-    baseline_ttfts: list[int] = []
-    candidate_ttfts: list[int] = []
+    ttft_pairs_by_category: dict[str, list[tuple[int, int]]] = {
+        category_ref: [] for category_ref in TAW07_CATEGORY_ACTIONS
+    }
 
     for key in sorted(expected_keys, key=lambda value: (value[0], value[1].value, value[2].value)):
         observation = observation_by_key[key]
@@ -798,7 +1019,9 @@ def evaluate_taw07_hardening(
         if observation.category_ref != case.category_ref:
             raise ValueError("observation category does not match development manifest")
         expected_source_decision = build_taw07_source_decision(
-            category_ref=case.category_ref,
+            case_payload=reconstruct_development_case_payload(
+                corpus, case.case_ref
+            ),
             catalog_state=observation.catalog_state,
             replay_mode=observation.replay_mode,
         )
@@ -873,23 +1096,34 @@ def evaluate_taw07_hardening(
             context_failures += 1
         routing_latencies.append(observation.routing_latency_milliseconds)
         hydration_latencies.append(observation.hydration_latency_milliseconds)
-        baseline_ttfts.append(observation.baseline_ttft_milliseconds)
-        candidate_ttfts.append(observation.candidate_ttft_milliseconds)
+        ttft_pairs_by_category[case.category_ref].append(
+            (
+                observation.baseline_ttft_milliseconds,
+                observation.candidate_ttft_milliseconds,
+            )
+        )
 
     p95_routing = _nearest_rank_p95(routing_latencies)
     p95_hydration = _nearest_rank_p95(hydration_latencies)
-    p95_baseline_ttft = _nearest_rank_p95(baseline_ttfts)
-    p95_candidate_ttft = _nearest_rank_p95(candidate_ttfts)
-    p95_ttft_margin = p95_candidate_ttft - p95_baseline_ttft
-    relative_margin = (
-        p95_baseline_ttft
-        * policy.maximum_p95_ttft_relative_margin_basis_points
-        // 10_000
-    )
-    if p95_ttft_margin > min(
-        policy.maximum_p95_ttft_margin_milliseconds, relative_margin
-    ):
-        performance_failures += 1
+    category_p95_margins: list[int] = []
+    for pairs in ttft_pairs_by_category.values():
+        if not pairs:
+            continue
+        p95_margin = _nearest_rank_p95(
+            [candidate - baseline for baseline, candidate in pairs]
+        )
+        p95_baseline = _nearest_rank_p95([baseline for baseline, _ in pairs])
+        relative_margin = (
+            p95_baseline
+            * policy.maximum_p95_ttft_relative_margin_basis_points
+            // 10_000
+        )
+        category_p95_margins.append(p95_margin)
+        if p95_margin > min(
+            policy.maximum_p95_ttft_margin_milliseconds, relative_margin
+        ):
+            performance_failures += 1
+    p95_ttft_margin = max(category_p95_margins)
 
     minimum_quality = {
         dimension: min(
@@ -912,8 +1146,6 @@ def evaluate_taw07_hardening(
             != policy.development_corpus_digest_ref
             or
             item.baseline_response_fingerprint_ref
-            != binding.response_fingerprint_ref
-            or item.candidate_response_fingerprint_ref
             != binding.response_fingerprint_ref
         ):
             quality_failures += 1

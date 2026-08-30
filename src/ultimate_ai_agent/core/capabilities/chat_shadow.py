@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -44,7 +44,7 @@ TAW04_CATALOG_INJECTION_FIELD_PATHS = (
 )
 
 
-class AwarenessEvidenceStatus(StrEnum):
+class AwarenessEvidenceStatus(str, Enum):
     valid = "valid"
     missing = "missing"
     corrupt = "corrupt"
@@ -53,7 +53,7 @@ class AwarenessEvidenceStatus(StrEnum):
     over_budget = "over_budget"
 
 
-class ShadowChatAction(StrEnum):
+class ShadowChatAction(str, Enum):
     preserve_direct_chat = "preserve_direct_chat"
     record_capability_candidate = "record_capability_candidate"
     recommend_clarification = "recommend_clarification"

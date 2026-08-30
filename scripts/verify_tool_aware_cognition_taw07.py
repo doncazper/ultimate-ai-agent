@@ -28,12 +28,14 @@ CANDIDATE_PATHS = (
     "docs/kanban/current_board.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "scripts/verify_tool_aware_cognition_taw07.py",
+    "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
+    "src/ultimate_ai_agent/core/capabilities/familiarity.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
     "tests/test_tool_aware_cognition_taw07.py",
 )
 
 
-def _candidate_revision_ref() -> str:
+def _candidate_revision() -> str:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=ROOT,
@@ -41,27 +43,40 @@ def _candidate_revision_ref() -> str:
         capture_output=True,
         text=True,
     )
-    return f"git-sha:{result.stdout.strip()}"
+    return result.stdout.strip()
 
 
-def _candidate_manifest_digest_ref() -> str:
+def _candidate_manifest_digest_ref(revision: str) -> str:
     digest = hashlib.sha256()
     for relative_path in CANDIDATE_PATHS:
-        path = ROOT / relative_path
+        result = subprocess.run(
+            ["git", "show", f"{revision}:{relative_path}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+        committed = result.stdout
+        if (ROOT / relative_path).read_bytes() != committed:
+            raise RuntimeError(
+                f"TAW-07 candidate path is dirty relative to {revision}: {relative_path}"
+            )
         digest.update(relative_path.encode("utf-8"))
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(committed)
         digest.update(b"\0")
     return f"sha256:{digest.hexdigest()}"
 
 
 def verify() -> None:
+    candidate_revision = _candidate_revision()
     corpus = DevelopmentCorpusManifest.model_validate(
         json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
     )
     policy = TAW07HardeningPolicy(
-        candidate_revision_ref=_candidate_revision_ref(),
-        candidate_manifest_digest_ref=_candidate_manifest_digest_ref(),
+        candidate_revision_ref=f"git-sha:{candidate_revision}",
+        candidate_manifest_digest_ref=_candidate_manifest_digest_ref(
+            candidate_revision
+        ),
         development_corpus_digest_ref=corpus.corpus_digest,
     )
     bindings, observations, quality = build_taw07_founder_development_evidence(

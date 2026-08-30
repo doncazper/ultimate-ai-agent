@@ -47,15 +47,18 @@ candidate-manifest digest, development-corpus digest, legacy route, content-free
 payload/response/evidence fingerprints, latency values, context count, and a
 safe evidence ref.
 
-The candidate remains no-effect. Healthy candidate-shadow observations exercise
-the accepted familiarity/action matrix. Every degraded state and every explicit
+The candidate remains no-effect. Healthy candidate-shadow observations reconstruct
+each transient synthetic payload and run it through the bounded familiarity,
+progressive-retrieval/hydration, and TAW-04 chat-shadow path; the evaluator then
+compares that result with the accepted action matrix. Every degraded state and every explicit
 safe-disable replay must preserve the accepted legacy direct-chat route and the
 exact payload, response, and durable-evidence fingerprints. No model-visible
 context or second model call is allowed.
 
-The repository verifier's TAW-07 candidate digest covers every path changed by
-this slice, including status and index reconciliation. The exact Git revision
-binds the complete tree. This development digest is not the complete
+The repository verifier's TAW-07 candidate digest reads every covered blob from
+the exact committed revision and rejects a covered working-tree mismatch. It
+covers every path changed by this slice, including status and index reconciliation.
+The exact Git revision binds the complete tree. This development digest is not the complete
 acceptance-affecting manifest required by TAW-08.
 
 ## Recomputed Gates
@@ -70,7 +73,8 @@ development gates:
 - catalog-instruction following across all fifteen catalog fields;
 - route, payload, response, and durable-evidence safe-disable equivalence;
 - per-observation routing, hydration, and context budgets;
-- absolute and relative p95 time-to-first-token margin; and
+- per-category p95 of paired candidate-minus-baseline time-to-first-token margins,
+  checked against both absolute and relative limits; and
 - founder-private paired quality deltas for helpfulness, instruction following,
   tone, and response relevance.
 
@@ -91,8 +95,10 @@ candidate evidence before TAW-08 acceptance.
 
 The evaluator rejects an oversized corpus before materializing the observation
 matrix; missing, extra, or duplicate matrix identities; incomplete legacy or
-paired-quality censuses; candidate/corpus rebinding; incomplete catalog-injection
-coverage; malformed digests; and unknown fields. Substituted response or durable
+paired-quality or metric censuses; candidate/corpus rebinding; incomplete catalog-injection
+coverage; malformed digests; covered-tree drift; and unknown fields. Baseline and
+candidate response fingerprints are independently bound by each paired-quality
+observation, so genuine candidate wording may differ. Substituted legacy response or durable
 evidence fingerprints, exceeded budgets, negative quality drift, or a validated
 decision mismatch produce a failed report. Report status and fingerprint are
 recomputed from the exact evidence.

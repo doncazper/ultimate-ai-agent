@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+
+from scripts import verify_tool_aware_cognition_taw07 as verifier
 
 from ultimate_ai_agent.core.capabilities.chat_shadow import (
     ChatShadowDecision,
@@ -95,7 +98,9 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
                         catalog_state=state,
                         replay_mode=mode,
                         source_decision=build_taw07_source_decision(
-                            category_ref=case.category_ref,
+                            case_payload=reconstruct_development_case_payload(
+                                corpus, case.case_ref
+                            ),
                             catalog_state=state,
                             replay_mode=mode,
                         ),
@@ -398,6 +403,37 @@ def test_ttft_absolute_and_relative_budget_is_recomputed() -> None:
     assert report.status == HardeningStatus.failed
 
 
+def test_ttft_uses_paired_category_margins() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    target_category = "category-ref:taw07:unsupported-request"
+    changed = tuple(
+        bind_taw07_observation(
+            **{
+                **item.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
+                "baseline_ttft_milliseconds": (
+                    1_000 if item.category_ref != target_category else 100
+                ),
+                "candidate_ttft_milliseconds": (
+                    1_000 if item.category_ref != target_category else 106
+                ),
+            }
+        )
+        for item in observations
+    )
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=changed,
+        quality_observations=quality,
+    )
+    assert report.p95_ttft_margin_milliseconds == 6
+    assert report.status == HardeningStatus.failed
+
+
 def test_holdout_and_authority_fields_fail_closed() -> None:
     corpus = _corpus()
     with pytest.raises(ValidationError, match="travel together"):
@@ -434,6 +470,29 @@ def test_quality_census_and_fingerprints_cannot_be_substituted() -> None:
         TAW07PairedQualityObservation.model_validate(payload)
 
 
+def test_candidate_quality_response_is_bound_independently() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    changed = bind_taw07_quality_observation(
+        **{
+            **quality[0].model_dump(
+                mode="python", exclude={"observation_fingerprint_ref"}
+            ),
+            "candidate_response_fingerprint_ref": (
+                "response-ref:taw07:candidate-observed-wording"
+            ),
+        }
+    )
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=observations,
+        quality_observations=(changed, *quality[1:]),
+    )
+    assert report.status == HardeningStatus.passed_founder_development
+
+
 def test_report_fingerprint_and_status_are_recomputed() -> None:
     report = _evaluate(_corpus())
     payload = report.model_dump(mode="json")
@@ -443,6 +502,10 @@ def test_report_fingerprint_and_status_are_recomputed() -> None:
     payload = report.model_dump(mode="json")
     payload["status"] = HardeningStatus.failed.value
     with pytest.raises(ValidationError, match="status does not match"):
+        TAW07HardeningReport.model_validate(payload)
+    payload = report.model_dump(mode="json")
+    payload["metric_results"] = payload["metric_results"][:-1]
+    with pytest.raises(ValidationError, match="exact TAW-07 metric census"):
         TAW07HardeningReport.model_validate(payload)
 
 
@@ -481,9 +544,70 @@ def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums(
         TAW07DevelopmentObservation.model_validate(payload)
     assert issubclass(CatalogState, str)
     assert issubclass(ReplayMode, str)
-    assert "StrEnum" not in Path(
-        ROOT / "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py"
-    ).read_text(encoding="utf-8")
+    for relative_path in (
+        "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
+        "src/ultimate_ai_agent/core/capabilities/familiarity.py",
+        "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
+    ):
+        assert "StrEnum" not in (ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def test_reconstructed_payload_drives_candidate_decision() -> None:
+    corpus = _corpus()
+    case = corpus.cases[0]
+    payload = reconstruct_development_case_payload(corpus, case.case_ref)
+    changed = payload.model_copy(
+        update={
+            "user_text": payload.user_text.replace(
+                "category-ref:taw07:ordinary-chat",
+                "category-ref:taw07:supported-tool",
+            )
+        }
+    )
+    decision = build_taw07_source_decision(
+        case_payload=changed,
+        catalog_state=CatalogState.healthy,
+        replay_mode=ReplayMode.candidate_shadow,
+    )
+    assert decision.action == ShadowChatAction.record_capability_candidate
+
+
+def test_candidate_manifest_digest_rejects_dirty_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    tracked = repo / "candidate.txt"
+    tracked.write_text("committed\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "candidate.txt"], cwd=repo, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=TAW07 Test",
+            "-c",
+            "user.email=taw07@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repo,
+        check=True,
+    )
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(verifier, "ROOT", repo)
+    monkeypatch.setattr(verifier, "CANDIDATE_PATHS", ("candidate.txt",))
+    verifier._candidate_manifest_digest_ref(revision)
+    tracked.write_text("dirty\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="candidate path is dirty"):
+        verifier._candidate_manifest_digest_ref(revision)
 
 
 def test_manifest_digest_tampering_is_rejected_before_evaluation() -> None:

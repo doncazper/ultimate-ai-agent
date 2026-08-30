@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -24,7 +24,7 @@ TAW02_CONTRACT_REF = "contract-ref:taw02:familiarity-assessment:v1"
 TAW02_ASSESSOR_REF = "assessor-ref:taw02:table-driven-precedence:v1"
 
 
-class FamiliarityState(StrEnum):
+class FamiliarityState(str, Enum):
     familiar_supported = "familiar_supported"
     familiar_input_required = "familiar_input_required"
     familiar_unavailable = "familiar_unavailable"
@@ -36,7 +36,7 @@ class FamiliarityState(StrEnum):
     outcome_uncertain = "outcome_uncertain"
 
 
-class FamiliarityReasonCode(StrEnum):
+class FamiliarityReasonCode(str, Enum):
     outcome_terminal_proof_missing = "outcome_terminal_proof_missing"
     outcome_terminal_proof_inconsistent = "outcome_terminal_proof_inconsistent"
     policy_denied = "policy_denied"
