@@ -31,7 +31,8 @@
     {"wave_id": "wave-3", "title": "Integrated founder loop", "objective": "Join the application cores into a coherent private founder workflow."},
     {"wave_id": "wave-4", "title": "Cognition integrations and vertical products", "objective": "Add tool-aware cognition, read-only sources, and governed vertical products."},
     {"wave_id": "wave-5", "title": "Core acceptance", "objective": "Run the final skepticism-first core parity comparison, directly inspect the chat and operator experience, and route remaining gaps."},
-    {"wave_id": "wave-6", "title": "Founder functional adoption", "objective": "Turn the accepted foundations and comparison findings into sustained founder-private daily-use workflows before noncritical polish."}
+    {"wave_id": "wave-6", "title": "Founder functional adoption", "objective": "Turn the accepted foundations and comparison findings into sustained founder-private daily-use workflows before noncritical polish."},
+    {"wave_id": "wave-7", "title": "Post-adoption peer parity", "objective": "Recheck the adopted product against exact current Hermes Agent and OpenClaw behavior through direct functional and visual evidence."}
   ],
   "items": [
     {
@@ -479,6 +480,18 @@
       "depends_on_item_ids": ["Q32", "Q33", "Q34", "Q35"], "merge_after_item_ids": [],
       "branch_ref": "branch-ref:codex/q36-cross-module-adoption-closure", "worktree_ref": "worktree-ref:queue-v2/q36-cross-module-adoption-closure", "workstream_ref": "workstream-ref:functional-adoption",
       "next_safe_action": "Run finite representative founder workflows across the adopted surfaces; repair foundational blockers, classify noncritical polish, and stop after the bounded acceptance cycle."
+    },
+    {
+      "queue_order": 37, "wave_id": "wave-7", "item_id": "Q37", "slug": "post-adoption-hermes-openclaw-parity-check",
+      "title": "Post-adoption Hermes/OpenClaw feature parity check",
+      "result_summary": "Compare the adopted UAA product with exact current Hermes Agent and OpenClaw revisions through equivalent functional workflows and direct visual and chat interaction evidence, then route only material gaps.",
+      "queue_status": "queued", "priority": "p1", "concurrency": "exclusive", "wip_lane": "verification_read_only",
+      "source_refs": ["canonical-task-ref:post-adoption-hermes-openclaw-parity"],
+      "scope_refs": ["scope-ref:queue-v2/Q37/exact-revision-functional-feature-matrix", "scope-ref:queue-v2/Q37/direct-chat-and-visual-observation", "scope-ref:queue-v2/Q37/workflow-persistence-and-recovery", "scope-ref:queue-v2/Q37/evidence-ranked-gap-owner-routing"],
+      "guardrail_refs": ["scope-ref:queue-v2/Q37/no-docs-only-parity-claim", "scope-ref:queue-v2/Q37/no-screenshot-only-usability-claim", "scope-ref:queue-v2/Q37/no-competitor-code-or-brand-copy", "scope-ref:queue-v2/Q37/no-new-runtime-or-external-authority", "scope-ref:queue-v2/Q37/no-endless-edge-case-chase"],
+      "depends_on_item_ids": ["Q36"], "merge_after_item_ids": [],
+      "branch_ref": "branch-ref:codex/q37-hermes-openclaw-parity-check", "worktree_ref": "worktree-ref:queue-v2/q37-hermes-openclaw-parity-check", "workstream_ref": "workstream-ref:parity",
+      "next_safe_action": "After Q36 completes, pin exact UAA, Hermes Agent, and OpenClaw revisions and configurations; exercise equivalent real workflows and chat surfaces; rank demonstrated differences; and route only material UAA gaps to separate owned queue work."
     }
   ],
   "gated_items": [

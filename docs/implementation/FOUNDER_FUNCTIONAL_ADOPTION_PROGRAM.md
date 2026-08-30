@@ -118,6 +118,21 @@ the remaining noncritical behavior and presentation polish. Stop after the
 bounded acceptance cycle; unusual edge cases without material founder impact
 do not extend the item indefinitely.
 
+## Q37 Follow-Up: Hermes/OpenClaw Post-Adoption Parity
+
+After Q36 completes, Q37 evaluates the product that survived real founder use
+against exact current Hermes Agent and OpenClaw revisions. It exercises
+equivalent workflows and directly inspects chat and adjacent operator surfaces,
+including persistence, failures, recovery, navigation, progress, and time to a
+useful outcome. Documentation and screenshots may support the record but cannot
+substitute for functional interaction evidence.
+
+Q37 is a bounded evaluation, not another implementation wave. It routes only
+material demonstrated gaps into separate owned Queue V2 work, keeps noncritical
+polish distinct, and stops without chasing low-impact edge cases indefinitely.
+Its canonical contract is
+`docs/evals/UAA_POST_ADOPTION_HERMES_OPENCLAW_PARITY_PLAN.md`.
+
 ## Program Boundaries
 
 - Wave 6 does not grant a broad autonomy switch or new authority class.

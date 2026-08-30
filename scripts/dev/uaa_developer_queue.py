@@ -1066,7 +1066,7 @@ def build_parser() -> argparse.ArgumentParser:
     queue_v2_command = subparsers.add_parser(
         "admit-queue-v2",
         help=(
-            "Idempotently admit the authoritative Q00-Q36 records without claiming "
+            "Idempotently admit the authoritative Q00-Q37 records without claiming "
             "or dispatching work."
         ),
     )
@@ -1079,7 +1079,7 @@ def build_parser() -> argparse.ArgumentParser:
     queue_v2_command.add_argument(
         "--item-id",
         action="append",
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
         help=(
             "Admit only this canonical item. Repeat for a bounded manifest extension; "
             "omit to admit the complete queue."
@@ -1099,7 +1099,7 @@ def build_parser() -> argparse.ArgumentParser:
     preview_admission_command.add_argument(
         "--item-id",
         action="append",
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
         help=(
             "Preview only this canonical item. Repeat for one bounded atomic batch; "
             "omit to preview the complete queue."
@@ -1142,7 +1142,7 @@ def build_parser() -> argparse.ArgumentParser:
     amend_queue_v2_command.add_argument(
         "--item-id",
         required=True,
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
     )
     amend_queue_v2_command.add_argument(
         "--expected-current-fingerprint-ref", required=True
@@ -1166,7 +1166,7 @@ def build_parser() -> argparse.ArgumentParser:
     preview_amendment_command.add_argument(
         "--item-id",
         required=True,
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
     )
     preview_amendment_command.add_argument(
         "--expected-current-fingerprint-ref", required=True
@@ -1186,7 +1186,7 @@ def build_parser() -> argparse.ArgumentParser:
     migrate_completed_command.add_argument(
         "--item-id",
         required=True,
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
     )
     migrate_completed_command.add_argument(
         "--expected-current-fingerprint-ref", required=True
@@ -1212,7 +1212,7 @@ def build_parser() -> argparse.ArgumentParser:
     preview_completed_migration_command.add_argument(
         "--item-id",
         required=True,
-        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        choices=tuple(f"Q{index:02d}" for index in range(38)),
     )
     preview_completed_migration_command.add_argument(
         "--expected-current-fingerprint-ref", required=True

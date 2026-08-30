@@ -24,7 +24,7 @@ QUEUE_RECORD_STARVATION_RISK_REF = "developer-risk-ref:queue-v2-starvation"
 QUEUE_RECORD_SUPERSEDED_TASK_RISK_REF = (
     "developer-risk-ref:queue-v2-superseded-task-present"
 )
-QUEUE_RECORD_ITEM_COUNT = 37
+QUEUE_RECORD_ITEM_COUNT = 38
 QUEUE_RECORD_LEGACY_SOURCE_ACCEPTANCE_PREFIX = "legacy-source-acceptance-ref:sha256:"
 
 
@@ -214,14 +214,14 @@ class DeveloperQueueRecordManifest(BaseModel):
         if [item.queue_order for item in self.items] != list(
             range(QUEUE_RECORD_ITEM_COUNT)
         ):
-            raise ValueError("queue record must contain contiguous Q00 through Q36")
+            raise ValueError("queue record must contain contiguous Q00 through Q37")
         if [item.item_id for item in self.items] != [
             f"Q{index:02d}" for index in range(QUEUE_RECORD_ITEM_COUNT)
         ]:
-            raise ValueError("queue record item ids must be exact Q00 through Q36")
+            raise ValueError("queue record item ids must be exact Q00 through Q37")
         wave_ids = [wave.wave_id for wave in self.waves]
-        if wave_ids != [f"wave-{index}" for index in range(7)]:
-            raise ValueError("queue record waves must be exact wave-0 through wave-6")
+        if wave_ids != [f"wave-{index}" for index in range(8)]:
+            raise ValueError("queue record waves must be exact wave-0 through wave-7")
         if any(item.wave_id not in set(wave_ids) for item in self.items):
             raise ValueError("queue record item references an unknown wave")
         slugs = [item.slug for item in self.items]
@@ -254,10 +254,16 @@ class DeveloperQueueRecordManifest(BaseModel):
             raise ValueError(
                 "Wave 6 must begin after the CRM foundation and Q31 comparison gate"
             )
-        if any(item.wave_id != "wave-6" for item in self.items[32:]):
+        if any(item.wave_id != "wave-6" for item in self.items[32:37]):
             raise ValueError("Q32 through Q36 must remain in wave-6")
-        if self.items[-1].slug != "cross-module-adoption-closure":
+        if self.items[36].slug != "cross-module-adoption-closure":
             raise ValueError("Q36 must remain the functional adoption closure")
+        if self.items[37].wave_id != "wave-7":
+            raise ValueError("Q37 must remain in post-adoption wave-7")
+        if self.items[37].slug != "post-adoption-hermes-openclaw-parity-check":
+            raise ValueError("Q37 must remain the post-adoption parity check")
+        if self.items[37].depends_on_item_ids != ["Q36"]:
+            raise ValueError("Q37 must begin only after Q36 adoption closure")
         if [item.gated_order for item in self.gated_items] != list(range(1, 12)):
             raise ValueError("queue record requires the eleven ordered gated items")
         if len(self.stale_pull_requests) != 2 or {
@@ -272,7 +278,7 @@ class DeveloperQueueRecordHealth(BaseModel):
         "uaa.developer_queue_health.v2"
     )
     queue_ref: str
-    queue_item_count: Literal[37] = 37
+    queue_item_count: Literal[38] = 38
     admitted_item_count: int = Field(..., ge=0)
     nonterminal_item_count: int = Field(..., ge=0)
     claimed_item_count: int = Field(..., ge=0)
@@ -778,7 +784,7 @@ def assess_developer_queue_record_health(
             "silently execute duplicate work."
         )
     else:
-        summary = "All thirty-seven authoritative queue items have durable records."
+        summary = "All thirty-eight authoritative queue items have durable records."
         next_action = (
             "Advance dependency-ready work with one named owner per lane and keep the "
             "eleven authority-heavy items visible but gated."
