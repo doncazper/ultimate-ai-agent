@@ -1714,6 +1714,113 @@ def test_queue_v2_reconciliation_rejects_fabricated_legacy_transition_suffix(
     assert coordinator.inspect().tasks[0].dependency_ready is False
 
 
+def test_queue_v2_reconciliation_accepts_exact_legacy_dependency_bindings(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.initialize(idempotency_ref="idempotency-ref:init-legacy-dependency")
+    _register_node(
+        coordinator,
+        "node-ref:legacy-dependency",
+        idempotency_ref="idempotency-ref:register-legacy-dependency",
+    )
+    manifest = load_developer_queue_record_manifest(ROOT)
+    q01, q02 = build_developer_queue_record_drafts(ROOT)[1:3]
+    legacy_q01 = q01.model_copy(update={"canonical_item_contract_ref": None})
+    legacy_q02 = q02.model_copy(update={"canonical_item_contract_ref": None})
+    _inject_legacy_queue_task(coordinator, legacy_q01, state="completed")
+    _inject_legacy_queue_task(coordinator, legacy_q02)
+
+    legacy_tasks = [legacy_q01, legacy_q02]
+    source_refs = {
+        task.task_ref: manifest.items[
+            int(task.canonical_task_ref.rsplit("Q", 1)[-1])
+        ].source_refs
+        for task in legacy_tasks
+    }
+    contract_refs = {
+        task.task_ref: queue_record_canonical_item_contract_ref(
+            task.model_copy(
+                update={"canonical_source_refs": source_refs[task.task_ref]}
+            )
+        )
+        for task in legacy_tasks
+    }
+    task_revision_refs = {
+        task.task_ref: coordinator.current_task_revision_ref(task.task_ref)
+        for task in legacy_tasks
+    }
+    transition_refs = {
+        task.task_ref: queue_record_legacy_source_acceptance_ref_from_values(
+            item_id=task.canonical_task_ref.rsplit("/", 1)[-1],
+            task_ref=task.task_ref,
+            source_refs=source_refs[task.task_ref],
+            legacy_fingerprint_ref=task.canonical_source_fingerprint_ref,
+        )
+        for task in legacy_tasks
+    }
+    idempotency_ref = "idempotency-ref:reconcile-exact-legacy-dependency"
+    authority, approval_ref, actor_context, snapshot_revision = (
+        _reconciliation_approval(
+            coordinator,
+            canonical_contract_refs=contract_refs,
+            task_revision_refs=task_revision_refs,
+            legacy_transition_refs=transition_refs,
+            legacy_source_refs=source_refs,
+            idempotency_ref=idempotency_ref,
+        )
+    )
+
+    receipt = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs=contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs=transition_refs,
+        legacy_source_refs=source_refs,
+        expected_snapshot_revision=snapshot_revision,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+
+    assert receipt.event_kind == "queue_contracts_reconciled"
+    reconciled_snapshot = coordinator._load_snapshot()
+    reconciled_q02 = next(
+        task for task in reconciled_snapshot.tasks if task.task_ref == q02.task_ref
+    )
+    assert reconciled_q02.dependency_contract_refs == {}
+    assert coordinator.inspect().tasks[-1].dependency_ready is True
+
+    tampered_q02 = reconciled_q02.model_copy(
+        update={
+            "dependency_contract_refs": {
+                q01.task_ref: "planning-item-contract-ref:sha256:tampered"
+            }
+        }
+    )
+    tampered_snapshot = reconciled_snapshot.model_copy(
+        update={
+            "tasks": [
+                tampered_q02 if task.task_ref == q02.task_ref else task
+                for task in reconciled_snapshot.tasks
+            ]
+        }
+    )
+    assert (
+        coordinator._dependency_contract_bindings_current(
+            tampered_snapshot, tampered_q02
+        )
+        is False
+    )
+
+    claim = coordinator.claim_task(
+        task_ref=q02.task_ref,
+        node_ref="node-ref:legacy-dependency",
+        idempotency_ref="idempotency-ref:claim-exact-legacy-dependency",
+    )
+    assert claim.event_kind == "task_claimed"
+
+
 def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(
     tmp_path: Path,
 ) -> None:
