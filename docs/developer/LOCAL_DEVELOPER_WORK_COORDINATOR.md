@@ -221,7 +221,10 @@ revision. If its result is uncertain, rerun the identical revision, scope, and
 idempotency values; the durable receipt replays without duplicating tasks. The
 receipt retains the bounded ordered drafts and previewed snapshot revision in a
 proof-bound admission evidence payload, so the approved contracts remain
-reconstructible after later amendments. A successful
+reconstructible after later amendments. An uncertainty retry reconstructs its
+request from that durable payload, not from the later ambient manifest. Older
+receipts without the payload remain readable as history but cannot authorize
+replay. A successful
 inspection reports thirty-seven admitted records, no contract drift, and no
 starvation risk. Use
 repeatable `--item-id` arguments to admit only a reviewed manifest extension
@@ -237,7 +240,12 @@ The compatibility command names containing `completed` remain accepted. The
 lane accepts queued, blocked, review, canceled, or completed source-aware records,
 preserves their lifecycle evidence, refuses the task itself or any dependent
 while actively claimed, invalidates stale reconciliation, and emits a
-proof-bound migration receipt.
+proof-bound migration receipt containing the replacement draft and resulting
+task revision. Reconciliation also fails closed when a completed dependent is
+still bound to the prerequisite's earlier contract, keeping downstream work
+unclaimable until that evidence is explicitly re-bound. Older migration
+receipts without replacement-contract evidence remain readable but cannot
+authorize replay.
 
 ## Commands
 

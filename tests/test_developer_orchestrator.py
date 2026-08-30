@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts" / "dev"))
 
 import uaa_developer_orchestrator.coordinator as coordinator_module  # noqa: E402
+import uaa_developer_queue as queue_cli_module  # noqa: E402
 from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperScopeDisposition,
     DeveloperWorkCoordinator,
@@ -529,6 +530,7 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
 def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_dir = tmp_path / "state"
     parser = build_parser()
@@ -630,6 +632,15 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
             }
         )
 
+    monkeypatch.setattr(
+        queue_cli_module,
+        "build_developer_queue_record_drafts",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError(
+                "ambient manifest drafts must not rebuild an admission retry"
+            )
+        ),
+    )
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 1
@@ -1018,6 +1029,65 @@ def test_atomic_queue_v2_admission_requires_exact_local_approval(
     )
     assert receipt.event_kind == "tasks_admitted"
     assert coordinator.inspect().revision == 1
+
+
+def test_legacy_admission_receipt_cannot_authorize_replay_without_evidence(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    draft = build_developer_queue_record_drafts(ROOT)[0]
+    actor_context = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="local_test_operator",
+        authority_source="explicit_user_request",
+    )
+    idempotency_ref = "idempotency-ref:admission-evidence-required"
+    request = coordinator_module.build_developer_queue_admission_approval_request(
+        [draft],
+        expected_snapshot_revision=0,
+        idempotency_ref=idempotency_ref,
+        actor_context=actor_context,
+    )
+    authority = coordinator_module.LocalApprovalAuthority()
+    authority.create_request(request)
+    approval_ref = "approval-ref:admission-evidence-required"
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    coordinator.admit_canonical_queue_tasks(
+        [draft],
+        expected_snapshot_revision=0,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+    stored = json.loads(coordinator.receipts_path.read_text(encoding="utf-8"))
+    stripped = {
+        **stored,
+        "admission_snapshot_revision": None,
+        "admission_drafts": [],
+        "admission_evidence_ref": None,
+    }
+    stripped["approval_proof_ref"] = coordinator_module._hash_ref(
+        "developer-work-approval-proof-ref",
+        {
+            "approval_ref": stripped["approval_ref"],
+            "approval_scope_ref": stripped["approval_scope_ref"],
+            "approving_actor_ref": stripped["approving_actor_ref"],
+        },
+    )
+    coordinator.receipts_path.write_text(
+        json.dumps(stripped, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="ADMISSION_REPLAY_EVIDENCE_REQUIRED",
+    ):
+        coordinator.admission_receipt_for_idempotency(idempotency_ref)
 
 
 def test_queue_v2_namespace_rejects_counterfeit_contract(tmp_path: Path) -> None:
@@ -1456,9 +1526,59 @@ def test_completed_source_aware_queue_contract_has_exact_migration_lane(
         "evidence-ref:completed-contract-reviewed"
     )
     assert receipt["prior_task_revision_ref"] == prior_revision_ref
+    assert receipt["migration_replacement_draft"] == current.model_dump(mode="json")
+    assert receipt["migration_result_task"]["state"] == "completed"
+    result_task = DeveloperWorkTask.model_validate(receipt["migration_result_task"])
+    durable_migrated = coordinator._load_snapshot().tasks[0]
+    assert (
+        result_task.model_copy(update={"latest_receipt_ref": receipt["receipt_ref"]})
+        == durable_migrated
+    )
+    assert receipt["migration_result_task_revision_ref"] == (
+        coordinator_module.developer_work_task_revision_ref(result_task)
+    )
+    assert receipt["migration_contract_evidence_ref"].startswith(
+        "developer-queue-migration-contract-evidence-ref:sha256:"
+    )
     assert receipt["approval_proof_ref"].startswith(
         "developer-work-approval-proof-ref:sha256:"
     )
+    with pytest.raises(ValueError, match="migration contract evidence is not bound"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **receipt,
+                "migration_replacement_draft": {
+                    **receipt["migration_replacement_draft"],
+                    "title": "Substituted migration contract",
+                },
+            }
+        )
+    stripped = {
+        **receipt,
+        "migration_replacement_draft": None,
+        "migration_result_task": None,
+        "migration_result_task_revision_ref": None,
+        "migration_contract_evidence_ref": None,
+    }
+    stripped["approval_proof_ref"] = coordinator_module._hash_ref(
+        "developer-work-approval-proof-ref",
+        {
+            "approval_ref": stripped["approval_ref"],
+            "approval_scope_ref": stripped["approval_scope_ref"],
+            "approving_actor_ref": stripped["approving_actor_ref"],
+            "prior_fingerprint_ref": stripped["prior_fingerprint_ref"],
+            "prior_task_revision_ref": stripped["prior_task_revision_ref"],
+            "migration_evidence_ref": stripped["migration_evidence_ref"],
+        },
+    )
+    coordinator.receipts_path.write_text(
+        json.dumps(stripped, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="MIGRATION_REPLAY_EVIDENCE_REQUIRED",
+    ):
+        migrate.func(migrate)
 
 
 @pytest.mark.parametrize("state", ["queued", "blocked", "review", "canceled"])
@@ -1602,6 +1722,119 @@ def test_contract_migration_rejects_an_active_bound_dependent(tmp_path: Path) ->
             approval_ref=approval_ref,
             actor_context=actor_context,
         )
+
+
+def test_contract_migration_keeps_stale_completed_dependents_unclaimable(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.initialize(idempotency_ref="idempotency-ref:init-completed-dependent")
+    q01, q02 = build_developer_queue_record_drafts(ROOT)[1:3]
+    prior_q01 = q01.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:q01-completed-prior"
+            ),
+            "canonical_source_refs": [
+                *q01.canonical_source_refs,
+                "canonical-task-ref:Q01-COMPLETED-PRIOR-SOURCE",
+            ],
+            "canonical_item_contract_ref": None,
+        }
+    )
+    prior_q01 = prior_q01.model_copy(
+        update={
+            "canonical_item_contract_ref": queue_record_canonical_item_contract_ref(
+                prior_q01
+            )
+        }
+    )
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    snapshot["tasks"].extend(
+        [
+            DeveloperWorkTask(
+                **prior_q01.model_dump(mode="json"),
+                state="completed",
+                completion_evidence_refs=["evidence-ref:q01-prior-completed"],
+            ).model_dump(mode="json"),
+            DeveloperWorkTask(
+                **q02.model_dump(mode="json"),
+                state="completed",
+                completion_evidence_refs=["evidence-ref:q02-prior-completed"],
+                dependency_contract_refs={
+                    q01.task_ref: prior_q01.canonical_item_contract_ref
+                },
+            ).model_dump(mode="json"),
+        ]
+    )
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    migration_idempotency_ref = "idempotency-ref:migrate-with-completed-dependent"
+    evidence_ref = "evidence-ref:reviewed-completed-dependent-migration"
+    authority, approval_ref, actor_context, task_revision_ref = _migration_approval(
+        coordinator,
+        q01,
+        expected_current_fingerprint_ref=prior_q01.canonical_source_fingerprint_ref,
+        migration_evidence_ref=evidence_ref,
+        idempotency_ref=migration_idempotency_ref,
+    )
+    coordinator.migrate_completed_canonical_task(
+        q01,
+        expected_current_fingerprint_ref=prior_q01.canonical_source_fingerprint_ref,
+        expected_current_task_revision_ref=task_revision_ref,
+        migration_evidence_ref=evidence_ref,
+        idempotency_ref=migration_idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+    migrated_snapshot = coordinator._load_snapshot()
+    migrated_by_ref = {task.task_ref: task for task in migrated_snapshot.tasks}
+    assert (
+        coordinator._dependency_contract_bindings_current(
+            migrated_snapshot, migrated_by_ref[q02.task_ref]
+        )
+        is False
+    )
+
+    contract_refs = {
+        task.task_ref: coordinator._durable_task_contract_ref(task)
+        for task in migrated_snapshot.tasks
+    }
+    task_revision_refs = {
+        task.task_ref: coordinator.current_task_revision_ref(task.task_ref)
+        for task in migrated_snapshot.tasks
+    }
+    reconciliation_idempotency_ref = (
+        "idempotency-ref:invalidate-stale-completed-dependent"
+    )
+    (
+        reconciliation_authority,
+        reconciliation_approval_ref,
+        reconciliation_actor,
+        reconciliation_revision,
+    ) = _reconciliation_approval(
+        coordinator,
+        canonical_contract_refs=contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs={},
+        legacy_source_refs={},
+        idempotency_ref=reconciliation_idempotency_ref,
+    )
+    reconciliation = coordinator.reconcile_canonical_queue_contracts(
+        canonical_contract_refs=contract_refs,
+        task_revision_refs=task_revision_refs,
+        legacy_transition_refs={},
+        legacy_source_refs={},
+        expected_snapshot_revision=reconciliation_revision,
+        idempotency_ref=reconciliation_idempotency_ref,
+        approval_authority=reconciliation_authority,
+        approval_ref=reconciliation_approval_ref,
+        actor_context=reconciliation_actor,
+    )
+    assert reconciliation.event_kind == "queue_contracts_invalidated"
+    assert coordinator.inspect().canonical_queue_reconciliation_ref is None
 
 
 def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(

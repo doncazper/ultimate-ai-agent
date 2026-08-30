@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperScopeDisposition,
     DeveloperWorkCoordinator,
+    DeveloperWorkQueueConflictError,
     DeveloperWorkQueueError,
     DeveloperWorkNode,
     DeveloperWorkTaskDraft,
@@ -368,26 +369,50 @@ def _queue_v2_admission_context(
 ]:
     coordinator = _coordinator(args)
     manifest = load_developer_queue_record_manifest(ROOT)
-    drafts = build_developer_queue_record_drafts(ROOT)
     requested_item_ids = list(args.item_id or [])
     if len(requested_item_ids) != len(set(requested_item_ids)):
         raise ValueError("DEVELOPER_QUEUE_V2_DUPLICATE_ITEM_SELECTION")
-    known_item_ids = {item.item_id for item in manifest.items}
-    if set(requested_item_ids) - known_item_ids:
-        raise ValueError("DEVELOPER_QUEUE_V2_UNKNOWN_ITEM_SELECTION")
-    requested_item_id_set = set(requested_item_ids)
-    selected_item_ids = [
-        item.item_id
-        for item in manifest.items
-        if not requested_item_ids or item.item_id in requested_item_id_set
-    ]
-    draft_by_item_id = {
-        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
-    }
-    selected_drafts = [draft_by_item_id[item_id] for item_id in selected_item_ids]
-    expected_snapshot_revision = getattr(args, "expected_snapshot_revision", None)
-    if expected_snapshot_revision is None:
-        expected_snapshot_revision = coordinator.inspect().revision
+    prior_receipt = coordinator.admission_receipt_for_idempotency(
+        args.idempotency_prefix
+    )
+    requested_snapshot_revision = getattr(args, "expected_snapshot_revision", None)
+    if prior_receipt is not None:
+        selected_drafts = list(prior_receipt.admission_drafts)
+        selected_item_ids = [
+            draft.canonical_task_ref.rsplit("/", maxsplit=1)[-1]
+            for draft in selected_drafts
+        ]
+        if requested_item_ids and set(requested_item_ids) != set(selected_item_ids):
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        expected_snapshot_revision = prior_receipt.admission_snapshot_revision
+        if expected_snapshot_revision is None:
+            raise DeveloperWorkQueueError(
+                "DEVELOPER_QUEUE_ADMISSION_REPLAY_EVIDENCE_REQUIRED"
+            )
+        if (
+            requested_snapshot_revision is not None
+            and requested_snapshot_revision != expected_snapshot_revision
+        ):
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+    else:
+        drafts = build_developer_queue_record_drafts(ROOT)
+        known_item_ids = {item.item_id for item in manifest.items}
+        if set(requested_item_ids) - known_item_ids:
+            raise ValueError("DEVELOPER_QUEUE_V2_UNKNOWN_ITEM_SELECTION")
+        requested_item_id_set = set(requested_item_ids)
+        selected_item_ids = [
+            item.item_id
+            for item in manifest.items
+            if not requested_item_ids or item.item_id in requested_item_id_set
+        ]
+        draft_by_item_id = {
+            item.item_id: draft
+            for item, draft in zip(manifest.items, drafts, strict=True)
+        }
+        selected_drafts = [draft_by_item_id[item_id] for item_id in selected_item_ids]
+        expected_snapshot_revision = requested_snapshot_revision
+        if expected_snapshot_revision is None:
+            expected_snapshot_revision = coordinator.inspect().revision
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
