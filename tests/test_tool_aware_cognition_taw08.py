@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -16,15 +18,27 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     EvidenceOnlyDeltaEntry,
     EvidenceOnlyDeltaManifest,
     FoundationGateReceipt,
+    FounderMeasurementKind,
+    RevisionDeltaCensus,
+    RevisionPathCensus,
     TAW08AcceptanceReport,
     TAW08AcceptanceStatus,
     bind_evidence_only_delta,
     bind_foundation_gate_receipt,
+    bind_founder_measurement_receipt,
     bind_founder_private_acceptance_evidence,
+    bind_revision_delta_census,
+    bind_revision_path_census,
     evaluate_taw08_acceptance,
+    redacted_acceptance_report_artifact,
     verify_and_bind_candidate_lock,
     verify_and_bind_evidence_only_delta,
     verify_evidence_only_delta,
+)
+from scripts.verify_tool_aware_cognition_taw08 import (
+    EVIDENCE_ONLY_DELTA_PATHS,
+    derive_revision_delta_census,
+    derive_revision_path_census,
 )
 from ultimate_ai_agent.core.evals.tool_aware_baseline import (
     CandidateLock,
@@ -40,6 +54,23 @@ CANDIDATE_REVISION_REF = "git-sha:" + "1" * 40
 DELTA_REVISION_REF = "git-sha:" + "2" * 40
 
 
+def _revision_path_census(path_refs: set[str]) -> RevisionPathCensus:
+    return bind_revision_path_census(
+        revision_ref=CANDIDATE_REVISION_REF,
+        path_refs=tuple(sorted(path_refs)),
+        provenance_ref="provenance-ref:git-ls-tree",
+    )
+
+
+def _revision_delta_census(path_refs: tuple[str, ...]) -> RevisionDeltaCensus:
+    return bind_revision_delta_census(
+        candidate_revision_ref=CANDIDATE_REVISION_REF,
+        delta_revision_ref=DELTA_REVISION_REF,
+        path_refs=tuple(sorted(path_refs)),
+        provenance_ref="provenance-ref:git-diff-name-only",
+    )
+
+
 def _candidate_lock() -> CandidateLock:
     empty_digest = f"sha256:{hashlib.sha256(b'').hexdigest()}"
     entries = tuple(
@@ -53,8 +84,8 @@ def _candidate_lock() -> CandidateLock:
         "evidence_only_delta_path_refs": (
             "repo-path-ref:docs/evals/taw08_acceptance_report.json",
             "repo-path-ref:docs/evals/taw08_evidence_refs.json",
-            "repo-path-ref:docs/kanban/current_board.md",
-            "repo-path-ref:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+            "repo-path-ref:docs/evals/taw08_board_reconciliation.json",
+            "repo-path-ref:docs/evals/taw08_release_truth_reconciliation.json",
         ),
     }
     return CandidateLock(
@@ -132,7 +163,7 @@ def _candidate_verification(
         source_projection=projection,
         source_closure=closure,
         closure_content_by_path_ref=source_content,
-        available_path_refs=set(source_content),
+        revision_path_census=_revision_path_census(set(source_content)),
     )
 
 
@@ -147,15 +178,41 @@ def _foundation_receipt(
     )
 
 
+def _measurement_receipt(
+    lock: CandidateLock,
+    kind: FounderMeasurementKind,
+    suffix: str,
+):
+    return bind_founder_measurement_receipt(
+        measurement_kind=kind,
+        candidate_revision_ref=lock.git_revision_ref,
+        candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        evidence_ref=f"evidence-ref:taw08:{suffix}",
+        evidence_digest_ref="sha256:" + hashlib.sha256(suffix.encode()).hexdigest(),
+    )
+
+
 def _founder_evidence(lock: CandidateLock):
     return bind_founder_private_acceptance_evidence(
         candidate_revision_ref=lock.git_revision_ref,
         candidate_manifest_digest_ref=lock.manifest_digest_ref,
-        stale_cache_recovery_receipt_ref="receipt-ref:taw08:stale-recovery",
-        routing_confidence_receipt_ref="receipt-ref:taw08:routing-confidence",
-        response_scoring_receipt_ref="receipt-ref:taw08:response-scoring",
-        live_model_hardware_receipt_refs=("receipt-ref:taw08:qwen-mac-run-1",),
-        end_to_end_journey_receipt_ref="receipt-ref:taw08:end-to-end-journeys",
+        stale_cache_recovery_receipt=_measurement_receipt(
+            lock, FounderMeasurementKind.stale_cache_recovery, "stale-recovery"
+        ),
+        routing_confidence_receipt=_measurement_receipt(
+            lock, FounderMeasurementKind.routing_confidence, "routing-confidence"
+        ),
+        response_scoring_receipt=_measurement_receipt(
+            lock, FounderMeasurementKind.response_scoring, "response-scoring"
+        ),
+        live_model_hardware_receipts=(
+            _measurement_receipt(
+                lock, FounderMeasurementKind.live_model_hardware, "qwen-mac-run-1"
+            ),
+        ),
+        end_to_end_journey_receipt=_measurement_receipt(
+            lock, FounderMeasurementKind.end_to_end_journey, "end-to-end-journeys"
+        ),
         founder_decision_ref="decision-ref:taw08:founder-private:accepted",
         founder_decision_outcome="accepted",
         exact_head_foundation_receipt=_foundation_receipt(),
@@ -195,7 +252,9 @@ def _delta_verification(lock: CandidateLock, delta: EvidenceOnlyDeltaManifest):
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={delta.entries[0].path_ref: _safe_delta_content()},
-        revision_delta_path_refs=tuple(item.path_ref for item in delta.entries),
+        revision_delta_census=_revision_delta_census(
+            tuple(item.path_ref for item in delta.entries)
+        ),
     )
 
 
@@ -284,41 +343,25 @@ def test_postmerge_receipt_must_bind_evidence_delta_revision() -> None:
 def test_founder_evidence_rejects_candidate_revision_substitution() -> None:
     lock = _candidate_lock()
     receipt = _foundation_receipt(revision_ref="git-sha:" + "4" * 40)
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["exact_head_foundation_receipt"] = receipt
 
     with pytest.raises(ValidationError, match="must bind the candidate revision"):
-        bind_founder_private_acceptance_evidence(
-            candidate_revision_ref=lock.git_revision_ref,
-            candidate_manifest_digest_ref=lock.manifest_digest_ref,
-            stale_cache_recovery_receipt_ref="receipt-ref:taw08:stale-recovery",
-            routing_confidence_receipt_ref="receipt-ref:taw08:routing-confidence",
-            response_scoring_receipt_ref="receipt-ref:taw08:response-scoring",
-            live_model_hardware_receipt_refs=("receipt-ref:taw08:qwen-mac",),
-            end_to_end_journey_receipt_ref="receipt-ref:taw08:journeys",
-            founder_decision_ref="decision-ref:taw08:founder-private:accepted",
-            founder_decision_outcome="accepted",
-            exact_head_foundation_receipt=receipt,
-        )
+        bind_founder_private_acceptance_evidence(**values)
 
 
 def test_founder_evidence_rejects_duplicate_measurement_receipts() -> None:
     lock = _candidate_lock()
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    measurement = values["live_model_hardware_receipts"][0]
+    values["live_model_hardware_receipts"] = (measurement, measurement)
 
-    with pytest.raises(ValidationError, match="unique and sorted"):
-        bind_founder_private_acceptance_evidence(
-            candidate_revision_ref=lock.git_revision_ref,
-            candidate_manifest_digest_ref=lock.manifest_digest_ref,
-            stale_cache_recovery_receipt_ref="receipt-ref:taw08:stale-recovery",
-            routing_confidence_receipt_ref="receipt-ref:taw08:routing-confidence",
-            response_scoring_receipt_ref="receipt-ref:taw08:response-scoring",
-            live_model_hardware_receipt_refs=(
-                "receipt-ref:taw08:qwen-mac",
-                "receipt-ref:taw08:qwen-mac",
-            ),
-            end_to_end_journey_receipt_ref="receipt-ref:taw08:journeys",
-            founder_decision_ref="decision-ref:taw08:founder-private:accepted",
-            founder_decision_outcome="accepted",
-            exact_head_foundation_receipt=_foundation_receipt(),
-        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        bind_founder_private_acceptance_evidence(**values)
 
 
 def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
@@ -331,7 +374,9 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
             candidate_lock=lock,
             delta=delta,
             changed_content_by_path_ref={delta.entries[0].path_ref: content},
-            revision_delta_path_refs=(delta.entries[0].path_ref,),
+            revision_delta_census=_revision_delta_census(
+                (delta.entries[0].path_ref,)
+            ),
         )
         == ()
     )
@@ -347,8 +392,8 @@ def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None
         changed_content_by_path_ref={
             "repo-path-ref:src/ultimate_ai_agent/core/runtime.py": b"changed"
         },
-        revision_delta_path_refs=(
-            "repo-path-ref:src/ultimate_ai_agent/core/runtime.py",
+        revision_delta_census=_revision_delta_census(
+            ("repo-path-ref:src/ultimate_ai_agent/core/runtime.py",)
         ),
     )
 
@@ -369,7 +414,7 @@ def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref=too_many_paths,
-        revision_delta_path_refs=tuple(sorted(too_many_paths)),
+        revision_delta_census=_revision_delta_census((delta.entries[0].path_ref,)),
     ) == ("failure-ref:taw08:evidence-delta-path-bound-exceeded",)
 
     assert "failure-ref:taw08:evidence-delta-content-bound-exceeded" in (
@@ -381,7 +426,9 @@ def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
                     b"x" * (TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES + 1)
                 )
             },
-            revision_delta_path_refs=(delta.entries[0].path_ref,),
+            revision_delta_census=_revision_delta_census(
+                (delta.entries[0].path_ref,)
+            ),
         )
     )
 
@@ -408,7 +455,7 @@ def test_evidence_only_delta_cannot_overlap_candidate_artifact() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={candidate_path: content},
-        revision_delta_path_refs=(candidate_path,),
+        revision_delta_census=_revision_delta_census((candidate_path,)),
     )
 
     assert failures == (
@@ -533,8 +580,8 @@ def test_founder_private_evidence_requires_explicit_accepted_outcome() -> None:
     values = _founder_evidence(lock).model_dump(
         mode="json", exclude={"evidence_digest_ref"}
     )
-    values["live_model_hardware_receipt_refs"] = tuple(
-        values["live_model_hardware_receipt_refs"]
+    values["live_model_hardware_receipts"] = tuple(
+        values["live_model_hardware_receipts"]
     )
     values["founder_decision_outcome"] = "rejected"
 
@@ -551,7 +598,9 @@ def test_evidence_delta_rejects_malformed_or_unredacted_payloads() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={delta.entries[0].path_ref: malformed},
-        revision_delta_path_refs=(delta.entries[0].path_ref,),
+        revision_delta_census=_revision_delta_census(
+            (delta.entries[0].path_ref,)
+        ),
     ) == ("failure-ref:taw08:evidence-delta-artifact-schema-invalid",)
 
 
@@ -630,8 +679,8 @@ def test_delta_verifier_requires_revision_derived_path_census() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={delta.entries[0].path_ref: _safe_delta_content()},
-        revision_delta_path_refs=tuple(
-            sorted((delta.entries[0].path_ref, omitted_revision_change))
+        revision_delta_census=_revision_delta_census(
+            (delta.entries[0].path_ref, omitted_revision_change)
         ),
     ) == ("failure-ref:taw08:revision-delta-path-census-drift",)
 
@@ -686,12 +735,183 @@ def test_receipt_binders_reject_unknown_fields_before_model_construct() -> None:
     founder_values = _founder_evidence(lock).model_dump(
         mode="json", exclude={"evidence_digest_ref"}
     )
-    founder_values["live_model_hardware_receipt_refs"] = tuple(
-        founder_values["live_model_hardware_receipt_refs"]
+    founder_values["live_model_hardware_receipts"] = tuple(
+        founder_values["live_model_hardware_receipts"]
     )
     founder_values["raw_prompt"] = "not allowed"
     with pytest.raises(ValueError, match="unknown builder fields"):
         bind_founder_private_acceptance_evidence(**founder_values)
+
+
+def test_repository_censuses_are_derived_from_named_git_revisions(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repo"
+    repository.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    source = repository / "src/ultimate_ai_agent/core"
+    source.mkdir(parents=True)
+    (source / "dependency.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (source / "root.py").write_text(
+        "from ultimate_ai_agent.core import dependency\n",
+        encoding="utf-8",
+    )
+    git("add", ".")
+    git("commit", "-m", "candidate")
+    candidate = git("rev-parse", "HEAD")
+    evidence = repository / "docs/evals/evidence.json"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("{}\n", encoding="utf-8")
+    (source / "root.py").write_text(
+        "from ultimate_ai_agent.core import dependency\nCHANGED = True\n",
+        encoding="utf-8",
+    )
+    git("add", ".")
+    git("commit", "-m", "delta")
+    delta = git("rev-parse", "HEAD")
+
+    path_census = derive_revision_path_census(
+        f"git-sha:{candidate}", repository_root=repository
+    )
+    assert "repo-path-ref:src/ultimate_ai_agent/core/dependency.py" in (
+        path_census.path_refs
+    )
+    delta_census = derive_revision_delta_census(
+        f"git-sha:{candidate}",
+        f"git-sha:{delta}",
+        repository_root=repository,
+    )
+    assert delta_census.path_refs == (
+        "repo-path-ref:docs/evals/evidence.json",
+        "repo-path-ref:src/ultimate_ai_agent/core/root.py",
+    )
+
+
+def test_schema_valid_secret_like_evidence_is_rejected() -> None:
+    lock = _candidate_lock()
+    content = json.dumps(
+        {
+            "schema_version": "uaa-taw08-immutable-evidence-refs.v1",
+            "evidence_refs": [
+                "evidence-ref:ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
+            ],
+            "raw_content_persisted": False,
+        }
+    ).encode()
+    delta = _delta(lock, content)
+
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref={delta.entries[0].path_ref: content},
+        revision_delta_census=_revision_delta_census(
+            (delta.entries[0].path_ref,)
+        ),
+    ) == ("failure-ref:taw08:evidence-delta-artifact-schema-invalid",)
+
+
+def test_founder_measurement_receipts_bind_the_candidate() -> None:
+    lock = _candidate_lock()
+    other_values = {
+        "candidate_ref": "candidate-ref:taw08:other-measurements:v1",
+        "git_revision_ref": lock.git_revision_ref,
+        "entries": [item.model_dump(mode="json") for item in lock.entries],
+        "evidence_only_delta_path_refs": lock.evidence_only_delta_path_refs,
+    }
+    other_lock = CandidateLock(
+        **other_values,
+        manifest_digest_ref=canonical_digest(other_values),
+    )
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["routing_confidence_receipt"] = _measurement_receipt(
+        other_lock,
+        FounderMeasurementKind.routing_confidence,
+        "other-routing-confidence",
+    )
+
+    with pytest.raises(ValidationError, match="candidate binding drift"):
+        bind_founder_private_acceptance_evidence(**values)
+
+
+def test_redacted_acceptance_artifact_binds_a_validated_report() -> None:
+    lock = _candidate_lock()
+    report = evaluate_taw08_acceptance(candidate_lock=lock)
+    artifact = redacted_acceptance_report_artifact(report)
+    content = json.dumps(
+        artifact.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+    ).encode()
+    path_ref = "repo-path-ref:docs/evals/taw08_acceptance_report.json"
+    delta = bind_evidence_only_delta(
+        candidate_revision_ref=lock.git_revision_ref,
+        candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        delta_revision_ref=DELTA_REVISION_REF,
+        entries=(
+            EvidenceOnlyDeltaEntry(
+                path_ref=path_ref,
+                artifact_kind="acceptance_report",
+                content_digest_ref=f"sha256:{hashlib.sha256(content).hexdigest()}",
+            ),
+        ),
+    )
+    census = _revision_delta_census((path_ref,))
+
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref={path_ref: content},
+        revision_delta_census=census,
+        validated_acceptance_reports_by_path_ref={path_ref: report},
+    ) == ()
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref={path_ref: content},
+        revision_delta_census=census,
+    ) == (
+        "failure-ref:taw08:evidence-delta-acceptance-report-binding-drift",
+    )
+
+
+def test_reconciliation_paths_are_structured_json_not_markdown() -> None:
+    assert all(path.endswith(".json") for path in EVIDENCE_ONLY_DELTA_PATHS)
+    assert "docs/kanban/current_board.md" not in EVIDENCE_ONLY_DELTA_PATHS
+    assert "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md" not in (
+        EVIDENCE_ONLY_DELTA_PATHS
+    )
+
+
+def test_wrong_postmerge_stage_returns_a_failed_report() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        candidate_verification_receipt=_candidate_verification(lock),
+        founder_evidence=_founder_evidence(lock),
+        evidence_only_delta=delta,
+        evidence_only_delta_verification_receipt=_delta_verification(lock, delta),
+        postmerge_foundation_receipt=_foundation_receipt(stage="exact_head"),
+    )
+
+    assert report.status is TAW08AcceptanceStatus.failed
+    assert report.founder_evidence_missing_refs == ()
+    assert report.failure_refs == (
+        "failure-ref:taw08:postmerge-delta-revision-drift",
+        "failure-ref:taw08:postmerge-foundation-stage-drift",
+    )
 
 
 def test_python_310_compatible_string_enums_are_used() -> None:

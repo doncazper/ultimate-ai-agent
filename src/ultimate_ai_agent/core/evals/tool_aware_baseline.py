@@ -236,6 +236,29 @@ def _refs(values: tuple[str, ...], field_name: str) -> None:
         _ref(value, field_name)
 
 
+def _repo_path_ref(value: str, field_name: str) -> None:
+    prefix = "repo-path-ref:"
+    if not value.startswith(prefix):
+        raise ValueError(f"{field_name} must be a repository path ref")
+    path = value.removeprefix(prefix)
+    parts = path.split("/")
+    if (
+        not path
+        or path.startswith("/")
+        or len(path) > 512
+        or any(part in ("", ".", "..") for part in parts)
+        or any(character in path for character in ("\x00", "\n", "\r"))
+    ):
+        raise ValueError(f"{field_name} contains an unsafe repository path")
+
+
+def _repo_path_refs(values: tuple[str, ...], field_name: str) -> None:
+    if len(values) != len(set(values)):
+        raise ValueError(f"{field_name} must be unique")
+    for value in values:
+        _repo_path_ref(value, field_name)
+
+
 def _digest(value: str, field_name: str) -> None:
     if not _DIGEST_RE.fullmatch(value):
         raise ValueError(f"{field_name} must be an exact sha256 digest")
@@ -1529,9 +1552,9 @@ class SourceDependencyEntry(_FrozenModel):
 
     @model_validator(mode="after")
     def validate_entry(self) -> "SourceDependencyEntry":
-        _ref(self.path_ref, "path_ref")
+        _repo_path_ref(self.path_ref, "path_ref")
         _digest(self.content_digest_ref, "content_digest_ref")
-        _refs(self.dependency_path_refs, "dependency_path_refs")
+        _repo_path_refs(self.dependency_path_refs, "dependency_path_refs")
         if self.dependency_path_refs != tuple(sorted(self.dependency_path_refs)):
             raise ValueError("source dependency refs must be sorted")
         return self

@@ -20,8 +20,8 @@ authority.
 
 The founder is the sole product evaluator for the current private-dogfood
 stage. The contract does not require multiple human evaluators to record that
-decision. Founder-private acceptance requires all of the following safe,
-content-free refs bound to one exact candidate revision and manifest:
+decision. Founder-private acceptance requires typed, digest-bound measurement
+receipts whose candidate revision and manifest match the exact candidate:
 
 - stale-cache recovery evidence;
 - routing-confidence-bound evidence;
@@ -53,8 +53,10 @@ It binds an exact Git revision, sorted content-addressed acceptance-affecting
 entries, and the only paths permitted to change after the lock. TAW-08 requires
 a candidate-verification receipt produced only after the locked path census,
 content digests, source projection, and transitive dependency closure all
-verify. Candidate source paths and content digests must match the projection
-roots and closure entries exactly. An incomplete one-file lock or a source
+verify. The repository verifier derives the complete source universe with
+`git ls-tree` at the locked revision before resolving imports. Candidate source
+paths and content digests must match the projection roots and closure entries
+exactly. An incomplete one-file lock, caller-supplied source universe, or source
 projection rebound to different bytes cannot satisfy the acceptance boundary.
 
 `EvidenceOnlyDeltaManifest` permits only three artifact kinds:
@@ -64,9 +66,12 @@ projection rebound to different bytes cannot satisfy the acceptance boundary.
 - `claim_reconciliation`.
 
 Its verifier recomputes the exact changed-path census and content digests,
-requires every changed path to be predeclared by the candidate lock, validates
-the bounded JSON artifact against the frozen schema for its declared kind, and
-rejects overlap with acceptance-affecting candidate entries. A successful
+requires every changed path to be predeclared by the candidate lock, recursively
+rejects secret-like values, validates the bounded JSON artifact against the
+frozen schema for its declared kind, and rejects overlap with
+acceptance-affecting candidate entries. A redacted acceptance artifact must be
+the exact projection of a fully validated `TAW08AcceptanceReport`; schema-valid
+placeholder values or a report for another candidate are rejected. A successful
 verification produces a digest-bound receipt that must match the candidate,
 delta manifest, delta revision, independently derived revision-delta path
 census, and exact artifact count. The repository workflow must derive that
@@ -74,7 +79,9 @@ census from the named candidate and delta revisions before calling the core
 verifier; a caller-authored subset is not complete revision evidence.
 Executable code, routes, prompts, policy data, configuration, dependencies,
 evaluators, thresholds, corpora, labels, raw content, and holdout material
-cannot be represented as evidence-only. Any such change requires a new
+cannot be represented as evidence-only. Board and release-truth reconciliation
+use separate structured JSON evidence paths; the active Markdown truth documents
+are not relabeled as JSON artifacts. Any other change requires a new
 candidate lock and acceptance cycle.
 
 Foundation receipts are SHA-bound, revision-bound, redacted `report-only`

@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
     verify_source_dependency_closure,
 )
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
+from ultimate_ai_agent.core.ledger.validation import scan_payload_for_secrets
 
 
 TAW08_CONTRACT_REF = "contract-ref:taw08:founder-private-acceptance:v1"
@@ -26,6 +27,7 @@ TAW08_MAX_EVIDENCE_DELTA_ENTRIES = 32
 TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_CANDIDATE_PATHS = 512
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
+TAW08_MAX_REVISION_PATHS = 8192
 TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
     sorted(
         {
@@ -96,8 +98,87 @@ class TAW08AcceptanceStatus(str, Enum):
     failed = "failed"
 
 
+class FounderMeasurementKind(str, Enum):
+    stale_cache_recovery = "stale_cache_recovery"
+    routing_confidence = "routing_confidence"
+    response_scoring = "response_scoring"
+    live_model_hardware = "live_model_hardware"
+    end_to_end_journey = "end_to_end_journey"
+
+
 class _FrozenModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+def _validate_repo_path_refs(values: tuple[str, ...], field_name: str) -> None:
+    if values != tuple(sorted(values)) or len(values) != len(set(values)):
+        raise ValueError(f"{field_name} must be unique and sorted")
+    prefix = "repo-path-ref:"
+    for value in values:
+        if not value.startswith(prefix):
+            raise ValueError(f"{field_name} must contain repository path refs")
+        path = value.removeprefix(prefix)
+        parts = path.split("/")
+        if (
+            not path
+            or path.startswith("/")
+            or len(path) > 512
+            or any(part in ("", ".", "..") for part in parts)
+            or any(character in path for character in ("\x00", "\n", "\r"))
+        ):
+            raise ValueError(f"{field_name} contains an unsafe repository path")
+
+
+class RevisionPathCensus(_FrozenModel):
+    schema_version: Literal["uaa-taw08-revision-path-census.v1"] = (
+        "uaa-taw08-revision-path-census.v1"
+    )
+    revision_ref: str
+    path_refs: tuple[str, ...] = Field(
+        ..., min_length=1, max_length=TAW08_MAX_REVISION_PATHS
+    )
+    provenance_ref: Literal["provenance-ref:git-ls-tree"] = (
+        "provenance-ref:git-ls-tree"
+    )
+    census_digest_ref: str
+
+    @model_validator(mode="after")
+    def validate_census(self) -> "RevisionPathCensus":
+        _validate_git_ref(self.revision_ref, "revision_ref")
+        _validate_repo_path_refs(self.path_refs, "path_refs")
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"census_digest_ref"})
+        )
+        if self.census_digest_ref != expected:
+            raise ValueError("revision path census digest binding drift")
+        return self
+
+
+class RevisionDeltaCensus(_FrozenModel):
+    schema_version: Literal["uaa-taw08-revision-delta-census.v1"] = (
+        "uaa-taw08-revision-delta-census.v1"
+    )
+    candidate_revision_ref: str
+    delta_revision_ref: str
+    path_refs: tuple[str, ...] = Field(
+        ..., min_length=1, max_length=TAW08_MAX_EVIDENCE_DELTA_ENTRIES
+    )
+    provenance_ref: Literal["provenance-ref:git-diff-name-only"] = (
+        "provenance-ref:git-diff-name-only"
+    )
+    census_digest_ref: str
+
+    @model_validator(mode="after")
+    def validate_census(self) -> "RevisionDeltaCensus":
+        _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
+        _validate_git_ref(self.delta_revision_ref, "delta_revision_ref")
+        _validate_repo_path_refs(self.path_refs, "path_refs")
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"census_digest_ref"})
+        )
+        if self.census_digest_ref != expected:
+            raise ValueError("revision delta census digest binding drift")
+        return self
 
 
 def _validate_ref(value: str, field_name: str) -> None:
@@ -346,19 +427,47 @@ class EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
         return self
 
 
+class FounderMeasurementReceipt(_FrozenModel):
+    schema_version: Literal["uaa-taw08-founder-measurement-receipt.v1"] = (
+        "uaa-taw08-founder-measurement-receipt.v1"
+    )
+    measurement_kind: FounderMeasurementKind
+    candidate_revision_ref: str
+    candidate_manifest_digest_ref: str
+    evidence_ref: str
+    evidence_digest_ref: str
+    raw_content_persisted: Literal[False] = False
+    receipt_digest_ref: str
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "FounderMeasurementReceipt":
+        _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
+        _validate_digest(
+            self.candidate_manifest_digest_ref, "candidate_manifest_digest_ref"
+        )
+        _validate_ref(self.evidence_ref, "evidence_ref")
+        _validate_digest(self.evidence_digest_ref, "evidence_digest_ref")
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"receipt_digest_ref"})
+        )
+        if self.receipt_digest_ref != expected:
+            raise ValueError("founder measurement receipt digest binding drift")
+        return self
+
+
 class FounderPrivateAcceptanceEvidence(_FrozenModel):
     schema_version: Literal["uaa-taw08-founder-acceptance-evidence.v1"] = (
         "uaa-taw08-founder-acceptance-evidence.v1"
     )
     candidate_revision_ref: str
     candidate_manifest_digest_ref: str
-    stale_cache_recovery_receipt_ref: str
-    routing_confidence_receipt_ref: str
-    response_scoring_receipt_ref: str
-    live_model_hardware_receipt_refs: tuple[str, ...] = Field(
+    stale_cache_recovery_receipt: FounderMeasurementReceipt
+    routing_confidence_receipt: FounderMeasurementReceipt
+    response_scoring_receipt: FounderMeasurementReceipt
+    live_model_hardware_receipts: tuple[FounderMeasurementReceipt, ...] = Field(
         ..., min_length=1, max_length=32
     )
-    end_to_end_journey_receipt_ref: str
+    end_to_end_journey_receipt: FounderMeasurementReceipt
     founder_decision_ref: str
     founder_decision_outcome: Literal["accepted"]
     exact_head_foundation_receipt: FoundationGateReceipt
@@ -374,18 +483,38 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         _validate_digest(
             self.candidate_manifest_digest_ref, "candidate_manifest_digest_ref"
         )
-        for value, field_name in (
-            (self.stale_cache_recovery_receipt_ref, "stale_cache_recovery_receipt_ref"),
-            (self.routing_confidence_receipt_ref, "routing_confidence_receipt_ref"),
-            (self.response_scoring_receipt_ref, "response_scoring_receipt_ref"),
-            (self.end_to_end_journey_receipt_ref, "end_to_end_journey_receipt_ref"),
-            (self.founder_decision_ref, "founder_decision_ref"),
-        ):
-            _validate_ref(value, field_name)
-        _validate_sorted_refs(
-            self.live_model_hardware_receipt_refs,
-            "live_model_hardware_receipt_refs",
+        _validate_ref(self.founder_decision_ref, "founder_decision_ref")
+        expected_kinds = (
+            (self.stale_cache_recovery_receipt, FounderMeasurementKind.stale_cache_recovery),
+            (self.routing_confidence_receipt, FounderMeasurementKind.routing_confidence),
+            (self.response_scoring_receipt, FounderMeasurementKind.response_scoring),
+            (self.end_to_end_journey_receipt, FounderMeasurementKind.end_to_end_journey),
         )
+        all_receipts = [item[0] for item in expected_kinds]
+        for receipt, expected_kind in expected_kinds:
+            if receipt.measurement_kind is not expected_kind:
+                raise ValueError("founder measurement receipt kind drift")
+        if any(
+            receipt.measurement_kind is not FounderMeasurementKind.live_model_hardware
+            for receipt in self.live_model_hardware_receipts
+        ):
+            raise ValueError("live-model measurement receipt kind drift")
+        live_receipt_digests = tuple(
+            item.receipt_digest_ref for item in self.live_model_hardware_receipts
+        )
+        if live_receipt_digests != tuple(sorted(live_receipt_digests)):
+            raise ValueError("live-model measurement receipts must be sorted")
+        all_receipts.extend(self.live_model_hardware_receipts)
+        receipt_digests = tuple(item.receipt_digest_ref for item in all_receipts)
+        if len(receipt_digests) != len(set(receipt_digests)):
+            raise ValueError("founder measurement receipts must be unique")
+        if any(
+            receipt.candidate_revision_ref != self.candidate_revision_ref
+            or receipt.candidate_manifest_digest_ref
+            != self.candidate_manifest_digest_ref
+            for receipt in all_receipts
+        ):
+            raise ValueError("founder measurement receipt candidate binding drift")
         if (
             self.exact_head_foundation_receipt.stage != "exact_head"
             or self.exact_head_foundation_receipt.revision_ref
@@ -546,9 +675,14 @@ class TAW08AcceptanceReport(_FrozenModel):
                 or receipt.delta_manifest_digest_ref
                 != self.evidence_only_delta.manifest_digest_ref
                 or receipt.revision_delta_path_census_digest_ref
-                != canonical_digest(
-                    tuple(item.path_ref for item in self.evidence_only_delta.entries)
-                )
+                != bind_revision_delta_census(
+                    candidate_revision_ref=self.candidate_revision_ref,
+                    delta_revision_ref=self.evidence_only_delta.delta_revision_ref,
+                    path_refs=tuple(
+                        item.path_ref for item in self.evidence_only_delta.entries
+                    ),
+                    provenance_ref="provenance-ref:git-diff-name-only",
+                ).census_digest_ref
                 or receipt.artifact_count != len(self.evidence_only_delta.entries)
             ):
                 binding_failures.add(
@@ -674,6 +808,28 @@ def bind_evidence_only_delta(**values: object) -> EvidenceOnlyDeltaManifest:
     )
 
 
+def bind_revision_path_census(**values: object) -> RevisionPathCensus:
+    _validate_builder_keys(RevisionPathCensus, values, "census_digest_ref")
+    payload = RevisionPathCensus.model_construct(
+        **values,
+        census_digest_ref="sha256:" + "0" * 64,
+    ).model_dump(mode="json", exclude={"census_digest_ref"})
+    return RevisionPathCensus.model_validate(
+        {**payload, "census_digest_ref": canonical_digest(payload)}
+    )
+
+
+def bind_revision_delta_census(**values: object) -> RevisionDeltaCensus:
+    _validate_builder_keys(RevisionDeltaCensus, values, "census_digest_ref")
+    payload = RevisionDeltaCensus.model_construct(
+        **values,
+        census_digest_ref="sha256:" + "0" * 64,
+    ).model_dump(mode="json", exclude={"census_digest_ref"})
+    return RevisionDeltaCensus.model_validate(
+        {**payload, "census_digest_ref": canonical_digest(payload)}
+    )
+
+
 def bind_foundation_gate_receipt(**values: object) -> FoundationGateReceipt:
     _validate_builder_keys(FoundationGateReceipt, values, "receipt_digest_ref")
     payload = FoundationGateReceipt.model_construct(
@@ -681,6 +837,17 @@ def bind_foundation_gate_receipt(**values: object) -> FoundationGateReceipt:
         receipt_digest_ref="sha256:" + "0" * 64,
     ).model_dump(mode="json", exclude={"receipt_digest_ref"})
     return FoundationGateReceipt.model_validate(
+        {**payload, "receipt_digest_ref": canonical_digest(payload)}
+    )
+
+
+def bind_founder_measurement_receipt(**values: object) -> FounderMeasurementReceipt:
+    _validate_builder_keys(FounderMeasurementReceipt, values, "receipt_digest_ref")
+    payload = FounderMeasurementReceipt.model_construct(
+        **values,
+        receipt_digest_ref="sha256:" + "0" * 64,
+    ).model_dump(mode="json", exclude={"receipt_digest_ref"})
+    return FounderMeasurementReceipt.model_validate(
         {**payload, "receipt_digest_ref": canonical_digest(payload)}
     )
 
@@ -696,6 +863,25 @@ def bind_founder_private_acceptance_evidence(
     if isinstance(receipt, dict):
         normalized["exact_head_foundation_receipt"] = (
             FoundationGateReceipt.model_validate(receipt)
+        )
+    for field_name in (
+        "stale_cache_recovery_receipt",
+        "routing_confidence_receipt",
+        "response_scoring_receipt",
+        "end_to_end_journey_receipt",
+    ):
+        measurement = normalized.get(field_name)
+        if isinstance(measurement, dict):
+            normalized[field_name] = FounderMeasurementReceipt.model_validate(
+                measurement
+            )
+    live_measurements = normalized.get("live_model_hardware_receipts")
+    if isinstance(live_measurements, (list, tuple)):
+        normalized["live_model_hardware_receipts"] = tuple(
+            item
+            if isinstance(item, FounderMeasurementReceipt)
+            else FounderMeasurementReceipt.model_validate(item)
+            for item in live_measurements
         )
     payload = FounderPrivateAcceptanceEvidence.model_construct(
         **normalized,
@@ -714,7 +900,7 @@ def verify_and_bind_candidate_lock(
     source_projection: SourceProjection,
     source_closure: SourceDependencyClosure,
     closure_content_by_path_ref: Mapping[str, bytes],
-    available_path_refs: set[str],
+    revision_path_census: RevisionPathCensus,
 ) -> CandidateLockVerificationReceipt:
     if len(expected_path_refs) > TAW08_MAX_CANDIDATE_PATHS:
         raise ValueError("candidate verification path bound exceeded")
@@ -739,9 +925,11 @@ def verify_and_bind_candidate_lock(
     if (
         len(source_projection.entries) > TAW08_MAX_CANDIDATE_PATHS
         or len(source_closure.entries) > TAW08_MAX_CANDIDATE_PATHS
-        or len(available_path_refs) > TAW08_MAX_CANDIDATE_PATHS
     ):
         raise ValueError("candidate verification source path bound exceeded")
+    if revision_path_census.revision_ref != candidate_lock.git_revision_ref:
+        raise ValueError("revision path census must bind the candidate revision")
+    available_path_refs = set(revision_path_census.path_refs)
     failures = set(
         verify_candidate_lock(
             candidate_lock,
@@ -795,7 +983,7 @@ def verify_and_bind_candidate_lock(
         "candidate_manifest_digest_ref": candidate_lock.manifest_digest_ref,
         "source_projection_digest_ref": source_projection.projection_digest_ref,
         "source_closure_digest_ref": source_closure.closure_digest_ref,
-        "path_census_digest_ref": canonical_digest(expected_path_refs),
+        "path_census_digest_ref": revision_path_census.census_digest_ref,
         "verifier_ref": "verifier-ref:taw08:candidate-lock:v1",
         "verified": True,
     }
@@ -804,17 +992,33 @@ def verify_and_bind_candidate_lock(
     )
 
 
-def _evidence_delta_artifact_is_safe(
+def redacted_acceptance_report_artifact(
+    report: TAW08AcceptanceReport,
+) -> RedactedAcceptanceReportArtifact:
+    return RedactedAcceptanceReportArtifact(
+        report_fingerprint_ref=report.report_fingerprint_ref,
+        status=report.status,
+        candidate_revision_ref=report.candidate_revision_ref,
+        candidate_manifest_digest_ref=report.candidate_manifest_digest_ref,
+        founder_evidence_digest_ref=report.founder_evidence_digest_ref,
+    )
+
+
+def _parse_evidence_delta_artifact(
     entry: EvidenceOnlyDeltaEntry, content: bytes
-) -> bool:
+) -> _FrozenModel | None:
     try:
         payload = json.loads(content)
+        if scan_payload_for_secrets(payload):
+            return None
         if entry.artifact_kind is EvidenceOnlyArtifactKind.acceptance_report:
-            RedactedAcceptanceReportArtifact.model_validate(payload)
+            artifact: _FrozenModel = RedactedAcceptanceReportArtifact.model_validate(
+                payload
+            )
         elif entry.artifact_kind is EvidenceOnlyArtifactKind.immutable_evidence_refs:
-            ImmutableEvidenceRefsArtifact.model_validate(payload)
+            artifact = ImmutableEvidenceRefsArtifact.model_validate(payload)
         else:
-            ClaimReconciliationArtifact.model_validate(payload)
+            artifact = ClaimReconciliationArtifact.model_validate(payload)
     except (
         UnicodeDecodeError,
         json.JSONDecodeError,
@@ -822,8 +1026,8 @@ def _evidence_delta_artifact_is_safe(
         ValueError,
         RecursionError,
     ):
-        return False
-    return True
+        return None
+    return artifact
 
 
 def verify_evidence_only_delta(
@@ -831,9 +1035,17 @@ def verify_evidence_only_delta(
     candidate_lock: CandidateLock,
     delta: EvidenceOnlyDeltaManifest,
     changed_content_by_path_ref: Mapping[str, bytes],
-    revision_delta_path_refs: tuple[str, ...],
+    revision_delta_census: RevisionDeltaCensus,
+    validated_acceptance_reports_by_path_ref: Mapping[
+        str, TAW08AcceptanceReport
+    ]
+    | None = None,
 ) -> tuple[str, ...]:
     failures: set[str] = set()
+    validated_acceptance_reports_by_path_ref = (
+        validated_acceptance_reports_by_path_ref or {}
+    )
+    revision_delta_path_refs = revision_delta_census.path_refs
     if (
         len(changed_content_by_path_ref) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES
         or len(revision_delta_path_refs) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES
@@ -847,6 +1059,12 @@ def verify_evidence_only_delta(
     candidate_refs = {item.path_ref for item in candidate_lock.entries}
     actual_refs = set(changed_content_by_path_ref)
     entry_by_ref = {item.path_ref: item for item in delta.entries}
+    if (
+        revision_delta_census.candidate_revision_ref
+        != candidate_lock.git_revision_ref
+        or revision_delta_census.delta_revision_ref != delta.delta_revision_ref
+    ):
+        failures.add("failure-ref:taw08:revision-delta-binding-drift")
     if (
         delta.candidate_revision_ref != candidate_lock.git_revision_ref
         or delta.candidate_manifest_digest_ref != candidate_lock.manifest_digest_ref
@@ -870,9 +1088,23 @@ def verify_evidence_only_delta(
         if len(content) > TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES:
             failures.add("failure-ref:taw08:evidence-delta-content-bound-exceeded")
             continue
-        if not _evidence_delta_artifact_is_safe(entry, content):
+        artifact = _parse_evidence_delta_artifact(entry, content)
+        if artifact is None:
             failures.add("failure-ref:taw08:evidence-delta-artifact-schema-invalid")
             continue
+        if entry.artifact_kind is EvidenceOnlyArtifactKind.acceptance_report:
+            validated_report = validated_acceptance_reports_by_path_ref.get(path_ref)
+            if (
+                validated_report is None
+                or validated_report.candidate_revision_ref
+                != candidate_lock.git_revision_ref
+                or validated_report.candidate_manifest_digest_ref
+                != candidate_lock.manifest_digest_ref
+                or artifact != redacted_acceptance_report_artifact(validated_report)
+            ):
+                failures.add(
+                    "failure-ref:taw08:evidence-delta-acceptance-report-binding-drift"
+                )
         digest = f"sha256:{hashlib.sha256(content).hexdigest()}"
         if entry.content_digest_ref != digest:
             failures.add("failure-ref:taw08:evidence-delta-content-drift")
@@ -884,13 +1116,20 @@ def verify_and_bind_evidence_only_delta(
     candidate_lock: CandidateLock,
     delta: EvidenceOnlyDeltaManifest,
     changed_content_by_path_ref: Mapping[str, bytes],
-    revision_delta_path_refs: tuple[str, ...],
+    revision_delta_census: RevisionDeltaCensus,
+    validated_acceptance_reports_by_path_ref: Mapping[
+        str, TAW08AcceptanceReport
+    ]
+    | None = None,
 ) -> EvidenceOnlyDeltaVerificationReceipt:
     failures = verify_evidence_only_delta(
         candidate_lock=candidate_lock,
         delta=delta,
         changed_content_by_path_ref=changed_content_by_path_ref,
-        revision_delta_path_refs=revision_delta_path_refs,
+        revision_delta_census=revision_delta_census,
+        validated_acceptance_reports_by_path_ref=(
+            validated_acceptance_reports_by_path_ref
+        ),
     )
     if failures:
         raise ValueError(f"evidence-only delta verification failed: {failures}")
@@ -900,8 +1139,8 @@ def verify_and_bind_evidence_only_delta(
         "candidate_manifest_digest_ref": candidate_lock.manifest_digest_ref,
         "delta_revision_ref": delta.delta_revision_ref,
         "delta_manifest_digest_ref": delta.manifest_digest_ref,
-        "revision_delta_path_census_digest_ref": canonical_digest(
-            revision_delta_path_refs
+        "revision_delta_path_census_digest_ref": (
+            revision_delta_census.census_digest_ref
         ),
         "artifact_count": len(delta.entries),
         "verifier_ref": "verifier-ref:taw08:evidence-only-delta:v1",
@@ -977,19 +1216,22 @@ def evaluate_taw08_acceptance(
             or evidence_only_delta_verification_receipt.delta_manifest_digest_ref
             != evidence_only_delta.manifest_digest_ref
             or evidence_only_delta_verification_receipt.revision_delta_path_census_digest_ref
-            != canonical_digest(
-                tuple(item.path_ref for item in evidence_only_delta.entries)
-            )
+            != bind_revision_delta_census(
+                candidate_revision_ref=candidate_lock.git_revision_ref,
+                delta_revision_ref=evidence_only_delta.delta_revision_ref,
+                path_refs=tuple(item.path_ref for item in evidence_only_delta.entries),
+                provenance_ref="provenance-ref:git-diff-name-only",
+            ).census_digest_ref
             or evidence_only_delta_verification_receipt.artifact_count
             != len(evidence_only_delta.entries)
         ):
             derived_failures.add("failure-ref:taw08:delta-verification-binding-drift")
     if postmerge_foundation_receipt is None:
         missing.add(TAW08_POSTMERGE_EVIDENCE_MISSING_REF)
-    elif postmerge_foundation_receipt.stage != "postmerge":
-        derived_failures.add("failure-ref:taw08:postmerge-foundation-stage-drift")
     else:
         missing.discard(TAW08_POSTMERGE_EVIDENCE_MISSING_REF)
+        if postmerge_foundation_receipt.stage != "postmerge":
+            derived_failures.add("failure-ref:taw08:postmerge-foundation-stage-drift")
         if evidence_only_delta is None:
             derived_failures.add("failure-ref:taw08:postmerge-delta-missing")
         elif (
