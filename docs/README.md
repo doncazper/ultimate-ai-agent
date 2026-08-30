@@ -61,7 +61,8 @@ ordinary chat, model context, proposals, approvals, execution, provider calls,
 connectors, external writes, Control Center, and authority remain unchanged.
 The authoritative active developer order is now
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json`. It records Q00 through
-Q31 in dependency waves, limits active work to one shared-core, one
+Q36 in dependency waves, preserves Q31 as the Goat comparison gate before the
+Wave 6 founder functional-adoption program, limits active work to one shared-core, one
 product-surface, and one verification/read-only claim, and keeps eleven
 authority-heavy programs visible but gated. The immutable remaining-queue
 manifest and its local recovery source set remain historical evidence; their
@@ -75,6 +76,11 @@ receipt therefore cannot silently imply that CRM, News, Social, Finance,
 Autocorrect, self-improvement, publishing, or the final benchmark has completed
 its larger vision. The registry is enforced by
 `scripts/verify_product_vision_registry.py` and the master static scan suite.
+The post-comparison functional-use contract is
+`docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md`. It requires real
+private data, complete primary-surface lifecycles, recovery, cross-module
+continuity, direct chat UX learning from Q31, and finite founder dogfood before
+remaining issues may be classified as noncritical polish.
 Queue V2 Q10's current-source Hermes/OpenClaw rebaseline is recorded in
 `reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md`;
 it routes a finite gap ledger to later owners without importing competitor

@@ -92,7 +92,7 @@ checks, verifier, and merge gates before any developer Git mutation is added.
 ## Queue-of-Record V2
 
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json` is the authoritative
-developer queue. It contains the complete Q00-Q31 dependency-wave order, exact
+developer queue. It contains the complete Q00-Q36 dependency-wave order, exact
 WIP lanes, merge-order constraints for overlapping recovery work, two stale
 draft pull-request triage records, eleven visible gated programs, and the
 programs that must remain embedded rather than becoming duplicate top-level
@@ -100,33 +100,152 @@ tasks.
 
 Admission is explicit, idempotent, and ledger-only. It creates no agent,
 branch, worktree, commit, pull request, connector, provider call, or product
-authority. It admits all thirty-two records but claims none. Owners use the
+authority. It admits all thirty-seven records but claims none. Owners use the
 normal claim path after proving the named isolated branch/worktree and next
 gate. The eleven authority-heavy entries are descriptive gated records and are
 not admitted as executable tasks.
+
+A reviewed manifest extension may also change a still-queued predecessor
+contract. First use `preview-queue-v2-amendment` to obtain and review the exact
+approval scope without mutation. `amend-queue-v2-item` then replaces only a
+never-claimed queued record, requires both that exact scope and the exact prior
+canonical-source fingerprint, preserves the task's identity and worktree
+bindings, and emits a durable amendment receipt containing safe approval,
+scope, approving-actor, and prior-fingerprint refs bound by an authorization
+proof fingerprint. The proof also persists and binds the exact pre-amendment
+task-revision ref so it remains independently auditable after replacement. It fails closed for
+claimed, previously claimed, blocked, review, or terminal tasks. Queue health
+reports semantic contract drift separately from missing admission so an
+appended wave cannot conceal an obsolete predecessor scope.
+
+New and amended canonical records carry source-aware per-item contracts and
+durable dependency bindings. A legacy prerequisite that predates those fields
+is accepted only when its exact historical fingerprint has a reviewed
+`legacy-source-acceptance-ref` bound to that item's current source set in the
+manifest. Editing those sources without refreshing the explicit transition ref
+fails manifest validation; unrelated item edits do not invalidate the binding.
+
+Canonical claims also require a durable source-aware contract reconciliation
+bound to the exact task revisions reviewed. Admission, queued amendment, and
+later task transitions invalidate that reconciliation; none of those commands
+may silently grant a replacement approval. Any stale, incomplete, or
+source-drifted reconciliation clears claim readiness, and the coordinator never
+resolves this gate from an ambient worktree manifest. After the final intended
+queue mutation, first preview the complete approval scope without mutation:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-reconciliation \
+  --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation --pretty
+```
+
+Review and copy the exact `approval_scope_ref`. The scope binds the complete
+canonical contract map, every current task revision, every legacy transition
+and source binding, the current snapshot revision, the actor, and the
+idempotency ref. Then reconcile that unchanged state:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  reconcile-queue-v2 \
+  --idempotency-ref idempotency-ref:queue-v2-reviewed-reconciliation \
+  --confirm-reconciliation reconcile-queue-v2 \
+  --approve-exact-scope developer-queue-reconciliation-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
+```
+
+An intervening mutation makes the preview stale and requires a new preview.
+The durable receipt preserves the reviewed maps, snapshot revision, result ref,
+approval scope, approving actor ref, and proof ref for restart and audit. If the
+first result is uncertain, rerun the identical idempotency and approval-scope
+values: the CLI reconstructs the previewed revision and maps from that receipt
+before replay, rather than silently deriving a different request from the later
+ledger revision.
 
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
 evidence. Their former recovery command now fails closed with
 `DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2`; this prevents the rescued subset
-from duplicating work already represented by Q00-Q31.
+from duplicating work already represented by Q00-Q36.
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-amendment \
+  --item-id Q31 \
+  --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
+  --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment --pretty
+```
+
+Review and copy the preview's exact `approval_scope_ref` and
+`current_task_revision_ref`, then pass both without editing them. The revision
+binding makes the approval stale after any intervening task transition, even if
+the task later returns to queued state:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  amend-queue-v2-item \
+  --item-id Q31 \
+  --expected-current-fingerprint-ref planning-fingerprint-ref:sha256:reviewed-prior \
+  --expected-current-task-revision-ref developer-work-task-revision-ref:sha256:copy-exact-preview-value \
+  --idempotency-ref idempotency-ref:queue-v2-q31-reviewed-amendment \
+  --confirm-amendment amend-queue-v2-item \
+  --approve-exact-scope developer-work-amendment-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-admission \
+  --idempotency-prefix idempotency-ref:queue-v2-admission \
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --pretty
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   admit-queue-v2 \
   --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --confirm-admission admit-queue-v2 --pretty
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --expected-snapshot-revision copy-exact-preview-value \
+  --confirm-admission admit-queue-v2 \
+  --approve-exact-scope developer-queue-admission-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" inspect --pretty
 ```
 
-If admission is interrupted, rerun it with the same idempotency prefix. Exact
-receipts replay and only the uncommitted tail is admitted. A successful
-inspection reports thirty-two admitted records and no starvation risk. The
+Admission is one atomic mutation bound to the selected drafts and exact ledger
+revision. If its result is uncertain, rerun the identical revision, scope, and
+idempotency values; the durable receipt replays without duplicating tasks. The
+receipt retains the bounded ordered drafts and previewed snapshot revision in a
+proof-bound admission evidence payload, so the approved contracts remain
+reconstructible after later amendments. An uncertainty retry reconstructs its
+request from that durable payload, not from the later ambient manifest. Older
+receipts without the payload remain readable as history but cannot authorize
+replay. A successful
+inspection reports thirty-seven admitted records, no contract drift, and no
+starvation risk. Use
+repeatable `--item-id` arguments to admit only a reviewed manifest extension
+without replaying the unchanged prefix of the queue. The
 two current owner-held units are claimed separately so admission cannot create
 or duplicate workers.
+
+If an inactive source-aware record later has legitimate canonical contract
+drift, do not discard its lifecycle evidence. Use
+`preview-queue-v2-inactive-migration` with an exact reviewed evidence ref, then
+pass its task revision and approval scope to `migrate-queue-v2-inactive-item`.
+The compatibility command names containing `completed` remain accepted. The
+lane accepts queued, blocked, review, canceled, or completed source-aware records,
+preserves their lifecycle evidence, refuses the task itself or any dependent
+while actively claimed, invalidates stale reconciliation, and emits a
+proof-bound migration receipt containing the replacement draft and resulting
+task revision. Reconciliation also fails closed when a completed dependent is
+still bound to the prerequisite's earlier contract, keeping downstream work
+unclaimable until that evidence is explicitly re-bound. Older migration
+receipts without replacement-contract evidence remain readable but cannot
+authorize replay.
 
 ## Commands
 

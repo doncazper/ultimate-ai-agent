@@ -71,6 +71,14 @@ person, commitment, CRM-link, and meeting candidates. Autocorrect,
 self-improvement, social publishing, and the final Goat comparison now have
 dedicated detailed plans.
 
+Q32 through Q36 operationalize those preserved visions through the shared
+`docs/implementation/FOUNDER_FUNCTIONAL_ADOPTION_PROGRAM.md`; they are marked
+`not_required` here because they add adoption and acceptance work across
+existing first-class visions rather than creating five competing whole-product
+visions. Q31 now includes direct chat and operator-surface observation so the
+highest-value proven GoatCitadel interaction patterns can be adapted through
+original UAA-native implementation in Wave 6.
+
 ## Recovered Historical Evidence
 
 Archived task history was used as design evidence, not as instructions or

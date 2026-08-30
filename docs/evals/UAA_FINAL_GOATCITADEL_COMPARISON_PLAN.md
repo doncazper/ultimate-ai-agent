@@ -25,6 +25,36 @@ Do not start the final comparison until:
 The final comparison is a closing measurement, not a mechanism for hiding
 unfinished prerequisites inside one enormous repair cycle.
 
+## Direct Chat And Visual-Surface Observation
+
+The comparison must inspect GoatCitadel's rendered chat and surrounding
+operator surfaces directly and exercise equivalent scripted tasks in both
+systems. Repository inspection establishes implementation maturity; direct
+observation establishes how the interaction behaves. Screenshots alone do not
+prove discoverability, correctness, recovery, accessibility, or task success.
+
+Record redacted evidence for:
+
+- conversation hierarchy, information density, typography, spacing, and use of
+  progressive disclosure;
+- composer behavior, attachments or context selection, keyboard operation,
+  send/cancel/retry controls, and draft preservation;
+- streaming, progress, tool/action disclosure, interruption, steering,
+  resumption, and terminal-state clarity;
+- citations, artifacts, approvals, errors, uncertainty, and recovery in the
+  conversation;
+- transitions between chat, plans, tasks, evidence, memory, and settings;
+- persistence across refresh, restart, and thread switching;
+- accessibility, responsiveness, steps, and time to a useful outcome.
+
+Use the same scripted operator tasks where both systems expose the behavior.
+Score observed product experience separately from repository capability
+maturity. For every GoatCitadel pattern worth learning from, record evidence, a
+transfer score, an `adapt`, `study only`, or `do not borrow` disposition, and a
+measurable UAA exit test. UAA adaptations must be original implementations that
+preserve the Python-core authority boundary; do not copy competitor code,
+branding, unsafe defaults, or shell-owned product truth.
+
 ## Evidence Hierarchy
 
 Score evidence in this order:
@@ -155,7 +185,8 @@ The durable report must contain:
 8. strengths, weaknesses, and missing-capability tables;
 9. recommendations ranked by impact, effort, risk, owner, and first step;
 10. explicit items each project should borrow, avoid, not merge, and defer;
-11. residual gap ledger with exact UAA owner/queue destination;
+11. residual gap and reciprocal-learning ledger with exact UAA owner/queue
+    destination, including accepted chat and operator-surface adaptations;
 12. final verdict and bounded 30-day improvement plan.
 
 Important claims cite repository-relative files and line numbers in the report.
@@ -181,9 +212,11 @@ with evidence; Q31 must not become an endless parity chase.
 ## Final Acceptance
 
 Q31 is complete when the exact-revision packet is reproducible, every score is
-status/confidence/evidence bound, unknowns and intentional exclusions remain
-visible, residual UAA gaps have owners, affected verifiers pass at exact head,
-and the report makes no production or parity claim beyond evidence.
+status/confidence/evidence bound, the direct chat and operator-surface
+observation is complete, unknowns and intentional exclusions remain visible,
+residual UAA gaps and accepted transferable patterns have owners, affected
+verifiers pass at exact head, and the report makes no production or parity
+claim beyond evidence.
 
 Q31 completion measures the current agent systems. It does not mean UAA's full
 assistant-OS vision, Goat parity, or production readiness is complete.
