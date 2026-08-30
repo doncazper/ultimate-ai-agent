@@ -9297,7 +9297,9 @@ describe("Web Control Center shell", () => {
 
     window.history.pushState({}, "", "/plugin-governance");
     render(<App />);
-    expect(await screen.findByText("Plugin Governance")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /^Plugin Governance$/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Plugin enablement allowed: no/i),
     ).toBeInTheDocument();
@@ -16097,7 +16099,9 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/plugin-governance");
     render(<App />);
 
-    expect(await screen.findByText("Plugin Governance")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /^Plugin Governance$/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Catalog visibility grants authority: no/i),
     ).toBeInTheDocument();
