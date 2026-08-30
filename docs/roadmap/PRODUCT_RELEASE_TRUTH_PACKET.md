@@ -113,6 +113,18 @@ measurements, and independently verified holdout evidence remain missing. TAW-08
 founder-dogfood evidence, independent promotion, and public quality claims remain
 blocked.
 
+The TAW-08 acceptance contract is now present without claiming acceptance. It
+reuses the TAW-00 exact candidate lock, restricts post-lock evidence changes to
+content-addressed acceptance reports, immutable evidence refs, and claim
+reconciliation, and binds the founder-private decision to exact stale-recovery,
+routing-confidence, response-scoring, live model/hardware, end-to-end journey,
+and exact-head Foundation receipts. A separate post-merge Foundation receipt is
+required. The founder is the sole evaluator for private dogfood; this does not
+satisfy the separate independent custodian, evaluator, baseline, or sealed
+holdout gates. The structural verifier therefore reports
+`blocked_missing_founder_evidence`, adds no runtime/model/provider/connector or
+production authority, and does not complete Q22.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility

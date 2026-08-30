@@ -57,8 +57,14 @@ hardware. TAW-07 qualification reports `blocked_missing_acceptance_evidence`:
 the fixture's zero-event results are structural checks, not accepted metrics, and
 stale-cache recovery, routing confidence bounds, response-level injection scoring,
 live model/hardware measurements, and independently verified holdout evidence are
-explicitly missing. TAW-08 founder-dogfood acceptance, exact measured
-evidence, and independent promotion therefore remain gated.
+explicitly missing. The bounded TAW-08 acceptance contract now binds an exact
+candidate lock, a three-kind evidence-only delta, founder-private evidence and
+decision refs, and exact-head/post-merge redacted Foundation receipts. It treats
+the founder as the sole private-dogfood evaluator while keeping independent
+promotion and public claims separate. Actual measured founder evidence has not
+been collected, so the current report remains
+`blocked_missing_founder_evidence`; Q22 completion and independent promotion
+remain gated.
 
 Queue V2 Wave 6 is the planned founder functional-adoption sequence after the
 final GoatCitadel comparison. Q31 must directly exercise and inspect comparable
