@@ -2539,7 +2539,11 @@ class DeveloperWorkCoordinator:
                             contracts_current = False
                             break
                 dependency_bindings_current = contracts_current and all(
-                    self._dependency_contract_bindings_current(snapshot, task)
+                    self._dependency_contract_bindings_reconcilable(
+                        snapshot,
+                        task,
+                        canonical_contract_refs=canonical_contract_refs,
+                    )
                     for task in canonical_tasks.values()
                 )
                 reconciled = (
@@ -3564,7 +3568,24 @@ class DeveloperWorkCoordinator:
         """Verify that one task is still bound to every exact prerequisite contract."""
 
         if set(task.dependency_contract_refs) != set(task.depends_on_task_refs):
-            return False
+            if (
+                not cls._is_canonical_queue_task(task)
+                or task.canonical_item_contract_ref is not None
+                or task.dependency_contract_refs
+                or not cls._canonical_queue_reconciliation_current(snapshot, task)
+            ):
+                return False
+            by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
+            try:
+                return all(
+                    dependency_ref in snapshot.canonical_queue_contract_refs
+                    and cls._canonical_queue_reconciliation_current(
+                        snapshot, by_ref[dependency_ref]
+                    )
+                    for dependency_ref in task.depends_on_task_refs
+                )
+            except (KeyError, OSError, TypeError, ValueError):
+                return False
         by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
         try:
             return all(
@@ -3580,6 +3601,25 @@ class DeveloperWorkCoordinator:
             ValueError,
         ):
             return False
+
+    @classmethod
+    def _dependency_contract_bindings_reconcilable(
+        cls,
+        snapshot: DeveloperWorkQueueSnapshot,
+        task: DeveloperWorkTask,
+        *,
+        canonical_contract_refs: dict[str, str],
+    ) -> bool:
+        """Accept exact stored bindings or a fully reviewed legacy reconciliation."""
+
+        if cls._dependency_contract_bindings_current(snapshot, task):
+            return True
+        return (
+            cls._is_canonical_queue_task(task)
+            and task.canonical_item_contract_ref is None
+            and not task.dependency_contract_refs
+            and set(task.depends_on_task_refs).issubset(canonical_contract_refs)
+        )
 
     @classmethod
     def _canonical_queue_reconciliation_current(
@@ -3619,7 +3659,32 @@ class DeveloperWorkCoordinator:
                 return reconciled_contract_ref == cls._durable_task_contract_ref(task)
             except (DeveloperWorkQueueConflictError, TypeError, ValueError):
                 return False
-        return task.task_ref in snapshot.canonical_queue_legacy_transition_refs
+        try:
+            from uaa_developer_orchestrator.queue_record import (
+                queue_record_canonical_item_contract_ref,
+                queue_record_legacy_source_acceptance_ref_from_values,
+            )
+
+            source_refs = snapshot.canonical_queue_legacy_source_refs[task.task_ref]
+            item_id = task.canonical_task_ref.rsplit("/", maxsplit=1)[-1]
+            expected_transition_ref = (
+                queue_record_legacy_source_acceptance_ref_from_values(
+                    item_id=item_id,
+                    task_ref=task.task_ref,
+                    source_refs=source_refs,
+                    legacy_fingerprint_ref=task.canonical_source_fingerprint_ref,
+                )
+            )
+            expected_contract_ref = queue_record_canonical_item_contract_ref(
+                task.model_copy(update={"canonical_source_refs": source_refs})
+            )
+            return (
+                snapshot.canonical_queue_legacy_transition_refs.get(task.task_ref)
+                == expected_transition_ref
+                and reconciled_contract_ref == expected_contract_ref
+            )
+        except (KeyError, OSError, TypeError, ValueError):
+            return False
 
     @classmethod
     def _canonical_queue_snapshot_reconciliation_current(
