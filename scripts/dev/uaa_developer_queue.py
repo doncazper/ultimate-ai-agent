@@ -187,7 +187,6 @@ def _queue_v2_reconciliation_context(
     str,
 ]:
     coordinator = _coordinator(args)
-    manifest = load_developer_queue_record_manifest(ROOT)
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
@@ -199,6 +198,7 @@ def _queue_v2_reconciliation_context(
         args.idempotency_ref
     )
     if prior_receipt is not None:
+        manifest = None
         contract_refs = prior_receipt.reconciliation_contract_refs
         task_revision_refs = prior_receipt.reconciliation_task_revision_refs
         legacy_transition_refs = prior_receipt.reconciliation_legacy_transition_refs
@@ -209,6 +209,7 @@ def _queue_v2_reconciliation_context(
                 "DEVELOPER_QUEUE_V2_RECONCILIATION_EVIDENCE_REQUIRED"
             )
     else:
+        manifest = load_developer_queue_record_manifest(ROOT)
         queue = coordinator.inspect()
         admitted_task_refs = {task.task_ref for task in queue.tasks}
         contract_refs = {

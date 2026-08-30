@@ -1051,6 +1051,22 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         == reconciliation_preview["approval_scope_ref"]
     )
     monkeypatch.setattr(
+        queue_cli_module,
+        "load_developer_queue_record_manifest",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError(
+                "ambient manifest must not be loaded during reconciliation replay"
+            )
+        ),
+    )
+    assert reconcile.func(reconcile) == 0
+    missing_manifest_replay = json.loads(capsys.readouterr().out)
+    assert missing_manifest_replay["replayed"] is True
+    assert (
+        missing_manifest_replay["approval_scope_ref"]
+        == reconciliation_preview["approval_scope_ref"]
+    )
+    monkeypatch.setattr(
         coordinator_module,
         "REPO_ROOT",
         tmp_path / "unrelated-worktree-without-manifest",
