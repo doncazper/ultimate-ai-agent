@@ -31,6 +31,7 @@ CANDIDATE_PATHS = (
     "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
     "src/ultimate_ai_agent/core/capabilities/familiarity.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
+    "src/ultimate_ai_agent/core/system_map/catalog.py",
     "tests/test_tool_aware_cognition_taw07.py",
 )
 
