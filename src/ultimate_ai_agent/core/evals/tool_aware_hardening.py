@@ -67,6 +67,12 @@ TAW07_MAX_CASES = 128
 TAW07_EXPECTED_CASE_COUNT = 24
 TAW07_EXPECTED_OBSERVATION_COUNT = 240
 TAW07_EXPECTED_QUALITY_OBSERVATION_COUNT = 2
+TAW07_ACCEPTANCE_EVIDENCE_MISSING_REFS = (
+    "evidence-missing-ref:taw07:catalog-instruction-response-census",
+    "evidence-missing-ref:taw07:live-model-hardware-measurements",
+    "evidence-missing-ref:taw07:routing-confidence-bounds",
+    "evidence-missing-ref:taw07:stale-cache-recovery",
+)
 TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST = (
     "sha256:d8c3439b2243bb9e6f2f25915a36b66ae7b45f3e0960093980d311b548504582"
 )
@@ -143,10 +149,7 @@ class ReplayMode(str, Enum):
 
 
 class HardeningStatus(str, Enum):
-    blocked_missing_holdout_commitment = "blocked_missing_holdout_commitment"
-    blocked_unverified_holdout_commitment = (
-        "blocked_unverified_holdout_commitment"
-    )
+    blocked_missing_acceptance_evidence = "blocked_missing_acceptance_evidence"
     failed = "failed"
 
 
@@ -450,15 +453,16 @@ class TAW07MetricResult(_FrozenModel):
     metric_ref: str
     denominator: int = Field(..., ge=1, le=TAW07_MAX_CASES * 20)
     event_count: int = Field(..., ge=0, le=TAW07_MAX_CASES * 20)
-    passed: bool
+    structural_check_passed: bool
+    acceptance_evidence_complete: Literal[False] = False
 
     @model_validator(mode="after")
     def validate_metric(self) -> "TAW07MetricResult":
         _validate_ref(self.metric_ref, "metric_ref")
         if self.event_count > self.denominator:
             raise ValueError("metric events cannot exceed denominator")
-        if self.passed != (self.event_count == 0):
-            raise ValueError("development metric pass posture must be zero-event exact")
+        if self.structural_check_passed != (self.event_count == 0):
+            raise ValueError("development structural check must be zero-event exact")
         return self
 
 
@@ -496,6 +500,10 @@ class TAW07HardeningReport(_FrozenModel):
     minimum_quality_delta_by_dimension: TAW07QualityDelta
     lower_quality_confidence_bound_by_dimension: TAW07QualityBound
     failure_reason_refs: tuple[str, ...]
+    acceptance_evidence_missing_refs: tuple[str, ...]
+    acceptance_evidence_complete: Literal[False] = False
+    holdout_commitment_present: bool
+    holdout_evidence_verified: Literal[False] = False
     safe_disable_equivalence_proven: bool
     exact_matrix_coverage_proven: bool
     development_corpus_only: Literal[True] = True
@@ -528,6 +536,15 @@ class TAW07HardeningReport(_FrozenModel):
         ):
             raise ValueError("report must bind the exact governing policy")
         _validate_sorted_refs(self.failure_reason_refs, "failure_reason_refs")
+        if (
+            self.acceptance_evidence_missing_refs
+            != TAW07_ACCEPTANCE_EVIDENCE_MISSING_REFS
+        ):
+            raise ValueError("acceptance evidence blockers must match the fixed census")
+        if self.holdout_commitment_present != (
+            self.policy.holdout_commitment is not None
+        ):
+            raise ValueError("holdout commitment presence must derive from policy")
         if self.catalog_state_refs != TAW07_CATALOG_STATES:
             raise ValueError("catalog-state census drift")
         if self.replay_mode_refs != TAW07_REPLAY_MODES:
@@ -553,7 +570,7 @@ class TAW07HardeningReport(_FrozenModel):
             sorted(
                 f"failure-ref:taw07:{item.metric_ref.rsplit(':', 1)[-1]}"
                 for item in self.metric_results
-                if not item.passed
+                if not item.structural_check_passed
             )
         )
         if self.failure_reason_refs != expected_failure_refs:
@@ -577,41 +594,42 @@ class TAW07HardeningReport(_FrozenModel):
             > self.policy.maximum_p95_ttft_relative_margin_basis_points
         )
         if (
-            metric_by_ref["metric-ref:taw07:performance-budget-failure"].passed
+            metric_by_ref[
+                "metric-ref:taw07:performance-budget-failure"
+            ].structural_check_passed
             and aggregate_gate_failures
         ):
-            raise ValueError("passing performance metric contradicts report aggregates")
-        if metric_by_ref["metric-ref:taw07:context-budget-failure"].passed and (
+            raise ValueError("performance structural check contradicts report aggregates")
+        if metric_by_ref[
+            "metric-ref:taw07:context-budget-failure"
+        ].structural_check_passed and (
             self.maximum_context_tokens_observed > self.policy.maximum_context_tokens
             or self.maximum_context_tokens_observed != 0
         ):
-            raise ValueError("passing context metric contradicts report aggregate")
+            raise ValueError("context structural check contradicts report aggregate")
         if metric_by_ref[
             "metric-ref:taw07:paired-quality-non-inferiority-failure"
-        ].passed and any(
+        ].structural_check_passed and any(
             getattr(self.lower_quality_confidence_bound_by_dimension, dimension)
             < self.policy.minimum_quality_delta_points
             for dimension in TAW07_QUALITY_DIMENSIONS
         ):
-            raise ValueError("passing quality metric contradicts report aggregates")
+            raise ValueError("quality structural check contradicts report aggregates")
         if any(
             getattr(self.lower_quality_confidence_bound_by_dimension, dimension)
             > getattr(self.minimum_quality_delta_by_dimension, dimension)
             for dimension in TAW07_QUALITY_DIMENSIONS
         ):
             raise ValueError("quality lower bound cannot exceed the observed minimum")
-        development_evidence_passed = (
+        development_structural_checks_passed = (
             not self.failure_reason_refs
-            and all(item.passed for item in self.metric_results)
+            and all(item.structural_check_passed for item in self.metric_results)
             and self.safe_disable_equivalence_proven
             and self.exact_matrix_coverage_proven
         )
         expected_status = (
-            HardeningStatus.blocked_unverified_holdout_commitment
-            if development_evidence_passed
-            and self.policy.holdout_commitment is not None
-            else HardeningStatus.blocked_missing_holdout_commitment
-            if development_evidence_passed
+            HardeningStatus.blocked_missing_acceptance_evidence
+            if development_structural_checks_passed
             else HardeningStatus.failed
         )
         if self.status != expected_status:
@@ -1633,7 +1651,7 @@ def evaluate_taw07_hardening(
             metric_ref=metric_ref,
             denominator=denominator,
             event_count=event_count,
-            passed=event_count == 0,
+            structural_check_passed=event_count == 0,
         )
         for metric_ref, (denominator, event_count) in sorted(metric_counts.items())
     )
@@ -1641,15 +1659,12 @@ def evaluate_taw07_hardening(
         sorted(
             f"failure-ref:taw07:{item.metric_ref.rsplit(':', 1)[-1]}"
             for item in metric_results
-            if not item.passed
+            if not item.structural_check_passed
         )
     )
     payload = {
         "status": (
-            HardeningStatus.blocked_unverified_holdout_commitment
-            if not failure_reason_refs
-            and policy.holdout_commitment is not None
-            else HardeningStatus.blocked_missing_holdout_commitment
+            HardeningStatus.blocked_missing_acceptance_evidence
             if not failure_reason_refs
             else HardeningStatus.failed
         ),
@@ -1680,6 +1695,8 @@ def evaluate_taw07_hardening(
             **lower_quality_bounds
         ),
         "failure_reason_refs": failure_reason_refs,
+        "acceptance_evidence_missing_refs": TAW07_ACCEPTANCE_EVIDENCE_MISSING_REFS,
+        "holdout_commitment_present": policy.holdout_commitment is not None,
         "safe_disable_equivalence_proven": equivalence_failures == 0,
         "exact_matrix_coverage_proven": exact_matrix,
         "report_fingerprint_ref": "taw07-hardening-report-ref:sha256:" + "0" * 64,
@@ -1702,6 +1719,7 @@ __all__ = [
     "CatalogState",
     "HardeningStatus",
     "ReplayMode",
+    "TAW07_ACCEPTANCE_EVIDENCE_MISSING_REFS",
     "TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST",
     "TAW07_CATALOG_STATES",
     "TAW07_CATEGORY_ACTIONS",

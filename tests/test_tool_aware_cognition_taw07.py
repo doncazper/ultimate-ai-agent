@@ -203,7 +203,15 @@ def test_founder_development_matrix_is_clean_but_cannot_self_verify_holdout() ->
 ):
     corpus = _corpus()
     report = _evaluate(corpus)
-    assert report.status == HardeningStatus.blocked_unverified_holdout_commitment
+    assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
+    assert report.acceptance_evidence_complete is False
+    assert report.holdout_commitment_present is True
+    assert report.holdout_evidence_verified is False
+    assert all(
+        item.acceptance_evidence_complete is False
+        and item.structural_check_passed
+        for item in report.metric_results
+    )
     assert report.case_count == 24
     assert report.observation_count == 240
     assert report.quality_observation_count == 2
@@ -534,7 +542,11 @@ def test_latency_context_and_quality_failures_are_visible() -> None:
         quality_observations=(changed_score, *quality[1:]),
     )
     assert report.status == HardeningStatus.failed
-    failed = {item.metric_ref for item in report.metric_results if not item.passed}
+    failed = {
+        item.metric_ref
+        for item in report.metric_results
+        if not item.structural_check_passed
+    }
     assert "metric-ref:taw07:performance-budget-failure" in failed
     assert "metric-ref:taw07:context-budget-failure" in failed
     assert "metric-ref:taw07:paired-quality-non-inferiority-failure" in failed
@@ -784,7 +796,9 @@ def test_missing_holdout_commitment_blocks_passing_posture() -> None:
         observations=observations,
         quality_observations=quality,
     )
-    assert report.status == HardeningStatus.blocked_missing_holdout_commitment
+    assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
+    assert report.holdout_commitment_present is False
+    assert report.holdout_evidence_verified is False
 
 
 def test_substituted_legacy_binding_set_is_rejected() -> None:
@@ -882,7 +896,7 @@ def test_candidate_quality_response_is_bound_independently() -> None:
         observations=observations,
         quality_observations=(changed, *quality[1:]),
     )
-    assert report.status == HardeningStatus.blocked_unverified_holdout_commitment
+    assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
 
 
 def test_report_fingerprint_and_status_are_recomputed() -> None:
@@ -921,13 +935,13 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
     payload = report.model_dump(mode="json")
     payload["maximum_context_tokens_observed"] = 128_001
     _rebind_report_fingerprint(payload)
-    with pytest.raises(ValidationError, match="context metric contradicts"):
+    with pytest.raises(ValidationError, match="context structural check contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
     payload = report.model_dump(mode="json")
     payload["maximum_p95_ttft_relative_margin_basis_points_observed"] = 501
     _rebind_report_fingerprint(payload)
-    with pytest.raises(ValidationError, match="performance metric contradicts"):
+    with pytest.raises(ValidationError, match="performance structural check contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
     payload = report.model_dump(mode="json")
@@ -940,7 +954,7 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
     payload = report.model_dump(mode="json")
     payload["lower_quality_confidence_bound_by_dimension"]["helpfulness"] = -6
     _rebind_report_fingerprint(payload)
-    with pytest.raises(ValidationError, match="quality metric contradicts"):
+    with pytest.raises(ValidationError, match="quality structural check contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
     corpus = _corpus()
@@ -967,11 +981,11 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
         if item["metric_ref"] == "metric-ref:taw07:performance-budget-failure"
     )
     performance_metric["event_count"] = 0
-    performance_metric["passed"] = True
+    performance_metric["structural_check_passed"] = True
     payload["failure_reason_refs"] = []
-    payload["status"] = HardeningStatus.blocked_unverified_holdout_commitment.value
+    payload["status"] = HardeningStatus.blocked_missing_acceptance_evidence.value
     _rebind_report_fingerprint(payload)
-    with pytest.raises(ValidationError, match="performance metric contradicts"):
+    with pytest.raises(ValidationError, match="performance structural check contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
 

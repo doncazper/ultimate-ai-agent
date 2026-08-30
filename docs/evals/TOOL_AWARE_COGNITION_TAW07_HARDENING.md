@@ -1,8 +1,9 @@
 # Tool-Aware Cognition TAW-07 Development Hardening
 
 Status: deterministic development contract implemented; TAW-07 qualification is
-blocked until a later boundary independently verifies the public TAW-00 holdout
-commitment's custody and creation-order evidence.
+`blocked_missing_acceptance_evidence`. The repository fixture proves structural
+contract behavior only, not accepted model, response, recovery, statistical, or
+hardware evidence.
 Independent promotion and public quality claims remain blocked.
 
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
@@ -37,12 +38,11 @@ corpus. No acceptance-holdout seed, parameter, generated input, case hash, label
 expected decision, or per-case result is present. A validated public
 `HoldoutCommitment` envelope may bind the accepted TAW-00 cycle, custodian,
 HMAC-SHA256 commitment, creation-order evidence, and custodian attestation before
-the report is preserved for later qualification. Because TAW-07 cannot independently
-resolve those refs or open the HMAC commitment, clean deterministic evidence is
-reported as `blocked_unverified_holdout_commitment` when the envelope is present
-and `blocked_missing_holdout_commitment` when absent. A passing status is not
-representable in this contract. The private holdout material remains
-unrepresentable here.
+the report is preserved for later qualification. The report records whether the
+envelope is present but always records `holdout_evidence_verified=false`.
+Because TAW-07 cannot independently resolve those refs or open the HMAC
+commitment, a passing status is not representable in this contract. The private
+holdout material remains unrepresentable here.
 
 ## Exact Matrix
 
@@ -106,8 +106,13 @@ development gates:
   tone, and response relevance, using a deterministic one-sided 95% bootstrap
   lower bound with 10,000 resamples and policy-bound seed 7.
 
-Founder development uses a zero-event posture for safety, routing disagreement,
-prompt injection, and equivalence failures. Each quality confidence lower bound,
+The deterministic fixture exposes zero-event structural checks for safety,
+routing disagreement, prompt injection, and equivalence calculations. These are
+not accepted product metrics: every result records
+`acceptance_evidence_complete=false`, and the report preserves an exact missing
+evidence census for stale-cache recovery, routing confidence bounds,
+response-level catalog-instruction scoring, and live model/hardware measurements.
+Each fixture quality confidence lower bound,
 not only the observed minimum, must remain at or above the -5 point floor. The
 routing and hydration ceilings are 100 ms and 200 ms, context is
 bounded to the accepted 128K profile, and the p95 TTFT margin must satisfy both
@@ -135,13 +140,14 @@ decision mismatch produce a failed report. Every report embeds and fingerprints
 the exact governing policy, including the thresholds actually used, and its
 persisted maximum and p95 latency, relative-TTFT, context, and quality
 aggregates, including p95-at-or-below-maximum latency and the policy-bound quality
-confidence lower bounds, must agree with the corresponding passing metrics. Report status and
+confidence lower bounds, must agree with the corresponding structural checks. Report status and
 fingerprint are recomputed from the exact evidence. Persisted reports must retain
 the fixed `24/240/2` case,
 observation, and paired-quality census plus the exact denominator for every
-metric. Clean development evidence remains blocked: a missing public commitment
-reports the missing blocker, while an envelope whose custody and creation-order
-claims have not been independently verified reports the unverified blocker.
+metric. Clean deterministic evidence remains
+`blocked_missing_acceptance_evidence` whether the public commitment is absent or
+present-but-unverified. A separate boolean preserves that distinction without
+promoting the overall result.
 
 The models use Python-3.10-compatible string enums. Durable evidence contains no
 raw prompts, responses, provider payloads, local paths, logs, usernames,
@@ -155,8 +161,9 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-TAW-08 must independently verify the holdout commitment boundary, lock the
-complete candidate manifest, record
+TAW-08 must supply the missing stale-recovery, routing-confidence,
+response-scoring, live-model/hardware, and independently verified holdout evidence;
+lock the complete candidate manifest; and record
 founder-private dogfood acceptance with exact measured evidence, reconcile
 product claims, and preserve the independent promotion gate. External custody,
 blind scoring, independently accepted baseline evidence, public claims, runtime

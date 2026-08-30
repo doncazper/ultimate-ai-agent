@@ -101,14 +101,16 @@ def verify() -> None:
         quality_observations=quality,
     )
     if (
-        report.status != HardeningStatus.blocked_missing_holdout_commitment
+        report.status != HardeningStatus.blocked_missing_acceptance_evidence
         or report.case_count != 24
         or report.observation_count
         != report.case_count * len(TAW07_CATALOG_STATES) * len(TAW07_REPLAY_MODES)
         or report.quality_observation_count != 2
         or not report.safe_disable_equivalence_proven
         or not report.exact_matrix_coverage_proven
-        or any(not item.passed for item in report.metric_results)
+        or any(not item.structural_check_passed for item in report.metric_results)
+        or report.acceptance_evidence_complete
+        or report.holdout_evidence_verified
     ):
         raise RuntimeError("TAW-07 deterministic development evidence drifted")
     if any(
@@ -129,7 +131,7 @@ def main() -> int:
     verify()
     print(
         "Tool-aware cognition TAW-07 development contract verified; "
-        "qualification remains blocked on the holdout commitment."
+        "qualification remains blocked on missing acceptance evidence."
     )
     return 0
 
