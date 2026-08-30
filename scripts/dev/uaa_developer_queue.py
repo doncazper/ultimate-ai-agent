@@ -362,27 +362,46 @@ def reconcile_queue_v2(args: argparse.Namespace) -> int:
     )
 
 
+def _queue_v2_health_payload(manifest: object | None, queue: object) -> dict[str, object]:
+    if manifest is None:
+        return {
+            "schema_version": "uaa.developer_queue_health_unavailable.v1",
+            "status": "not_evaluated_on_durable_replay",
+            "reason_ref": "reason-ref:ambient-manifest-unavailable",
+        }
+    health = assess_developer_queue_record_health(
+        manifest=manifest,
+        task_states={task.task_ref: task.state for task in queue.tasks},
+        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
+    )
+    return health.model_dump(mode="json")
+
+
 def _queue_v2_admission_context(
     args: argparse.Namespace,
 ) -> tuple[
     object, object, list[str], list[DeveloperWorkTaskDraft], object, object, str, int
 ]:
     coordinator = _coordinator(args)
-    manifest = load_developer_queue_record_manifest(ROOT)
     requested_item_ids = list(args.item_id or [])
     if len(requested_item_ids) != len(set(requested_item_ids)):
         raise ValueError("DEVELOPER_QUEUE_V2_DUPLICATE_ITEM_SELECTION")
+    requested_selection_mode = "selected" if requested_item_ids else "all"
     prior_receipt = coordinator.admission_receipt_for_idempotency(
         args.idempotency_prefix
     )
     requested_snapshot_revision = getattr(args, "expected_snapshot_revision", None)
     if prior_receipt is not None:
+        if prior_receipt.admission_selection_mode != requested_selection_mode:
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
         selected_drafts = list(prior_receipt.admission_drafts)
         selected_item_ids = [
             draft.canonical_task_ref.rsplit("/", maxsplit=1)[-1]
             for draft in selected_drafts
         ]
-        if requested_item_ids and set(requested_item_ids) != set(selected_item_ids):
+        if requested_selection_mode == "selected" and set(requested_item_ids) != set(
+            selected_item_ids
+        ):
             raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
         expected_snapshot_revision = prior_receipt.admission_snapshot_revision
         if expected_snapshot_revision is None:
@@ -394,7 +413,12 @@ def _queue_v2_admission_context(
             and requested_snapshot_revision != expected_snapshot_revision
         ):
             raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        try:
+            manifest = load_developer_queue_record_manifest(ROOT)
+        except (OSError, ValueError):
+            manifest = None
     else:
+        manifest = load_developer_queue_record_manifest(ROOT)
         drafts = build_developer_queue_record_drafts(ROOT)
         known_item_ids = {item.item_id for item in manifest.items}
         if set(requested_item_ids) - known_item_ids:
@@ -505,13 +529,10 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
         approval_authority=approval_authority,
         approval_ref=approval_ref,
         actor_context=actor_context,
+        selection_mode=("selected" if list(args.item_id or []) else "all"),
     )
     queue = coordinator.inspect()
-    health = assess_developer_queue_record_health(
-        manifest=manifest,
-        task_states={task.task_ref: task.state for task in queue.tasks},
-        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
-    )
+    health = _queue_v2_health_payload(manifest, queue)
     return _print(
         {
             "schema_version": "uaa.developer_queue_admission_receipt.v2",
@@ -519,7 +540,7 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
             "receipt_refs": [receipt.receipt_ref],
             "replayed_receipt_count": int(receipt.replayed),
             "approval_scope_ref": exact_scope_ref,
-            "queue_of_record_health": health.model_dump(mode="json"),
+            "queue_of_record_health": health,
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
             "product_runtime_authority_granted": False,
@@ -533,16 +554,43 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
 def _queue_v2_amendment_context(
     args: argparse.Namespace,
 ) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str, str]:
-    manifest = load_developer_queue_record_manifest(ROOT)
-    drafts = build_developer_queue_record_drafts(ROOT)
-    draft_by_item_id = {
-        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
-    }
-    draft = draft_by_item_id[args.item_id]
     coordinator = _coordinator(args)
-    current_task_revision_ref = getattr(
+    prior_receipt = coordinator.amendment_receipt_for_idempotency(args.idempotency_ref)
+    requested_task_revision_ref = getattr(
         args, "expected_current_task_revision_ref", None
-    ) or coordinator.current_task_revision_ref(draft.task_ref)
+    )
+    if prior_receipt is not None:
+        draft = prior_receipt.amendment_replacement_draft
+        if draft is None or prior_receipt.prior_task_revision_ref is None:
+            raise DeveloperWorkQueueError(
+                "DEVELOPER_QUEUE_AMENDMENT_REPLAY_EVIDENCE_REQUIRED"
+            )
+        if draft.canonical_task_ref.rsplit("/", maxsplit=1)[-1] != args.item_id:
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        if prior_receipt.prior_fingerprint_ref != args.expected_current_fingerprint_ref:
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        current_task_revision_ref = prior_receipt.prior_task_revision_ref
+        if (
+            requested_task_revision_ref is not None
+            and requested_task_revision_ref != current_task_revision_ref
+        ):
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        try:
+            manifest = load_developer_queue_record_manifest(ROOT)
+        except (OSError, ValueError):
+            manifest = None
+    else:
+        manifest = load_developer_queue_record_manifest(ROOT)
+        drafts = build_developer_queue_record_drafts(ROOT)
+        draft_by_item_id = {
+            item.item_id: draft
+            for item, draft in zip(manifest.items, drafts, strict=True)
+        }
+        draft = draft_by_item_id[args.item_id]
+        current_task_revision_ref = (
+            requested_task_revision_ref
+            or coordinator.current_task_revision_ref(draft.task_ref)
+        )
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
@@ -632,11 +680,7 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
         actor_context=actor_context,
     )
     queue = coordinator.inspect()
-    health = assess_developer_queue_record_health(
-        manifest=manifest,
-        task_states={task.task_ref: task.state for task in queue.tasks},
-        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
-    )
+    health = _queue_v2_health_payload(manifest, queue)
     return _print(
         {
             "schema_version": "uaa.developer_queue_amendment_receipt.v1",
@@ -644,7 +688,7 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
             "receipt_ref": receipt.receipt_ref,
             "replayed": receipt.replayed,
             "approval_scope_ref": exact_scope_ref,
-            "queue_of_record_health": health.model_dump(mode="json"),
+            "queue_of_record_health": health,
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
             "product_runtime_authority_granted": False,
@@ -658,16 +702,47 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
 def _queue_v2_completed_migration_context(
     args: argparse.Namespace,
 ) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str, str]:
-    manifest = load_developer_queue_record_manifest(ROOT)
-    drafts = build_developer_queue_record_drafts(ROOT)
-    draft_by_item_id = {
-        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
-    }
-    draft = draft_by_item_id[args.item_id]
     coordinator = _coordinator(args)
-    current_task_revision_ref = getattr(
+    prior_receipt = coordinator.migration_receipt_for_idempotency(args.idempotency_ref)
+    requested_task_revision_ref = getattr(
         args, "expected_current_task_revision_ref", None
-    ) or coordinator.current_task_revision_ref(draft.task_ref)
+    )
+    if prior_receipt is not None:
+        draft = prior_receipt.migration_replacement_draft
+        if draft is None or prior_receipt.prior_task_revision_ref is None:
+            raise DeveloperWorkQueueError(
+                "DEVELOPER_QUEUE_MIGRATION_REPLAY_EVIDENCE_REQUIRED"
+            )
+        if draft.canonical_task_ref.rsplit("/", maxsplit=1)[-1] != args.item_id:
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        if (
+            prior_receipt.prior_fingerprint_ref
+            != args.expected_current_fingerprint_ref
+            or prior_receipt.migration_evidence_ref != args.migration_evidence_ref
+        ):
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        current_task_revision_ref = prior_receipt.prior_task_revision_ref
+        if (
+            requested_task_revision_ref is not None
+            and requested_task_revision_ref != current_task_revision_ref
+        ):
+            raise DeveloperWorkQueueConflictError("DEVELOPER_WORK_IDEMPOTENCY_CONFLICT")
+        try:
+            manifest = load_developer_queue_record_manifest(ROOT)
+        except (OSError, ValueError):
+            manifest = None
+    else:
+        manifest = load_developer_queue_record_manifest(ROOT)
+        drafts = build_developer_queue_record_drafts(ROOT)
+        draft_by_item_id = {
+            item.item_id: draft
+            for item, draft in zip(manifest.items, drafts, strict=True)
+        }
+        draft = draft_by_item_id[args.item_id]
+        current_task_revision_ref = (
+            requested_task_revision_ref
+            or coordinator.current_task_revision_ref(draft.task_ref)
+        )
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
@@ -763,11 +838,7 @@ def migrate_queue_v2_completed_item(args: argparse.Namespace) -> int:
         actor_context=actor_context,
     )
     queue = coordinator.inspect()
-    health = assess_developer_queue_record_health(
-        manifest=manifest,
-        task_states={task.task_ref: task.state for task in queue.tasks},
-        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
-    )
+    health = _queue_v2_health_payload(manifest, queue)
     return _print(
         {
             "schema_version": "uaa.developer_queue_completed_migration_receipt.v1",
@@ -776,7 +847,7 @@ def migrate_queue_v2_completed_item(args: argparse.Namespace) -> int:
             "replayed": receipt.replayed,
             "approval_scope_ref": exact_scope_ref,
             "migration_evidence_ref": args.migration_evidence_ref,
-            "queue_of_record_health": health.model_dump(mode="json"),
+            "queue_of_record_health": health,
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
             "product_runtime_authority_granted": False,

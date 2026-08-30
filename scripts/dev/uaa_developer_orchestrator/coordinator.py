@@ -69,6 +69,7 @@ DeveloperWorkWipLane = Literal[
     "verification_read_only",
 ]
 DeveloperWorktreePosture = Literal["isolated_required"]
+DeveloperQueueAdmissionSelectionMode = Literal["all", "selected"]
 DeveloperSolThinkingLevel = Literal["medium", "high", "xhigh"]
 DeveloperScopeDispositionKind = Literal[
     "must_fix_now",
@@ -892,8 +893,14 @@ class DeveloperWorkQueueReceipt(BaseModel):
     migration_result_task_revision_ref: str | None = None
     migration_contract_evidence_ref: str | None = None
     admission_snapshot_revision: int | None = Field(default=None, ge=0)
+    admission_selection_mode: DeveloperQueueAdmissionSelectionMode | None = None
     admission_drafts: list[DeveloperWorkTaskDraft] = Field(default_factory=list)
+    admission_result_tasks: list[DeveloperWorkTask] = Field(default_factory=list)
     admission_evidence_ref: str | None = None
+    amendment_replacement_draft: DeveloperWorkTaskDraft | None = None
+    amendment_result_task: DeveloperWorkTask | None = None
+    amendment_result_task_revision_ref: str | None = None
+    amendment_evidence_ref: str | None = None
     reconciliation_ref: str | None = None
     reconciliation_snapshot_revision: int | None = Field(default=None, ge=0)
     reconciliation_contract_refs: dict[str, str] = Field(default_factory=dict)
@@ -959,6 +966,16 @@ class DeveloperWorkQueueReceipt(BaseModel):
                     else []
                 ),
                 *(
+                    [self.amendment_result_task_revision_ref]
+                    if self.amendment_result_task_revision_ref is not None
+                    else []
+                ),
+                *(
+                    [self.amendment_evidence_ref]
+                    if self.amendment_evidence_ref is not None
+                    else []
+                ),
+                *(
                     [self.reconciliation_ref]
                     if self.reconciliation_ref is not None
                     else []
@@ -1008,6 +1025,7 @@ class DeveloperWorkQueueReceipt(BaseModel):
         }
         if self.event_kind != "task_contract_migrated" and any(
             [
+                self.migration_evidence_ref is not None,
                 self.migration_replacement_draft is not None,
                 self.migration_result_task is not None,
                 self.migration_result_task_revision_ref is not None,
@@ -1015,10 +1033,31 @@ class DeveloperWorkQueueReceipt(BaseModel):
             ]
         ):
             raise ValueError("developer queue migration contract evidence is orphaned")
+        if self.event_kind != "tasks_admitted" and any(
+            [
+                self.admission_snapshot_revision is not None,
+                self.admission_selection_mode is not None,
+                bool(self.admission_drafts),
+                bool(self.admission_result_tasks),
+                self.admission_evidence_ref is not None,
+            ]
+        ):
+            raise ValueError("developer queue admission evidence is orphaned")
+        if self.event_kind != "task_amended" and any(
+            [
+                self.amendment_replacement_draft is not None,
+                self.amendment_result_task is not None,
+                self.amendment_result_task_revision_ref is not None,
+                self.amendment_evidence_ref is not None,
+            ]
+        ):
+            raise ValueError("developer queue amendment contract evidence is orphaned")
         if reconciliation_event:
             if (
                 self.admission_snapshot_revision is not None
+                or self.admission_selection_mode is not None
                 or self.admission_drafts
+                or self.admission_result_tasks
                 or self.admission_evidence_ref is not None
             ):
                 raise ValueError("developer queue admission evidence is orphaned")
@@ -1092,13 +1131,27 @@ class DeveloperWorkQueueReceipt(BaseModel):
                     )
                 admission_evidence_present = (
                     self.admission_snapshot_revision is not None
+                    or self.admission_selection_mode is not None
                     or bool(self.admission_drafts)
+                    or bool(self.admission_result_tasks)
                     or self.admission_evidence_ref is not None
                 )
-                if admission_evidence_present and (
-                    self.admission_snapshot_revision is None
-                    or not self.admission_drafts
-                    or self.admission_evidence_ref is None
+                current_admission_evidence = (
+                    self.admission_snapshot_revision is not None
+                    and self.admission_selection_mode is not None
+                    and bool(self.admission_drafts)
+                    and bool(self.admission_result_tasks)
+                    and self.admission_evidence_ref is not None
+                )
+                legacy_admission_evidence = (
+                    self.admission_snapshot_revision is not None
+                    and self.admission_selection_mode is None
+                    and bool(self.admission_drafts)
+                    and not self.admission_result_tasks
+                    and self.admission_evidence_ref is not None
+                )
+                if admission_evidence_present and not (
+                    current_admission_evidence or legacy_admission_evidence
                 ):
                     raise ValueError(
                         "developer queue admission receipt evidence is incomplete"
@@ -1113,6 +1166,22 @@ class DeveloperWorkQueueReceipt(BaseModel):
                             self.admission_snapshot_revision
                         ),
                     }
+                    if current_admission_evidence:
+                        admission_evidence.update(
+                            {
+                                "result_tasks": [
+                                    task.model_dump(mode="json")
+                                    for task in self.admission_result_tasks
+                                ],
+                                "selection_mode": self.admission_selection_mode,
+                            }
+                        )
+                        if [draft.task_ref for draft in self.admission_drafts] != [
+                            task.task_ref for task in self.admission_result_tasks
+                        ]:
+                            raise ValueError(
+                                "developer queue admission result tasks are not bound"
+                            )
                     if self.admission_evidence_ref != _hash_ref(
                         "developer-queue-admission-evidence-ref",
                         admission_evidence,
@@ -1133,7 +1202,9 @@ class DeveloperWorkQueueReceipt(BaseModel):
             elif self.event_kind == "task_contract_migrated":
                 if (
                     self.admission_snapshot_revision is not None
+                    or self.admission_selection_mode is not None
                     or self.admission_drafts
+                    or self.admission_result_tasks
                     or self.admission_evidence_ref is not None
                 ):
                     raise ValueError("developer queue admission evidence is orphaned")
@@ -1196,10 +1267,67 @@ class DeveloperWorkQueueReceipt(BaseModel):
                         else {}
                     ),
                 }
+            elif self.event_kind == "task_amended":
+                amendment_evidence_present = any(
+                    [
+                        self.amendment_replacement_draft is not None,
+                        self.amendment_result_task is not None,
+                        self.amendment_result_task_revision_ref is not None,
+                        self.amendment_evidence_ref is not None,
+                    ]
+                )
+                if amendment_evidence_present and (
+                    self.amendment_replacement_draft is None
+                    or self.amendment_result_task is None
+                    or self.amendment_result_task_revision_ref is None
+                    or self.amendment_evidence_ref is None
+                ):
+                    raise ValueError(
+                        "developer queue amendment contract evidence is incomplete"
+                    )
+                if self.amendment_evidence_ref is not None:
+                    amendment_evidence = {
+                        "replacement_draft": (
+                            self.amendment_replacement_draft.model_dump(mode="json")
+                        ),
+                        "result_task": self.amendment_result_task.model_dump(
+                            mode="json"
+                        ),
+                        "result_task_revision_ref": (
+                            self.amendment_result_task_revision_ref
+                        ),
+                    }
+                    if self.amendment_result_task_revision_ref != (
+                        developer_work_task_revision_ref(self.amendment_result_task)
+                    ):
+                        raise ValueError(
+                            "developer queue amendment result revision is not bound"
+                        )
+                    if self.amendment_evidence_ref != _hash_ref(
+                        "developer-queue-amendment-contract-evidence-ref",
+                        amendment_evidence,
+                    ):
+                        raise ValueError(
+                            "developer queue amendment contract evidence is not bound"
+                        )
+                proof_values = {
+                    "approval_ref": self.approval_ref,
+                    "approval_scope_ref": self.approval_scope_ref,
+                    "approving_actor_ref": self.approving_actor_ref,
+                    "prior_fingerprint_ref": self.prior_fingerprint_ref,
+                    "prior_task_revision_ref": self.prior_task_revision_ref,
+                    **(
+                        {"amendment_evidence_ref": self.amendment_evidence_ref}
+                        if self.amendment_evidence_ref is not None
+                        else {}
+                    ),
+                }
             else:
                 if (
                     self.admission_snapshot_revision is not None
+                    or self.admission_selection_mode is not None
                     or self.admission_drafts
+                    or self.admission_result_tasks
                     or self.admission_evidence_ref is not None
                 ):
                     raise ValueError("developer queue admission evidence is orphaned")
@@ -1590,6 +1718,10 @@ class DeveloperWorkCoordinator:
             replay = self._replay(idempotency_ref=idempotency_ref, payload=payload)
             if replay is not None:
                 return replay
+            if self._is_canonical_queue_task(draft):
+                raise DeveloperWorkQueueConflictError(
+                    "DEVELOPER_QUEUE_CANONICAL_ADMISSION_APPROVAL_REQUIRED"
+                )
             self._validate_canonical_queue_draft(draft)
             if any(task.task_ref == draft.task_ref for task in snapshot.tasks):
                 raise DeveloperWorkQueueConflictError(
@@ -1672,6 +1804,7 @@ class DeveloperWorkCoordinator:
         approval_authority: LocalApprovalAuthority,
         approval_ref: str,
         actor_context: ActorContext,
+        selection_mode: DeveloperQueueAdmissionSelectionMode = "selected",
     ) -> DeveloperWorkQueueReceipt:
         """Atomically admit exact canonical drafts under one exact local approval."""
 
@@ -1693,6 +1826,7 @@ class DeveloperWorkCoordinator:
                     "expected_snapshot_revision": expected_snapshot_revision,
                     "approval_ref": approval_ref,
                     "approval_scope_ref": approval_scope_ref,
+                    "selection_mode": selection_mode,
                 }
                 replay = self._replay(
                     idempotency_ref=idempotency_ref,
@@ -1792,7 +1926,9 @@ class DeveloperWorkCoordinator:
                         "actor-ref", approval_grant.approved_by_actor_id
                     ),
                     admission_snapshot_revision=expected_snapshot_revision,
+                    admission_selection_mode=selection_mode,
                     admission_drafts=drafts,
+                    admission_result_tasks=admitted,
                 )
                 admitted_refs = {task.task_ref for task in admitted}
                 next_snapshot = next_snapshot.model_copy(
@@ -1975,6 +2111,11 @@ class DeveloperWorkCoordinator:
                     ),
                     prior_fingerprint_ref=expected_current_fingerprint_ref,
                     prior_task_revision_ref=expected_current_task_revision_ref,
+                    amendment_replacement_draft=draft,
+                    amendment_result_task=replacement,
+                    amendment_result_task_revision_ref=(
+                        developer_work_task_revision_ref(replacement)
+                    ),
                 )
                 replacement = replacement.model_copy(
                     update={"latest_receipt_ref": receipt.receipt_ref}
@@ -2083,16 +2224,19 @@ class DeveloperWorkCoordinator:
                     raise DeveloperWorkQueueConflictError(
                         "DEVELOPER_WORK_COMPLETED_MIGRATION_IDENTITY_CONFLICT"
                     )
-                if (
-                    task.canonical_item_contract_ref
-                    == draft.canonical_item_contract_ref
-                ):
-                    raise DeveloperWorkQueueConflictError(
-                        "DEVELOPER_WORK_COMPLETED_MIGRATION_NO_CHANGE"
+                dependent_refs = {task.task_ref}
+                changed = True
+                while changed:
+                    prior_count = len(dependent_refs)
+                    dependent_refs.update(
+                        dependent.task_ref
+                        for dependent in snapshot.tasks
+                        if set(dependent.depends_on_task_refs) & dependent_refs
                     )
+                    changed = len(dependent_refs) != prior_count
                 if any(
                     dependent.state in {"claimed", "review"}
-                    and task.task_ref in dependent.depends_on_task_refs
+                    and dependent.task_ref in dependent_refs - {task.task_ref}
                     for dependent in snapshot.tasks
                 ):
                     raise DeveloperWorkQueueConflictError(
@@ -2119,6 +2263,14 @@ class DeveloperWorkCoordinator:
                     )
                     for dependency_ref in draft.depends_on_task_refs
                 }
+                if (
+                    task.canonical_item_contract_ref
+                    == draft.canonical_item_contract_ref
+                    and task.dependency_contract_refs == dependency_contract_refs
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_NO_CHANGE"
+                    )
                 replacement = task.model_copy(
                     update={
                         **draft.model_dump(mode="json"),
@@ -2190,6 +2342,42 @@ class DeveloperWorkCoordinator:
                 if receipt.idempotency_ref != idempotency_ref:
                     continue
                 if receipt.event_kind != "tasks_admitted":
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
+                    )
+                self._require_mutation_replay_evidence(receipt)
+                return receipt
+        return None
+
+    def amendment_receipt_for_idempotency(
+        self, idempotency_ref: str
+    ) -> DeveloperWorkQueueReceipt | None:
+        """Return exact durable amendment evidence for uncertainty-safe replay."""
+
+        validate_task_ref(idempotency_ref, "developer_work_amend_idempotency_ref")
+        with self._locked():
+            for receipt in self._load_receipts():
+                if receipt.idempotency_ref != idempotency_ref:
+                    continue
+                if receipt.event_kind != "task_amended":
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
+                    )
+                self._require_mutation_replay_evidence(receipt)
+                return receipt
+        return None
+
+    def migration_receipt_for_idempotency(
+        self, idempotency_ref: str
+    ) -> DeveloperWorkQueueReceipt | None:
+        """Return exact durable migration evidence for uncertainty-safe replay."""
+
+        validate_task_ref(idempotency_ref, "developer_work_migration_idempotency_ref")
+        with self._locked():
+            for receipt in self._load_receipts():
+                if receipt.idempotency_ref != idempotency_ref:
+                    continue
+                if receipt.event_kind != "task_contract_migrated":
                     raise DeveloperWorkQueueConflictError(
                         "DEVELOPER_WORK_IDEMPOTENCY_CONFLICT"
                     )
@@ -3375,8 +3563,6 @@ class DeveloperWorkCoordinator:
     ) -> bool:
         """Verify that one task is still bound to every exact prerequisite contract."""
 
-        if task.canonical_item_contract_ref is None:
-            return True
         if set(task.dependency_contract_refs) != set(task.depends_on_task_refs):
             return False
         by_ref = {candidate.task_ref: candidate for candidate in snapshot.tasks}
@@ -3526,7 +3712,12 @@ class DeveloperWorkCoordinator:
         migration_result_task: DeveloperWorkTask | None = None,
         migration_result_task_revision_ref: str | None = None,
         admission_snapshot_revision: int | None = None,
+        admission_selection_mode: DeveloperQueueAdmissionSelectionMode | None = None,
         admission_drafts: list[DeveloperWorkTaskDraft] | None = None,
+        admission_result_tasks: list[DeveloperWorkTask] | None = None,
+        amendment_replacement_draft: DeveloperWorkTaskDraft | None = None,
+        amendment_result_task: DeveloperWorkTask | None = None,
+        amendment_result_task_revision_ref: str | None = None,
         reconciliation_ref: str | None = None,
         reconciliation_snapshot_revision: int | None = None,
         reconciliation_contract_refs: dict[str, str] | None = None,
@@ -3541,7 +3732,9 @@ class DeveloperWorkCoordinator:
         legacy_source_refs = reconciliation_legacy_source_refs or {}
         reconciliation_evidence_ref = None
         admitted_drafts = admission_drafts or []
+        admitted_result_tasks = admission_result_tasks or []
         admission_evidence_ref = None
+        amendment_evidence_ref = None
         migration_contract_evidence_ref = None
         if event_kind in {"queue_contracts_reconciled", "queue_contracts_invalidated"}:
             reconciliation_evidence_ref = _hash_ref(
@@ -3568,6 +3761,10 @@ class DeveloperWorkCoordinator:
                     "drafts": [
                         draft.model_dump(mode="json") for draft in admitted_drafts
                     ],
+                    "result_tasks": [
+                        task.model_dump(mode="json") for task in admitted_result_tasks
+                    ],
+                    "selection_mode": admission_selection_mode,
                     "expected_snapshot_revision": admission_snapshot_revision,
                 },
             )
@@ -3576,6 +3773,31 @@ class DeveloperWorkCoordinator:
                 "approval_scope_ref": approval_scope_ref,
                 "approving_actor_ref": approving_actor_ref,
                 "admission_evidence_ref": admission_evidence_ref,
+            }
+        elif event_kind == "task_amended":
+            amendment_evidence_ref = _hash_ref(
+                "developer-queue-amendment-contract-evidence-ref",
+                {
+                    "replacement_draft": (
+                        amendment_replacement_draft.model_dump(mode="json")
+                        if amendment_replacement_draft is not None
+                        else None
+                    ),
+                    "result_task": (
+                        amendment_result_task.model_dump(mode="json")
+                        if amendment_result_task is not None
+                        else None
+                    ),
+                    "result_task_revision_ref": amendment_result_task_revision_ref,
+                },
+            )
+            approval_proof = {
+                "approval_ref": approval_ref,
+                "approval_scope_ref": approval_scope_ref,
+                "approving_actor_ref": approving_actor_ref,
+                "prior_fingerprint_ref": prior_fingerprint_ref,
+                "prior_task_revision_ref": prior_task_revision_ref,
+                "amendment_evidence_ref": amendment_evidence_ref,
             }
         elif event_kind == "task_contract_migrated":
             migration_contract_evidence_ref = _hash_ref(
@@ -3645,8 +3867,14 @@ class DeveloperWorkCoordinator:
             migration_result_task_revision_ref=migration_result_task_revision_ref,
             migration_contract_evidence_ref=migration_contract_evidence_ref,
             admission_snapshot_revision=admission_snapshot_revision,
+            admission_selection_mode=admission_selection_mode,
             admission_drafts=admitted_drafts,
+            admission_result_tasks=admitted_result_tasks,
             admission_evidence_ref=admission_evidence_ref,
+            amendment_replacement_draft=amendment_replacement_draft,
+            amendment_result_task=amendment_result_task,
+            amendment_result_task_revision_ref=amendment_result_task_revision_ref,
+            amendment_evidence_ref=amendment_evidence_ref,
             reconciliation_ref=reconciliation_ref,
             reconciliation_snapshot_revision=reconciliation_snapshot_revision,
             reconciliation_contract_refs=contract_refs,
@@ -3794,11 +4022,22 @@ class DeveloperWorkCoordinator:
 
         if receipt.event_kind == "tasks_admitted" and (
             receipt.admission_snapshot_revision is None
+            or receipt.admission_selection_mode is None
             or not receipt.admission_drafts
+            or not receipt.admission_result_tasks
             or receipt.admission_evidence_ref is None
         ):
             raise DeveloperWorkQueueConflictError(
                 "DEVELOPER_QUEUE_ADMISSION_REPLAY_EVIDENCE_REQUIRED"
+            )
+        if receipt.event_kind == "task_amended" and (
+            receipt.amendment_replacement_draft is None
+            or receipt.amendment_result_task is None
+            or receipt.amendment_result_task_revision_ref is None
+            or receipt.amendment_evidence_ref is None
+        ):
+            raise DeveloperWorkQueueConflictError(
+                "DEVELOPER_QUEUE_AMENDMENT_REPLAY_EVIDENCE_REQUIRED"
             )
         if receipt.event_kind == "task_contract_migrated" and (
             receipt.migration_replacement_draft is None
