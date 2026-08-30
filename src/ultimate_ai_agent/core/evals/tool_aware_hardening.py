@@ -117,7 +117,7 @@ TAW07_METRIC_DENOMINATORS = {
     "metric-ref:taw07:direct-chat-false-positive": 2,
     "metric-ref:taw07:ordinary-chat-false-block": 20,
     "metric-ref:taw07:paired-quality-non-inferiority-failure": 6,
-    "metric-ref:taw07:performance-budget-failure": 247,
+    "metric-ref:taw07:performance-budget-failure": 310,
     "metric-ref:taw07:safe-disable-equivalence-failure": 480,
     "metric-ref:taw07:unsafe-authority": 240,
     "metric-ref:taw07:unsupported-false-support": 2,
@@ -1404,8 +1404,13 @@ def evaluate_taw07_hardening(
     context_failures = 0
     routing_latencies: list[int] = []
     hydration_latencies: list[int] = []
-    ttft_pairs_by_category: dict[str, list[tuple[int, int]]] = {
-        category_ref: [] for category_ref in TAW07_CATEGORY_ACTIONS
+    ttft_pairs_by_stratum: dict[
+        tuple[str, CatalogState, ReplayMode], list[tuple[int, int]]
+    ] = {
+        (category_ref, CatalogState(state), ReplayMode(mode)): []
+        for category_ref in TAW07_CATEGORY_ACTIONS
+        for state in TAW07_CATALOG_STATES
+        for mode in TAW07_REPLAY_MODES
     }
 
     for key in sorted(
@@ -1500,7 +1505,9 @@ def evaluate_taw07_hardening(
             context_failures += 1
         routing_latencies.append(observation.routing_latency_milliseconds)
         hydration_latencies.append(observation.hydration_latency_milliseconds)
-        ttft_pairs_by_category[case.category_ref].append(
+        ttft_pairs_by_stratum[
+            (case.category_ref, observation.catalog_state, observation.replay_mode)
+        ].append(
             (
                 observation.baseline_ttft_milliseconds,
                 observation.candidate_ttft_milliseconds,
@@ -1509,13 +1516,13 @@ def evaluate_taw07_hardening(
 
     p95_routing = _nearest_rank_p95(routing_latencies)
     p95_hydration = _nearest_rank_p95(hydration_latencies)
-    category_p95_margins: list[int] = []
-    category_p95_relative_margins: list[int] = []
-    ttft_category_gate_count = 0
-    for pairs in ttft_pairs_by_category.values():
+    stratum_p95_margins: list[int] = []
+    stratum_p95_relative_margins: list[int] = []
+    ttft_stratum_gate_count = 0
+    for pairs in ttft_pairs_by_stratum.values():
         if not pairs:
             continue
-        ttft_category_gate_count += 1
+        ttft_stratum_gate_count += 1
         p95_margin = _nearest_rank_p95(
             [candidate - baseline for baseline, candidate in pairs]
         )
@@ -1528,16 +1535,16 @@ def evaluate_taw07_hardening(
                 for baseline, candidate in pairs
             ]
         )
-        category_p95_margins.append(p95_margin)
-        category_p95_relative_margins.append(p95_relative_margin)
+        stratum_p95_margins.append(p95_margin)
+        stratum_p95_relative_margins.append(p95_relative_margin)
         if (
             p95_margin > policy.maximum_p95_ttft_margin_milliseconds
             or p95_relative_margin
             > policy.maximum_p95_ttft_relative_margin_basis_points
         ):
             performance_failures += 1
-    p95_ttft_margin = max(category_p95_margins)
-    maximum_p95_ttft_relative_margin = max(category_p95_relative_margins)
+    p95_ttft_margin = max(stratum_p95_margins)
+    maximum_p95_ttft_relative_margin = max(stratum_p95_relative_margins)
 
     minimum_quality = {
         dimension: min(
@@ -1602,7 +1609,7 @@ def evaluate_taw07_hardening(
             quality_failures,
         ),
         "metric-ref:taw07:performance-budget-failure": (
-            len(observations) + ttft_category_gate_count,
+            len(observations) + ttft_stratum_gate_count,
             performance_failures,
         ),
         "metric-ref:taw07:safe-disable-equivalence-failure": (

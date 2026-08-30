@@ -97,9 +97,11 @@ development gates:
 - catalog-instruction following across all fifteen catalog fields;
 - route, payload, response, and durable-evidence safe-disable equivalence;
 - per-observation routing, hydration, and context budgets;
-- per-category p95 of paired candidate-minus-baseline time-to-first-token margins,
-  with the relative margin computed per pair before ranking, checked against both
-  absolute and relative limits; and
+- per-category, catalog-state, and replay-mode stratum p95 of paired
+  candidate-minus-baseline time-to-first-token margins, with the relative margin
+  computed per pair before ranking, so degraded/safe-disable observations cannot
+  mask the active candidate path, checked against both absolute and relative
+  limits; and
 - founder-private paired quality deltas for helpfulness, instruction following,
   tone, and response relevance, using a deterministic one-sided 95% bootstrap
   lower bound with 10,000 resamples and policy-bound seed 7.

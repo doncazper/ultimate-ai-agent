@@ -627,6 +627,37 @@ def test_ttft_relative_margin_is_paired_before_category_p95() -> None:
     assert report.status == HardeningStatus.failed
 
 
+def test_active_candidate_ttft_is_not_masked_by_safe_disable_strata() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    target = next(
+        item
+        for item in observations
+        if item.category_ref == "category-ref:taw07:catalog-injection"
+        and item.catalog_state == CatalogState.healthy
+        and item.replay_mode == ReplayMode.candidate_shadow
+    )
+    changed_target = bind_taw07_observation(
+        **{
+            **target.model_dump(
+                mode="python", exclude={"observation_fingerprint_ref"}
+            ),
+            "candidate_ttft_milliseconds": 106,
+        }
+    )
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=tuple(
+            changed_target if item is target else item for item in observations
+        ),
+        quality_observations=quality,
+    )
+    assert report.p95_ttft_margin_milliseconds == 6
+    assert report.status == HardeningStatus.failed
+
+
 def test_severe_relative_ttft_regression_is_bounded_and_fails() -> None:
     corpus = _corpus()
     bindings, observations, quality = _passing_inputs(corpus)
@@ -653,7 +684,7 @@ def test_severe_relative_ttft_regression_is_bounded_and_fails() -> None:
     assert report.status == HardeningStatus.failed
 
 
-def test_performance_denominator_counts_every_category_ttft_gate() -> None:
+def test_performance_denominator_counts_every_ttft_stratum_gate() -> None:
     corpus = _corpus()
     bindings, observations, quality = _passing_inputs(corpus)
     changed = tuple(
@@ -680,8 +711,13 @@ def test_performance_denominator_counts_every_category_ttft_gate() -> None:
         for item in report.metric_results
         if item.metric_ref == "metric-ref:taw07:performance-budget-failure"
     )
-    assert metric.denominator == len(observations) + len(TAW07_CATEGORY_CENSUS)
-    assert metric.event_count == len(observations) + len(TAW07_CATEGORY_CENSUS)
+    stratum_count = (
+        len(TAW07_CATEGORY_CENSUS)
+        * len(TAW07_CATALOG_STATES)
+        * len(TAW07_REPLAY_MODES)
+    )
+    assert metric.denominator == len(observations) + stratum_count
+    assert metric.event_count == len(observations) + stratum_count
 
 
 def test_report_binds_the_exact_policy_thresholds_used() -> None:
