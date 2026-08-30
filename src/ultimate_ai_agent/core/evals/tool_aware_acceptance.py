@@ -16,6 +16,8 @@ from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 
 TAW08_CONTRACT_REF = "contract-ref:taw08:founder-private-acceptance:v1"
 TAW08_EVALUATOR_REF = "evaluator-ref:taw08:deterministic-acceptance:v1"
+TAW08_MAX_EVIDENCE_DELTA_ENTRIES = 32
+TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_FOUNDER_EVIDENCE_MISSING_REFS = (
     "evidence-missing-ref:taw08:end-to-end-journey-receipt",
     "evidence-missing-ref:taw08:exact-head-foundation-receipt",
@@ -100,7 +102,7 @@ class EvidenceOnlyDeltaManifest(_FrozenModel):
     candidate_manifest_digest_ref: str
     delta_revision_ref: str
     entries: tuple[EvidenceOnlyDeltaEntry, ...] = Field(
-        ..., min_length=1, max_length=32
+        ..., min_length=1, max_length=TAW08_MAX_EVIDENCE_DELTA_ENTRIES
     )
     manifest_digest_ref: str
     executable_changes_added: Literal[False] = False
@@ -416,6 +418,8 @@ def verify_evidence_only_delta(
     changed_content_by_path_ref: Mapping[str, bytes],
 ) -> tuple[str, ...]:
     failures: set[str] = set()
+    if len(changed_content_by_path_ref) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES:
+        return ("failure-ref:taw08:evidence-delta-path-bound-exceeded",)
     allowed_refs = set(candidate_lock.evidence_only_delta_path_refs)
     candidate_refs = {item.path_ref for item in candidate_lock.entries}
     actual_refs = set(changed_content_by_path_ref)
@@ -434,6 +438,12 @@ def verify_evidence_only_delta(
     for path_ref, content in changed_content_by_path_ref.items():
         entry = entry_by_ref.get(path_ref)
         if entry is None:
+            continue
+        if not isinstance(content, bytes):
+            failures.add("failure-ref:taw08:evidence-delta-content-shape-invalid")
+            continue
+        if len(content) > TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES:
+            failures.add("failure-ref:taw08:evidence-delta-content-bound-exceeded")
             continue
         digest = f"sha256:{hashlib.sha256(content).hexdigest()}"
         if entry.content_digest_ref != digest:

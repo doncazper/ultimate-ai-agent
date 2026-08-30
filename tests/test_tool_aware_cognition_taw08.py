@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
     TAW08_INDEPENDENT_PROMOTION_BLOCKER_REFS,
+    TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES,
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     EvidenceOnlyDeltaEntry,
     EvidenceOnlyDeltaManifest,
@@ -233,6 +234,32 @@ def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None
     assert failures == (
         "failure-ref:taw08:evidence-delta-path-census-drift",
         "failure-ref:taw08:evidence-delta-unapproved-path",
+    )
+
+
+def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    too_many_paths = {
+        f"repo-path-ref:docs/evals/report-{index}.json": b"safe" for index in range(33)
+    }
+
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref=too_many_paths,
+    ) == ("failure-ref:taw08:evidence-delta-path-bound-exceeded",)
+
+    assert "failure-ref:taw08:evidence-delta-content-bound-exceeded" in (
+        verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref={
+                delta.entries[0].path_ref: (
+                    b"x" * (TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES + 1)
+                )
+            },
+        )
     )
 
 
