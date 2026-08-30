@@ -17,9 +17,7 @@ from ultimate_ai_agent.core.evals.tool_aware_hardening import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CORPUS_PATH = (
-    ROOT / "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json"
-)
+CORPUS_PATH = ROOT / "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json"
 CANDIDATE_PATHS = (
     "docs/DOCUMENTATION_INDEX.md",
     "docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md",
@@ -57,9 +55,19 @@ def _candidate_manifest_digest_ref(revision: str) -> str:
             capture_output=True,
         )
         committed = result.stdout
-        if (ROOT / relative_path).read_bytes() != committed:
+        comparison = subprocess.run(
+            ["git", "diff", "--quiet", revision, "--", relative_path],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+        )
+        if comparison.returncode == 1:
             raise RuntimeError(
                 f"TAW-07 candidate path is dirty relative to {revision}: {relative_path}"
+            )
+        if comparison.returncode != 0:
+            raise RuntimeError(
+                f"TAW-07 candidate path comparison failed: {relative_path}"
             )
         digest.update(relative_path.encode("utf-8"))
         digest.update(b"\0")

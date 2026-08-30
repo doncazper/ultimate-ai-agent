@@ -51,15 +51,19 @@ The candidate remains no-effect. Healthy candidate-shadow observations reconstru
 each transient synthetic payload and run it through the bounded familiarity,
 progressive-retrieval/hydration, and TAW-04 chat-shadow path; the evaluator then
 classifies the request from its bounded parameter refs rather than the embedded
-manifest category label. Each catalog-injection case places instruction-shaped
-data into its named catalog field before the same path is evaluated. The evaluator
-then compares that result with the accepted action matrix. Every degraded state and every explicit
+manifest category label. The supported write case is matched and hydrated against
+the reviewed write envelope, where its blocked authority lane remains visible.
+Each catalog-injection case places instruction-shaped data into its named catalog
+field, then exercises the poisoned catalog through constrained retrieval and
+single-candidate hydration before the same path is evaluated. The evaluator then
+compares that result with the accepted action matrix. Every degraded state and every explicit
 safe-disable replay must preserve the accepted legacy direct-chat route and the
 exact payload, response, and durable-evidence fingerprints. No model-visible
 context or second model call is allowed.
 
 The repository verifier's TAW-07 candidate digest reads every covered blob from
-the exact committed revision and rejects a covered working-tree mismatch. It
+the exact committed revision and uses Git's normalization-aware comparison to
+reject a covered working-tree mismatch. It
 covers every path changed by this slice, including status and index reconciliation.
 The exact Git revision binds the complete tree. This development digest is not the complete
 acceptance-affecting manifest required by TAW-08.
@@ -107,7 +111,9 @@ observation, so genuine candidate wording may differ. Substituted legacy respons
 evidence fingerprints, exceeded budgets, negative quality drift, or a validated
 decision mismatch produce a failed report. Every report binds the canonical
 policy fingerprint, including the thresholds actually used. Report status and
-fingerprint are recomputed from the exact evidence.
+fingerprint are recomputed from the exact evidence. Persisted reports must retain
+the fixed `24/240/2` case, observation, and paired-quality census plus the exact
+denominator for every metric.
 
 The models use Python-3.10-compatible string enums. Durable evidence contains no
 raw prompts, responses, provider payloads, local paths, logs, usernames,

@@ -74,6 +74,8 @@ def _binding(case_ref: str) -> TAW07LegacyCaseBinding:
 def _expected_action(case, state: CatalogState, mode: ReplayMode):
     if mode == ReplayMode.safe_disabled_replay or state != CatalogState.healthy:
         return ShadowChatAction.preserve_direct_chat
+    if "parameter-ref:taw07:reviewed-write-operation" in case.parameter_refs:
+        return ShadowChatAction.block_capability_proposal
     return TAW07_CATEGORY_ACTIONS[case.category_ref]
 
 
@@ -83,10 +85,16 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
     observations = []
     for case in corpus.cases:
         binding = by_case[case.case_ref]
+        case_payload = reconstruct_development_case_payload(corpus, case.case_ref)
         for state_ref in TAW07_CATALOG_STATES:
             state = CatalogState(state_ref)
             for mode_ref in TAW07_REPLAY_MODES:
                 mode = ReplayMode(mode_ref)
+                source_decision = build_taw07_source_decision(
+                    case_payload=case_payload,
+                    catalog_state=state,
+                    replay_mode=mode,
+                )
                 observations.append(
                     bind_taw07_observation(
                         case_ref=case.case_ref,
@@ -96,13 +104,7 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
                         development_corpus_digest_ref=corpus.corpus_digest,
                         catalog_state=state,
                         replay_mode=mode,
-                        source_decision=build_taw07_source_decision(
-                            case_payload=reconstruct_development_case_payload(
-                                corpus, case.case_ref
-                            ),
-                            catalog_state=state,
-                            replay_mode=mode,
-                        ),
+                        source_decision=source_decision,
                         observed_action=_expected_action(case, state, mode),
                         payload_fingerprint_ref=binding.payload_fingerprint_ref,
                         response_fingerprint_ref=binding.response_fingerprint_ref,
@@ -112,7 +114,7 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
                         routing_latency_milliseconds=5,
                         hydration_latency_milliseconds=(
                             10
-                            if case.category_ref == "category-ref:taw07:supported-tool"
+                            if source_decision.hydration_fingerprint_ref is not None
                             and state == CatalogState.healthy
                             and mode == ReplayMode.candidate_shadow
                             else 0
@@ -211,8 +213,9 @@ def test_catalog_injection_cases_build_distinct_poisoned_catalog_evidence() -> N
             catalog_state=CatalogState.healthy,
             replay_mode=ReplayMode.candidate_shadow,
         )
-        assert decision.action == ShadowChatAction.preserve_direct_chat
-        assert decision.selected_operation_refs == ()
+        assert decision.action == ShadowChatAction.record_capability_candidate
+        assert len(decision.selected_operation_refs) == 1
+        assert decision.hydration_fingerprint_ref is not None
         assert decision.model_context_changed is False
         decisions.append(decision)
     assert len(decisions) == 15
@@ -639,7 +642,7 @@ def test_candidate_quality_response_is_bound_independently() -> None:
 def test_report_fingerprint_and_status_are_recomputed() -> None:
     report = _evaluate(_corpus())
     payload = report.model_dump(mode="json")
-    payload["case_count"] -= 1
+    payload["p95_routing_latency_milliseconds"] += 1
     with pytest.raises(ValidationError, match="fingerprint binding drift"):
         TAW07HardeningReport.model_validate(payload)
     payload = report.model_dump(mode="json")
@@ -649,6 +652,21 @@ def test_report_fingerprint_and_status_are_recomputed() -> None:
     payload = report.model_dump(mode="json")
     payload["metric_results"] = payload["metric_results"][:-1]
     with pytest.raises(ValidationError, match="exact TAW-07 metric census"):
+        TAW07HardeningReport.model_validate(payload)
+
+
+def test_report_requires_fixed_counts_and_metric_denominators() -> None:
+    report = _evaluate(_corpus())
+    payload = report.model_dump(mode="json")
+    payload["case_count"] = 1
+    payload["observation_count"] = 1
+    payload["quality_observation_count"] = 1
+    with pytest.raises(ValidationError, match="fixed TAW-07 evidence census"):
+        TAW07HardeningReport.model_validate(payload)
+
+    payload = report.model_dump(mode="json")
+    payload["metric_results"][0]["denominator"] = 1
+    with pytest.raises(ValidationError, match="fixed TAW-07 census"):
         TAW07HardeningReport.model_validate(payload)
 
 
@@ -732,6 +750,23 @@ def test_reconstructed_payload_uses_parameters_not_embedded_category_label() -> 
     assert decision.action == ShadowChatAction.record_capability_candidate
 
 
+def test_reviewed_write_request_uses_write_envelope_and_hydration() -> None:
+    corpus = _corpus()
+    case = next(
+        item
+        for item in corpus.cases
+        if "parameter-ref:taw07:reviewed-write-operation" in item.parameter_refs
+    )
+    decision = build_taw07_source_decision(
+        case_payload=reconstruct_development_case_payload(corpus, case.case_ref),
+        catalog_state=CatalogState.healthy,
+        replay_mode=ReplayMode.candidate_shadow,
+    )
+    assert decision.action == ShadowChatAction.block_capability_proposal
+    assert decision.selected_operation_refs == ()
+    assert decision.hydration_fingerprint_ref is not None
+
+
 def test_candidate_manifest_digest_rejects_dirty_tree(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -768,6 +803,49 @@ def test_candidate_manifest_digest_rejects_dirty_tree(
     tracked.write_text("dirty\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="candidate path is dirty"):
         verifier._candidate_manifest_digest_ref(revision)
+
+
+def test_candidate_manifest_digest_accepts_git_normalized_crlf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    tracked = repo / "candidate.txt"
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "core.autocrlf", "true"], cwd=repo, check=True)
+    tracked.write_bytes(b"committed\n")
+    subprocess.run(["git", "add", "candidate.txt"], cwd=repo, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=TAW07 Test",
+            "-c",
+            "user.email=taw07@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+        cwd=repo,
+        check=True,
+    )
+    tracked.unlink()
+    subprocess.run(
+        ["git", "checkout-index", "--force", "candidate.txt"],
+        cwd=repo,
+        check=True,
+    )
+    assert tracked.read_bytes() == b"committed\r\n"
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(verifier, "ROOT", repo)
+    monkeypatch.setattr(verifier, "CANDIDATE_PATHS", ("candidate.txt",))
+    verifier._candidate_manifest_digest_ref(revision)
 
 
 def test_manifest_digest_tampering_is_rejected_before_evaluation() -> None:

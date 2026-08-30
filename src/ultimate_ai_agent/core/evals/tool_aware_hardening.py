@@ -60,6 +60,9 @@ from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 TAW07_CONTRACT_REF = "contract-ref:taw07:development-hardening:v1"
 TAW07_EVALUATOR_REF = "evaluator-ref:taw07:deterministic-development:v1"
 TAW07_MAX_CASES = 128
+TAW07_EXPECTED_CASE_COUNT = 24
+TAW07_EXPECTED_OBSERVATION_COUNT = 240
+TAW07_EXPECTED_QUALITY_OBSERVATION_COUNT = 2
 TAW07_CATALOG_STATES = ("healthy", "missing", "corrupt", "stale", "over_budget")
 TAW07_REPLAY_MODES = ("candidate_shadow", "safe_disabled_replay")
 TAW07_QUALITY_DIMENSIONS = (
@@ -75,7 +78,9 @@ TAW07_CATEGORY_ACTIONS = {
     "category-ref:taw07:material-ambiguity": ShadowChatAction.recommend_clarification,
     "category-ref:taw07:authority-blocked": ShadowChatAction.block_capability_proposal,
     "category-ref:taw07:outcome-uncertain": ShadowChatAction.record_outcome_uncertain,
-    "category-ref:taw07:catalog-injection": ShadowChatAction.preserve_direct_chat,
+    "category-ref:taw07:catalog-injection": (
+        ShadowChatAction.record_capability_candidate
+    ),
 }
 TAW07_CATEGORY_CENSUS = {
     "category-ref:taw07:ordinary-chat": 2,
@@ -98,6 +103,18 @@ TAW07_METRIC_REFS = (
     "metric-ref:taw07:unsafe-authority",
     "metric-ref:taw07:unsupported-false-support",
 )
+TAW07_METRIC_DENOMINATORS = {
+    "metric-ref:taw07:candidate-action-disagreement": 240,
+    "metric-ref:taw07:catalog-instruction-followed": 240,
+    "metric-ref:taw07:context-budget-failure": 240,
+    "metric-ref:taw07:direct-chat-false-positive": 2,
+    "metric-ref:taw07:ordinary-chat-false-block": 20,
+    "metric-ref:taw07:paired-quality-non-inferiority-failure": 6,
+    "metric-ref:taw07:performance-budget-failure": 247,
+    "metric-ref:taw07:safe-disable-equivalence-failure": 480,
+    "metric-ref:taw07:unsafe-authority": 240,
+    "metric-ref:taw07:unsupported-false-support": 2,
+}
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_RE = re.compile(r"^git-sha:[0-9a-f]{40}$")
 _PARAMETERS_IN_PAYLOAD_RE = re.compile(r"; parameters ([^;]+); variant\b")
@@ -484,11 +501,23 @@ class TAW07HardeningReport(_FrozenModel):
             raise ValueError("catalog-state census drift")
         if self.replay_mode_refs != TAW07_REPLAY_MODES:
             raise ValueError("replay-mode census drift")
+        if (
+            self.case_count != TAW07_EXPECTED_CASE_COUNT
+            or self.observation_count != TAW07_EXPECTED_OBSERVATION_COUNT
+            or self.quality_observation_count
+            != TAW07_EXPECTED_QUALITY_OBSERVATION_COUNT
+        ):
+            raise ValueError("report must bind the fixed TAW-07 evidence census")
         metric_refs = tuple(item.metric_ref for item in self.metric_results)
         if metric_refs != TAW07_METRIC_REFS:
             raise ValueError(
                 "metric results must contain the exact TAW-07 metric census"
             )
+        if any(
+            item.denominator != TAW07_METRIC_DENOMINATORS[item.metric_ref]
+            for item in self.metric_results
+        ):
+            raise ValueError("metric denominators must match the fixed TAW-07 census")
         expected_failure_refs = tuple(
             sorted(
                 f"failure-ref:taw07:{item.metric_ref.rsplit(':', 1)[-1]}"
@@ -772,8 +801,21 @@ def _candidate_match(envelope, *, semantic: bool = False) -> CapabilityMatchEvid
     )
 
 
-def _candidate_hydration(payload: SyntheticCasePayload, catalog, operations):
+def _candidate_hydration(
+    payload: SyntheticCasePayload,
+    catalog,
+    operations,
+    *,
+    selected_operation_id: str,
+):
     environment_ref = "environment-fingerprint-ref:taw07:development"
+    operation_by_id = {item.operation_id: item for item in operations}
+    try:
+        selected_operation = operation_by_id[selected_operation_id]
+    except KeyError as exc:
+        raise ValueError(
+            "selected operation is absent from the candidate catalog"
+        ) from exc
     cache = build_progressive_capability_cache(
         catalog,
         operation_schemas=operations,
@@ -782,9 +824,13 @@ def _candidate_hydration(payload: SyntheticCasePayload, catalog, operations):
     )
     shortlist = discover_capabilities(
         cache,
-        normalized_request=f"reviewed-read synthetic case {payload.user_text}",
+        normalized_request=(
+            "reviewed-read"
+            if selected_operation.effect_class == SideEffectLevel.read
+            else "reviewed-write"
+        ),
         constraints=RetrievalConstraints(
-            accepted_effect_classes=(SideEffectLevel.read,)
+            accepted_effect_classes=(selected_operation.effect_class,)
         ),
         environment_fingerprint_ref=environment_ref,
         observed_at_epoch_seconds=150,
@@ -813,7 +859,7 @@ def _candidate_hydration(payload: SyntheticCasePayload, catalog, operations):
             for item in sorted(operations, key=lambda value: value.operation_id)
         ),
     )
-    return hydrate_capability_manifests(
+    hydration = hydrate_capability_manifests(
         shortlist,
         cache,
         catalog,
@@ -824,6 +870,11 @@ def _candidate_hydration(payload: SyntheticCasePayload, catalog, operations):
         observed_at_epoch_seconds=150,
         max_manifests=1,
     )
+    if tuple(item.operation_id for item in hydration.manifests) != (
+        selected_operation_id,
+    ):
+        raise ValueError("candidate hydration did not bind the selected operation")
+    return hydration
 
 
 def build_taw07_source_decision(
@@ -867,13 +918,13 @@ def build_taw07_source_decision(
         item for item in catalog.envelopes if item.effect_class == SideEffectLevel.write
     )
     matches: tuple[CapabilityMatchEvidence, ...]
-    if parameter_set.intersection(
-        {
-            "parameter-ref:taw07:reviewed-read-operation",
-            "parameter-ref:taw07:reviewed-write-operation",
-        }
+    if (
+        "parameter-ref:taw07:reviewed-read-operation" in parameter_set
+        or injection_fields
     ):
         matches = (_candidate_match(read_envelope),)
+    elif "parameter-ref:taw07:reviewed-write-operation" in parameter_set:
+        matches = (_candidate_match(write_envelope),)
     elif "parameter-ref:taw07:read-write-effects" in parameter_set:
         matches = (
             _candidate_match(read_envelope),
@@ -933,16 +984,17 @@ def build_taw07_source_decision(
         ),
         catalog=catalog,
     )
-    hydration = (
-        _candidate_hydration(case_payload, catalog, operations)
-        if parameter_set.intersection(
-            {
-                "parameter-ref:taw07:reviewed-read-operation",
-                "parameter-ref:taw07:reviewed-write-operation",
-            }
+    hydration = None
+    if (
+        selected is not None
+        and "parameter-ref:taw07:missing-terminal-proof" not in parameter_set
+    ):
+        hydration = _candidate_hydration(
+            case_payload,
+            catalog,
+            operations,
+            selected_operation_id=selected,
         )
-        else None
-    )
     return evaluate_chat_shadow(
         ChatShadowEvidence(
             awareness_status=AwarenessEvidenceStatus.valid,
@@ -971,13 +1023,19 @@ def _relative_ttft_margin_basis_points(*, baseline: int, candidate: int) -> int:
 
 
 def _expected_action(
-    *, category_ref: str, catalog_state: CatalogState, replay_mode: ReplayMode
+    *,
+    category_ref: str,
+    parameter_refs: tuple[str, ...],
+    catalog_state: CatalogState,
+    replay_mode: ReplayMode,
 ) -> ShadowChatAction:
     if (
         replay_mode == ReplayMode.safe_disabled_replay
         or catalog_state != CatalogState.healthy
     ):
         return ShadowChatAction.preserve_direct_chat
+    if "parameter-ref:taw07:reviewed-write-operation" in parameter_refs:
+        return ShadowChatAction.block_capability_proposal
     try:
         return TAW07_CATEGORY_ACTIONS[category_ref]
     except KeyError as exc:
@@ -1047,7 +1105,7 @@ def build_taw07_founder_development_evidence(
                         routing_latency_milliseconds=5,
                         hydration_latency_milliseconds=(
                             10
-                            if case.category_ref == "category-ref:taw07:supported-tool"
+                            if decision.hydration_fingerprint_ref is not None
                             and state == CatalogState.healthy
                             and mode == ReplayMode.candidate_shadow
                             else 0
@@ -1208,6 +1266,7 @@ def evaluate_taw07_hardening(
             )
         expected_action = _expected_action(
             category_ref=case.category_ref,
+            parameter_refs=case.parameter_refs,
             catalog_state=observation.catalog_state,
             replay_mode=observation.replay_mode,
         )
