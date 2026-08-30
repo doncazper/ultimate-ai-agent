@@ -58,6 +58,8 @@ def _policy(corpus: DevelopmentCorpusManifest) -> TAW07HardeningPolicy:
         candidate_revision_ref=CANDIDATE_REVISION,
         candidate_manifest_digest_ref=CANDIDATE_DIGEST,
         development_corpus_digest_ref=corpus.corpus_digest,
+        holdout_commitment_digest_ref="sha256:" + "9" * 64,
+        holdout_custodian_ref="custodian-ref:taw07:test-only",
     )
 
 
@@ -170,6 +172,22 @@ def _evaluate(
         observations=observations if observations is not None else defaults[1],
         quality_observations=quality if quality is not None else defaults[2],
     )
+
+
+def _rebind_report_fingerprint(payload: dict[str, object]) -> None:
+    report_payload = {
+        key: value for key, value in payload.items() if key != "report_fingerprint_ref"
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            report_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    payload["report_fingerprint_ref"] = f"taw07-hardening-report-ref:sha256:{digest}"
 
 
 def test_founder_development_matrix_passes_without_authority_or_promotion_claim() -> (
@@ -599,6 +617,82 @@ def test_holdout_and_authority_fields_fail_closed() -> None:
         TAW07HardeningPolicy.model_validate(policy_payload)
 
 
+def test_missing_holdout_commitment_blocks_passing_posture() -> None:
+    corpus = _corpus()
+    policy = TAW07HardeningPolicy(
+        candidate_revision_ref=CANDIDATE_REVISION,
+        candidate_manifest_digest_ref=CANDIDATE_DIGEST,
+        development_corpus_digest_ref=corpus.corpus_digest,
+    )
+    bindings, observations, quality = _passing_inputs(corpus)
+    report = evaluate_taw07_hardening(
+        policy=policy,
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=observations,
+        quality_observations=quality,
+    )
+    assert report.status == HardeningStatus.blocked_missing_holdout_commitment
+
+
+def test_substituted_legacy_binding_set_is_rejected() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    rebound_bindings = tuple(
+        binding.model_copy(
+            update={
+                "payload_fingerprint_ref": (f"payload-ref:taw07:substituted-{index}"),
+                "response_fingerprint_ref": (f"response-ref:taw07:substituted-{index}"),
+                "durable_evidence_fingerprint_ref": (
+                    f"evidence-set-ref:taw07:substituted-{index}"
+                ),
+            }
+        )
+        for index, binding in enumerate(bindings)
+    )
+    rebound_by_case = {item.case_ref: item for item in rebound_bindings}
+    rebound_observations = tuple(
+        bind_taw07_observation(
+            **{
+                **observation.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
+                "payload_fingerprint_ref": rebound_by_case[
+                    observation.case_ref
+                ].payload_fingerprint_ref,
+                "response_fingerprint_ref": rebound_by_case[
+                    observation.case_ref
+                ].response_fingerprint_ref,
+                "durable_evidence_fingerprint_ref": rebound_by_case[
+                    observation.case_ref
+                ].durable_evidence_fingerprint_ref,
+            }
+        )
+        for observation in observations
+    )
+    rebound_quality = tuple(
+        bind_taw07_quality_observation(
+            **{
+                **item.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
+                "baseline_response_fingerprint_ref": rebound_by_case[
+                    item.case_ref
+                ].response_fingerprint_ref,
+            }
+        )
+        for item in quality
+    )
+    with pytest.raises(ValueError, match="accepted TAW-04 evidence"):
+        evaluate_taw07_hardening(
+            policy=_policy(corpus),
+            corpus=corpus,
+            legacy_bindings=rebound_bindings,
+            observations=rebound_observations,
+            quality_observations=rebound_quality,
+        )
+
+
 def test_quality_census_and_fingerprints_cannot_be_substituted() -> None:
     corpus = _corpus()
     bindings, observations, quality = _passing_inputs(corpus)
@@ -667,6 +761,21 @@ def test_report_requires_fixed_counts_and_metric_denominators() -> None:
     payload = report.model_dump(mode="json")
     payload["metric_results"][0]["denominator"] = 1
     with pytest.raises(ValidationError, match="fixed TAW-07 census"):
+        TAW07HardeningReport.model_validate(payload)
+
+
+def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
+    report = _evaluate(_corpus())
+    payload = report.model_dump(mode="json")
+    payload["maximum_context_tokens_observed"] = 128_001
+    _rebind_report_fingerprint(payload)
+    with pytest.raises(ValidationError, match="context metric contradicts"):
+        TAW07HardeningReport.model_validate(payload)
+
+    payload = report.model_dump(mode="json")
+    payload["maximum_p95_ttft_relative_margin_basis_points_observed"] = 501
+    _rebind_report_fingerprint(payload)
+    with pytest.raises(ValidationError, match="performance metric contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
 

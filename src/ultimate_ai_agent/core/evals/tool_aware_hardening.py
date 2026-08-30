@@ -137,6 +137,7 @@ class ReplayMode(str, Enum):
 
 class HardeningStatus(str, Enum):
     passed_founder_development = "passed_founder_development"
+    blocked_missing_holdout_commitment = "blocked_missing_holdout_commitment"
     failed = "failed"
 
 
@@ -455,6 +456,7 @@ class TAW07HardeningReport(_FrozenModel):
     candidate_revision_ref: str
     candidate_manifest_digest_ref: str
     development_corpus_digest_ref: str
+    policy: TAW07HardeningPolicy
     policy_fingerprint_ref: str
     case_count: int = Field(..., ge=1, le=TAW07_MAX_CASES)
     observation_count: int = Field(..., ge=1, le=TAW07_MAX_CASES * 10)
@@ -465,6 +467,9 @@ class TAW07HardeningReport(_FrozenModel):
     p95_routing_latency_milliseconds: int = Field(..., ge=0, le=60_000)
     p95_hydration_latency_milliseconds: int = Field(..., ge=0, le=60_000)
     p95_ttft_margin_milliseconds: int = Field(..., ge=-600_000, le=600_000)
+    maximum_p95_ttft_relative_margin_basis_points_observed: int = Field(
+        ..., ge=0, le=10_001
+    )
     maximum_context_tokens_observed: int = Field(..., ge=0, le=1_000_000)
     minimum_quality_delta_by_dimension: TAW07QualityDelta
     failure_reason_refs: tuple[str, ...]
@@ -490,12 +495,15 @@ class TAW07HardeningReport(_FrozenModel):
         _validate_digest(
             self.development_corpus_digest_ref, "development_corpus_digest_ref"
         )
-        if not self.policy_fingerprint_ref.startswith(
-            "taw07-policy-ref:sha256:"
-        ) or not _DIGEST_RE.fullmatch(
-            "sha256:" + self.policy_fingerprint_ref.rsplit(":", 1)[-1]
+        if (
+            self.policy.candidate_revision_ref != self.candidate_revision_ref
+            or self.policy.candidate_manifest_digest_ref
+            != self.candidate_manifest_digest_ref
+            or self.policy.development_corpus_digest_ref
+            != self.development_corpus_digest_ref
+            or self.policy_fingerprint_ref != taw07_policy_fingerprint_ref(self.policy)
         ):
-            raise ValueError("policy_fingerprint_ref must bind one canonical policy")
+            raise ValueError("report must bind the exact governing policy")
         _validate_sorted_refs(self.failure_reason_refs, "failure_reason_refs")
         if self.catalog_state_refs != TAW07_CATALOG_STATES:
             raise ValueError("catalog-state census drift")
@@ -527,13 +535,53 @@ class TAW07HardeningReport(_FrozenModel):
         )
         if self.failure_reason_refs != expected_failure_refs:
             raise ValueError("failure refs must derive from the exact metric census")
-        passed = (
+        metric_by_ref = {item.metric_ref: item for item in self.metric_results}
+        aggregate_gate_failures = (
+            self.p95_routing_latency_milliseconds
+            > self.policy.maximum_routing_latency_milliseconds
+            or self.p95_hydration_latency_milliseconds
+            > self.policy.maximum_hydration_latency_milliseconds
+            or self.p95_ttft_margin_milliseconds
+            > self.policy.maximum_p95_ttft_margin_milliseconds
+            or self.maximum_p95_ttft_relative_margin_basis_points_observed
+            > self.policy.maximum_p95_ttft_relative_margin_basis_points
+        )
+        if (
+            metric_by_ref["metric-ref:taw07:performance-budget-failure"].passed
+            and aggregate_gate_failures
+        ):
+            raise ValueError("passing performance metric contradicts report aggregates")
+        if metric_by_ref["metric-ref:taw07:context-budget-failure"].passed and (
+            self.maximum_context_tokens_observed > self.policy.maximum_context_tokens
+            or self.maximum_context_tokens_observed != 0
+        ):
+            raise ValueError("passing context metric contradicts report aggregate")
+        if metric_by_ref[
+            "metric-ref:taw07:paired-quality-non-inferiority-failure"
+        ].passed and any(
+            getattr(self.minimum_quality_delta_by_dimension, dimension)
+            < self.policy.minimum_quality_delta_points
+            for dimension in TAW07_QUALITY_DIMENSIONS
+        ):
+            raise ValueError("passing quality metric contradicts report aggregates")
+        development_evidence_passed = (
             not self.failure_reason_refs
             and all(item.passed for item in self.metric_results)
             and self.safe_disable_equivalence_proven
             and self.exact_matrix_coverage_proven
         )
-        if (self.status == HardeningStatus.passed_founder_development) != passed:
+        holdout_boundary_ready = (
+            self.policy.holdout_commitment_digest_ref is not None
+            and self.policy.holdout_custodian_ref is not None
+        )
+        expected_status = (
+            HardeningStatus.passed_founder_development
+            if development_evidence_passed and holdout_boundary_ready
+            else HardeningStatus.blocked_missing_holdout_commitment
+            if development_evidence_passed
+            else HardeningStatus.failed
+        )
+        if self.status != expected_status:
             raise ValueError("hardening report status does not match evidence")
         expected = _fingerprint(
             self.model_dump(mode="json", exclude={"report_fingerprint_ref"}),
@@ -1042,18 +1090,12 @@ def _expected_action(
         raise ValueError("development case category is outside TAW-07 scope") from exc
 
 
-def build_taw07_founder_development_evidence(
-    *, policy: TAW07HardeningPolicy, corpus: DevelopmentCorpusManifest
-) -> tuple[
-    tuple[TAW07LegacyCaseBinding, ...],
-    tuple[TAW07DevelopmentObservation, ...],
-    tuple[TAW07PairedQualityObservation, ...],
-]:
-    """Build content-free deterministic evidence for the no-effect dev harness."""
+def _accepted_legacy_bindings(
+    corpus: DevelopmentCorpusManifest,
+) -> tuple[TAW07LegacyCaseBinding, ...]:
+    """Recompute the accepted content-free TAW-04 bindings from fixed case refs."""
 
-    if corpus.corpus_digest != policy.development_corpus_digest_ref:
-        raise ValueError("development corpus and policy digest binding mismatch")
-    bindings = tuple(
+    return tuple(
         TAW07LegacyCaseBinding(
             case_ref=case.case_ref,
             payload_fingerprint_ref=(
@@ -1068,6 +1110,20 @@ def build_taw07_founder_development_evidence(
         )
         for case in corpus.cases
     )
+
+
+def build_taw07_founder_development_evidence(
+    *, policy: TAW07HardeningPolicy, corpus: DevelopmentCorpusManifest
+) -> tuple[
+    tuple[TAW07LegacyCaseBinding, ...],
+    tuple[TAW07DevelopmentObservation, ...],
+    tuple[TAW07PairedQualityObservation, ...],
+]:
+    """Build content-free deterministic evidence for the no-effect dev harness."""
+
+    if corpus.corpus_digest != policy.development_corpus_digest_ref:
+        raise ValueError("development corpus and policy digest binding mismatch")
+    bindings = _accepted_legacy_bindings(corpus)
     binding_by_case = {item.case_ref: item for item in bindings}
     observations = []
     for case in corpus.cases:
@@ -1192,6 +1248,8 @@ def evaluate_taw07_hardening(
         raise ValueError(
             "legacy binding census must exactly cover the development corpus"
         )
+    if legacy_bindings != _accepted_legacy_bindings(corpus):
+        raise ValueError("legacy bindings must match accepted TAW-04 evidence")
 
     expected_keys = {
         (case_ref, CatalogState(state), ReplayMode(mode))
@@ -1341,6 +1399,7 @@ def evaluate_taw07_hardening(
     p95_routing = _nearest_rank_p95(routing_latencies)
     p95_hydration = _nearest_rank_p95(hydration_latencies)
     category_p95_margins: list[int] = []
+    category_p95_relative_margins: list[int] = []
     ttft_category_gate_count = 0
     for pairs in ttft_pairs_by_category.values():
         if not pairs:
@@ -1359,6 +1418,7 @@ def evaluate_taw07_hardening(
             ]
         )
         category_p95_margins.append(p95_margin)
+        category_p95_relative_margins.append(p95_relative_margin)
         if (
             p95_margin > policy.maximum_p95_ttft_margin_milliseconds
             or p95_relative_margin
@@ -1366,6 +1426,7 @@ def evaluate_taw07_hardening(
         ):
             performance_failures += 1
     p95_ttft_margin = max(category_p95_margins)
+    maximum_p95_ttft_relative_margin = max(category_p95_relative_margins)
 
     minimum_quality = {
         dimension: min(
@@ -1455,11 +1516,16 @@ def evaluate_taw07_hardening(
         "status": (
             HardeningStatus.passed_founder_development
             if not failure_reason_refs
+            and policy.holdout_commitment_digest_ref is not None
+            and policy.holdout_custodian_ref is not None
+            else HardeningStatus.blocked_missing_holdout_commitment
+            if not failure_reason_refs
             else HardeningStatus.failed
         ),
         "candidate_revision_ref": policy.candidate_revision_ref,
         "candidate_manifest_digest_ref": policy.candidate_manifest_digest_ref,
         "development_corpus_digest_ref": policy.development_corpus_digest_ref,
+        "policy": policy,
         "policy_fingerprint_ref": taw07_policy_fingerprint_ref(policy),
         "case_count": len(corpus.cases),
         "observation_count": len(observations),
@@ -1470,6 +1536,9 @@ def evaluate_taw07_hardening(
         "p95_routing_latency_milliseconds": p95_routing,
         "p95_hydration_latency_milliseconds": p95_hydration,
         "p95_ttft_margin_milliseconds": p95_ttft_margin,
+        "maximum_p95_ttft_relative_margin_basis_points_observed": (
+            maximum_p95_ttft_relative_margin
+        ),
         "maximum_context_tokens_observed": max(
             item.model_visible_context_tokens for item in observations
         ),

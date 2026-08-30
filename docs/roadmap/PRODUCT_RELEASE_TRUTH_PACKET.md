@@ -102,6 +102,15 @@ surface. No Control Center surface, route change, model context change, model or
 provider call, proposal, approval grant, execution, connector, external write,
 public claim, or authority is added.
 
+The TAW-07 deterministic development contract is present, but TAW-07 is not yet
+qualified. It recomputes the fixed 24-case / 240-observation development matrix,
+accepted TAW-04 legacy bindings, budget and quality gates, and persisted-report
+consistency without model/provider calls or runtime authority. A clean fixture
+run reports `blocked_missing_holdout_commitment` until the required public
+holdout commitment digest and custodian ref are supplied. TAW-08, exact measured
+founder-dogfood evidence, independent promotion, and public quality claims remain
+blocked.
+
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture
 capabilities for Instagram, X, and TikTok, deterministic compatibility

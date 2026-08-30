@@ -101,7 +101,7 @@ def verify() -> None:
         quality_observations=quality,
     )
     if (
-        report.status != HardeningStatus.passed_founder_development
+        report.status != HardeningStatus.blocked_missing_holdout_commitment
         or report.case_count != 24
         or report.observation_count
         != report.case_count * len(TAW07_CATALOG_STATES) * len(TAW07_REPLAY_MODES)
@@ -110,7 +110,7 @@ def verify() -> None:
         or not report.exact_matrix_coverage_proven
         or any(not item.passed for item in report.metric_results)
     ):
-        raise RuntimeError("TAW-07 deterministic development evidence failed")
+        raise RuntimeError("TAW-07 deterministic development evidence drifted")
     if any(
         (
             report.holdout_material_accessed,
@@ -127,7 +127,10 @@ def verify() -> None:
 
 def main() -> int:
     verify()
-    print("Tool-aware cognition TAW-07 development hardening verification passed.")
+    print(
+        "Tool-aware cognition TAW-07 development contract verified; "
+        "qualification remains blocked on the holdout commitment."
+    )
     return 0
 
 

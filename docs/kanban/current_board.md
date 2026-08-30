@@ -48,13 +48,15 @@ inspection through one redacted Python Core read model. The stdin CLI and
 protected validation-only API have exact JSON parity and stable OpenAPI,
 manifest, side-effect, and auth posture. No Control Center surface, ordinary-chat
 change, model context, proposal, approval grant, execution, provider call,
-connector, external write, or authority is added. Bounded TAW-07 deterministic
-development hardening now recomputes the exact 24-case / 240-observation
+connector, external write, or authority is added. The bounded TAW-07 deterministic
+development contract now recomputes the exact 24-case / 240-observation
 catalog-state and safe-disable matrix, latency and context budgets, paired
 founder-private quality deltas, catalog-injection census, and exact TAW-04
 decision bindings without making model/provider calls or measuring real
-hardware. Q22 advances next to TAW-08 founder-dogfood acceptance; exact measured
-evidence and independent promotion remain required gates.
+hardware. TAW-07 qualification remains blocked until a precommitted public
+holdout digest and custodian ref are supplied; the repository fixture reports
+that blocker instead of a pass. TAW-08 founder-dogfood acceptance, exact measured
+evidence, and independent promotion therefore remain gated.
 
 Queue V2 Wave 6 is the planned founder functional-adoption sequence after the
 final GoatCitadel comparison. Q31 must directly exercise and inspect comparable
