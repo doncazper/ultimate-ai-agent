@@ -53,9 +53,10 @@ development contract now recomputes the exact 24-case / 240-observation
 catalog-state and safe-disable matrix, latency and context budgets, paired
 founder-private quality deltas, catalog-injection census, and exact TAW-04
 decision bindings without making model/provider calls or measuring real
-hardware. TAW-07 qualification remains blocked until a validated public TAW-00
-holdout commitment envelope is supplied; the repository fixture reports
-that blocker instead of a pass. TAW-08 founder-dogfood acceptance, exact measured
+hardware. TAW-07 qualification remains blocked because this slice cannot
+independently verify the public TAW-00 commitment's custody or creation-order
+evidence; the repository fixture reports the missing or unverified blocker instead
+of a pass. TAW-08 founder-dogfood acceptance, exact measured
 evidence, and independent promotion therefore remain gated.
 
 Queue V2 Wave 6 is the planned founder functional-adoption sequence after the

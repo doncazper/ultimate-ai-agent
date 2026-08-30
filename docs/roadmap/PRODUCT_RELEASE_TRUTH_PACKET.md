@@ -106,8 +106,9 @@ The TAW-07 deterministic development contract is present, but TAW-07 is not yet
 qualified. It recomputes the fixed 24-case / 240-observation development matrix,
 accepted TAW-04 legacy bindings, budget and quality gates, and persisted-report
 consistency without model/provider calls or runtime authority. A clean fixture
-run reports `blocked_missing_holdout_commitment` until the required public
-TAW-00 holdout commitment envelope is supplied. TAW-08, exact measured
+run reports `blocked_missing_holdout_commitment` without the public TAW-00
+envelope and `blocked_unverified_holdout_commitment` when its custody and
+creation-order evidence have not been independently verified. TAW-08, exact measured
 founder-dogfood evidence, independent promotion, and public quality claims remain
 blocked.
 

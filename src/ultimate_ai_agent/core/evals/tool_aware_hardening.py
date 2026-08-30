@@ -143,8 +143,10 @@ class ReplayMode(str, Enum):
 
 
 class HardeningStatus(str, Enum):
-    passed_founder_development = "passed_founder_development"
     blocked_missing_holdout_commitment = "blocked_missing_holdout_commitment"
+    blocked_unverified_holdout_commitment = (
+        "blocked_unverified_holdout_commitment"
+    )
     failed = "failed"
 
 
@@ -604,12 +606,10 @@ class TAW07HardeningReport(_FrozenModel):
             and self.safe_disable_equivalence_proven
             and self.exact_matrix_coverage_proven
         )
-        holdout_boundary_ready = (
-            self.policy.holdout_commitment is not None
-        )
         expected_status = (
-            HardeningStatus.passed_founder_development
-            if development_evidence_passed and holdout_boundary_ready
+            HardeningStatus.blocked_unverified_holdout_commitment
+            if development_evidence_passed
+            and self.policy.holdout_commitment is not None
             else HardeningStatus.blocked_missing_holdout_commitment
             if development_evidence_passed
             else HardeningStatus.failed
@@ -1639,7 +1639,7 @@ def evaluate_taw07_hardening(
     )
     payload = {
         "status": (
-            HardeningStatus.passed_founder_development
+            HardeningStatus.blocked_unverified_holdout_commitment
             if not failure_reason_refs
             and policy.holdout_commitment is not None
             else HardeningStatus.blocked_missing_holdout_commitment

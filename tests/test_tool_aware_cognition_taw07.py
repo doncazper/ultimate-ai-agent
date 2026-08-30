@@ -198,12 +198,12 @@ def _rebind_report_fingerprint(payload: dict[str, object]) -> None:
     payload["report_fingerprint_ref"] = f"taw07-hardening-report-ref:sha256:{digest}"
 
 
-def test_founder_development_matrix_passes_without_authority_or_promotion_claim() -> (
+def test_founder_development_matrix_is_clean_but_cannot_self_verify_holdout() -> (
     None
 ):
     corpus = _corpus()
     report = _evaluate(corpus)
-    assert report.status == HardeningStatus.passed_founder_development
+    assert report.status == HardeningStatus.blocked_unverified_holdout_commitment
     assert report.case_count == 24
     assert report.observation_count == 240
     assert report.quality_observation_count == 2
@@ -846,7 +846,7 @@ def test_candidate_quality_response_is_bound_independently() -> None:
         observations=observations,
         quality_observations=(changed, *quality[1:]),
     )
-    assert report.status == HardeningStatus.passed_founder_development
+    assert report.status == HardeningStatus.blocked_unverified_holdout_commitment
 
 
 def test_report_fingerprint_and_status_are_recomputed() -> None:
@@ -933,7 +933,7 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
     performance_metric["event_count"] = 0
     performance_metric["passed"] = True
     payload["failure_reason_refs"] = []
-    payload["status"] = HardeningStatus.passed_founder_development.value
+    payload["status"] = HardeningStatus.blocked_unverified_holdout_commitment.value
     _rebind_report_fingerprint(payload)
     with pytest.raises(ValidationError, match="performance metric contradicts"):
         TAW07HardeningReport.model_validate(payload)

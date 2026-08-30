@@ -1,7 +1,8 @@
 # Tool-Aware Cognition TAW-07 Development Hardening
 
 Status: deterministic development contract implemented; TAW-07 qualification is
-blocked until a validated public TAW-00 holdout commitment is supplied.
+blocked until a later boundary independently verifies the public TAW-00 holdout
+commitment's custody and creation-order evidence.
 Independent promotion and public quality claims remain blocked.
 
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
@@ -34,12 +35,14 @@ category census:
 The development seed is intentionally available because this is the development
 corpus. No acceptance-holdout seed, parameter, generated input, case hash, label,
 expected decision, or per-case result is present. A validated public
-`HoldoutCommitment` envelope must bind the accepted TAW-00 cycle, custodian,
+`HoldoutCommitment` envelope may bind the accepted TAW-00 cycle, custodian,
 HMAC-SHA256 commitment, creation-order evidence, and custodian attestation before
-the report may claim
-`passed_founder_development`; without that envelope, clean deterministic evidence is
-reported as `blocked_missing_holdout_commitment`. The private holdout material
-remains unrepresentable in this contract.
+the report is preserved for later qualification. Because TAW-07 cannot independently
+resolve those refs or open the HMAC commitment, clean deterministic evidence is
+reported as `blocked_unverified_holdout_commitment` when the envelope is present
+and `blocked_missing_holdout_commitment` when absent. A passing status is not
+representable in this contract. The private holdout material remains
+unrepresentable here.
 
 ## Exact Matrix
 
@@ -134,8 +137,9 @@ confidence lower bounds, must agree with the corresponding passing metrics. Repo
 fingerprint are recomputed from the exact evidence. Persisted reports must retain
 the fixed `24/240/2` case,
 observation, and paired-quality census plus the exact denominator for every
-metric. Clean development evidence without the validated public holdout commitment
-remains blocked rather than passing.
+metric. Clean development evidence remains blocked: a missing public commitment
+reports the missing blocker, while an envelope whose custody and creation-order
+claims have not been independently verified reports the unverified blocker.
 
 The models use Python-3.10-compatible string enums. Durable evidence contains no
 raw prompts, responses, provider payloads, local paths, logs, usernames,
@@ -149,8 +153,8 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-The missing validated public holdout commitment must be provided before
-TAW-07 can pass. TAW-08 must then lock the complete candidate manifest, record
+TAW-08 must independently verify the holdout commitment boundary, lock the
+complete candidate manifest, record
 founder-private dogfood acceptance with exact measured evidence, reconcile
 product claims, and preserve the independent promotion gate. External custody,
 blind scoring, independently accepted baseline evidence, public claims, runtime
