@@ -17,13 +17,16 @@ from ultimate_ai_agent.core.capabilities.chat_shadow import (
 from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     DevelopmentCaseSpec,
     DevelopmentCorpusManifest,
+    HoldoutCommitment,
     build_development_corpus_manifest,
     reconstruct_development_case_payload,
 )
+import ultimate_ai_agent.core.evals.tool_aware_hardening as hardening
 from ultimate_ai_agent.core.evals.tool_aware_hardening import (
     CatalogState,
     HardeningStatus,
     ReplayMode,
+    TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST,
     TAW07_CATALOG_STATES,
     TAW07_CATEGORY_ACTIONS,
     TAW07_CATEGORY_CENSUS,
@@ -58,8 +61,13 @@ def _policy(corpus: DevelopmentCorpusManifest) -> TAW07HardeningPolicy:
         candidate_revision_ref=CANDIDATE_REVISION,
         candidate_manifest_digest_ref=CANDIDATE_DIGEST,
         development_corpus_digest_ref=corpus.corpus_digest,
-        holdout_commitment_digest_ref="sha256:" + "9" * 64,
-        holdout_custodian_ref="custodian-ref:taw07:test-only",
+        holdout_commitment=HoldoutCommitment(
+            cycle_ref="cycle-ref:taw00:initial",
+            custodian_ref="custodian-ref:taw07:test-only",
+            commitment_digest="sha256:" + "9" * 64,
+            creation_order_evidence_ref="evidence-ref:taw00:created-before-taw07",
+            custodian_attestation_ref="attestation-ref:taw00:test-custodian",
+        ),
     )
 
 
@@ -201,6 +209,7 @@ def test_founder_development_matrix_passes_without_authority_or_promotion_claim(
     assert report.quality_observation_count == 2
     assert report.safe_disable_equivalence_proven
     assert report.exact_matrix_coverage_proven
+    assert report.lower_quality_confidence_bound_by_dimension.helpfulness == 0
     assert all(metric.event_count == 0 for metric in report.metric_results)
     assert report.runtime_model_calls_added is False
     assert report.provider_calls_added is False
@@ -218,6 +227,39 @@ def test_development_manifest_is_reconstructible_and_covers_injection_fields() -
         assert payload.system_text
         assert payload.user_text
     _evaluate(corpus)
+
+
+def test_development_manifest_exactly_binds_case_parameter_mapping() -> None:
+    corpus = _corpus()
+    assert corpus.corpus_digest == TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST
+    specs = tuple(
+        DevelopmentCaseSpec(
+            case_ref=case.case_ref,
+            category_ref=case.category_ref,
+            rubric_ref=case.rubric_ref,
+            parameter_refs=(
+                ("parameter-ref:taw07:substituted-mapping",)
+                if index == 0
+                else case.parameter_refs
+            ),
+            variant_index=case.variant_index,
+        )
+        for index, case in enumerate(corpus.cases)
+    )
+    substituted = build_development_corpus_manifest(
+        corpus_ref=corpus.corpus_ref,
+        deterministic_seed_ref=corpus.deterministic_seed_ref,
+        seed_material=bytes.fromhex(corpus.deterministic_seed_material_hex),
+        specs=specs,
+    )
+    with pytest.raises(ValueError, match="accepted TAW-07 manifest"):
+        evaluate_taw07_hardening(
+            policy=_policy(substituted),
+            corpus=substituted,
+            legacy_bindings=(),
+            observations=(),
+            quality_observations=(),
+        )
 
 
 def test_catalog_injection_cases_build_distinct_poisoned_catalog_evidence() -> None:
@@ -239,6 +281,48 @@ def test_catalog_injection_cases_build_distinct_poisoned_catalog_evidence() -> N
     assert len(decisions) == 15
     assert len({item.assessment_fingerprint_ref for item in decisions}) == len(
         decisions
+    )
+
+
+@pytest.mark.parametrize("catalog_state", ["corrupt", "stale", "over_budget"])
+def test_degraded_catalog_states_are_detected_by_candidate_boundaries(
+    catalog_state: str,
+) -> None:
+    corpus = _corpus()
+    case = corpus.cases[0]
+    decision = build_taw07_source_decision(
+        case_payload=reconstruct_development_case_payload(corpus, case.case_ref),
+        catalog_state=CatalogState(catalog_state),
+        replay_mode=ReplayMode.candidate_shadow,
+    )
+    assert decision.action == ShadowChatAction.preserve_direct_chat
+    assert decision.safe_disable_engaged is True
+
+
+@pytest.mark.parametrize("schema_field", ["input_schema", "output_schema"])
+def test_schema_descriptions_are_excluded_from_rendered_hydration(
+    schema_field: str,
+) -> None:
+    corpus = _corpus()
+    case = next(
+        item
+        for item in corpus.cases
+        if f"parameter-ref:taw07:catalog-field-{schema_field}" in item.parameter_refs
+    )
+    payload = reconstruct_development_case_payload(corpus, case.case_ref)
+    catalog, operations = hardening._candidate_catalog(injection_field=schema_field)
+    read_operation = next(
+        item for item in operations if item.operation_id.endswith("reviewed-read")
+    )
+    hydration = hardening._candidate_hydration(
+        payload,
+        catalog,
+        operations,
+        selected_operation_id=read_operation.operation_id,
+    )
+    assert all(
+        hardening._INSTRUCTION_SHAPED_TEXT not in item.rendered_untrusted_data
+        for item in hydration.manifests
     )
 
 
@@ -543,6 +627,32 @@ def test_ttft_relative_margin_is_paired_before_category_p95() -> None:
     assert report.status == HardeningStatus.failed
 
 
+def test_severe_relative_ttft_regression_is_bounded_and_fails() -> None:
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    changed = tuple(
+        bind_taw07_observation(
+            **{
+                **item.model_dump(
+                    mode="python", exclude={"observation_fingerprint_ref"}
+                ),
+                "baseline_ttft_milliseconds": 100,
+                "candidate_ttft_milliseconds": 201,
+            }
+        )
+        for item in observations
+    )
+    report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=changed,
+        quality_observations=quality,
+    )
+    assert report.maximum_p95_ttft_relative_margin_basis_points_observed == 10_001
+    assert report.status == HardeningStatus.failed
+
+
 def test_performance_denominator_counts_every_category_ttft_gate() -> None:
     corpus = _corpus()
     bindings, observations, quality = _passing_inputs(corpus)
@@ -600,12 +710,18 @@ def test_report_binds_the_exact_policy_thresholds_used() -> None:
 
 def test_holdout_and_authority_fields_fail_closed() -> None:
     corpus = _corpus()
-    with pytest.raises(ValidationError, match="travel together"):
+    with pytest.raises(ValidationError, match="accepted TAW-00 cycle"):
         TAW07HardeningPolicy(
             candidate_revision_ref=CANDIDATE_REVISION,
             candidate_manifest_digest_ref=CANDIDATE_DIGEST,
             development_corpus_digest_ref=corpus.corpus_digest,
-            holdout_commitment_digest_ref="sha256:" + "1" * 64,
+            holdout_commitment=HoldoutCommitment(
+                cycle_ref="cycle-ref:taw00:substituted",
+                custodian_ref="custodian-ref:taw07:test-only",
+                commitment_digest="sha256:" + "1" * 64,
+                creation_order_evidence_ref="evidence-ref:taw00:created-before-taw07",
+                custodian_attestation_ref="attestation-ref:taw00:test-custodian",
+            ),
         )
     payload = _passing_inputs(corpus)[1][0].model_dump(mode="json")
     payload["holdout_material_accessed"] = True
@@ -736,7 +852,7 @@ def test_candidate_quality_response_is_bound_independently() -> None:
 def test_report_fingerprint_and_status_are_recomputed() -> None:
     report = _evaluate(_corpus())
     payload = report.model_dump(mode="json")
-    payload["p95_routing_latency_milliseconds"] += 1
+    payload["p95_routing_latency_milliseconds"] -= 1
     with pytest.raises(ValidationError, match="fingerprint binding drift"):
         TAW07HardeningReport.model_validate(payload)
     payload = report.model_dump(mode="json")
@@ -776,6 +892,19 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
     payload["maximum_p95_ttft_relative_margin_basis_points_observed"] = 501
     _rebind_report_fingerprint(payload)
     with pytest.raises(ValidationError, match="performance metric contradicts"):
+        TAW07HardeningReport.model_validate(payload)
+
+    payload = report.model_dump(mode="json")
+    payload["p95_routing_latency_milliseconds"] = 6
+    payload["maximum_routing_latency_milliseconds_observed"] = 5
+    _rebind_report_fingerprint(payload)
+    with pytest.raises(ValidationError, match="p95 latency cannot exceed"):
+        TAW07HardeningReport.model_validate(payload)
+
+    payload = report.model_dump(mode="json")
+    payload["lower_quality_confidence_bound_by_dimension"]["helpfulness"] = -6
+    _rebind_report_fingerprint(payload)
+    with pytest.raises(ValidationError, match="quality metric contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
     corpus = _corpus()

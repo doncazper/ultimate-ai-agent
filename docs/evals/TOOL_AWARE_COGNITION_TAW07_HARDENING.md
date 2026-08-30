@@ -1,7 +1,7 @@
 # Tool-Aware Cognition TAW-07 Development Hardening
 
 Status: deterministic development contract implemented; TAW-07 qualification is
-blocked until a precommitted holdout digest and custodian ref are supplied.
+blocked until a validated public TAW-00 holdout commitment is supplied.
 Independent promotion and public quality claims remain blocked.
 
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
@@ -18,7 +18,9 @@ is still recorded per run rather than inferred from a repository fixture.
 
 The durable development corpus is
 `docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json`. It contains 24
-synthetic cases with immutable case refs and generated-content hashes:
+synthetic cases. Its accepted corpus digest locks the complete case-to-category,
+rubric, parameter, variant, and generated-content mapping rather than only a
+category census:
 
 - two ordinary-chat cases;
 - two supported-tool cases;
@@ -31,9 +33,11 @@ synthetic cases with immutable case refs and generated-content hashes:
 
 The development seed is intentionally available because this is the development
 corpus. No acceptance-holdout seed, parameter, generated input, case hash, label,
-expected decision, or per-case result is present. A public commitment digest and
-custodian ref must be bound together before the report may claim
-`passed_founder_development`; without that pair, clean deterministic evidence is
+expected decision, or per-case result is present. A validated public
+`HoldoutCommitment` envelope must bind the accepted TAW-00 cycle, custodian,
+HMAC-SHA256 commitment, creation-order evidence, and custodian attestation before
+the report may claim
+`passed_founder_development`; without that envelope, clean deterministic evidence is
 reported as `blocked_missing_holdout_commitment`. The private holdout material
 remains unrepresentable in this contract.
 
@@ -58,7 +62,12 @@ manifest category label. The supported write case is matched and hydrated agains
 the reviewed write envelope, where its blocked authority lane remains visible.
 Each catalog-injection case places instruction-shaped data into its named catalog
 field, then exercises the poisoned catalog through constrained retrieval and
-single-candidate hydration before the same path is evaluated. The evaluator then
+single-candidate hydration before the same path is evaluated. Input/output schema
+descriptions are deliberately excluded from rendered hydration and the contract
+asserts that instruction-shaped schema descriptions cannot cross that projection.
+Corrupt, stale, and over-budget candidate-shadow states are derived by exercising
+the real catalog-cache or retrieval boundary; they are not caller-selected labels.
+The evaluator then
 compares that result with the accepted action matrix. Every degraded state and
 every explicit safe-disable replay must preserve the accepted legacy direct-chat
 route and the exact payload, response, and durable-evidence fingerprints. The
@@ -89,11 +98,13 @@ development gates:
   with the relative margin computed per pair before ranking, checked against both
   absolute and relative limits; and
 - founder-private paired quality deltas for helpfulness, instruction following,
-  tone, and response relevance.
+  tone, and response relevance, using a deterministic one-sided 95% bootstrap
+  lower bound with 10,000 resamples and policy-bound seed 7.
 
 Founder development uses a zero-event posture for safety, routing disagreement,
-prompt injection, and equivalence failures. The quality floor is -5 points per
-dimension. The routing and hydration ceilings are 100 ms and 200 ms, context is
+prompt injection, and equivalence failures. Each quality confidence lower bound,
+not only the observed minimum, must remain at or above the -5 point floor. The
+routing and hydration ceilings are 100 ms and 200 ms, context is
 bounded to the accepted 128K profile, and the p95 TTFT margin must satisfy both
 50 ms absolute and five-percent relative limits.
 
@@ -109,20 +120,22 @@ candidate evidence before TAW-08 acceptance.
 The evaluator rejects an oversized corpus before materializing the observation
 matrix; any drift from the exact `2/2/2/1/1/1/15` category census; missing, extra,
 or duplicate matrix identities; incomplete legacy or
-paired-quality or metric censuses; candidate/corpus rebinding; incomplete catalog-injection
-coverage; malformed digests; covered-tree drift; and unknown fields. Baseline and
+paired-quality or metric censuses; candidate/corpus rebinding; any drift from the
+accepted exact corpus digest; incomplete catalog-injection coverage; malformed
+digests; covered-tree drift; and unknown fields. Baseline and
 candidate response fingerprints are independently bound by each paired-quality
 observation, so genuine candidate wording may differ. Substituted legacy response or durable
 evidence fingerprints, exceeded budgets, negative quality drift, or a validated
 decision mismatch produce a failed report. Every report embeds and fingerprints
 the exact governing policy, including the thresholds actually used, and its
 persisted maximum and p95 latency, relative-TTFT, context, and quality
-aggregates must agree with the corresponding passing metrics. Report status and
+aggregates, including p95-at-or-below-maximum latency and the policy-bound quality
+confidence lower bounds, must agree with the corresponding passing metrics. Report status and
 fingerprint are recomputed from the exact evidence. Persisted reports must retain
 the fixed `24/240/2` case,
 observation, and paired-quality census plus the exact denominator for every
-metric. Clean development evidence without the public holdout commitment and
-custodian pair remains blocked rather than passing.
+metric. Clean development evidence without the validated public holdout commitment
+remains blocked rather than passing.
 
 The models use Python-3.10-compatible string enums. Durable evidence contains no
 raw prompts, responses, provider payloads, local paths, logs, usernames,
@@ -136,7 +149,7 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-The missing public holdout commitment and custodian pair must be provided before
+The missing validated public holdout commitment must be provided before
 TAW-07 can pass. TAW-08 must then lock the complete candidate manifest, record
 founder-private dogfood acceptance with exact measured evidence, reconcile
 product claims, and preserve the independent promotion gate. External custody,

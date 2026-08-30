@@ -107,7 +107,7 @@ qualified. It recomputes the fixed 24-case / 240-observation development matrix,
 accepted TAW-04 legacy bindings, budget and quality gates, and persisted-report
 consistency without model/provider calls or runtime authority. A clean fixture
 run reports `blocked_missing_holdout_commitment` until the required public
-holdout commitment digest and custodian ref are supplied. TAW-08, exact measured
+TAW-00 holdout commitment envelope is supplied. TAW-08, exact measured
 founder-dogfood evidence, independent promotion, and public quality claims remain
 blocked.
 

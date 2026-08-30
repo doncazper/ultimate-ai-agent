@@ -51,8 +51,12 @@ from ultimate_ai_agent.core.capabilities.retrieval import (
 )
 from ultimate_ai_agent.core.evals.tool_aware_corpus import (
     DevelopmentCorpusManifest,
+    HoldoutCommitment,
     SyntheticCasePayload,
     reconstruct_development_case_payload,
+)
+from ultimate_ai_agent.core.evals.tool_aware_statistics import (
+    paired_bootstrap_one_sided_bound,
 )
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 
@@ -63,6 +67,9 @@ TAW07_MAX_CASES = 128
 TAW07_EXPECTED_CASE_COUNT = 24
 TAW07_EXPECTED_OBSERVATION_COUNT = 240
 TAW07_EXPECTED_QUALITY_OBSERVATION_COUNT = 2
+TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST = (
+    "sha256:d8c3439b2243bb9e6f2f25915a36b66ae7b45f3e0960093980d311b548504582"
+)
 TAW07_CATALOG_STATES = ("healthy", "missing", "corrupt", "stale", "over_budget")
 TAW07_REPLAY_MODES = ("candidate_shadow", "safe_disabled_replay")
 TAW07_QUALITY_DIMENSIONS = (
@@ -207,8 +214,10 @@ class TAW07HardeningPolicy(_FrozenModel):
         default=500, ge=0, le=10_000
     )
     minimum_quality_delta_points: int = Field(default=-5, ge=-100, le=0)
-    holdout_commitment_digest_ref: str | None = None
-    holdout_custodian_ref: str | None = None
+    quality_confidence_basis_points: Literal[9500] = 9500
+    quality_bootstrap_resamples: Literal[10_000] = 10_000
+    quality_bootstrap_seed: Literal[7] = 7
+    holdout_commitment: HoldoutCommitment | None = None
     holdout_material_accessed: Literal[False] = False
     runtime_model_calls_authorized: Literal[False] = False
     provider_calls_authorized: Literal[False] = False
@@ -227,18 +236,11 @@ class TAW07HardeningPolicy(_FrozenModel):
             _validate_digest(value, field_name)
         if self.language_refs != ("language-ref:en",):
             raise ValueError("founder development policy is English-only")
-        if (self.holdout_commitment_digest_ref is None) != (
-            self.holdout_custodian_ref is None
+        if (
+            self.holdout_commitment is not None
+            and self.holdout_commitment.cycle_ref != "cycle-ref:taw00:initial"
         ):
-            raise ValueError(
-                "public holdout commitment and custodian must travel together"
-            )
-        if self.holdout_commitment_digest_ref is not None:
-            _validate_digest(
-                self.holdout_commitment_digest_ref,
-                "holdout_commitment_digest_ref",
-            )
-            _validate_ref(self.holdout_custodian_ref or "", "holdout_custodian_ref")
+            raise ValueError("holdout commitment must bind the accepted TAW-00 cycle")
         return self
 
 
@@ -373,6 +375,22 @@ class TAW07QualityDelta(_FrozenModel):
     response_relevance: int = Field(..., ge=-100, le=100)
 
 
+class TAW07QualityBound(_FrozenModel):
+    helpfulness: float = Field(..., ge=-100, le=100)
+    instruction_following: float = Field(..., ge=-100, le=100)
+    tone: float = Field(..., ge=-100, le=100)
+    response_relevance: float = Field(..., ge=-100, le=100)
+
+    @model_validator(mode="after")
+    def validate_finite_bounds(self) -> "TAW07QualityBound":
+        if any(
+            not math.isfinite(getattr(self, dimension))
+            for dimension in TAW07_QUALITY_DIMENSIONS
+        ):
+            raise ValueError("quality uncertainty bounds must be finite")
+        return self
+
+
 class TAW07PairedQualityObservation(_FrozenModel):
     schema_version: Literal["uaa-taw07-paired-quality-observation.v1"] = (
         "uaa-taw07-paired-quality-observation.v1"
@@ -474,6 +492,7 @@ class TAW07HardeningReport(_FrozenModel):
     )
     maximum_context_tokens_observed: int = Field(..., ge=0, le=1_000_000)
     minimum_quality_delta_by_dimension: TAW07QualityDelta
+    lower_quality_confidence_bound_by_dimension: TAW07QualityBound
     failure_reason_refs: tuple[str, ...]
     safe_disable_equivalence_proven: bool
     exact_matrix_coverage_proven: bool
@@ -538,6 +557,13 @@ class TAW07HardeningReport(_FrozenModel):
         if self.failure_reason_refs != expected_failure_refs:
             raise ValueError("failure refs must derive from the exact metric census")
         metric_by_ref = {item.metric_ref: item for item in self.metric_results}
+        if (
+            self.p95_routing_latency_milliseconds
+            > self.maximum_routing_latency_milliseconds_observed
+            or self.p95_hydration_latency_milliseconds
+            > self.maximum_hydration_latency_milliseconds_observed
+        ):
+            raise ValueError("p95 latency cannot exceed the recorded maximum")
         aggregate_gate_failures = (
             self.maximum_routing_latency_milliseconds_observed
             > self.policy.maximum_routing_latency_milliseconds
@@ -561,11 +587,17 @@ class TAW07HardeningReport(_FrozenModel):
         if metric_by_ref[
             "metric-ref:taw07:paired-quality-non-inferiority-failure"
         ].passed and any(
-            getattr(self.minimum_quality_delta_by_dimension, dimension)
+            getattr(self.lower_quality_confidence_bound_by_dimension, dimension)
             < self.policy.minimum_quality_delta_points
             for dimension in TAW07_QUALITY_DIMENSIONS
         ):
             raise ValueError("passing quality metric contradicts report aggregates")
+        if any(
+            getattr(self.lower_quality_confidence_bound_by_dimension, dimension)
+            > getattr(self.minimum_quality_delta_by_dimension, dimension)
+            for dimension in TAW07_QUALITY_DIMENSIONS
+        ):
+            raise ValueError("quality lower bound cannot exceed the observed minimum")
         development_evidence_passed = (
             not self.failure_reason_refs
             and all(item.passed for item in self.metric_results)
@@ -573,8 +605,7 @@ class TAW07HardeningReport(_FrozenModel):
             and self.exact_matrix_coverage_proven
         )
         holdout_boundary_ready = (
-            self.policy.holdout_commitment_digest_ref is not None
-            and self.policy.holdout_custodian_ref is not None
+            self.policy.holdout_commitment is not None
         )
         expected_status = (
             HardeningStatus.passed_founder_development
@@ -927,6 +958,62 @@ def _candidate_hydration(
     return hydration
 
 
+def _exercise_degraded_catalog_state(
+    *, catalog_state: CatalogState, catalog, operations
+) -> AwarenessEvidenceStatus:
+    """Derive a degraded awareness state from the candidate retrieval boundary."""
+
+    environment_ref = "environment-fingerprint-ref:taw07:development"
+    if catalog_state == CatalogState.corrupt:
+        corrupt_catalog = catalog.model_dump(mode="python")
+        corrupt_catalog["catalog_fingerprint_ref"] = (
+            "awareness-catalog-ref:taw01:sha256:" + "0" * 64
+        )
+        try:
+            build_progressive_capability_cache(
+                corrupt_catalog,
+                operation_schemas=operations,
+                environment_fingerprint_ref=environment_ref,
+                observed_at_epoch_seconds=150,
+            )
+        except ValueError:
+            return AwarenessEvidenceStatus.corrupt
+        raise ValueError("corrupt candidate catalog was accepted")
+    if catalog_state == CatalogState.stale:
+        try:
+            build_progressive_capability_cache(
+                catalog,
+                operation_schemas=operations,
+                environment_fingerprint_ref=environment_ref,
+                observed_at_epoch_seconds=201,
+            )
+        except ValueError as exc:
+            if "stale" not in str(exc):
+                raise
+            return AwarenessEvidenceStatus.stale
+        raise ValueError("stale candidate catalog was accepted")
+    if catalog_state == CatalogState.over_budget:
+        cache = build_progressive_capability_cache(
+            catalog,
+            operation_schemas=operations,
+            environment_fingerprint_ref=environment_ref,
+            observed_at_epoch_seconds=150,
+        )
+        shortlist = discover_capabilities(
+            cache,
+            normalized_request="x" * 4_097,
+            constraints=RetrievalConstraints(
+                accepted_effect_classes=(SideEffectLevel.read,)
+            ),
+            environment_fingerprint_ref=environment_ref,
+            observed_at_epoch_seconds=150,
+        )
+        if shortlist.status != "over_budget" or shortlist.candidates:
+            raise ValueError("over-budget candidate retrieval did not fail closed")
+        return AwarenessEvidenceStatus.over_budget
+    raise ValueError("catalog state is not a supported degraded boundary")
+
+
 def build_taw07_source_decision(
     *,
     case_payload: SyntheticCasePayload,
@@ -946,10 +1033,7 @@ def build_taw07_source_decision(
         raise ValueError(
             "candidate payload names more than one catalog injection field"
         )
-    if (
-        replay_mode == ReplayMode.safe_disabled_replay
-        or catalog_state != CatalogState.healthy
-    ):
+    if replay_mode == ReplayMode.safe_disabled_replay:
         status = (
             AwarenessEvidenceStatus.missing
             if catalog_state == CatalogState.healthy
@@ -957,9 +1041,24 @@ def build_taw07_source_decision(
         )
         return evaluate_chat_shadow(ChatShadowEvidence(awareness_status=status))
 
+    if catalog_state == CatalogState.missing:
+        return evaluate_chat_shadow(
+            ChatShadowEvidence(awareness_status=AwarenessEvidenceStatus.missing)
+        )
+
     catalog, operations = _candidate_catalog(
         injection_field=injection_fields[0] if injection_fields else None
     )
+    if catalog_state != CatalogState.healthy:
+        return evaluate_chat_shadow(
+            ChatShadowEvidence(
+                awareness_status=_exercise_degraded_catalog_state(
+                    catalog_state=catalog_state,
+                    catalog=catalog,
+                    operations=operations,
+                )
+            )
+        )
     envelope_by_operation = {item.operation_id: item for item in catalog.envelopes}
     read_envelope = next(
         item for item in catalog.envelopes if item.effect_class == SideEffectLevel.read
@@ -1045,6 +1144,14 @@ def build_taw07_source_decision(
             operations,
             selected_operation_id=selected,
         )
+        if injection_fields and injection_fields[0] in {
+            "input_schema",
+            "output_schema",
+        } and any(
+            _INSTRUCTION_SHAPED_TEXT in item.rendered_untrusted_data
+            for item in hydration.manifests
+        ):
+            raise ValueError("schema descriptions must be excluded from hydration")
     return evaluate_chat_shadow(
         ChatShadowEvidence(
             awareness_status=AwarenessEvidenceStatus.valid,
@@ -1069,7 +1176,7 @@ def _relative_ttft_margin_basis_points(*, baseline: int, candidate: int) -> int:
         return 0
     if baseline == 0:
         return 10_001
-    return math.ceil(margin * 10_000 / baseline)
+    return min(10_001, math.ceil(margin * 10_000 / baseline))
 
 
 def _expected_action(
@@ -1242,6 +1349,8 @@ def evaluate_taw07_hardening(
     )
     if injection_fields != tuple(sorted(TAW04_CATALOG_INJECTION_FIELD_PATHS)):
         raise ValueError("catalog-injection development census is incomplete")
+    if corpus.corpus_digest != TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST:
+        raise ValueError("development corpus must match the accepted TAW-07 manifest")
 
     binding_by_case = {item.case_ref: item for item in legacy_bindings}
     if len(binding_by_case) != len(legacy_bindings) or set(binding_by_case) != set(
@@ -1436,9 +1545,23 @@ def evaluate_taw07_hardening(
         )
         for dimension in TAW07_QUALITY_DIMENSIONS
     }
+    lower_quality_bounds = {}
+    for index, dimension in enumerate(TAW07_QUALITY_DIMENSIONS):
+        values = [
+            float(getattr(item.dimension_deltas, dimension))
+            for item in quality_observations
+        ]
+        _, lower_quality_bounds[dimension] = paired_bootstrap_one_sided_bound(
+            [0.0] * len(values),
+            values,
+            side="lower",
+            confidence=policy.quality_confidence_basis_points / 10_000,
+            resamples=policy.quality_bootstrap_resamples,
+            seed=policy.quality_bootstrap_seed + index,
+        )
     quality_failures = sum(
         value < policy.minimum_quality_delta_points
-        for value in minimum_quality.values()
+        for value in lower_quality_bounds.values()
     )
     for item in quality_observations:
         binding = binding_by_case[item.case_ref]
@@ -1518,8 +1641,7 @@ def evaluate_taw07_hardening(
         "status": (
             HardeningStatus.passed_founder_development
             if not failure_reason_refs
-            and policy.holdout_commitment_digest_ref is not None
-            and policy.holdout_custodian_ref is not None
+            and policy.holdout_commitment is not None
             else HardeningStatus.blocked_missing_holdout_commitment
             if not failure_reason_refs
             else HardeningStatus.failed
@@ -1547,6 +1669,9 @@ def evaluate_taw07_hardening(
             item.model_visible_context_tokens for item in observations
         ),
         "minimum_quality_delta_by_dimension": TAW07QualityDelta(**minimum_quality),
+        "lower_quality_confidence_bound_by_dimension": TAW07QualityBound(
+            **lower_quality_bounds
+        ),
         "failure_reason_refs": failure_reason_refs,
         "safe_disable_equivalence_proven": equivalence_failures == 0,
         "exact_matrix_coverage_proven": exact_matrix,
@@ -1570,6 +1695,7 @@ __all__ = [
     "CatalogState",
     "HardeningStatus",
     "ReplayMode",
+    "TAW07_ACCEPTED_DEVELOPMENT_CORPUS_DIGEST",
     "TAW07_CATALOG_STATES",
     "TAW07_CATEGORY_ACTIONS",
     "TAW07_CATEGORY_CENSUS",
@@ -1584,6 +1710,7 @@ __all__ = [
     "TAW07PairedQualityObservation",
     "TAW07_QUALITY_DIMENSIONS",
     "TAW07QualityDelta",
+    "TAW07QualityBound",
     "TAW07_REPLAY_MODES",
     "bind_taw07_observation",
     "bind_taw07_quality_observation",
