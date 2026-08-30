@@ -1091,6 +1091,64 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert set(q32_view.dependency_contract_refs) == set(q32_view.depends_on_task_refs)
 
 
+def test_queue_v2_cli_admits_q37_only_after_existing_q00_q36(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state_dir = tmp_path / "state"
+    coordinator = DeveloperWorkCoordinator(state_dir=state_dir)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    _admit_canonical_drafts(
+        coordinator,
+        drafts[:37],
+        idempotency_ref="idempotency-ref:queue-v2-existing-through-q36",
+    )
+    parser = build_parser()
+    idempotency_ref = "idempotency-ref:queue-v2-q37-post-adoption-parity"
+    preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-admission",
+            "--idempotency-prefix",
+            idempotency_ref,
+            "--item-id",
+            "Q37",
+        ]
+    )
+
+    assert preview.func(preview) == 0
+    preview_payload = json.loads(capsys.readouterr().out)
+    admission = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "admit-queue-v2",
+            "--idempotency-prefix",
+            idempotency_ref,
+            "--item-id",
+            "Q37",
+            "--expected-snapshot-revision",
+            str(preview_payload["expected_snapshot_revision"]),
+            "--confirm-admission",
+            "admit-queue-v2",
+            "--approve-exact-scope",
+            preview_payload["approval_scope_ref"],
+        ]
+    )
+
+    assert admission.func(admission) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_item_ids"] == ["Q37"]
+    assert payload["queue_of_record_health"]["admission_gap_detected"] is False
+    view = coordinator.inspect()
+    assert len(view.tasks) == 38
+    assert view.tasks[-1].task_ref == drafts[37].task_ref
+    assert view.tasks[-1].dependency_contract_refs == {
+        drafts[36].task_ref: drafts[36].canonical_item_contract_ref
+    }
+
+
 def test_queue_v2_cli_rejects_duplicate_selective_admission(
     tmp_path: Path,
 ) -> None:

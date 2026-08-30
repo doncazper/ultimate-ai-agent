@@ -183,6 +183,10 @@ Review and copy the preview's exact `approval_scope_ref` and
 binding makes the approval stale after any intervening task transition, even if
 the task later returns to queued state:
 
+The admission portion below assumes Q00 through Q36 are already durable. Admit
+only the new Q37 record with a fresh idempotency prefix; replaying an earlier
+batch prefix or reselecting already-admitted records correctly fails closed.
+
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
@@ -198,15 +202,15 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   preview-queue-v2-admission \
-  --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 --item-id Q37 \
+  --idempotency-prefix idempotency-ref:queue-v2-q37-post-adoption-parity \
+  --item-id Q37 \
   --pretty
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   admit-queue-v2 \
-  --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 --item-id Q37 \
+  --idempotency-prefix idempotency-ref:queue-v2-q37-post-adoption-parity \
+  --item-id Q37 \
   --expected-snapshot-revision copy-exact-preview-value \
   --confirm-admission admit-queue-v2 \
   --approve-exact-scope developer-queue-admission-scope-ref:sha256:copy-exact-preview-value \
