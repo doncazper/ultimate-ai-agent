@@ -49,6 +49,8 @@ FULL_MERGE_COMMIT_REF_RE = re.compile(r"^merge-commit-ref:([0-9a-f]{40})$")
 MERGE_EVIDENCE_TARGET_REF = "refs/remotes/origin/main"
 MERGE_GATED_BLOCKER_PR_RE = re.compile(r"(?:^|[/:_-])pr([0-9]+)(?:[/:_-]|$)")
 DEVELOPER_WORK_TASK_AMENDMENT_ACTION = "amend_developer_queue_contract"
+DEVELOPER_QUEUE_ADMISSION_ACTION = "admit_developer_queue_contracts"
+DEVELOPER_WORK_COMPLETED_MIGRATION_ACTION = "migrate_completed_developer_queue_contract"
 DEVELOPER_QUEUE_RECONCILIATION_ACTION = "reconcile_developer_queue_contracts"
 
 DeveloperWorkPriority = Literal["p0", "p1", "p2", "p3"]
@@ -78,7 +80,9 @@ DeveloperWorkEventKind = Literal[
     "node_registered",
     "node_heartbeat",
     "task_added",
+    "tasks_admitted",
     "task_amended",
+    "task_contract_migrated",
     "queue_contracts_reconciled",
     "queue_contracts_invalidated",
     "task_claimed",
@@ -124,6 +128,12 @@ def _hash_ref(prefix: str, value: object) -> str:
     )
 
 
+def _actor_scope_binding(actor_context: ActorContext) -> dict[str, object]:
+    """Bind stable actor authority fields without transient construction time."""
+
+    return actor_context.model_dump(mode="json", exclude={"created_at"})
+
+
 def build_developer_work_task_amendment_approval_request(
     draft: "DeveloperWorkTaskDraft",
     *,
@@ -152,6 +162,7 @@ def build_developer_work_task_amendment_approval_request(
             "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
             "replacement_contract": draft.model_dump(mode="json"),
             "idempotency_ref": idempotency_ref,
+            "actor_context": _actor_scope_binding(actor_context),
         },
     )
     return ApprovalRequest(
@@ -184,6 +195,119 @@ def build_developer_work_task_amendment_approval_request(
     )
 
 
+def build_developer_queue_admission_approval_request(
+    drafts: list["DeveloperWorkTaskDraft"],
+    *,
+    expected_snapshot_revision: int,
+    idempotency_ref: str,
+    actor_context: ActorContext,
+) -> ApprovalRequest:
+    """Build exact approval for one atomic canonical Queue V2 admission."""
+
+    if expected_snapshot_revision < 0:
+        raise ValueError("developer queue admission revision is invalid")
+    if not drafts:
+        raise ValueError("developer queue admission requires at least one task")
+    validate_task_ref(idempotency_ref, "developer_queue_admission_idempotency_ref")
+    task_refs = [draft.task_ref for draft in drafts]
+    if len(task_refs) != len(set(task_refs)):
+        raise ValueError("developer queue admission task refs must be unique")
+    scope_ref = _hash_ref(
+        "developer-queue-admission-scope-ref",
+        {
+            "drafts": [draft.model_dump(mode="json") for draft in drafts],
+            "expected_snapshot_revision": expected_snapshot_revision,
+            "idempotency_ref": idempotency_ref,
+            "actor_context": _actor_scope_binding(actor_context),
+        },
+    )
+    return ApprovalRequest(
+        approval_request_id=_hash_ref(
+            "approval-request-ref",
+            {"action": DEVELOPER_QUEUE_ADMISSION_ACTION, "scope_ref": scope_ref},
+        ),
+        run_id=idempotency_ref,
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id=DEVELOPER_COORDINATOR_REF,
+        actor_context=actor_context,
+        requested_action=DEVELOPER_QUEUE_ADMISSION_ACTION,
+        purpose="Admit exact canonical Queue V2 contracts to the local ledger.",
+        risk_level=ApprovalRiskLevel.high,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="local_developer_work_coordinator",
+            reason="The authoritative local developer queue is project-private state.",
+            allowed_sinks=["local_developer_work_coordinator"],
+            forbidden_sinks=["provider", "public_network"],
+            requires_redaction=True,
+        ),
+        resource_refs=[scope_ref, DEVELOPER_COORDINATOR_REF, *task_refs],
+    )
+
+
+def build_developer_work_completed_migration_approval_request(
+    draft: "DeveloperWorkTaskDraft",
+    *,
+    expected_current_fingerprint_ref: str,
+    expected_current_task_revision_ref: str,
+    migration_evidence_ref: str,
+    idempotency_ref: str,
+    actor_context: ActorContext,
+) -> ApprovalRequest:
+    """Build exact approval for one completed canonical-contract migration."""
+
+    for value, field_name in [
+        (expected_current_fingerprint_ref, "completed_migration_fingerprint_ref"),
+        (expected_current_task_revision_ref, "completed_migration_task_revision_ref"),
+        (migration_evidence_ref, "completed_migration_evidence_ref"),
+        (idempotency_ref, "completed_migration_idempotency_ref"),
+    ]:
+        validate_task_ref(value, field_name)
+    scope_ref = _hash_ref(
+        "developer-work-completed-migration-scope-ref",
+        {
+            "task_ref": draft.task_ref,
+            "expected_current_fingerprint_ref": expected_current_fingerprint_ref,
+            "expected_current_task_revision_ref": expected_current_task_revision_ref,
+            "replacement_contract": draft.model_dump(mode="json"),
+            "migration_evidence_ref": migration_evidence_ref,
+            "idempotency_ref": idempotency_ref,
+            "actor_context": _actor_scope_binding(actor_context),
+        },
+    )
+    return ApprovalRequest(
+        approval_request_id=_hash_ref(
+            "approval-request-ref",
+            {
+                "action": DEVELOPER_WORK_COMPLETED_MIGRATION_ACTION,
+                "scope_ref": scope_ref,
+            },
+        ),
+        run_id=idempotency_ref,
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id=draft.task_ref,
+        actor_context=actor_context,
+        requested_action=DEVELOPER_WORK_COMPLETED_MIGRATION_ACTION,
+        purpose="Migrate one completed canonical contract under exact evidence.",
+        risk_level=ApprovalRiskLevel.high,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="local_developer_work_coordinator",
+            reason="Completed canonical queue evidence is project-private state.",
+            allowed_sinks=["local_developer_work_coordinator"],
+            forbidden_sinks=["provider", "public_network"],
+            requires_redaction=True,
+        ),
+        resource_refs=[
+            scope_ref,
+            draft.task_ref,
+            expected_current_fingerprint_ref,
+            expected_current_task_revision_ref,
+            migration_evidence_ref,
+        ],
+    )
+
+
 def developer_work_task_revision_ref(task: "DeveloperWorkTask") -> str:
     """Fingerprint the exact durable task state used by an amendment preview."""
 
@@ -212,6 +336,7 @@ def build_developer_queue_reconciliation_approval_request(
         "legacy_source_refs": legacy_source_refs,
         "expected_snapshot_revision": expected_snapshot_revision,
         "idempotency_ref": idempotency_ref,
+        "actor_context": _actor_scope_binding(actor_context),
     }
     scope_ref = _hash_ref("developer-queue-reconciliation-scope-ref", payload)
     return ApprovalRequest(
@@ -761,6 +886,7 @@ class DeveloperWorkQueueReceipt(BaseModel):
     approving_actor_ref: str | None = None
     prior_fingerprint_ref: str | None = None
     prior_task_revision_ref: str | None = None
+    migration_evidence_ref: str | None = None
     reconciliation_ref: str | None = None
     reconciliation_snapshot_revision: int | None = Field(default=None, ge=0)
     reconciliation_contract_refs: dict[str, str] = Field(default_factory=dict)
@@ -803,6 +929,11 @@ class DeveloperWorkQueueReceipt(BaseModel):
                 *(
                     [self.prior_task_revision_ref]
                     if self.prior_task_revision_ref is not None
+                    else []
+                ),
+                *(
+                    [self.migration_evidence_ref]
+                    if self.migration_evidence_ref is not None
                     else []
                 ),
                 *(
@@ -910,13 +1041,42 @@ class DeveloperWorkQueueReceipt(BaseModel):
             )
             if orphaned_reconciliation_evidence:
                 raise ValueError("developer queue reconciliation evidence is orphaned")
-            proof_values = {
-                "approval_ref": self.approval_ref,
-                "approval_scope_ref": self.approval_scope_ref,
-                "approving_actor_ref": self.approving_actor_ref,
-                "prior_fingerprint_ref": self.prior_fingerprint_ref,
-                "prior_task_revision_ref": self.prior_task_revision_ref,
-            }
+            if self.event_kind == "tasks_admitted":
+                if any(
+                    value is not None
+                    for value in [
+                        self.prior_fingerprint_ref,
+                        self.prior_task_revision_ref,
+                        self.migration_evidence_ref,
+                    ]
+                ):
+                    raise ValueError(
+                        "developer queue admission receipt evidence is orphaned"
+                    )
+                proof_values = {
+                    "approval_ref": self.approval_ref,
+                    "approval_scope_ref": self.approval_scope_ref,
+                    "approving_actor_ref": self.approving_actor_ref,
+                }
+            elif self.event_kind == "task_contract_migrated":
+                proof_values = {
+                    "approval_ref": self.approval_ref,
+                    "approval_scope_ref": self.approval_scope_ref,
+                    "approving_actor_ref": self.approving_actor_ref,
+                    "prior_fingerprint_ref": self.prior_fingerprint_ref,
+                    "prior_task_revision_ref": self.prior_task_revision_ref,
+                    "migration_evidence_ref": self.migration_evidence_ref,
+                }
+            else:
+                if self.migration_evidence_ref is not None:
+                    raise ValueError("developer work migration evidence is orphaned")
+                proof_values = {
+                    "approval_ref": self.approval_ref,
+                    "approval_scope_ref": self.approval_scope_ref,
+                    "approving_actor_ref": self.approving_actor_ref,
+                    "prior_fingerprint_ref": self.prior_fingerprint_ref,
+                    "prior_task_revision_ref": self.prior_task_revision_ref,
+                }
         populated_proof_values = [
             value for value in proof_values.values() if value is not None
         ]
@@ -925,6 +1085,12 @@ class DeveloperWorkQueueReceipt(BaseModel):
         ):
             raise ValueError(
                 "developer work amendment receipt approval proof is required"
+            )
+        if self.event_kind in {"tasks_admitted", "task_contract_migrated"} and len(
+            populated_proof_values
+        ) != len(proof_values):
+            raise ValueError(
+                "developer queue mutation receipt approval proof is required"
             )
         if reconciliation_event and len(populated_proof_values) != len(proof_values):
             raise ValueError(
@@ -1351,6 +1517,151 @@ class DeveloperWorkCoordinator:
             self._commit_mutation(next_snapshot, receipt)
             return receipt
 
+    def admit_canonical_queue_tasks(
+        self,
+        drafts: list[DeveloperWorkTaskDraft],
+        *,
+        expected_snapshot_revision: int,
+        idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority,
+        approval_ref: str,
+        actor_context: ActorContext,
+    ) -> DeveloperWorkQueueReceipt:
+        """Atomically admit exact canonical drafts under one exact local approval."""
+
+        validate_task_ref(idempotency_ref, "developer_queue_admission_idempotency_ref")
+        validate_task_ref(approval_ref, "developer_queue_admission_approval_ref")
+        approval_request = build_developer_queue_admission_approval_request(
+            drafts,
+            expected_snapshot_revision=expected_snapshot_revision,
+            idempotency_ref=idempotency_ref,
+            actor_context=actor_context,
+        )
+        approval_scope_ref = approval_request.resource_refs[0]
+        with approval_authority.hold_validation_lock():
+            with self._locked():
+                snapshot = self._load_snapshot()
+                payload = {
+                    "event_kind": "tasks_admitted",
+                    "drafts": [draft.model_dump(mode="json") for draft in drafts],
+                    "expected_snapshot_revision": expected_snapshot_revision,
+                    "approval_ref": approval_ref,
+                    "approval_scope_ref": approval_scope_ref,
+                }
+                replay = self._replay(
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                )
+                if replay is not None:
+                    return replay
+                if snapshot.revision != expected_snapshot_revision:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_QUEUE_ADMISSION_REVISION_CONFLICT"
+                    )
+                approval = approval_authority.validate_for_request(
+                    approval_request, approval_ref
+                )
+                approval_grant = approval_authority.get_grant(approval_ref)
+                if not approval.allowed or approval_grant is None:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_QUEUE_ADMISSION_APPROVAL_INVALID"
+                    )
+                working_snapshot = snapshot
+                admitted: list[DeveloperWorkTask] = []
+                for draft in drafts:
+                    self._validate_canonical_queue_draft(draft)
+                    if not self._is_canonical_queue_task(draft):
+                        raise DeveloperWorkQueueConflictError(
+                            "DEVELOPER_QUEUE_ADMISSION_NONCANONICAL_TASK"
+                        )
+                    if any(
+                        task.task_ref == draft.task_ref
+                        for task in working_snapshot.tasks
+                    ):
+                        raise DeveloperWorkQueueConflictError(
+                            "DEVELOPER_WORK_TASK_REF_CONFLICT"
+                        )
+                    missing_dependencies = set(draft.depends_on_task_refs) - {
+                        task.task_ref for task in working_snapshot.tasks
+                    }
+                    if missing_dependencies:
+                        raise DeveloperWorkQueueConflictError(
+                            "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
+                        )
+                    self._validate_canonical_dependencies_for_admission(
+                        working_snapshot, draft
+                    )
+                    if any(
+                        task.state not in {"completed", "canceled"}
+                        and task.branch_ref == draft.branch_ref
+                        for task in working_snapshot.tasks
+                    ):
+                        raise DeveloperWorkQueueConflictError(
+                            "DEVELOPER_WORK_BRANCH_REF_CONFLICT"
+                        )
+                    if any(
+                        task.state not in {"completed", "canceled"}
+                        and task.worktree_ref == draft.worktree_ref
+                        for task in working_snapshot.tasks
+                    ):
+                        raise DeveloperWorkQueueConflictError(
+                            "DEVELOPER_WORK_WORKTREE_REF_CONFLICT"
+                        )
+                    dependency_contract_refs = {
+                        dependency_ref: self._durable_task_contract_ref(
+                            self._find_task(working_snapshot, dependency_ref)
+                        )
+                        for dependency_ref in draft.depends_on_task_refs
+                    }
+                    task = DeveloperWorkTask(
+                        **draft.model_dump(mode="json"),
+                        dependency_contract_refs=dependency_contract_refs,
+                    )
+                    admitted.append(task)
+                    working_snapshot = working_snapshot.model_copy(
+                        update={"tasks": [*working_snapshot.tasks, task]}
+                    )
+                next_snapshot = working_snapshot.model_copy(
+                    update={
+                        "revision": snapshot.revision + 1,
+                        "canonical_queue_contract_refs": {},
+                        "canonical_queue_task_revision_refs": {},
+                        "canonical_queue_legacy_transition_refs": {},
+                        "canonical_queue_legacy_source_refs": {},
+                        "canonical_queue_reconciliation_ref": None,
+                    }
+                )
+                receipt = self._receipt(
+                    event_kind="tasks_admitted",
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                    revision=next_snapshot.revision,
+                    safe_summary=(
+                        "Exact canonical Queue V2 contracts were atomically admitted "
+                        "under local approval; no work was claimed or dispatched."
+                    ),
+                    approval_ref=approval_ref,
+                    approval_scope_ref=approval_scope_ref,
+                    approving_actor_ref=_hash_ref(
+                        "actor-ref", approval_grant.approved_by_actor_id
+                    ),
+                )
+                admitted_refs = {task.task_ref for task in admitted}
+                next_snapshot = next_snapshot.model_copy(
+                    update={
+                        "tasks": [
+                            task.model_copy(
+                                update={"latest_receipt_ref": receipt.receipt_ref}
+                            )
+                            if task.task_ref in admitted_refs
+                            else task
+                            for task in next_snapshot.tasks
+                        ]
+                    }
+                )
+                self._commit_mutation(next_snapshot, receipt)
+                return receipt
+
     def amend_queued_task(
         self,
         draft: DeveloperWorkTaskDraft,
@@ -1524,6 +1835,179 @@ class DeveloperWorkCoordinator:
                     update={"tasks": self._replace_task(next_snapshot, replacement)}
                 )
                 self._commit_mutation(next_snapshot, receipt)
+                return receipt
+
+    def migrate_completed_canonical_task(
+        self,
+        draft: DeveloperWorkTaskDraft,
+        *,
+        expected_current_fingerprint_ref: str,
+        expected_current_task_revision_ref: str,
+        migration_evidence_ref: str,
+        idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority,
+        approval_ref: str,
+        actor_context: ActorContext,
+    ) -> DeveloperWorkQueueReceipt:
+        """Migrate one completed source-aware contract while preserving evidence."""
+
+        approval_request = build_developer_work_completed_migration_approval_request(
+            draft,
+            expected_current_fingerprint_ref=(expected_current_fingerprint_ref),
+            expected_current_task_revision_ref=(expected_current_task_revision_ref),
+            migration_evidence_ref=migration_evidence_ref,
+            idempotency_ref=idempotency_ref,
+            actor_context=actor_context,
+        )
+        validate_task_ref(approval_ref, "completed_migration_approval_ref")
+        approval_scope_ref = approval_request.resource_refs[0]
+        with approval_authority.hold_validation_lock():
+            with self._locked():
+                snapshot = self._load_snapshot()
+                payload = {
+                    "event_kind": "task_contract_migrated",
+                    "expected_current_fingerprint_ref": (
+                        expected_current_fingerprint_ref
+                    ),
+                    "expected_current_task_revision_ref": (
+                        expected_current_task_revision_ref
+                    ),
+                    "migration_evidence_ref": migration_evidence_ref,
+                    "approval_ref": approval_ref,
+                    "approval_scope_ref": approval_scope_ref,
+                    "draft": draft.model_dump(mode="json"),
+                }
+                replay = self._replay(
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                )
+                if replay is not None:
+                    return replay
+                self._validate_canonical_queue_draft(draft)
+                approval = approval_authority.validate_for_request(
+                    approval_request, approval_ref
+                )
+                approval_grant = approval_authority.get_grant(approval_ref)
+                if not approval.allowed or approval_grant is None:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_APPROVAL_INVALID"
+                    )
+                task = self._find_task(snapshot, draft.task_ref)
+                if (
+                    developer_work_task_revision_ref(task)
+                    != expected_current_task_revision_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_REVISION_CONFLICT"
+                    )
+                if task.state != "completed":
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_STATE_INVALID"
+                    )
+                if (
+                    task.canonical_item_contract_ref is None
+                    or draft.canonical_item_contract_ref is None
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_SOURCE_AWARE_REQUIRED"
+                    )
+                if (
+                    task.canonical_source_fingerprint_ref
+                    != expected_current_fingerprint_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_FINGERPRINT_CONFLICT"
+                    )
+                immutable_fields = (
+                    "task_ref",
+                    "queue_order",
+                    "canonical_task_ref",
+                    "canonical_source_ref",
+                    "scope_contract_ref",
+                    "branch_ref",
+                    "worktree_ref",
+                    "workstream_ref",
+                )
+                if any(
+                    getattr(task, field) != getattr(draft, field)
+                    for field in immutable_fields
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_IDENTITY_CONFLICT"
+                    )
+                if (
+                    task.canonical_item_contract_ref
+                    == draft.canonical_item_contract_ref
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_NO_CHANGE"
+                    )
+                missing_dependencies = set(draft.depends_on_task_refs) - {
+                    item.task_ref for item in snapshot.tasks
+                }
+                if missing_dependencies:
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_TASK_DEPENDENCY_MISSING"
+                    )
+                self._validate_canonical_dependencies_for_admission(snapshot, draft)
+                if any(
+                    self._find_task(snapshot, dependency_ref).state != "completed"
+                    for dependency_ref in draft.depends_on_task_refs
+                ):
+                    raise DeveloperWorkQueueConflictError(
+                        "DEVELOPER_WORK_COMPLETED_MIGRATION_DEPENDENCY_INCOMPLETE"
+                    )
+                dependency_contract_refs = {
+                    dependency_ref: self._durable_task_contract_ref(
+                        self._find_task(snapshot, dependency_ref)
+                    )
+                    for dependency_ref in draft.depends_on_task_refs
+                }
+                replacement = task.model_copy(
+                    update={
+                        **draft.model_dump(mode="json"),
+                        "dependency_contract_refs": dependency_contract_refs,
+                    }
+                )
+                next_snapshot = snapshot.model_copy(
+                    update={
+                        "revision": snapshot.revision + 1,
+                        "tasks": self._replace_task(snapshot, replacement),
+                        "canonical_queue_contract_refs": {},
+                        "canonical_queue_task_revision_refs": {},
+                        "canonical_queue_legacy_transition_refs": {},
+                        "canonical_queue_legacy_source_refs": {},
+                        "canonical_queue_reconciliation_ref": None,
+                    }
+                )
+                receipt = self._receipt(
+                    event_kind="task_contract_migrated",
+                    task_ref=task.task_ref,
+                    idempotency_ref=idempotency_ref,
+                    payload=payload,
+                    revision=next_snapshot.revision,
+                    safe_summary=(
+                        "One completed source-aware canonical contract was migrated "
+                        "under exact approval while terminal evidence was preserved."
+                    ),
+                    approval_ref=approval_ref,
+                    approval_scope_ref=approval_scope_ref,
+                    approving_actor_ref=_hash_ref(
+                        "actor-ref", approval_grant.approved_by_actor_id
+                    ),
+                    prior_fingerprint_ref=expected_current_fingerprint_ref,
+                    prior_task_revision_ref=expected_current_task_revision_ref,
+                    migration_evidence_ref=migration_evidence_ref,
+                )
+                replacement = replacement.model_copy(
+                    update={"latest_receipt_ref": receipt.receipt_ref}
+                )
+                self._commit_mutation(
+                    next_snapshot.model_copy(
+                        update={"tasks": self._replace_task(next_snapshot, replacement)}
+                    ),
+                    receipt,
+                )
                 return receipt
 
     def current_task_revision_ref(self, task_ref: str) -> str:
@@ -2172,6 +2656,9 @@ class DeveloperWorkCoordinator:
             raise ValueError("developer work inspect node refs must be unique")
         with self._locked():
             snapshot = self._load_snapshot()
+        reconciliation_current = self._canonical_queue_snapshot_reconciliation_current(
+            snapshot
+        )
         active_exclusive = next(
             (
                 task.task_ref
@@ -2184,9 +2671,13 @@ class DeveloperWorkCoordinator:
             revision=snapshot.revision,
             canonical_queue_reconciliation_ref=(
                 snapshot.canonical_queue_reconciliation_ref
+                if reconciliation_current
+                else None
             ),
-            canonical_queue_reconciled_task_refs=sorted(
-                snapshot.canonical_queue_contract_refs
+            canonical_queue_reconciled_task_refs=(
+                sorted(snapshot.canonical_queue_contract_refs)
+                if reconciliation_current
+                else []
             ),
             nodes=sorted(snapshot.nodes, key=lambda node: node.node_ref),
             tasks=[
@@ -2723,6 +3214,19 @@ class DeveloperWorkCoordinator:
                 return False
         return task.task_ref in snapshot.canonical_queue_legacy_transition_refs
 
+    @classmethod
+    def _canonical_queue_snapshot_reconciliation_current(
+        cls,
+        snapshot: DeveloperWorkQueueSnapshot,
+    ) -> bool:
+        canonical_tasks = [
+            task for task in snapshot.tasks if cls._is_canonical_queue_task(task)
+        ]
+        return bool(canonical_tasks) and all(
+            cls._canonical_queue_reconciliation_current(snapshot, task)
+            for task in canonical_tasks
+        )
+
     @staticmethod
     def _archive_ready(task: DeveloperWorkTask) -> bool:
         return (
@@ -2796,6 +3300,7 @@ class DeveloperWorkCoordinator:
         approving_actor_ref: str | None = None,
         prior_fingerprint_ref: str | None = None,
         prior_task_revision_ref: str | None = None,
+        migration_evidence_ref: str | None = None,
         reconciliation_ref: str | None = None,
         reconciliation_snapshot_revision: int | None = None,
         reconciliation_contract_refs: dict[str, str] | None = None,
@@ -2826,6 +3331,21 @@ class DeveloperWorkCoordinator:
                 "approval_scope_ref": approval_scope_ref,
                 "approving_actor_ref": approving_actor_ref,
                 "reconciliation_evidence_ref": reconciliation_evidence_ref,
+            }
+        elif event_kind == "tasks_admitted":
+            approval_proof = {
+                "approval_ref": approval_ref,
+                "approval_scope_ref": approval_scope_ref,
+                "approving_actor_ref": approving_actor_ref,
+            }
+        elif event_kind == "task_contract_migrated":
+            approval_proof = {
+                "approval_ref": approval_ref,
+                "approval_scope_ref": approval_scope_ref,
+                "approving_actor_ref": approving_actor_ref,
+                "prior_fingerprint_ref": prior_fingerprint_ref,
+                "prior_task_revision_ref": prior_task_revision_ref,
+                "migration_evidence_ref": migration_evidence_ref,
             }
         else:
             approval_proof = {
@@ -2863,6 +3383,7 @@ class DeveloperWorkCoordinator:
             approving_actor_ref=approving_actor_ref,
             prior_fingerprint_ref=prior_fingerprint_ref,
             prior_task_revision_ref=prior_task_revision_ref,
+            migration_evidence_ref=migration_evidence_ref,
             reconciliation_ref=reconciliation_ref,
             reconciliation_snapshot_revision=reconciliation_snapshot_revision,
             reconciliation_contract_refs=contract_refs,

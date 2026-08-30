@@ -193,22 +193,42 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
+  preview-queue-v2-admission \
+  --idempotency-prefix idempotency-ref:queue-v2-admission \
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --pretty
+
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
+  --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   admit-queue-v2 \
   --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --confirm-admission admit-queue-v2 --pretty
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --expected-snapshot-revision copy-exact-preview-value \
+  --confirm-admission admit-queue-v2 \
+  --approve-exact-scope developer-queue-admission-scope-ref:sha256:copy-exact-preview-value \
+  --pretty
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" inspect --pretty
 ```
 
-If admission is interrupted, rerun it with the same idempotency prefix. Exact
-receipts replay and only the uncommitted tail is admitted. A successful
+Admission is one atomic mutation bound to the selected drafts and exact ledger
+revision. If its result is uncertain, rerun the identical revision, scope, and
+idempotency values; the durable receipt replays without duplicating tasks. A successful
 inspection reports thirty-seven admitted records, no contract drift, and no
 starvation risk. Use
 repeatable `--item-id` arguments to admit only a reviewed manifest extension
 without replaying the unchanged prefix of the queue. The
 two current owner-held units are claimed separately so admission cannot create
 or duplicate workers.
+
+If an already-completed source-aware record later has legitimate canonical
+contract drift, do not reopen or rewrite its terminal evidence. Use
+`preview-queue-v2-completed-migration` with an exact reviewed evidence ref, then
+pass its task revision and approval scope to
+`migrate-queue-v2-completed-item`. The lane accepts only completed source-aware
+records, preserves lifecycle and completion evidence, invalidates stale
+reconciliation, and emits a proof-bound migration receipt.
 
 ## Commands
 

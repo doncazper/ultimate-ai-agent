@@ -19,7 +19,9 @@ from uaa_developer_orchestrator.coordinator import (  # noqa: E402
     DeveloperWorkQueueError,
     DeveloperWorkNode,
     DeveloperWorkTaskDraft,
+    build_developer_queue_admission_approval_request,
     build_developer_queue_reconciliation_approval_request,
+    build_developer_work_completed_migration_approval_request,
     build_developer_work_task_amendment_approval_request,
 )
 from uaa_developer_orchestrator.planning import (  # noqa: E402
@@ -342,9 +344,11 @@ def reconcile_queue_v2(args: argparse.Namespace) -> int:
     )
 
 
-def admit_queue_v2(args: argparse.Namespace) -> int:
-    if args.confirm_admission != "admit-queue-v2":
-        raise ValueError("DEVELOPER_QUEUE_V2_ADMISSION_CONFIRMATION_REQUIRED")
+def _queue_v2_admission_context(
+    args: argparse.Namespace,
+) -> tuple[
+    object, object, list[str], list[DeveloperWorkTaskDraft], object, object, str, int
+]:
     coordinator = _coordinator(args)
     manifest = load_developer_queue_record_manifest(ROOT)
     drafts = build_developer_queue_record_drafts(ROOT)
@@ -363,18 +367,103 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
     draft_by_item_id = {
         item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
     }
-    receipts = []
-    for item_id in selected_item_ids:
-        draft = draft_by_item_id[item_id]
-        receipts.append(
-            coordinator.add_task(
-                draft,
-                idempotency_ref=(
-                    f"{args.idempotency_prefix}:"
-                    f"{draft.task_ref.removeprefix('dev-task:')}"
-                ),
-            )
+    selected_drafts = [draft_by_item_id[item_id] for item_id in selected_item_ids]
+    expected_snapshot_revision = getattr(args, "expected_snapshot_revision", None)
+    if expected_snapshot_revision is None:
+        expected_snapshot_revision = coordinator.inspect().revision
+    actor_context = ActorContext(
+        actor_type=ActorType.human_user,
+        actor_id="local_founder_operator",
+        actor_display_name="Local founder operator",
+        authority_source=AuthoritySource.explicit_user_request,
+        execution_contract_id="developer_queue_v2_exact_admission",
+    )
+    approval_request = build_developer_queue_admission_approval_request(
+        selected_drafts,
+        expected_snapshot_revision=expected_snapshot_revision,
+        idempotency_ref=args.idempotency_prefix,
+        actor_context=actor_context,
+    )
+    return (
+        coordinator,
+        manifest,
+        selected_item_ids,
+        selected_drafts,
+        actor_context,
+        approval_request,
+        approval_request.resource_refs[0],
+        expected_snapshot_revision,
+    )
+
+
+def preview_queue_v2_admission(args: argparse.Namespace) -> int:
+    (
+        _,
+        _,
+        selected_item_ids,
+        selected_drafts,
+        _,
+        approval_request,
+        exact_scope_ref,
+        expected_snapshot_revision,
+    ) = _queue_v2_admission_context(args)
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_admission_preview.v1",
+            "selected_item_ids": selected_item_ids,
+            "selected_task_refs": [draft.task_ref for draft in selected_drafts],
+            "expected_snapshot_revision": expected_snapshot_revision,
+            "approval_request_ref": approval_request.approval_request_id,
+            "approval_scope_ref": exact_scope_ref,
+            "queue_mutation_performed": False,
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
+def admit_queue_v2(args: argparse.Namespace) -> int:
+    if args.confirm_admission != "admit-queue-v2":
+        raise ValueError("DEVELOPER_QUEUE_V2_ADMISSION_CONFIRMATION_REQUIRED")
+    (
+        coordinator,
+        manifest,
+        selected_item_ids,
+        selected_drafts,
+        actor_context,
+        approval_request,
+        exact_scope_ref,
+        expected_snapshot_revision,
+    ) = _queue_v2_admission_context(args)
+    if args.approve_exact_scope != exact_scope_ref:
+        raise ValueError(
+            f"DEVELOPER_QUEUE_V2_ADMISSION_EXACT_APPROVAL_REQUIRED:{exact_scope_ref}"
         )
+    approval_authority = LocalApprovalAuthority()
+    approval_authority.create_request(approval_request)
+    approval_ref = (
+        "approval-ref:developer-queue-admission-"
+        f"{exact_scope_ref.rsplit(':', maxsplit=1)[-1]}"
+    )
+    approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+        approval_ref=approval_ref,
+    )
+    receipt = coordinator.admit_canonical_queue_tasks(
+        selected_drafts,
+        expected_snapshot_revision=expected_snapshot_revision,
+        idempotency_ref=args.idempotency_prefix,
+        approval_authority=approval_authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
     queue = coordinator.inspect()
     health = assess_developer_queue_record_health(
         manifest=manifest,
@@ -385,8 +474,9 @@ def admit_queue_v2(args: argparse.Namespace) -> int:
         {
             "schema_version": "uaa.developer_queue_admission_receipt.v2",
             "selected_item_ids": selected_item_ids,
-            "receipt_refs": [receipt.receipt_ref for receipt in receipts],
-            "replayed_receipt_count": sum(receipt.replayed for receipt in receipts),
+            "receipt_refs": [receipt.receipt_ref],
+            "replayed_receipt_count": int(receipt.replayed),
+            "approval_scope_ref": exact_scope_ref,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -512,6 +602,135 @@ def amend_queue_v2_item(args: argparse.Namespace) -> int:
             "receipt_ref": receipt.receipt_ref,
             "replayed": receipt.replayed,
             "approval_scope_ref": exact_scope_ref,
+            "queue_of_record_health": health.model_dump(mode="json"),
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
+def _queue_v2_completed_migration_context(
+    args: argparse.Namespace,
+) -> tuple[object, DeveloperWorkTaskDraft, ActorContext, object, str, str]:
+    manifest = load_developer_queue_record_manifest(ROOT)
+    drafts = build_developer_queue_record_drafts(ROOT)
+    draft_by_item_id = {
+        item.item_id: draft for item, draft in zip(manifest.items, drafts, strict=True)
+    }
+    draft = draft_by_item_id[args.item_id]
+    coordinator = _coordinator(args)
+    current_task_revision_ref = getattr(
+        args, "expected_current_task_revision_ref", None
+    ) or coordinator.current_task_revision_ref(draft.task_ref)
+    actor_context = ActorContext(
+        actor_type=ActorType.human_user,
+        actor_id="local_founder_operator",
+        actor_display_name="Local founder operator",
+        authority_source=AuthoritySource.explicit_user_request,
+        execution_contract_id="developer_queue_v2_completed_migration",
+    )
+    approval_request = build_developer_work_completed_migration_approval_request(
+        draft,
+        expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        expected_current_task_revision_ref=current_task_revision_ref,
+        migration_evidence_ref=args.migration_evidence_ref,
+        idempotency_ref=args.idempotency_ref,
+        actor_context=actor_context,
+    )
+    return (
+        manifest,
+        draft,
+        actor_context,
+        approval_request,
+        approval_request.resource_refs[0],
+        current_task_revision_ref,
+    )
+
+
+def preview_queue_v2_completed_migration(args: argparse.Namespace) -> int:
+    _, draft, _, approval_request, exact_scope_ref, current_task_revision_ref = (
+        _queue_v2_completed_migration_context(args)
+    )
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_completed_migration_preview.v1",
+            "item_id": args.item_id,
+            "task_ref": draft.task_ref,
+            "expected_current_fingerprint_ref": args.expected_current_fingerprint_ref,
+            "current_task_revision_ref": current_task_revision_ref,
+            "replacement_fingerprint_ref": draft.canonical_source_fingerprint_ref,
+            "migration_evidence_ref": args.migration_evidence_ref,
+            "approval_request_ref": approval_request.approval_request_id,
+            "approval_scope_ref": exact_scope_ref,
+            "queue_mutation_performed": False,
+            "automatic_agent_dispatch_performed": False,
+            "git_or_github_mutation_performed": False,
+            "product_runtime_authority_granted": False,
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        },
+        pretty=args.pretty,
+    )
+
+
+def migrate_queue_v2_completed_item(args: argparse.Namespace) -> int:
+    if args.confirm_migration != "migrate-queue-v2-completed-item":
+        raise ValueError("DEVELOPER_QUEUE_V2_COMPLETED_MIGRATION_CONFIRMATION_REQUIRED")
+    (
+        manifest,
+        draft,
+        actor_context,
+        approval_request,
+        exact_scope_ref,
+        current_task_revision_ref,
+    ) = _queue_v2_completed_migration_context(args)
+    if args.approve_exact_scope != exact_scope_ref:
+        raise ValueError(
+            "DEVELOPER_QUEUE_V2_COMPLETED_MIGRATION_EXACT_APPROVAL_REQUIRED:"
+            f"{exact_scope_ref}"
+        )
+    approval_authority = LocalApprovalAuthority()
+    approval_authority.create_request(approval_request)
+    approval_ref = (
+        "approval-ref:developer-queue-completed-migration-"
+        f"{exact_scope_ref.rsplit(':', maxsplit=1)[-1]}"
+    )
+    approval_authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approved_actions=[approval_request.requested_action],
+        approved_resource_refs=approval_request.resource_refs,
+        approval_ref=approval_ref,
+    )
+    coordinator = _coordinator(args)
+    receipt = coordinator.migrate_completed_canonical_task(
+        draft,
+        expected_current_fingerprint_ref=args.expected_current_fingerprint_ref,
+        expected_current_task_revision_ref=current_task_revision_ref,
+        migration_evidence_ref=args.migration_evidence_ref,
+        idempotency_ref=args.idempotency_ref,
+        approval_authority=approval_authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+    queue = coordinator.inspect()
+    health = assess_developer_queue_record_health(
+        manifest=manifest,
+        task_states={task.task_ref: task.state for task in queue.tasks},
+        task_contract_refs=queue_record_health_contract_refs(manifest, queue.tasks),
+    )
+    return _print(
+        {
+            "schema_version": "uaa.developer_queue_completed_migration_receipt.v1",
+            "item_id": args.item_id,
+            "receipt_ref": receipt.receipt_ref,
+            "replayed": receipt.replayed,
+            "approval_scope_ref": exact_scope_ref,
+            "migration_evidence_ref": args.migration_evidence_ref,
             "queue_of_record_health": health.model_dump(mode="json"),
             "automatic_agent_dispatch_performed": False,
             "git_or_github_mutation_performed": False,
@@ -737,6 +956,10 @@ def build_parser() -> argparse.ArgumentParser:
     queue_v2_command.add_argument("--idempotency-prefix", required=True)
     queue_v2_command.add_argument("--confirm-admission", required=True)
     queue_v2_command.add_argument(
+        "--expected-snapshot-revision", type=int, required=True
+    )
+    queue_v2_command.add_argument("--approve-exact-scope", required=True)
+    queue_v2_command.add_argument(
         "--item-id",
         action="append",
         choices=tuple(f"Q{index:02d}" for index in range(37)),
@@ -747,6 +970,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     queue_v2_command.add_argument("--pretty", action="store_true")
     queue_v2_command.set_defaults(func=admit_queue_v2)
+
+    preview_admission_command = subparsers.add_parser(
+        "preview-queue-v2-admission",
+        help=(
+            "Preview one exact non-mutating approval scope for an atomic Queue V2 "
+            "admission."
+        ),
+    )
+    preview_admission_command.add_argument("--idempotency-prefix", required=True)
+    preview_admission_command.add_argument(
+        "--item-id",
+        action="append",
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+        help=(
+            "Preview only this canonical item. Repeat for one bounded atomic batch; "
+            "omit to preview the complete queue."
+        ),
+    )
+    preview_admission_command.add_argument("--pretty", action="store_true")
+    preview_admission_command.set_defaults(func=preview_queue_v2_admission)
 
     preview_reconciliation_command = subparsers.add_parser(
         "preview-queue-v2-reconciliation",
@@ -814,6 +1057,55 @@ def build_parser() -> argparse.ArgumentParser:
     preview_amendment_command.add_argument("--idempotency-ref", required=True)
     preview_amendment_command.add_argument("--pretty", action="store_true")
     preview_amendment_command.set_defaults(func=preview_queue_v2_amendment)
+
+    migrate_completed_command = subparsers.add_parser(
+        "migrate-queue-v2-completed-item",
+        help=(
+            "Migrate one completed source-aware canonical contract under exact "
+            "approval while preserving its terminal evidence."
+        ),
+    )
+    migrate_completed_command.add_argument(
+        "--item-id",
+        required=True,
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+    )
+    migrate_completed_command.add_argument(
+        "--expected-current-fingerprint-ref", required=True
+    )
+    migrate_completed_command.add_argument(
+        "--expected-current-task-revision-ref", required=True
+    )
+    migrate_completed_command.add_argument("--migration-evidence-ref", required=True)
+    migrate_completed_command.add_argument("--idempotency-ref", required=True)
+    migrate_completed_command.add_argument("--confirm-migration", required=True)
+    migrate_completed_command.add_argument("--approve-exact-scope", required=True)
+    migrate_completed_command.add_argument("--pretty", action="store_true")
+    migrate_completed_command.set_defaults(func=migrate_queue_v2_completed_item)
+
+    preview_completed_migration_command = subparsers.add_parser(
+        "preview-queue-v2-completed-migration",
+        help=(
+            "Preview the exact non-mutating approval scope for one completed "
+            "source-aware contract migration."
+        ),
+    )
+    preview_completed_migration_command.add_argument(
+        "--item-id",
+        required=True,
+        choices=tuple(f"Q{index:02d}" for index in range(37)),
+    )
+    preview_completed_migration_command.add_argument(
+        "--expected-current-fingerprint-ref", required=True
+    )
+    preview_completed_migration_command.add_argument(
+        "--migration-evidence-ref", required=True
+    )
+    preview_completed_migration_command.add_argument("--idempotency-ref", required=True)
+    preview_completed_migration_command.add_argument("--pretty", action="store_true")
+    preview_completed_migration_command.set_defaults(
+        func=preview_queue_v2_completed_migration
+    )
 
     register_node_command = subparsers.add_parser(
         "register-node",

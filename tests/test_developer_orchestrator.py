@@ -514,6 +514,35 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     with pytest.raises(ValueError, match="RECOVERY_SUPERSEDED_BY_V2"):
         missing_confirmation.func(missing_confirmation)
 
+    admission_preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-admission",
+            "--idempotency-prefix",
+            "idempotency-ref:queue-v2-admission",
+        ]
+    )
+    assert admission_preview.func(admission_preview) == 0
+    admission_scope = json.loads(capsys.readouterr().out)
+    wrong_admission = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "admit-queue-v2",
+            "--idempotency-prefix",
+            "idempotency-ref:queue-v2-admission",
+            "--confirm-admission",
+            "admit-queue-v2",
+            "--expected-snapshot-revision",
+            str(admission_scope["expected_snapshot_revision"]),
+            "--approve-exact-scope",
+            "developer-queue-admission-scope-ref:sha256:wrong",
+        ]
+    )
+    with pytest.raises(ValueError, match="ADMISSION_EXACT_APPROVAL_REQUIRED"):
+        wrong_admission.func(wrong_admission)
+    assert DeveloperWorkCoordinator(state_dir=state_dir).inspect().revision == 0
     admitted = parser.parse_args(
         [
             "--state-dir",
@@ -523,16 +552,32 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
             "idempotency-ref:queue-v2-admission",
             "--confirm-admission",
             "admit-queue-v2",
+            "--expected-snapshot-revision",
+            str(admission_scope["expected_snapshot_revision"]),
+            "--approve-exact-scope",
+            admission_scope["approval_scope_ref"],
         ]
     )
     assert admitted.func(admitted) == 0
     first_payload = json.loads(capsys.readouterr().out)
     assert first_payload["replayed_receipt_count"] == 0
     assert first_payload["queue_of_record_health"]["admission_gap_detected"] is False
+    admission_receipt = json.loads(
+        DeveloperWorkCoordinator(state_dir=state_dir)
+        .receipts_path.read_text(encoding="utf-8")
+        .splitlines()[-1]
+    )
+    assert admission_receipt["event_kind"] == "tasks_admitted"
+    assert (
+        admission_receipt["approval_scope_ref"] == admission_scope["approval_scope_ref"]
+    )
+    assert admission_receipt["approval_proof_ref"].startswith(
+        "developer-work-approval-proof-ref:sha256:"
+    )
 
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
-    assert replay_payload["replayed_receipt_count"] == 37
+    assert replay_payload["replayed_receipt_count"] == 1
     view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
     assert len(view.tasks) == 37
     assert [task.queue_order for task in view.tasks] == list(range(37))
@@ -589,8 +634,10 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     )
     amendment_actor = coordinator_module.ActorContext(
         actor_type="human_user",
-        actor_id="local_test_operator",
+        actor_id="local_founder_operator",
+        actor_display_name="Local founder operator",
         authority_source="explicit_user_request",
+        execution_contract_id="developer_queue_v2_exact_amendment",
     )
     amendment_task_revision_ref = coordinator.current_task_revision_ref(
         legacy_q31.task_ref
@@ -713,6 +760,21 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     replayed_amendment = json.loads(capsys.readouterr().out)
     assert replayed_amendment["replayed"] is True
 
+    selected_item_args: list[str] = []
+    for index in reversed(range(32, 37)):
+        selected_item_args.extend(["--item-id", f"Q{index:02d}"])
+    admission_preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-admission",
+            "--idempotency-prefix",
+            "idempotency-ref:queue-v2-functional-adoption",
+            *selected_item_args,
+        ]
+    )
+    assert admission_preview.func(admission_preview) == 0
+    admission_scope = json.loads(capsys.readouterr().out)
     selected_args = [
         "--state-dir",
         str(state_dir),
@@ -721,9 +783,12 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
         "idempotency-ref:queue-v2-functional-adoption",
         "--confirm-admission",
         "admit-queue-v2",
+        "--expected-snapshot-revision",
+        str(admission_scope["expected_snapshot_revision"]),
+        "--approve-exact-scope",
+        admission_scope["approval_scope_ref"],
+        *selected_item_args,
     ]
-    for index in reversed(range(32, 37)):
-        selected_args.extend(["--item-id", f"Q{index:02d}"])
     selected = parser.parse_args(selected_args)
 
     assert selected.func(selected) == 0
@@ -737,7 +802,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
 
     assert selected.func(selected) == 0
     replay_payload = json.loads(capsys.readouterr().out)
-    assert replay_payload["replayed_receipt_count"] == 5
+    assert replay_payload["replayed_receipt_count"] == 1
 
     snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
     for task in snapshot["tasks"]:
@@ -810,6 +875,10 @@ def test_queue_v2_cli_rejects_duplicate_selective_admission(
             "idempotency-ref:queue-v2-functional-adoption",
             "--confirm-admission",
             "admit-queue-v2",
+            "--expected-snapshot-revision",
+            "0",
+            "--approve-exact-scope",
+            "developer-queue-admission-scope-ref:sha256:unused",
             "--item-id",
             "Q32",
             "--item-id",
@@ -819,6 +888,74 @@ def test_queue_v2_cli_rejects_duplicate_selective_admission(
 
     with pytest.raises(ValueError, match="DUPLICATE_ITEM_SELECTION"):
         selected.func(selected)
+
+
+def test_atomic_queue_v2_admission_requires_exact_local_approval(
+    tmp_path: Path,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    draft = build_developer_queue_record_drafts(ROOT)[0]
+    actor_context = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="local_test_operator",
+        authority_source="explicit_user_request",
+    )
+    idempotency_ref = "idempotency-ref:exact-atomic-admission"
+    request = coordinator_module.build_developer_queue_admission_approval_request(
+        [draft],
+        expected_snapshot_revision=0,
+        idempotency_ref=idempotency_ref,
+        actor_context=actor_context,
+    )
+    authority = coordinator_module.LocalApprovalAuthority()
+    authority.create_request(request)
+    approval_ref = "approval-ref:exact-atomic-admission"
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="ADMISSION_APPROVAL_INVALID",
+    ):
+        coordinator.admit_canonical_queue_tasks(
+            [draft],
+            expected_snapshot_revision=0,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=actor_context,
+        )
+    assert coordinator.inspect().revision == 0
+
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    substituted_actor = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="different_local_operator",
+        authority_source="explicit_user_request",
+    )
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="ADMISSION_APPROVAL_INVALID",
+    ):
+        coordinator.admit_canonical_queue_tasks(
+            [draft],
+            expected_snapshot_revision=0,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=substituted_actor,
+        )
+    receipt = coordinator.admit_canonical_queue_tasks(
+        [draft],
+        expected_snapshot_revision=0,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+    assert receipt.event_kind == "tasks_admitted"
+    assert coordinator.inspect().revision == 1
 
 
 def test_queue_v2_namespace_rejects_counterfeit_contract(tmp_path: Path) -> None:
@@ -1093,9 +1230,10 @@ def test_queue_v2_reconciliation_invalidates_all_tasks_after_any_revision_change
         idempotency_ref="idempotency-ref:block-q00-global",
     )
 
-    q01_view = next(
-        task for task in coordinator.inspect().tasks if task.task_ref == q01.task_ref
-    )
+    stale_view = coordinator.inspect()
+    assert stale_view.canonical_queue_reconciliation_ref is None
+    assert stale_view.canonical_queue_reconciled_task_refs == []
+    q01_view = next(task for task in stale_view.tasks if task.task_ref == q01.task_ref)
     assert q01_view.dependency_ready is False
 
 
@@ -1168,6 +1306,97 @@ def test_queue_v2_legacy_source_acceptance_fails_after_source_drift(
 
     with pytest.raises(ValueError, match="MANIFEST_INVALID"):
         load_developer_queue_record_manifest(tmp_path)
+
+
+def test_completed_source_aware_queue_contract_has_exact_migration_lane(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state_dir = tmp_path / "state"
+    coordinator = DeveloperWorkCoordinator(state_dir=state_dir)
+    coordinator.initialize(idempotency_ref="idempotency-ref:init-completed-migration")
+    current = build_developer_queue_record_drafts(ROOT)[0]
+    prior = current.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:completed-prior"
+            ),
+            "canonical_source_refs": [
+                *current.canonical_source_refs,
+                "canonical-task-ref:Q00-PRIOR-SOURCE",
+            ],
+            "canonical_item_contract_ref": None,
+        }
+    )
+    prior = prior.model_copy(
+        update={
+            "canonical_item_contract_ref": queue_record_canonical_item_contract_ref(
+                prior
+            )
+        }
+    )
+    _inject_legacy_queue_task(coordinator, prior, state="completed")
+    prior_revision_ref = coordinator.current_task_revision_ref(prior.task_ref)
+    parser = build_parser()
+    preview = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "preview-queue-v2-completed-migration",
+            "--item-id",
+            "Q00",
+            "--expected-current-fingerprint-ref",
+            prior.canonical_source_fingerprint_ref,
+            "--migration-evidence-ref",
+            "evidence-ref:completed-contract-reviewed",
+            "--idempotency-ref",
+            "idempotency-ref:completed-contract-migration",
+        ]
+    )
+    assert preview.func(preview) == 0
+    preview_payload = json.loads(capsys.readouterr().out)
+    assert preview_payload["queue_mutation_performed"] is False
+    assert preview_payload["current_task_revision_ref"] == prior_revision_ref
+
+    migrate = parser.parse_args(
+        [
+            "--state-dir",
+            str(state_dir),
+            "migrate-queue-v2-completed-item",
+            "--item-id",
+            "Q00",
+            "--expected-current-fingerprint-ref",
+            prior.canonical_source_fingerprint_ref,
+            "--expected-current-task-revision-ref",
+            prior_revision_ref,
+            "--migration-evidence-ref",
+            "evidence-ref:completed-contract-reviewed",
+            "--idempotency-ref",
+            "idempotency-ref:completed-contract-migration",
+            "--confirm-migration",
+            "migrate-queue-v2-completed-item",
+            "--approve-exact-scope",
+            preview_payload["approval_scope_ref"],
+        ]
+    )
+    assert migrate.func(migrate) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["queue_of_record_health"]["record_drift_detected"] is False
+    migrated = coordinator.inspect().tasks[0]
+    assert migrated.state == "completed"
+    assert migrated.completion_evidence_refs == ["evidence-ref:legacy-completion"]
+    assert migrated.canonical_item_contract_ref == current.canonical_item_contract_ref
+    receipt = json.loads(
+        coordinator.receipts_path.read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert receipt["event_kind"] == "task_contract_migrated"
+    assert receipt["migration_evidence_ref"] == (
+        "evidence-ref:completed-contract-reviewed"
+    )
+    assert receipt["prior_task_revision_ref"] == prior_revision_ref
+    assert receipt["approval_proof_ref"].startswith(
+        "developer-work-approval-proof-ref:sha256:"
+    )
 
 
 def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(
