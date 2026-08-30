@@ -53,7 +53,9 @@ It binds an exact Git revision, sorted content-addressed acceptance-affecting
 entries, and the only paths permitted to change after the lock. TAW-08 requires
 a candidate-verification receipt produced only after the locked path census,
 content digests, source projection, and transitive dependency closure all
-verify. An incomplete one-file lock cannot satisfy the acceptance boundary.
+verify. Candidate source paths and content digests must match the projection
+roots and closure entries exactly. An incomplete one-file lock or a source
+projection rebound to different bytes cannot satisfy the acceptance boundary.
 
 `EvidenceOnlyDeltaManifest` permits only three artifact kinds:
 
@@ -66,11 +68,14 @@ requires every changed path to be predeclared by the candidate lock, validates
 the bounded JSON artifact against the frozen schema for its declared kind, and
 rejects overlap with acceptance-affecting candidate entries. A successful
 verification produces a digest-bound receipt that must match the candidate,
-delta manifest, delta revision, and exact artifact count. Executable code,
-routes, prompts, policy data, configuration, dependencies, evaluators,
-thresholds, corpora, labels, raw content, and holdout material cannot be
-represented as evidence-only. Any such change requires a new candidate lock
-and acceptance cycle.
+delta manifest, delta revision, independently derived revision-delta path
+census, and exact artifact count. The repository workflow must derive that
+census from the named candidate and delta revisions before calling the core
+verifier; a caller-authored subset is not complete revision evidence.
+Executable code, routes, prompts, policy data, configuration, dependencies,
+evaluators, thresholds, corpora, labels, raw content, and holdout material
+cannot be represented as evidence-only. Any such change requires a new
+candidate lock and acceptance cycle.
 
 Foundation receipts are SHA-bound, revision-bound, redacted `report-only`
 records. The exact-head receipt must match the candidate revision. The

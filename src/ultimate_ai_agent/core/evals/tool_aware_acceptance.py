@@ -320,6 +320,7 @@ class EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
     candidate_manifest_digest_ref: str
     delta_revision_ref: str
     delta_manifest_digest_ref: str
+    revision_delta_path_census_digest_ref: str
     artifact_count: int = Field(..., ge=1, le=TAW08_MAX_EVIDENCE_DELTA_ENTRIES)
     verifier_ref: Literal["verifier-ref:taw08:evidence-only-delta:v1"] = (
         "verifier-ref:taw08:evidence-only-delta:v1"
@@ -334,6 +335,7 @@ class EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
         for field_name in (
             "candidate_manifest_digest_ref",
             "delta_manifest_digest_ref",
+            "revision_delta_path_census_digest_ref",
         ):
             _validate_digest(getattr(self, field_name), field_name)
         expected = canonical_digest(
@@ -543,6 +545,10 @@ class TAW08AcceptanceReport(_FrozenModel):
                 != self.evidence_only_delta.delta_revision_ref
                 or receipt.delta_manifest_digest_ref
                 != self.evidence_only_delta.manifest_digest_ref
+                or receipt.revision_delta_path_census_digest_ref
+                != canonical_digest(
+                    tuple(item.path_ref for item in self.evidence_only_delta.entries)
+                )
                 or receipt.artifact_count != len(self.evidence_only_delta.entries)
             ):
                 binding_failures.add(
@@ -730,6 +736,12 @@ def verify_and_bind_candidate_lock(
             for content in content_by_path_ref.values()
         ):
             raise ValueError("candidate verification content shape or size is invalid")
+    if (
+        len(source_projection.entries) > TAW08_MAX_CANDIDATE_PATHS
+        or len(source_closure.entries) > TAW08_MAX_CANDIDATE_PATHS
+        or len(available_path_refs) > TAW08_MAX_CANDIDATE_PATHS
+    ):
+        raise ValueError("candidate verification source path bound exceeded")
     failures = set(
         verify_candidate_lock(
             candidate_lock,
@@ -750,14 +762,29 @@ def verify_and_bind_candidate_lock(
         or source_closure.source_revision_ref != candidate_lock.git_revision_ref
     ):
         failures.add("failure-ref:taw08:candidate-source-revision-drift")
-    candidate_source_refs = {
-        item.path_ref
+    candidate_source_entries = {
+        item.path_ref: item
         for item in candidate_lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
     }
-    if not candidate_source_refs <= {item.path_ref for item in source_closure.entries}:
-        failures.add("failure-ref:taw08:candidate-source-closure-incomplete")
+    projection_entries = {item.path_ref: item for item in source_projection.entries}
+    closure_entries = {item.path_ref: item for item in source_closure.entries}
+    if set(candidate_source_entries) != set(projection_entries):
+        failures.add("failure-ref:taw08:candidate-source-projection-census-drift")
+    for path_ref, candidate_entry in candidate_source_entries.items():
+        projection_entry = projection_entries.get(path_ref)
+        closure_entry = closure_entries.get(path_ref)
+        if (
+            projection_entry is not None
+            and projection_entry.content_digest_ref
+            != candidate_entry.content_digest_ref
+        ):
+            failures.add("failure-ref:taw08:candidate-source-projection-content-drift")
+        if closure_entry is None:
+            failures.add("failure-ref:taw08:candidate-source-closure-incomplete")
+        elif closure_entry.content_digest_ref != candidate_entry.content_digest_ref:
+            failures.add("failure-ref:taw08:candidate-source-closure-content-drift")
     if failures:
         raise ValueError(
             f"candidate lock verification failed: {tuple(sorted(failures))}"
@@ -804,10 +831,18 @@ def verify_evidence_only_delta(
     candidate_lock: CandidateLock,
     delta: EvidenceOnlyDeltaManifest,
     changed_content_by_path_ref: Mapping[str, bytes],
+    revision_delta_path_refs: tuple[str, ...],
 ) -> tuple[str, ...]:
     failures: set[str] = set()
-    if len(changed_content_by_path_ref) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES:
+    if (
+        len(changed_content_by_path_ref) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES
+        or len(revision_delta_path_refs) > TAW08_MAX_EVIDENCE_DELTA_ENTRIES
+    ):
         return ("failure-ref:taw08:evidence-delta-path-bound-exceeded",)
+    if revision_delta_path_refs != tuple(sorted(revision_delta_path_refs)) or len(
+        revision_delta_path_refs
+    ) != len(set(revision_delta_path_refs)):
+        return ("failure-ref:taw08:revision-delta-path-census-invalid",)
     allowed_refs = set(candidate_lock.evidence_only_delta_path_refs)
     candidate_refs = {item.path_ref for item in candidate_lock.entries}
     actual_refs = set(changed_content_by_path_ref)
@@ -819,6 +854,8 @@ def verify_evidence_only_delta(
         failures.add("failure-ref:taw08:evidence-delta-candidate-binding-drift")
     if set(entry_by_ref) != actual_refs:
         failures.add("failure-ref:taw08:evidence-delta-path-census-drift")
+    if set(revision_delta_path_refs) != actual_refs:
+        failures.add("failure-ref:taw08:revision-delta-path-census-drift")
     if actual_refs - allowed_refs:
         failures.add("failure-ref:taw08:evidence-delta-unapproved-path")
     if actual_refs & candidate_refs:
@@ -847,11 +884,13 @@ def verify_and_bind_evidence_only_delta(
     candidate_lock: CandidateLock,
     delta: EvidenceOnlyDeltaManifest,
     changed_content_by_path_ref: Mapping[str, bytes],
+    revision_delta_path_refs: tuple[str, ...],
 ) -> EvidenceOnlyDeltaVerificationReceipt:
     failures = verify_evidence_only_delta(
         candidate_lock=candidate_lock,
         delta=delta,
         changed_content_by_path_ref=changed_content_by_path_ref,
+        revision_delta_path_refs=revision_delta_path_refs,
     )
     if failures:
         raise ValueError(f"evidence-only delta verification failed: {failures}")
@@ -861,6 +900,9 @@ def verify_and_bind_evidence_only_delta(
         "candidate_manifest_digest_ref": candidate_lock.manifest_digest_ref,
         "delta_revision_ref": delta.delta_revision_ref,
         "delta_manifest_digest_ref": delta.manifest_digest_ref,
+        "revision_delta_path_census_digest_ref": canonical_digest(
+            revision_delta_path_refs
+        ),
         "artifact_count": len(delta.entries),
         "verifier_ref": "verifier-ref:taw08:evidence-only-delta:v1",
         "verified": True,
@@ -934,6 +976,10 @@ def evaluate_taw08_acceptance(
             != evidence_only_delta.delta_revision_ref
             or evidence_only_delta_verification_receipt.delta_manifest_digest_ref
             != evidence_only_delta.manifest_digest_ref
+            or evidence_only_delta_verification_receipt.revision_delta_path_census_digest_ref
+            != canonical_digest(
+                tuple(item.path_ref for item in evidence_only_delta.entries)
+            )
             or evidence_only_delta_verification_receipt.artifact_count
             != len(evidence_only_delta.entries)
         ):

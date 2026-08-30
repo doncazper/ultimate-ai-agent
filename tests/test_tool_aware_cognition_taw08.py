@@ -66,14 +66,30 @@ def _candidate_lock() -> CandidateLock:
     )
 
 
-def _candidate_verification(lock: CandidateLock):
+def _candidate_verification(
+    lock: CandidateLock, *, source_content_overrides: dict[str, bytes] | None = None
+):
     expected_refs = tuple(item.path_ref for item in lock.entries)
     content_by_ref = dict.fromkeys(expected_refs, b"")
-    source_entries = tuple(
+    locked_source_entries = tuple(
         item
         for item in lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
+    )
+    source_content_overrides = source_content_overrides or {}
+    source_content = {
+        item.path_ref: source_content_overrides.get(item.path_ref, b"")
+        for item in locked_source_entries
+    }
+    source_entries = tuple(
+        CandidateManifestEntry(
+            path_ref=item.path_ref,
+            content_digest_ref=(
+                f"sha256:{hashlib.sha256(source_content[item.path_ref]).hexdigest()}"
+            ),
+        )
+        for item in locked_source_entries
     )
     projection_payload = {
         "schema_version": "uaa-taw00-source-projection.v1",
@@ -109,7 +125,6 @@ def _candidate_verification(lock: CandidateLock):
         **closure_payload,
         closure_digest_ref=canonical_digest(closure_payload),
     )
-    source_content = {item.path_ref: b"" for item in source_entries}
     return verify_and_bind_candidate_lock(
         candidate_lock=lock,
         expected_path_refs=expected_refs,
@@ -180,6 +195,7 @@ def _delta_verification(lock: CandidateLock, delta: EvidenceOnlyDeltaManifest):
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={delta.entries[0].path_ref: _safe_delta_content()},
+        revision_delta_path_refs=tuple(item.path_ref for item in delta.entries),
     )
 
 
@@ -315,6 +331,7 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
             candidate_lock=lock,
             delta=delta,
             changed_content_by_path_ref={delta.entries[0].path_ref: content},
+            revision_delta_path_refs=(delta.entries[0].path_ref,),
         )
         == ()
     )
@@ -330,6 +347,9 @@ def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None
         changed_content_by_path_ref={
             "repo-path-ref:src/ultimate_ai_agent/core/runtime.py": b"changed"
         },
+        revision_delta_path_refs=(
+            "repo-path-ref:src/ultimate_ai_agent/core/runtime.py",
+        ),
     )
 
     assert failures == (
@@ -349,6 +369,7 @@ def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref=too_many_paths,
+        revision_delta_path_refs=tuple(sorted(too_many_paths)),
     ) == ("failure-ref:taw08:evidence-delta-path-bound-exceeded",)
 
     assert "failure-ref:taw08:evidence-delta-content-bound-exceeded" in (
@@ -360,6 +381,7 @@ def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
                     b"x" * (TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES + 1)
                 )
             },
+            revision_delta_path_refs=(delta.entries[0].path_ref,),
         )
     )
 
@@ -386,6 +408,7 @@ def test_evidence_only_delta_cannot_overlap_candidate_artifact() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={candidate_path: content},
+        revision_delta_path_refs=(candidate_path,),
     )
 
     assert failures == (
@@ -528,6 +551,7 @@ def test_evidence_delta_rejects_malformed_or_unredacted_payloads() -> None:
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref={delta.entries[0].path_ref: malformed},
+        revision_delta_path_refs=(delta.entries[0].path_ref,),
     ) == ("failure-ref:taw08:evidence-delta-artifact-schema-invalid",)
 
 
@@ -578,6 +602,65 @@ def test_candidate_verifier_rejects_incomplete_acceptance_path_census() -> None:
 
     with pytest.raises(ValueError, match="path census is incomplete"):
         _candidate_verification(incomplete_lock)
+
+
+def test_candidate_verifier_rejects_source_content_substitution() -> None:
+    lock = _candidate_lock()
+    source_ref = next(
+        item.path_ref
+        for item in lock.entries
+        if item.path_ref.startswith("repo-path-ref:src/")
+    )
+
+    with pytest.raises(
+        ValueError, match="candidate-source-(projection|closure)-content-drift"
+    ):
+        _candidate_verification(
+            lock,
+            source_content_overrides={source_ref: b"substituted = True\n"},
+        )
+
+
+def test_delta_verifier_requires_revision_derived_path_census() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    omitted_revision_change = "repo-path-ref:src/ultimate_ai_agent/core/runtime.py"
+
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref={delta.entries[0].path_ref: _safe_delta_content()},
+        revision_delta_path_refs=tuple(
+            sorted((delta.entries[0].path_ref, omitted_revision_change))
+        ),
+    ) == ("failure-ref:taw08:revision-delta-path-census-drift",)
+
+
+def test_delta_verification_receipt_binds_revision_path_census() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    receipt = _delta_verification(lock, delta)
+    receipt_payload = receipt.model_dump(mode="json", exclude={"receipt_digest_ref"})
+    receipt_payload["revision_delta_path_census_digest_ref"] = "sha256:" + "f" * 64
+    substituted_receipt = type(receipt).model_validate(
+        {
+            **receipt_payload,
+            "receipt_digest_ref": canonical_digest(receipt_payload),
+        }
+    )
+
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        candidate_verification_receipt=_candidate_verification(lock),
+        founder_evidence=_founder_evidence(lock),
+        evidence_only_delta=delta,
+        evidence_only_delta_verification_receipt=substituted_receipt,
+    )
+
+    assert report.status is TAW08AcceptanceStatus.failed
+    assert report.failure_refs == (
+        "failure-ref:taw08:delta-verification-binding-drift",
+    )
 
 
 def test_receipt_binders_reject_unknown_fields_before_model_construct() -> None:
