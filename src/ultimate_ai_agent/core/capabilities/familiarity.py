@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import enum
 import json
 from collections.abc import Mapping
-from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -24,7 +24,15 @@ TAW02_CONTRACT_REF = "contract-ref:taw02:familiarity-assessment:v1"
 TAW02_ASSESSOR_REF = "assessor-ref:taw02:table-driven-precedence:v1"
 
 
-class FamiliarityState(str, Enum):
+class _Python310StringEnum(str, enum.Enum):
+    def __str__(self) -> str:
+        return self.value
+
+
+StringEnum = getattr(enum, "StrEnum", _Python310StringEnum)
+
+
+class FamiliarityState(StringEnum):
     familiar_supported = "familiar_supported"
     familiar_input_required = "familiar_input_required"
     familiar_unavailable = "familiar_unavailable"
@@ -36,7 +44,7 @@ class FamiliarityState(str, Enum):
     outcome_uncertain = "outcome_uncertain"
 
 
-class FamiliarityReasonCode(str, Enum):
+class FamiliarityReasonCode(StringEnum):
     outcome_terminal_proof_missing = "outcome_terminal_proof_missing"
     outcome_terminal_proof_inconsistent = "outcome_terminal_proof_inconsistent"
     policy_denied = "policy_denied"

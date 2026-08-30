@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import enum
 import json
-from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -25,6 +25,14 @@ TAW04_CLI_INSPECTION_REF = "inspection-ref:taw04:cli:v1"
 TAW04_API_INSPECTION_REF = "inspection-ref:taw04:api:v1"
 TAW04_SAFE_DISABLE_REF = "safe-disable-ref:taw04:accepted-legacy-router"
 TAW04_ACCEPTED_LEGACY_ROUTE_REF = "route-ref:taw04:accepted-legacy-direct-chat"
+
+
+class _Python310StringEnum(str, enum.Enum):
+    def __str__(self) -> str:
+        return self.value
+
+
+StringEnum = getattr(enum, "StrEnum", _Python310StringEnum)
 TAW04_CATALOG_INJECTION_FIELD_PATHS = (
     "aliases",
     "availability_metadata",
@@ -44,7 +52,7 @@ TAW04_CATALOG_INJECTION_FIELD_PATHS = (
 )
 
 
-class AwarenessEvidenceStatus(str, Enum):
+class AwarenessEvidenceStatus(StringEnum):
     valid = "valid"
     missing = "missing"
     corrupt = "corrupt"
@@ -53,7 +61,7 @@ class AwarenessEvidenceStatus(str, Enum):
     over_budget = "over_budget"
 
 
-class ShadowChatAction(str, Enum):
+class ShadowChatAction(StringEnum):
     preserve_direct_chat = "preserve_direct_chat"
     record_capability_candidate = "record_capability_candidate"
     recommend_clarification = "recommend_clarification"
