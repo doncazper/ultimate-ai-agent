@@ -26,6 +26,7 @@ CANDIDATE_PATHS = (
     "docs/kanban/current_board.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "scripts/verify_tool_aware_cognition_taw07.py",
+    "src/ultimate_ai_agent/core/capabilities/__init__.py",
     "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
     "src/ultimate_ai_agent/core/capabilities/familiarity.py",
     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",

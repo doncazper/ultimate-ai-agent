@@ -707,15 +707,22 @@ def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums(
         TAW07DevelopmentObservation.model_validate(payload)
     assert issubclass(CatalogState, str)
     assert issubclass(ReplayMode, str)
-    for relative_path in (
-        "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
-        "src/ultimate_ai_agent/core/capabilities/familiarity.py",
-        "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
-    ):
-        assert "from enum import StrEnum" not in (ROOT / relative_path).read_text(
-            encoding="utf-8"
-        )
     assert str(ShadowChatAction.preserve_direct_chat) == "preserve_direct_chat"
+    subprocess.run(
+        [
+            str(ROOT / ".venv/bin/python"),
+            "-c",
+            (
+                "import enum; delattr(enum, 'StrEnum'); "
+                "from ultimate_ai_agent.core.capabilities.chat_shadow import "
+                "ShadowChatAction; "
+                "assert str(ShadowChatAction.preserve_direct_chat) == "
+                "'preserve_direct_chat'"
+            ),
+        ],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def test_reconstructed_payload_uses_parameters_not_embedded_category_label() -> None:
