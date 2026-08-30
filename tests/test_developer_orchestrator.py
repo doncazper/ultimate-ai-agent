@@ -144,6 +144,44 @@ def _reconciliation_approval(
     return authority, approval_ref, actor_context, snapshot_revision
 
 
+def _migration_approval(
+    coordinator: DeveloperWorkCoordinator,
+    draft: DeveloperWorkTaskDraft,
+    *,
+    expected_current_fingerprint_ref: str,
+    migration_evidence_ref: str,
+    idempotency_ref: str,
+) -> tuple[object, str, object, str]:
+    actor_context = coordinator_module.ActorContext(
+        actor_type="human_user",
+        actor_id="local_test_operator",
+        authority_source="explicit_user_request",
+    )
+    task_revision_ref = coordinator.current_task_revision_ref(draft.task_ref)
+    request = (
+        coordinator_module.build_developer_work_completed_migration_approval_request(
+            draft,
+            expected_current_fingerprint_ref=expected_current_fingerprint_ref,
+            expected_current_task_revision_ref=task_revision_ref,
+            migration_evidence_ref=migration_evidence_ref,
+            idempotency_ref=idempotency_ref,
+            actor_context=actor_context,
+        )
+    )
+    authority = coordinator_module.LocalApprovalAuthority()
+    authority.create_request(request)
+    approval_ref = (
+        "approval-ref:test-queue-contract-migration-"
+        f"{request.resource_refs[0].rsplit(':', maxsplit=1)[-1]}"
+    )
+    authority.grant(
+        request.approval_request_id,
+        approved_by_actor_id=actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+    return authority, approval_ref, actor_context, task_revision_ref
+
+
 class _HistoricalMergeSubprocess:
     """Keep merge-gate fixtures bound to the immutable PR #425 revision."""
 
@@ -574,6 +612,23 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     assert admission_receipt["approval_proof_ref"].startswith(
         "developer-work-approval-proof-ref:sha256:"
     )
+    assert admission_receipt["admission_snapshot_revision"] == 0
+    assert len(admission_receipt["admission_drafts"]) == 37
+    assert admission_receipt["admission_evidence_ref"].startswith(
+        "developer-queue-admission-evidence-ref:sha256:"
+    )
+    tampered_admission_drafts = list(admission_receipt["admission_drafts"])
+    tampered_admission_drafts[0] = {
+        **tampered_admission_drafts[0],
+        "title": "Substituted admission contract",
+    }
+    with pytest.raises(ValueError, match="admission evidence is not bound"):
+        coordinator_module.DeveloperWorkQueueReceipt.model_validate(
+            {
+                **admission_receipt,
+                "admission_drafts": tampered_admission_drafts,
+            }
+        )
 
     assert admitted.func(admitted) == 0
     replay_payload = json.loads(capsys.readouterr().out)
@@ -847,6 +902,13 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     reconciliation_payload = json.loads(capsys.readouterr().out)
     assert reconciliation_payload["canonical_queue_reconciliation_ref"].startswith(
         "developer-queue-reconciliation-ref:sha256:"
+    )
+    assert reconcile.func(reconcile) == 0
+    replayed_reconciliation = json.loads(capsys.readouterr().out)
+    assert replayed_reconciliation["replayed"] is True
+    assert (
+        replayed_reconciliation["approval_scope_ref"]
+        == reconciliation_preview["approval_scope_ref"]
     )
     monkeypatch.setattr(
         coordinator_module,
@@ -1342,7 +1404,7 @@ def test_completed_source_aware_queue_contract_has_exact_migration_lane(
         [
             "--state-dir",
             str(state_dir),
-            "preview-queue-v2-completed-migration",
+            "preview-queue-v2-inactive-migration",
             "--item-id",
             "Q00",
             "--expected-current-fingerprint-ref",
@@ -1362,7 +1424,7 @@ def test_completed_source_aware_queue_contract_has_exact_migration_lane(
         [
             "--state-dir",
             str(state_dir),
-            "migrate-queue-v2-completed-item",
+            "migrate-queue-v2-inactive-item",
             "--item-id",
             "Q00",
             "--expected-current-fingerprint-ref",
@@ -1374,7 +1436,7 @@ def test_completed_source_aware_queue_contract_has_exact_migration_lane(
             "--idempotency-ref",
             "idempotency-ref:completed-contract-migration",
             "--confirm-migration",
-            "migrate-queue-v2-completed-item",
+            "migrate-queue-v2-inactive-item",
             "--approve-exact-scope",
             preview_payload["approval_scope_ref"],
         ]
@@ -1397,6 +1459,149 @@ def test_completed_source_aware_queue_contract_has_exact_migration_lane(
     assert receipt["approval_proof_ref"].startswith(
         "developer-work-approval-proof-ref:sha256:"
     )
+
+
+@pytest.mark.parametrize("state", ["queued", "blocked", "review", "canceled"])
+def test_inactive_stale_queue_states_have_exact_contract_migration_lane(
+    tmp_path: Path,
+    state: str,
+) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / f"state-{state}")
+    coordinator.initialize(idempotency_ref=f"idempotency-ref:init-{state}-migration")
+    current = build_developer_queue_record_drafts(ROOT)[1]
+    prior = current.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                f"planning-fingerprint-ref:sha256:{state}-prior"
+            ),
+            "canonical_source_refs": [
+                *current.canonical_source_refs,
+                f"canonical-task-ref:Q01-{state.upper()}-PRIOR-SOURCE",
+            ],
+            "canonical_item_contract_ref": None,
+        }
+    )
+    prior = prior.model_copy(
+        update={
+            "canonical_item_contract_ref": queue_record_canonical_item_contract_ref(
+                prior
+            )
+        }
+    )
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    task = DeveloperWorkTask(
+        **prior.model_dump(mode="json"),
+        state=state,
+        claim_generation=1,
+        blocker_refs=(
+            ["blocker-ref:stale-contract-reviewed"] if state == "blocked" else []
+        ),
+        cancellation_reason_ref=(
+            "reason-ref:stale-contract-superseded" if state == "canceled" else None
+        ),
+    )
+    snapshot["tasks"].append(task.model_dump(mode="json"))
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    idempotency_ref = f"idempotency-ref:migrate-inactive-{state}"
+    evidence_ref = f"evidence-ref:reviewed-inactive-{state}-contract"
+    authority, approval_ref, actor_context, task_revision_ref = _migration_approval(
+        coordinator,
+        current,
+        expected_current_fingerprint_ref=prior.canonical_source_fingerprint_ref,
+        migration_evidence_ref=evidence_ref,
+        idempotency_ref=idempotency_ref,
+    )
+
+    coordinator.migrate_completed_canonical_task(
+        current,
+        expected_current_fingerprint_ref=prior.canonical_source_fingerprint_ref,
+        expected_current_task_revision_ref=task_revision_ref,
+        migration_evidence_ref=evidence_ref,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+        approval_ref=approval_ref,
+        actor_context=actor_context,
+    )
+
+    migrated = coordinator._load_snapshot().tasks[0]
+    assert migrated.state == state
+    assert migrated.claim_generation == 1
+    assert migrated.blocker_refs == task.blocker_refs
+    assert migrated.cancellation_reason_ref == task.cancellation_reason_ref
+    assert migrated.canonical_item_contract_ref == current.canonical_item_contract_ref
+
+
+def test_contract_migration_rejects_an_active_bound_dependent(tmp_path: Path) -> None:
+    coordinator = DeveloperWorkCoordinator(state_dir=tmp_path / "state")
+    coordinator.initialize(idempotency_ref="idempotency-ref:init-active-dependent")
+    q01, q02 = build_developer_queue_record_drafts(ROOT)[1:3]
+    prior_q01 = q01.model_copy(
+        update={
+            "canonical_source_fingerprint_ref": (
+                "planning-fingerprint-ref:sha256:q01-active-prior"
+            ),
+            "canonical_source_refs": [
+                *q01.canonical_source_refs,
+                "canonical-task-ref:Q01-ACTIVE-PRIOR-SOURCE",
+            ],
+            "canonical_item_contract_ref": None,
+        }
+    )
+    prior_q01 = prior_q01.model_copy(
+        update={
+            "canonical_item_contract_ref": queue_record_canonical_item_contract_ref(
+                prior_q01
+            )
+        }
+    )
+    snapshot = json.loads(coordinator.state_path.read_text(encoding="utf-8"))
+    prerequisite = DeveloperWorkTask(
+        **prior_q01.model_dump(mode="json"),
+        state="completed",
+        completion_evidence_refs=["evidence-ref:q01-prior-completed"],
+    )
+    dependent = DeveloperWorkTask(
+        **q02.model_dump(mode="json"),
+        state="claimed",
+        owner_node_ref="node-ref:active-dependent",
+        claim_ref="developer-work-claim-ref:active-dependent",
+        claim_generation=1,
+        dependency_contract_refs={q01.task_ref: prior_q01.canonical_item_contract_ref},
+    )
+    snapshot["tasks"].extend(
+        [prerequisite.model_dump(mode="json"), dependent.model_dump(mode="json")]
+    )
+    coordinator.state_path.write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    idempotency_ref = "idempotency-ref:migrate-with-active-dependent"
+    evidence_ref = "evidence-ref:reviewed-active-dependent-migration"
+    authority, approval_ref, actor_context, task_revision_ref = _migration_approval(
+        coordinator,
+        q01,
+        expected_current_fingerprint_ref=prior_q01.canonical_source_fingerprint_ref,
+        migration_evidence_ref=evidence_ref,
+        idempotency_ref=idempotency_ref,
+    )
+
+    with pytest.raises(
+        DeveloperWorkQueueConflictError,
+        match="CONTRACT_MIGRATION_ACTIVE_DEPENDENT",
+    ):
+        coordinator.migrate_completed_canonical_task(
+            q01,
+            expected_current_fingerprint_ref=(
+                prior_q01.canonical_source_fingerprint_ref
+            ),
+            expected_current_task_revision_ref=task_revision_ref,
+            migration_evidence_ref=evidence_ref,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+            approval_ref=approval_ref,
+            actor_context=actor_context,
+        )
 
 
 def test_task_amendment_requires_exact_fingerprint_and_pristine_queue(

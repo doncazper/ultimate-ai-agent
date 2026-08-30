@@ -187,32 +187,6 @@ def _queue_v2_reconciliation_context(
 ]:
     coordinator = _coordinator(args)
     manifest = load_developer_queue_record_manifest(ROOT)
-    queue = coordinator.inspect()
-    admitted_task_refs = {task.task_ref for task in queue.tasks}
-    contract_refs = {
-        task_ref: contract_ref
-        for task_ref, contract_ref in queue_record_manifest_contract_refs(
-            manifest
-        ).items()
-        if task_ref in admitted_task_refs
-    }
-    task_revision_refs = {
-        task_ref: coordinator.current_task_revision_ref(task_ref)
-        for task_ref in contract_refs
-    }
-    item_by_task_ref = {queue_record_task_ref(item): item for item in manifest.items}
-    legacy_transition_refs: dict[str, str] = {}
-    legacy_source_refs: dict[str, list[str]] = {}
-    for task in queue.tasks:
-        if task.task_ref not in contract_refs or task.canonical_item_contract_ref:
-            continue
-        item = item_by_task_ref[task.task_ref]
-        transition_ref = queue_record_legacy_source_acceptance_ref(
-            item, task.canonical_source_fingerprint_ref
-        )
-        if transition_ref in item.source_refs:
-            legacy_transition_refs[task.task_ref] = transition_ref
-            legacy_source_refs[task.task_ref] = item.source_refs
     actor_context = ActorContext(
         actor_type=ActorType.human_user,
         actor_id="local_founder_operator",
@@ -220,12 +194,55 @@ def _queue_v2_reconciliation_context(
         authority_source=AuthoritySource.explicit_user_request,
         execution_contract_id="developer_queue_v2_exact_reconciliation",
     )
+    prior_receipt = coordinator.reconciliation_receipt_for_idempotency(
+        args.idempotency_ref
+    )
+    if prior_receipt is not None:
+        contract_refs = prior_receipt.reconciliation_contract_refs
+        task_revision_refs = prior_receipt.reconciliation_task_revision_refs
+        legacy_transition_refs = prior_receipt.reconciliation_legacy_transition_refs
+        legacy_source_refs = prior_receipt.reconciliation_legacy_source_refs
+        snapshot_revision = prior_receipt.reconciliation_snapshot_revision
+        if snapshot_revision is None:
+            raise DeveloperWorkQueueError(
+                "DEVELOPER_QUEUE_V2_RECONCILIATION_EVIDENCE_REQUIRED"
+            )
+    else:
+        queue = coordinator.inspect()
+        admitted_task_refs = {task.task_ref for task in queue.tasks}
+        contract_refs = {
+            task_ref: contract_ref
+            for task_ref, contract_ref in queue_record_manifest_contract_refs(
+                manifest
+            ).items()
+            if task_ref in admitted_task_refs
+        }
+        task_revision_refs = {
+            task_ref: coordinator.current_task_revision_ref(task_ref)
+            for task_ref in contract_refs
+        }
+        item_by_task_ref = {
+            queue_record_task_ref(item): item for item in manifest.items
+        }
+        legacy_transition_refs = {}
+        legacy_source_refs = {}
+        for task in queue.tasks:
+            if task.task_ref not in contract_refs or task.canonical_item_contract_ref:
+                continue
+            item = item_by_task_ref[task.task_ref]
+            transition_ref = queue_record_legacy_source_acceptance_ref(
+                item, task.canonical_source_fingerprint_ref
+            )
+            if transition_ref in item.source_refs:
+                legacy_transition_refs[task.task_ref] = transition_ref
+                legacy_source_refs[task.task_ref] = item.source_refs
+        snapshot_revision = queue.revision
     approval_request = build_developer_queue_reconciliation_approval_request(
         canonical_contract_refs=contract_refs,
         task_revision_refs=task_revision_refs,
         legacy_transition_refs=legacy_transition_refs,
         legacy_source_refs=legacy_source_refs,
-        expected_snapshot_revision=queue.revision,
+        expected_snapshot_revision=snapshot_revision,
         idempotency_ref=args.idempotency_ref,
         actor_context=actor_context,
     )
@@ -237,7 +254,7 @@ def _queue_v2_reconciliation_context(
         task_revision_refs,
         legacy_transition_refs,
         legacy_source_refs,
-        queue.revision,
+        snapshot_revision,
         actor_context,
         approval_request,
         exact_scope_ref,
@@ -678,7 +695,10 @@ def preview_queue_v2_completed_migration(args: argparse.Namespace) -> int:
 
 
 def migrate_queue_v2_completed_item(args: argparse.Namespace) -> int:
-    if args.confirm_migration != "migrate-queue-v2-completed-item":
+    if args.confirm_migration not in {
+        "migrate-queue-v2-completed-item",
+        "migrate-queue-v2-inactive-item",
+    }:
         raise ValueError("DEVELOPER_QUEUE_V2_COMPLETED_MIGRATION_CONFIRMATION_REQUIRED")
     (
         manifest,
@@ -1060,9 +1080,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     migrate_completed_command = subparsers.add_parser(
         "migrate-queue-v2-completed-item",
+        aliases=["migrate-queue-v2-inactive-item"],
         help=(
-            "Migrate one completed source-aware canonical contract under exact "
-            "approval while preserving its terminal evidence."
+            "Migrate one inactive source-aware canonical contract under exact "
+            "approval while preserving its lifecycle evidence."
         ),
     )
     migrate_completed_command.add_argument(
@@ -1085,8 +1106,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     preview_completed_migration_command = subparsers.add_parser(
         "preview-queue-v2-completed-migration",
+        aliases=["preview-queue-v2-inactive-migration"],
         help=(
-            "Preview the exact non-mutating approval scope for one completed "
+            "Preview the exact non-mutating approval scope for one inactive "
             "source-aware contract migration."
         ),
     )

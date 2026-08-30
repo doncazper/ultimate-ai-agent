@@ -157,7 +157,11 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 
 An intervening mutation makes the preview stale and requires a new preview.
 The durable receipt preserves the reviewed maps, snapshot revision, result ref,
-approval scope, approving actor ref, and proof ref for restart and audit.
+approval scope, approving actor ref, and proof ref for restart and audit. If the
+first result is uncertain, rerun the identical idempotency and approval-scope
+values: the CLI reconstructs the previewed revision and maps from that receipt
+before replay, rather than silently deriving a different request from the later
+ledger revision.
 
 The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
@@ -214,7 +218,10 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
 
 Admission is one atomic mutation bound to the selected drafts and exact ledger
 revision. If its result is uncertain, rerun the identical revision, scope, and
-idempotency values; the durable receipt replays without duplicating tasks. A successful
+idempotency values; the durable receipt replays without duplicating tasks. The
+receipt retains the bounded ordered drafts and previewed snapshot revision in a
+proof-bound admission evidence payload, so the approved contracts remain
+reconstructible after later amendments. A successful
 inspection reports thirty-seven admitted records, no contract drift, and no
 starvation risk. Use
 repeatable `--item-id` arguments to admit only a reviewed manifest extension
@@ -222,13 +229,15 @@ without replaying the unchanged prefix of the queue. The
 two current owner-held units are claimed separately so admission cannot create
 or duplicate workers.
 
-If an already-completed source-aware record later has legitimate canonical
-contract drift, do not reopen or rewrite its terminal evidence. Use
-`preview-queue-v2-completed-migration` with an exact reviewed evidence ref, then
-pass its task revision and approval scope to
-`migrate-queue-v2-completed-item`. The lane accepts only completed source-aware
-records, preserves lifecycle and completion evidence, invalidates stale
-reconciliation, and emits a proof-bound migration receipt.
+If an inactive source-aware record later has legitimate canonical contract
+drift, do not discard its lifecycle evidence. Use
+`preview-queue-v2-inactive-migration` with an exact reviewed evidence ref, then
+pass its task revision and approval scope to `migrate-queue-v2-inactive-item`.
+The compatibility command names containing `completed` remain accepted. The
+lane accepts queued, blocked, review, canceled, or completed source-aware records,
+preserves their lifecycle evidence, refuses the task itself or any dependent
+while actively claimed, invalidates stale reconciliation, and emits a
+proof-bound migration receipt.
 
 ## Commands
 
