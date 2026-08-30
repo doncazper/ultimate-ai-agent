@@ -154,18 +154,15 @@ def test_postmerge_receipt_advances_only_founder_private_status() -> None:
 
 def test_postmerge_receipt_must_bind_evidence_delta_revision() -> None:
     lock = _candidate_lock()
-    report = evaluate_taw08_acceptance(
-        candidate_lock=lock,
-        founder_evidence=_founder_evidence(lock),
-        evidence_only_delta=_delta(lock),
-        postmerge_foundation_receipt=_foundation_receipt(
-            stage="postmerge", revision_ref="git-sha:" + "5" * 40
-        ),
-    )
-
-    assert report.status == TAW08AcceptanceStatus.failed
-    assert report.failure_refs == ("failure-ref:taw08:postmerge-delta-revision-drift",)
-    assert not report.founder_private_accepted
+    with pytest.raises(ValidationError, match="receipt revision drift"):
+        evaluate_taw08_acceptance(
+            candidate_lock=lock,
+            founder_evidence=_founder_evidence(lock),
+            evidence_only_delta=_delta(lock),
+            postmerge_foundation_receipt=_foundation_receipt(
+                stage="postmerge", revision_ref="git-sha:" + "5" * 40
+            ),
+        )
 
 
 def test_founder_evidence_rejects_candidate_revision_substitution() -> None:
@@ -322,6 +319,28 @@ def test_report_rejects_status_or_fingerprint_substitution() -> None:
     payload = report.model_dump(mode="json")
     payload["report_fingerprint_ref"] = "taw08-acceptance-report-ref:sha256:" + "f" * 64
     with pytest.raises(ValidationError, match="fingerprint binding drift"):
+        TAW08AcceptanceReport.model_validate(payload)
+
+
+def test_serialized_report_cannot_replace_validated_evidence_with_digest_refs() -> None:
+    lock = _candidate_lock()
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        founder_evidence=_founder_evidence(lock),
+        evidence_only_delta=_delta(lock),
+        postmerge_foundation_receipt=_foundation_receipt(
+            stage="postmerge", revision_ref=DELTA_REVISION_REF
+        ),
+    )
+    payload = report.model_dump(mode="json")
+    payload["founder_evidence"] = None
+
+    with pytest.raises(ValidationError, match="embedded evidence"):
+        TAW08AcceptanceReport.model_validate(payload)
+
+    payload = report.model_dump(mode="json")
+    payload["postmerge_foundation_receipt"] = None
+    with pytest.raises(ValidationError, match="embedded Foundation receipt"):
         TAW08AcceptanceReport.model_validate(payload)
 
 

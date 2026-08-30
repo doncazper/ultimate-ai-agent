@@ -228,8 +228,11 @@ class TAW08AcceptanceReport(_FrozenModel):
     status: TAW08AcceptanceStatus
     candidate_revision_ref: str
     candidate_manifest_digest_ref: str
+    founder_evidence: FounderPrivateAcceptanceEvidence | None
     founder_evidence_digest_ref: str | None
+    evidence_only_delta: EvidenceOnlyDeltaManifest | None
     evidence_only_delta_manifest_digest_ref: str | None
+    postmerge_foundation_receipt: FoundationGateReceipt | None
     postmerge_foundation_receipt_digest_ref: str | None
     founder_private_accepted: bool
     founder_evidence_missing_refs: tuple[str, ...]
@@ -264,6 +267,51 @@ class TAW08AcceptanceReport(_FrozenModel):
         ):
             if value is not None:
                 _validate_digest(value, field_name)
+        expected_founder_digest = (
+            self.founder_evidence.evidence_digest_ref
+            if self.founder_evidence is not None
+            else None
+        )
+        if self.founder_evidence_digest_ref != expected_founder_digest:
+            raise ValueError("founder evidence digest must bind the embedded evidence")
+        if self.founder_evidence is not None and (
+            self.founder_evidence.candidate_revision_ref != self.candidate_revision_ref
+            or self.founder_evidence.candidate_manifest_digest_ref
+            != self.candidate_manifest_digest_ref
+        ):
+            raise ValueError("founder evidence must bind the report candidate")
+        expected_delta_digest = (
+            self.evidence_only_delta.manifest_digest_ref
+            if self.evidence_only_delta is not None
+            else None
+        )
+        if self.evidence_only_delta_manifest_digest_ref != expected_delta_digest:
+            raise ValueError("delta digest must bind the embedded delta manifest")
+        if self.evidence_only_delta is not None and (
+            self.evidence_only_delta.candidate_revision_ref
+            != self.candidate_revision_ref
+            or self.evidence_only_delta.candidate_manifest_digest_ref
+            != self.candidate_manifest_digest_ref
+        ):
+            raise ValueError("evidence-only delta must bind the report candidate")
+        expected_postmerge_digest = (
+            self.postmerge_foundation_receipt.receipt_digest_ref
+            if self.postmerge_foundation_receipt is not None
+            else None
+        )
+        if self.postmerge_foundation_receipt_digest_ref != expected_postmerge_digest:
+            raise ValueError(
+                "postmerge digest must bind the embedded Foundation receipt"
+            )
+        if self.postmerge_foundation_receipt is not None:
+            if self.postmerge_foundation_receipt.stage != "postmerge":
+                raise ValueError("postmerge Foundation receipt stage drift")
+            if (
+                self.evidence_only_delta is not None
+                and self.postmerge_foundation_receipt.revision_ref
+                != self.evidence_only_delta.delta_revision_ref
+            ):
+                raise ValueError("postmerge Foundation receipt revision drift")
         _validate_sorted_refs(
             self.founder_evidence_missing_refs, "founder_evidence_missing_refs"
         )
@@ -448,11 +496,22 @@ def evaluate_taw08_acceptance(
         "status": status.value,
         "candidate_revision_ref": candidate_lock.git_revision_ref,
         "candidate_manifest_digest_ref": candidate_lock.manifest_digest_ref,
+        "founder_evidence": (
+            founder_evidence.model_dump(mode="json") if founder_evidence else None
+        ),
         "founder_evidence_digest_ref": (
             founder_evidence.evidence_digest_ref if founder_evidence else None
         ),
+        "evidence_only_delta": (
+            evidence_only_delta.model_dump(mode="json") if evidence_only_delta else None
+        ),
         "evidence_only_delta_manifest_digest_ref": (
             evidence_only_delta.manifest_digest_ref if evidence_only_delta else None
+        ),
+        "postmerge_foundation_receipt": (
+            postmerge_foundation_receipt.model_dump(mode="json")
+            if postmerge_foundation_receipt
+            else None
         ),
         "postmerge_foundation_receipt_digest_ref": (
             postmerge_foundation_receipt.receipt_digest_ref
