@@ -540,13 +540,13 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
     manifest = load_developer_queue_record_manifest(ROOT)
     drafts = build_developer_queue_record_drafts(ROOT)
 
-    assert len(manifest.items) == 37
+    assert len(manifest.items) == 38
     assert len(manifest.gated_items) == 11
-    assert len(drafts) == 37
+    assert len(drafts) == 38
     assert [item.item_id for item in manifest.items] == [
-        f"Q{index:02d}" for index in range(37)
+        f"Q{index:02d}" for index in range(38)
     ]
-    assert [draft.queue_order for draft in drafts] == list(range(37))
+    assert [draft.queue_order for draft in drafts] == list(range(38))
     assert [draft.wip_lane for draft in drafts[:3]] == [
         "product_surface",
         "shared_core",
@@ -563,7 +563,11 @@ def test_queue_v2_manifest_materializes_authoritative_order() -> None:
     assert "scope-ref:queue-v2/Q33/chat-usability-parity" in (
         manifest.items[33].scope_refs
     )
-    assert manifest.items[-1].depends_on_item_ids == ["Q32", "Q33", "Q34", "Q35"]
+    assert manifest.items[36].depends_on_item_ids == ["Q32", "Q33", "Q34", "Q35"]
+    assert manifest.items[37].depends_on_item_ids == ["Q36"]
+    assert "scope-ref:queue-v2/Q37/direct-chat-and-visual-observation" in (
+        manifest.items[37].scope_refs
+    )
     assert manifest.policy.legacy_recovery_admission_enabled is False
 
 
@@ -655,8 +659,8 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     )
     assert admission_receipt["admission_snapshot_revision"] == 0
     assert admission_receipt["admission_selection_mode"] == "all"
-    assert len(admission_receipt["admission_drafts"]) == 37
-    assert len(admission_receipt["admission_result_tasks"]) == 37
+    assert len(admission_receipt["admission_drafts"]) == 38
+    assert len(admission_receipt["admission_result_tasks"]) == 38
     assert admission_receipt["admission_result_tasks"][32][
         "dependency_contract_refs"
     ]
@@ -692,8 +696,8 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
     replay_payload = json.loads(capsys.readouterr().out)
     assert replay_payload["replayed_receipt_count"] == 1
     view = DeveloperWorkCoordinator(state_dir=state_dir).inspect()
-    assert len(view.tasks) == 37
-    assert [task.queue_order for task in view.tasks] == list(range(37))
+    assert len(view.tasks) == 38
+    assert [task.queue_order for task in view.tasks] == list(range(38))
 
     health = assess_developer_queue_record_health(
         manifest=load_developer_queue_record_manifest(ROOT),
@@ -703,7 +707,7 @@ def test_queue_v2_cli_supersedes_recovery_and_is_idempotent(
         ),
     )
     assert health.queue_starvation_detected is False
-    assert health.admitted_item_count == 37
+    assert health.admitted_item_count == 38
 
 
 def test_queue_v2_admission_retry_uses_durable_receipt_context(
@@ -956,7 +960,7 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
     assert replayed_amendment["replayed"] is True
 
     selected_item_args: list[str] = []
-    for index in reversed(range(32, 37)):
+    for index in reversed(range(32, 38)):
         selected_item_args.extend(["--item-id", f"Q{index:02d}"])
     admission_preview = parser.parse_args(
         [
@@ -988,12 +992,19 @@ def test_queue_v2_cli_selectively_admits_a_manifest_extension(
 
     assert selected.func(selected) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["selected_item_ids"] == ["Q32", "Q33", "Q34", "Q35", "Q36"]
+    assert payload["selected_item_ids"] == [
+        "Q32",
+        "Q33",
+        "Q34",
+        "Q35",
+        "Q36",
+        "Q37",
+    ]
     assert payload["replayed_receipt_count"] == 0
     assert payload["queue_of_record_health"]["admission_gap_detected"] is False
     view = coordinator.inspect()
-    assert len(view.tasks) == 37
-    assert [task.queue_order for task in view.tasks] == list(range(37))
+    assert len(view.tasks) == 38
+    assert [task.queue_order for task in view.tasks] == list(range(38))
 
     assert selected.func(selected) == 0
     replay_payload = json.loads(capsys.readouterr().out)

@@ -64,6 +64,13 @@ order is:
 4. Q35 vertical modules functional adoption — blocked by Q26 and Q34.
 5. Q36 cross-module founder adoption closure — blocked by Q32 through Q35.
 
+After this wave closes, Q37 runs the exact-revision post-adoption
+Hermes/OpenClaw parity check. It is blocked by Q36 and must exercise equivalent
+real workflows plus direct chat and visual interaction behavior. Documentation
+or screenshots alone cannot prove parity. Material gaps receive explicit owners;
+noncritical polish remains separate, and the bounded check does not grant new
+runtime or external authority.
+
 Acceptance requires real founder-private data, complete normal-surface
 lifecycle operations, recovery, cross-module continuity, and finite dogfood.
 Missing core behavior cannot be relabeled as polish. This planned wave grants

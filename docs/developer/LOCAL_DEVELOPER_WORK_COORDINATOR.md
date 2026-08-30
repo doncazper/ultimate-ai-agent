@@ -92,7 +92,7 @@ checks, verifier, and merge gates before any developer Git mutation is added.
 ## Queue-of-Record V2
 
 `docs/roadmap/UAA_DEVELOPER_QUEUE_V2_MANIFEST.json` is the authoritative
-developer queue. It contains the complete Q00-Q36 dependency-wave order, exact
+developer queue. It contains the complete Q00-Q37 dependency-wave order, exact
 WIP lanes, merge-order constraints for overlapping recovery work, two stale
 draft pull-request triage records, eleven visible gated programs, and the
 programs that must remain embedded rather than becoming duplicate top-level
@@ -100,7 +100,7 @@ tasks.
 
 Admission is explicit, idempotent, and ledger-only. It creates no agent,
 branch, worktree, commit, pull request, connector, provider call, or product
-authority. It admits all thirty-seven records but claims none. Owners use the
+authority. It admits all thirty-eight records but claims none. Owners use the
 normal claim path after proving the named isolated branch/worktree and next
 gate. The eleven authority-heavy entries are descriptive gated records and are
 not admitted as executable tasks.
@@ -167,7 +167,7 @@ The immutable `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json` and the local
 `docs/roadmap/UAA_DEVELOPER_QUEUE_RECOVERY_MANIFEST.json` remain historical
 evidence. Their former recovery command now fails closed with
 `DEVELOPER_QUEUE_RECOVERY_SUPERSEDED_BY_V2`; this prevents the rescued subset
-from duplicating work already represented by Q00-Q36.
+from duplicating work already represented by Q00-Q37.
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
@@ -199,14 +199,14 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   preview-queue-v2-admission \
   --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 --item-id Q37 \
   --pretty
 
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_developer_queue.py \
   --state-dir "$UAA_DEVELOPER_COORDINATOR_STATE_DIR" \
   admit-queue-v2 \
   --idempotency-prefix idempotency-ref:queue-v2-admission \
-  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 \
+  --item-id Q32 --item-id Q33 --item-id Q34 --item-id Q35 --item-id Q36 --item-id Q37 \
   --expected-snapshot-revision copy-exact-preview-value \
   --confirm-admission admit-queue-v2 \
   --approve-exact-scope developer-queue-admission-scope-ref:sha256:copy-exact-preview-value \
@@ -225,7 +225,7 @@ reconstructible after later amendments. An uncertainty retry reconstructs its
 request from that durable payload, not from the later ambient manifest. Older
 receipts without the payload remain readable as history but cannot authorize
 replay. A successful
-inspection reports thirty-seven admitted records, no contract drift, and no
+inspection reports thirty-eight admitted records, no contract drift, and no
 starvation risk. Use
 repeatable `--item-id` arguments to admit only a reviewed manifest extension
 without replaying the unchanged prefix of the queue. The

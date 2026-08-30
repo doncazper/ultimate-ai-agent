@@ -53,7 +53,8 @@
     "Q33": "not_required",
     "Q34": "not_required",
     "Q35": "not_required",
-    "Q36": "not_required"
+    "Q36": "not_required",
+    "Q37": "required"
   },
   "completion_evidence_catalog": {},
   "items": [
@@ -319,6 +320,35 @@
       "historical_source_refs": ["codex-thread-ref:019f4046-a55b-7491-8123-13bf706a0df2"],
       "guardrail_refs": ["guardrail-ref:code-and-tests-outrank-roadmap", "guardrail-ref:direct-observation-required-for-usability", "guardrail-ref:no-competitor-code-or-brand-copy", "guardrail-ref:no-raw-model-intelligence-score", "guardrail-ref:unknown-from-evidence", "guardrail-ref:no-parity-inflation"],
       "recovery_note": "Archive review recovered the original 16-component taxonomy, scoring scale, evidence hierarchy, output structure, and anti-inflation rules."
+    },
+    {
+      "item_id": "Q37",
+      "title": "Post-adoption Hermes/OpenClaw feature parity check",
+      "queue_source_refs": ["canonical-task-ref:post-adoption-hermes-openclaw-parity"],
+      "queue_source_bindings": {
+        "canonical-task-ref:post-adoption-hermes-openclaw-parity": ["docs/evals/UAA_POST_ADOPTION_HERMES_OPENCLAW_PARITY_PLAN.md"]
+      },
+      "vision_strength": "strong",
+      "source_confidence": "high",
+      "current_slice": {
+        "name": "exact-revision post-adoption peer comparison",
+        "scope_status": "bounded_evaluation_slice",
+        "outcome": "Exercise equivalent real workflows and directly inspect chat and operator surfaces across adopted UAA, Hermes Agent, and OpenClaw revisions, then route only demonstrated material gaps."
+      },
+      "whole_vision": {
+        "status": "planned",
+        "outcome": "A repeatable post-adoption peer-learning loop that keeps UAA functionally and experientially competitive while preserving its local-first architecture, governed authority, evidence, and original product identity.",
+        "future_stages": ["exact revision and configuration inventory", "equivalent functional workflow corpus", "direct chat and visual interaction review", "failure persistence and recovery comparison", "ranked reciprocal-learning ledger", "separate UAA-native gap tasks"],
+        "completion_evidence_refs": []
+      },
+      "canonical_source_paths": [
+        "docs/evals/UAA_POST_ADOPTION_HERMES_OPENCLAW_PARITY_PLAN.md",
+        "reports/parity_gap_closure/2026-08-20-hermes-openclaw-parity-rebaseline.md",
+        "docs/runtime/UAA_RUNTIME_PARITY_SCORECARD.md"
+      ],
+      "historical_source_refs": [],
+      "guardrail_refs": ["guardrail-ref:code-tests-and-runtime-outrank-roadmap", "guardrail-ref:direct-observation-required-for-usability", "guardrail-ref:no-competitor-code-or-brand-copy", "guardrail-ref:unknown-from-evidence", "guardrail-ref:no-parity-inflation", "guardrail-ref:no-new-runtime-or-external-authority"],
+      "recovery_note": "No recovery required; Q37 is a user-directed post-adoption comparison with a new exact evaluation contract."
     }
   ]
 }
