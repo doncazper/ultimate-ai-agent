@@ -64,6 +64,7 @@ layer failed.
 | Q29 | Governed self-improvement | recovered, high confidence | self-assessment proposals | planned |
 | Q30 | Social publishing | recovered, high confidence | proposal and dry-run | planned |
 | Q31 | Final GoatCitadel comparison | recovered, high confidence | exact-revision evaluation | planned |
+| Q37 | Post-adoption Hermes/OpenClaw parity | strong | exact-revision functional and visual evaluation | planned |
 
 CRM, News, Social Intelligence, and Finance already had detailed durable
 sources. Proposal Intelligence stays bound to ECO-010's cited event, task,
@@ -78,6 +79,13 @@ existing first-class visions rather than creating five competing whole-product
 visions. Q31 now includes direct chat and operator-surface observation so the
 highest-value proven GoatCitadel interaction patterns can be adapted through
 original UAA-native implementation in Wave 6.
+
+Q37 follows that adoption closure and rechecks the product against current
+Hermes Agent and OpenClaw revisions. It requires equivalent end-to-end
+workflows plus direct chat and operator-surface observation, not documentation
+or screenshot-only parity. Material gaps become separately owned UAA-native
+work; noncritical polish stays distinct from functional, recovery, trust, and
+data-safety failures.
 
 ## Recovered Historical Evidence
 

@@ -36,8 +36,8 @@ def test_product_vision_registry_requires_every_product_item() -> None:
 def test_product_vision_registry_requires_disposition_for_new_queue_item() -> None:
     queue_payload = copy.deepcopy(_queue_payload())
     new_item = copy.deepcopy(queue_payload["items"][-1])
-    new_item["queue_order"] = 37
-    new_item["item_id"] = "Q37"
+    new_item["queue_order"] = 38
+    new_item["item_id"] = "Q38"
     new_item["slug"] = "new-product"
     queue_payload["items"].append(new_item)
 
