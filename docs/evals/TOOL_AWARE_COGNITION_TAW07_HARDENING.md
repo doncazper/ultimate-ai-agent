@@ -116,9 +116,10 @@ observation, so genuine candidate wording may differ. Substituted legacy respons
 evidence fingerprints, exceeded budgets, negative quality drift, or a validated
 decision mismatch produce a failed report. Every report embeds and fingerprints
 the exact governing policy, including the thresholds actually used, and its
-persisted latency, relative-TTFT, context, and quality aggregates must agree with
-the corresponding passing metrics. Report status and fingerprint are recomputed
-from the exact evidence. Persisted reports must retain the fixed `24/240/2` case,
+persisted maximum and p95 latency, relative-TTFT, context, and quality
+aggregates must agree with the corresponding passing metrics. Report status and
+fingerprint are recomputed from the exact evidence. Persisted reports must retain
+the fixed `24/240/2` case,
 observation, and paired-quality census plus the exact denominator for every
 metric. Clean development evidence without the public holdout commitment and
 custodian pair remains blocked rather than passing.

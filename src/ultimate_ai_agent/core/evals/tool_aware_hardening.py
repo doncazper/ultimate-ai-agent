@@ -464,6 +464,8 @@ class TAW07HardeningReport(_FrozenModel):
     catalog_state_refs: tuple[str, ...]
     replay_mode_refs: tuple[str, ...]
     metric_results: tuple[TAW07MetricResult, ...]
+    maximum_routing_latency_milliseconds_observed: int = Field(..., ge=0, le=60_000)
+    maximum_hydration_latency_milliseconds_observed: int = Field(..., ge=0, le=60_000)
     p95_routing_latency_milliseconds: int = Field(..., ge=0, le=60_000)
     p95_hydration_latency_milliseconds: int = Field(..., ge=0, le=60_000)
     p95_ttft_margin_milliseconds: int = Field(..., ge=-600_000, le=600_000)
@@ -537,9 +539,9 @@ class TAW07HardeningReport(_FrozenModel):
             raise ValueError("failure refs must derive from the exact metric census")
         metric_by_ref = {item.metric_ref: item for item in self.metric_results}
         aggregate_gate_failures = (
-            self.p95_routing_latency_milliseconds
+            self.maximum_routing_latency_milliseconds_observed
             > self.policy.maximum_routing_latency_milliseconds
-            or self.p95_hydration_latency_milliseconds
+            or self.maximum_hydration_latency_milliseconds_observed
             > self.policy.maximum_hydration_latency_milliseconds
             or self.p95_ttft_margin_milliseconds
             > self.policy.maximum_p95_ttft_margin_milliseconds
@@ -1533,6 +1535,8 @@ def evaluate_taw07_hardening(
         "catalog_state_refs": TAW07_CATALOG_STATES,
         "replay_mode_refs": TAW07_REPLAY_MODES,
         "metric_results": metric_results,
+        "maximum_routing_latency_milliseconds_observed": max(routing_latencies),
+        "maximum_hydration_latency_milliseconds_observed": max(hydration_latencies),
         "p95_routing_latency_milliseconds": p95_routing,
         "p95_hydration_latency_milliseconds": p95_hydration,
         "p95_ttft_margin_milliseconds": p95_ttft_margin,

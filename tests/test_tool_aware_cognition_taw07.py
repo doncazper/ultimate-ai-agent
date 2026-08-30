@@ -778,6 +778,37 @@ def test_report_rejects_passing_metrics_with_over_budget_aggregates() -> None:
     with pytest.raises(ValidationError, match="performance metric contradicts"):
         TAW07HardeningReport.model_validate(payload)
 
+    corpus = _corpus()
+    bindings, observations, quality = _passing_inputs(corpus)
+    one_slow_observation = bind_taw07_observation(
+        **{
+            **observations[0].model_dump(
+                mode="python", exclude={"observation_fingerprint_ref"}
+            ),
+            "routing_latency_milliseconds": 101,
+        }
+    )
+    failed_report = evaluate_taw07_hardening(
+        policy=_policy(corpus),
+        corpus=corpus,
+        legacy_bindings=bindings,
+        observations=(one_slow_observation, *observations[1:]),
+        quality_observations=quality,
+    )
+    payload = failed_report.model_dump(mode="json")
+    performance_metric = next(
+        item
+        for item in payload["metric_results"]
+        if item["metric_ref"] == "metric-ref:taw07:performance-budget-failure"
+    )
+    performance_metric["event_count"] = 0
+    performance_metric["passed"] = True
+    payload["failure_reason_refs"] = []
+    payload["status"] = HardeningStatus.passed_founder_development.value
+    _rebind_report_fingerprint(payload)
+    with pytest.raises(ValidationError, match="performance metric contradicts"):
+        TAW07HardeningReport.model_validate(payload)
+
 
 def test_corpus_bound_is_checked_before_observation_matrix_materialization() -> None:
     specs = tuple(
@@ -822,7 +853,7 @@ def test_models_reject_unknown_or_raw_fields_and_use_python310_compatible_enums(
             str(ROOT / ".venv/bin/python"),
             "-c",
             (
-                "import enum; delattr(enum, 'StrEnum'); "
+                "import enum; hasattr(enum, 'StrEnum') and delattr(enum, 'StrEnum'); "
                 "from ultimate_ai_agent.core.capabilities.chat_shadow import "
                 "ShadowChatAction; "
                 "assert str(ShadowChatAction.preserve_direct_chat) == "
