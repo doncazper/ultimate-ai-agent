@@ -48,9 +48,13 @@ inspection through one redacted Python Core read model. The stdin CLI and
 protected validation-only API have exact JSON parity and stable OpenAPI,
 manifest, side-effect, and auth posture. No Control Center surface, ordinary-chat
 change, model context, proposal, approval grant, execution, provider call,
-connector, external write, or authority is added. Q22 advances next to TAW-07
-quality, latency, and adversarial hardening; TAW-07/08 acceptance and independent
-promotion remain required gates.
+connector, external write, or authority is added. Bounded TAW-07 deterministic
+development hardening now recomputes the exact 24-case / 240-observation
+catalog-state and safe-disable matrix, latency and context budgets, paired
+founder-private quality deltas, catalog-injection census, and exact TAW-04
+decision bindings without making model/provider calls or measuring real
+hardware. Q22 advances next to TAW-08 founder-dogfood acceptance; exact measured
+evidence and independent promotion remain required gates.
 
 A separate fail-closed independent-promotion contract covers reconstructible
 development cases, public holdout commitments, baseline/score receipt shapes,
