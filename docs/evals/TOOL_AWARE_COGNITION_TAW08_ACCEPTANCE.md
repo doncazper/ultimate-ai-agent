@@ -29,7 +29,7 @@ content-free refs bound to one exact candidate revision and manifest:
 - at least one exact live model/hardware run receipt;
 - the end-to-end chat, discovery, proposal, approval-required, unavailable,
   unsupported, interrupted, and recovery journey receipt;
-- the founder decision ref; and
+- the founder decision ref with an explicit `accepted` outcome; and
 - a passing redacted Foundation Gate `report-only` receipt for the exact
   candidate head.
 
@@ -50,9 +50,10 @@ Foundation Gate receipt advances it to
 
 The existing TAW-00 `CandidateLock` remains the candidate-manifest authority.
 It binds an exact Git revision, sorted content-addressed acceptance-affecting
-entries, and the only paths permitted to change after the lock. Existing source
-projection and transitive-closure contracts remain prerequisites for claiming
-that the complete acceptance-affecting tree is locked.
+entries, and the only paths permitted to change after the lock. TAW-08 requires
+a candidate-verification receipt produced only after the locked path census,
+content digests, source projection, and transitive dependency closure all
+verify. An incomplete one-file lock cannot satisfy the acceptance boundary.
 
 `EvidenceOnlyDeltaManifest` permits only three artifact kinds:
 
@@ -61,16 +62,21 @@ that the complete acceptance-affecting tree is locked.
 - `claim_reconciliation`.
 
 Its verifier recomputes the exact changed-path census and content digests,
-requires every changed path to be predeclared by the candidate lock, and rejects
-overlap with acceptance-affecting candidate entries. Executable code, routes,
-prompts, policy data, configuration, dependencies, evaluators, thresholds,
-corpora, labels, and holdout material cannot be represented as evidence-only.
-Any such change requires a new candidate lock and acceptance cycle.
+requires every changed path to be predeclared by the candidate lock, validates
+the bounded JSON artifact against the frozen schema for its declared kind, and
+rejects overlap with acceptance-affecting candidate entries. A successful
+verification produces a digest-bound receipt that must match the candidate,
+delta manifest, delta revision, and exact artifact count. Executable code,
+routes, prompts, policy data, configuration, dependencies, evaluators,
+thresholds, corpora, labels, raw content, and holdout material cannot be
+represented as evidence-only. Any such change requires a new candidate lock
+and acceptance cycle.
 
 Foundation receipts are SHA-bound, revision-bound, redacted `report-only`
 records. The exact-head receipt must match the candidate revision. The
-post-merge receipt is a distinct stage and cannot substitute for the exact-head
-gate.
+post-merge receipt is a distinct stage, must bind the verified evidence-only
+delta revision, and cannot substitute for the exact-head gate. A post-merge
+receipt without the verified delta receipt produces a failed report.
 
 ## Independent Promotion Remains Separate
 
@@ -92,11 +98,14 @@ evidence, and founder acceptance cannot be relabeled as a public quality claim.
 ## Fail-Closed Behavior
 
 All models are frozen and reject unknown fields. They use Python-3.10-compatible
-string enums. Revisions and digests must be exact; refs must be structured safe
-refs; receipt censuses must be sorted and duplicate-free; status, missing refs,
-and report fingerprints are recomputed. Candidate/evidence rebinding,
-Foundation-stage substitution, delta path or content drift, and any explicit
-failure produce a failed report or verifier failure.
+string enums. Builder functions reject unknown fields before materializing
+digest payloads. Revisions and digests must be exact; refs must be structured
+safe refs; receipt censuses must be sorted and duplicate-free; status, missing
+refs, binding failures, and report fingerprints are recomputed. Candidate or
+evidence rebinding is preserved as a fingerprinted failed report instead of an
+unhandled validation exception. Foundation-stage substitution, delta path,
+schema, or content drift, and any explicit failure produce a failed report or
+verifier failure.
 
 Durable records contain no raw prompts, responses, provider payloads, local
 paths, logs, usernames, hostnames, serials, environment dumps, credentials, or

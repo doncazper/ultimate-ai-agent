@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
+    TAW08_DELTA_VERIFICATION_MISSING_REF,
     TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     TAW08AcceptanceStatus,
@@ -104,6 +105,7 @@ def verify() -> None:
     expected_missing = tuple(
         sorted(
             (*TAW08_FOUNDER_EVIDENCE_MISSING_REFS, TAW08_POSTMERGE_EVIDENCE_MISSING_REF)
+            + (TAW08_DELTA_VERIFICATION_MISSING_REF,)
         )
     )
     if (
