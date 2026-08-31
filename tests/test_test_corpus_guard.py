@@ -7867,6 +7867,38 @@ def test_case(value):
     assert before[0].ref != changed[0].ref
 
 
+def test_python_inventory_ignores_imported_parameter_callable_bodies(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text(
+        "class Case:\n"
+        "    def value(self): return 'before'\n"
+        "def validator(value): return value == 'before'\n"
+    )
+    test_text = """
+import pytest
+from data import Case, validator
+
+@pytest.mark.parametrize(("case", "check"), [(Case(), validator)])
+def test_case(case, check):
+    assert check(case.value())
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text(
+        "class Case:\n"
+        "    def value(self): return 'after'\n"
+        "def validator(value): return value == 'after'\n"
+    )
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref == after[0].ref
+
+
 def test_worktree_import_resolution_requires_exact_path_case(tmp_path: Path) -> None:
     package = tmp_path / "tests"
     package.mkdir()
