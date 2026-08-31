@@ -86,7 +86,7 @@ def test_foundation_gate_report_accepts_safe_latency_summary() -> None:
         version="0.10.0",
         results=[result("versioning_consistent", FoundationGateStatus.passed)],
     )
-    report.latency_gate = FoundationGateLatencySummary(
+    latency_gate = FoundationGateLatencySummary(
         schema_version="uaa_foundation_gate_latency_summary.v1",
         task_ref="UAA-P1-043",
         status="passed",
@@ -145,6 +145,7 @@ def test_foundation_gate_report_accepts_safe_latency_summary() -> None:
         optional_prerequisites=[],
     )
 
+    report = report.model_copy(update={"latency_gate": latency_gate})
     payload = report.model_dump(mode="json")
 
     assert payload["latency_gate"]["task_ref"] == "UAA-P1-043"
@@ -157,7 +158,7 @@ def test_foundation_gate_report_accepts_safe_release_lane_summary() -> None:
         version="0.10.0",
         results=[result("versioning_consistent", FoundationGateStatus.passed)],
     )
-    report.release_verification_lanes = FoundationGateReleaseLaneSummary(
+    release_verification_lanes = FoundationGateReleaseLaneSummary(
         schema_version="uaa_release_verification_lanes.v1",
         task_ref="UAA-P1-013",
         overall_status="definition_pass",
@@ -191,6 +192,9 @@ def test_foundation_gate_report_accepts_safe_release_lane_summary() -> None:
         safe_summary="Release lane definitions validated; commands not executed.",
     )
 
+    report = report.model_copy(
+        update={"release_verification_lanes": release_verification_lanes}
+    )
     payload = report.model_dump(mode="json")
 
     assert payload["release_verification_lanes"]["task_ref"] == "UAA-P1-013"

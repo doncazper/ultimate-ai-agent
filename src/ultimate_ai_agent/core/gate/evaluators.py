@@ -26,7 +26,8 @@ class FoundationGateEvaluator(FoundationGateLegacyChecksMixin):
         self._context = GateEvaluationContext(self.root)
 
     def evaluate(
-        self, criteria: Optional[List[FoundationGateCriterion]] = None
+        self,
+        criteria: Optional[List[FoundationGateCriterion]] = None,
     ) -> FoundationGateReport:
         self._context = GateEvaluationContext(self.root)
         selected_criteria = criteria or default_foundation_gate_criteria()
@@ -37,7 +38,9 @@ class FoundationGateEvaluator(FoundationGateLegacyChecksMixin):
         ]
         version = self._active_version() or "unknown"
         return build_foundation_gate_report(
-            version=version, results=results, trace_id="trace_foundation_gate"
+            version=version,
+            results=results,
+            trace_id="trace_foundation_gate",
         )
 
     def _evaluator_map(

@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+import sys
 from pathlib import Path
+from typing import Literal
 
-from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
     TAW08_DELTA_VERIFICATION_MISSING_REF,
+    TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
+    TAW08_FINAL_PUBLICATION_MISSING_REF,
     TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     TAW08AcceptanceStatus,
@@ -14,6 +22,9 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     CandidateLockVerificationReceipt,
     EvidenceOnlyDeltaManifest,
     EvidenceOnlyDeltaVerificationReceipt,
+    FinalAcceptancePublicationReceipt,
+    FoundationGateReceipt,
+    PublicationHistoryCensus,
     RevisionDeltaCensus,
     RevisionPathCensus,
     bind_revision_delta_census,
@@ -21,8 +32,11 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     evaluate_taw08_acceptance,
     verify_and_bind_candidate_lock,
     verify_and_bind_evidence_only_delta,
+    _bind_publication_history_census,
+    _verify_and_bind_final_acceptance_publication,
+    _verify_and_bind_foundation_gate_report,
 )
-from ultimate_ai_agent.core.evals.tool_aware_baseline import (
+from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     CandidateLock,
     CandidateManifestEntry,
     SourceDependencyClosure,
@@ -32,9 +46,12 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
     derive_local_python_dependencies,
     verify_candidate_lock,
 )
+from scripts.run_foundation_gate import (  # noqa: E402
+    evaluate_foundation_gate_at_exact_repository_revision,
+    report_only_receipt,
+)
 
 
-ROOT = Path(__file__).resolve().parents[1]
 SLICE_CANDIDATE_PATHS = tuple(
     sorted(
         {
@@ -48,8 +65,11 @@ SLICE_CANDIDATE_PATHS = tuple(
 )
 EVIDENCE_ONLY_DELTA_PATHS = (
     "docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json",
+    "docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json",
     "docs/evals/tool_aware_cognition_taw08_board_reconciliation_v1.json",
     "docs/evals/tool_aware_cognition_taw08_release_truth_reconciliation_v1.json",
+    "docs/kanban/current_board.md",
+    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
 )
 
 
@@ -97,6 +117,28 @@ def derive_revision_delta_census(
 ) -> RevisionDeltaCensus:
     candidate = candidate_revision_ref.removeprefix("git-sha:")
     delta = delta_revision_ref.removeprefix("git-sha:")
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", candidate, delta],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+    )
+    if ancestry.returncode != 0:
+        raise ValueError("evidence delta must descend from the locked candidate")
+    commits = tuple(
+        item
+        for item in _git(
+            "rev-list",
+            "--reverse",
+            f"{candidate}..{delta}",
+            repository_root=repository_root,
+        )
+        .decode("ascii")
+        .splitlines()
+        if item
+    )
+    if not commits:
+        raise ValueError("evidence delta history must contain at least one commit")
     paths = tuple(
         sorted(
             f"repo-path-ref:{path}"
@@ -114,11 +156,57 @@ def derive_revision_delta_census(
             if path
         )
     )
+    history_paths = tuple(
+        sorted(
+            {
+                f"repo-path-ref:{path}"
+                for commit in commits
+                for path in _git(
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--name-only",
+                    "--no-renames",
+                    "-r",
+                    "-m",
+                    commit,
+                    repository_root=repository_root,
+                )
+                .decode("utf-8")
+                .splitlines()
+                if path
+            }
+        )
+    )
     return bind_revision_delta_census(
         candidate_revision_ref=candidate_revision_ref,
         delta_revision_ref=delta_revision_ref,
         path_refs=paths,
-        provenance_ref="provenance-ref:git-diff-name-only",
+        history_path_refs=history_paths,
+        commit_count=len(commits),
+        candidate_ancestor_verified=True,
+        provenance_ref="provenance-ref:git-history-path-census",
+    )
+
+
+def derive_publication_history_census(
+    delta_revision_ref: str,
+    publication_revision_ref: str,
+    *,
+    repository_root: Path = ROOT,
+) -> PublicationHistoryCensus:
+    history = derive_revision_delta_census(
+        delta_revision_ref,
+        publication_revision_ref,
+        repository_root=repository_root,
+    )
+    return _bind_publication_history_census(
+        delta_revision_ref=delta_revision_ref,
+        publication_revision_ref=publication_revision_ref,
+        path_refs=history.path_refs,
+        history_path_refs=history.history_path_refs,
+        commit_count=history.commit_count,
+        delta_ancestor_verified=True,
+        provenance_ref="provenance-ref:git-history-path-census",
     )
 
 
@@ -244,7 +332,6 @@ def _source_evidence_from_git(
 
 def verify_repository_candidate(
     lock: CandidateLock,
-    content_by_ref: dict[str, bytes],
     *,
     repository_root: Path = ROOT,
 ) -> CandidateLockVerificationReceipt:
@@ -257,6 +344,15 @@ def verify_repository_candidate(
         revision_path_census,
         repository_root=repository_root,
     )
+    revision = lock.git_revision_ref.removeprefix("git-sha:")
+    content_by_ref = {
+        item.path_ref: _git(
+            "show",
+            f"{revision}:{item.path_ref.removeprefix('repo-path-ref:')}",
+            repository_root=repository_root,
+        )
+        for item in lock.entries
+    }
     return verify_and_bind_candidate_lock(
         candidate_lock=lock,
         expected_path_refs=tuple(item.path_ref for item in lock.entries),
@@ -282,6 +378,7 @@ def verify_repository_evidence_delta(
         repository_root=repository_root,
     )
     delta_revision = delta.delta_revision_ref.removeprefix("git-sha:")
+    candidate_revision = candidate_lock.git_revision_ref.removeprefix("git-sha:")
     content_by_ref = {
         path_ref: _git(
             "show",
@@ -290,14 +387,86 @@ def verify_repository_evidence_delta(
         )
         for path_ref in census.path_refs
     }
+    candidate_content_by_ref = {
+        path_ref: _git(
+            "show",
+            f"{candidate_revision}:{path_ref.removeprefix('repo-path-ref:')}",
+            repository_root=repository_root,
+        )
+        for path_ref in census.path_refs
+        if path_ref.endswith(".md")
+    }
     return verify_and_bind_evidence_only_delta(
         candidate_lock=candidate_lock,
         delta=delta,
         changed_content_by_path_ref=content_by_ref,
         revision_delta_census=census,
+        candidate_content_by_path_ref=candidate_content_by_ref,
         validated_acceptance_reports_by_path_ref=(
             validated_acceptance_reports_by_path_ref
         ),
+    )
+
+
+def verify_repository_foundation_gate(
+    *,
+    stage: Literal["exact_head", "postmerge"],
+    repository_root: Path = ROOT,
+) -> FoundationGateReceipt:
+    if stage not in {"exact_head", "postmerge"}:
+        raise ValueError("Foundation receipt stage is invalid")
+    revision_ref, report = evaluate_foundation_gate_at_exact_repository_revision(
+        repository_root
+    )
+    report = report.model_copy(
+        update={
+            "command_mode": "report-only",
+            "command_receipts": [report_only_receipt("report-only")],
+        }
+    )
+    return _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage=stage,
+        revision_ref=revision_ref,
+    )
+
+
+def verify_repository_final_acceptance_publication(
+    *,
+    publication_revision_ref: str,
+    candidate_revision_ref: str,
+    candidate_manifest_digest_ref: str,
+    founder_evidence_digest_ref: str,
+    delta: EvidenceOnlyDeltaManifest,
+    delta_verification_receipt: EvidenceOnlyDeltaVerificationReceipt,
+    postmerge_foundation_receipt: FoundationGateReceipt,
+    repository_root: Path = ROOT,
+) -> FinalAcceptancePublicationReceipt:
+    publication_revision = publication_revision_ref.removeprefix("git-sha:")
+    publication_path = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF.removeprefix(
+        "repo-path-ref:"
+    )
+    publication_content = _git(
+        "show",
+        f"{publication_revision}:{publication_path}",
+        repository_root=repository_root,
+    )
+    publication_history_census = derive_publication_history_census(
+        delta.delta_revision_ref,
+        publication_revision_ref,
+        repository_root=repository_root,
+    )
+    return _verify_and_bind_final_acceptance_publication(
+        publication_revision_ref=publication_revision_ref,
+        publication_path_ref=TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
+        publication_content=publication_content,
+        publication_history_census=publication_history_census,
+        candidate_revision_ref=candidate_revision_ref,
+        candidate_manifest_digest_ref=candidate_manifest_digest_ref,
+        founder_evidence_digest_ref=founder_evidence_digest_ref,
+        delta=delta,
+        delta_verification_receipt=delta_verification_receipt,
+        postmerge_foundation_receipt=postmerge_foundation_receipt,
     )
 
 
@@ -312,7 +481,7 @@ def verify() -> None:
     )
     if failures:
         raise RuntimeError(f"TAW-08 contract candidate lock failed: {failures}")
-    candidate_receipt = verify_repository_candidate(lock, content_by_ref)
+    candidate_receipt = verify_repository_candidate(lock)
     report = evaluate_taw08_acceptance(
         candidate_lock=lock,
         candidate_verification_receipt=candidate_receipt,
@@ -327,6 +496,7 @@ def verify() -> None:
                     != "evidence-missing-ref:taw08:candidate-lock-verification-receipt"
                 ),
                 TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
+                TAW08_FINAL_PUBLICATION_MISSING_REF,
             )
             + (TAW08_DELTA_VERIFICATION_MISSING_REF,)
         )

@@ -20,8 +20,12 @@ authority.
 
 The founder is the sole product evaluator for the current private-dogfood
 stage. The contract does not require multiple human evaluators to record that
-decision. Founder-private acceptance requires typed, digest-bound measurement
-receipts whose candidate revision and manifest match the exact candidate:
+decision. Founder-private acceptance requires verified, digest-bound
+measurement receipts whose candidate revision and manifest match the exact
+candidate. Each receipt carries bounded numeric observations, an exact
+observation count, threshold identities, comparison operators and values, and
+a verifier identity. The verifier recomputes the threshold decision; an
+arbitrary digest or caller-authored `passed` label is insufficient:
 
 - stale-cache recovery evidence;
 - routing-confidence-bound evidence;
@@ -43,7 +47,11 @@ When the evidence is absent, `evaluate_taw08_acceptance` returns
 `blocked_missing_founder_evidence` with an exact missing-evidence census. Once
 the complete founder bundle is bound, the report can advance only to
 `founder_private_accepted_postmerge_pending`. A passing redacted post-merge
-Foundation Gate receipt advances it to
+Foundation Gate receipt advances it only to
+`founder_private_accepted_final_publication_pending`. A content-addressed final
+publication receipt must verify the actual canonical artifact bytes at
+`docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json` and bind
+their exact publication revision before the durable report advances to
 `founder_private_accepted_promotion_blocked`.
 
 ## Candidate Lock And Evidence-Only Delta
@@ -52,12 +60,16 @@ The existing TAW-00 `CandidateLock` remains the candidate-manifest authority.
 It binds an exact Git revision, sorted content-addressed acceptance-affecting
 entries, and the only paths permitted to change after the lock. TAW-08 requires
 a candidate-verification receipt produced only after the locked path census,
-content digests, source projection, and transitive dependency closure all
-verify. The repository verifier derives the complete source universe with
-`git ls-tree` at the locked revision before resolving imports. Candidate source
+content digests, source projection, transitive dependency closure, and resolved
+evaluator environment all verify. `pyproject.toml` and `uv.lock` are mandatory
+lock entries, and their verified digests form the evaluator-environment digest.
+The repository verifier derives the complete source universe with
+`git ls-tree` at the locked revision before resolving imports, and reads every
+locked artifact directly with `git show <revision>:<path>`. Candidate source
 paths and content digests must match the projection roots and closure entries
-exactly. An incomplete one-file lock, caller-supplied source universe, or source
-projection rebound to different bytes cannot satisfy the acceptance boundary.
+exactly. An incomplete one-file lock, caller-supplied content map or source
+universe, or source projection rebound to different bytes cannot satisfy the
+acceptance boundary.
 
 `EvidenceOnlyDeltaManifest` permits only three artifact kinds:
 
@@ -65,30 +77,64 @@ projection rebound to different bytes cannot satisfy the acceptance boundary.
 - `immutable_evidence_refs`; and
 - `claim_reconciliation`.
 
-Its verifier recomputes the exact changed-path census and content digests,
+Its verifier proves candidate ancestry and recomputes both the endpoint diff and
+the complete per-commit changed-path history, including merge-parent and
+later-reverted paths. It also recomputes content digests,
 requires every changed path to be predeclared by the candidate lock, recursively
-rejects secret-like values, validates the bounded JSON artifact against the
-frozen schema for its declared kind, and rejects overlap with
-acceptance-affecting candidate entries. A redacted acceptance artifact must be
-the exact projection of a fully validated `TAW08AcceptanceReport`; schema-valid
-placeholder values or a report for another candidate are rejected. A successful
-verification produces a digest-bound receipt that must match the candidate,
+rejects forbidden durable fields and high-signal secret-like values, validates
+the bounded artifact against the frozen schema for its declared kind, and
+rejects overlap with acceptance-affecting candidate entries. A redacted
+acceptance artifact must be present at the one canonical acceptance-report path
+and be the exact projection of a fully validated `TAW08AcceptanceReport`;
+schema-valid placeholder values, an omitted acceptance report, or a report for
+another candidate are rejected. A successful verification produces a
+digest-bound receipt that must match the candidate,
 delta manifest, delta revision, independently derived revision-delta path
 census, and exact artifact count. The repository workflow must derive that
 census from the named candidate and delta revisions before calling the core
 verifier; a caller-authored subset is not complete revision evidence.
 Executable code, routes, prompts, policy data, configuration, dependencies,
 evaluators, thresholds, corpora, labels, raw content, and holdout material
-cannot be represented as evidence-only. Board and release-truth reconciliation
-use separate structured JSON evidence paths; the active Markdown truth documents
-are not relabeled as JSON artifacts. Any other change requires a new
+cannot be represented as evidence-only. Both the board and release-truth
+reconciliations are mandatory and must publish `implemented` before the delta
+can verify. Each may update only the entire canonical TAW-07/TAW-08 status
+narrative and single machine-owned JSON block
+between the named TAW-08 markers in each active Markdown truth document. The
+verifier binds the narrative to the structured status, reads the candidate
+revision, and rejects any prefix, suffix, duplicate-marker, schema, or secret
+drift outside that bounded block. Separate structured JSON sidecars remain
+available for durable reconciliation evidence. Any other change requires a new
 candidate lock and acceptance cycle.
 
-Foundation receipts are SHA-bound, revision-bound, redacted `report-only`
-records. The exact-head receipt must match the candidate revision. The
+Foundation receipts are produced only by the canonical repository gate runner
+from an immutable, digest-bound, typed, validated, internally consistent,
+passing Foundation Gate report with real criterion results and the same clean
+exact Git revision derived before and after the full-repository gate invocation
+in `report-only` mode. The general report builder cannot attach evaluation
+provenance, and the public arbitrary receipt binder is not available. They
+are SHA-bound, revision-bound, and redacted. The exact-head receipt must match
+the candidate revision. The
 post-merge receipt is a distinct stage, must bind the verified evidence-only
 delta revision, and cannot substitute for the exact-head gate. A post-merge
 receipt without the verified delta receipt produces a failed report.
+
+Every measurement kind has a frozen case/stratum census and a minimum
+denominator of 24 per stratum; an aggregate observation cannot substitute for
+the complete powered census. Live measurements additionally bind the English
+language profile plus exact model, artifact/configuration, 128K context,
+backend, and observed-hardware refs. The final publication receipt binds the
+candidate, verified delta, post-merge receipt, terminal founder-private status,
+semantic digest of the final report. Its verifier parses and compares the
+canonical durable artifact bytes, then binds their content digest, canonical
+path, and exact publication revision so an in-memory `published` assertion
+cannot advance acceptance while durable truth stays post-merge-pending. The
+repository wrapper accepts no caller-supplied bytes; it reads the canonical
+artifact with `git show <publication-revision>:<canonical-path>` before invoking
+the core verifier. It also proves that the publication revision descends from
+the verified evidence-delta revision and that the complete endpoint and
+per-commit changed-path history between them contains only the canonical final
+publication artifact. An intervening, reverted, merged, or unrelated path
+change invalidates the receipt.
 
 ## Independent Promotion Remains Separate
 
