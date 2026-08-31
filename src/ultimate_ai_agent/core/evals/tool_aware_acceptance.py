@@ -29,12 +29,16 @@ TAW08_CONTRACT_REF = "contract-ref:taw08:founder-private-acceptance:v1"
 TAW08_EVALUATOR_REF = "evaluator-ref:taw08:deterministic-acceptance:v1"
 TAW08_MAX_EVIDENCE_DELTA_ENTRIES = 32
 TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
-TAW08_MAX_CANDIDATE_PATHS = 512
+TAW08_MAX_CANDIDATE_PATHS = 1024
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_REVISION_PATHS = 8192
 TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
 TAW08_FOUNDATION_GATE_SOURCE_PREFIX = (
     "repo-path-ref:src/ultimate_ai_agent/core/gate/"
+)
+TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS = (
+    "repo-path-ref:src/ultimate_ai_agent/core/"
+    "local_model_management/llama_cpp_supervisor.py",
 )
 TAW08_ACCEPTANCE_REPORT_PATH_REF = (
     "repo-path-ref:docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json"
@@ -1917,6 +1921,12 @@ def verify_and_bind_candidate_lock(
     if revision_path_census.revision_ref != candidate_lock.git_revision_ref:
         raise ValueError("revision path census must bind the candidate revision")
     available_path_refs = set(revision_path_census.path_refs)
+    revision_gate_paths = {
+        path_ref
+        for path_ref in revision_path_census.path_refs
+        if path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
+        and path_ref.endswith(".py")
+    }
     failures = set(
         verify_candidate_lock(
             candidate_lock,
@@ -1930,6 +1940,10 @@ def verify_and_bind_candidate_lock(
             source_projection=source_projection,
             content_by_path_ref=closure_content_by_path_ref,
             available_path_refs=available_path_refs,
+            allow_unresolved_dynamic_import_path_refs={
+                *revision_gate_paths,
+                *TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
+            },
         )
     )
     if (
@@ -1942,19 +1956,12 @@ def verify_and_bind_candidate_lock(
         for item in candidate_lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
-        and not item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
     }
     candidate_gate_entries = {
         item.path_ref
         for item in candidate_lock.entries
         if item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
         and item.path_ref.endswith(".py")
-    }
-    revision_gate_paths = {
-        path_ref
-        for path_ref in revision_path_census.path_refs
-        if path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
-        and path_ref.endswith(".py")
     }
     if candidate_gate_entries != revision_gate_paths:
         failures.add("failure-ref:taw08:foundation-gate-source-census-drift")
@@ -2215,15 +2222,37 @@ def verify_evidence_only_delta(
                 failures.add(
                     "failure-ref:taw08:evidence-delta-acceptance-report-binding-drift"
                 )
-        elif (
-            entry.path_ref in TAW08_ACTIVE_TRUTH_PATH_REFS
-            and (
+        elif entry.path_ref in TAW08_ACTIVE_TRUTH_PATH_REFS:
+            if (
                 not isinstance(artifact, ClaimReconciliationArtifact)
                 or artifact.entries[0].status
                 is not ReconciledClaimStatus.implemented
-            )
-        ):
-            failures.add("failure-ref:taw08:active-truth-status-not-implemented")
+            ):
+                failures.add("failure-ref:taw08:active-truth-status-not-implemented")
+            else:
+                accepted_report = validated_acceptance_reports_by_path_ref.get(
+                    TAW08_ACCEPTANCE_REPORT_PATH_REF
+                )
+                expected_evidence_refs = (
+                    tuple(
+                        sorted(
+                            (
+                                accepted_report.report_fingerprint_ref,
+                                accepted_report.founder_evidence_digest_ref,
+                            )
+                        )
+                    )
+                    if accepted_report is not None
+                    and accepted_report.founder_evidence_digest_ref is not None
+                    else None
+                )
+                if (
+                    expected_evidence_refs is not None
+                    and artifact.entries[0].evidence_refs != expected_evidence_refs
+                ):
+                    failures.add(
+                        "failure-ref:taw08:active-truth-evidence-binding-drift"
+                    )
         digest = f"sha256:{hashlib.sha256(content).hexdigest()}"
         if entry.content_digest_ref != digest:
             failures.add("failure-ref:taw08:evidence-delta-content-drift")

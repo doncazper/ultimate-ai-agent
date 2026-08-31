@@ -1621,6 +1621,7 @@ def derive_local_python_dependencies(
     content: bytes,
     *,
     available_path_refs: set[str],
+    allow_unresolved_dynamic_imports: bool = False,
 ) -> tuple[str, ...]:
     module_name = _module_name_for_path_ref(path_ref)
     if not path_ref.endswith(".py"):
@@ -1672,11 +1673,15 @@ def derive_local_python_dependencies(
             )
             if is_dynamic_import:
                 if not node.args or not isinstance(node.args[0], ast.Constant):
+                    if allow_unresolved_dynamic_imports:
+                        continue
                     raise ValueError(
                         "source closure contains an unresolved dynamic import"
                     )
                 dynamic_module = node.args[0].value
                 if not isinstance(dynamic_module, str):
+                    if allow_unresolved_dynamic_imports:
+                        continue
                     raise ValueError(
                         "source closure contains an unresolved dynamic import"
                     )
@@ -1694,8 +1699,12 @@ def verify_source_dependency_closure(
     source_projection: SourceProjection,
     content_by_path_ref: Mapping[str, bytes],
     available_path_refs: set[str],
+    allow_unresolved_dynamic_import_path_refs: set[str] | None = None,
 ) -> tuple[str, ...]:
     failures: set[str] = set()
+    allow_unresolved_dynamic_import_path_refs = (
+        allow_unresolved_dynamic_import_path_refs or set()
+    )
     projection_paths = tuple(item.path_ref for item in source_projection.entries)
     if closure.source_revision_ref != source_projection.source_revision_ref:
         failures.add("failure-ref:taw00:source-closure-revision-drift")
@@ -1717,6 +1726,9 @@ def verify_source_dependency_closure(
             path_ref,
             content,
             available_path_refs=available_path_refs,
+            allow_unresolved_dynamic_imports=(
+                path_ref in allow_unresolved_dynamic_import_path_refs
+            ),
         )
         if entry.dependency_path_refs != expected_dependencies:
             failures.add("failure-ref:taw00:source-closure-edge-drift")

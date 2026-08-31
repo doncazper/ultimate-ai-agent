@@ -5334,6 +5334,100 @@ def test_removed_declarations_indexes_base_and_worktree_submodules(
     assert guard.removed_declarations(tmp_path, "a" * 40) == ()
 
 
+def test_removed_declarations_aligns_one_time_parameter_dependency_upgrade(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    data_path = "data.py"
+    test_source = (
+        "import pytest\n"
+        "from data import Case\n"
+        "@pytest.mark.parametrize('case', [Case()])\n"
+        "def test_case(case): assert case.value\n"
+    )
+    base_data = "VALUE = 'before'\nclass Case:\n    def __init__(self): self.value = VALUE\n"
+    current_data = (
+        "VALUE = 'after'\nclass Case:\n    def __init__(self): self.value = VALUE\n"
+    )
+    for path, text in {test_path: test_source, data_path: current_data}.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    base_sources = {
+        test_path: test_source,
+        data_path: base_data,
+        guard.TEST_CORPUS_GUARD_PATH: "legacy guard\n",
+    }
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+
+
+def test_parameter_dependency_upgrade_does_not_hide_abort_posture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    data_path = "data.py"
+    test_source = (
+        "import pytest\n"
+        "from data import Case\n"
+        "@pytest.mark.parametrize('case', [Case()])\n"
+        "def test_case(case): assert case.value\n"
+    )
+    base_data = "class Case:\n    def __init__(self): self.value = True\n"
+    current_data = (
+        "import pytest\n"
+        "class Case:\n"
+        "    def __init__(self): pytest.skip('disabled')\n"
+    )
+    for path, text in {test_path: test_source, data_path: current_data}.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    base_sources = {
+        test_path: test_source,
+        data_path: base_data,
+        guard.TEST_CORPUS_GUARD_PATH: "legacy guard\n",
+    }
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    removed = guard.removed_declarations(tmp_path, "a" * 40)
+
+    assert removed
+
+
 def test_removed_declarations_reuses_validated_python_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -7929,6 +8023,36 @@ def test_case(case):
     assert before[0].ref != after[0].ref
 
 
+def test_python_inventory_binds_materialized_parameter_class_dependencies(
+    tmp_path: Path,
+) -> None:
+    factory_path = tmp_path / "factory.py"
+    data_path = tmp_path / "data.py"
+    factory_path.write_text("def make_value():\n    return 'before'\n")
+    data_path.write_text(
+        "from factory import make_value\n"
+        "class Case:\n"
+        "    def __init__(self): self.value = make_value()\n"
+    )
+    test_text = """
+import pytest
+from data import Case
+
+@pytest.mark.parametrize("case", [Case()])
+def test_case(case):
+    assert case.value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    factory_path.write_text("def make_value():\n    return 'after'\n")
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
 def test_python_inventory_binds_positional_imported_parameter_id_helper(
     tmp_path: Path,
 ) -> None:
@@ -7999,6 +8123,40 @@ def test_case(callback):
         "import pytest\n"
         "def helper():\n"
         "    pytest.skip('disabled')\n"
+    )
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_preserves_transitive_inert_callable_abort_posture(
+    tmp_path: Path,
+) -> None:
+    dependency_path = tmp_path / "dependency.py"
+    callback_path = tmp_path / "callback.py"
+    dependency_path.write_text("def prepare():\n    return True\n")
+    callback_path.write_text(
+        "from dependency import prepare\n"
+        "def helper():\n"
+        "    return prepare()\n"
+    )
+    test_text = """
+import pytest
+from callback import helper
+
+@pytest.mark.parametrize("callback", [helper])
+def test_case(callback):
+    assert callback()
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    dependency_path.write_text(
+        "import pytest\n"
+        "def prepare():\n"
+        "    pytest.xfail('disabled')\n"
     )
     after = guard._parse_worktree_test_declarations(
         tmp_path, "tests/test_sample.py", test_text

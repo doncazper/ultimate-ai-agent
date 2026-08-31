@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
     TAW08AcceptanceStatus,
     TAW08AcceptanceReport,
     TAW08_REQUIRED_ACCEPTANCE_PATH_REFS,
+    TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
     CandidateLockVerificationReceipt,
     EvidenceOnlyDeltaManifest,
     EvidenceOnlyDeltaVerificationReceipt,
@@ -277,7 +278,6 @@ def _source_evidence_from_git(
         for item in lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
-        and not item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
     )
     projection_payload = {
         "schema_version": "uaa-taw00-source-projection.v1",
@@ -314,6 +314,10 @@ def _source_evidence_from_git(
             path_ref,
             content,
             available_path_refs=available,
+            allow_unresolved_dynamic_imports=(
+                path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
+                or path_ref in TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS
+            ),
         )
         dependencies_by_ref[path_ref] = dependencies
         frontier.extend(ref for ref in dependencies if ref not in content_by_ref)

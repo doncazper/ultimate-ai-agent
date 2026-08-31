@@ -89,6 +89,10 @@ PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
 PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
     "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
 )
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
+    "uaa.test_corpus.parameter_dependency_identity.v2"
+)
+TEST_CORPUS_GUARD_PATH = "scripts/verification/test_corpus_guard.py"
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
         "scripts.verification.pytest_collection_evidence",
@@ -3858,7 +3862,28 @@ def _python_imported_binding_source(
             for node in parameter_callable_nodes
         ),
     )
-    if _parameter_value and parameter_callable_identity is not None:
+    if (
+        _parameter_value
+        and parameter_callable_identity is not None
+        and not (
+            _materialized
+            and parameter_callable_nodes
+            and all(isinstance(node, ast.ClassDef) for node in parameter_callable_nodes)
+        )
+    ):
+        closure_identity = _python_imported_binding_source(
+            module,
+            source,
+            binding_name,
+            import_source_resolver,
+            _seen_bindings=_seen_bindings,
+            _parameter_value=False,
+        )
+        if "runtime-abort-posture=true" in closure_identity.splitlines():
+            parameter_callable_identity = parameter_callable_identity.replace(
+                "runtime-abort-posture=false",
+                "runtime-abort-posture=true",
+            )
         if parameter_cache is not None:
             parameter_cache[(*cache_key, _materialized)] = (
                 parameter_callable_identity
@@ -12530,6 +12555,88 @@ def _validate_worktree_inventory_snapshot(
             raise TestCorpusGuardError("test inventory changed during verification")
 
 
+def _parameter_identity_migration_is_collection_neutral(
+    path: str,
+    text: str,
+    base_resolver: Callable[[str], str | None],
+    current_resolver: Callable[[str], str | None],
+) -> bool:
+    tree = ast.parse(text, filename=path)
+    module = _python_module_name_for_path(path)
+    relative_package = module.rsplit(".", 1)[0] if "." in module else module
+    imported_modules = _python_import_modules(
+        tree,
+        relative_package=relative_package,
+    )
+    parameter_decorators = tuple(
+        decorator
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        for decorator in node.decorator_list
+        if isinstance(decorator, ast.Call)
+        and (
+            (
+                isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "parametrize"
+            )
+            or (
+                isinstance(decorator.func, ast.Name)
+                and decorator.func.id == "parametrize"
+            )
+        )
+    )
+    requirements: dict[str, set[str]] = {}
+    for decorator in parameter_decorators:
+        for root, names in _python_import_requirements(
+            decorator,
+            imported_modules,
+        ).items():
+            requirements.setdefault(root, set()).update(names)
+    for root, names in requirements.items():
+        candidates = imported_modules[root]
+        resolved = next(
+            (
+                (candidate, base_source, current_source)
+                for candidate in candidates
+                if (base_source := base_resolver(candidate)) is not None
+                and (current_source := current_resolver(candidate)) is not None
+            ),
+            None,
+        )
+        if resolved is None:
+            continue
+        candidate, base_source, current_source = resolved
+        for name in names:
+            binding_name = _binding_name_for_resolved_import(
+                candidates,
+                candidate,
+                name,
+            )
+            try:
+                base_identity = _python_imported_binding_source(
+                    candidate,
+                    base_source,
+                    binding_name,
+                    base_resolver,
+                    _parameter_value=True,
+                )
+                current_identity = _python_imported_binding_source(
+                    candidate,
+                    current_source,
+                    binding_name,
+                    current_resolver,
+                    _parameter_value=True,
+                )
+            except TestCorpusGuardError:
+                return False
+            if (
+                "runtime-abort-posture=true" in base_identity.splitlines()
+                or "runtime-abort-posture=true" in current_identity.splitlines()
+            ):
+                return False
+    return True
+
+
 def removed_declarations(
     repo: Path,
     base_sha: str,
@@ -12538,6 +12645,10 @@ def removed_declarations(
 ) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
+    base_guard_source = _base_text(repo, base_sha, TEST_CORPUS_GUARD_PATH) or ""
+    parameter_identity_migration_active = (
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER not in base_guard_source
+    )
     base_python_source_cache: dict[str, str | None] = {}
 
     def read_base_python_import(candidate: str) -> str | None:
@@ -12703,6 +12814,31 @@ def removed_declarations(
             current_declarations = ()
             current_refs = set()
         path_removed = prior_refs - current_refs
+        if (
+            parameter_identity_migration_active
+            and prior == current_text
+            and len(prior_declarations) == len(current_declarations)
+            and _parameter_identity_migration_is_collection_neutral(
+                path,
+                prior,
+                base_import_source_resolver,
+                worktree_import_source_resolver,
+            )
+        ):
+            parameter_suffix = re.compile(
+                r"::parametrize-sha256:[0-9a-f]{64}(?=#\d+$|$)"
+            )
+            for prior_declaration, current_declaration in zip(
+                prior_declarations,
+                current_declarations,
+                strict=True,
+            ):
+                if (
+                    prior_declaration.kind == current_declaration.kind
+                    and parameter_suffix.sub("", prior_declaration.ref)
+                    == parameter_suffix.sub("", current_declaration.ref)
+                ):
+                    path_removed.discard(prior_declaration.ref)
         if path.endswith(".py") and current_text is not None and path_removed:
             normalized_prior = tuple(
                 declaration

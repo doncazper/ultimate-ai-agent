@@ -16,6 +16,7 @@ from pydantic import ValidationError
 import ultimate_ai_agent.core.evals as evals_api
 import ultimate_ai_agent.core.evals.tool_aware_acceptance as acceptance_module
 from scripts import run_foundation_gate as foundation_runner
+from scripts import verify_tool_aware_cognition_taw08 as taw08_verifier
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     _bind_publication_history_census,
     _verify_and_bind_final_acceptance_publication,
@@ -432,7 +433,24 @@ def _safe_delta_content(lock: CandidateLock) -> bytes:
     ).encode("utf-8")
 
 
-def _reconciliation_content(path_ref: str, *, status: str) -> bytes:
+def _reconciliation_content(
+    path_ref: str,
+    *,
+    status: str,
+    accepted_report: TAW08AcceptanceReport | None = None,
+) -> bytes:
+    implemented_evidence_refs = (
+        sorted(
+            (
+                accepted_report.report_fingerprint_ref,
+                accepted_report.founder_evidence_digest_ref,
+            )
+        )
+        if status == "implemented"
+        and accepted_report is not None
+        and accepted_report.founder_evidence_digest_ref is not None
+        else []
+    )
     artifact = {
         "entries": [
             {
@@ -441,11 +459,7 @@ def _reconciliation_content(path_ref: str, *, status: str) -> bytes:
                     if path_ref == BOARD_PATH_REF
                     else "claim-ref:queue-v2/Q22/taw08-release-truth"
                 ),
-                "evidence_refs": (
-                    ["evidence-ref:taw08:founder-private-accepted"]
-                    if status == "implemented"
-                    else []
-                ),
+                "evidence_refs": implemented_evidence_refs,
                 "status": status,
             }
         ],
@@ -466,15 +480,22 @@ def _reconciliation_content(path_ref: str, *, status: str) -> bytes:
 def _delta_contents(
     lock: CandidateLock, acceptance_content: bytes | None = None
 ) -> dict[str, bytes]:
+    accepted_report = _pre_delta_report(lock)
     return {
         TAW08_ACCEPTANCE_REPORT_PATH_REF: (
             _safe_delta_content(lock)
             if acceptance_content is None
             else acceptance_content
         ),
-        BOARD_PATH_REF: _reconciliation_content(BOARD_PATH_REF, status="implemented"),
+        BOARD_PATH_REF: _reconciliation_content(
+            BOARD_PATH_REF,
+            status="implemented",
+            accepted_report=accepted_report,
+        ),
         RELEASE_PATH_REF: _reconciliation_content(
-            RELEASE_PATH_REF, status="implemented"
+            RELEASE_PATH_REF,
+            status="implemented",
+            accepted_report=accepted_report,
         ),
     }
 
@@ -1037,6 +1058,15 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
         )
 
 
+def test_foundation_receipt_uses_canonical_report_criterion_order() -> None:
+    report_ids = tuple(item.criterion_id for item in _foundation_gate_report().results)
+    expected_ids = tuple(
+        sorted(item.criterion_id for item in default_foundation_gate_criteria())
+    )
+
+    assert report_ids == expected_ids
+
+
 def test_foundation_receipt_rejects_report_from_another_revision() -> None:
     with pytest.raises(ValueError, match="revision provenance drift"):
         _verify_and_bind_foundation_gate_report(
@@ -1298,6 +1328,68 @@ def test_candidate_lock_rejects_incomplete_foundation_gate_source_census() -> No
             _candidate_lock(),
             revision_path_ref_extras={unlocked_gate_path},
         )
+
+
+def test_foundation_gate_sources_seed_external_dependency_closure(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    gate_path = "src/ultimate_ai_agent/core/gate/evaluator.py"
+    dependency_path = "src/ultimate_ai_agent/core/outside.py"
+    (repository / gate_path).parent.mkdir(parents=True)
+    (repository / gate_path).write_text(
+        "import importlib\n"
+        "from ultimate_ai_agent.core.outside import VALUE\n"
+        "def load(name): return importlib.import_module(name)\n",
+        encoding="utf-8",
+    )
+    (repository / dependency_path).write_text("VALUE = 1\n", encoding="utf-8")
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    git("add", ".")
+    git("commit", "-m", "candidate")
+    revision = git("rev-parse", "HEAD")
+    gate_content = (repository / gate_path).read_bytes()
+    entry = CandidateManifestEntry(
+        path_ref=f"repo-path-ref:{gate_path}",
+        content_digest_ref=f"sha256:{hashlib.sha256(gate_content).hexdigest()}",
+    )
+    values = {
+        "candidate_ref": "candidate-ref:taw08:gate-closure-test",
+        "git_revision_ref": f"git-sha:{revision}",
+        "entries": [entry.model_dump(mode="json")],
+        "evidence_only_delta_path_refs": (TAW08_ACCEPTANCE_REPORT_PATH_REF,),
+    }
+    lock = CandidateLock(
+        **values,
+        manifest_digest_ref=canonical_digest(values),
+    )
+    census = derive_revision_path_census(
+        lock.git_revision_ref,
+        repository_root=repository,
+    )
+
+    projection, closure, _content = taw08_verifier._source_evidence_from_git(
+        lock,
+        census,
+        repository_root=repository,
+    )
+
+    assert projection.entries[0].path_ref == f"repo-path-ref:{gate_path}"
+    assert f"repo-path-ref:{dependency_path}" in {
+        item.path_ref for item in closure.entries
+    }
 
 
 def test_candidate_verifier_rejects_source_content_substitution() -> None:
@@ -1661,6 +1753,44 @@ def test_active_truth_reconciliation_is_bounded_to_machine_block() -> None:
     ) == (
         "failure-ref:taw08:evidence-delta-artifact-schema-invalid",
     )
+
+
+def test_active_truth_implemented_claim_binds_exact_accepted_evidence() -> None:
+    lock = _candidate_lock()
+    report = _pre_delta_report(lock)
+    contents = _delta_contents(lock)
+    contents[BOARD_PATH_REF] = _reconciliation_content(
+        BOARD_PATH_REF,
+        status="implemented",
+    )
+    delta = bind_evidence_only_delta(
+        candidate_revision_ref=lock.git_revision_ref,
+        candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        delta_revision_ref=DELTA_REVISION_REF,
+        entries=tuple(
+            EvidenceOnlyDeltaEntry(
+                path_ref=path_ref,
+                artifact_kind=(
+                    "acceptance_report"
+                    if path_ref == TAW08_ACCEPTANCE_REPORT_PATH_REF
+                    else "claim_reconciliation"
+                ),
+                content_digest_ref=f"sha256:{hashlib.sha256(value).hexdigest()}",
+            )
+            for path_ref, value in sorted(contents.items())
+        ),
+    )
+
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref=contents,
+        candidate_content_by_path_ref=_candidate_truth_contents(),
+        revision_delta_census=_revision_delta_census(tuple(sorted(contents))),
+        validated_acceptance_reports_by_path_ref={
+            TAW08_ACCEPTANCE_REPORT_PATH_REF: report
+        },
+    ) == ("failure-ref:taw08:active-truth-evidence-binding-drift",)
 
 
 def test_active_truth_reconciliation_must_publish_accepted_status() -> None:
