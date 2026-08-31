@@ -3741,22 +3741,40 @@ def _python_parameter_callable_identity(
     nodes: tuple[ast.AST, ...],
     *,
     materialized: bool,
+    runtime_abort_posture: bool,
 ) -> str | None:
     """Bind inert parameter callables by import identity and callable kind."""
 
     callable_kind: str | None = None
+    materialized_class_digest: str | None = None
     if nodes and all(isinstance(node, ast.ClassDef) for node in nodes):
-        callable_kind = "class"
+        if materialized:
+            materialized_class_digest = hashlib.sha256(
+                "\n".join(
+                    ast.dump(node, annotate_fields=True, include_attributes=False)
+                    for node in nodes
+                ).encode("utf-8")
+            ).hexdigest()
+        else:
+            callable_kind = "class"
     elif nodes and not materialized and all(
         isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in nodes
     ):
         callable_kind = "function"
-    if callable_kind is None:
+    if callable_kind is None and materialized_class_digest is None:
         return None
     return (
         f"module={module}\nbinding={binding_name}\n"
-        f"parameter-callable-kind={callable_kind}"
-        + "\nruntime-abort-posture=false"
+        + (
+            f"parameter-materialized-class-sha256={materialized_class_digest}"
+            if materialized_class_digest is not None
+            else f"parameter-callable-kind={callable_kind}"
+        )
+        + (
+            "\nruntime-abort-posture=true"
+            if runtime_abort_posture
+            else "\nruntime-abort-posture=false"
+        )
     )
 
 
@@ -3827,13 +3845,18 @@ def _python_imported_binding_source(
     imported_modules = analysis.imported_modules
     direct_module_aliases = analysis.direct_module_aliases
     star_import_modules = analysis.star_import_modules
+    parameter_callable_nodes = tuple(
+        binding.node for binding in module_bindings.get(binding_name, ())
+    )
     parameter_callable_identity = _python_parameter_callable_identity(
         module,
         binding_name,
-        tuple(
-            binding.node for binding in module_bindings.get(binding_name, ())
-        ),
+        parameter_callable_nodes,
         materialized=_materialized,
+        runtime_abort_posture=any(
+            _python_binding_node_analysis(analysis, node).runtime_abort_posture
+            for node in parameter_callable_nodes
+        ),
     )
     if _parameter_value and parameter_callable_identity is not None:
         if parameter_cache is not None:
@@ -6977,7 +7000,10 @@ def _parameterized_ref(
                 )
             )
     for decorator in decorators:
-        value_nodes = [(value, False) for value in decorator.args]
+        value_nodes = [
+            (value, index == 3)
+            for index, value in enumerate(decorator.args)
+        ]
         value_nodes.extend(
             (keyword.value, keyword.arg == "ids")
             for keyword in decorator.keywords
@@ -7161,12 +7187,52 @@ def _parameterized_ref(
     ]
     binding_import_requirements: dict[str, set[str]] = {}
     invoked_binding_import_requirements: dict[str, set[str]] = {}
-    for binding in binding_nodes.values():
+    materialized_callback_names = {
+        child.id
+        for decorator in decorators
+        for value in (
+            *((decorator.args[3],) if len(decorator.args) > 3 else ()),
+            *(
+                keyword.value
+                for keyword in decorator.keywords
+                if keyword.arg == "ids"
+            ),
+        )
+        for child in ast.walk(value)
+        if isinstance(child, ast.Name)
+    }
+    materialized_binding_positions: set[tuple[int, int]] = set()
+    pending_materialized_names = list(materialized_callback_names)
+    resolved_materialized_names: set[str] = set()
+    while pending_materialized_names:
+        name = pending_materialized_names.pop()
+        if name in resolved_materialized_names:
+            continue
+        resolved_materialized_names.add(name)
+        for module_binding in module_bindings.get(name, ()):
+            binding = module_binding.node
+            position = (binding.lineno, binding.col_offset)
+            if position not in binding_nodes:
+                continue
+            materialized_binding_positions.add(position)
+            pending_materialized_names.extend(
+                child.id
+                for child in ast.walk(binding)
+                if isinstance(child, ast.Name)
+                and child.id in module_bindings
+                and child.id not in resolved_materialized_names
+            )
+    materialized_binding_import_requirements: dict[str, set[str]] = {}
+    for position, binding in binding_nodes.items():
         for root, names in _python_import_requirements(
             binding,
             imported_modules,
         ).items():
             binding_import_requirements.setdefault(root, set()).update(names)
+            if position in materialized_binding_positions:
+                materialized_binding_import_requirements.setdefault(
+                    root, set()
+                ).update(names)
         for root, names in _python_invoked_import_requirements(
             binding,
             imported_modules,
@@ -7206,6 +7272,8 @@ def _parameterized_ref(
                     _materialized=(
                         binding_name
                         in invoked_binding_import_requirements.get(root, set())
+                        or binding_name
+                        in materialized_binding_import_requirements.get(root, set())
                     ),
                 )
             )

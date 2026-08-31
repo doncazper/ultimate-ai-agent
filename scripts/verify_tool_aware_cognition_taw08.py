@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
     TAW08_DELTA_VERIFICATION_MISSING_REF,
     TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
     TAW08_FINAL_PUBLICATION_MISSING_REF,
+    TAW08_FOUNDATION_GATE_SOURCE_PREFIX,
     TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     TAW08AcceptanceStatus,
@@ -213,7 +214,16 @@ def derive_publication_history_census(
 def _candidate_lock(revision: str) -> tuple[CandidateLock, dict[str, bytes]]:
     entries: list[CandidateManifestEntry] = []
     content_by_ref: dict[str, bytes] = {}
-    for path in SLICE_CANDIDATE_PATHS:
+    gate_paths = tuple(
+        path
+        for path in _git("ls-tree", "-r", "--name-only", revision)
+        .decode("utf-8")
+        .splitlines()
+        if f"repo-path-ref:{path}".startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
+        and path.endswith(".py")
+    )
+    candidate_paths = tuple(sorted({*SLICE_CANDIDATE_PATHS, *gate_paths}))
+    for path in candidate_paths:
         comparison = subprocess.run(
             ["git", "diff", "--quiet", revision, "--", path],
             cwd=ROOT,
@@ -267,6 +277,7 @@ def _source_evidence_from_git(
         for item in lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
+        and not item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
     )
     projection_payload = {
         "schema_version": "uaa-taw00-source-projection.v1",
@@ -473,7 +484,7 @@ def verify_repository_final_acceptance_publication(
 def verify() -> None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     lock, content_by_ref = _candidate_lock(revision)
-    expected_refs = tuple(f"repo-path-ref:{path}" for path in SLICE_CANDIDATE_PATHS)
+    expected_refs = tuple(item.path_ref for item in lock.entries)
     failures = verify_candidate_lock(
         lock,
         expected_path_refs=expected_refs,

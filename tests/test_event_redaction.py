@@ -7,6 +7,10 @@ def test_scan_payload_detects_secrets() -> None:
     assert scan_payload_for_secrets("secret = \"mysecrettokenvalue\"") is True
     assert scan_payload_for_secrets("password='SuperSecurePassword123'") is True
     assert scan_payload_for_secrets("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456") is True
+    assert (
+        scan_payload_for_secrets("github_" + "pat_11AA22BB33CC44DD55EE66FF77GG88HH99II00JJ")
+        is True
+    )
     assert scan_payload_for_secrets("AKIAABCDEFGHIJKLMNOP") is True
     
     # Dict contain secret pattern

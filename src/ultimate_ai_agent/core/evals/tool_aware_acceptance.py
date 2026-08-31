@@ -8,6 +8,8 @@ import sys
 from enum import Enum
 from typing import Literal, Mapping
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from ultimate_ai_agent.core.evals.tool_aware_baseline import (
@@ -30,6 +32,10 @@ TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_CANDIDATE_PATHS = 512
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_REVISION_PATHS = 8192
+TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
+TAW08_FOUNDATION_GATE_SOURCE_PREFIX = (
+    "repo-path-ref:src/ultimate_ai_agent/core/gate/"
+)
 TAW08_ACCEPTANCE_REPORT_PATH_REF = (
     "repo-path-ref:docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json"
 )
@@ -107,6 +113,7 @@ TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
                     "src/ultimate_ai_agent/core/capabilities/retrieval.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
+                    "scripts/run_foundation_gate.py",
                 )
             ),
         }
@@ -117,6 +124,7 @@ TAW08_FOUNDER_EVIDENCE_MISSING_REFS = (
     "evidence-missing-ref:taw08:end-to-end-journey-receipt",
     "evidence-missing-ref:taw08:exact-head-foundation-receipt",
     "evidence-missing-ref:taw08:founder-acceptance-decision",
+    "evidence-missing-ref:taw08:founder-decision-verification-authority",
     "evidence-missing-ref:taw08:live-model-hardware-measurements",
     "evidence-missing-ref:taw08:response-scoring",
     "evidence-missing-ref:taw08:routing-confidence-bounds",
@@ -832,6 +840,11 @@ class FounderMeasurementObservation(_FrozenModel):
             self.threshold_value
         ):
             raise ValueError("founder measurement values must be finite")
+        if self.unit_ref == "unit-ref:ratio" and (
+            not 0.0 <= self.observed_value <= 1.0
+            or not 0.0 <= self.threshold_value <= 1.0
+        ):
+            raise ValueError("founder measurement ratios must be within zero and one")
         return self
 
     @property
@@ -870,6 +883,32 @@ class FounderMeasurementReceipt(_FrozenModel):
         return self
 
 
+def founder_decision_signature_payload(
+    *,
+    candidate_revision_ref: str,
+    candidate_manifest_digest_ref: str,
+    measurement_receipt_digest_refs: tuple[str, ...],
+    exact_head_foundation_receipt_digest_ref: str,
+    founder_decision_ref: str,
+) -> bytes:
+    """Return the canonical digest message that the founder must sign."""
+
+    payload = {
+        "schema_version": "uaa-taw08-founder-decision-signature.v1",
+        "candidate_revision_ref": candidate_revision_ref,
+        "candidate_manifest_digest_ref": candidate_manifest_digest_ref,
+        "measurement_receipt_digest_refs": tuple(
+            sorted(measurement_receipt_digest_refs)
+        ),
+        "exact_head_foundation_receipt_digest_ref": (
+            exact_head_foundation_receipt_digest_ref
+        ),
+        "founder_decision_ref": founder_decision_ref,
+        "founder_decision_outcome": "accepted",
+    }
+    return canonical_digest(payload).encode("ascii")
+
+
 class FounderPrivateAcceptanceEvidence(_FrozenModel):
     schema_version: Literal["uaa-taw08-founder-acceptance-evidence.v1"] = (
         "uaa-taw08-founder-acceptance-evidence.v1"
@@ -885,6 +924,7 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
     end_to_end_journey_receipt: FounderMeasurementReceipt
     founder_decision_ref: str
     founder_decision_outcome: Literal["accepted"]
+    founder_decision_signature_ref: str
     exact_head_foundation_receipt: FoundationGateReceipt
     evidence_digest_ref: str
     raw_content_persisted: Literal[False] = False
@@ -939,6 +979,40 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
             raise ValueError(
                 "exact-head Foundation receipt must bind the candidate revision"
             )
+        if TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX is None:
+            raise ValueError("founder decision verification authority is missing")
+        if not re.fullmatch(
+            r"ed25519-signature-ref:[0-9a-f]{128}",
+            self.founder_decision_signature_ref,
+        ):
+            raise ValueError("founder decision signature ref is invalid")
+        try:
+            public_key_bytes = bytes.fromhex(
+                TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX
+            )
+            if len(public_key_bytes) != 32:
+                raise ValueError("founder decision public key is invalid")
+            signature = bytes.fromhex(
+                self.founder_decision_signature_ref.removeprefix(
+                    "ed25519-signature-ref:"
+                )
+            )
+            Ed25519PublicKey.from_public_bytes(public_key_bytes).verify(
+                signature,
+                founder_decision_signature_payload(
+                    candidate_revision_ref=self.candidate_revision_ref,
+                    candidate_manifest_digest_ref=(
+                        self.candidate_manifest_digest_ref
+                    ),
+                    measurement_receipt_digest_refs=receipt_digests,
+                    exact_head_foundation_receipt_digest_ref=(
+                        self.exact_head_foundation_receipt.receipt_digest_ref
+                    ),
+                    founder_decision_ref=self.founder_decision_ref,
+                ),
+            )
+        except (InvalidSignature, TypeError, ValueError) as exc:
+            raise ValueError("founder decision signature verification failed") from exc
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"evidence_digest_ref"})
         )
@@ -1868,7 +1942,22 @@ def verify_and_bind_candidate_lock(
         for item in candidate_lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
+        and not item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
     }
+    candidate_gate_entries = {
+        item.path_ref
+        for item in candidate_lock.entries
+        if item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
+        and item.path_ref.endswith(".py")
+    }
+    revision_gate_paths = {
+        path_ref
+        for path_ref in revision_path_census.path_refs
+        if path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
+        and path_ref.endswith(".py")
+    }
+    if candidate_gate_entries != revision_gate_paths:
+        failures.add("failure-ref:taw08:foundation-gate-source-census-drift")
     projection_entries = {item.path_ref: item for item in source_projection.entries}
     closure_entries = {item.path_ref: item for item in source_closure.entries}
     if set(candidate_source_entries) != set(projection_entries):

@@ -24,7 +24,8 @@ decision. Founder-private acceptance requires verified, digest-bound
 measurement receipts whose candidate revision and manifest match the exact
 candidate. Each receipt carries bounded numeric observations, an exact
 observation count, threshold identities, comparison operators and values, and
-a verifier identity. The verifier recomputes the threshold decision; an
+a verifier identity. Ratio observations and thresholds are constrained to the
+closed interval from zero through one. The verifier recomputes the threshold decision; an
 arbitrary digest or caller-authored `passed` label is insufficient:
 
 - stale-cache recovery evidence;
@@ -33,7 +34,9 @@ arbitrary digest or caller-authored `passed` label is insufficient:
 - at least one exact live model/hardware run receipt;
 - the end-to-end chat, discovery, proposal, approval-required, unavailable,
   unsupported, interrupted, and recovery journey receipt;
-- the founder decision ref with an explicit `accepted` outcome; and
+- the founder decision ref with an explicit `accepted` outcome and a verified
+  Ed25519 signature over the exact candidate, measurement-receipt census,
+  exact-head Foundation receipt, and decision ref; and
 - a passing redacted Foundation Gate `report-only` receipt for the exact
   candidate head.
 
@@ -42,6 +45,12 @@ context identity, configured ChatGPT/Codex API profile identities, and per-run
 observed Mac/Windows hardware. A run receipt must bind the exact model artifact
 or configured model ID and the observed host. This repository slice performs no
 such run and does not grant permission to call those models or providers.
+
+The founder-decision verification key is an acceptance authority, not ordinary
+caller input. This slice intentionally leaves that repository trust root
+unconfigured, so a caller cannot invent a decision and advance acceptance.
+Founder-private acceptance stays blocked until a later exact candidate binds
+the founder's public verification key; no private signing key is stored here.
 
 When the evidence is absent, `evaluate_taw08_acceptance` returns
 `blocked_missing_founder_evidence` with an exact missing-evidence census. Once
@@ -70,6 +79,15 @@ paths and content digests must match the projection roots and closure entries
 exactly. An incomplete one-file lock, caller-supplied content map or source
 universe, or source projection rebound to different bytes cannot satisfy the
 acceptance boundary.
+
+The lock also binds the canonical Foundation Gate runner directly and derives a
+complete content-addressed census of every Python source file in the gate
+package from the named Git revision. The verifier compares that census with the
+revision tree, so adding, removing, or changing evaluator, report, criteria, or
+support code invalidates stale acceptance evidence even when the runner path
+itself does not change. This explicit package census remains fail-closed where
+the gate intentionally uses dynamic module loading; it does not guess at a
+false static import graph.
 
 `EvidenceOnlyDeltaManifest` permits only three artifact kinds:
 

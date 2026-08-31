@@ -7880,9 +7880,9 @@ def test_python_inventory_ignores_imported_parameter_callable_bodies(
 import pytest
 from data import Case, validator
 
-@pytest.mark.parametrize(("case", "check"), [(Case(), validator)])
-def test_case(case, check):
-    assert check(case.value())
+@pytest.mark.parametrize(("case_type", "check"), [(Case, validator)])
+def test_case(case_type, check):
+    assert check(case_type().value())
 """
     before = guard._parse_worktree_test_declarations(
         tmp_path, "tests/test_sample.py", test_text
@@ -7897,6 +7897,114 @@ def test_case(case, check):
     )
 
     assert before[0].ref == after[0].ref
+
+
+def test_python_inventory_binds_materialized_parameter_class_bodies(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text(
+        "class Case:\n"
+        "    def __init__(self): self.value = 'before'\n"
+    )
+    test_text = """
+import pytest
+from data import Case
+
+@pytest.mark.parametrize("case", [Case()])
+def test_case(case):
+    assert case.value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text(
+        "class Case:\n"
+        "    def __init__(self): self.value = 'after'\n"
+    )
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_positional_imported_parameter_id_helper(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text('def make_id(value):\n    return f"before-{value}"\n')
+    test_text = """
+import pytest
+from data import make_id
+
+@pytest.mark.parametrize("value", ["one"], False, make_id)
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('def make_id(value):\n    return f"after-{value}"\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_propagates_ids_materialization_through_binding(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text('def make_id(value):\n    return f"before-{value}"\n')
+    test_text = """
+import pytest
+from data import make_id
+
+IDS = make_id
+
+@pytest.mark.parametrize("value", ["one"], ids=IDS)
+def test_case(value):
+    assert value
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text('def make_id(value):\n    return f"after-{value}"\n')
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_preserves_inert_callable_abort_posture(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text("def helper():\n    return True\n")
+    test_text = """
+import pytest
+from data import helper
+
+@pytest.mark.parametrize("callback", [helper])
+def test_case(callback):
+    assert callback()
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text(
+        "import pytest\n"
+        "def helper():\n"
+        "    pytest.skip('disabled')\n"
+    )
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
 
 
 def test_worktree_import_resolution_requires_exact_path_case(tmp_path: Path) -> None:

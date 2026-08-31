@@ -9,9 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 
 import ultimate_ai_agent.core.evals as evals_api
+import ultimate_ai_agent.core.evals.tool_aware_acceptance as acceptance_module
 from scripts import run_foundation_gate as foundation_runner
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     _bind_publication_history_census,
@@ -23,6 +26,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_FOUNDER_MEASUREMENT_SPECS,
     TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
     TAW08_FINAL_PUBLICATION_MISSING_REF,
+    TAW08_FOUNDATION_GATE_SOURCE_PREFIX,
     TAW08_RECONCILIATION_END,
     TAW08_RECONCILIATION_JSON,
     TAW08_RECONCILIATION_NARRATIVES,
@@ -51,6 +55,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     bind_revision_delta_census,
     bind_revision_path_census,
     evaluate_taw08_acceptance,
+    founder_decision_signature_payload,
     redacted_acceptance_report_artifact,
     verify_and_bind_candidate_lock,
     verify_and_bind_evidence_only_delta,
@@ -88,6 +93,22 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
 
 CANDIDATE_REVISION_REF = "git-sha:" + "1" * 40
 DELTA_REVISION_REF = "git-sha:" + "2" * 40
+_TEST_FOUNDER_DECISION_PRIVATE_KEY = Ed25519PrivateKey.generate()
+
+
+@pytest.fixture(autouse=True)
+def _configure_test_founder_decision_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    public_key = _TEST_FOUNDER_DECISION_PRIVATE_KEY.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    monkeypatch.setattr(
+        acceptance_module,
+        "TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX",
+        public_key.hex(),
+    )
 PUBLICATION_REVISION_REF = "git-sha:" + "3" * 40
 BOARD_PATH_REF = "repo-path-ref:docs/kanban/current_board.md"
 RELEASE_PATH_REF = (
@@ -148,6 +169,7 @@ def _candidate_verification(
     *,
     source_content_overrides: dict[str, bytes] | None = None,
     candidate_content_overrides: dict[str, bytes] | None = None,
+    revision_path_ref_extras: set[str] | None = None,
 ):
     expected_refs = tuple(item.path_ref for item in lock.entries)
     content_by_ref = dict.fromkeys(expected_refs, b"")
@@ -157,6 +179,7 @@ def _candidate_verification(
         for item in lock.entries
         if item.path_ref.startswith("repo-path-ref:src/")
         and item.path_ref.endswith(".py")
+        and not item.path_ref.startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
     )
     source_content_overrides = source_content_overrides or {}
     source_content = {
@@ -213,7 +236,9 @@ def _candidate_verification(
         source_projection=projection,
         source_closure=closure,
         closure_content_by_path_ref=source_content,
-        revision_path_census=_revision_path_census(set(source_content)),
+        revision_path_census=_revision_path_census(
+            set(source_content) | (revision_path_ref_extras or set())
+        ),
     )
 
 
@@ -336,29 +361,57 @@ def _measurement_receipt(
 
 
 def _founder_evidence(lock: CandidateLock):
+    stale_receipt = _measurement_receipt(
+        lock, FounderMeasurementKind.stale_cache_recovery, "stale-recovery"
+    )
+    routing_receipt = _measurement_receipt(
+        lock, FounderMeasurementKind.routing_confidence, "routing-confidence"
+    )
+    response_receipt = _measurement_receipt(
+        lock, FounderMeasurementKind.response_scoring, "response-scoring"
+    )
+    live_receipts = (
+        _measurement_receipt(
+            lock, FounderMeasurementKind.live_model_hardware, "qwen-mac-run-1"
+        ),
+    )
+    journey_receipt = _measurement_receipt(
+        lock, FounderMeasurementKind.end_to_end_journey, "end-to-end-journeys"
+    )
+    foundation_receipt = _foundation_receipt()
+    founder_decision_ref = "decision-ref:taw08:founder-private:accepted"
+    signature = _TEST_FOUNDER_DECISION_PRIVATE_KEY.sign(
+        founder_decision_signature_payload(
+            candidate_revision_ref=lock.git_revision_ref,
+            candidate_manifest_digest_ref=lock.manifest_digest_ref,
+            measurement_receipt_digest_refs=tuple(
+                item.receipt_digest_ref
+                for item in (
+                    stale_receipt,
+                    routing_receipt,
+                    response_receipt,
+                    *live_receipts,
+                    journey_receipt,
+                )
+            ),
+            exact_head_foundation_receipt_digest_ref=(
+                foundation_receipt.receipt_digest_ref
+            ),
+            founder_decision_ref=founder_decision_ref,
+        )
+    )
     return bind_founder_private_acceptance_evidence(
         candidate_revision_ref=lock.git_revision_ref,
         candidate_manifest_digest_ref=lock.manifest_digest_ref,
-        stale_cache_recovery_receipt=_measurement_receipt(
-            lock, FounderMeasurementKind.stale_cache_recovery, "stale-recovery"
-        ),
-        routing_confidence_receipt=_measurement_receipt(
-            lock, FounderMeasurementKind.routing_confidence, "routing-confidence"
-        ),
-        response_scoring_receipt=_measurement_receipt(
-            lock, FounderMeasurementKind.response_scoring, "response-scoring"
-        ),
-        live_model_hardware_receipts=(
-            _measurement_receipt(
-                lock, FounderMeasurementKind.live_model_hardware, "qwen-mac-run-1"
-            ),
-        ),
-        end_to_end_journey_receipt=_measurement_receipt(
-            lock, FounderMeasurementKind.end_to_end_journey, "end-to-end-journeys"
-        ),
-        founder_decision_ref="decision-ref:taw08:founder-private:accepted",
+        stale_cache_recovery_receipt=stale_receipt,
+        routing_confidence_receipt=routing_receipt,
+        response_scoring_receipt=response_receipt,
+        live_model_hardware_receipts=live_receipts,
+        end_to_end_journey_receipt=journey_receipt,
+        founder_decision_ref=founder_decision_ref,
         founder_decision_outcome="accepted",
-        exact_head_foundation_receipt=_foundation_receipt(),
+        founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
+        exact_head_foundation_receipt=foundation_receipt,
     )
 
 
@@ -1130,6 +1183,38 @@ def test_founder_private_evidence_requires_explicit_accepted_outcome() -> None:
         bind_founder_private_acceptance_evidence(**values)
 
 
+def test_founder_private_evidence_requires_configured_decision_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values = _founder_evidence(_candidate_lock()).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    monkeypatch.setattr(
+        acceptance_module,
+        "TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX",
+        None,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="founder decision verification authority is missing",
+    ):
+        bind_founder_private_acceptance_evidence(**values)
+
+
+def test_founder_private_evidence_rejects_decision_substitution() -> None:
+    values = _founder_evidence(_candidate_lock()).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["founder_decision_ref"] = "decision-ref:taw08:invented:accepted"
+
+    with pytest.raises(
+        ValidationError,
+        match="founder decision signature verification failed",
+    ):
+        bind_founder_private_acceptance_evidence(**values)
+
+
 def test_evidence_delta_rejects_malformed_or_unredacted_payloads() -> None:
     lock = _candidate_lock()
     malformed = b'{"raw_prompt":"secret"}'
@@ -1192,6 +1277,27 @@ def test_candidate_verifier_rejects_incomplete_acceptance_path_census() -> None:
 
     with pytest.raises(ValueError, match="path census is incomplete"):
         _candidate_verification(incomplete_lock)
+
+
+def test_candidate_lock_requires_foundation_runner() -> None:
+    required = set(TAW08_REQUIRED_ACCEPTANCE_PATH_REFS)
+
+    assert "repo-path-ref:scripts/run_foundation_gate.py" in required
+
+
+def test_candidate_lock_rejects_incomplete_foundation_gate_source_census() -> None:
+    unlocked_gate_path = (
+        "repo-path-ref:src/ultimate_ai_agent/core/gate/unlocked_evaluator.py"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="foundation-gate-source-census-drift",
+    ):
+        _candidate_verification(
+            _candidate_lock(),
+            revision_path_ref_extras={unlocked_gate_path},
+        )
 
 
 def test_candidate_verifier_rejects_source_content_substitution() -> None:
@@ -1479,6 +1585,18 @@ def test_founder_measurement_receipts_bind_the_candidate() -> None:
 
     with pytest.raises(ValidationError, match="candidate binding drift"):
         bind_founder_private_acceptance_evidence(**values)
+
+
+def test_founder_measurement_rejects_impossible_ratio() -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.stale_cache_recovery,
+        "impossible-ratio",
+    ).result.model_dump(mode="json")
+    payload["observations"][0]["observed_value"] = 2.0
+
+    with pytest.raises(ValidationError, match="ratios must be within zero and one"):
+        FounderMeasurementResult.model_validate(payload)
 
 
 def test_redacted_acceptance_artifact_binds_a_validated_report() -> None:
