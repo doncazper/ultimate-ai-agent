@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata as importlib_metadata
 import inspect
 import json
 import subprocess
@@ -28,6 +29,10 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
     TAW08_FINAL_PUBLICATION_MISSING_REF,
     TAW08_FOUNDATION_GATE_SOURCE_PREFIX,
+    TAW08_FOUNDER_PROFILE_PATH_REF,
+    TAW08_HARDWARE_FAMILY_REFS,
+    TAW08_INFERENCE_PROFILE_REFS,
+    TAW08_LOCAL_INFERENCE_PROFILE_REF,
     TAW08_RECONCILIATION_END,
     TAW08_RECONCILIATION_JSON,
     TAW08_RECONCILIATION_NARRATIVES,
@@ -36,9 +41,10 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES,
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     TAW08_REQUIRED_ACCEPTANCE_PATH_REFS,
+    TAW08_REPOSITORY_VERIFIER_PATH_REF,
     EvidenceOnlyDeltaEntry,
     EvidenceOnlyDeltaManifest,
-    EvidenceOnlyDeltaVerificationReceipt,
+    _EvidenceOnlyDeltaVerificationReceipt,
     FinalAcceptancePublicationArtifact,
     FinalAcceptancePublicationReceipt,
     FoundationGateReceipt,
@@ -58,8 +64,8 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     evaluate_taw08_acceptance,
     founder_decision_signature_payload,
     redacted_acceptance_report_artifact,
-    verify_and_bind_candidate_lock,
-    verify_and_bind_evidence_only_delta,
+    _bind_candidate_lock_verification_receipt,
+    _verify_and_bind_evidence_only_delta,
     verify_and_bind_founder_measurement_result,
     verify_evidence_only_delta,
 )
@@ -110,11 +116,11 @@ def _configure_test_founder_decision_authority(
         "TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX",
         public_key.hex(),
     )
+
+
 PUBLICATION_REVISION_REF = "git-sha:" + "3" * 40
 BOARD_PATH_REF = "repo-path-ref:docs/kanban/current_board.md"
-RELEASE_PATH_REF = (
-    "repo-path-ref:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
-)
+RELEASE_PATH_REF = "repo-path-ref:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
 
 
 def _revision_path_census(path_refs: set[str]) -> RevisionPathCensus:
@@ -162,6 +168,39 @@ def _candidate_lock() -> CandidateLock:
         entries=entries,
         evidence_only_delta_path_refs=values["evidence_only_delta_path_refs"],
         manifest_digest_ref=canonical_digest(values),
+    )
+
+
+def _evaluator_environment_receipt(
+    locked_content_by_path_ref: dict[str, bytes],
+):
+    return acceptance_module._bind_evaluator_environment_receipt(
+        python_implementation="cpython",
+        python_version="3.12.13",
+        platform_system="darwin",
+        platform_machine="arm64",
+        installed_distribution_count=2,
+        installed_distributions_digest_ref=canonical_digest(
+            {"distributions": ("pydantic==2.13.4", "pytest==9.0.3")}
+        ),
+        pyproject_digest_ref=(
+            "sha256:"
+            + hashlib.sha256(
+                locked_content_by_path_ref["repo-path-ref:pyproject.toml"]
+            ).hexdigest()
+        ),
+        uv_lock_digest_ref=(
+            "sha256:"
+            + hashlib.sha256(
+                locked_content_by_path_ref["repo-path-ref:uv.lock"]
+            ).hexdigest()
+        ),
+        lock_check_command_ref=(
+            "command-ref:python-installed-distribution-lock-closure"
+        ),
+        independent_lock_closure_verified=True,
+        locked_environment_verified=True,
+        raw_content_persisted=False,
     )
 
 
@@ -230,7 +269,16 @@ def _candidate_verification(
         **closure_payload,
         closure_digest_ref=canonical_digest(closure_payload),
     )
-    return verify_and_bind_candidate_lock(
+    evaluator_environment_receipt = _evaluator_environment_receipt(
+        {
+            path_ref: content_by_ref.get(path_ref, b"")
+            for path_ref in (
+                "repo-path-ref:pyproject.toml",
+                "repo-path-ref:uv.lock",
+            )
+        }
+    )
+    return _bind_candidate_lock_verification_receipt(
         candidate_lock=lock,
         expected_path_refs=expected_refs,
         revision_content_by_path_ref=content_by_ref,
@@ -239,6 +287,17 @@ def _candidate_verification(
         closure_content_by_path_ref=source_content,
         revision_path_census=_revision_path_census(
             set(source_content) | (revision_path_ref_extras or set())
+        ),
+        evaluator_environment_receipt=evaluator_environment_receipt,
+        executing_source_path_refs=(
+            "repo-path-ref:scripts/verify_tool_aware_cognition_taw08.py",
+        ),
+        executing_source_census_digest_ref=canonical_digest(
+            {
+                "repo-path-ref:scripts/verify_tool_aware_cognition_taw08.py": (
+                    "sha256:" + "0" * 64
+                )
+            }
         ),
     )
 
@@ -312,21 +371,60 @@ def _measurement_receipt(
     lock: CandidateLock,
     kind: FounderMeasurementKind,
     suffix: str,
+    *,
+    inference_profile_ref: str = TAW08_LOCAL_INFERENCE_PROFILE_REF,
+    hardware_family_ref: str = "hardware-family-ref:mac",
 ):
     specs = TAW08_FOUNDER_MEASUREMENT_SPECS[kind]
-    live_identity = (
-        {
-            "model_profile_ref": "model-profile-ref:qwen-3.8-27b-128k",
-            "model_artifact_or_configuration_ref": (
-                "model-artifact-ref:qwen-3.8-27b:test-fixture"
-            ),
-            "context_profile_ref": "context-profile-ref:128k",
-            "backend_ref": "backend-ref:test-local-runtime",
-            "observed_hardware_ref": "hardware-ref:test-workstation",
+    live_identity: dict[str, object] = {}
+    if kind is FounderMeasurementKind.live_model_hardware:
+        is_local = inference_profile_ref == TAW08_LOCAL_INFERENCE_PROFILE_REF
+        if is_local:
+            model_configuration_ref = (
+                "model-artifact-digest-ref:sha256:"
+                + hashlib.sha256(suffix.encode("utf-8")).hexdigest()
+            )
+        elif inference_profile_ref.endswith("openai-chatgpt-api"):
+            model_configuration_ref = "model-id-ref:openai:gpt-5.6-terra"
+        else:
+            model_configuration_ref = "model-id-ref:openai:gpt-5.6-sol"
+        backend_ref = f"backend-ref:test:{suffix}"
+        observed_hardware_ref = f"hardware-ref:test:{suffix}"
+        baseline_payload = {
+            "schema_version": "uaa-taw08-same-host-baseline-evidence.v1",
+            "candidate_revision_ref": lock.git_revision_ref,
+            "candidate_manifest_digest_ref": lock.manifest_digest_ref,
+            "inference_profile_ref": inference_profile_ref,
+            "model_artifact_or_configuration_ref": model_configuration_ref,
+            "backend_ref": backend_ref,
+            "observed_hardware_family_ref": hardware_family_ref,
+            "observed_hardware_ref": observed_hardware_ref,
+            "evidence_ref": f"evidence-ref:taw08:baseline:{suffix}",
+            "metric_ref": "metric-ref:taw08:live-model-hardware-success-rate",
+            "observed_value": 1.0,
+            "observation_count": 24,
+            "successful_observation_count": 24,
+            "unit_ref": "unit-ref:ratio",
+            "minimum_candidate_delta": 0.0,
+            "raw_content_persisted": False,
         }
-        if kind is FounderMeasurementKind.live_model_hardware
-        else {}
-    )
+        live_identity = {
+            "inference_profile_ref": inference_profile_ref,
+            "model_profile_ref": (
+                "model-profile-ref:qwen-3.8-27b-128k"
+                if is_local
+                else f"model-profile-ref:test-exact:{suffix}"
+            ),
+            "model_artifact_or_configuration_ref": model_configuration_ref,
+            "context_profile_ref": "context-profile-ref:128k" if is_local else None,
+            "backend_ref": backend_ref,
+            "observed_hardware_family_ref": hardware_family_ref,
+            "observed_hardware_ref": observed_hardware_ref,
+            "same_host_baseline": {
+                **baseline_payload,
+                "result_digest_ref": canonical_digest(baseline_payload),
+            },
+        }
     result = FounderMeasurementResult(
         measurement_kind=kind,
         candidate_revision_ref=lock.git_revision_ref,
@@ -336,8 +434,14 @@ def _measurement_receipt(
             FounderMeasurementObservation(
                 stratum_ref=stratum_ref,
                 metric_ref=metric_ref,
-                observed_value=0.99,
+                observed_value=1.0,
                 observation_count=minimum_denominator,
+                successful_observation_count=minimum_denominator,
+                model_call_counts=(
+                    (1,) * minimum_denominator
+                    if stratum_ref == "stratum-ref:taw08:chat"
+                    else ()
+                ),
                 minimum_denominator=minimum_denominator,
                 threshold_ref=threshold_ref,
                 threshold_operator=operator,
@@ -371,10 +475,22 @@ def _founder_evidence(lock: CandidateLock):
     response_receipt = _measurement_receipt(
         lock, FounderMeasurementKind.response_scoring, "response-scoring"
     )
-    live_receipts = (
-        _measurement_receipt(
-            lock, FounderMeasurementKind.live_model_hardware, "qwen-mac-run-1"
-        ),
+    live_receipts = tuple(
+        sorted(
+            (
+                _measurement_receipt(
+                    lock,
+                    FounderMeasurementKind.live_model_hardware,
+                    f"{inference_profile_ref.rsplit(':', 1)[-1]}-"
+                    f"{hardware_family_ref.rsplit(':', 1)[-1]}-run-1",
+                    inference_profile_ref=inference_profile_ref,
+                    hardware_family_ref=hardware_family_ref,
+                )
+                for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
+                for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
+            ),
+            key=lambda receipt: receipt.receipt_digest_ref,
+        )
     )
     journey_receipt = _measurement_receipt(
         lock, FounderMeasurementKind.end_to_end_journey, "end-to-end-journeys"
@@ -404,6 +520,11 @@ def _founder_evidence(lock: CandidateLock):
     return bind_founder_private_acceptance_evidence(
         candidate_revision_ref=lock.git_revision_ref,
         candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        founder_dogfood_profile_digest_ref=next(
+            item.content_digest_ref
+            for item in lock.entries
+            if item.path_ref == TAW08_FOUNDER_PROFILE_PATH_REF
+        ),
         stale_cache_recovery_receipt=stale_receipt,
         routing_confidence_receipt=routing_receipt,
         response_scoring_receipt=response_receipt,
@@ -531,7 +652,7 @@ def _delta(lock: CandidateLock, content: bytes | None = None):
 def _delta_verification(lock: CandidateLock, delta: EvidenceOnlyDeltaManifest):
     report = _pre_delta_report(lock)
     contents = _delta_contents(lock)
-    return verify_and_bind_evidence_only_delta(
+    return _verify_and_bind_evidence_only_delta(
         candidate_lock=lock,
         delta=delta,
         changed_content_by_path_ref=contents,
@@ -756,10 +877,10 @@ def test_final_acceptance_rejects_substituted_published_report() -> None:
     values = _delta_verification(lock, delta).model_dump(
         mode="json", exclude={"receipt_digest_ref"}
     )
-    values["published_acceptance_report_fingerprint_ref"] = (
-        evaluate_taw08_acceptance(candidate_lock=lock).report_fingerprint_ref
-    )
-    receipt = EvidenceOnlyDeltaVerificationReceipt.model_validate(
+    values["published_acceptance_report_fingerprint_ref"] = evaluate_taw08_acceptance(
+        candidate_lock=lock
+    ).report_fingerprint_ref
+    receipt = _EvidenceOnlyDeltaVerificationReceipt.model_validate(
         {**values, "receipt_digest_ref": canonical_digest(values)}
     )
 
@@ -804,6 +925,55 @@ def test_founder_evidence_rejects_duplicate_measurement_receipts() -> None:
         bind_founder_private_acceptance_evidence(**values)
 
 
+def test_founder_evidence_requires_every_inference_hardware_pair() -> None:
+    lock = _candidate_lock()
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["live_model_hardware_receipts"] = tuple(
+        values["live_model_hardware_receipts"][:-1]
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="live-model inference and hardware census drift",
+    ):
+        bind_founder_private_acceptance_evidence(**values)
+
+
+def test_live_measurement_requires_bound_same_host_baseline() -> None:
+    lock = _candidate_lock()
+    payload = _measurement_receipt(
+        lock,
+        FounderMeasurementKind.live_model_hardware,
+        "same-host-baseline-required",
+    ).result.model_dump(mode="json")
+    payload["same_host_baseline"] = None
+
+    with pytest.raises(ValidationError, match="requires same-host baseline"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+def test_acceptance_rejects_founder_profile_digest_substitution() -> None:
+    lock = _candidate_lock()
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["founder_dogfood_profile_digest_ref"] = "sha256:" + "f" * 64
+    substituted = bind_founder_private_acceptance_evidence(**values)
+
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        candidate_verification_receipt=_candidate_verification(lock),
+        founder_evidence=substituted,
+    )
+
+    assert report.status is TAW08AcceptanceStatus.failed
+    assert report.failure_refs == (
+        "failure-ref:taw08:founder-profile-binding-drift",
+    )
+
+
 def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
     lock = _candidate_lock()
     content = _safe_delta_content(lock)
@@ -815,9 +985,7 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
             candidate_lock=lock,
             delta=delta,
             changed_content_by_path_ref=contents,
-            revision_delta_census=_revision_delta_census(
-                tuple(sorted(contents))
-            ),
+            revision_delta_census=_revision_delta_census(tuple(sorted(contents))),
             candidate_content_by_path_ref=_candidate_truth_contents(),
             validated_acceptance_reports_by_path_ref={
                 TAW08_ACCEPTANCE_REPORT_PATH_REF: _pre_delta_report(lock)
@@ -872,9 +1040,7 @@ def test_evidence_only_delta_bounds_paths_and_content_before_hashing() -> None:
                     b"x" * (TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES + 1)
                 )
             },
-            revision_delta_census=_revision_delta_census(
-                (delta.entries[0].path_ref,)
-            ),
+            revision_delta_census=_revision_delta_census((delta.entries[0].path_ref,)),
         )
     )
 
@@ -968,14 +1134,18 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    assert "evaluated_revision_ref" not in inspect.signature(
-        build_foundation_gate_report
-    ).parameters
+    assert (
+        "evaluated_revision_ref"
+        not in inspect.signature(build_foundation_gate_report).parameters
+    )
     assert not hasattr(evals_api, "verify_and_bind_foundation_gate_report")
     assert not hasattr(evals_api, "verify_and_bind_final_acceptance_publication")
-    assert not hasattr(
-        foundation_runner, "bind_foundation_gate_execution_report"
-    )
+    assert not hasattr(evals_api, "verify_and_bind_candidate_lock")
+    assert not hasattr(evals_api, "verify_and_bind_evidence_only_delta")
+    assert not hasattr(evals_api, "EvidenceOnlyDeltaVerificationReceipt")
+    assert not hasattr(evals_api, "CandidateLockVerificationReceipt")
+    assert not hasattr(evals_api, "EvaluatorEnvironmentReceipt")
+    assert not hasattr(foundation_runner, "bind_foundation_gate_execution_report")
 
     observed_roots: list[Path] = []
 
@@ -992,6 +1162,11 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
 
     monkeypatch.setattr(foundation_runner, "exact_repository_revision", exact_revision)
     monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_executing_repository_sources",
+        lambda _revision, *, repository_root: ((), "sha256:" + "0" * 64),
+    )
 
     receipt = verify_repository_foundation_gate(
         stage="exact_head",
@@ -1000,6 +1175,69 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert receipt.revision_ref == CANDIDATE_REVISION_REF
     assert receipt.stage == "exact_head"
     assert observed_roots == [tmp_path, tmp_path]
+
+
+def test_foundation_receipt_rejects_evaluator_from_another_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prior_revision = subprocess.run(
+        ["git", "rev-parse", "HEAD^"],
+        cwd=taw08_verifier.ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(
+        taw08_verifier,
+        "evaluate_foundation_gate_at_exact_repository_revision",
+        lambda _root: (f"git-sha:{prior_revision}", _unbound_foundation_gate_report()),
+    )
+
+    with pytest.raises(RuntimeError, match="executing repository source differs"):
+        verify_repository_foundation_gate(
+            stage="exact_head",
+            repository_root=taw08_verifier.ROOT,
+        )
+
+
+def test_foundation_development_mode_preserves_dirty_tree_evaluation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    report = _unbound_foundation_gate_report()
+
+    def dirty_revision(_root: Path):
+        raise RuntimeError(
+            "Foundation Gate revision provenance requires a clean worktree"
+        )
+
+    class FakeEvaluator:
+        def __init__(self, repository_root: Path) -> None:
+            assert repository_root == tmp_path
+
+        def evaluate(self):
+            return report
+
+    monkeypatch.setattr(
+        foundation_runner,
+        "evaluate_foundation_gate_at_exact_repository_revision",
+        dirty_revision,
+    )
+    monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
+
+    revision_ref, development_report = (
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            tmp_path,
+            require_clean_revision=False,
+        )
+    )
+    assert revision_ref is None
+    assert development_report is report
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            tmp_path,
+            require_clean_revision=True,
+        )
 
 
 def test_foundation_receipt_requires_complete_canonical_census() -> None:
@@ -1340,7 +1578,8 @@ def test_foundation_gate_sources_seed_external_dependency_closure(
     (repository / gate_path).write_text(
         "import importlib\n"
         "from ultimate_ai_agent.core.outside import VALUE\n"
-        "def load(name): return importlib.import_module(name)\n",
+        "def load(): return importlib.import_module("
+        "'ultimate_ai_agent.core.outside')\n",
         encoding="utf-8",
     )
     (repository / dependency_path).write_text("VALUE = 1\n", encoding="utf-8")
@@ -1390,6 +1629,60 @@ def test_foundation_gate_sources_seed_external_dependency_closure(
     assert f"repo-path-ref:{dependency_path}" in {
         item.path_ref for item in closure.entries
     }
+
+
+def test_foundation_gate_source_rejects_unresolved_dynamic_import(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    gate_path = "src/ultimate_ai_agent/core/gate/evaluator.py"
+    (repository / gate_path).parent.mkdir(parents=True)
+    (repository / gate_path).write_text(
+        "import importlib\ndef load(name): return importlib.import_module(name)\n",
+        encoding="utf-8",
+    )
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    git("add", ".")
+    git("commit", "-m", "candidate")
+    revision = git("rev-parse", "HEAD")
+    gate_content = (repository / gate_path).read_bytes()
+    entry = CandidateManifestEntry(
+        path_ref=f"repo-path-ref:{gate_path}",
+        content_digest_ref=f"sha256:{hashlib.sha256(gate_content).hexdigest()}",
+    )
+    values = {
+        "candidate_ref": "candidate-ref:taw08:gate-dynamic-import-test",
+        "git_revision_ref": f"git-sha:{revision}",
+        "entries": [entry.model_dump(mode="json")],
+        "evidence_only_delta_path_refs": (TAW08_ACCEPTANCE_REPORT_PATH_REF,),
+    }
+    lock = CandidateLock(
+        **values,
+        manifest_digest_ref=canonical_digest(values),
+    )
+    census = derive_revision_path_census(
+        lock.git_revision_ref,
+        repository_root=repository,
+    )
+
+    with pytest.raises(ValueError, match="unresolved dynamic import"):
+        taw08_verifier._source_evidence_from_git(
+            lock,
+            census,
+            repository_root=repository,
+        )
 
 
 def test_candidate_verifier_rejects_source_content_substitution() -> None:
@@ -1444,6 +1737,183 @@ def test_candidate_verifier_locks_resolved_evaluator_environment() -> None:
     assert changed.evaluator_environment_digest_ref != (
         baseline.evaluator_environment_digest_ref
     )
+
+
+def test_locked_evaluator_environment_verifies_active_frozen_environment() -> None:
+    locked_content = {
+        "repo-path-ref:pyproject.toml": (
+            taw08_verifier.ROOT / "pyproject.toml"
+        ).read_bytes(),
+        "repo-path-ref:uv.lock": (taw08_verifier.ROOT / "uv.lock").read_bytes(),
+    }
+
+    receipt = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+
+    assert receipt.locked_environment_verified is True
+    assert receipt.installed_distribution_count > 0
+    assert receipt.pyproject_digest_ref == (
+        "sha256:"
+        + hashlib.sha256(locked_content["repo-path-ref:pyproject.toml"]).hexdigest()
+    )
+    assert receipt.uv_lock_digest_ref == (
+        "sha256:" + hashlib.sha256(locked_content["repo-path-ref:uv.lock"]).hexdigest()
+    )
+
+
+def test_locked_evaluator_environment_rejects_installed_file_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    locked_content = {
+        "repo-path-ref:pyproject.toml": (
+            taw08_verifier.ROOT / "pyproject.toml"
+        ).read_bytes(),
+        "repo-path-ref:uv.lock": (taw08_verifier.ROOT / "uv.lock").read_bytes(),
+    }
+    pydantic_distribution = importlib_metadata.distribution("pydantic")
+    pydantic_entry = next(
+        item for item in pydantic_distribution.files or () if str(item).endswith("pydantic/__init__.py")
+    )
+    substituted_path = Path(pydantic_distribution.locate_file(pydantic_entry)).resolve()
+    original_read_bytes = Path.read_bytes
+
+    def substituted_read_bytes(path: Path) -> bytes:
+        content = original_read_bytes(path)
+        return content + b"\n# substituted\n" if path.resolve() == substituted_path else content
+
+    monkeypatch.setattr(Path, "read_bytes", substituted_read_bytes)
+
+    with pytest.raises(RuntimeError, match="differs from RECORD"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref=locked_content,
+        )
+
+
+def test_locked_evaluator_environment_rejects_locked_package_mismatch(
+    tmp_path: Path,
+) -> None:
+    pyproject = (taw08_verifier.ROOT / "pyproject.toml").read_bytes()
+    current_lock = (taw08_verifier.ROOT / "uv.lock").read_text(encoding="utf-8")
+    installed_pydantic_version = importlib_metadata.version("pydantic")
+    locked_identity = f'name = "pydantic"\nversion = "{installed_pydantic_version}"'
+    assert locked_identity in current_lock
+    changed_lock = current_lock.replace(
+        locked_identity,
+        'name = "pydantic"\nversion = "0.0.0"',
+        1,
+    ).encode("utf-8")
+    locked_content = {
+        "repo-path-ref:pyproject.toml": pyproject,
+        "repo-path-ref:uv.lock": changed_lock,
+    }
+    for path_ref, content in locked_content.items():
+        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+    with pytest.raises(RuntimeError, match="does not match uv.lock"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref=locked_content,
+            repository_root=tmp_path,
+        )
+
+
+def test_locked_evaluator_environment_honors_resolution_markers(
+    tmp_path: Path,
+) -> None:
+    pyproject = (taw08_verifier.ROOT / "pyproject.toml").read_bytes()
+    current_lock = (taw08_verifier.ROOT / "uv.lock").read_text(encoding="utf-8")
+    installed_version = importlib_metadata.version("rpds-py")
+    locked_identity = f'name = "rpds-py"\nversion = "{installed_version}"'
+    package_start = current_lock.index(locked_identity)
+    marker_start = current_lock.index("resolution-markers = [", package_start)
+    marker_end = current_lock.index("\n]", marker_start) + 2
+    changed_lock = (
+        current_lock[:marker_start]
+        + "resolution-markers = [\n    \"python_full_version < '0'\",\n]"
+        + current_lock[marker_end:]
+    ).encode("utf-8")
+    locked_content = {
+        "repo-path-ref:pyproject.toml": pyproject,
+        "repo-path-ref:uv.lock": changed_lock,
+    }
+    for path_ref, content in locked_content.items():
+        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+
+    with pytest.raises(RuntimeError, match="does not match uv.lock"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref=locked_content,
+            repository_root=tmp_path,
+        )
+
+
+def test_locked_evaluator_environment_does_not_trust_ci_bootstrap_uv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    locked_content = {
+        "repo-path-ref:pyproject.toml": (
+            taw08_verifier.ROOT / "pyproject.toml"
+        ).read_bytes(),
+        "repo-path-ref:uv.lock": (taw08_verifier.ROOT / "uv.lock").read_bytes(),
+    }
+    for path_ref, content in locked_content.items():
+        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+    bootstrap_uv = tmp_path / ".ci-bootstrap" / "bin" / "uv"
+    bootstrap_uv.parent.mkdir(parents=True)
+    bootstrap_uv.write_bytes(b"hosted bootstrap uv")
+    monkeypatch.setattr(
+        taw08_verifier.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail(
+            "environment verification must not execute uv"
+        ),
+    )
+    receipt = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+        repository_root=tmp_path,
+    )
+
+    assert receipt.independent_lock_closure_verified is True
+
+
+def test_locked_evaluator_environment_rejects_candidate_lock_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "pyproject.toml").write_bytes(b"current\n")
+    (tmp_path / "uv.lock").write_bytes(b"current\n")
+    with pytest.raises(RuntimeError, match="differs from the candidate"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref={
+                "repo-path-ref:pyproject.toml": b"candidate\n",
+                "repo-path-ref:uv.lock": b"candidate\n",
+            },
+            repository_root=tmp_path,
+        )
+
+
+def test_locked_evaluator_environment_rejects_system_site_packages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    locked_content = {
+        "repo-path-ref:pyproject.toml": b"[project]\nname = 'sample'\n",
+        "repo-path-ref:uv.lock": b"version = 1\n",
+    }
+    for path_ref, content in locked_content.items():
+        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text(
+        "include-system-site-packages = true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(taw08_verifier.sys, "prefix", str(venv))
+    monkeypatch.setattr(taw08_verifier.sys, "base_prefix", str(tmp_path / "base"))
+    with pytest.raises(RuntimeError, match="exclude system site packages"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref=locked_content,
+            repository_root=tmp_path,
+        )
 
 
 def test_delta_verifier_requires_revision_derived_path_census() -> None:
@@ -1612,7 +2082,8 @@ def test_founder_measurement_recomputes_threshold_decision() -> None:
     payload = _measurement_receipt(
         lock, FounderMeasurementKind.routing_confidence, "failed-routing"
     ).result.model_dump(mode="json")
-    payload["observations"][0]["observed_value"] = 0.70
+    payload["observations"][0]["observed_value"] = 0.50
+    payload["observations"][0]["successful_observation_count"] = 12
     payload["threshold_decision"] = "passed"
     with pytest.raises(ValidationError, match="threshold decision drift"):
         FounderMeasurementResult.model_validate(payload)
@@ -1623,9 +2094,7 @@ def test_founder_measurement_rejects_substituted_threshold_spec() -> None:
     payload = _measurement_receipt(
         lock, FounderMeasurementKind.routing_confidence, "substituted-threshold"
     ).result.model_dump(mode="json")
-    payload["observations"][0]["threshold_ref"] = (
-        "threshold-ref:taw08:substituted:v1"
-    )
+    payload["observations"][0]["threshold_ref"] = "threshold-ref:taw08:substituted:v1"
     payload["observations"][0]["threshold_value"] = 0.50
     with pytest.raises(ValidationError, match="metric threshold census drift"):
         FounderMeasurementResult.model_validate(payload)
@@ -1651,6 +2120,57 @@ def test_live_measurement_requires_exact_runtime_identity() -> None:
     ).result.model_dump(mode="json")
     payload["model_profile_ref"] = None
     with pytest.raises(ValidationError, match="identity census is incomplete"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+def test_live_measurement_requires_exact_model_artifact_or_api_model_id() -> None:
+    lock = _candidate_lock()
+    local_payload = _measurement_receipt(
+        lock, FounderMeasurementKind.live_model_hardware, "local-placeholder"
+    ).result.model_dump(mode="json")
+    local_payload["model_artifact_or_configuration_ref"] = (
+        "model-artifact-or-config-ref:placeholder"
+    )
+    local_payload["same_host_baseline"][
+        "model_artifact_or_configuration_ref"
+    ] = "model-artifact-or-config-ref:placeholder"
+    baseline = local_payload["same_host_baseline"]
+    baseline["result_digest_ref"] = canonical_digest(
+        {key: value for key, value in baseline.items() if key != "result_digest_ref"}
+    )
+    with pytest.raises(ValidationError, match="requires an artifact digest"):
+        FounderMeasurementResult.model_validate(local_payload)
+
+    api_payload = _measurement_receipt(
+        lock,
+        FounderMeasurementKind.live_model_hardware,
+        "api-placeholder",
+        inference_profile_ref="inference-profile-ref:taw00:openai-chatgpt-api",
+    ).result.model_dump(mode="json")
+    api_payload["model_artifact_or_configuration_ref"] = (
+        "model-id-ref:openai:configured"
+    )
+    api_payload["same_host_baseline"][
+        "model_artifact_or_configuration_ref"
+    ] = "model-id-ref:openai:configured"
+    baseline = api_payload["same_host_baseline"]
+    baseline["result_digest_ref"] = canonical_digest(
+        {key: value for key, value in baseline.items() if key != "result_digest_ref"}
+    )
+    with pytest.raises(ValidationError, match="requires an exact model ID"):
+        FounderMeasurementResult.model_validate(api_payload)
+
+
+def test_live_measurement_requires_non_regressing_same_host_baseline() -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.live_model_hardware,
+        "baseline-regression",
+    ).result.model_dump(mode="json")
+    payload["observations"][0]["successful_observation_count"] = 23
+    payload["observations"][0]["observed_value"] = 23 / 24
+
+    with pytest.raises(ValidationError, match="baseline comparison failed"):
         FounderMeasurementResult.model_validate(payload)
 
 
@@ -1691,6 +2211,35 @@ def test_founder_measurement_rejects_impossible_ratio() -> None:
         FounderMeasurementResult.model_validate(payload)
 
 
+def test_founder_measurement_ratio_must_be_realisable_from_counts() -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.stale_cache_recovery,
+        "unrealisable-ratio",
+    ).result.model_dump(mode="json")
+    payload["observations"][0]["observed_value"] = 0.99
+
+    with pytest.raises(ValidationError, match="inconsistent with counts"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+def test_ordinary_chat_measurement_rejects_second_model_call() -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.end_to_end_journey,
+        "second-model-call",
+    ).result.model_dump(mode="json")
+    chat = next(
+        item
+        for item in payload["observations"]
+        if item["stratum_ref"] == "stratum-ref:taw08:chat"
+    )
+    chat["model_call_counts"][0] = 2
+
+    with pytest.raises(ValidationError, match="exactly one model call"):
+        FounderMeasurementResult.model_validate(payload)
+
+
 def test_redacted_acceptance_artifact_binds_a_validated_report() -> None:
     lock = _candidate_lock()
     report = _pre_delta_report(lock)
@@ -1698,25 +2247,26 @@ def test_redacted_acceptance_artifact_binds_a_validated_report() -> None:
     delta = _delta(lock)
     census = _revision_delta_census(tuple(sorted(contents)))
 
-    assert verify_evidence_only_delta(
-        candidate_lock=lock,
-        delta=delta,
-        changed_content_by_path_ref=contents,
-        candidate_content_by_path_ref=_candidate_truth_contents(),
-        revision_delta_census=census,
-        validated_acceptance_reports_by_path_ref={
-            TAW08_ACCEPTANCE_REPORT_PATH_REF: report
-        },
-    ) == ()
-    assert verify_evidence_only_delta(
-        candidate_lock=lock,
-        delta=delta,
-        changed_content_by_path_ref=contents,
-        candidate_content_by_path_ref=_candidate_truth_contents(),
-        revision_delta_census=census,
-    ) == (
-        "failure-ref:taw08:evidence-delta-acceptance-report-binding-drift",
+    assert (
+        verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            candidate_content_by_path_ref=_candidate_truth_contents(),
+            revision_delta_census=census,
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: report
+            },
+        )
+        == ()
     )
+    assert verify_evidence_only_delta(
+        candidate_lock=lock,
+        delta=delta,
+        changed_content_by_path_ref=contents,
+        candidate_content_by_path_ref=_candidate_truth_contents(),
+        revision_delta_census=census,
+    ) == ("failure-ref:taw08:evidence-delta-acceptance-report-binding-drift",)
 
 
 def test_active_truth_reconciliation_is_bounded_to_machine_block() -> None:
@@ -1726,16 +2276,19 @@ def test_active_truth_reconciliation_is_bounded_to_machine_block() -> None:
     contents = _delta_contents(lock)
     candidate_contents = _candidate_truth_contents()
     census = _revision_delta_census(tuple(sorted(contents)))
-    assert verify_evidence_only_delta(
-        candidate_lock=lock,
-        delta=delta,
-        changed_content_by_path_ref=contents,
-        candidate_content_by_path_ref=candidate_contents,
-        revision_delta_census=census,
-        validated_acceptance_reports_by_path_ref={
-            TAW08_ACCEPTANCE_REPORT_PATH_REF: report
-        },
-    ) == ()
+    assert (
+        verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            candidate_content_by_path_ref=candidate_contents,
+            revision_delta_census=census,
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: report
+            },
+        )
+        == ()
+    )
     assert verify_evidence_only_delta(
         candidate_lock=lock,
         delta=delta,
@@ -1750,9 +2303,7 @@ def test_active_truth_reconciliation_is_bounded_to_machine_block() -> None:
         validated_acceptance_reports_by_path_ref={
             TAW08_ACCEPTANCE_REPORT_PATH_REF: report
         },
-    ) == (
-        "failure-ref:taw08:evidence-delta-artifact-schema-invalid",
-    )
+    ) == ("failure-ref:taw08:evidence-delta-artifact-schema-invalid",)
 
 
 def test_active_truth_implemented_claim_binds_exact_accepted_evidence() -> None:
@@ -1796,9 +2347,7 @@ def test_active_truth_implemented_claim_binds_exact_accepted_evidence() -> None:
 def test_active_truth_reconciliation_must_publish_accepted_status() -> None:
     lock = _candidate_lock()
     contents = _delta_contents(lock)
-    contents[BOARD_PATH_REF] = _reconciliation_content(
-        BOARD_PATH_REF, status="blocked"
-    )
+    contents[BOARD_PATH_REF] = _reconciliation_content(BOARD_PATH_REF, status="blocked")
     delta = bind_evidence_only_delta(
         candidate_revision_ref=lock.git_revision_ref,
         candidate_manifest_digest_ref=lock.manifest_digest_ref,
@@ -1964,6 +2513,7 @@ def test_publication_history_requires_descendant_and_final_report_only(
 
 def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repository = tmp_path / "locked-repo"
     repository.mkdir()
@@ -1983,13 +2533,25 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
     for path_ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS:
         path = repository / path_ref.removeprefix("repo-path-ref:")
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.touch()
+        path.write_bytes(
+            Path(taw08_verifier.__file__).read_bytes()
+            if path_ref == TAW08_REPOSITORY_VERIFIER_PATH_REF
+            else b""
+        )
     git("add", ".")
     git("commit", "-m", "locked candidate")
     revision_ref = f"git-sha:{git('rev-parse', 'HEAD')}"
     empty_digest = f"sha256:{hashlib.sha256(b'').hexdigest()}"
     entries = tuple(
-        CandidateManifestEntry(path_ref=path_ref, content_digest_ref=empty_digest)
+        CandidateManifestEntry(
+            path_ref=path_ref,
+            content_digest_ref=(
+                "sha256:"
+                + hashlib.sha256(Path(taw08_verifier.__file__).read_bytes()).hexdigest()
+                if path_ref == TAW08_REPOSITORY_VERIFIER_PATH_REF
+                else empty_digest
+            ),
+        )
         for path_ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
     )
     values = {
@@ -2002,9 +2564,49 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
         **values,
         manifest_digest_ref=canonical_digest(values),
     )
-    assert verify_repository_candidate(
-        lock, repository_root=repository
-    ).candidate_revision_ref == revision_ref
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_locked_evaluator_environment",
+        lambda *, locked_content_by_path_ref, repository_root: (
+            _evaluator_environment_receipt(locked_content_by_path_ref)
+        ),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_executing_repository_sources",
+        lambda _revision, *, repository_root: (
+            (TAW08_REPOSITORY_VERIFIER_PATH_REF,),
+            canonical_digest(
+                {TAW08_REPOSITORY_VERIFIER_PATH_REF: "sha256:" + "0" * 64}
+            ),
+        ),
+    )
+    with pytest.raises(RuntimeError, match="locked verifier child"):
+        verify_repository_candidate(lock, repository_root=repository)
+    monkeypatch.setenv(
+        taw08_verifier._LOCKED_CHILD_REVISION_ENV,
+        revision_ref.removeprefix("git-sha:"),
+    )
+    assert (
+        verify_repository_candidate(
+            lock, repository_root=repository
+        ).candidate_revision_ref
+        == revision_ref
+    )
+
+    original_read_bytes = Path.read_bytes
+    with monkeypatch.context() as scoped:
+        scoped.setattr(
+            Path,
+            "read_bytes",
+            lambda path: (
+                b"substituted verifier"
+                if path == Path(taw08_verifier.__file__)
+                else original_read_bytes(path)
+            ),
+        )
+        with pytest.raises(RuntimeError, match="differs from the candidate revision"):
+            verify_repository_candidate(lock, repository_root=repository)
 
     substituted_entries = list(entries)
     substituted_entries[0] = substituted_entries[0].model_copy(
@@ -2027,9 +2629,7 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
 
 def test_active_truth_paths_are_explicit_evidence_delta_surfaces() -> None:
     assert "docs/kanban/current_board.md" in EVIDENCE_ONLY_DELTA_PATHS
-    assert "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md" in (
-        EVIDENCE_ONLY_DELTA_PATHS
-    )
+    assert "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md" in (EVIDENCE_ONLY_DELTA_PATHS)
 
 
 def test_wrong_postmerge_stage_returns_a_failed_report() -> None:

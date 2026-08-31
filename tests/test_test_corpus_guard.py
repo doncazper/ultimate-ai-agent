@@ -5334,7 +5334,7 @@ def test_removed_declarations_indexes_base_and_worktree_submodules(
     assert guard.removed_declarations(tmp_path, "a" * 40) == ()
 
 
-def test_removed_declarations_aligns_one_time_parameter_dependency_upgrade(
+def test_parameter_identity_migration_rejects_dependency_content_change(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5376,7 +5376,51 @@ def test_removed_declarations_aligns_one_time_parameter_dependency_upgrade(
         lambda _repo, _base_sha, path: base_sources.get(path),
     )
 
-    assert guard.removed_declarations(tmp_path, "a" * 40) == ()
+    assert guard.removed_declarations(tmp_path, "a" * 40)
+
+
+def test_parameter_identity_migration_traverses_local_binding_chain(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    data_path = "data.py"
+    test_source = (
+        "import pytest\n"
+        "from data import CASES\n"
+        "PARAMS = CASES\n"
+        "@pytest.mark.parametrize('case', PARAMS)\n"
+        "def test_case(case): assert case\n"
+    )
+    base_data = "CASES = ('before',)\n"
+    current_data = "CASES = ('after',)\n"
+    for path, text in {test_path: test_source, data_path: current_data}.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    base_sources = {
+        test_path: test_source,
+        data_path: base_data,
+        guard.TEST_CORPUS_GUARD_PATH: "legacy guard\n",
+    }
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40)
 
 
 def test_parameter_dependency_upgrade_does_not_hide_abort_posture(
@@ -5426,6 +5470,103 @@ def test_parameter_dependency_upgrade_does_not_hide_abort_posture(
     removed = guard.removed_declarations(tmp_path, "a" * 40)
 
     assert removed
+
+
+def test_parameter_identity_migration_rejects_one_sided_local_dependency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_path = "tests/test_sample.py"
+    data_path = "data.py"
+    test_source = (
+        "import pytest\n"
+        "from data import CASES\n"
+        "@pytest.mark.parametrize('case', CASES)\n"
+        "def test_case(case): assert case\n"
+    )
+    target = tmp_path / test_path
+    target.parent.mkdir(parents=True)
+    target.write_text(test_source)
+    base_sources = {
+        test_path: test_source,
+        data_path: "CASES = (True,)\n",
+        guard.TEST_CORPUS_GUARD_PATH: "legacy guard\n",
+    }
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
+    monkeypatch.setattr(
+        guard,
+        "_changed_test_paths",
+        lambda _repo, _base_sha: (test_path,),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_file_paths",
+        lambda _repo, _base_sha: frozenset(base_sources),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_base_text",
+        lambda _repo, _base_sha, path: base_sources.get(path),
+    )
+
+    assert guard.removed_declarations(tmp_path, "a" * 40)
+
+
+def test_parameter_identity_migration_approved_transition_is_exactly_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prior_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "a" * 64
+    current_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "b" * 64
+    source = "def test_case(): pass\n"
+    base_dependency = "path=data.py\nVALUE = 'before'\n"
+    current_dependency = "path=data.py\nVALUE = 'after'\n"
+    monkeypatch.setattr(
+        guard,
+        "PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE",
+        "data",
+    )
+    monkeypatch.setattr(
+        guard,
+        "PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS",
+        (
+            hashlib.sha256(base_dependency.encode()).hexdigest(),
+            hashlib.sha256(current_dependency.encode()).hexdigest(),
+        ),
+    )
+    monkeypatch.setattr(
+        guard,
+        "PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS",
+        {
+            prior_ref: (
+                current_ref,
+                hashlib.sha256(source.encode()).hexdigest(),
+            )
+        },
+    )
+
+    assert guard._parameter_identity_migration_is_exact_approved_transition(
+        prior_ref,
+        current_ref,
+        source,
+        lambda module: base_dependency if module == "data" else None,
+        lambda module: current_dependency if module == "data" else None,
+    )
+    assert not guard._parameter_identity_migration_is_exact_approved_transition(
+        prior_ref,
+        current_ref,
+        source + "# changed\n",
+        lambda module: base_dependency if module == "data" else None,
+        lambda module: current_dependency if module == "data" else None,
+    )
+    assert not guard._parameter_identity_migration_is_exact_approved_transition(
+        prior_ref,
+        current_ref,
+        source,
+        lambda module: base_dependency if module == "data" else None,
+        lambda module: "path=data.py\nVALUE = 'substituted'\n"
+        if module == "data"
+        else None,
+    )
 
 
 def test_removed_declarations_reuses_validated_python_snapshot(
@@ -8046,6 +8187,32 @@ def test_case(case):
         tmp_path, "tests/test_sample.py", test_text
     )
     factory_path.write_text("def make_value():\n    return 'after'\n")
+    after = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+
+    assert before[0].ref != after[0].ref
+
+
+def test_python_inventory_binds_materialized_parameter_factory_alias(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "data.py"
+    source_path.write_text("def make_cases():\n    return ['before']\n")
+    test_text = """
+import pytest
+from data import make_cases
+
+factory = make_cases
+
+@pytest.mark.parametrize("case", factory())
+def test_case(case):
+    assert case
+"""
+    before = guard._parse_worktree_test_declarations(
+        tmp_path, "tests/test_sample.py", test_text
+    )
+    source_path.write_text("def make_cases():\n    return ['after']\n")
     after = guard._parse_worktree_test_declarations(
         tmp_path, "tests/test_sample.py", test_text
     )

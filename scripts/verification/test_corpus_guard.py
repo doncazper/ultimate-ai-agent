@@ -92,6 +92,75 @@ PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
     "uaa.test_corpus.parameter_dependency_identity.v2"
 )
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE = (
+    "ultimate_ai_agent.core.ledger.validation"
+)
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS = (
+    "d9e2be8d0ce8388938f686996d2aa964cdaf56934992029096ea652795047062",
+    "3286d6eda19571c8988d86bd18123de90e52a62b8c03807d61daf86600ad88ea",
+)
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
+    (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "879ada8403a3a6cffc0e7681b844fd6b6cbcc58817c94a40341c21a4cc1ad41d"
+    ): (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "1e7d3803b188128bc3aeb6ee4f9431663e8ab756ba960945aa7c850a0d7f29aa",
+        "5ecfee361e1d92de0f93d3a1c0239020f76943c73d31e25118add11434a56036",
+    ),
+    (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "f68d7ee357f074571dd84f1b0e650cbf1889a0bed3cbf23455776902469bc196"
+    ): (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "77c1df362b9d666be03910c5c7278ce462b13f8c3d31752a75b189803c333a51",
+        "5ecfee361e1d92de0f93d3a1c0239020f76943c73d31e25118add11434a56036",
+    ),
+    (
+        "tests/test_q28_autocorrect_controls.py::"
+        "test_added_and_removed_content_free_diffs_remain_supported::"
+        "parametrize-sha256:"
+        "00adfb0002bd734d44c09b43a0145653aa42fe701fab074791866e4a52c41ee8"
+    ): (
+        "tests/test_q28_autocorrect_controls.py::"
+        "test_added_and_removed_content_free_diffs_remain_supported::"
+        "parametrize-sha256:"
+        "89a707dfa53e64386072a8bcd2c08c1a0c371d14ac628a8f9d263c6f8cb026fc",
+        "1881bbeb5f1308b692066af92704a77074b7c12db589c353d7b852024f4e5f53",
+    ),
+    (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "6d171af0b63a96b709dbe0a1abea55dd6808fc33fe3ad02880d96d349995aae2"
+    ): (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "402ddccd4eb3c9526937956f0c588cbebf284921262f3df9300d78e1c1470c35",
+        "9349c595efb4849d2a3e03a8515bd60713f43c1181707b450c7055adff900fe1",
+    ),
+    (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "3a09b4c3a5b2cd39699df9878bf52a0e426fc0368d167e2f65b95ab3324d6850"
+    ): (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "a1cad82057a5aa64aa0238b17d3c3fb93e379d11a43ca40803f9a41a1c63e2a1",
+        "9349c595efb4849d2a3e03a8515bd60713f43c1181707b450c7055adff900fe1",
+    ),
+}
 TEST_CORPUS_GUARD_PATH = "scripts/verification/test_corpus_guard.py"
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
@@ -7212,6 +7281,17 @@ def _parameterized_ref(
     ]
     binding_import_requirements: dict[str, set[str]] = {}
     invoked_binding_import_requirements: dict[str, set[str]] = {}
+    materialized_parameter_value_nodes = [
+        decorator.args[1]
+        for decorator in decorators
+        if len(decorator.args) > 1
+    ]
+    materialized_parameter_value_nodes.extend(
+        keyword.value
+        for decorator in decorators
+        for keyword in decorator.keywords
+        if keyword.arg == "argvalues"
+    )
     materialized_callback_names = {
         child.id
         for decorator in decorators
@@ -7226,6 +7306,13 @@ def _parameterized_ref(
         for child in ast.walk(value)
         if isinstance(child, ast.Name)
     }
+    materialized_callback_names.update(
+        root
+        for value in materialized_parameter_value_nodes
+        for child in ast.walk(value)
+        if isinstance(child, ast.Call)
+        and (root := _root_name(child.func)) is not None
+    )
     materialized_binding_positions: set[tuple[int, int]] = set()
     pending_materialized_names = list(materialized_callback_names)
     resolved_materialized_names: set[str] = set()
@@ -12563,11 +12650,12 @@ def _parameter_identity_migration_is_collection_neutral(
 ) -> bool:
     tree = ast.parse(text, filename=path)
     module = _python_module_name_for_path(path)
-    relative_package = module.rsplit(".", 1)[0] if "." in module else module
-    imported_modules = _python_import_modules(
-        tree,
-        relative_package=relative_package,
+    analysis = _python_binding_module_analysis(
+        module,
+        f"path={path}\n{text}",
+        current_resolver,
     )
+    imported_modules = analysis.imported_modules
     parameter_decorators = tuple(
         decorator
         for node in ast.walk(tree)
@@ -12586,26 +12674,47 @@ def _parameter_identity_migration_is_collection_neutral(
         )
     )
     requirements: dict[str, set[str]] = {}
-    for decorator in parameter_decorators:
-        for root, names in _python_import_requirements(
-            decorator,
-            imported_modules,
-        ).items():
-            requirements.setdefault(root, set()).update(names)
-    for root, names in requirements.items():
-        candidates = imported_modules[root]
-        resolved = next(
-            (
-                (candidate, base_source, current_source)
-                for candidate in candidates
-                if (base_source := base_resolver(candidate)) is not None
-                and (current_source := current_resolver(candidate)) is not None
-            ),
-            None,
-        )
-        if resolved is None:
+    pending_nodes: list[ast.AST] = list(parameter_decorators)
+    pending_local_names: list[str] = []
+    visited_nodes: set[tuple[int, int]] = set()
+    visited_local_names: set[str] = set()
+    while pending_nodes or pending_local_names:
+        if pending_nodes:
+            node = pending_nodes.pop()
+            position = (node.lineno, node.col_offset)
+            if position in visited_nodes:
+                continue
+            visited_nodes.add(position)
+            node_analysis = _python_binding_node_analysis(analysis, node)
+            if node_analysis.runtime_abort_posture:
+                return False
+            for root, names in node_analysis.imported_requirements:
+                requirements.setdefault(root, set()).update(names)
+            pending_local_names.extend(node_analysis.local_dependency_names)
             continue
-        candidate, base_source, current_source = resolved
+        local_name = pending_local_names.pop()
+        if local_name in visited_local_names:
+            continue
+        visited_local_names.add(local_name)
+        for module_binding in analysis.module_bindings.get(local_name, ()):
+            pending_nodes.append(module_binding.node)
+    for root, names in requirements.items():
+        if root not in imported_modules:
+            return False
+        candidates = imported_modules[root]
+        local_candidates = tuple(
+            (candidate, base_resolver(candidate), current_resolver(candidate))
+            for candidate in candidates
+            if base_resolver(candidate) is not None
+            or current_resolver(candidate) is not None
+        )
+        if not local_candidates:
+            continue
+        if len(local_candidates) != 1:
+            return False
+        candidate, base_source, current_source = local_candidates[0]
+        if base_source is None or current_source is None:
+            return False
         for name in names:
             binding_name = _binding_name_for_resolved_import(
                 candidates,
@@ -12634,7 +12743,35 @@ def _parameter_identity_migration_is_collection_neutral(
                 or "runtime-abort-posture=true" in current_identity.splitlines()
             ):
                 return False
+            if base_identity != current_identity:
+                return False
     return True
+
+
+def _parameter_identity_migration_is_exact_approved_transition(
+    prior_ref: str,
+    current_ref: str,
+    text: str,
+    base_resolver: Callable[[str], str | None],
+    current_resolver: Callable[[str], str | None],
+) -> bool:
+    approved = PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS.get(prior_ref)
+    if approved is None or approved[0] != current_ref:
+        return False
+    if hashlib.sha256(text.encode("utf-8")).hexdigest() != approved[1]:
+        return False
+    base_source = base_resolver(
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE
+    )
+    current_source = current_resolver(
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE
+    )
+    if base_source is None or current_source is None:
+        return False
+    return (
+        hashlib.sha256(base_source.encode("utf-8")).hexdigest(),
+        hashlib.sha256(current_source.encode("utf-8")).hexdigest(),
+    ) == PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS
 
 
 def removed_declarations(
@@ -12815,16 +12952,17 @@ def removed_declarations(
             current_refs = set()
         path_removed = prior_refs - current_refs
         if (
-            parameter_identity_migration_active
+            path.endswith(".py")
+            and parameter_identity_migration_active
             and prior == current_text
             and len(prior_declarations) == len(current_declarations)
-            and _parameter_identity_migration_is_collection_neutral(
+        ):
+            collection_neutral = _parameter_identity_migration_is_collection_neutral(
                 path,
                 prior,
                 base_import_source_resolver,
                 worktree_import_source_resolver,
             )
-        ):
             parameter_suffix = re.compile(
                 r"::parametrize-sha256:[0-9a-f]{64}(?=#\d+$|$)"
             )
@@ -12837,6 +12975,16 @@ def removed_declarations(
                     prior_declaration.kind == current_declaration.kind
                     and parameter_suffix.sub("", prior_declaration.ref)
                     == parameter_suffix.sub("", current_declaration.ref)
+                    and (
+                        collection_neutral
+                        or _parameter_identity_migration_is_exact_approved_transition(
+                            prior_declaration.ref,
+                            current_declaration.ref,
+                            prior,
+                            base_import_source_resolver,
+                            worktree_import_source_resolver,
+                        )
+                    )
                 ):
                     path_removed.discard(prior_declaration.ref)
         if path.endswith(".py") and current_text is not None and path_removed:

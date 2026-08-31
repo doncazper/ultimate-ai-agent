@@ -33,9 +33,7 @@ TAW08_MAX_CANDIDATE_PATHS = 1024
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_REVISION_PATHS = 8192
 TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
-TAW08_FOUNDATION_GATE_SOURCE_PREFIX = (
-    "repo-path-ref:src/ultimate_ai_agent/core/gate/"
-)
+TAW08_FOUNDATION_GATE_SOURCE_PREFIX = "repo-path-ref:src/ultimate_ai_agent/core/gate/"
 TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS = (
     "repo-path-ref:src/ultimate_ai_agent/core/"
     "local_model_management/llama_cpp_supervisor.py",
@@ -118,6 +116,7 @@ TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
                     "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
                     "scripts/run_foundation_gate.py",
+                    "scripts/verify_tool_aware_cognition_taw08.py",
                 )
             ),
         }
@@ -151,6 +150,15 @@ TAW08_INDEPENDENT_PROMOTION_BLOCKER_REFS = (
 )
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_RE = re.compile(r"^git-sha:[0-9a-f]{40}$")
+_LOCAL_MODEL_ARTIFACT_DIGEST_RE = re.compile(
+    r"^model-artifact-digest-ref:sha256:[0-9a-f]{64}$"
+)
+_API_MODEL_ID_RE = re.compile(
+    r"^model-id-ref:openai:[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
+)
+_NON_EXACT_MODEL_ID_TOKENS = frozenset(
+    {"any", "anything", "configured", "placeholder", "test", "unknown"}
+)
 
 
 class EvidenceOnlyArtifactKind(str, Enum):
@@ -271,6 +279,24 @@ TAW08_FOUNDER_MEASUREMENT_SPECS = {
 TAW08_LANGUAGE_PROFILE_REF = "language-profile-ref:english-first"
 TAW08_LOCAL_MODEL_PROFILE_REF = "model-profile-ref:qwen-3.8-27b-128k"
 TAW08_CONTEXT_PROFILE_REF = "context-profile-ref:128k"
+TAW08_FOUNDER_PROFILE_PATH_REF = (
+    "repo-path-ref:docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json"
+)
+TAW08_REPOSITORY_VERIFIER_PATH_REF = (
+    "repo-path-ref:scripts/verify_tool_aware_cognition_taw08.py"
+)
+TAW08_INFERENCE_PROFILE_REFS = (
+    "inference-profile-ref:taw00:openai-chatgpt-api",
+    "inference-profile-ref:taw00:openai-codex-api",
+    "inference-profile-ref:taw00:qwen-3.8-27b-128k-local",
+)
+TAW08_LOCAL_INFERENCE_PROFILE_REF = (
+    "inference-profile-ref:taw00:qwen-3.8-27b-128k-local"
+)
+TAW08_HARDWARE_FAMILY_REFS = (
+    "hardware-family-ref:mac",
+    "hardware-family-ref:windows",
+)
 
 
 class _FrozenModel(BaseModel):
@@ -304,9 +330,7 @@ class RevisionPathCensus(_FrozenModel):
     path_refs: tuple[str, ...] = Field(
         ..., min_length=1, max_length=TAW08_MAX_REVISION_PATHS
     )
-    provenance_ref: Literal["provenance-ref:git-ls-tree"] = (
-        "provenance-ref:git-ls-tree"
-    )
+    provenance_ref: Literal["provenance-ref:git-ls-tree"] = "provenance-ref:git-ls-tree"
     census_digest_ref: str
 
     @model_validator(mode="after")
@@ -347,7 +371,9 @@ class RevisionDeltaCensus(_FrozenModel):
         _validate_repo_path_refs(self.path_refs, "path_refs")
         _validate_repo_path_refs(self.history_path_refs, "history_path_refs")
         if not set(self.path_refs) <= set(self.history_path_refs):
-            raise ValueError("revision endpoint paths must be present in history census")
+            raise ValueError(
+                "revision endpoint paths must be present in history census"
+            )
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"census_digest_ref"})
         )
@@ -535,7 +561,43 @@ class FoundationGateReceipt(_FrozenModel):
         return self
 
 
-class CandidateLockVerificationReceipt(_FrozenModel):
+class _EvaluatorEnvironmentReceipt(_FrozenModel):
+    schema_version: Literal["uaa-taw08-evaluator-environment.v1"] = (
+        "uaa-taw08-evaluator-environment.v1"
+    )
+    python_implementation: Literal["cpython"] = "cpython"
+    python_version: str = Field(..., pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
+    platform_system: str = Field(..., pattern=r"^[a-z0-9_-]{1,32}$")
+    platform_machine: str = Field(..., pattern=r"^[a-z0-9_.-]{1,64}$")
+    installed_distribution_count: int = Field(..., ge=1, le=2048)
+    installed_distributions_digest_ref: str
+    pyproject_digest_ref: str
+    uv_lock_digest_ref: str
+    lock_check_command_ref: Literal[
+        "command-ref:python-installed-distribution-lock-closure"
+    ] = "command-ref:python-installed-distribution-lock-closure"
+    independent_lock_closure_verified: Literal[True] = True
+    locked_environment_verified: Literal[True] = True
+    raw_content_persisted: Literal[False] = False
+    receipt_digest_ref: str
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "_EvaluatorEnvironmentReceipt":
+        for field_name in (
+            "installed_distributions_digest_ref",
+            "pyproject_digest_ref",
+            "uv_lock_digest_ref",
+        ):
+            _validate_digest(getattr(self, field_name), field_name)
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"receipt_digest_ref"})
+        )
+        if self.receipt_digest_ref != expected:
+            raise ValueError("evaluator environment receipt digest binding drift")
+        return self
+
+
+class _CandidateLockVerificationReceipt(_FrozenModel):
     schema_version: Literal["uaa-taw08-candidate-lock-verification.v1"] = (
         "uaa-taw08-candidate-lock-verification.v1"
     )
@@ -544,6 +606,12 @@ class CandidateLockVerificationReceipt(_FrozenModel):
     source_projection_digest_ref: str
     source_closure_digest_ref: str
     path_census_digest_ref: str
+    repository_verifier_digest_ref: str
+    executing_source_path_refs: tuple[str, ...] = Field(
+        ..., min_length=1, max_length=TAW08_MAX_CANDIDATE_PATHS
+    )
+    executing_source_census_digest_ref: str
+    evaluator_environment_receipt: _EvaluatorEnvironmentReceipt
     evaluator_environment_digest_ref: str
     verifier_ref: Literal["verifier-ref:taw08:candidate-lock:v1"] = (
         "verifier-ref:taw08:candidate-lock:v1"
@@ -552,16 +620,29 @@ class CandidateLockVerificationReceipt(_FrozenModel):
     receipt_digest_ref: str
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "CandidateLockVerificationReceipt":
+    def validate_receipt(self) -> "_CandidateLockVerificationReceipt":
         _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
         for field_name in (
             "candidate_manifest_digest_ref",
             "source_projection_digest_ref",
             "source_closure_digest_ref",
             "path_census_digest_ref",
+            "repository_verifier_digest_ref",
+            "executing_source_census_digest_ref",
             "evaluator_environment_digest_ref",
         ):
             _validate_digest(getattr(self, field_name), field_name)
+        _validate_repo_path_refs(
+            self.executing_source_path_refs,
+            "executing_source_path_refs",
+        )
+        if (
+            self.evaluator_environment_digest_ref
+            != self.evaluator_environment_receipt.receipt_digest_ref
+        ):
+            raise ValueError(
+                "evaluator environment digest must bind the embedded receipt"
+            )
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"receipt_digest_ref"})
         )
@@ -570,7 +651,7 @@ class CandidateLockVerificationReceipt(_FrozenModel):
         return self
 
 
-class EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
+class _EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
     schema_version: Literal["uaa-taw08-evidence-delta-verification.v1"] = (
         "uaa-taw08-evidence-delta-verification.v1"
     )
@@ -591,7 +672,7 @@ class EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
     receipt_digest_ref: str
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "EvidenceOnlyDeltaVerificationReceipt":
+    def validate_receipt(self) -> "_EvidenceOnlyDeltaVerificationReceipt":
         _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
         _validate_git_ref(self.delta_revision_ref, "delta_revision_ref")
         for field_name in (
@@ -740,6 +821,67 @@ class FinalAcceptancePublicationReceipt(_FrozenModel):
         return self
 
 
+class FounderSameHostBaselineEvidence(_FrozenModel):
+    schema_version: Literal["uaa-taw08-same-host-baseline-evidence.v1"] = (
+        "uaa-taw08-same-host-baseline-evidence.v1"
+    )
+    candidate_revision_ref: str
+    candidate_manifest_digest_ref: str
+    inference_profile_ref: str
+    model_artifact_or_configuration_ref: str
+    backend_ref: str
+    observed_hardware_family_ref: str
+    observed_hardware_ref: str
+    evidence_ref: str
+    metric_ref: Literal["metric-ref:taw08:live-model-hardware-success-rate"] = (
+        "metric-ref:taw08:live-model-hardware-success-rate"
+    )
+    observed_value: float
+    observation_count: int = Field(..., ge=TAW08_FOUNDER_MINIMUM_DENOMINATOR)
+    successful_observation_count: int = Field(..., ge=0)
+    unit_ref: Literal["unit-ref:ratio"] = "unit-ref:ratio"
+    minimum_candidate_delta: Literal[0.0] = 0.0
+    result_digest_ref: str
+    raw_content_persisted: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_evidence(self) -> "FounderSameHostBaselineEvidence":
+        _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
+        _validate_digest(
+            self.candidate_manifest_digest_ref,
+            "candidate_manifest_digest_ref",
+        )
+        for field_name in (
+            "inference_profile_ref",
+            "model_artifact_or_configuration_ref",
+            "backend_ref",
+            "observed_hardware_family_ref",
+            "observed_hardware_ref",
+            "evidence_ref",
+            "metric_ref",
+            "unit_ref",
+        ):
+            _validate_ref(getattr(self, field_name), field_name)
+        if (
+            not math.isfinite(self.observed_value)
+            or not 0.0 <= self.observed_value <= 1.0
+            or self.successful_observation_count > self.observation_count
+            or not math.isclose(
+                self.observed_value,
+                self.successful_observation_count / self.observation_count,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            raise ValueError("same-host baseline ratio census is invalid")
+        expected = canonical_digest(
+            self.model_dump(mode="json", exclude={"result_digest_ref"})
+        )
+        if self.result_digest_ref != expected:
+            raise ValueError("same-host baseline evidence digest binding drift")
+        return self
+
+
 class FounderMeasurementResult(_FrozenModel):
     schema_version: Literal["uaa-taw08-founder-measurement-result.v1"] = (
         "uaa-taw08-founder-measurement-result.v1"
@@ -751,11 +893,14 @@ class FounderMeasurementResult(_FrozenModel):
     language_profile_ref: Literal["language-profile-ref:english-first"] = (
         TAW08_LANGUAGE_PROFILE_REF
     )
+    inference_profile_ref: str | None = None
     model_profile_ref: str | None = None
     model_artifact_or_configuration_ref: str | None = None
     context_profile_ref: str | None = None
     backend_ref: str | None = None
+    observed_hardware_family_ref: str | None = None
     observed_hardware_ref: str | None = None
+    same_host_baseline: FounderSameHostBaselineEvidence | None = None
     observations: tuple["FounderMeasurementObservation", ...] = Field(
         ..., min_length=1, max_length=10_000
     )
@@ -770,25 +915,78 @@ class FounderMeasurementResult(_FrozenModel):
             self.candidate_manifest_digest_ref, "candidate_manifest_digest_ref"
         )
         _validate_ref(self.evidence_ref, "evidence_ref")
-        identity_values = (
+        required_live_identity_values = (
+            self.inference_profile_ref,
             self.model_profile_ref,
             self.model_artifact_or_configuration_ref,
-            self.context_profile_ref,
             self.backend_ref,
+            self.observed_hardware_family_ref,
             self.observed_hardware_ref,
         )
+        all_live_identity_values = (
+            *required_live_identity_values,
+            self.context_profile_ref,
+        )
         if self.measurement_kind is FounderMeasurementKind.live_model_hardware:
-            if any(value is None for value in identity_values):
+            if any(value is None for value in required_live_identity_values):
                 raise ValueError("live-model measurement identity census is incomplete")
             if (
-                self.model_profile_ref != TAW08_LOCAL_MODEL_PROFILE_REF
-                or self.context_profile_ref != TAW08_CONTEXT_PROFILE_REF
+                self.inference_profile_ref not in TAW08_INFERENCE_PROFILE_REFS
+                or self.observed_hardware_family_ref
+                not in TAW08_HARDWARE_FAMILY_REFS
             ):
                 raise ValueError("live-model measurement profile census drift")
-            for index, value in enumerate(identity_values):
+            if self.inference_profile_ref == TAW08_LOCAL_INFERENCE_PROFILE_REF:
+                if (
+                    self.model_profile_ref != TAW08_LOCAL_MODEL_PROFILE_REF
+                    or self.context_profile_ref != TAW08_CONTEXT_PROFILE_REF
+                ):
+                    raise ValueError("local live-model measurement profile drift")
+                if not _LOCAL_MODEL_ARTIFACT_DIGEST_RE.fullmatch(
+                    self.model_artifact_or_configuration_ref or ""
+                ):
+                    raise ValueError(
+                        "local live-model measurement requires an artifact digest"
+                    )
+            elif self.context_profile_ref is not None:
+                raise ValueError("API live-model measurement context profile drift")
+            elif not _API_MODEL_ID_RE.fullmatch(
+                self.model_artifact_or_configuration_ref or ""
+            ) or any(
+                token in _NON_EXACT_MODEL_ID_TOKENS
+                for token in re.split(
+                    r"[^a-z0-9]+",
+                    (self.model_artifact_or_configuration_ref or "").lower(),
+                )
+                if token
+            ):
+                raise ValueError(
+                    "API live-model measurement requires an exact model ID"
+                )
+            for index, value in enumerate(
+                item for item in all_live_identity_values if item is not None
+            ):
                 _validate_ref(value, f"live_model_identity_{index}")
-        elif any(value is not None for value in identity_values):
+            baseline = self.same_host_baseline
+            if baseline is None:
+                raise ValueError("live-model measurement requires same-host baseline")
+            if (
+                baseline.candidate_revision_ref != self.candidate_revision_ref
+                or baseline.candidate_manifest_digest_ref
+                != self.candidate_manifest_digest_ref
+                or baseline.inference_profile_ref != self.inference_profile_ref
+                or baseline.model_artifact_or_configuration_ref
+                != self.model_artifact_or_configuration_ref
+                or baseline.backend_ref != self.backend_ref
+                or baseline.observed_hardware_family_ref
+                != self.observed_hardware_family_ref
+                or baseline.observed_hardware_ref != self.observed_hardware_ref
+            ):
+                raise ValueError("live-model same-host baseline binding drift")
+        elif any(value is not None for value in all_live_identity_values):
             raise ValueError("non-live measurement cannot bind a live-model identity")
+        elif self.same_host_baseline is not None:
+            raise ValueError("non-live measurement cannot bind same-host baseline")
         if self.observation_count != sum(
             item.observation_count for item in self.observations
         ):
@@ -813,6 +1011,17 @@ class FounderMeasurementResult(_FrozenModel):
             for item in self.observations
         ):
             raise ValueError("founder measurement minimum denominator not met")
+        if self.measurement_kind is FounderMeasurementKind.live_model_hardware:
+            baseline = self.same_host_baseline
+            live_observation = self.observations[0]
+            if (
+                baseline is None
+                or baseline.metric_ref != live_observation.metric_ref
+                or baseline.unit_ref != live_observation.unit_ref
+                or live_observation.observed_value - baseline.observed_value
+                < baseline.minimum_candidate_delta
+            ):
+                raise ValueError("live-model same-host baseline comparison failed")
         decisions = tuple(item.threshold_passed for item in self.observations)
         expected_decision = "passed" if all(decisions) else "failed"
         if self.threshold_decision != expected_decision:
@@ -825,6 +1034,8 @@ class FounderMeasurementObservation(_FrozenModel):
     metric_ref: str
     observed_value: float
     observation_count: int = Field(..., ge=1, le=1_000_000)
+    successful_observation_count: int = Field(..., ge=0, le=1_000_000)
+    model_call_counts: tuple[int, ...] = Field(default=(), max_length=1_000_000)
     minimum_denominator: Literal[24] = TAW08_FOUNDER_MINIMUM_DENOMINATOR
     threshold_ref: str
     threshold_operator: Literal["gte", "lte"]
@@ -849,6 +1060,26 @@ class FounderMeasurementObservation(_FrozenModel):
             or not 0.0 <= self.threshold_value <= 1.0
         ):
             raise ValueError("founder measurement ratios must be within zero and one")
+        if (
+            self.successful_observation_count > self.observation_count
+            or not math.isclose(
+                self.observed_value,
+                self.successful_observation_count / self.observation_count,
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            raise ValueError("founder measurement ratio is inconsistent with counts")
+        if self.stratum_ref == "stratum-ref:taw08:chat":
+            if (
+                len(self.model_call_counts) != self.observation_count
+                or any(count != 1 for count in self.model_call_counts)
+            ):
+                raise ValueError(
+                    "ordinary-chat observations require exactly one model call"
+                )
+        elif self.model_call_counts:
+            raise ValueError("model-call census is only valid for ordinary chat")
         return self
 
     @property
@@ -919,6 +1150,7 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
     )
     candidate_revision_ref: str
     candidate_manifest_digest_ref: str
+    founder_dogfood_profile_digest_ref: str
     stale_cache_recovery_receipt: FounderMeasurementReceipt
     routing_confidence_receipt: FounderMeasurementReceipt
     response_scoring_receipt: FounderMeasurementReceipt
@@ -942,12 +1174,25 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         _validate_digest(
             self.candidate_manifest_digest_ref, "candidate_manifest_digest_ref"
         )
+        _validate_digest(
+            self.founder_dogfood_profile_digest_ref,
+            "founder_dogfood_profile_digest_ref",
+        )
         _validate_ref(self.founder_decision_ref, "founder_decision_ref")
         expected_kinds = (
-            (self.stale_cache_recovery_receipt, FounderMeasurementKind.stale_cache_recovery),
-            (self.routing_confidence_receipt, FounderMeasurementKind.routing_confidence),
+            (
+                self.stale_cache_recovery_receipt,
+                FounderMeasurementKind.stale_cache_recovery,
+            ),
+            (
+                self.routing_confidence_receipt,
+                FounderMeasurementKind.routing_confidence,
+            ),
             (self.response_scoring_receipt, FounderMeasurementKind.response_scoring),
-            (self.end_to_end_journey_receipt, FounderMeasurementKind.end_to_end_journey),
+            (
+                self.end_to_end_journey_receipt,
+                FounderMeasurementKind.end_to_end_journey,
+            ),
         )
         all_receipts = [item[0] for item in expected_kinds]
         for receipt, expected_kind in expected_kinds:
@@ -968,6 +1213,23 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         receipt_digests = tuple(item.receipt_digest_ref for item in all_receipts)
         if len(receipt_digests) != len(set(receipt_digests)):
             raise ValueError("founder measurement receipts must be unique")
+        expected_live_census = {
+            (inference_profile_ref, hardware_family_ref)
+            for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
+            for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
+        }
+        actual_live_census = {
+            (
+                receipt.result.inference_profile_ref,
+                receipt.result.observed_hardware_family_ref,
+            )
+            for receipt in self.live_model_hardware_receipts
+        }
+        if (
+            actual_live_census != expected_live_census
+            or len(self.live_model_hardware_receipts) != len(expected_live_census)
+        ):
+            raise ValueError("live-model inference and hardware census drift")
         if any(
             receipt.result.candidate_revision_ref != self.candidate_revision_ref
             or receipt.result.candidate_manifest_digest_ref
@@ -991,9 +1253,7 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         ):
             raise ValueError("founder decision signature ref is invalid")
         try:
-            public_key_bytes = bytes.fromhex(
-                TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX
-            )
+            public_key_bytes = bytes.fromhex(TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX)
             if len(public_key_bytes) != 32:
                 raise ValueError("founder decision public key is invalid")
             signature = bytes.fromhex(
@@ -1005,9 +1265,7 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
                 signature,
                 founder_decision_signature_payload(
                     candidate_revision_ref=self.candidate_revision_ref,
-                    candidate_manifest_digest_ref=(
-                        self.candidate_manifest_digest_ref
-                    ),
+                    candidate_manifest_digest_ref=(self.candidate_manifest_digest_ref),
                     measurement_receipt_digest_refs=receipt_digests,
                     exact_head_foundation_receipt_digest_ref=(
                         self.exact_head_foundation_receipt.receipt_digest_ref
@@ -1038,14 +1296,14 @@ class TAW08AcceptanceReport(_FrozenModel):
     status: TAW08AcceptanceStatus
     candidate_revision_ref: str
     candidate_manifest_digest_ref: str
-    candidate_verification_receipt: CandidateLockVerificationReceipt | None
+    candidate_verification_receipt: _CandidateLockVerificationReceipt | None
     candidate_verification_receipt_digest_ref: str | None
     founder_evidence: FounderPrivateAcceptanceEvidence | None
     founder_evidence_digest_ref: str | None
     evidence_only_delta: EvidenceOnlyDeltaManifest | None
     evidence_only_delta_manifest_digest_ref: str | None
     evidence_only_delta_verification_receipt: (
-        EvidenceOnlyDeltaVerificationReceipt | None
+        _EvidenceOnlyDeltaVerificationReceipt | None
     )
     evidence_only_delta_verification_receipt_digest_ref: str | None
     postmerge_foundation_receipt: FoundationGateReceipt | None
@@ -1165,9 +1423,7 @@ class TAW08AcceptanceReport(_FrozenModel):
             expected_published_report_ref = (
                 _pre_delta_acceptance_report_fingerprint_ref(
                     candidate_revision_ref=self.candidate_revision_ref,
-                    candidate_manifest_digest_ref=(
-                        self.candidate_manifest_digest_ref
-                    ),
+                    candidate_manifest_digest_ref=(self.candidate_manifest_digest_ref),
                     candidate_verification_receipt=(
                         self.candidate_verification_receipt
                     ),
@@ -1246,9 +1502,7 @@ class TAW08AcceptanceReport(_FrozenModel):
             self.final_acceptance_publication_receipt_digest_ref
             != expected_publication_digest
         ):
-            raise ValueError(
-                "final publication digest must bind the embedded receipt"
-            )
+            raise ValueError("final publication digest must bind the embedded receipt")
         if self.final_acceptance_publication_receipt is not None:
             publication = self.final_acceptance_publication_receipt
             if (
@@ -1274,17 +1528,13 @@ class TAW08AcceptanceReport(_FrozenModel):
                 or publication.published_report_semantic_digest_ref
                 != _final_acceptance_semantic_digest(
                     candidate_revision_ref=self.candidate_revision_ref,
-                    candidate_manifest_digest_ref=(
-                        self.candidate_manifest_digest_ref
-                    ),
+                    candidate_manifest_digest_ref=(self.candidate_manifest_digest_ref),
                     founder_evidence_digest_ref=self.founder_evidence_digest_ref,
                     delta=self.evidence_only_delta,
                     delta_verification_receipt=(
                         self.evidence_only_delta_verification_receipt
                     ),
-                    postmerge_foundation_receipt=(
-                        self.postmerge_foundation_receipt
-                    ),
+                    postmerge_foundation_receipt=(self.postmerge_foundation_receipt),
                 )
             ):
                 binding_failures.add(
@@ -1379,7 +1629,7 @@ def _pre_delta_acceptance_report_fingerprint_ref(
     *,
     candidate_revision_ref: str,
     candidate_manifest_digest_ref: str,
-    candidate_verification_receipt: CandidateLockVerificationReceipt | None,
+    candidate_verification_receipt: _CandidateLockVerificationReceipt | None,
     founder_evidence: FounderPrivateAcceptanceEvidence | None,
 ) -> str:
     """Rebuild the exact accepted-pending report eligible for publication."""
@@ -1395,9 +1645,7 @@ def _pre_delta_acceptance_report_fingerprint_ref(
             or candidate_verification_receipt.candidate_manifest_digest_ref
             != candidate_manifest_digest_ref
         ):
-            failures.add(
-                "failure-ref:taw08:candidate-verification-binding-drift"
-            )
+            failures.add("failure-ref:taw08:candidate-verification-binding-drift")
     if founder_evidence is not None:
         missing.difference_update(
             set(TAW08_FOUNDER_EVIDENCE_MISSING_REFS)
@@ -1408,9 +1656,7 @@ def _pre_delta_acceptance_report_fingerprint_ref(
             or founder_evidence.candidate_manifest_digest_ref
             != candidate_manifest_digest_ref
         ):
-            failures.add(
-                "failure-ref:taw08:founder-evidence-candidate-binding-drift"
-            )
+            failures.add("failure-ref:taw08:founder-evidence-candidate-binding-drift")
     missing.update(
         (
             TAW08_DELTA_VERIFICATION_MISSING_REF,
@@ -1483,7 +1729,7 @@ def _final_acceptance_semantic_digest(
     candidate_manifest_digest_ref: str,
     founder_evidence_digest_ref: str | None,
     delta: EvidenceOnlyDeltaManifest,
-    delta_verification_receipt: EvidenceOnlyDeltaVerificationReceipt,
+    delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
 ) -> str:
     return canonical_digest(
@@ -1515,7 +1761,7 @@ def build_final_acceptance_publication_artifact(
     candidate_manifest_digest_ref: str,
     founder_evidence_digest_ref: str,
     delta: EvidenceOnlyDeltaManifest,
-    delta_verification_receipt: EvidenceOnlyDeltaVerificationReceipt,
+    delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
 ) -> FinalAcceptancePublicationArtifact:
     semantic_digest = _final_acceptance_semantic_digest(
@@ -1558,7 +1804,7 @@ def _verify_and_bind_final_acceptance_publication(
     candidate_manifest_digest_ref: str,
     founder_evidence_digest_ref: str,
     delta: EvidenceOnlyDeltaManifest,
-    delta_verification_receipt: EvidenceOnlyDeltaVerificationReceipt,
+    delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
 ) -> FinalAcceptancePublicationReceipt:
     _validate_git_ref(publication_revision_ref, "publication_revision_ref")
@@ -1695,6 +1941,23 @@ def _bind_foundation_gate_receipt(**values: object) -> FoundationGateReceipt:
     )
 
 
+def _bind_evaluator_environment_receipt(
+    **values: object,
+) -> _EvaluatorEnvironmentReceipt:
+    _validate_builder_keys(
+        _EvaluatorEnvironmentReceipt,
+        values,
+        "receipt_digest_ref",
+    )
+    payload = _EvaluatorEnvironmentReceipt.model_construct(
+        **values,
+        receipt_digest_ref="sha256:" + "0" * 64,
+    ).model_dump(mode="json", exclude={"receipt_digest_ref"})
+    return _EvaluatorEnvironmentReceipt.model_validate(
+        {**payload, "receipt_digest_ref": canonical_digest(payload)}
+    )
+
+
 def _verify_and_bind_foundation_gate_report(
     *,
     report: object,
@@ -1754,8 +2017,7 @@ def _verify_and_bind_foundation_gate_report(
         sorted(item.criterion_id for item in default_criteria())
     )
     counts = {
-        status: sum(item["status"] == status for item in results)
-        for status in statuses
+        status: sum(item["status"] == status for item in results) for status in statuses
     }
     expected_status = (
         "failed"
@@ -1799,10 +2061,8 @@ def _verify_and_bind_foundation_gate_report(
         != "command:foundation_gate.typed_report"
         or command_receipts[0].get("command_mode") != "report-only"
         or command_receipts[0].get("status") != "report_only"
-        or command_receipts[0].get("satisfied_by")
-        != "typed-foundation-gate-evaluator"
-        or "local read/probe code"
-        not in command_receipts[0].get("safe_summary", "")
+        or command_receipts[0].get("satisfied_by") != "typed-foundation-gate-evaluator"
+        or "local read/probe code" not in command_receipts[0].get("safe_summary", "")
     ):
         raise ValueError("Foundation receipt requires report-only command provenance")
     safety_payload = {
@@ -1883,7 +2143,7 @@ def bind_founder_private_acceptance_evidence(
     )
 
 
-def verify_and_bind_candidate_lock(
+def _bind_candidate_lock_verification_receipt(
     *,
     candidate_lock: CandidateLock,
     expected_path_refs: tuple[str, ...],
@@ -1892,7 +2152,10 @@ def verify_and_bind_candidate_lock(
     source_closure: SourceDependencyClosure,
     closure_content_by_path_ref: Mapping[str, bytes],
     revision_path_census: RevisionPathCensus,
-) -> CandidateLockVerificationReceipt:
+    evaluator_environment_receipt: _EvaluatorEnvironmentReceipt,
+    executing_source_path_refs: tuple[str, ...],
+    executing_source_census_digest_ref: str,
+) -> _CandidateLockVerificationReceipt:
     if len(expected_path_refs) > TAW08_MAX_CANDIDATE_PATHS:
         raise ValueError("candidate verification path bound exceeded")
     if expected_path_refs != tuple(sorted(expected_path_refs)) or len(
@@ -1940,10 +2203,9 @@ def verify_and_bind_candidate_lock(
             source_projection=source_projection,
             content_by_path_ref=closure_content_by_path_ref,
             available_path_refs=available_path_refs,
-            allow_unresolved_dynamic_import_path_refs={
-                *revision_gate_paths,
-                *TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
-            },
+            allow_unresolved_dynamic_import_path_refs=set(
+                TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS
+            ),
         )
     )
     if (
@@ -1982,6 +2244,28 @@ def verify_and_bind_candidate_lock(
             failures.add("failure-ref:taw08:candidate-source-closure-incomplete")
         elif closure_entry.content_digest_ref != candidate_entry.content_digest_ref:
             failures.add("failure-ref:taw08:candidate-source-closure-content-drift")
+    environment_entries = {
+        item.path_ref: item
+        for item in candidate_lock.entries
+        if item.path_ref in TAW08_REQUIRED_ENVIRONMENT_PATH_REFS
+    }
+    if set(environment_entries) != set(TAW08_REQUIRED_ENVIRONMENT_PATH_REFS):
+        failures.add("failure-ref:taw08:evaluator-environment-census-drift")
+    else:
+        if (
+            evaluator_environment_receipt.pyproject_digest_ref
+            != environment_entries["repo-path-ref:pyproject.toml"].content_digest_ref
+            or evaluator_environment_receipt.uv_lock_digest_ref
+            != environment_entries["repo-path-ref:uv.lock"].content_digest_ref
+        ):
+            failures.add("failure-ref:taw08:evaluator-environment-lock-drift")
+    repository_verifier_entries = {
+        item.path_ref: item
+        for item in candidate_lock.entries
+        if item.path_ref == TAW08_REPOSITORY_VERIFIER_PATH_REF
+    }
+    if set(repository_verifier_entries) != {TAW08_REPOSITORY_VERIFIER_PATH_REF}:
+        failures.add("failure-ref:taw08:repository-verifier-census-drift")
     if failures:
         raise ValueError(
             f"candidate lock verification failed: {tuple(sorted(failures))}"
@@ -1993,17 +2277,21 @@ def verify_and_bind_candidate_lock(
         "source_projection_digest_ref": source_projection.projection_digest_ref,
         "source_closure_digest_ref": source_closure.closure_digest_ref,
         "path_census_digest_ref": revision_path_census.census_digest_ref,
-        "evaluator_environment_digest_ref": canonical_digest(
-            {
-                item.path_ref: item.content_digest_ref
-                for item in candidate_lock.entries
-                if item.path_ref in TAW08_REQUIRED_ENVIRONMENT_PATH_REFS
-            }
+        "repository_verifier_digest_ref": repository_verifier_entries[
+            TAW08_REPOSITORY_VERIFIER_PATH_REF
+        ].content_digest_ref,
+        "executing_source_path_refs": executing_source_path_refs,
+        "executing_source_census_digest_ref": executing_source_census_digest_ref,
+        "evaluator_environment_receipt": evaluator_environment_receipt.model_dump(
+            mode="json"
+        ),
+        "evaluator_environment_digest_ref": (
+            evaluator_environment_receipt.receipt_digest_ref
         ),
         "verifier_ref": "verifier-ref:taw08:candidate-lock:v1",
         "verified": True,
     }
-    return CandidateLockVerificationReceipt.model_validate(
+    return _CandidateLockVerificationReceipt.model_validate(
         {**payload, "receipt_digest_ref": canonical_digest(payload)}
     )
 
@@ -2048,9 +2336,7 @@ def _parse_bounded_claim_reconciliation_markdown(
         narrative, json_marker, json_and_suffix = remainder.partition(
             TAW08_RECONCILIATION_JSON
         )
-        body, end_marker, suffix = json_and_suffix.partition(
-            TAW08_RECONCILIATION_END
-        )
+        body, end_marker, suffix = json_and_suffix.partition(TAW08_RECONCILIATION_END)
         if not marker or not json_marker or not end_marker:
             return None
         return prefix, narrative.strip(), body.strip(), suffix
@@ -2129,9 +2415,7 @@ def verify_evidence_only_delta(
     changed_content_by_path_ref: Mapping[str, bytes],
     revision_delta_census: RevisionDeltaCensus,
     candidate_content_by_path_ref: Mapping[str, bytes] | None = None,
-    validated_acceptance_reports_by_path_ref: Mapping[
-        str, TAW08AcceptanceReport
-    ]
+    validated_acceptance_reports_by_path_ref: Mapping[str, TAW08AcceptanceReport]
     | None = None,
 ) -> tuple[str, ...]:
     failures: set[str] = set()
@@ -2169,8 +2453,7 @@ def verify_evidence_only_delta(
         ):
             failures.add("failure-ref:taw08:active-truth-reconciliation-missing")
     if (
-        revision_delta_census.candidate_revision_ref
-        != candidate_lock.git_revision_ref
+        revision_delta_census.candidate_revision_ref != candidate_lock.git_revision_ref
         or revision_delta_census.delta_revision_ref != delta.delta_revision_ref
     ):
         failures.add("failure-ref:taw08:revision-delta-binding-drift")
@@ -2225,8 +2508,7 @@ def verify_evidence_only_delta(
         elif entry.path_ref in TAW08_ACTIVE_TRUTH_PATH_REFS:
             if (
                 not isinstance(artifact, ClaimReconciliationArtifact)
-                or artifact.entries[0].status
-                is not ReconciledClaimStatus.implemented
+                or artifact.entries[0].status is not ReconciledClaimStatus.implemented
             ):
                 failures.add("failure-ref:taw08:active-truth-status-not-implemented")
             else:
@@ -2259,18 +2541,16 @@ def verify_evidence_only_delta(
     return tuple(sorted(failures))
 
 
-def verify_and_bind_evidence_only_delta(
+def _verify_and_bind_evidence_only_delta(
     *,
     candidate_lock: CandidateLock,
     delta: EvidenceOnlyDeltaManifest,
     changed_content_by_path_ref: Mapping[str, bytes],
     revision_delta_census: RevisionDeltaCensus,
     candidate_content_by_path_ref: Mapping[str, bytes] | None = None,
-    validated_acceptance_reports_by_path_ref: Mapping[
-        str, TAW08AcceptanceReport
-    ]
+    validated_acceptance_reports_by_path_ref: Mapping[str, TAW08AcceptanceReport]
     | None = None,
-) -> EvidenceOnlyDeltaVerificationReceipt:
+) -> _EvidenceOnlyDeltaVerificationReceipt:
     failures = verify_evidence_only_delta(
         candidate_lock=candidate_lock,
         delta=delta,
@@ -2305,7 +2585,7 @@ def verify_and_bind_evidence_only_delta(
         "verifier_ref": "verifier-ref:taw08:evidence-only-delta:v1",
         "verified": True,
     }
-    return EvidenceOnlyDeltaVerificationReceipt.model_validate(
+    return _EvidenceOnlyDeltaVerificationReceipt.model_validate(
         {**payload, "receipt_digest_ref": canonical_digest(payload)}
     )
 
@@ -2313,11 +2593,11 @@ def verify_and_bind_evidence_only_delta(
 def evaluate_taw08_acceptance(
     *,
     candidate_lock: CandidateLock,
-    candidate_verification_receipt: CandidateLockVerificationReceipt | None = None,
+    candidate_verification_receipt: _CandidateLockVerificationReceipt | None = None,
     founder_evidence: FounderPrivateAcceptanceEvidence | None = None,
     evidence_only_delta: EvidenceOnlyDeltaManifest | None = None,
     evidence_only_delta_verification_receipt: (
-        EvidenceOnlyDeltaVerificationReceipt | None
+        _EvidenceOnlyDeltaVerificationReceipt | None
     ) = None,
     postmerge_foundation_receipt: FoundationGateReceipt | None = None,
     final_acceptance_publication_receipt: (
@@ -2341,6 +2621,20 @@ def evaluate_taw08_acceptance(
             derived_failures.add(
                 "failure-ref:taw08:candidate-verification-binding-drift"
             )
+        repository_verifier_digest_ref = next(
+            (
+                item.content_digest_ref
+                for item in candidate_lock.entries
+                if item.path_ref == TAW08_REPOSITORY_VERIFIER_PATH_REF
+            ),
+            None,
+        )
+        if candidate_verification_receipt.repository_verifier_digest_ref != (
+            repository_verifier_digest_ref
+        ):
+            derived_failures.add(
+                "failure-ref:taw08:repository-verifier-binding-drift"
+            )
     if founder_evidence is not None:
         missing.difference_update(
             set(TAW08_FOUNDER_EVIDENCE_MISSING_REFS)
@@ -2353,6 +2647,17 @@ def evaluate_taw08_acceptance(
         ):
             derived_failures.add(
                 "failure-ref:taw08:founder-evidence-candidate-binding-drift"
+            )
+        founder_profile_entries = {
+            item.path_ref: item.content_digest_ref
+            for item in candidate_lock.entries
+            if item.path_ref == TAW08_FOUNDER_PROFILE_PATH_REF
+        }
+        if founder_profile_entries.get(TAW08_FOUNDER_PROFILE_PATH_REF) != (
+            founder_evidence.founder_dogfood_profile_digest_ref
+        ):
+            derived_failures.add(
+                "failure-ref:taw08:founder-profile-binding-drift"
             )
     if evidence_only_delta is not None and (
         evidence_only_delta.candidate_revision_ref != candidate_lock.git_revision_ref
@@ -2457,15 +2762,11 @@ def evaluate_taw08_acceptance(
                     founder_evidence.evidence_digest_ref if founder_evidence else None
                 ),
                 delta=evidence_only_delta,
-                delta_verification_receipt=(
-                    evidence_only_delta_verification_receipt
-                ),
+                delta_verification_receipt=(evidence_only_delta_verification_receipt),
                 postmerge_foundation_receipt=postmerge_foundation_receipt,
             )
         ):
-            derived_failures.add(
-                "failure-ref:taw08:final-publication-binding-drift"
-            )
+            derived_failures.add("failure-ref:taw08:final-publication-binding-drift")
     founder_accepted = (
         founder_evidence is not None and candidate_verification_receipt is not None
     )

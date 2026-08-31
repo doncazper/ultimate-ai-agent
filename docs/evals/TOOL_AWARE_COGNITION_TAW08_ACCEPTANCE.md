@@ -45,6 +45,8 @@ context identity, configured ChatGPT/Codex API profile identities, and per-run
 observed Mac/Windows hardware. A run receipt must bind the exact model artifact
 or configured model ID and the observed host. This repository slice performs no
 such run and does not grant permission to call those models or providers.
+Local model evidence uses a SHA-256 artifact-digest identity; API evidence uses
+the exact configured OpenAI model ID rather than a generic profile placeholder.
 
 The founder-decision verification key is an acceptance authority, not ordinary
 caller input. This slice intentionally leaves that repository trust root
@@ -138,9 +140,14 @@ receipt without the verified delta receipt produces a failed report.
 
 Every measurement kind has a frozen case/stratum census and a minimum
 denominator of 24 per stratum; an aggregate observation cannot substitute for
-the complete powered census. Live measurements additionally bind the English
+the complete powered census. Ratio observations bind their integer success
+numerator to the denominator. The ordinary-chat stratum also binds one measured
+model-call count per observation and rejects any count other than exactly one.
+Live measurements additionally bind the English
 language profile plus exact model, artifact/configuration, 128K context,
-backend, and observed-hardware refs. The final publication receipt binds the
+backend, and observed-hardware refs. Each live result includes a numeric,
+count-consistent same-host baseline for the same metric and cannot regress from
+that baseline. The final publication receipt binds the
 candidate, verified delta, post-merge receipt, terminal founder-private status,
 semantic digest of the final report. Its verifier parses and compares the
 canonical durable artifact bytes, then binds their content digest, canonical
@@ -153,6 +160,13 @@ the verified evidence-delta revision and that the complete endpoint and
 per-commit changed-path history between them contains only the canonical final
 publication artifact. An intervening, reverted, merged, or unrelated path
 change invalidates the receipt.
+
+The evaluator-environment receipt verifies installed distribution files against
+wheel `RECORD` hashes where present and binds a SHA-256 content census for the
+entire reachable dependency closure. Foundation receipts additionally compare
+the bytes of every executing repository evaluator source with the exact Git
+revision being evaluated, including when the evaluated checkout differs from
+the launcher checkout.
 
 ## Independent Promotion Remains Separate
 

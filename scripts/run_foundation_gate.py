@@ -96,6 +96,25 @@ def evaluate_foundation_gate_at_exact_repository_revision(
     return evaluated_revision_ref, bound
 
 
+def evaluate_foundation_gate_for_repository_state(
+    repository_root: Path,
+    *,
+    require_clean_revision: bool,
+) -> tuple[str | None, FoundationGateReport]:
+    """Preserve dirty-tree development checks without issuing provenance."""
+
+    try:
+        return evaluate_foundation_gate_at_exact_repository_revision(repository_root)
+    except RuntimeError as exc:
+        if (
+            require_clean_revision
+            or str(exc)
+            != "Foundation Gate revision provenance requires a clean worktree"
+        ):
+            raise
+    return None, FoundationGateEvaluator(repository_root).evaluate()
+
+
 GATE_TESTS = [
     "tests/test_foundation_gate_criteria.py",
     "tests/test_foundation_gate_report.py",
@@ -488,6 +507,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ci-prerequisite-manifest")
     parser.add_argument("--ci-prerequisite-sha")
     parser.add_argument("--ci-prerequisite-base-sha")
+    parser.add_argument(
+        "--require-clean-revision",
+        action="store_true",
+        help=(
+            "Fail unless the report can bind one clean exact Git revision. "
+            "TAW-08 receipt issuance always enforces this independently."
+        ),
+    )
     args = parser.parse_args(argv)
 
     command_mode = "report-only" if args.skip_commands else args.command_mode
@@ -524,8 +551,11 @@ def main(argv: list[str] | None = None) -> int:
             command_failures.append(command_ref)
 
     foundation_gate_started = time.perf_counter()
-    evaluated_revision_ref, report = (
-        evaluate_foundation_gate_at_exact_repository_revision(ROOT)
+    _evaluated_revision_ref, report = (
+        evaluate_foundation_gate_for_repository_state(
+            ROOT,
+            require_clean_revision=args.require_clean_revision,
+        )
     )
     foundation_gate_elapsed_ms = round(
         (time.perf_counter() - foundation_gate_started) * 1000,
