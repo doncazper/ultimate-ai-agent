@@ -225,12 +225,29 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
 def _git(*args: str, repository_root: Path = ROOT) -> bytes:
     executable, _digest_ref, _provenance_ref = _trusted_git_identity()
     result = subprocess.run(
-        [str(executable), *args],
+        [str(executable), "--no-replace-objects", *args],
         cwd=repository_root,
         check=True,
         capture_output=True,
+        env=_sanitized_git_environment(),
     )
     return result.stdout
+
+
+def _sanitized_git_environment() -> dict[str, str]:
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith("GIT_")
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    return environment
 
 
 def verify_executing_repository_sources(
@@ -1021,12 +1038,22 @@ def derive_publication_history_census(
     )
 
 
-def _candidate_lock(revision: str) -> tuple[CandidateLock, dict[str, bytes]]:
+def _candidate_lock(
+    revision: str,
+    *,
+    repository_root: Path = ROOT,
+) -> tuple[CandidateLock, dict[str, bytes]]:
     entries: list[CandidateManifestEntry] = []
     content_by_ref: dict[str, bytes] = {}
     gate_paths = tuple(
         path
-        for path in _git("ls-tree", "-r", "--name-only", revision)
+        for path in _git(
+            "ls-tree",
+            "-r",
+            "--name-only",
+            revision,
+            repository_root=repository_root,
+        )
         .decode("utf-8")
         .splitlines()
         if f"repo-path-ref:{path}".startswith(TAW08_FOUNDATION_GATE_SOURCE_PREFIX)
@@ -1035,7 +1062,14 @@ def _candidate_lock(revision: str) -> tuple[CandidateLock, dict[str, bytes]]:
     candidate_paths = tuple(sorted({*SLICE_CANDIDATE_PATHS, *gate_paths}))
     for path in candidate_paths:
         try:
-            _git("diff", "--quiet", revision, "--", path)
+            _git(
+                "diff",
+                "--quiet",
+                revision,
+                "--",
+                path,
+                repository_root=repository_root,
+            )
         except subprocess.CalledProcessError as exc:
             if exc.returncode == 1:
                 raise RuntimeError(
@@ -1044,7 +1078,11 @@ def _candidate_lock(revision: str) -> tuple[CandidateLock, dict[str, bytes]]:
             raise RuntimeError(
                 f"TAW-08 contract path comparison failed: {path}"
             ) from exc
-        content = _git("show", f"{revision}:{path}")
+        content = _git(
+            "show",
+            f"{revision}:{path}",
+            repository_root=repository_root,
+        )
         path_ref = f"repo-path-ref:{path}"
         content_by_ref[path_ref] = content
         entries.append(
@@ -1336,6 +1374,21 @@ def verify_repository_final_acceptance_publication(
     postmerge_foundation_receipt: FoundationGateReceipt,
     repository_root: Path = ROOT,
 ) -> _FinalAcceptancePublicationReceipt:
+    candidate_revision = candidate_revision_ref.removeprefix("git-sha:")
+    issuer_lock, _candidate_content = _candidate_lock(
+        candidate_revision,
+        repository_root=repository_root,
+    )
+    if issuer_lock.manifest_digest_ref != candidate_manifest_digest_ref:
+        raise RuntimeError("TAW-08 publication issuer candidate binding drift")
+    candidate_verification_receipt = verify_repository_candidate(
+        issuer_lock,
+        repository_root=repository_root,
+    )
+    if not candidate_verification_receipt.verified:
+        raise RuntimeError(
+            "TAW-08 publication issuer lacks candidate-bound provenance"
+        )
     publication_revision = publication_revision_ref.removeprefix("git-sha:")
     publication_path = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF.removeprefix(
         "repo-path-ref:"
@@ -1746,6 +1799,7 @@ def _run_locked_candidate_verifier() -> None:
             subprocess.run(
                 [
                     str(git_executable),
+                    "--no-replace-objects",
                     "worktree",
                     "add",
                     "--detach",
@@ -1755,6 +1809,7 @@ def _run_locked_candidate_verifier() -> None:
                 cwd=ROOT,
                 check=True,
                 capture_output=True,
+                env=_sanitized_git_environment(),
             )
             added = True
             environment_python = _materialize_locked_environment(
@@ -1785,6 +1840,7 @@ def _run_locked_candidate_verifier() -> None:
                 subprocess.run(
                     [
                         str(_trusted_git_identity()[0]),
+                        "--no-replace-objects",
                         "worktree",
                         "remove",
                         str(candidate_root),
@@ -1792,6 +1848,7 @@ def _run_locked_candidate_verifier() -> None:
                     cwd=ROOT,
                     check=True,
                     capture_output=True,
+                    env=_sanitized_git_environment(),
                 )
 
 

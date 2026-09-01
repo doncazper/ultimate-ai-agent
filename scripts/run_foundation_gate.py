@@ -36,18 +36,36 @@ from scripts.verification.verification_github_prerequisites import (  # noqa: E4
 )
 
 
+def _sanitized_git_environment() -> dict[str, str]:
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith("GIT_")
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    return environment
+
+
 def exact_repository_revision(
     repository_root: Path,
     *,
     git_executable: str | Path = "git",
 ) -> str:
     git_command = str(git_executable)
+    git_environment = _sanitized_git_environment()
     repository_probe = subprocess.run(
-        [git_command, "rev-parse", "--show-toplevel"],
+        [git_command, "--no-replace-objects", "rev-parse", "--show-toplevel"],
         cwd=repository_root,
         check=False,
         capture_output=True,
         text=True,
+        env=git_environment,
     )
     if repository_probe.returncode != 0:
         raise RuntimeError(
@@ -59,22 +77,30 @@ def exact_repository_revision(
             "Foundation Gate exact revision provenance requires the repository root"
         )
     worktree_status = subprocess.run(
-        [git_command, "status", "--porcelain", "--untracked-files=all"],
+        [
+            git_command,
+            "--no-replace-objects",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ],
         cwd=resolved_root,
         check=True,
         capture_output=True,
         text=True,
+        env=git_environment,
     ).stdout
     if worktree_status:
         raise RuntimeError(
             "Foundation Gate revision provenance requires a clean worktree"
         )
     revision = subprocess.run(
-        [git_command, "rev-parse", "HEAD"],
+        [git_command, "--no-replace-objects", "rev-parse", "HEAD"],
         cwd=resolved_root,
         check=True,
         capture_output=True,
         text=True,
+        env=git_environment,
     ).stdout.strip()
     return f"git-sha:{revision}"
 

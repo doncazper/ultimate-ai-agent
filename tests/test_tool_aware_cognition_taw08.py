@@ -1465,9 +1465,13 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: list[list[str]] = []
+    observed_environments: list[dict[str, str]] = []
+    monkeypatch.setenv("GIT_DIR", "/untrusted/repository")
+    monkeypatch.setenv("GIT_REPLACE_REF_BASE", "refs/untrusted/")
 
-    def successful_run(command: list[str], **_kwargs: object):
+    def successful_run(command: list[str], **kwargs: object):
         observed.append(command)
+        observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
         stdout = str(tmp_path) + "\n" if "--show-toplevel" in command else ""
         if command[-2:] == ["rev-parse", "HEAD"]:
             stdout = "a" * 40 + "\n"
@@ -1481,6 +1485,12 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     ) == "git-sha:" + "a" * 40
     assert len(observed) == 3
     assert all(command[0] == "/trusted/git" for command in observed)
+    assert all(command[1] == "--no-replace-objects" for command in observed)
+    assert all("GIT_DIR" not in environment for environment in observed_environments)
+    assert all(
+        "GIT_REPLACE_REF_BASE" not in environment
+        for environment in observed_environments
+    )
 
 
 def test_report_rejects_status_or_fingerprint_substitution() -> None:
@@ -2276,6 +2286,9 @@ def test_git_commands_use_the_trusted_absolute_executable(
     tmp_path: Path,
 ) -> None:
     observed: list[list[str]] = []
+    observed_environments: list[dict[str, str]] = []
+    monkeypatch.setenv("GIT_DIR", "/untrusted/repository")
+    monkeypatch.setenv("GIT_OBJECT_DIRECTORY", "/untrusted/objects")
     monkeypatch.setattr(
         taw08_verifier,
         "_trusted_git_identity",
@@ -2286,14 +2299,18 @@ def test_git_commands_use_the_trusted_absolute_executable(
         ),
     )
 
-    def successful_run(command: list[str], **_kwargs: object):
+    def successful_run(command: list[str], **kwargs: object):
         observed.append(command)
+        observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
         return subprocess.CompletedProcess(command, 0, stdout=b"trusted output")
 
     monkeypatch.setattr(taw08_verifier.subprocess, "run", successful_run)
 
     assert taw08_verifier._git("status", repository_root=tmp_path) == b"trusted output"
-    assert observed == [["/trusted/git", "status"]]
+    assert observed == [["/trusted/git", "--no-replace-objects", "status"]]
+    assert "GIT_DIR" not in observed_environments[0]
+    assert "GIT_OBJECT_DIRECTORY" not in observed_environments[0]
+    assert observed_environments[0]["GIT_CONFIG_NOSYSTEM"] == "1"
 
 
 def test_candidate_lock_cleanliness_uses_authenticated_git(
@@ -3022,6 +3039,29 @@ def test_repository_delta_wrapper_requires_candidate_bound_issuer() -> None:
         taw08_verifier.verify_repository_evidence_delta(
             candidate_lock=lock,
             delta=_delta(lock),
+        )
+
+
+def test_repository_publication_wrapper_requires_candidate_bound_issuer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_candidate_lock",
+        lambda _revision, **_kwargs: (lock, {}),
+    )
+
+    with pytest.raises(RuntimeError, match="locked verifier child"):
+        taw08_verifier.verify_repository_final_acceptance_publication(
+            publication_revision_ref=PUBLICATION_REVISION_REF,
+            candidate_revision_ref=lock.git_revision_ref,
+            candidate_manifest_digest_ref=lock.manifest_digest_ref,
+            founder_evidence_digest_ref=_founder_evidence(lock).evidence_digest_ref,
+            delta=delta,
+            delta_verification_receipt=_delta_verification(lock, delta),
+            postmerge_foundation_receipt=_postmerge_receipt(),
         )
 
 
