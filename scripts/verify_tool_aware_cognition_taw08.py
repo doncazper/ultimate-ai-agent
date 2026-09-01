@@ -11,11 +11,13 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import tomllib
 import urllib.parse
 import zipfile
 from collections import defaultdict, deque
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -106,9 +108,94 @@ EVIDENCE_ONLY_DELTA_PATHS = (
 )
 
 
+@lru_cache(maxsize=1)
+def _trusted_git_identity() -> tuple[Path, str, str]:
+    """Resolve Git only across an OS-admin trust boundary and bind its bytes."""
+
+    executable_value = shutil.which("git")
+    if not executable_value:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable")
+    executable = Path(executable_value)
+    try:
+        resolved = executable.resolve(strict=True)
+        metadata = resolved.stat()
+        content = resolved.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
+    if not resolved.is_file() or not content or len(content) > 256 * 1024 * 1024:
+        raise RuntimeError("TAW-08 trusted Git executable is invalid")
+    system = platform.system().strip().lower()
+    if os.name == "posix":
+        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        if system == "darwin":
+            if resolved != Path("/usr/bin/git"):
+                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+            signature = subprocess.run(
+                [
+                    "/usr/bin/codesign",
+                    "--verify",
+                    "--strict",
+                    "-R=anchor apple",
+                    str(resolved),
+                ],
+                check=False,
+                capture_output=True,
+                timeout=30,
+            )
+            if signature.returncode != 0:
+                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+            provenance_ref = "git-provenance-ref:apple-platform-signed"
+        else:
+            provenance_ref = "git-provenance-ref:posix-root-owned-nonwritable"
+    elif os.name == "nt":
+        system_root = os.environ.get("SystemRoot")
+        if not system_root:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        powershell = (
+            Path(system_root)
+            / "System32"
+            / "WindowsPowerShell"
+            / "v1.0"
+            / "powershell.exe"
+        )
+        signature = subprocess.run(
+            [
+                str(powershell),
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "$s=Get-AuthenticodeSignature -LiteralPath $args[0];"
+                "Write-Output ($s.Status.ToString()+' '+"
+                "$s.SignerCertificate.Thumbprint)",
+                str(resolved),
+            ],
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        output = signature.stdout.decode("ascii", errors="strict").strip().split()
+        if (
+            signature.returncode != 0
+            or len(output) != 2
+            or output[0] != "Valid"
+            or not re.fullmatch(r"[0-9A-F]{40,64}", output[1])
+        ):
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        provenance_ref = "git-provenance-ref:windows-authenticode:" + output[1].lower()
+    else:
+        raise RuntimeError("TAW-08 Git executable platform is unsupported")
+    return (
+        resolved,
+        "sha256:" + hashlib.sha256(content).hexdigest(),
+        provenance_ref,
+    )
+
+
 def _git(*args: str, repository_root: Path = ROOT) -> bytes:
+    executable, _digest_ref, _provenance_ref = _trusted_git_identity()
     result = subprocess.run(
-        ["git", *args],
+        [str(executable), *args],
         cwd=repository_root,
         check=True,
         capture_output=True,
@@ -205,6 +292,66 @@ def _verify_preflight_execution(*, repository_root: Path) -> None:
 
 def _venv_scripts_directory(platform_name: str = os.name) -> str:
     return "Scripts" if platform_name == "nt" else "bin"
+
+
+def _python_runtime_identity(
+    *,
+    executable: Path | None = None,
+    standard_library_root: Path | None = None,
+) -> tuple[str, int, str]:
+    """Bind the exact CPython executable and non-package standard library."""
+
+    executable = (executable or Path(sys.executable)).resolve()
+    standard_library_root = (
+        standard_library_root or Path(sysconfig.get_path("stdlib"))
+    ).resolve()
+    try:
+        executable_content = executable.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 CPython executable is unavailable") from exc
+    if (
+        not executable.is_file()
+        or not executable_content
+        or len(executable_content) > 256 * 1024 * 1024
+        or not standard_library_root.is_dir()
+    ):
+        raise RuntimeError("TAW-08 CPython runtime census is invalid")
+    identities: list[tuple[str, int, str]] = []
+    total_bytes = 0
+    for path in sorted(standard_library_root.rglob("*")):
+        relative = path.relative_to(standard_library_root)
+        if "site-packages" in relative.parts or "__pycache__" in relative.parts:
+            continue
+        if path.is_dir() and not path.is_symlink():
+            continue
+        try:
+            resolved = path.resolve(strict=True)
+            if not resolved.is_file():
+                raise OSError
+            content = path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError("TAW-08 CPython runtime census is invalid") from exc
+        total_bytes += len(content)
+        if (
+            len(identities) >= 100_000
+            or len(content) > 256 * 1024 * 1024
+            or total_bytes > 4 * 1024 * 1024 * 1024
+        ):
+            raise RuntimeError("TAW-08 CPython runtime census bound exceeded")
+        identities.append(
+            (
+                relative.as_posix(),
+                len(content),
+                hashlib.sha256(content).hexdigest(),
+            )
+        )
+    if not identities:
+        raise RuntimeError("TAW-08 CPython runtime census is invalid")
+    return (
+        "sha256:" + hashlib.sha256(executable_content).hexdigest(),
+        len(identities),
+        canonical_digest({"standard_library_files": tuple(identities)}),
+    )
 
 
 def _installed_distribution_content_identity(
@@ -667,11 +814,24 @@ def verify_locked_evaluator_environment(
             (name, version, locked_wheel_identity, installed_identity)
         )
     distribution_content_identities = tuple(distribution_content_identities)
+    (
+        python_executable_digest_ref,
+        python_standard_library_file_count,
+        python_standard_library_digest_ref,
+    ) = _python_runtime_identity()
+    _git_executable, git_executable_digest_ref, git_provenance_ref = (
+        _trusted_git_identity()
+    )
     return _bind_evaluator_environment_receipt(
         python_implementation="cpython",
         python_version=".".join(str(item) for item in sys.version_info[:3]),
         platform_system=platform.system().strip().lower(),
         platform_machine=platform.machine().strip().lower(),
+        python_executable_digest_ref=python_executable_digest_ref,
+        python_standard_library_file_count=python_standard_library_file_count,
+        python_standard_library_digest_ref=python_standard_library_digest_ref,
+        git_executable_digest_ref=git_executable_digest_ref,
+        git_provenance_ref=git_provenance_ref,
         installed_distribution_count=len(distribution_refs),
         installed_distributions_digest_ref=canonical_digest(
             {
@@ -1520,9 +1680,12 @@ def _run_locked_candidate_verifier() -> None:
         selected_wheelhouse = Path(temporary) / "selected-wheelhouse"
         added = False
         try:
+            git_executable, _git_digest_ref, _git_provenance_ref = (
+                _trusted_git_identity()
+            )
             subprocess.run(
                 [
-                    "git",
+                    str(git_executable),
                     "worktree",
                     "add",
                     "--detach",
@@ -1561,7 +1724,12 @@ def _run_locked_candidate_verifier() -> None:
         finally:
             if added:
                 subprocess.run(
-                    ["git", "worktree", "remove", str(candidate_root)],
+                    [
+                        str(_trusted_git_identity()[0]),
+                        "worktree",
+                        "remove",
+                        str(candidate_root),
+                    ],
                     cwd=ROOT,
                     check=True,
                     capture_output=True,

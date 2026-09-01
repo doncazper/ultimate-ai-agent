@@ -585,6 +585,11 @@ class _EvaluatorEnvironmentReceipt(_FrozenModel):
     python_version: str = Field(..., pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
     platform_system: str = Field(..., pattern=r"^[a-z0-9_-]{1,32}$")
     platform_machine: str = Field(..., pattern=r"^[a-z0-9_.-]{1,64}$")
+    python_executable_digest_ref: str
+    python_standard_library_file_count: int = Field(..., ge=1, le=100_000)
+    python_standard_library_digest_ref: str
+    git_executable_digest_ref: str
+    git_provenance_ref: str
     installed_distribution_count: int = Field(..., ge=1, le=2048)
     installed_distributions_digest_ref: str
     pyproject_digest_ref: str
@@ -600,11 +605,15 @@ class _EvaluatorEnvironmentReceipt(_FrozenModel):
     @model_validator(mode="after")
     def validate_receipt(self) -> "_EvaluatorEnvironmentReceipt":
         for field_name in (
+            "python_executable_digest_ref",
+            "python_standard_library_digest_ref",
+            "git_executable_digest_ref",
             "installed_distributions_digest_ref",
             "pyproject_digest_ref",
             "uv_lock_digest_ref",
         ):
             _validate_digest(getattr(self, field_name), field_name)
+        _validate_ref(self.git_provenance_ref, "git_provenance_ref")
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"receipt_digest_ref"})
         )

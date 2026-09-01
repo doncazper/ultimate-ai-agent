@@ -6,6 +6,7 @@ import importlib.metadata as importlib_metadata
 import inspect
 import io
 import json
+import os
 import subprocess
 import sys
 import zipfile
@@ -189,6 +190,11 @@ def _evaluator_environment_receipt(
         python_version="3.12.13",
         platform_system="darwin",
         platform_machine="arm64",
+        python_executable_digest_ref="sha256:" + "1" * 64,
+        python_standard_library_file_count=2,
+        python_standard_library_digest_ref="sha256:" + "2" * 64,
+        git_executable_digest_ref="sha256:" + "3" * 64,
+        git_provenance_ref="git-provenance-ref:apple-platform-signed",
         installed_distribution_count=2,
         installed_distributions_digest_ref=canonical_digest(
             {"distributions": ("pydantic==2.13.4", "pytest==9.0.3")}
@@ -1821,6 +1827,20 @@ def _stub_locked_wheel_verification(monkeypatch: pytest.MonkeyPatch) -> None:
         "_locked_wheel_distribution_identity",
         lambda **_kwargs: ("sha256:" + "0" * 64, ()),
     )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_python_runtime_identity",
+        lambda: ("sha256:" + "1" * 64, 2, "sha256:" + "2" * 64),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_trusted_git_identity",
+        lambda: (
+            Path("/trusted/git"),
+            "sha256:" + "3" * 64,
+            "git-provenance-ref:test-trust-root",
+        ),
+    )
 
 
 def test_locked_evaluator_environment_verifies_active_frozen_environment(
@@ -1840,6 +1860,11 @@ def test_locked_evaluator_environment_verifies_active_frozen_environment(
 
     assert receipt.locked_environment_verified is True
     assert receipt.installed_distribution_count > 0
+    assert receipt.python_executable_digest_ref == "sha256:" + "1" * 64
+    assert receipt.python_standard_library_file_count == 2
+    assert receipt.python_standard_library_digest_ref == "sha256:" + "2" * 64
+    assert receipt.git_executable_digest_ref == "sha256:" + "3" * 64
+    assert receipt.git_provenance_ref == "git-provenance-ref:test-trust-root"
     assert receipt.pyproject_digest_ref == (
         "sha256:"
         + hashlib.sha256(locked_content["repo-path-ref:pyproject.toml"]).hexdigest()
@@ -2120,6 +2145,82 @@ def test_locked_child_requires_isolated_no_site_mode() -> None:
 def test_venv_script_directory_supports_windows_and_posix() -> None:
     assert taw08_verifier._venv_scripts_directory("nt") == "Scripts"
     assert taw08_verifier._venv_scripts_directory("posix") == "bin"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX provenance regression")
+def test_trusted_git_rejects_path_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    substituted_git = tmp_path / "git"
+    substituted_git.write_bytes(b"substituted git")
+    substituted_git.chmod(0o777)
+    taw08_verifier._trusted_git_identity.cache_clear()
+    monkeypatch.setattr(
+        taw08_verifier.shutil,
+        "which",
+        lambda _name: str(substituted_git),
+    )
+
+    with pytest.raises(RuntimeError, match="trusted provenance"):
+        taw08_verifier._trusted_git_identity()
+
+    taw08_verifier._trusted_git_identity.cache_clear()
+
+
+def test_git_commands_use_the_trusted_absolute_executable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    observed: list[list[str]] = []
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_trusted_git_identity",
+        lambda: (
+            Path("/trusted/git"),
+            "sha256:" + "3" * 64,
+            "git-provenance-ref:test-trust-root",
+        ),
+    )
+
+    def successful_run(command: list[str], **_kwargs: object):
+        observed.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b"trusted output")
+
+    monkeypatch.setattr(taw08_verifier.subprocess, "run", successful_run)
+
+    assert taw08_verifier._git("status", repository_root=tmp_path) == b"trusted output"
+    assert observed == [["/trusted/git", "status"]]
+
+
+def test_python_runtime_identity_binds_executable_and_standard_library(
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "python"
+    executable.write_bytes(b"cpython executable")
+    standard_library = tmp_path / "stdlib"
+    standard_library.mkdir()
+    module = standard_library / "hashlib.py"
+    module.write_bytes(b"trusted hashlib")
+
+    baseline = taw08_verifier._python_runtime_identity(
+        executable=executable,
+        standard_library_root=standard_library,
+    )
+    module.write_bytes(b"substituted hashlib")
+    changed_library = taw08_verifier._python_runtime_identity(
+        executable=executable,
+        standard_library_root=standard_library,
+    )
+    executable.write_bytes(b"substituted cpython")
+    changed_executable = taw08_verifier._python_runtime_identity(
+        executable=executable,
+        standard_library_root=standard_library,
+    )
+
+    assert baseline[0] == changed_library[0]
+    assert baseline[2] != changed_library[2]
+    assert changed_library[0] != changed_executable[0]
 
 
 def test_locked_environment_uses_only_provisioned_lock_closure(

@@ -229,3 +229,12 @@ owned by an installed distribution `RECORD` before adding that venv's
 site-packages. The child then binds installed distribution content back to each
 authenticated wheel and deletes the temporary environment when verification
 ends.
+
+Receipt issuance also binds the exact CPython executable and a complete
+content census of its non-package standard library. Every Git-backed check uses
+one absolute executable admitted across an operating-system administrator trust
+boundary: Apple-platform signature verification on macOS, root-owned and
+non-writable provenance on other POSIX systems, or valid Authenticode
+provenance on Windows. The Git executable digest and provenance ref are bound
+into the same private evaluator-environment receipt; `PATH` alone cannot select
+the repository evidence reader.
