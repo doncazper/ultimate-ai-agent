@@ -23,13 +23,169 @@ from ultimate_ai_agent.core.gate import (  # noqa: E402
     FoundationGateCommandReceipt,
     FoundationGateEvaluator,
     FoundationGateLatencySummary,
+    FoundationGateReport,
     FoundationGateReleaseLaneSummary,
     FoundationGateStatus,
+)
+from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
+    foundation_gate_evaluation_provenance_digest,
 )
 from scripts.verification.verification_github_prerequisites import (  # noqa: E402
     FoundationPrerequisiteManifest,
     load_foundation_prerequisite_manifest,
 )
+
+
+def _sanitized_git_environment() -> dict[str, str]:
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith("GIT_")
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    return environment
+
+
+def _index_has_hidden_worktree_entries(
+    repository_root: Path,
+    *,
+    git_command: str,
+    git_environment: dict[str, str],
+) -> bool:
+    entries = subprocess.run(
+        [git_command, "--no-replace-objects", "ls-files", "-v", "-z"],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    ).stdout.split(b"\0")
+    return any(
+        entry
+        and (
+            entry[:1] in {b"S", b"s"}
+            or (entry[:1].isalpha() and entry[:1].islower())
+        )
+        for entry in entries
+    )
+
+
+def exact_repository_revision(
+    repository_root: Path,
+    *,
+    git_executable: str | Path = "git",
+) -> str:
+    git_command = str(git_executable)
+    git_environment = _sanitized_git_environment()
+    repository_probe = subprocess.run(
+        [git_command, "--no-replace-objects", "rev-parse", "--show-toplevel"],
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=git_environment,
+    )
+    if repository_probe.returncode != 0:
+        raise RuntimeError(
+            "Foundation Gate exact revision provenance requires the repository root"
+        )
+    resolved_root = Path(repository_probe.stdout.strip()).resolve()
+    if resolved_root != repository_root.resolve():
+        raise RuntimeError(
+            "Foundation Gate exact revision provenance requires the repository root"
+        )
+    worktree_status = subprocess.run(
+        [
+            git_command,
+            "--no-replace-objects",
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ],
+        cwd=resolved_root,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=git_environment,
+    ).stdout
+    if worktree_status:
+        raise RuntimeError(
+            "Foundation Gate revision provenance requires a clean worktree"
+        )
+    if _index_has_hidden_worktree_entries(
+        resolved_root,
+        git_command=git_command,
+        git_environment=git_environment,
+    ):
+        raise RuntimeError(
+            "Foundation Gate revision provenance rejects hidden index entries"
+        )
+    revision = subprocess.run(
+        [git_command, "--no-replace-objects", "rev-parse", "HEAD"],
+        cwd=resolved_root,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=git_environment,
+    ).stdout.strip()
+    return f"git-sha:{revision}"
+
+
+def evaluate_foundation_gate_at_exact_repository_revision(
+    repository_root: Path,
+    *,
+    git_executable: str | Path = "git",
+) -> tuple[str, FoundationGateReport]:
+    """Run the canonical evaluator and inseparably bind its clean revision."""
+
+    evaluated_revision_ref = exact_repository_revision(
+        repository_root,
+        git_executable=git_executable,
+    )
+    report = FoundationGateEvaluator(repository_root).evaluate()
+    if (
+        exact_repository_revision(
+            repository_root,
+            git_executable=git_executable,
+        )
+        != evaluated_revision_ref
+    ):
+        raise RuntimeError("Foundation Gate revision changed during evaluation")
+    bound = report.model_copy(
+        update={"evaluated_revision_ref": evaluated_revision_ref}
+    )
+    bound = bound.model_copy(
+        update={
+            "evaluation_provenance_digest_ref": (
+                foundation_gate_evaluation_provenance_digest(bound)
+            )
+        }
+    )
+    return evaluated_revision_ref, bound
+
+
+def evaluate_foundation_gate_for_repository_state(
+    repository_root: Path,
+    *,
+    require_clean_revision: bool,
+) -> tuple[str | None, FoundationGateReport]:
+    """Preserve dirty-tree development checks without issuing provenance."""
+
+    try:
+        return evaluate_foundation_gate_at_exact_repository_revision(repository_root)
+    except RuntimeError as exc:
+        if (
+            require_clean_revision
+            or str(exc)
+            != "Foundation Gate revision provenance requires a clean worktree"
+        ):
+            raise
+    return None, FoundationGateEvaluator(repository_root).evaluate()
 
 
 GATE_TESTS = [
@@ -424,6 +580,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ci-prerequisite-manifest")
     parser.add_argument("--ci-prerequisite-sha")
     parser.add_argument("--ci-prerequisite-base-sha")
+    parser.add_argument(
+        "--require-clean-revision",
+        action="store_true",
+        help=(
+            "Fail unless the report can bind one clean exact Git revision. "
+            "TAW-08 receipt issuance always enforces this independently."
+        ),
+    )
     args = parser.parse_args(argv)
 
     command_mode = "report-only" if args.skip_commands else args.command_mode
@@ -460,18 +624,27 @@ def main(argv: list[str] | None = None) -> int:
             command_failures.append(command_ref)
 
     foundation_gate_started = time.perf_counter()
-    report = FoundationGateEvaluator(ROOT).evaluate()
+    _evaluated_revision_ref, report = (
+        evaluate_foundation_gate_for_repository_state(
+            ROOT,
+            require_clean_revision=args.require_clean_revision,
+        )
+    )
     foundation_gate_elapsed_ms = round(
         (time.perf_counter() - foundation_gate_started) * 1000,
         2,
     )
-    report.command_mode = command_mode
-    report.command_receipts = command_receipts
+    report = report.model_copy(
+        update={
+            "command_mode": command_mode,
+            "command_receipts": command_receipts,
+        }
+    )
     output_dir = ROOT / "reports" / "foundation_gate"
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "latest_foundation_gate_report.json"
     markdown_path = output_dir / "latest_foundation_gate_report.md"
-    report.latency_gate = build_latency_gate_summary(
+    latency_gate = build_latency_gate_summary(
         foundation_gate_report_json=None
         if args.no_write_latest
         else str(report_path.relative_to(ROOT)),
@@ -483,7 +656,12 @@ def main(argv: list[str] | None = None) -> int:
         precomputed_foundation_gate_result_count=len(report.results),
         write_report=not args.no_write_latest,
     )
-    report.release_verification_lanes = build_release_lane_summary()
+    report = report.model_copy(
+        update={
+            "latency_gate": latency_gate,
+            "release_verification_lanes": build_release_lane_summary(),
+        }
+    )
     report_payload = report.model_dump_json(indent=2)
     report_payload_dict = json.loads(report_payload)
     if not args.no_write_latest:

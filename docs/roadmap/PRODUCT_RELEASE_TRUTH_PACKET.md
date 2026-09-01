@@ -102,16 +102,11 @@ surface. No Control Center surface, route change, model context change, model or
 provider call, proposal, approval grant, execution, connector, external write,
 public claim, or authority is added.
 
-The TAW-07 deterministic development contract is present, but TAW-07 is not yet
-qualified. It recomputes the fixed 24-case / 240-observation development matrix,
-accepted TAW-04 legacy bindings, budget and quality gates, and persisted-report
-consistency without model/provider calls or runtime authority. A clean fixture
-run reports `blocked_missing_acceptance_evidence`; its metric results are explicitly
-structural checks with acceptance evidence incomplete. Stale-cache recovery,
-routing confidence bounds, response-level injection scoring, live model/hardware
-measurements, and independently verified holdout evidence remain missing. TAW-08, exact measured
-founder-dogfood evidence, independent promotion, and public quality claims remain
-blocked.
+[//]: # (TAW08-RECONCILIATION:START)
+The TAW-07 deterministic development contract recomputes the fixed 24-case / 240-observation matrix, accepted TAW-04 bindings, budgets, quality gates, and persisted-report consistency without model/provider calls or runtime authority. Its clean fixture report remains `blocked_missing_acceptance_evidence`; structural results are not acceptance evidence, and stale-cache recovery, routing confidence, response-level injection scoring, exact live model/config/context/backend/hardware measurements, complete powered measurement strata, and independent holdout evidence remain missing. The TAW-08 contract reuses the TAW-00 exact candidate lock; locks the evaluator environment; verifies complete post-lock ancestry, commit, and path history; restricts the delta to the content-addressed acceptance report and both active-truth reconciliations; and binds the founder decision to exact measurements, exact-head/post-merge Foundation receipts, and a final content-addressed publication receipt. The founder remains the sole private-dogfood evaluator, which does not satisfy independent custodian/evaluator/baseline/sealed-holdout gates. Actual founder-private acceptance evidence is not yet collected; the report remains `blocked_missing_founder_evidence`, and Q22, independent promotion, public claims, broader authority, runtime/model/provider/connector calls, and production authority remain blocked.
+[//]: # (TAW08-RECONCILIATION:JSON)
+{"entries":[{"claim_ref":"claim-ref:queue-v2/Q22/taw08-release-truth","evidence_refs":[],"status":"blocked"}],"raw_content_persisted":false,"schema_version":"uaa-taw08-claim-reconciliation.v1"}
+[//]: # (TAW08-RECONCILIATION:END)
 
 Q30 Social publishing is complete at the bounded local proposal/dry-run tier:
 content-free synthetic draft and platform-variant refs, reviewed fixture

@@ -236,6 +236,29 @@ def _refs(values: tuple[str, ...], field_name: str) -> None:
         _ref(value, field_name)
 
 
+def _repo_path_ref(value: str, field_name: str) -> None:
+    prefix = "repo-path-ref:"
+    if not value.startswith(prefix):
+        raise ValueError(f"{field_name} must be a repository path ref")
+    path = value.removeprefix(prefix)
+    parts = path.split("/")
+    if (
+        not path
+        or path.startswith("/")
+        or len(path) > 512
+        or any(part in ("", ".", "..") for part in parts)
+        or any(character in path for character in ("\x00", "\n", "\r"))
+    ):
+        raise ValueError(f"{field_name} contains an unsafe repository path")
+
+
+def _repo_path_refs(values: tuple[str, ...], field_name: str) -> None:
+    if len(values) != len(set(values)):
+        raise ValueError(f"{field_name} must be unique")
+    for value in values:
+        _repo_path_ref(value, field_name)
+
+
 def _digest(value: str, field_name: str) -> None:
     if not _DIGEST_RE.fullmatch(value):
         raise ValueError(f"{field_name} must be an exact sha256 digest")
@@ -1529,9 +1552,9 @@ class SourceDependencyEntry(_FrozenModel):
 
     @model_validator(mode="after")
     def validate_entry(self) -> "SourceDependencyEntry":
-        _ref(self.path_ref, "path_ref")
+        _repo_path_ref(self.path_ref, "path_ref")
         _digest(self.content_digest_ref, "content_digest_ref")
-        _refs(self.dependency_path_refs, "dependency_path_refs")
+        _repo_path_refs(self.dependency_path_refs, "dependency_path_refs")
         if self.dependency_path_refs != tuple(sorted(self.dependency_path_refs)):
             raise ValueError("source dependency refs must be sorted")
         return self
@@ -1598,6 +1621,7 @@ def derive_local_python_dependencies(
     content: bytes,
     *,
     available_path_refs: set[str],
+    allow_unresolved_dynamic_imports: bool = False,
 ) -> tuple[str, ...]:
     module_name = _module_name_for_path_ref(path_ref)
     if not path_ref.endswith(".py"):
@@ -1614,6 +1638,15 @@ def derive_local_python_dependencies(
         if module_name is not None
         else []
     )
+    import_module_aliases = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.level == 0
+        and node.module == "importlib"
+        for alias in node.names
+        if alias.name == "import_module"
+    }
     dependencies: set[str] = set()
     for node in ast.walk(tree):
         modules: set[str] = set()
@@ -1642,18 +1675,23 @@ def derive_local_python_dependencies(
                     modules.add(f"{base}.{alias.name}")
         elif isinstance(node, ast.Call):
             is_dynamic_import = (
-                isinstance(node.func, ast.Name) and node.func.id == "__import__"
+                isinstance(node.func, ast.Name)
+                and node.func.id in {"__import__", *import_module_aliases}
             ) or (
                 isinstance(node.func, ast.Attribute)
                 and node.func.attr == "import_module"
             )
             if is_dynamic_import:
                 if not node.args or not isinstance(node.args[0], ast.Constant):
+                    if allow_unresolved_dynamic_imports:
+                        continue
                     raise ValueError(
                         "source closure contains an unresolved dynamic import"
                     )
                 dynamic_module = node.args[0].value
                 if not isinstance(dynamic_module, str):
+                    if allow_unresolved_dynamic_imports:
+                        continue
                     raise ValueError(
                         "source closure contains an unresolved dynamic import"
                     )
@@ -1671,8 +1709,12 @@ def verify_source_dependency_closure(
     source_projection: SourceProjection,
     content_by_path_ref: Mapping[str, bytes],
     available_path_refs: set[str],
+    allow_unresolved_dynamic_import_path_refs: set[str] | None = None,
 ) -> tuple[str, ...]:
     failures: set[str] = set()
+    allow_unresolved_dynamic_import_path_refs = (
+        allow_unresolved_dynamic_import_path_refs or set()
+    )
     projection_paths = tuple(item.path_ref for item in source_projection.entries)
     if closure.source_revision_ref != source_projection.source_revision_ref:
         failures.add("failure-ref:taw00:source-closure-revision-drift")
@@ -1694,6 +1736,9 @@ def verify_source_dependency_closure(
             path_ref,
             content,
             available_path_refs=available_path_refs,
+            allow_unresolved_dynamic_imports=(
+                path_ref in allow_unresolved_dynamic_import_path_refs
+            ),
         )
         if entry.dependency_path_refs != expected_dependencies:
             failures.add("failure-ref:taw00:source-closure-edge-drift")

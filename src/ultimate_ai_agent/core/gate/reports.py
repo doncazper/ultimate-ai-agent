@@ -1,3 +1,5 @@
+import hashlib
+import json
 import re
 import uuid
 from datetime import datetime
@@ -110,6 +112,8 @@ class FoundationGateReport(BaseModel):
     blocked_count: int = 0
     summary: str
     next_recommended_action: str
+    evaluated_revision_ref: Optional[str] = None
+    evaluation_provenance_digest_ref: Optional[str] = None
     event_ref: Optional[str] = None
     trace_id: Optional[str] = None
     command_mode: Optional[str] = None
@@ -117,7 +121,29 @@ class FoundationGateReport(BaseModel):
     latency_gate: Optional[FoundationGateLatencySummary] = None
     release_verification_lanes: Optional[FoundationGateReleaseLaneSummary] = None
 
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+    model_config = ConfigDict(use_enum_values=True, extra="forbid", frozen=True)
+
+
+def foundation_gate_evaluation_provenance_digest(
+    report: FoundationGateReport,
+) -> str:
+    payload = report.model_dump(
+        mode="json",
+        exclude={
+            "evaluation_provenance_digest_ref",
+            "command_mode",
+            "command_receipts",
+            "latency_gate",
+            "release_verification_lanes",
+        },
+    )
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def build_foundation_gate_report(
@@ -148,7 +174,7 @@ def build_foundation_gate_report(
         overall_status = FoundationGateStatus.passed
         next_action = "Foundation can proceed to controlled expansion review."
 
-    return FoundationGateReport(
+    report = FoundationGateReport(
         report_id=f"fgrep_{uuid.uuid4().hex[:12]}",
         version=version,
         overall_status=overall_status,
@@ -167,6 +193,7 @@ def build_foundation_gate_report(
         command_mode=command_mode,
         command_receipts=command_receipts or [],
     )
+    return report
 
 
 def scan_public_gate_payload_for_secrets(payload: Any) -> List[str]:

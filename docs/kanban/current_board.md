@@ -48,17 +48,13 @@ inspection through one redacted Python Core read model. The stdin CLI and
 protected validation-only API have exact JSON parity and stable OpenAPI,
 manifest, side-effect, and auth posture. No Control Center surface, ordinary-chat
 change, model context, proposal, approval grant, execution, provider call,
-connector, external write, or authority is added. The bounded TAW-07 deterministic
-development contract now recomputes the exact 24-case / 240-observation
-catalog-state and safe-disable matrix, latency and context budgets, paired
-founder-private quality deltas, catalog-injection census, and exact TAW-04
-decision bindings without making model/provider calls or measuring real
-hardware. TAW-07 qualification reports `blocked_missing_acceptance_evidence`:
-the fixture's zero-event results are structural checks, not accepted metrics, and
-stale-cache recovery, routing confidence bounds, response-level injection scoring,
-live model/hardware measurements, and independently verified holdout evidence are
-explicitly missing. TAW-08 founder-dogfood acceptance, exact measured
-evidence, and independent promotion therefore remain gated.
+connector, external write, or authority is added.
+
+[//]: # (TAW08-RECONCILIATION:START)
+The bounded TAW-07 deterministic development contract recomputes the exact 24-case / 240-observation catalog-state and safe-disable matrix, latency and context budgets, paired founder-private quality deltas, catalog-injection census, and exact TAW-04 decision bindings without model/provider calls or real-hardware measurement. Its clean fixture report remains `blocked_missing_acceptance_evidence`: structural checks are not accepted metrics, and stale-cache recovery, routing confidence bounds, response-level injection scoring, exact live model/config/context/backend/hardware measurements, complete powered measurement strata, and independently verified holdout evidence are missing. The bounded TAW-08 contract binds the exact candidate lock, evaluator environment, complete post-lock history, three-kind evidence-only delta, founder evidence/decision refs, exact-head and post-merge Foundation receipts, both active-truth reconciliations, and a final content-addressed publication receipt. Actual founder-private acceptance evidence is not yet collected; the current report remains `blocked_missing_founder_evidence`, so Q22 completion, independent promotion, and public claims remain gated.
+[//]: # (TAW08-RECONCILIATION:JSON)
+{"entries":[{"claim_ref":"claim-ref:queue-v2/Q22/taw08-current-board","evidence_refs":[],"status":"blocked"}],"raw_content_persisted":false,"schema_version":"uaa-taw08-claim-reconciliation.v1"}
+[//]: # (TAW08-RECONCILIATION:END)
 
 Queue V2 Wave 6 is the planned founder functional-adoption sequence after the
 final GoatCitadel comparison. Q31 must directly exercise and inspect comparable

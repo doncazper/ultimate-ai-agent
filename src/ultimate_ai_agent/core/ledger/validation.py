@@ -6,8 +6,10 @@ TRACEPARENT_PATTERN = re.compile(r"^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-
 
 # Broad secret key assignment regex scanner.
 SECRET_PATTERN = re.compile(
-    r"(?i)(api[_-]?key|client[_-]?secret|auth[_-]?token|secret|token|password)\s*=\s*"
-    r"(?:['\"][A-Za-z0-9_\-\.\:/]{12,}['\"]|[A-Za-z0-9_\-\.\:/]{16,})"
+    r"(?:(?i:(api[_-]?key|client[_-]?secret|auth[_-]?token|secret|token|password)\s*=\s*"
+    r"(?:['\"][A-Za-z0-9_\-\.\:/]{12,}['\"]|[A-Za-z0-9_\-\.\:/]{16,}))"
+    r"|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bgh[pousr]_[A-Za-z0-9_]{20,}\b"
+    r"|\bgithub_pat_[A-Za-z0-9_]{20,}\b)"
 )
 
 def validate_traceparent(traceparent: str) -> bool:

@@ -89,6 +89,79 @@ PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
 PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
     "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
 )
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
+    "uaa.test_corpus.parameter_dependency_identity.v2"
+)
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE = (
+    "ultimate_ai_agent.core.ledger.validation"
+)
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS = (
+    "d9e2be8d0ce8388938f686996d2aa964cdaf56934992029096ea652795047062",
+    "3286d6eda19571c8988d86bd18123de90e52a62b8c03807d61daf86600ad88ea",
+)
+PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
+    (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "879ada8403a3a6cffc0e7681b844fd6b6cbcc58817c94a40341c21a4cc1ad41d"
+    ): (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "1e7d3803b188128bc3aeb6ee4f9431663e8ab756ba960945aa7c850a0d7f29aa",
+        "5ecfee361e1d92de0f93d3a1c0239020f76943c73d31e25118add11434a56036",
+    ),
+    (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "f68d7ee357f074571dd84f1b0e650cbf1889a0bed3cbf23455776902469bc196"
+    ): (
+        "tests/test_eco_009_read_only_connectors.py::"
+        "test_invalid_or_unavailable_source_requests_fail_closed::"
+        "parametrize-sha256:"
+        "77c1df362b9d666be03910c5c7278ce462b13f8c3d31752a75b189803c333a51",
+        "5ecfee361e1d92de0f93d3a1c0239020f76943c73d31e25118add11434a56036",
+    ),
+    (
+        "tests/test_q28_autocorrect_controls.py::"
+        "test_added_and_removed_content_free_diffs_remain_supported::"
+        "parametrize-sha256:"
+        "00adfb0002bd734d44c09b43a0145653aa42fe701fab074791866e4a52c41ee8"
+    ): (
+        "tests/test_q28_autocorrect_controls.py::"
+        "test_added_and_removed_content_free_diffs_remain_supported::"
+        "parametrize-sha256:"
+        "89a707dfa53e64386072a8bcd2c08c1a0c371d14ac628a8f9d263c6f8cb026fc",
+        "1881bbeb5f1308b692066af92704a77074b7c12db589c353d7b852024f4e5f53",
+    ),
+    (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "6d171af0b63a96b709dbe0a1abea55dd6808fc33fe3ad02880d96d349995aae2"
+    ): (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "402ddccd4eb3c9526937956f0c588cbebf284921262f3df9300d78e1c1470c35",
+        "9349c595efb4849d2a3e03a8515bd60713f43c1181707b450c7055adff900fe1",
+    ),
+    (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "3a09b4c3a5b2cd39699df9878bf52a0e426fc0368d167e2f65b95ab3324d6850"
+    ): (
+        "tests/test_web_research_aggregation.py::"
+        "test_unknown_stale_degraded_and_missing_metered_budget_fail_closed::"
+        "parametrize-sha256:"
+        "a1cad82057a5aa64aa0238b17d3c3fb93e379d11a43ca40803f9a41a1c63e2a1",
+        "9349c595efb4849d2a3e03a8515bd60713f43c1181707b450c7055adff900fe1",
+    ),
+}
+TEST_CORPUS_GUARD_PATH = "scripts/verification/test_corpus_guard.py"
 PYTEST_RUNNER_PLUGIN_MODULES = frozenset(
     {
         "scripts.verification.pytest_collection_evidence",
@@ -276,6 +349,7 @@ class _WorktreeInventorySnapshot:
 class _PythonBindingNodeAnalysis:
     serialized: str
     imported_requirements: tuple[tuple[str, tuple[str, ...]], ...]
+    invoked_imported_requirements: tuple[tuple[str, tuple[str, ...]], ...]
     star_import_requirements: tuple[str, ...]
     local_dependency_names: tuple[str, ...]
     runtime_abort_posture: bool
@@ -3683,6 +3757,15 @@ def _python_binding_node_analysis(
             _python_import_requirements(node, analysis.imported_modules).items()
         )
     )
+    invoked_imported_requirements = tuple(
+        (root, tuple(sorted(names)))
+        for root, names in sorted(
+            _python_invoked_import_requirements(
+                node,
+                analysis.imported_modules,
+            ).items()
+        )
+    )
     star_import_requirements = (
         tuple(sorted(_python_star_import_dependency_names(node)))
         if analysis.star_import_modules
@@ -3716,12 +3799,56 @@ def _python_binding_node_analysis(
     result = _PythonBindingNodeAnalysis(
         serialized=ast.dump(node, annotate_fields=True, include_attributes=False),
         imported_requirements=imported_requirements,
+        invoked_imported_requirements=invoked_imported_requirements,
         star_import_requirements=star_import_requirements,
         local_dependency_names=tuple(sorted(local_dependency_names)),
         runtime_abort_posture=runtime_abort_posture,
     )
     analysis.node_analyses[position] = result
     return result
+
+
+def _python_parameter_callable_identity(
+    module: str,
+    binding_name: str,
+    nodes: tuple[ast.AST, ...],
+    *,
+    materialized: bool,
+    runtime_abort_posture: bool,
+) -> str | None:
+    """Bind inert parameter callables by import identity and callable kind."""
+
+    callable_kind: str | None = None
+    materialized_class_digest: str | None = None
+    if nodes and all(isinstance(node, ast.ClassDef) for node in nodes):
+        if materialized:
+            materialized_class_digest = hashlib.sha256(
+                "\n".join(
+                    ast.dump(node, annotate_fields=True, include_attributes=False)
+                    for node in nodes
+                ).encode("utf-8")
+            ).hexdigest()
+        else:
+            callable_kind = "class"
+    elif nodes and not materialized and all(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in nodes
+    ):
+        callable_kind = "function"
+    if callable_kind is None and materialized_class_digest is None:
+        return None
+    return (
+        f"module={module}\nbinding={binding_name}\n"
+        + (
+            f"parameter-materialized-class-sha256={materialized_class_digest}"
+            if materialized_class_digest is not None
+            else f"parameter-callable-kind={callable_kind}"
+        )
+        + (
+            "\nruntime-abort-posture=true"
+            if runtime_abort_posture
+            else "\nruntime-abort-posture=false"
+        )
+    )
 
 
 def _python_imported_binding_source(
@@ -3731,6 +3858,8 @@ def _python_imported_binding_source(
     import_source_resolver: Callable[[str], str | None] | None,
     *,
     _seen_bindings: frozenset[tuple[str, str]] = frozenset(),
+    _parameter_value: bool = False,
+    _materialized: bool = True,
 ) -> str:
     binding_key = (module, binding_name)
     if binding_key in _seen_bindings:
@@ -3742,7 +3871,17 @@ def _python_imported_binding_source(
     )
     binding_cache: dict[tuple[str, str, str], str] | None = None
     root_binding_cache: dict[tuple[str, str, str], str] | None = None
-    if import_source_resolver is not None:
+    parameter_cache: dict[tuple[str, str, str, bool], str] | None = None
+    if import_source_resolver is not None and _parameter_value:
+        parameter_cache = getattr(
+            import_source_resolver,
+            "_uaa_parameter_binding_identity_cache",
+            None,
+        )
+        parameter_cache_key = (*cache_key, _materialized)
+        if parameter_cache is not None and parameter_cache_key in parameter_cache:
+            return parameter_cache[parameter_cache_key]
+    if import_source_resolver is not None and not _parameter_value:
         binding_cache = getattr(
             import_source_resolver,
             "_uaa_binding_identity_cache",
@@ -3764,6 +3903,8 @@ def _python_imported_binding_source(
             binding_cache[cache_key] = identity
         if root_binding_cache is not None:
             root_binding_cache[cache_key] = identity
+        if parameter_cache is not None:
+            parameter_cache[(*cache_key, _materialized)] = identity
         return identity
 
     analysis = _python_binding_module_analysis(
@@ -3777,10 +3918,51 @@ def _python_imported_binding_source(
     imported_modules = analysis.imported_modules
     direct_module_aliases = analysis.direct_module_aliases
     star_import_modules = analysis.star_import_modules
+    parameter_callable_nodes = tuple(
+        binding.node for binding in module_bindings.get(binding_name, ())
+    )
+    parameter_callable_identity = _python_parameter_callable_identity(
+        module,
+        binding_name,
+        parameter_callable_nodes,
+        materialized=_materialized,
+        runtime_abort_posture=any(
+            _python_binding_node_analysis(analysis, node).runtime_abort_posture
+            for node in parameter_callable_nodes
+        ),
+    )
+    if (
+        _parameter_value
+        and parameter_callable_identity is not None
+        and not (
+            _materialized
+            and parameter_callable_nodes
+            and all(isinstance(node, ast.ClassDef) for node in parameter_callable_nodes)
+        )
+    ):
+        closure_identity = _python_imported_binding_source(
+            module,
+            source,
+            binding_name,
+            import_source_resolver,
+            _seen_bindings=_seen_bindings,
+            _parameter_value=False,
+        )
+        if "runtime-abort-posture=true" in closure_identity.splitlines():
+            parameter_callable_identity = parameter_callable_identity.replace(
+                "runtime-abort-posture=false",
+                "runtime-abort-posture=true",
+            )
+        if parameter_cache is not None:
+            parameter_cache[(*cache_key, _materialized)] = (
+                parameter_callable_identity
+            )
+        return parameter_callable_identity
     pending = [binding_name]
     resolved: set[str] = set()
     binding_nodes: dict[tuple[int, int], ast.AST] = {}
     imported_requirements: dict[str, set[str]] = {}
+    invoked_imported_requirements: dict[str, set[str]] = {}
     star_import_requirements: set[str] = set()
     while pending:
         name = pending.pop()
@@ -3818,6 +4000,8 @@ def _python_imported_binding_source(
                         ),
                         import_source_resolver,
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                        _parameter_value=_parameter_value,
+                        _materialized=_materialized,
                     )
                 )
             lazy_modules = _python_lazy_export_binding_modules(
@@ -3839,6 +4023,8 @@ def _python_imported_binding_source(
                         name,
                         import_source_resolver,
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                        _parameter_value=_parameter_value,
+                        _materialized=_materialized,
                     )
                 )
             if len(lazy_matches) == 1:
@@ -3862,6 +4048,8 @@ def _python_imported_binding_source(
                             name,
                             import_source_resolver,
                             _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                            _parameter_value=_parameter_value,
+                            _materialized=_materialized,
                         )
                     )
                 except TestCorpusGuardError as exc:
@@ -3882,6 +4070,8 @@ def _python_imported_binding_source(
             node_analysis = _python_binding_node_analysis(analysis, node)
             for root, names in node_analysis.imported_requirements:
                 imported_requirements.setdefault(root, set()).update(names)
+            for root, names in node_analysis.invoked_imported_requirements:
+                invoked_imported_requirements.setdefault(root, set()).update(names)
             if star_import_modules:
                 star_import_requirements.update(
                     name
@@ -3943,6 +4133,11 @@ def _python_imported_binding_source(
                     ),
                     import_source_resolver,
                     _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                    _parameter_value=_parameter_value,
+                    _materialized=(
+                        not _parameter_value
+                        or name in invoked_imported_requirements.get(root, set())
+                    ),
                 )
             )
     for name in sorted(star_import_requirements):
@@ -3961,6 +4156,8 @@ def _python_imported_binding_source(
                         name,
                         import_source_resolver,
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
+                        _parameter_value=_parameter_value,
+                        _materialized=_materialized,
                     )
                 )
             except TestCorpusGuardError as exc:
@@ -3995,6 +4192,8 @@ def _python_imported_binding_source(
         binding_cache[cache_key] = identity
     if root_binding_cache is not None:
         root_binding_cache[cache_key] = identity
+    if parameter_cache is not None:
+        parameter_cache[(*cache_key, _materialized)] = identity
     return identity
 
 
@@ -4275,6 +4474,24 @@ def _python_import_requirements(
             and child.id not in attribute_roots
         ):
             requirements.setdefault(child.id, set()).add(child.id)
+    return requirements
+
+
+def _python_invoked_import_requirements(
+    value: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> dict[str, set[str]]:
+    """Return imported bindings invoked while materializing a Python value."""
+
+    requirements: dict[str, set[str]] = {}
+    for child in ast.walk(value):
+        if not isinstance(child, ast.Call):
+            continue
+        for root, names in _python_import_requirements(
+            child.func,
+            imported_modules,
+        ).items():
+            requirements.setdefault(root, set()).update(names)
     return requirements
 
 
@@ -6877,13 +7094,20 @@ def _parameterized_ref(
                 )
             )
     for decorator in decorators:
-        value_nodes = list(decorator.args)
+        value_nodes = [
+            (value, index == 3)
+            for index, value in enumerate(decorator.args)
+        ]
         value_nodes.extend(
-            keyword.value
+            (keyword.value, keyword.arg == "ids")
             for keyword in decorator.keywords
             if keyword.arg in {"argnames", "argvalues", "ids"}
         )
-        for value in value_nodes:
+        for value, materializes_callback in value_nodes:
+            invoked_requirements = _python_invoked_import_requirements(
+                value,
+                imported_modules,
+            )
             for root, binding_names in _python_import_requirements(
                 value, imported_modules
             ).items():
@@ -6927,6 +7151,12 @@ def _parameterized_ref(
                                 binding_name,
                             ),
                             import_source_resolver,
+                            _parameter_value=True,
+                            _materialized=(
+                                materializes_callback
+                                or binding_name
+                                in invoked_requirements.get(root, set())
+                            ),
                         )
                     )
     conditional_execution_decorators = [
@@ -7050,12 +7280,76 @@ def _parameterized_ref(
         for _position, binding in sorted(binding_nodes.items())
     ]
     binding_import_requirements: dict[str, set[str]] = {}
-    for binding in binding_nodes.values():
+    invoked_binding_import_requirements: dict[str, set[str]] = {}
+    materialized_parameter_value_nodes = [
+        decorator.args[1]
+        for decorator in decorators
+        if len(decorator.args) > 1
+    ]
+    materialized_parameter_value_nodes.extend(
+        keyword.value
+        for decorator in decorators
+        for keyword in decorator.keywords
+        if keyword.arg == "argvalues"
+    )
+    materialized_callback_names = {
+        child.id
+        for decorator in decorators
+        for value in (
+            *((decorator.args[3],) if len(decorator.args) > 3 else ()),
+            *(
+                keyword.value
+                for keyword in decorator.keywords
+                if keyword.arg == "ids"
+            ),
+        )
+        for child in ast.walk(value)
+        if isinstance(child, ast.Name)
+    }
+    materialized_callback_names.update(
+        root
+        for value in materialized_parameter_value_nodes
+        for child in ast.walk(value)
+        if isinstance(child, ast.Call)
+        and (root := _root_name(child.func)) is not None
+    )
+    materialized_binding_positions: set[tuple[int, int]] = set()
+    pending_materialized_names = list(materialized_callback_names)
+    resolved_materialized_names: set[str] = set()
+    while pending_materialized_names:
+        name = pending_materialized_names.pop()
+        if name in resolved_materialized_names:
+            continue
+        resolved_materialized_names.add(name)
+        for module_binding in module_bindings.get(name, ()):
+            binding = module_binding.node
+            position = (binding.lineno, binding.col_offset)
+            if position not in binding_nodes:
+                continue
+            materialized_binding_positions.add(position)
+            pending_materialized_names.extend(
+                child.id
+                for child in ast.walk(binding)
+                if isinstance(child, ast.Name)
+                and child.id in module_bindings
+                and child.id not in resolved_materialized_names
+            )
+    materialized_binding_import_requirements: dict[str, set[str]] = {}
+    for position, binding in binding_nodes.items():
         for root, names in _python_import_requirements(
             binding,
             imported_modules,
         ).items():
             binding_import_requirements.setdefault(root, set()).update(names)
+            if position in materialized_binding_positions:
+                materialized_binding_import_requirements.setdefault(
+                    root, set()
+                ).update(names)
+        for root, names in _python_invoked_import_requirements(
+            binding,
+            imported_modules,
+        ).items():
+            invoked_binding_import_requirements.setdefault(root, set()).update(names)
     for root, binding_names in sorted(binding_import_requirements.items()):
         candidates = imported_modules[root]
         resolved_import = next(
@@ -7086,6 +7380,13 @@ def _parameterized_ref(
                         binding_name,
                     ),
                     import_source_resolver,
+                    _parameter_value=True,
+                    _materialized=(
+                        binding_name
+                        in invoked_binding_import_requirements.get(root, set())
+                        or binding_name
+                        in materialized_binding_import_requirements.get(root, set())
+                    ),
                 )
             )
     serialized = "\n".join([*serialized_parts, *binding_parts])
@@ -9422,6 +9723,7 @@ def _python_import_resolver(
     setattr(resolve, "_uaa_source_cache", source_cache)
     setattr(resolve, "_uaa_parsed_module_cache", {})
     setattr(resolve, "_uaa_binding_identity_cache", {})
+    setattr(resolve, "_uaa_parameter_binding_identity_cache", {})
     setattr(resolve, "_uaa_binding_module_analysis_cache", {})
     setattr(resolve, "_uaa_root_binding_identity_cache", {})
     setattr(resolve, "_uaa_runtime_module_shape_cache", {})
@@ -12340,6 +12642,143 @@ def _validate_worktree_inventory_snapshot(
             raise TestCorpusGuardError("test inventory changed during verification")
 
 
+def _parameter_identity_migration_is_collection_neutral(
+    path: str,
+    text: str,
+    base_resolver: Callable[[str], str | None],
+    current_resolver: Callable[[str], str | None],
+) -> bool:
+    tree = ast.parse(text, filename=path)
+    module = _python_module_name_for_path(path)
+    analysis = _python_binding_module_analysis(
+        module,
+        f"path={path}\n{text}",
+        current_resolver,
+    )
+    imported_modules = analysis.imported_modules
+    parameter_decorators = tuple(
+        decorator
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        for decorator in node.decorator_list
+        if isinstance(decorator, ast.Call)
+        and (
+            (
+                isinstance(decorator.func, ast.Attribute)
+                and decorator.func.attr == "parametrize"
+            )
+            or (
+                isinstance(decorator.func, ast.Name)
+                and decorator.func.id == "parametrize"
+            )
+        )
+    )
+    requirements: dict[str, set[str]] = {}
+    pending_nodes: list[ast.AST] = list(parameter_decorators)
+    pending_local_names: list[str] = []
+    visited_nodes: set[tuple[int, int]] = set()
+    visited_local_names: set[str] = set()
+    while pending_nodes or pending_local_names:
+        if pending_nodes:
+            node = pending_nodes.pop()
+            position = (node.lineno, node.col_offset)
+            if position in visited_nodes:
+                continue
+            visited_nodes.add(position)
+            node_analysis = _python_binding_node_analysis(analysis, node)
+            if node_analysis.runtime_abort_posture:
+                return False
+            if node_analysis.star_import_requirements:
+                # A star import does not preserve the originating module in the
+                # ordinary imported-requirement map. Do not approve an alias-only
+                # migration unless the exact transition allowlist binds it.
+                return False
+            for root, names in node_analysis.imported_requirements:
+                requirements.setdefault(root, set()).update(names)
+            pending_local_names.extend(node_analysis.local_dependency_names)
+            continue
+        local_name = pending_local_names.pop()
+        if local_name in visited_local_names:
+            continue
+        visited_local_names.add(local_name)
+        for module_binding in analysis.module_bindings.get(local_name, ()):
+            pending_nodes.append(module_binding.node)
+    for root, names in requirements.items():
+        if root not in imported_modules:
+            return False
+        candidates = imported_modules[root]
+        local_candidates = tuple(
+            (candidate, base_resolver(candidate), current_resolver(candidate))
+            for candidate in candidates
+            if base_resolver(candidate) is not None
+            or current_resolver(candidate) is not None
+        )
+        if not local_candidates:
+            continue
+        if len(local_candidates) != 1:
+            return False
+        candidate, base_source, current_source = local_candidates[0]
+        if base_source is None or current_source is None:
+            return False
+        for name in names:
+            binding_name = _binding_name_for_resolved_import(
+                candidates,
+                candidate,
+                name,
+            )
+            try:
+                base_identity = _python_imported_binding_source(
+                    candidate,
+                    base_source,
+                    binding_name,
+                    base_resolver,
+                    _parameter_value=True,
+                )
+                current_identity = _python_imported_binding_source(
+                    candidate,
+                    current_source,
+                    binding_name,
+                    current_resolver,
+                    _parameter_value=True,
+                )
+            except TestCorpusGuardError:
+                return False
+            if (
+                "runtime-abort-posture=true" in base_identity.splitlines()
+                or "runtime-abort-posture=true" in current_identity.splitlines()
+            ):
+                return False
+            if base_identity != current_identity:
+                return False
+    return True
+
+
+def _parameter_identity_migration_is_exact_approved_transition(
+    prior_ref: str,
+    current_ref: str,
+    text: str,
+    base_resolver: Callable[[str], str | None],
+    current_resolver: Callable[[str], str | None],
+) -> bool:
+    approved = PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS.get(prior_ref)
+    if approved is None or approved[0] != current_ref:
+        return False
+    if hashlib.sha256(text.encode("utf-8")).hexdigest() != approved[1]:
+        return False
+    base_source = base_resolver(
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE
+    )
+    current_source = current_resolver(
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_MODULE
+    )
+    if base_source is None or current_source is None:
+        return False
+    return (
+        hashlib.sha256(base_source.encode("utf-8")).hexdigest(),
+        hashlib.sha256(current_source.encode("utf-8")).hexdigest(),
+    ) == PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS
+
+
 def removed_declarations(
     repo: Path,
     base_sha: str,
@@ -12348,6 +12787,10 @@ def removed_declarations(
 ) -> tuple[str, ...]:
     removed: set[str] = set()
     current_paths = set(discover_test_files(repo))
+    base_guard_source = _base_text(repo, base_sha, TEST_CORPUS_GUARD_PATH) or ""
+    parameter_identity_migration_active = (
+        PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER not in base_guard_source
+    )
     base_python_source_cache: dict[str, str | None] = {}
 
     def read_base_python_import(candidate: str) -> str | None:
@@ -12513,6 +12956,42 @@ def removed_declarations(
             current_declarations = ()
             current_refs = set()
         path_removed = prior_refs - current_refs
+        if (
+            path.endswith(".py")
+            and parameter_identity_migration_active
+            and prior == current_text
+            and len(prior_declarations) == len(current_declarations)
+        ):
+            collection_neutral = _parameter_identity_migration_is_collection_neutral(
+                path,
+                prior,
+                base_import_source_resolver,
+                worktree_import_source_resolver,
+            )
+            parameter_suffix = re.compile(
+                r"::parametrize-sha256:[0-9a-f]{64}(?=#\d+$|$)"
+            )
+            for prior_declaration, current_declaration in zip(
+                prior_declarations,
+                current_declarations,
+                strict=True,
+            ):
+                if (
+                    prior_declaration.kind == current_declaration.kind
+                    and parameter_suffix.sub("", prior_declaration.ref)
+                    == parameter_suffix.sub("", current_declaration.ref)
+                    and (
+                        collection_neutral
+                        or _parameter_identity_migration_is_exact_approved_transition(
+                            prior_declaration.ref,
+                            current_declaration.ref,
+                            prior,
+                            base_import_source_resolver,
+                            worktree_import_source_resolver,
+                        )
+                    )
+                ):
+                    path_removed.discard(prior_declaration.ref)
         if path.endswith(".py") and current_text is not None and path_removed:
             normalized_prior = tuple(
                 declaration
