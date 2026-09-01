@@ -52,6 +52,29 @@ def _sanitized_git_environment() -> dict[str, str]:
     return environment
 
 
+def _index_has_hidden_worktree_entries(
+    repository_root: Path,
+    *,
+    git_command: str,
+    git_environment: dict[str, str],
+) -> bool:
+    entries = subprocess.run(
+        [git_command, "--no-replace-objects", "ls-files", "-v", "-z"],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    ).stdout.split(b"\0")
+    return any(
+        entry
+        and (
+            entry[:1] in {b"S", b"s"}
+            or (entry[:1].isalpha() and entry[:1].islower())
+        )
+        for entry in entries
+    )
+
+
 def exact_repository_revision(
     repository_root: Path,
     *,
@@ -93,6 +116,14 @@ def exact_repository_revision(
     if worktree_status:
         raise RuntimeError(
             "Foundation Gate revision provenance requires a clean worktree"
+        )
+    if _index_has_hidden_worktree_entries(
+        resolved_root,
+        git_command=git_command,
+        git_environment=git_environment,
+    ):
+        raise RuntimeError(
+            "Foundation Gate revision provenance rejects hidden index entries"
         )
     revision = subprocess.run(
         [git_command, "--no-replace-objects", "rev-parse", "HEAD"],

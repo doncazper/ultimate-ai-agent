@@ -250,6 +250,23 @@ def _sanitized_git_environment() -> dict[str, str]:
     return environment
 
 
+def _index_has_hidden_worktree_entries(*, repository_root: Path = ROOT) -> bool:
+    entries = _git(
+        "ls-files",
+        "-v",
+        "-z",
+        repository_root=repository_root,
+    ).split(b"\0")
+    return any(
+        entry
+        and (
+            entry[:1] in {b"S", b"s"}
+            or (entry[:1].isalpha() and entry[:1].islower())
+        )
+        for entry in entries
+    )
+
+
 def verify_executing_repository_sources(
     revision: str,
     *,
@@ -1212,6 +1229,10 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 locked verifier child requires the clean candidate checkout"
         )
+    if _index_has_hidden_worktree_entries(repository_root=repository_root):
+        raise RuntimeError(
+            "TAW-08 locked verifier child rejects hidden index entries"
+        )
     revision_path_census = derive_revision_path_census(
         lock.git_revision_ref,
         repository_root=repository_root,
@@ -1710,11 +1731,40 @@ def _materialize_locked_environment(
         if selected_path.read_bytes() != content:
             raise RuntimeError("TAW-08 selected wheel copy differs from uv.lock")
         wheel_paths.append(selected_path)
+    pip_wheel_paths = []
+    remaining_wheel_paths = []
+    for wheel_path in wheel_paths:
+        try:
+            distribution_name, _version, _build, _tags = parse_wheel_filename(
+                wheel_path.name
+            )
+        except ValueError as exc:
+            raise RuntimeError("TAW-08 locked wheel filename is invalid") from exc
+        if canonicalize_name(str(distribution_name)) == "pip":
+            pip_wheel_paths.append(wheel_path)
+        else:
+            remaining_wheel_paths.append(wheel_path)
+    if len(pip_wheel_paths) != 1 or not remaining_wheel_paths:
+        raise RuntimeError("TAW-08 locked installer closure is invalid")
+    installer_environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith(("PIP_", "PYTHON"))
+    }
+    installer_environment.update(
+        {
+            "PIP_CONFIG_FILE": os.devnull,
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_INDEX": "1",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+    )
     create_venv = subprocess.run(
-        [sys.executable, "-m", "venv", "--without-pip", str(environment_root)],
+        [sys.executable, "-m", "venv", str(environment_root)],
         cwd=candidate_root,
         check=False,
         capture_output=True,
+        env=installer_environment,
         timeout=60,
     )
     if create_venv.returncode != 0:
@@ -1725,27 +1775,75 @@ def _materialize_locked_environment(
         / scripts_directory
         / ("python.exe" if os.name == "nt" else "python")
     )
-    install = subprocess.run(
+    install_locked_pip = subprocess.run(
         [
-            sys.executable,
+            str(environment_python),
+            "-I",
+            "-B",
             "-m",
             "pip",
-            "--python",
-            str(environment_python),
+            "--isolated",
             "install",
+            "--force-reinstall",
             "--disable-pip-version-check",
             "--no-index",
             "--no-deps",
             "--no-compile",
-            *(str(path) for path in wheel_paths),
+            str(pip_wheel_paths[0]),
         ],
         cwd=candidate_root,
         check=False,
         capture_output=True,
+        env=installer_environment,
+        timeout=300,
+    )
+    if install_locked_pip.returncode != 0:
+        raise RuntimeError("TAW-08 locked pip installation failed")
+    install = subprocess.run(
+        [
+            str(environment_python),
+            "-I",
+            "-B",
+            "-m",
+            "pip",
+            "--isolated",
+            "install",
+            "--ignore-installed",
+            "--disable-pip-version-check",
+            "--no-index",
+            "--no-deps",
+            "--no-compile",
+            *(str(path) for path in remaining_wheel_paths),
+        ],
+        cwd=candidate_root,
+        check=False,
+        capture_output=True,
+        env=installer_environment,
         timeout=300,
     )
     if install.returncode != 0:
         raise RuntimeError("TAW-08 locked wheel installation failed")
+    if "setuptools" not in reachable_packages:
+        remove_bootstrap_setuptools = subprocess.run(
+            [
+                str(environment_python),
+                "-I",
+                "-B",
+                "-m",
+                "pip",
+                "--isolated",
+                "uninstall",
+                "--yes",
+                "setuptools",
+            ],
+            cwd=candidate_root,
+            check=False,
+            capture_output=True,
+            env=installer_environment,
+            timeout=60,
+        )
+        if remove_bootstrap_setuptools.returncode != 0:
+            raise RuntimeError("TAW-08 bootstrap package removal failed")
     return environment_python
 
 
@@ -1755,6 +1853,7 @@ def _locked_child_command(
     return (
         str(environment_python),
         "-I",
+        "-B",
         "-S",
         str(candidate_root / "scripts/verify_taw08_environment_preflight.py"),
         str(candidate_root / "scripts/verify_tool_aware_cognition_taw08.py"),
@@ -1783,6 +1882,8 @@ def _run_locked_candidate_verifier() -> None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     if _git("status", "--porcelain", "--untracked-files=all"):
         raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
+    if _index_has_hidden_worktree_entries():
+        raise RuntimeError("TAW-08 verifier launcher rejects hidden index entries")
     provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
     if not provisioned_wheelhouse_value:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")

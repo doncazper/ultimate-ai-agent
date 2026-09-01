@@ -1472,6 +1472,8 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     def successful_run(command: list[str], **kwargs: object):
         observed.append(command)
         observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
+        if "ls-files" in command:
+            return subprocess.CompletedProcess(command, 0, stdout=b"")
         stdout = str(tmp_path) + "\n" if "--show-toplevel" in command else ""
         if command[-2:] == ["rev-parse", "HEAD"]:
             stdout = "a" * 40 + "\n"
@@ -1483,7 +1485,7 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
         tmp_path,
         git_executable=Path("/trusted/git"),
     ) == "git-sha:" + "a" * 40
-    assert len(observed) == 3
+    assert len(observed) == 4
     assert all(command[0] == "/trusted/git" for command in observed)
     assert all(command[1] == "--no-replace-objects" for command in observed)
     assert all("GIT_DIR" not in environment for environment in observed_environments)
@@ -1491,6 +1493,31 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
         "GIT_REPLACE_REF_BASE" not in environment
         for environment in observed_environments
     )
+
+
+@pytest.mark.parametrize("index_tag", (b"h", b"S", b"s"))
+def test_foundation_exact_revision_rejects_hidden_index_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    index_tag: bytes,
+) -> None:
+    def successful_run(command: list[str], **_kwargs: object):
+        if "--show-toplevel" in command:
+            return subprocess.CompletedProcess(command, 0, stdout=str(tmp_path) + "\n")
+        if "status" in command:
+            return subprocess.CompletedProcess(command, 0, stdout="")
+        if "ls-files" in command:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=index_tag + b" hidden.py\0",
+            )
+        return subprocess.CompletedProcess(command, 0, stdout="a" * 40 + "\n")
+
+    monkeypatch.setattr(foundation_runner.subprocess, "run", successful_run)
+
+    with pytest.raises(RuntimeError, match="hidden index entries"):
+        exact_repository_revision(tmp_path)
 
 
 def test_report_rejects_status_or_fingerprint_substitution() -> None:
@@ -2213,7 +2240,7 @@ def test_locked_child_requires_isolated_no_site_mode() -> None:
         candidate_root=Path("candidate"),
     )
 
-    assert command[1:3] == ("-I", "-S")
+    assert command[1:4] == ("-I", "-B", "-S")
 
 
 def test_locked_child_preserves_validated_windows_system_root(
@@ -2388,7 +2415,10 @@ def test_locked_environment_uses_only_provisioned_lock_closure(
     provisioned_wheelhouse.mkdir()
     wheel_name = "sample-1.0-py3-none-any.whl"
     wheel_content = b"authenticated locked wheel"
+    pip_wheel_name = "pip-26.2.1-py3-none-any.whl"
+    pip_wheel_content = b"authenticated locked pip wheel"
     (provisioned_wheelhouse / wheel_name).write_bytes(wheel_content)
+    (provisioned_wheelhouse / pip_wheel_name).write_bytes(pip_wheel_content)
     (candidate_root / "pyproject.toml").write_text(
         "[project]\nname = 'sample-project'\nversion = '1.0'\n",
         encoding="utf-8",
@@ -2402,7 +2432,7 @@ def test_locked_environment_uses_only_provisioned_lock_closure(
                 "name = 'sample-project'",
                 "version = '1.0'",
                 "[package.optional-dependencies]",
-                "dev = [{ name = 'sample' }]",
+                "dev = [{ name = 'sample' }, { name = 'pip' }]",
                 "",
                 "[[package]]",
                 "name = 'sample'",
@@ -2411,6 +2441,15 @@ def test_locked_environment_uses_only_provisioned_lock_closure(
                 "  { url = 'https://files.pythonhosted.org/packages/sample-1.0-py3-none-any.whl', "
                 f"hash = 'sha256:{hashlib.sha256(wheel_content).hexdigest()}', "
                 f"size = {len(wheel_content)} }},",
+                "]",
+                "",
+                "[[package]]",
+                "name = 'pip'",
+                "version = '26.2.1'",
+                "wheels = [",
+                "  { url = 'https://files.pythonhosted.org/packages/pip-26.2.1-py3-none-any.whl', "
+                f"hash = 'sha256:{hashlib.sha256(pip_wheel_content).hexdigest()}', "
+                f"size = {len(pip_wheel_content)} }},",
                 "]",
             )
         ),
@@ -2438,10 +2477,34 @@ def test_locked_environment_uses_only_provisioned_lock_closure(
 
     assert environment_python == environment_root / "bin" / "python"
     assert (selected_wheelhouse / wheel_name).read_bytes() == wheel_content
-    assert len(calls) == 2
+    assert (selected_wheelhouse / pip_wheel_name).read_bytes() == pip_wheel_content
+    assert len(calls) == 4
     assert not any("download" in argument for call in calls for argument in call)
-    assert "--no-index" in calls[1]
-    assert "--no-deps" in calls[1]
+    assert "--force-reinstall" in calls[1]
+    assert pip_wheel_name in calls[1][-1]
+    assert "--isolated" in calls[1]
+    assert "-B" in calls[1]
+    assert "--python" not in calls[1]
+    assert calls[1][0] == str(environment_python)
+    assert "--no-index" in calls[2]
+    assert "--no-deps" in calls[2]
+    assert "--ignore-installed" in calls[2]
+    assert "uninstall" in calls[3]
+    assert "setuptools" in calls[3]
+
+
+@pytest.mark.parametrize("index_tag", (b"h", b"S", b"s"))
+def test_repository_verifier_rejects_hidden_index_entries(
+    monkeypatch: pytest.MonkeyPatch,
+    index_tag: bytes,
+) -> None:
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_git",
+        lambda *_args, **_kwargs: index_tag + b" hidden.py\0",
+    )
+
+    assert taw08_verifier._index_has_hidden_worktree_entries()
 
 
 def test_locked_evaluator_environment_rejects_candidate_lock_substitution(

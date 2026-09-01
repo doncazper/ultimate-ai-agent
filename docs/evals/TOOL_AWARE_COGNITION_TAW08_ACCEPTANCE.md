@@ -223,7 +223,15 @@ locked verifier performs no network access. It derives the project and `dev`
 dependency closure from the candidate lock, selects only compatible locked
 wheels, verifies every complete wheel against its locked size and SHA-256
 digest, and copies only those authenticated bytes into a temporary no-pip venv.
-The receipt child starts with isolated no-site mode (`python -I -S`); a
+The temporary venv's bundled pip installs every already-authenticated wheel
+through Python-3.10-compatible isolated options without consulting ambient
+installed distributions. The single exact locked pip wheel is force-installed
+first so no stale bootstrap files survive; bootstrap-only setuptools is removed
+when it is outside the lock. The child then
+independently authenticates the installed importable bytes against the locked
+wheel `RECORD` census.
+The receipt child starts with isolated no-site/no-bytecode mode
+(`python -I -B -S`); a
 standard-library preflight rejects symlinks and importable, startup, or
 loadable native-library files not owned by an installed distribution `RECORD`
 before adding that venv's site-packages. The child then binds installed
@@ -243,7 +251,9 @@ and the Windows locked child preserves an operating-system-validated
 `SystemRoot` for Authenticode verification. Every receipt-producing Git command
 disables replacement objects and runs with repository-selection and Git
 configuration environment variables removed, so caller state cannot substitute
-objects, refs, or a different repository.
+objects, refs, or a different repository. Receipt launchers and locked children
+also reject assume-unchanged and skip-worktree index entries before treating a
+checkout as clean.
 
 Repository evidence-delta receipts may be issued only by the same clean,
 candidate-bound locked verifier child used for candidate evidence. A caller
