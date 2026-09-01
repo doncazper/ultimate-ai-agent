@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
     TAW08_REQUIRED_ACCEPTANCE_PATH_REFS,
     TAW08_REPOSITORY_VERIFIER_PATH_REF,
+    TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
     EvidenceOnlyDeltaEntry,
     EvidenceOnlyDeltaManifest,
     _EvidenceOnlyDeltaVerificationReceipt,
@@ -172,8 +173,12 @@ def _candidate_lock() -> CandidateLock:
 
 
 def _evaluator_environment_receipt(
-    locked_content_by_path_ref: dict[str, bytes],
+    locked_content_by_path_ref: dict[str, bytes] | None = None,
 ):
+    locked_content_by_path_ref = locked_content_by_path_ref or {
+        "repo-path-ref:pyproject.toml": b"[project]\nname='fixture'\n",
+        "repo-path-ref:uv.lock": b"version = 1\n",
+    }
     return acceptance_module._bind_evaluator_environment_receipt(
         python_implementation="cpython",
         python_version="3.12.13",
@@ -364,6 +369,7 @@ def _foundation_receipt(
         report=_foundation_gate_report(revision_ref),
         stage=stage,
         revision_ref=revision_ref,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
     )
 
 
@@ -389,7 +395,10 @@ def _measurement_receipt(
         else:
             model_configuration_ref = "model-id-ref:openai:gpt-5.6-sol"
         backend_ref = f"backend-ref:test:{suffix}"
-        observed_hardware_ref = f"hardware-ref:test:{suffix}"
+        observed_hardware_ref = (
+            "hardware-observation-ref:sha256:"
+            + hashlib.sha256(suffix.encode("utf-8")).hexdigest()
+        )
         baseline_payload = {
             "schema_version": "uaa-taw08-same-host-baseline-evidence.v1",
             "candidate_revision_ref": lock.git_revision_ref,
@@ -1118,6 +1127,7 @@ def test_foundation_receipt_rejects_non_exact_revision() -> None:
             report=_foundation_gate_report(),
             stage="exact_head",
             revision_ref="git-sha:short",
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
 
@@ -1127,7 +1137,35 @@ def test_foundation_receipt_requires_validated_gate_output() -> None:
             report=object(),
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
+
+
+def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
+    first_environment = _evaluator_environment_receipt()
+    second_environment = _evaluator_environment_receipt(
+        {
+            "repo-path-ref:pyproject.toml": b"[project]\nname='changed'\n",
+            "repo-path-ref:uv.lock": b"version = 2\n",
+        }
+    )
+    first = _verify_and_bind_foundation_gate_report(
+        report=_foundation_gate_report(),
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=first_environment,
+    )
+    second = _verify_and_bind_foundation_gate_report(
+        report=_foundation_gate_report(),
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=second_environment,
+    )
+
+    assert first.evaluator_environment_digest_ref == (
+        first_environment.receipt_digest_ref
+    )
+    assert first.receipt_digest_ref != second.receipt_digest_ref
 
 
 def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
@@ -1166,6 +1204,16 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
         taw08_verifier,
         "verify_executing_repository_sources",
         lambda _revision, *, repository_root: ((), "sha256:" + "0" * 64),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_git",
+        lambda *_args, **_kwargs: b"locked fixture",
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_locked_evaluator_environment",
+        lambda **_kwargs: _evaluator_environment_receipt(),
     )
 
     receipt = verify_repository_foundation_gate(
@@ -1263,6 +1311,7 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
             report=incomplete,
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
     lookalike_type = type(
@@ -1278,6 +1327,7 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
             report=lookalike_type(),
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
     empty_report = _bind_test_foundation_provenance(
@@ -1293,6 +1343,7 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
             report=empty_report,
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
 
@@ -1311,6 +1362,7 @@ def test_foundation_receipt_rejects_report_from_another_revision() -> None:
             report=_foundation_gate_report("git-sha:" + "9" * 40),
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
 
@@ -1327,6 +1379,7 @@ def test_foundation_revision_provenance_is_immutable_and_digest_bound() -> None:
             report=rebound,
             stage="exact_head",
             revision_ref="git-sha:" + "8" * 40,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
 
 
@@ -1576,9 +1629,9 @@ def test_foundation_gate_sources_seed_external_dependency_closure(
     dependency_path = "src/ultimate_ai_agent/core/outside.py"
     (repository / gate_path).parent.mkdir(parents=True)
     (repository / gate_path).write_text(
-        "import importlib\n"
+        "from importlib import import_module as load_module\n"
         "from ultimate_ai_agent.core.outside import VALUE\n"
-        "def load(): return importlib.import_module("
+        "def load(): return load_module("
         "'ultimate_ai_agent.core.outside')\n",
         encoding="utf-8",
     )
@@ -1638,7 +1691,8 @@ def test_foundation_gate_source_rejects_unresolved_dynamic_import(
     gate_path = "src/ultimate_ai_agent/core/gate/evaluator.py"
     (repository / gate_path).parent.mkdir(parents=True)
     (repository / gate_path).write_text(
-        "import importlib\ndef load(name): return importlib.import_module(name)\n",
+        "from importlib import import_module as load_module\n"
+        "def load(name): return load_module(name)\n",
         encoding="utf-8",
     )
 
@@ -1683,6 +1737,15 @@ def test_foundation_gate_source_rejects_unresolved_dynamic_import(
             census,
             repository_root=repository,
         )
+
+
+def test_unresolved_dynamic_import_exceptions_are_exactly_bounded() -> None:
+    assert set(TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS) == {
+        "repo-path-ref:src/ultimate_ai_agent/core/capabilities/__init__.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/capability_availability/__init__.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/extension_catalog/__init__.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py",
+    }
 
 
 def test_candidate_verifier_rejects_source_content_substitution() -> None:
@@ -1810,6 +1873,34 @@ def test_locked_evaluator_environment_rejects_locked_package_mismatch(
     for path_ref, content in locked_content.items():
         (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
     with pytest.raises(RuntimeError, match="does not match uv.lock"):
+        taw08_verifier.verify_locked_evaluator_environment(
+            locked_content_by_path_ref=locked_content,
+            repository_root=tmp_path,
+        )
+
+
+def test_locked_evaluator_environment_rejects_wheel_record_substitution(
+    tmp_path: Path,
+) -> None:
+    pyproject = (taw08_verifier.ROOT / "pyproject.toml").read_bytes()
+    current_lock = (taw08_verifier.ROOT / "uv.lock").read_text(encoding="utf-8")
+    selected_wheel_hash = (
+        "sha256:45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
+    )
+    assert selected_wheel_hash in current_lock
+    changed_lock = current_lock.replace(
+        selected_wheel_hash,
+        "sha256:" + "0" * 64,
+        1,
+    ).encode("utf-8")
+    locked_content = {
+        "repo-path-ref:pyproject.toml": pyproject,
+        "repo-path-ref:uv.lock": changed_lock,
+    }
+    for path_ref, content in locked_content.items():
+        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+
+    with pytest.raises(RuntimeError, match="locked wheel artifact: pydantic"):
         taw08_verifier.verify_locked_evaluator_environment(
             locked_content_by_path_ref=locked_content,
             repository_root=tmp_path,
@@ -2120,6 +2211,25 @@ def test_live_measurement_requires_exact_runtime_identity() -> None:
     ).result.model_dump(mode="json")
     payload["model_profile_ref"] = None
     with pytest.raises(ValidationError, match="identity census is incomplete"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+def test_live_measurement_requires_opaque_hardware_identity() -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.live_model_hardware,
+        "raw-hardware-identity",
+    ).result.model_dump(mode="json")
+    payload["observed_hardware_ref"] = "hardware-ref:host:founder-macbook"
+    payload["same_host_baseline"]["observed_hardware_ref"] = (
+        "hardware-ref:host:founder-macbook"
+    )
+    baseline = payload["same_host_baseline"]
+    baseline["result_digest_ref"] = canonical_digest(
+        {key: value for key, value in baseline.items() if key != "result_digest_ref"}
+    )
+
+    with pytest.raises(ValidationError, match="opaque digest"):
         FounderMeasurementResult.model_validate(payload)
 
 

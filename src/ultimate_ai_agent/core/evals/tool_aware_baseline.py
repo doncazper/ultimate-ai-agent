@@ -1638,6 +1638,15 @@ def derive_local_python_dependencies(
         if module_name is not None
         else []
     )
+    import_module_aliases = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.level == 0
+        and node.module == "importlib"
+        for alias in node.names
+        if alias.name == "import_module"
+    }
     dependencies: set[str] = set()
     for node in ast.walk(tree):
         modules: set[str] = set()
@@ -1666,7 +1675,8 @@ def derive_local_python_dependencies(
                     modules.add(f"{base}.{alias.name}")
         elif isinstance(node, ast.Call):
             is_dynamic_import = (
-                isinstance(node.func, ast.Name) and node.func.id == "__import__"
+                isinstance(node.func, ast.Name)
+                and node.func.id in {"__import__", *import_module_aliases}
             ) or (
                 isinstance(node.func, ast.Attribute)
                 and node.func.attr == "import_module"

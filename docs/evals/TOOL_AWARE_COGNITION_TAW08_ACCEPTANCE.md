@@ -147,7 +147,9 @@ Live measurements additionally bind the English
 language profile plus exact model, artifact/configuration, 128K context,
 backend, and observed-hardware refs. Each live result includes a numeric,
 count-consistent same-host baseline for the same metric and cannot regress from
-that baseline. The final publication receipt binds the
+that baseline. The per-host identity is an opaque SHA-256 observation ref;
+hostnames, serials, and other raw machine identifiers are not valid evidence.
+The final publication receipt binds the
 candidate, verified delta, post-merge receipt, terminal founder-private status,
 semantic digest of the final report. Its verifier parses and compares the
 canonical durable artifact bytes, then binds their content digest, canonical
@@ -161,12 +163,14 @@ per-commit changed-path history between them contains only the canonical final
 publication artifact. An intervening, reverted, merged, or unrelated path
 change invalidates the receipt.
 
-The evaluator-environment receipt verifies installed distribution files against
-wheel `RECORD` hashes where present and binds a SHA-256 content census for the
-entire reachable dependency closure. Foundation receipts additionally compare
-the bytes of every executing repository evaluator source with the exact Git
-revision being evaluated, including when the evaluated checkout differs from
-the launcher checkout.
+The evaluator-environment receipt binds each reachable installed distribution
+to exactly one wheel hash selected by `uv.lock`, compares the installed payload
+with that wheel's bounded uv-cache archive and authenticated `RECORD` census,
+and binds a SHA-256 content census for the entire reachable dependency closure.
+Foundation receipts embed that same verified evaluator-environment receipt and
+also compare the bytes of every executing repository evaluator source with the
+exact Git revision being evaluated, including when the evaluated checkout
+differs from the launcher checkout.
 
 ## Independent Promotion Remains Separate
 

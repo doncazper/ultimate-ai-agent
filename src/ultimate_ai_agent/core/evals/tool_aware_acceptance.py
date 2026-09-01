@@ -35,6 +35,9 @@ TAW08_MAX_REVISION_PATHS = 8192
 TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
 TAW08_FOUNDATION_GATE_SOURCE_PREFIX = "repo-path-ref:src/ultimate_ai_agent/core/gate/"
 TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS = (
+    "repo-path-ref:src/ultimate_ai_agent/core/capabilities/__init__.py",
+    "repo-path-ref:src/ultimate_ai_agent/core/capability_availability/__init__.py",
+    "repo-path-ref:src/ultimate_ai_agent/core/extension_catalog/__init__.py",
     "repo-path-ref:src/ultimate_ai_agent/core/"
     "local_model_management/llama_cpp_supervisor.py",
 )
@@ -155,6 +158,9 @@ _LOCAL_MODEL_ARTIFACT_DIGEST_RE = re.compile(
 )
 _API_MODEL_ID_RE = re.compile(
     r"^model-id-ref:openai:[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
+)
+_HARDWARE_OBSERVATION_DIGEST_RE = re.compile(
+    r"^hardware-observation-ref:sha256:[0-9a-f]{64}$"
 )
 _NON_EXACT_MODEL_ID_TOKENS = frozenset(
     {"any", "anything", "configured", "placeholder", "test", "unknown"}
@@ -543,6 +549,8 @@ class FoundationGateReceipt(_FrozenModel):
     report_digest_ref: str
     report_ref: str
     command_mode: Literal["report-only"] = "report-only"
+    evaluator_environment_receipt: _EvaluatorEnvironmentReceipt
+    evaluator_environment_digest_ref: str
     passed: Literal[True] = True
     redacted: Literal[True] = True
     raw_content_persisted: Literal[False] = False
@@ -552,7 +560,18 @@ class FoundationGateReceipt(_FrozenModel):
     def validate_receipt(self) -> "FoundationGateReceipt":
         _validate_git_ref(self.revision_ref, "revision_ref")
         _validate_digest(self.report_digest_ref, "report_digest_ref")
+        _validate_digest(
+            self.evaluator_environment_digest_ref,
+            "evaluator_environment_digest_ref",
+        )
         _validate_ref(self.report_ref, "report_ref")
+        if (
+            self.evaluator_environment_digest_ref
+            != self.evaluator_environment_receipt.receipt_digest_ref
+        ):
+            raise ValueError(
+                "Foundation receipt evaluator environment binding drift"
+            )
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"receipt_digest_ref"})
         )
@@ -595,6 +614,9 @@ class _EvaluatorEnvironmentReceipt(_FrozenModel):
         if self.receipt_digest_ref != expected:
             raise ValueError("evaluator environment receipt digest binding drift")
         return self
+
+
+FoundationGateReceipt.model_rebuild()
 
 
 class _CandidateLockVerificationReceipt(_FrozenModel):
@@ -862,6 +884,10 @@ class FounderSameHostBaselineEvidence(_FrozenModel):
             "unit_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
+        if not _HARDWARE_OBSERVATION_DIGEST_RE.fullmatch(
+            self.observed_hardware_ref
+        ):
+            raise ValueError("same-host hardware identity must be an opaque digest")
         if (
             not math.isfinite(self.observed_value)
             or not 0.0 <= self.observed_value <= 1.0
@@ -967,6 +993,12 @@ class FounderMeasurementResult(_FrozenModel):
                 item for item in all_live_identity_values if item is not None
             ):
                 _validate_ref(value, f"live_model_identity_{index}")
+            if not _HARDWARE_OBSERVATION_DIGEST_RE.fullmatch(
+                self.observed_hardware_ref or ""
+            ):
+                raise ValueError(
+                    "live-model hardware identity must be an opaque digest"
+                )
             baseline = self.same_host_baseline
             if baseline is None:
                 raise ValueError("live-model measurement requires same-host baseline")
@@ -1963,6 +1995,7 @@ def _verify_and_bind_foundation_gate_report(
     report: object,
     stage: Literal["exact_head", "postmerge"],
     revision_ref: str,
+    evaluator_environment_receipt: _EvaluatorEnvironmentReceipt,
 ) -> FoundationGateReceipt:
     _validate_git_ref(revision_ref, "revision_ref")
     reports_module = sys.modules.get("ultimate_ai_agent.core.gate.reports")
@@ -2082,6 +2115,10 @@ def _verify_and_bind_foundation_gate_report(
         revision_ref=revision_ref,
         report_digest_ref=canonical_digest(report_payload),
         report_ref=f"foundation-report-ref:{report_id.replace('_', '-')}",
+        evaluator_environment_receipt=evaluator_environment_receipt,
+        evaluator_environment_digest_ref=(
+            evaluator_environment_receipt.receipt_digest_ref
+        ),
     )
 
 

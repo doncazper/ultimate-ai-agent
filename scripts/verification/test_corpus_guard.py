@@ -12688,6 +12688,11 @@ def _parameter_identity_migration_is_collection_neutral(
             node_analysis = _python_binding_node_analysis(analysis, node)
             if node_analysis.runtime_abort_posture:
                 return False
+            if node_analysis.star_import_requirements:
+                # A star import does not preserve the originating module in the
+                # ordinary imported-requirement map. Do not approve an alias-only
+                # migration unless the exact transition allowlist binds it.
+                return False
             for root, names in node_analysis.imported_requirements:
                 requirements.setdefault(root, set()).update(names)
             pending_local_names.extend(node_analysis.local_dependency_names)

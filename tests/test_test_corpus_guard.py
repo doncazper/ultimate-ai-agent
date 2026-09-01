@@ -5379,6 +5379,34 @@ def test_parameter_identity_migration_rejects_dependency_content_change(
     assert guard.removed_declarations(tmp_path, "a" * 40)
 
 
+def test_parameter_identity_migration_rejects_star_import_dependency() -> None:
+    test_path = "tests/test_sample.py"
+    data_path = "data.py"
+    test_source = (
+        "import pytest\n"
+        "from data import *\n"
+        "@pytest.mark.parametrize('case', CASES)\n"
+        "def test_case(case): assert case\n"
+    )
+    base_sources = {
+        test_path: test_source,
+        data_path: "CASES = ('before',)\n",
+    }
+    current_sources = {
+        test_path: test_source,
+        data_path: "CASES = ('after',)\n",
+    }
+    base_resolver = guard._python_import_resolver(base_sources.get)
+    current_resolver = guard._python_import_resolver(current_sources.get)
+
+    assert not guard._parameter_identity_migration_is_collection_neutral(
+        test_path,
+        test_source,
+        base_resolver,
+        current_resolver,
+    )
+
+
 def test_parameter_identity_migration_traverses_local_binding_chain(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
