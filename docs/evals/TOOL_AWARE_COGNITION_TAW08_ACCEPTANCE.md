@@ -238,4 +238,11 @@ boundary: Apple-platform signature verification on macOS, root-owned and
 non-writable provenance on other POSIX systems, or valid Authenticode
 provenance on Windows. The Git executable digest and provenance ref are bound
 into the same private evaluator-environment receipt; `PATH` alone cannot select
-the repository evidence reader.
+the repository evidence reader. POSIX trust covers every resolved path ancestor,
+and the Windows locked child preserves an operating-system-validated
+`SystemRoot` for Authenticode verification.
+
+Repository evidence-delta receipts may be issued only by the same clean,
+candidate-bound locked verifier child used for candidate evidence. A caller
+running a modified or different checkout cannot use the repository wrapper to
+mint a trusted delta receipt.

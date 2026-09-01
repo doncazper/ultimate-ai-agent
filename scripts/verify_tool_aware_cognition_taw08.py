@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import csv
+import ctypes
 import hashlib
 import importlib.metadata as importlib_metadata
 import io
@@ -108,6 +109,39 @@ EVIDENCE_ONLY_DELTA_PATHS = (
 )
 
 
+def _validate_posix_admin_path(path: Path) -> None:
+    for component in (path, *path.parents):
+        try:
+            metadata = component.stat()
+        except OSError as exc:
+            raise RuntimeError(
+                "TAW-08 Git executable lacks trusted provenance"
+            ) from exc
+        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+
+
+def _validated_windows_system_root() -> Path:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    value = os.environ.get("SystemRoot")
+    if not value or len(value) > 260 or "\x00" in value:
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    try:
+        buffer = ctypes.create_unicode_buffer(32_768)
+        length = ctypes.windll.kernel32.GetWindowsDirectoryW(  # type: ignore[attr-defined]
+            buffer,
+            len(buffer),
+        )
+        configured = Path(value).resolve(strict=True)
+        authoritative = Path(buffer.value).resolve(strict=True)
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError("TAW-08 Windows system root is unavailable") from exc
+    if length <= 0 or length >= len(buffer) or configured != authoritative:
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    return authoritative
+
+
 @lru_cache(maxsize=1)
 def _trusted_git_identity() -> tuple[Path, str, str]:
     """Resolve Git only across an OS-admin trust boundary and bind its bytes."""
@@ -118,7 +152,6 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
     executable = Path(executable_value)
     try:
         resolved = executable.resolve(strict=True)
-        metadata = resolved.stat()
         content = resolved.read_bytes()
     except OSError as exc:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
@@ -126,8 +159,7 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
         raise RuntimeError("TAW-08 trusted Git executable is invalid")
     system = platform.system().strip().lower()
     if os.name == "posix":
-        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
-            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        _validate_posix_admin_path(resolved)
         if system == "darwin":
             if resolved != Path("/usr/bin/git"):
                 raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
@@ -149,11 +181,9 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
         else:
             provenance_ref = "git-provenance-ref:posix-root-owned-nonwritable"
     elif os.name == "nt":
-        system_root = os.environ.get("SystemRoot")
-        if not system_root:
-            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        system_root = _validated_windows_system_root()
         powershell = (
-            Path(system_root)
+            system_root
             / "System32"
             / "WindowsPowerShell"
             / "v1.0"
@@ -1207,6 +1237,12 @@ def verify_repository_evidence_delta(
     | None = None,
     repository_root: Path = ROOT,
 ) -> _EvidenceOnlyDeltaVerificationReceipt:
+    candidate_verification_receipt = verify_repository_candidate(
+        candidate_lock,
+        repository_root=repository_root,
+    )
+    if not candidate_verification_receipt.verified:
+        raise RuntimeError("TAW-08 delta issuer lacks candidate-bound provenance")
     census = derive_revision_delta_census(
         candidate_lock.git_revision_ref,
         delta.delta_revision_ref,
@@ -1672,6 +1708,24 @@ def _locked_child_command(
     )
 
 
+def _locked_child_environment(
+    *,
+    revision: str,
+    environment_root: Path,
+    selected_wheelhouse: Path,
+    platform_name: str = os.name,
+) -> dict[str, str]:
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        _LOCKED_CHILD_REVISION_ENV: revision,
+        _ENVIRONMENT_ROOT_ENV: str(environment_root),
+        _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
+    }
+    if platform_name == "nt":
+        environment["SystemRoot"] = str(_validated_windows_system_root())
+    return environment
+
+
 def _run_locked_candidate_verifier() -> None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     if _git("status", "--porcelain", "--untracked-files=all"):
@@ -1717,12 +1771,11 @@ def _run_locked_candidate_verifier() -> None:
                 cwd=candidate_root,
                 check=False,
                 capture_output=True,
-                env={
-                    "PATH": os.environ.get("PATH", ""),
-                    _LOCKED_CHILD_REVISION_ENV: revision,
-                    _ENVIRONMENT_ROOT_ENV: str(environment_root),
-                    _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
-                },
+                env=_locked_child_environment(
+                    revision=revision,
+                    environment_root=environment_root,
+                    selected_wheelhouse=selected_wheelhouse,
+                ),
                 timeout=300,
             )
             if child.returncode != 0:

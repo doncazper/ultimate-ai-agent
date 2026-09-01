@@ -13,6 +13,7 @@ import zipfile
 from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -2205,6 +2206,26 @@ def test_locked_child_requires_isolated_no_site_mode() -> None:
     assert command[1:3] == ("-I", "-S")
 
 
+def test_locked_child_preserves_validated_windows_system_root(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validated_windows_system_root",
+        lambda: Path("C:/Windows"),
+    )
+
+    environment = taw08_verifier._locked_child_environment(
+        revision="a" * 40,
+        environment_root=tmp_path / "environment",
+        selected_wheelhouse=tmp_path / "wheelhouse",
+        platform_name="nt",
+    )
+
+    assert environment["SystemRoot"] == "C:/Windows"
+
+
 def test_venv_script_directory_supports_windows_and_posix() -> None:
     assert taw08_verifier._venv_scripts_directory("nt") == "Scripts"
     assert taw08_verifier._venv_scripts_directory("posix") == "bin"
@@ -2229,6 +2250,25 @@ def test_trusted_git_rejects_path_substitution(
         taw08_verifier._trusted_git_identity()
 
     taw08_verifier._trusted_git_identity.cache_clear()
+
+
+def test_posix_git_trust_rejects_writable_parent_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "trusted-git"
+    executable.write_bytes(b"git")
+
+    def controlled_stat(path: Path):
+        return SimpleNamespace(
+            st_uid=0,
+            st_mode=0o40777 if path == tmp_path else 0o40555,
+        )
+
+    monkeypatch.setattr(Path, "stat", controlled_stat)
+
+    with pytest.raises(RuntimeError, match="trusted provenance"):
+        taw08_verifier._validate_posix_admin_path(executable)
 
 
 def test_git_commands_use_the_trusted_absolute_executable(
@@ -2973,6 +3013,16 @@ def test_repository_candidate_wrapper_has_no_caller_content_override() -> None:
     assert '"show"' in publication_source
     assert "TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF" in publication_source
     assert "derive_publication_history_census" in publication_source
+
+
+def test_repository_delta_wrapper_requires_candidate_bound_issuer() -> None:
+    lock = _candidate_lock()
+
+    with pytest.raises(RuntimeError, match="locked verifier child"):
+        taw08_verifier.verify_repository_evidence_delta(
+            candidate_lock=lock,
+            delta=_delta(lock),
+        )
 
 
 def test_publication_history_requires_descendant_and_final_report_only(
