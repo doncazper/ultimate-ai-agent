@@ -748,7 +748,7 @@ class FinalAcceptancePublicationArtifact(_FrozenModel):
         return self
 
 
-class PublicationHistoryCensus(_FrozenModel):
+class _PublicationHistoryCensus(_FrozenModel):
     schema_version: Literal["uaa-taw08-publication-history-census.v1"] = (
         "uaa-taw08-publication-history-census.v1"
     )
@@ -764,7 +764,7 @@ class PublicationHistoryCensus(_FrozenModel):
     census_digest_ref: str
 
     @model_validator(mode="after")
-    def validate_census(self) -> "PublicationHistoryCensus":
+    def validate_census(self) -> "_PublicationHistoryCensus":
         _validate_git_ref(self.delta_revision_ref, "delta_revision_ref")
         _validate_git_ref(self.publication_revision_ref, "publication_revision_ref")
         if self.delta_revision_ref == self.publication_revision_ref:
@@ -780,7 +780,7 @@ class PublicationHistoryCensus(_FrozenModel):
         return self
 
 
-class FinalAcceptancePublicationReceipt(_FrozenModel):
+class _FinalAcceptancePublicationReceipt(_FrozenModel):
     schema_version: Literal["uaa-taw08-final-acceptance-publication.v1"] = (
         "uaa-taw08-final-acceptance-publication.v1"
     )
@@ -791,7 +791,7 @@ class FinalAcceptancePublicationReceipt(_FrozenModel):
     delta_verification_receipt_digest_ref: str
     postmerge_foundation_receipt_digest_ref: str
     publication_revision_ref: str
-    publication_history_census: PublicationHistoryCensus
+    publication_history_census: _PublicationHistoryCensus
     publication_history_census_digest_ref: str
     publication_path_ref: Literal[
         "repo-path-ref:docs/evals/"
@@ -808,7 +808,7 @@ class FinalAcceptancePublicationReceipt(_FrozenModel):
     receipt_digest_ref: str
 
     @model_validator(mode="after")
-    def validate_receipt(self) -> "FinalAcceptancePublicationReceipt":
+    def validate_receipt(self) -> "_FinalAcceptancePublicationReceipt":
         _validate_git_ref(self.candidate_revision_ref, "candidate_revision_ref")
         _validate_git_ref(self.delta_revision_ref, "delta_revision_ref")
         _validate_git_ref(self.publication_revision_ref, "publication_revision_ref")
@@ -1332,7 +1332,7 @@ class TAW08AcceptanceReport(_FrozenModel):
     evidence_only_delta_verification_receipt_digest_ref: str | None
     postmerge_foundation_receipt: FoundationGateReceipt | None
     postmerge_foundation_receipt_digest_ref: str | None
-    final_acceptance_publication_receipt: FinalAcceptancePublicationReceipt | None
+    final_acceptance_publication_receipt: _FinalAcceptancePublicationReceipt | None
     final_acceptance_publication_receipt_digest_ref: str | None
     founder_private_accepted: bool
     founder_evidence_missing_refs: tuple[str, ...]
@@ -1823,14 +1823,14 @@ def _verify_and_bind_final_acceptance_publication(
     publication_revision_ref: str,
     publication_path_ref: str,
     publication_content: bytes,
-    publication_history_census: PublicationHistoryCensus,
+    publication_history_census: _PublicationHistoryCensus,
     candidate_revision_ref: str,
     candidate_manifest_digest_ref: str,
     founder_evidence_digest_ref: str,
     delta: EvidenceOnlyDeltaManifest,
     delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
-) -> FinalAcceptancePublicationReceipt:
+) -> _FinalAcceptancePublicationReceipt:
     _validate_git_ref(publication_revision_ref, "publication_revision_ref")
     if (
         publication_history_census.delta_revision_ref != delta.delta_revision_ref
@@ -1894,7 +1894,7 @@ def _verify_and_bind_final_acceptance_publication(
         "verified": True,
         "raw_content_persisted": False,
     }
-    return FinalAcceptancePublicationReceipt.model_validate(
+    return _FinalAcceptancePublicationReceipt.model_validate(
         {**payload, "receipt_digest_ref": canonical_digest(payload)}
     )
 
@@ -1943,13 +1943,13 @@ def bind_revision_delta_census(**values: object) -> RevisionDeltaCensus:
 
 def _bind_publication_history_census(
     **values: object,
-) -> PublicationHistoryCensus:
-    _validate_builder_keys(PublicationHistoryCensus, values, "census_digest_ref")
-    payload = PublicationHistoryCensus.model_construct(
+) -> _PublicationHistoryCensus:
+    _validate_builder_keys(_PublicationHistoryCensus, values, "census_digest_ref")
+    payload = _PublicationHistoryCensus.model_construct(
         **values,
         census_digest_ref="sha256:" + "0" * 64,
     ).model_dump(mode="json", exclude={"census_digest_ref"})
-    return PublicationHistoryCensus.model_validate(
+    return _PublicationHistoryCensus.model_validate(
         {**payload, "census_digest_ref": canonical_digest(payload)}
     )
 
@@ -2630,7 +2630,7 @@ def evaluate_taw08_acceptance(
     ) = None,
     postmerge_foundation_receipt: FoundationGateReceipt | None = None,
     final_acceptance_publication_receipt: (
-        FinalAcceptancePublicationReceipt | None
+        _FinalAcceptancePublicationReceipt | None
     ) = None,
     failure_refs: tuple[str, ...] = (),
 ) -> TAW08AcceptanceReport:

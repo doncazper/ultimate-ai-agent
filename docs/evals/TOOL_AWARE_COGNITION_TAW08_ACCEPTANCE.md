@@ -209,7 +209,8 @@ secret-like values.
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_tool_aware_cognition_taw08.py
-PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw08.py
+UAA_TAW08_LOCKED_WHEELHOUSE=<pre-provisioned-wheelhouse> \
+  PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw08.py
 ```
 
 The repository verifier locks the committed TAW-08 contract slice and proves
@@ -217,11 +218,14 @@ that the no-evidence fixture remains blocked with every authority and public
 claim false. It is structural regression evidence, not founder acceptance,
 live performance evidence, a holdout result, or Q22 completion.
 
-The locked verifier downloads only the compatible wheel URLs named by
-`uv.lock`, verifies the complete wheel bytes against each locked size and
-SHA-256 digest, and installs them into a temporary no-pip venv. The receipt
-child starts with `python -S`; a standard-library preflight rejects importable
-or startup files not owned by an installed distribution `RECORD` before adding
-that venv's site-packages. The child then binds installed distribution content
-back to each authenticated wheel and deletes the temporary environment when
-verification ends.
+The caller must pre-provision the compatible wheels named by `uv.lock`; the
+locked verifier performs no network access. It derives the project and `dev`
+dependency closure from the candidate lock, selects only compatible locked
+wheels, verifies every complete wheel against its locked size and SHA-256
+digest, and copies only those authenticated bytes into a temporary no-pip venv.
+The receipt child starts with isolated no-site mode (`python -I -S`); a
+standard-library preflight rejects symlinks and importable or startup files not
+owned by an installed distribution `RECORD` before adding that venv's
+site-packages. The child then binds installed distribution content back to each
+authenticated wheel and deletes the temporary environment when verification
+ends.

@@ -85,7 +85,9 @@ def _authenticated_wheel_files(
     total_bytes = 0
     for wheel_path in wheel_paths:
         if (
-            wheel_path.name not in artifacts
+            wheel_path.is_symlink()
+            or not wheel_path.is_file()
+            or wheel_path.name not in artifacts
             or wheel_path.parent.resolve() != wheelhouse
         ):
             raise RuntimeError("TAW-08 preflight wheel is not locked")
@@ -189,14 +191,18 @@ def _verify_environment_census(
     }
     observed = 0
     for path in site_packages.rglob("*"):
-        if not path.is_file():
+        if path.is_symlink():
+            raise RuntimeError("TAW-08 preflight found a symlink")
+        resolved = path.resolve()
+        if not resolved.is_relative_to(environment_root):
+            raise RuntimeError("TAW-08 preflight path escapes environment")
+        if path.is_dir():
             continue
+        if not path.is_file():
+            raise RuntimeError("TAW-08 preflight found a special file")
         observed += 1
         if observed > _MAX_FILES:
             raise RuntimeError("TAW-08 preflight file census bound exceeded")
-        resolved = path.resolve()
-        if not resolved.is_relative_to(environment_root):
-            raise RuntimeError("TAW-08 preflight file escapes environment")
         name = path.name
         relative_ref = path.relative_to(site_packages).as_posix()
         if any(name.endswith(suffix) for suffix in importable_suffixes):
@@ -223,8 +229,8 @@ def _verify_environment_census(
 
 
 def verify_environment(verifier: Path) -> Path:
-    if not sys.flags.no_site:
-        raise RuntimeError("TAW-08 preflight requires Python no-site mode")
+    if not sys.flags.isolated or not sys.flags.no_site:
+        raise RuntimeError("TAW-08 preflight requires isolated no-site mode")
     root_value = os.environ.get(_ENVIRONMENT_ROOT)
     wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE)
     if not root_value or not wheelhouse_value:

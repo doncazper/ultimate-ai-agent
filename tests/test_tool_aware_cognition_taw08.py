@@ -52,12 +52,12 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     EvidenceOnlyDeltaManifest,
     _EvidenceOnlyDeltaVerificationReceipt,
     FinalAcceptancePublicationArtifact,
-    FinalAcceptancePublicationReceipt,
+    _FinalAcceptancePublicationReceipt,
     FoundationGateReceipt,
     FounderMeasurementKind,
     FounderMeasurementObservation,
     FounderMeasurementResult,
-    PublicationHistoryCensus,
+    _PublicationHistoryCensus,
     RevisionDeltaCensus,
     RevisionPathCensus,
     TAW08AcceptanceReport,
@@ -688,7 +688,7 @@ def _publication_history_census(
     *,
     delta_revision_ref: str = DELTA_REVISION_REF,
     publication_revision_ref: str = PUBLICATION_REVISION_REF,
-) -> PublicationHistoryCensus:
+) -> _PublicationHistoryCensus:
     return _bind_publication_history_census(
         delta_revision_ref=delta_revision_ref,
         publication_revision_ref=publication_revision_ref,
@@ -702,7 +702,7 @@ def _publication_history_census(
 
 def _final_publication(
     lock: CandidateLock, delta: EvidenceOnlyDeltaManifest
-) -> FinalAcceptancePublicationReceipt:
+) -> _FinalAcceptancePublicationReceipt:
     verification = _delta_verification(lock, delta)
     artifact = build_final_acceptance_publication_artifact(
         candidate_revision_ref=lock.git_revision_ref,
@@ -1186,6 +1186,8 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert not hasattr(evals_api, "EvidenceOnlyDeltaVerificationReceipt")
     assert not hasattr(evals_api, "CandidateLockVerificationReceipt")
     assert not hasattr(evals_api, "EvaluatorEnvironmentReceipt")
+    assert not hasattr(evals_api, "FinalAcceptancePublicationReceipt")
+    assert not hasattr(evals_api, "PublicationHistoryCensus")
     assert not hasattr(foundation_runner, "bind_foundation_gate_execution_report")
 
     observed_roots: list[Path] = []
@@ -2089,6 +2091,103 @@ def test_evaluator_preflight_rejects_unowned_startup_files(tmp_path: Path) -> No
             site_packages=site_packages.resolve(),
             authenticated_files=authenticated_files,
         )
+    (site_packages / "ambient.pth").unlink()
+    outside_package = tmp_path / "outside-package"
+    outside_package.mkdir()
+    (outside_package / "__init__.py").write_text("VALUE = 2\n", encoding="utf-8")
+    linked_package = site_packages / "linked_package"
+    try:
+        linked_package.symlink_to(outside_package, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pytest.skip("directory symlinks are unavailable")
+    with pytest.raises(RuntimeError, match="symlink"):
+        taw08_preflight._verify_environment_census(
+            environment_root=environment_root.resolve(),
+            site_packages=site_packages.resolve(),
+            authenticated_files=authenticated_files,
+        )
+
+
+def test_locked_child_requires_isolated_no_site_mode() -> None:
+    command = taw08_verifier._locked_child_command(
+        environment_python=Path("environment-python"),
+        candidate_root=Path("candidate"),
+    )
+
+    assert command[1:3] == ("-I", "-S")
+
+
+def test_venv_script_directory_supports_windows_and_posix() -> None:
+    assert taw08_verifier._venv_scripts_directory("nt") == "Scripts"
+    assert taw08_verifier._venv_scripts_directory("posix") == "bin"
+
+
+def test_locked_environment_uses_only_provisioned_lock_closure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_root = tmp_path / "candidate"
+    candidate_root.mkdir()
+    environment_root = tmp_path / "environment"
+    provisioned_wheelhouse = tmp_path / "provisioned"
+    selected_wheelhouse = tmp_path / "selected"
+    provisioned_wheelhouse.mkdir()
+    wheel_name = "sample-1.0-py3-none-any.whl"
+    wheel_content = b"authenticated locked wheel"
+    (provisioned_wheelhouse / wheel_name).write_bytes(wheel_content)
+    (candidate_root / "pyproject.toml").write_text(
+        "[project]\nname = 'sample-project'\nversion = '1.0'\n",
+        encoding="utf-8",
+    )
+    (candidate_root / "uv.lock").write_text(
+        "\n".join(
+            (
+                "version = 1",
+                "",
+                "[[package]]",
+                "name = 'sample-project'",
+                "version = '1.0'",
+                "[package.optional-dependencies]",
+                "dev = [{ name = 'sample' }]",
+                "",
+                "[[package]]",
+                "name = 'sample'",
+                "version = '1.0'",
+                "wheels = [",
+                "  { url = 'https://files.pythonhosted.org/packages/sample-1.0-py3-none-any.whl', "
+                f"hash = 'sha256:{hashlib.sha256(wheel_content).hexdigest()}', "
+                f"size = {len(wheel_content)} }},",
+                "]",
+            )
+        ),
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def successful_run(command: list[str], **_kwargs: object):
+        calls.append(tuple(command))
+        return subprocess.CompletedProcess(command, returncode=0)
+
+    monkeypatch.setattr(taw08_verifier.subprocess, "run", successful_run)
+    monkeypatch.setattr(
+        taw08_verifier.importlib_metadata,
+        "distributions",
+        lambda: pytest.fail("ambient distributions must not select lock packages"),
+    )
+
+    environment_python = taw08_verifier._materialize_locked_environment(
+        candidate_root=candidate_root,
+        environment_root=environment_root,
+        provisioned_wheelhouse=provisioned_wheelhouse,
+        selected_wheelhouse=selected_wheelhouse,
+    )
+
+    assert environment_python == environment_root / "bin" / "python"
+    assert (selected_wheelhouse / wheel_name).read_bytes() == wheel_content
+    assert len(calls) == 2
+    assert not any("download" in argument for call in calls for argument in call)
+    assert "--no-index" in calls[1]
+    assert "--no-deps" in calls[1]
 
 
 def test_locked_evaluator_environment_rejects_candidate_lock_substitution(

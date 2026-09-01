@@ -8,6 +8,7 @@ import io
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -49,9 +50,9 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
     _EvaluatorEnvironmentReceipt,
     EvidenceOnlyDeltaManifest,
     _EvidenceOnlyDeltaVerificationReceipt,
-    FinalAcceptancePublicationReceipt,
+    _FinalAcceptancePublicationReceipt,
     FoundationGateReceipt,
-    PublicationHistoryCensus,
+    _PublicationHistoryCensus,
     RevisionDeltaCensus,
     RevisionPathCensus,
     bind_revision_delta_census,
@@ -194,11 +195,16 @@ def _verify_preflight_execution(*, repository_root: Path) -> None:
     except OSError as exc:
         raise RuntimeError("TAW-08 evaluator preflight source is unavailable") from exc
     if (
-        not sys.flags.no_site
+        not sys.flags.isolated
+        or not sys.flags.no_site
         or os.environ.get(_PREFLIGHT_COMPLETE_ENV) != "1"
         or os.environ.get(_PREFLIGHT_DIGEST_ENV) != expected_digest
     ):
         raise RuntimeError("TAW-08 evaluator preflight binding is invalid")
+
+
+def _venv_scripts_directory(platform_name: str = os.name) -> str:
+    return "Scripts" if platform_name == "nt" else "bin"
 
 
 def _installed_distribution_content_identity(
@@ -390,7 +396,9 @@ def _locked_wheel_distribution_identity(
                     installer_script_refs = {
                         entry_ref
                         for entry_ref in installed_by_ref
-                        if entry_ref.startswith("../../../bin/")
+                        if entry_ref.startswith(
+                            f"../../../{_venv_scripts_directory()}/"
+                        )
                         and re.fullmatch(
                             r"[A-Za-z0-9_.-]{1,255}",
                             entry_ref.rsplit("/", 1)[-1],
@@ -404,12 +412,15 @@ def _locked_wheel_distribution_identity(
                                 == wheel_by_ref[entry_ref]
                             )
                         script_name = entry_ref.rsplit("/", 1)[-1]
-                        installed_script_ref = f"../../../bin/{script_name}"
+                        scripts_directory = _venv_scripts_directory()
+                        installed_script_ref = (
+                            f"../../../{scripts_directory}/{script_name}"
+                        )
                         cached_script = wheel.read(entry_ref)
                         try:
                             installed_script = (
                                 Path(os.environ.get(_ENVIRONMENT_ROOT_ENV, sys.prefix))
-                                / "bin"
+                                / scripts_directory
                                 / script_name
                             ).read_bytes()
                         except OSError:
@@ -799,7 +810,7 @@ def derive_publication_history_census(
     publication_revision_ref: str,
     *,
     repository_root: Path = ROOT,
-) -> PublicationHistoryCensus:
+) -> _PublicationHistoryCensus:
     history = derive_revision_delta_census(
         delta_revision_ref,
         publication_revision_ref,
@@ -1122,7 +1133,7 @@ def verify_repository_final_acceptance_publication(
     delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
     repository_root: Path = ROOT,
-) -> FinalAcceptancePublicationReceipt:
+) -> _FinalAcceptancePublicationReceipt:
     publication_revision = publication_revision_ref.removeprefix("git-sha:")
     publication_path = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF.removeprefix(
         "repo-path-ref:"
@@ -1205,11 +1216,124 @@ def verify() -> None:
         raise RuntimeError("TAW-08 verifier detected authority or content expansion")
 
 
+def _locked_reachable_packages(
+    *,
+    project_name: str,
+    packages: list[object],
+    marker_environment: dict[str, str],
+) -> dict[str, dict[str, object]]:
+    """Resolve the project plus dev closure from uv.lock without ambient packages."""
+
+    active_by_name: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for item in packages:
+        if not isinstance(item, dict):
+            raise RuntimeError("TAW-08 locked package census is invalid")
+        name = item.get("name")
+        version = item.get("version")
+        markers = item.get("resolution-markers", [])
+        if (
+            not isinstance(name, str)
+            or not isinstance(version, str)
+            or not isinstance(markers, list)
+            or any(not isinstance(marker, str) for marker in markers)
+        ):
+            raise RuntimeError("TAW-08 locked package census is invalid")
+        try:
+            active = not markers or any(
+                Marker(marker).evaluate(marker_environment) for marker in markers
+            )
+        except InvalidMarker as exc:
+            raise RuntimeError("TAW-08 locked package marker is invalid") from exc
+        if active:
+            active_by_name[canonicalize_name(name)].append(item)
+    project_candidates = active_by_name.get(project_name, [])
+    if len(project_candidates) != 1:
+        raise RuntimeError("TAW-08 locked project package is ambiguous")
+    selected: dict[str, dict[str, object]] = {project_name: project_candidates[0]}
+    active_extras: dict[str, set[str]] = defaultdict(set)
+    active_extras[project_name].add("dev")
+    pending: deque[str] = deque((project_name,))
+    processed_extras: dict[str, frozenset[str]] = {}
+
+    def select_dependency(dependency: object, parent_extras: set[str]) -> None:
+        if not isinstance(dependency, dict):
+            raise RuntimeError("TAW-08 locked dependency census is invalid")
+        name_value = dependency.get("name")
+        marker_value = dependency.get("marker")
+        version_value = dependency.get("version")
+        extras_value = dependency.get("extra", [])
+        if (
+            not isinstance(name_value, str)
+            or (marker_value is not None and not isinstance(marker_value, str))
+            or (version_value is not None and not isinstance(version_value, str))
+            or not isinstance(extras_value, list)
+            or any(not isinstance(extra, str) for extra in extras_value)
+        ):
+            raise RuntimeError("TAW-08 locked dependency census is invalid")
+        if marker_value is not None:
+            try:
+                contexts = parent_extras or {""}
+                if not any(
+                    Marker(marker_value).evaluate(
+                        {**marker_environment, "extra": extra}
+                    )
+                    for extra in contexts
+                ):
+                    return
+            except InvalidMarker as exc:
+                raise RuntimeError(
+                    "TAW-08 locked dependency marker is invalid"
+                ) from exc
+        name = canonicalize_name(name_value)
+        candidates = [
+            item
+            for item in active_by_name.get(name, [])
+            if version_value is None or item.get("version") == version_value
+        ]
+        identities = {(str(item.get("version")), id(item)): item for item in candidates}
+        if len(identities) != 1:
+            raise RuntimeError(f"TAW-08 locked dependency is ambiguous: {name}")
+        package = next(iter(identities.values()))
+        existing = selected.get(name)
+        if existing is not None and existing is not package:
+            raise RuntimeError(f"TAW-08 locked dependency identity drifts: {name}")
+        new_extras = set(extras_value) - active_extras[name]
+        if existing is None or new_extras:
+            selected[name] = package
+            active_extras[name].update(new_extras)
+            pending.append(name)
+
+    while pending:
+        name = pending.popleft()
+        extras = frozenset(active_extras[name])
+        if processed_extras.get(name) == extras:
+            continue
+        processed_extras[name] = extras
+        package = selected[name]
+        dependencies = package.get("dependencies", [])
+        optional_dependencies = package.get("optional-dependencies", {})
+        if not isinstance(dependencies, list) or not isinstance(
+            optional_dependencies, dict
+        ):
+            raise RuntimeError("TAW-08 locked dependency census is invalid")
+        for dependency in dependencies:
+            select_dependency(dependency, set(extras))
+        for extra in extras:
+            extra_dependencies = optional_dependencies.get(extra, [])
+            if not isinstance(extra_dependencies, list):
+                raise RuntimeError("TAW-08 locked optional dependency is invalid")
+            for dependency in extra_dependencies:
+                select_dependency(dependency, {extra})
+    selected.pop(project_name)
+    return selected
+
+
 def _materialize_locked_environment(
     *,
     candidate_root: Path,
     environment_root: Path,
-    wheelhouse: Path,
+    provisioned_wheelhouse: Path,
+    selected_wheelhouse: Path,
 ) -> Path:
     """Build a no-ambient-package venv from exact compatible lock wheels."""
 
@@ -1230,47 +1354,23 @@ def _materialize_locked_environment(
         raise RuntimeError("TAW-08 locked environment metadata is incomplete")
     project_name = canonicalize_name(project["name"])
     marker_environment = default_environment()
-    locked_wheels: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
-    for package in packages:
-        if not isinstance(package, dict):
-            raise RuntimeError("TAW-08 locked package census is invalid")
-        name = package.get("name")
-        version = package.get("version")
-        markers = package.get("resolution-markers", [])
-        wheels = package.get("wheels", [])
-        if (
-            not isinstance(name, str)
-            or not isinstance(version, str)
-            or not isinstance(markers, list)
-            or any(not isinstance(item, str) for item in markers)
-            or not isinstance(wheels, list)
-        ):
-            raise RuntimeError("TAW-08 locked package census is invalid")
-        try:
-            active = not markers or any(
-                Marker(marker).evaluate(marker_environment) for marker in markers
-            )
-        except InvalidMarker as exc:
-            raise RuntimeError("TAW-08 locked package marker is invalid") from exc
-        if active:
-            locked_wheels[(canonicalize_name(name), version)].extend(
-                item for item in wheels if isinstance(item, dict)
-            )
+    reachable_packages = _locked_reachable_packages(
+        project_name=project_name,
+        packages=packages,
+        marker_environment=marker_environment,
+    )
     active_tags = tuple(sys_tags())
     tag_rank = {tag: index for index, tag in enumerate(active_tags)}
     selected: dict[str, tuple[str, int, str]] = {}
-    installed_identities = {
-        (
-            canonicalize_name(str(distribution.metadata.get("Name", "")).strip()),
-            str(distribution.version).strip(),
-        )
-        for distribution in importlib_metadata.distributions()
-    }
-    for name, version in sorted(installed_identities):
-        if not name or name == project_name:
-            continue
+    for name, package in sorted(reachable_packages.items()):
+        version = str(package.get("version", ""))
+        wheels = package.get("wheels", [])
+        if not isinstance(wheels, list):
+            raise RuntimeError("TAW-08 locked wheel census is invalid")
         candidates: list[tuple[int, str, str, int, str]] = []
-        for wheel in locked_wheels.get((name, version), []):
+        for wheel in wheels:
+            if not isinstance(wheel, dict):
+                continue
             url = wheel.get("url")
             digest_ref = wheel.get("hash")
             size = wheel.get("size")
@@ -1329,31 +1429,20 @@ def _materialize_locked_environment(
         selected[filename] = identity
     if not selected or len(selected) > 2_048:
         raise RuntimeError("TAW-08 locked wheel selection is invalid")
-    wheelhouse.mkdir(parents=True)
-    download = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "download",
-            "--disable-pip-version-check",
-            "--no-deps",
-            "--dest",
-            str(wheelhouse),
-            *(item[2] for _filename, item in sorted(selected.items())),
-        ],
-        cwd=candidate_root,
-        check=False,
-        capture_output=True,
-        timeout=300,
-    )
-    if download.returncode != 0:
-        raise RuntimeError("TAW-08 locked wheel download failed")
+    provisioned_wheelhouse = provisioned_wheelhouse.resolve()
+    if not provisioned_wheelhouse.is_dir():
+        raise RuntimeError("TAW-08 provisioned wheelhouse is unavailable")
+    selected_wheelhouse.mkdir(parents=True)
     wheel_paths: list[Path] = []
     for filename, (expected_hash, expected_size, _url) in sorted(selected.items()):
-        wheel_path = wheelhouse / filename
+        provisioned_path = (provisioned_wheelhouse / filename).resolve()
         try:
-            content = wheel_path.read_bytes()
+            if (
+                not provisioned_path.is_relative_to(provisioned_wheelhouse)
+                or provisioned_path.is_symlink()
+            ):
+                raise OSError
+            content = provisioned_path.read_bytes()
         except OSError as exc:
             raise RuntimeError("TAW-08 locked wheel artifact is unavailable") from exc
         if (
@@ -1361,7 +1450,11 @@ def _materialize_locked_environment(
             or hashlib.sha256(content).hexdigest() != expected_hash
         ):
             raise RuntimeError("TAW-08 locked wheel artifact differs from uv.lock")
-        wheel_paths.append(wheel_path)
+        selected_path = selected_wheelhouse / filename
+        shutil.copyfile(provisioned_path, selected_path)
+        if selected_path.read_bytes() != content:
+            raise RuntimeError("TAW-08 selected wheel copy differs from uv.lock")
+        wheel_paths.append(selected_path)
     create_venv = subprocess.run(
         [sys.executable, "-m", "venv", "--without-pip", str(environment_root)],
         cwd=candidate_root,
@@ -1371,8 +1464,11 @@ def _materialize_locked_environment(
     )
     if create_venv.returncode != 0:
         raise RuntimeError("TAW-08 hermetic evaluator venv creation failed")
-    environment_python = environment_root / (
-        "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    scripts_directory = _venv_scripts_directory()
+    environment_python = (
+        environment_root
+        / scripts_directory
+        / ("python.exe" if os.name == "nt" else "python")
     )
     install = subprocess.run(
         [
@@ -1398,14 +1494,30 @@ def _materialize_locked_environment(
     return environment_python
 
 
+def _locked_child_command(
+    *, environment_python: Path, candidate_root: Path
+) -> tuple[str, ...]:
+    return (
+        str(environment_python),
+        "-I",
+        "-S",
+        str(candidate_root / "scripts/verify_taw08_environment_preflight.py"),
+        str(candidate_root / "scripts/verify_tool_aware_cognition_taw08.py"),
+    )
+
+
 def _run_locked_candidate_verifier() -> None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     if _git("status", "--porcelain", "--untracked-files=all"):
         raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
+    provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
+    if not provisioned_wheelhouse_value:
+        raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")
+    provisioned_wheelhouse = Path(provisioned_wheelhouse_value).resolve()
     with tempfile.TemporaryDirectory(prefix="uaa-taw08-locked-") as temporary:
         candidate_root = Path(temporary) / "candidate"
         environment_root = Path(temporary) / "environment"
-        wheelhouse = Path(temporary) / "wheelhouse"
+        selected_wheelhouse = Path(temporary) / "selected-wheelhouse"
         added = False
         try:
             subprocess.run(
@@ -1425,19 +1537,14 @@ def _run_locked_candidate_verifier() -> None:
             environment_python = _materialize_locked_environment(
                 candidate_root=candidate_root,
                 environment_root=environment_root,
-                wheelhouse=wheelhouse,
+                provisioned_wheelhouse=provisioned_wheelhouse,
+                selected_wheelhouse=selected_wheelhouse,
             )
             child = subprocess.run(
-                [
-                    str(environment_python),
-                    "-S",
-                    str(
-                        candidate_root / "scripts/verify_taw08_environment_preflight.py"
-                    ),
-                    str(
-                        candidate_root / "scripts/verify_tool_aware_cognition_taw08.py"
-                    ),
-                ],
+                _locked_child_command(
+                    environment_python=environment_python,
+                    candidate_root=candidate_root,
+                ),
                 cwd=candidate_root,
                 check=False,
                 capture_output=True,
@@ -1445,7 +1552,7 @@ def _run_locked_candidate_verifier() -> None:
                     "PATH": os.environ.get("PATH", ""),
                     _LOCKED_CHILD_REVISION_ENV: revision,
                     _ENVIRONMENT_ROOT_ENV: str(environment_root),
-                    _LOCKED_WHEELHOUSE_ENV: str(wheelhouse),
+                    _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
                 },
                 timeout=300,
             )
