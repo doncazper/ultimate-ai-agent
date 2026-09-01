@@ -119,6 +119,7 @@ TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
                     "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
                     "scripts/run_foundation_gate.py",
+                    "scripts/verify_taw08_environment_preflight.py",
                     "scripts/verify_tool_aware_cognition_taw08.py",
                 )
             ),
@@ -156,9 +157,7 @@ _GIT_RE = re.compile(r"^git-sha:[0-9a-f]{40}$")
 _LOCAL_MODEL_ARTIFACT_DIGEST_RE = re.compile(
     r"^model-artifact-digest-ref:sha256:[0-9a-f]{64}$"
 )
-_API_MODEL_ID_RE = re.compile(
-    r"^model-id-ref:openai:[A-Za-z0-9][A-Za-z0-9._-]{1,127}$"
-)
+_API_MODEL_ID_RE = re.compile(r"^model-id-ref:openai:[A-Za-z0-9][A-Za-z0-9._-]{1,127}$")
 _HARDWARE_OBSERVATION_DIGEST_RE = re.compile(
     r"^hardware-observation-ref:sha256:[0-9a-f]{64}$"
 )
@@ -569,9 +568,7 @@ class FoundationGateReceipt(_FrozenModel):
             self.evaluator_environment_digest_ref
             != self.evaluator_environment_receipt.receipt_digest_ref
         ):
-            raise ValueError(
-                "Foundation receipt evaluator environment binding drift"
-            )
+            raise ValueError("Foundation receipt evaluator environment binding drift")
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"receipt_digest_ref"})
         )
@@ -884,9 +881,7 @@ class FounderSameHostBaselineEvidence(_FrozenModel):
             "unit_ref",
         ):
             _validate_ref(getattr(self, field_name), field_name)
-        if not _HARDWARE_OBSERVATION_DIGEST_RE.fullmatch(
-            self.observed_hardware_ref
-        ):
+        if not _HARDWARE_OBSERVATION_DIGEST_RE.fullmatch(self.observed_hardware_ref):
             raise ValueError("same-host hardware identity must be an opaque digest")
         if (
             not math.isfinite(self.observed_value)
@@ -958,8 +953,7 @@ class FounderMeasurementResult(_FrozenModel):
                 raise ValueError("live-model measurement identity census is incomplete")
             if (
                 self.inference_profile_ref not in TAW08_INFERENCE_PROFILE_REFS
-                or self.observed_hardware_family_ref
-                not in TAW08_HARDWARE_FAMILY_REFS
+                or self.observed_hardware_family_ref not in TAW08_HARDWARE_FAMILY_REFS
             ):
                 raise ValueError("live-model measurement profile census drift")
             if self.inference_profile_ref == TAW08_LOCAL_INFERENCE_PROFILE_REF:
@@ -1103,9 +1097,8 @@ class FounderMeasurementObservation(_FrozenModel):
         ):
             raise ValueError("founder measurement ratio is inconsistent with counts")
         if self.stratum_ref == "stratum-ref:taw08:chat":
-            if (
-                len(self.model_call_counts) != self.observation_count
-                or any(count != 1 for count in self.model_call_counts)
+            if len(self.model_call_counts) != self.observation_count or any(
+                count != 1 for count in self.model_call_counts
             ):
                 raise ValueError(
                     "ordinary-chat observations require exactly one model call"
@@ -1257,10 +1250,9 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
             )
             for receipt in self.live_model_hardware_receipts
         }
-        if (
-            actual_live_census != expected_live_census
-            or len(self.live_model_hardware_receipts) != len(expected_live_census)
-        ):
+        if actual_live_census != expected_live_census or len(
+            self.live_model_hardware_receipts
+        ) != len(expected_live_census):
             raise ValueError("live-model inference and hardware census drift")
         if any(
             receipt.result.candidate_revision_ref != self.candidate_revision_ref
@@ -2669,9 +2661,7 @@ def evaluate_taw08_acceptance(
         if candidate_verification_receipt.repository_verifier_digest_ref != (
             repository_verifier_digest_ref
         ):
-            derived_failures.add(
-                "failure-ref:taw08:repository-verifier-binding-drift"
-            )
+            derived_failures.add("failure-ref:taw08:repository-verifier-binding-drift")
     if founder_evidence is not None:
         missing.difference_update(
             set(TAW08_FOUNDER_EVIDENCE_MISSING_REFS)
@@ -2693,9 +2683,7 @@ def evaluate_taw08_acceptance(
         if founder_profile_entries.get(TAW08_FOUNDER_PROFILE_PATH_REF) != (
             founder_evidence.founder_dogfood_profile_digest_ref
         ):
-            derived_failures.add(
-                "failure-ref:taw08:founder-profile-binding-drift"
-            )
+            derived_failures.add("failure-ref:taw08:founder-profile-binding-drift")
     if evidence_only_delta is not None and (
         evidence_only_delta.candidate_revision_ref != candidate_lock.git_revision_ref
         or evidence_only_delta.candidate_manifest_digest_ref

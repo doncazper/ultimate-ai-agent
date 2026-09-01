@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import base64
+import csv
 import hashlib
 import importlib.metadata as importlib_metadata
+import io
 import os
 import platform
 import re
@@ -10,17 +12,24 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import urllib.parse
+import zipfile
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Literal
 
 from packaging.markers import InvalidMarker, Marker, default_environment
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.utils import canonicalize_name
+from packaging.tags import sys_tags
+from packaging.utils import canonicalize_name, parse_wheel_filename
 from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).resolve().parents[1]
 _LOCKED_CHILD_REVISION_ENV = "UAA_TAW08_LOCKED_CHILD_REVISION"
+_ENVIRONMENT_ROOT_ENV = "UAA_TAW08_ENVIRONMENT_ROOT"
+_LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
+_PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
+_PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -79,6 +88,7 @@ SLICE_CANDIDATE_PATHS = tuple(
                 for ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
             ),
             "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
+            "scripts/verify_taw08_environment_preflight.py",
             "scripts/verify_tool_aware_cognition_taw08.py",
             "src/ultimate_ai_agent/core/evals/__init__.py",
             "tests/test_tool_aware_cognition_taw08.py",
@@ -135,12 +145,16 @@ def verify_executing_repository_sources(
             raise RuntimeError("TAW-08 executing repository source census is invalid")
         source_paths[relative_path] = source_path
     tree_entries: dict[str, str] = {}
-    for line in _git(
-        "ls-tree",
-        "-r",
-        revision,
-        repository_root=repository_root,
-    ).decode("utf-8").splitlines():
+    for line in (
+        _git(
+            "ls-tree",
+            "-r",
+            revision,
+            repository_root=repository_root,
+        )
+        .decode("utf-8")
+        .splitlines()
+    ):
         metadata, separator, path = line.partition("\t")
         parts = metadata.split()
         if separator and len(parts) == 3 and parts[1] == "blob":
@@ -168,7 +182,23 @@ def verify_executing_repository_sources(
     if not required <= set(sources):
         raise RuntimeError("TAW-08 executing repository source census is incomplete")
     path_refs = tuple(sorted(sources))
-    return path_refs, canonical_digest({path_ref: sources[path_ref] for path_ref in path_refs})
+    return path_refs, canonical_digest(
+        {path_ref: sources[path_ref] for path_ref in path_refs}
+    )
+
+
+def _verify_preflight_execution(*, repository_root: Path) -> None:
+    preflight = repository_root / "scripts/verify_taw08_environment_preflight.py"
+    try:
+        expected_digest = "sha256:" + hashlib.sha256(preflight.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 evaluator preflight source is unavailable") from exc
+    if (
+        not sys.flags.no_site
+        or os.environ.get(_PREFLIGHT_COMPLETE_ENV) != "1"
+        or os.environ.get(_PREFLIGHT_DIGEST_ENV) != expected_digest
+    ):
+        raise RuntimeError("TAW-08 evaluator preflight binding is invalid")
 
 
 def _installed_distribution_content_identity(
@@ -202,9 +232,11 @@ def _installed_distribution_content_identity(
         if entry.hash is not None:
             if entry.hash.mode != "sha256":
                 raise RuntimeError("TAW-08 evaluator distribution hash mode is invalid")
-            actual_record_hash = base64.urlsafe_b64encode(
-                hashlib.sha256(content).digest()
-            ).rstrip(b"=").decode("ascii")
+            actual_record_hash = (
+                base64.urlsafe_b64encode(hashlib.sha256(content).digest())
+                .rstrip(b"=")
+                .decode("ascii")
+            )
             if actual_record_hash != entry.hash.value:
                 raise RuntimeError(
                     "TAW-08 evaluator distribution content differs from RECORD"
@@ -215,52 +247,6 @@ def _installed_distribution_content_identity(
     return tuple(identities)
 
 
-def _read_bounded_msgpack_value(
-    content: bytes,
-    offset: int = 0,
-    *,
-    depth: int = 0,
-) -> tuple[object, int]:
-    """Decode the small, documented-by-shape prefix of one uv cache record."""
-
-    if depth > 8 or offset >= len(content):
-        raise RuntimeError("TAW-08 uv cache metadata is invalid")
-    marker = content[offset]
-    offset += 1
-    if marker <= 0x7F:
-        return marker, offset
-    if 0x90 <= marker <= 0x9F:
-        count = marker & 0x0F
-        values: list[object] = []
-        for _ in range(count):
-            value, offset = _read_bounded_msgpack_value(
-                content, offset, depth=depth + 1
-            )
-            values.append(value)
-        return values, offset
-    if 0xA0 <= marker <= 0xBF:
-        length = marker & 0x1F
-    elif marker == 0xD9:
-        if offset >= len(content):
-            raise RuntimeError("TAW-08 uv cache metadata is invalid")
-        length = content[offset]
-        offset += 1
-    elif marker == 0xDA:
-        if offset + 2 > len(content):
-            raise RuntimeError("TAW-08 uv cache metadata is invalid")
-        length = int.from_bytes(content[offset : offset + 2], "big")
-        offset += 2
-    else:
-        raise RuntimeError("TAW-08 uv cache metadata is invalid")
-    if length > 4096 or offset + length > len(content):
-        raise RuntimeError("TAW-08 uv cache metadata is invalid")
-    try:
-        value = content[offset : offset + length].decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise RuntimeError("TAW-08 uv cache metadata is invalid") from exc
-    return value, offset + length
-
-
 def _locked_wheel_distribution_identity(
     *,
     name: str,
@@ -268,7 +254,7 @@ def _locked_wheel_distribution_identity(
     locked_wheels: list[object],
     installed_identity: tuple[tuple[str, int, str], ...],
 ) -> tuple[str, tuple[tuple[str, int, str], ...]]:
-    allowed_wheels: dict[str, str] = {}
+    allowed_wheels: dict[str, tuple[str, int]] = {}
     for item in locked_wheels:
         if not isinstance(item, dict):
             raise RuntimeError("TAW-08 locked wheel census is invalid")
@@ -286,161 +272,181 @@ def _locked_wheel_distribution_identity(
         filename = url.rsplit("/", 1)[-1]
         if not filename.endswith(".whl") or len(filename) > 512:
             raise RuntimeError("TAW-08 locked wheel census is invalid")
-        allowed_wheels[filename] = digest_ref.removeprefix("sha256:")
+        allowed_wheels[filename] = (
+            digest_ref.removeprefix("sha256:"),
+            size,
+        )
     if not allowed_wheels:
         raise RuntimeError("TAW-08 locked distribution has no wheel artifacts")
-
-    cache_roots: list[Path] = []
-    configured_cache = os.environ.get("UV_CACHE_DIR")
-    if configured_cache:
-        cache_roots.append(Path(configured_cache))
-    cache_roots.extend(
-        (
-            Path.home() / ".cache" / "uv",
-            Path.home() / "Library" / "Caches" / "uv",
-        )
-    )
-    matching_identities: list[
-        tuple[str, tuple[tuple[str, int, str], ...]]
-    ] = []
-    for cache_root in dict.fromkeys(path.resolve() for path in cache_roots):
-        wheel_directory = cache_root / "wheels-v6" / "pypi" / name
-        if not wheel_directory.is_dir():
+    wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
+    if not wheelhouse_value:
+        raise RuntimeError("TAW-08 locked wheelhouse is unavailable")
+    wheelhouse = Path(wheelhouse_value).resolve()
+    if not wheelhouse.is_dir():
+        raise RuntimeError("TAW-08 locked wheelhouse is unavailable")
+    matching_identities: list[tuple[str, tuple[tuple[str, int, str], ...]]] = []
+    for filename, (expected_hash, expected_size) in allowed_wheels.items():
+        wheel_path = (wheelhouse / filename).resolve()
+        if not wheel_path.is_relative_to(wheelhouse) or not wheel_path.is_file():
             continue
-        metadata_paths = tuple(sorted(wheel_directory.glob("*.http")))
-        if len(metadata_paths) > 1024:
-            raise RuntimeError("TAW-08 uv cache wheel census exceeds bound")
-        for metadata_path in metadata_paths:
-            content = metadata_path.read_bytes()
-            if len(content) > 64 * 1024:
-                raise RuntimeError("TAW-08 uv cache metadata exceeds bound")
-            metadata, _offset = _read_bounded_msgpack_value(content)
-            if not isinstance(metadata, list) or len(metadata) != 4:
-                continue
-            archive_key, hash_entries, filename, _cache_policy = metadata
-            if (
-                not isinstance(archive_key, str)
-                or not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", archive_key)
-                or not isinstance(hash_entries, list)
-                or not isinstance(filename, str)
-                or filename not in allowed_wheels
-            ):
-                continue
-            hashes = {
-                value
-                for entry in hash_entries
-                if isinstance(entry, list)
-                and len(entry) == 2
-                and entry[0] == "Sha256"
-                and isinstance((value := entry[1]), str)
-            }
-            expected_hash = allowed_wheels[filename]
-            if hashes != {expected_hash}:
-                continue
-            archive_root = (cache_root / "archive-v0" / archive_key).resolve()
-            if (
-                not archive_root.is_relative_to(
-                    (cache_root / "archive-v0").resolve()
-                )
-                or not archive_root.is_dir()
-            ):
-                continue
-            distribution_candidates = tuple(archive_root.glob("*.dist-info"))
-            if len(distribution_candidates) != 1:
-                continue
-            cached_distribution = importlib_metadata.PathDistribution(
-                distribution_candidates[0]
-            )
-            if (
-                canonicalize_name(
-                    str(cached_distribution.metadata.get("Name", ""))
-                )
-                != name
-                or str(cached_distribution.version) != version
-            ):
-                continue
-            cached_identity = _installed_distribution_content_identity(
-                cached_distribution,
-                environment_root=archive_root,
-            )
-            cached_by_ref = {entry[0]: entry[1:] for entry in cached_identity}
-            installed_by_ref = {
-                entry[0]: entry[1:] for entry in installed_identity
-            }
-            wheel_payload_refs = {
-                entry_ref
-                for entry_ref in cached_by_ref
-                if not entry_ref.endswith(".dist-info/RECORD")
-            }
-            installer_metadata_refs = {
-                entry_ref
-                for entry_ref in installed_by_ref
-                if entry_ref.endswith(
-                    (
-                        ".dist-info/RECORD",
-                        ".dist-info/INSTALLER",
-                        ".dist-info/REQUESTED",
-                        ".dist-info/direct_url.json",
+        wheel_bytes = wheel_path.read_bytes()
+        if (
+            len(wheel_bytes) != expected_size
+            or hashlib.sha256(wheel_bytes).hexdigest() != expected_hash
+        ):
+            continue
+        try:
+            parsed_name, parsed_version, _build, _tags = parse_wheel_filename(filename)
+        except ValueError:
+            continue
+        if (
+            canonicalize_name(str(parsed_name)) != name
+            or str(parsed_version) != version
+        ):
+            continue
+        try:
+            with zipfile.ZipFile(io.BytesIO(wheel_bytes)) as wheel:
+                members = tuple(item for item in wheel.infolist() if not item.is_dir())
+                if (
+                    not members
+                    or len(members) > 100_000
+                    or sum(item.file_size for item in members) > 1024 * 1024 * 1024
+                    or any(
+                        item.file_size > 64 * 1024 * 1024
+                        or not item.filename
+                        or len(item.filename) > 1024
+                        or item.filename.startswith("/")
+                        or ".." in Path(item.filename).parts
+                        for item in members
                     )
+                ):
+                    continue
+                member_names = tuple(item.filename for item in members)
+                if len(member_names) != len(set(member_names)):
+                    continue
+                record_names = tuple(
+                    item for item in member_names if item.endswith(".dist-info/RECORD")
                 )
-            }
-            installer_script_refs = {
-                entry_ref
-                for entry_ref in installed_by_ref
-                if entry_ref.startswith("../../../bin/")
-                and re.fullmatch(
-                    r"[A-Za-z0-9_.-]{1,255}",
-                    entry_ref.rsplit("/", 1)[-1],
-                )
-            }
-
-            def installed_entry_matches_locked_wheel(entry_ref: str) -> bool:
-                data_script_marker = ".data/scripts/"
-                if data_script_marker not in entry_ref:
-                    return (
-                        installed_by_ref.get(entry_ref)
-                        == cached_by_ref[entry_ref]
-                    )
-                script_name = entry_ref.rsplit("/", 1)[-1]
-                installed_script_ref = f"../../../bin/{script_name}"
+                if len(record_names) != 1:
+                    continue
                 try:
-                    cached_script = (archive_root / entry_ref).read_bytes()
-                    installed_script = (
-                        Path(sys.prefix) / "bin" / script_name
-                    ).read_bytes()
-                except OSError:
-                    return False
-                cached_lines = cached_script.splitlines(keepends=True)
-                installed_lines = installed_script.splitlines(keepends=True)
-                if cached_lines and cached_lines[0] not in {
-                    b"#!python\n",
-                    b"#!pythonw\n",
-                }:
-                    return (
-                        installed_script == cached_script
-                        and installed_script_ref in installer_script_refs
+                    record_text = wheel.read(record_names[0]).decode("utf-8")
+                except (KeyError, UnicodeDecodeError):
+                    continue
+                rows = tuple(csv.reader(io.StringIO(record_text, newline="")))
+                if any(len(row) != 3 for row in rows):
+                    continue
+                record_by_ref = {row[0]: (row[1], row[2]) for row in rows}
+                if set(record_by_ref) != set(member_names):
+                    continue
+                wheel_identity: list[tuple[str, int, str]] = []
+                for member_name in sorted(member_names):
+                    content = wheel.read(member_name)
+                    hash_value, size_value = record_by_ref[member_name]
+                    if member_name != record_names[0]:
+                        actual_hash = (
+                            base64.urlsafe_b64encode(hashlib.sha256(content).digest())
+                            .rstrip(b"=")
+                            .decode("ascii")
+                        )
+                        if hash_value != f"sha256={actual_hash}" or size_value != str(
+                            len(content)
+                        ):
+                            break
+                    elif hash_value or size_value:
+                        break
+                    wheel_identity.append(
+                        (
+                            member_name,
+                            len(content),
+                            hashlib.sha256(content).hexdigest(),
+                        )
                     )
-                return (
-                    bool(cached_lines)
-                    and cached_lines[0] in {b"#!python\n", b"#!pythonw\n"}
-                    and bool(installed_lines)
-                    and installed_lines[0]
-                    == f"#!{sys.executable}\n".encode("utf-8")
-                    and installed_lines[1:] == cached_lines[1:]
-                    and installed_script_ref in installer_script_refs
-                )
+                else:
+                    authenticated_identity = tuple(wheel_identity)
+                    wheel_by_ref = {
+                        entry[0]: entry[1:] for entry in authenticated_identity
+                    }
+                    installed_by_ref = {
+                        entry[0]: entry[1:] for entry in installed_identity
+                    }
+                    wheel_payload_refs = {
+                        entry_ref
+                        for entry_ref in wheel_by_ref
+                        if not entry_ref.endswith(".dist-info/RECORD")
+                    }
+                    installer_metadata_refs = {
+                        entry_ref
+                        for entry_ref in installed_by_ref
+                        if entry_ref.endswith(
+                            (
+                                ".dist-info/RECORD",
+                                ".dist-info/INSTALLER",
+                                ".dist-info/REQUESTED",
+                                ".dist-info/direct_url.json",
+                            )
+                        )
+                    }
+                    installer_script_refs = {
+                        entry_ref
+                        for entry_ref in installed_by_ref
+                        if entry_ref.startswith("../../../bin/")
+                        and re.fullmatch(
+                            r"[A-Za-z0-9_.-]{1,255}",
+                            entry_ref.rsplit("/", 1)[-1],
+                        )
+                    }
 
-            if (
-                all(
-                    installed_entry_matches_locked_wheel(entry_ref)
-                    for entry_ref in wheel_payload_refs
-                )
-                and set(installed_by_ref) - wheel_payload_refs
-                <= installer_metadata_refs | installer_script_refs
-            ):
-                matching_identities.append(
-                    (f"sha256:{expected_hash}", cached_identity)
-                )
+                    def installed_entry_matches_wheel(entry_ref: str) -> bool:
+                        if ".data/scripts/" not in entry_ref:
+                            return (
+                                installed_by_ref.get(entry_ref)
+                                == wheel_by_ref[entry_ref]
+                            )
+                        script_name = entry_ref.rsplit("/", 1)[-1]
+                        installed_script_ref = f"../../../bin/{script_name}"
+                        cached_script = wheel.read(entry_ref)
+                        try:
+                            installed_script = (
+                                Path(os.environ.get(_ENVIRONMENT_ROOT_ENV, sys.prefix))
+                                / "bin"
+                                / script_name
+                            ).read_bytes()
+                        except OSError:
+                            return False
+                        cached_lines = cached_script.splitlines(keepends=True)
+                        installed_lines = installed_script.splitlines(keepends=True)
+                        if cached_lines and cached_lines[0] not in {
+                            b"#!python\n",
+                            b"#!pythonw\n",
+                        }:
+                            return (
+                                installed_script == cached_script
+                                and installed_script_ref in installer_script_refs
+                            )
+                        return (
+                            bool(cached_lines)
+                            and cached_lines[0] in {b"#!python\n", b"#!pythonw\n"}
+                            and bool(installed_lines)
+                            and installed_lines[0]
+                            == f"#!{sys.executable}\n".encode("utf-8")
+                            and installed_lines[1:] == cached_lines[1:]
+                            and installed_script_ref in installer_script_refs
+                        )
+
+                    if (
+                        all(
+                            installed_entry_matches_wheel(entry_ref)
+                            for entry_ref in wheel_payload_refs
+                        )
+                        and set(installed_by_ref) - wheel_payload_refs
+                        <= installer_metadata_refs | installer_script_refs
+                    ):
+                        matching_identities.append(
+                            (f"sha256:{expected_hash}", authenticated_identity)
+                        )
+        except (OSError, zipfile.BadZipFile):
+            continue
     unique = tuple(dict.fromkeys(matching_identities))
     if len(unique) != 1:
         raise RuntimeError(
@@ -471,11 +477,20 @@ def verify_locked_evaluator_environment(
             raise RuntimeError(
                 "TAW-08 evaluator environment lock differs from the candidate"
             )
-    if sys.implementation.name != "cpython" or sys.prefix == sys.base_prefix:
+    environment_root_value = os.environ.get(_ENVIRONMENT_ROOT_ENV)
+    environment_root = (
+        Path(environment_root_value).resolve()
+        if environment_root_value
+        else Path(sys.prefix).resolve()
+    )
+    if (
+        sys.implementation.name != "cpython"
+        or not (environment_root / "pyvenv.cfg").is_file()
+    ):
         raise RuntimeError(
             "TAW-08 evaluator environment requires an active CPython project venv"
         )
-    venv_configuration = Path(sys.prefix) / "pyvenv.cfg"
+    venv_configuration = environment_root / "pyvenv.cfg"
     try:
         venv_configuration_text = venv_configuration.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
@@ -491,9 +506,7 @@ def verify_locked_evaluator_environment(
         )
     try:
         pyproject = tomllib.loads(
-            locked_content_by_path_ref["repo-path-ref:pyproject.toml"].decode(
-                "utf-8"
-            )
+            locked_content_by_path_ref["repo-path-ref:pyproject.toml"].decode("utf-8")
         )
         locked = tomllib.loads(
             locked_content_by_path_ref["repo-path-ref:uv.lock"].decode("utf-8")
@@ -540,9 +553,7 @@ def verify_locked_evaluator_environment(
                 for marker in resolution_markers
             )
         except InvalidMarker as exc:
-            raise RuntimeError(
-                "TAW-08 uv.lock resolution markers are invalid"
-            ) from exc
+            raise RuntimeError("TAW-08 uv.lock resolution markers are invalid") from exc
         if not active_for_environment:
             continue
         canonical_name = canonicalize_name(name)
@@ -558,9 +569,8 @@ def verify_locked_evaluator_environment(
         if not name:
             raise RuntimeError("TAW-08 evaluator distribution census is invalid")
         if name in installed_by_name:
-            if (
-                name == project_name
-                and str(installed_by_name[name].version) == str(distribution.version)
+            if name == project_name and str(installed_by_name[name].version) == str(
+                distribution.version
             ):
                 continue
             raise RuntimeError("TAW-08 evaluator distribution census is invalid")
@@ -598,11 +608,12 @@ def verify_locked_evaluator_environment(
         try:
             installed_version = Version(str(distribution.version))
         except InvalidVersion as exc:
-            raise RuntimeError("TAW-08 evaluator distribution version is invalid") from exc
-        if (
-            installed_version not in requirement.specifier
-            or str(distribution.version) not in locked_versions.get(name, set())
-        ):
+            raise RuntimeError(
+                "TAW-08 evaluator distribution version is invalid"
+            ) from exc
+        if installed_version not in requirement.specifier or str(
+            distribution.version
+        ) not in locked_versions.get(name, set()):
             raise RuntimeError("TAW-08 evaluator environment does not match uv.lock")
         new_extras = set(requirement.extras) - active_extras[name]
         if name not in reachable or new_extras:
@@ -633,7 +644,7 @@ def verify_locked_evaluator_environment(
         version = str(installed_by_name[name].version).strip()
         installed_identity = _installed_distribution_content_identity(
             installed_by_name[name],
-            environment_root=Path(sys.prefix),
+            environment_root=environment_root,
         )
         locked_wheel_identity = _locked_wheel_distribution_identity(
             name=name,
@@ -654,9 +665,7 @@ def verify_locked_evaluator_environment(
         installed_distributions_digest_ref=canonical_digest(
             {
                 "distributions": distribution_refs,
-                "reachable_distribution_contents": (
-                    distribution_content_identities
-                ),
+                "reachable_distribution_contents": (distribution_content_identities),
             }
         ),
         pyproject_digest_ref=(
@@ -949,17 +958,13 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 candidate receipts require the locked verifier child"
         )
-    if (
-        _git("rev-parse", "HEAD", repository_root=repository_root)
-        .decode("ascii")
-        .strip()
-        != revision
-        or _git(
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-            repository_root=repository_root,
-        )
+    if _git("rev-parse", "HEAD", repository_root=repository_root).decode(
+        "ascii"
+    ).strip() != revision or _git(
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        repository_root=repository_root,
     ):
         raise RuntimeError(
             "TAW-08 locked verifier child requires the clean candidate checkout"
@@ -981,12 +986,14 @@ def verify_repository_candidate(
         )
         for item in lock.entries
     }
-    if Path(__file__).read_bytes() != content_by_ref[
-        TAW08_REPOSITORY_VERIFIER_PATH_REF
-    ]:
+    if (
+        Path(__file__).read_bytes()
+        != content_by_ref[TAW08_REPOSITORY_VERIFIER_PATH_REF]
+    ):
         raise RuntimeError(
             "TAW-08 repository verifier differs from the candidate revision"
         )
+    _verify_preflight_execution(repository_root=repository_root)
     evaluator_environment_receipt = verify_locked_evaluator_environment(
         locked_content_by_path_ref={
             path_ref: content_by_ref[path_ref]
@@ -1076,6 +1083,7 @@ def verify_repository_foundation_gate(
         repository_root=repository_root,
     )
     revision = revision_ref.removeprefix("git-sha:")
+    _verify_preflight_execution(repository_root=repository_root)
     evaluator_environment_receipt = verify_locked_evaluator_environment(
         locked_content_by_path_ref={
             path_ref: _git(
@@ -1197,12 +1205,207 @@ def verify() -> None:
         raise RuntimeError("TAW-08 verifier detected authority or content expansion")
 
 
+def _materialize_locked_environment(
+    *,
+    candidate_root: Path,
+    environment_root: Path,
+    wheelhouse: Path,
+) -> Path:
+    """Build a no-ambient-package venv from exact compatible lock wheels."""
+
+    try:
+        pyproject = tomllib.loads(
+            (candidate_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        locked = tomllib.loads((candidate_root / "uv.lock").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise RuntimeError("TAW-08 locked environment metadata is invalid") from exc
+    project = pyproject.get("project")
+    packages = locked.get("package")
+    if (
+        not isinstance(project, dict)
+        or not isinstance(project.get("name"), str)
+        or not isinstance(packages, list)
+    ):
+        raise RuntimeError("TAW-08 locked environment metadata is incomplete")
+    project_name = canonicalize_name(project["name"])
+    marker_environment = default_environment()
+    locked_wheels: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
+    for package in packages:
+        if not isinstance(package, dict):
+            raise RuntimeError("TAW-08 locked package census is invalid")
+        name = package.get("name")
+        version = package.get("version")
+        markers = package.get("resolution-markers", [])
+        wheels = package.get("wheels", [])
+        if (
+            not isinstance(name, str)
+            or not isinstance(version, str)
+            or not isinstance(markers, list)
+            or any(not isinstance(item, str) for item in markers)
+            or not isinstance(wheels, list)
+        ):
+            raise RuntimeError("TAW-08 locked package census is invalid")
+        try:
+            active = not markers or any(
+                Marker(marker).evaluate(marker_environment) for marker in markers
+            )
+        except InvalidMarker as exc:
+            raise RuntimeError("TAW-08 locked package marker is invalid") from exc
+        if active:
+            locked_wheels[(canonicalize_name(name), version)].extend(
+                item for item in wheels if isinstance(item, dict)
+            )
+    active_tags = tuple(sys_tags())
+    tag_rank = {tag: index for index, tag in enumerate(active_tags)}
+    selected: dict[str, tuple[str, int, str]] = {}
+    installed_identities = {
+        (
+            canonicalize_name(str(distribution.metadata.get("Name", "")).strip()),
+            str(distribution.version).strip(),
+        )
+        for distribution in importlib_metadata.distributions()
+    }
+    for name, version in sorted(installed_identities):
+        if not name or name == project_name:
+            continue
+        candidates: list[tuple[int, str, str, int, str]] = []
+        for wheel in locked_wheels.get((name, version), []):
+            url = wheel.get("url")
+            digest_ref = wheel.get("hash")
+            size = wheel.get("size")
+            if (
+                not isinstance(url, str)
+                or not isinstance(digest_ref, str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest_ref)
+                or not isinstance(size, int)
+                or size <= 0
+            ):
+                continue
+            parsed_url = urllib.parse.urlsplit(url)
+            filename = urllib.parse.unquote(parsed_url.path.rsplit("/", 1)[-1])
+            if (
+                parsed_url.scheme != "https"
+                or parsed_url.netloc != "files.pythonhosted.org"
+                or parsed_url.query
+                or parsed_url.fragment
+                or not filename.endswith(".whl")
+                or len(filename) > 512
+            ):
+                continue
+            try:
+                parsed_name, parsed_version, _build, wheel_tags = parse_wheel_filename(
+                    filename
+                )
+            except ValueError:
+                continue
+            compatible_ranks = tuple(
+                tag_rank[tag] for tag in wheel_tags if tag in tag_rank
+            )
+            if (
+                canonicalize_name(str(parsed_name)) != name
+                or str(parsed_version) != version
+                or not compatible_ranks
+            ):
+                continue
+            candidates.append(
+                (
+                    min(compatible_ranks),
+                    filename,
+                    digest_ref.removeprefix("sha256:"),
+                    size,
+                    url,
+                )
+            )
+        if not candidates:
+            raise RuntimeError(
+                f"TAW-08 has no compatible locked wheel artifact: {name}"
+            )
+        _rank, filename, digest, size, url = min(candidates)
+        existing = selected.get(filename)
+        identity = (digest, size, url)
+        if existing is not None and existing != identity:
+            raise RuntimeError("TAW-08 locked wheel filename is ambiguous")
+        selected[filename] = identity
+    if not selected or len(selected) > 2_048:
+        raise RuntimeError("TAW-08 locked wheel selection is invalid")
+    wheelhouse.mkdir(parents=True)
+    download = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--disable-pip-version-check",
+            "--no-deps",
+            "--dest",
+            str(wheelhouse),
+            *(item[2] for _filename, item in sorted(selected.items())),
+        ],
+        cwd=candidate_root,
+        check=False,
+        capture_output=True,
+        timeout=300,
+    )
+    if download.returncode != 0:
+        raise RuntimeError("TAW-08 locked wheel download failed")
+    wheel_paths: list[Path] = []
+    for filename, (expected_hash, expected_size, _url) in sorted(selected.items()):
+        wheel_path = wheelhouse / filename
+        try:
+            content = wheel_path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError("TAW-08 locked wheel artifact is unavailable") from exc
+        if (
+            len(content) != expected_size
+            or hashlib.sha256(content).hexdigest() != expected_hash
+        ):
+            raise RuntimeError("TAW-08 locked wheel artifact differs from uv.lock")
+        wheel_paths.append(wheel_path)
+    create_venv = subprocess.run(
+        [sys.executable, "-m", "venv", "--without-pip", str(environment_root)],
+        cwd=candidate_root,
+        check=False,
+        capture_output=True,
+        timeout=60,
+    )
+    if create_venv.returncode != 0:
+        raise RuntimeError("TAW-08 hermetic evaluator venv creation failed")
+    environment_python = environment_root / (
+        "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    )
+    install = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "--python",
+            str(environment_python),
+            "install",
+            "--disable-pip-version-check",
+            "--no-index",
+            "--no-deps",
+            "--no-compile",
+            *(str(path) for path in wheel_paths),
+        ],
+        cwd=candidate_root,
+        check=False,
+        capture_output=True,
+        timeout=300,
+    )
+    if install.returncode != 0:
+        raise RuntimeError("TAW-08 locked wheel installation failed")
+    return environment_python
+
+
 def _run_locked_candidate_verifier() -> None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     if _git("status", "--porcelain", "--untracked-files=all"):
         raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
     with tempfile.TemporaryDirectory(prefix="uaa-taw08-locked-") as temporary:
         candidate_root = Path(temporary) / "candidate"
+        environment_root = Path(temporary) / "environment"
+        wheelhouse = Path(temporary) / "wheelhouse"
         added = False
         try:
             subprocess.run(
@@ -1219,10 +1422,21 @@ def _run_locked_candidate_verifier() -> None:
                 capture_output=True,
             )
             added = True
+            environment_python = _materialize_locked_environment(
+                candidate_root=candidate_root,
+                environment_root=environment_root,
+                wheelhouse=wheelhouse,
+            )
             child = subprocess.run(
                 [
-                    sys.executable,
-                    str(candidate_root / "scripts/verify_tool_aware_cognition_taw08.py"),
+                    str(environment_python),
+                    "-S",
+                    str(
+                        candidate_root / "scripts/verify_taw08_environment_preflight.py"
+                    ),
+                    str(
+                        candidate_root / "scripts/verify_tool_aware_cognition_taw08.py"
+                    ),
                 ],
                 cwd=candidate_root,
                 check=False,
@@ -1230,6 +1444,8 @@ def _run_locked_candidate_verifier() -> None:
                 env={
                     "PATH": os.environ.get("PATH", ""),
                     _LOCKED_CHILD_REVISION_ENV: revision,
+                    _ENVIRONMENT_ROOT_ENV: str(environment_root),
+                    _LOCKED_WHEELHOUSE_ENV: str(wheelhouse),
                 },
                 timeout=300,
             )

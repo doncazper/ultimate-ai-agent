@@ -216,3 +216,12 @@ The repository verifier locks the committed TAW-08 contract slice and proves
 that the no-evidence fixture remains blocked with every authority and public
 claim false. It is structural regression evidence, not founder acceptance,
 live performance evidence, a holdout result, or Q22 completion.
+
+The locked verifier downloads only the compatible wheel URLs named by
+`uv.lock`, verifies the complete wheel bytes against each locked size and
+SHA-256 digest, and installs them into a temporary no-pip venv. The receipt
+child starts with `python -S`; a standard-library preflight rejects importable
+or startup files not owned by an installed distribution `RECORD` before adding
+that venv's site-packages. The child then binds installed distribution content
+back to each authenticated wheel and deletes the temporary environment when
+verification ends.

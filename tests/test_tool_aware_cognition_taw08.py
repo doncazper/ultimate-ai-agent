@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib.metadata as importlib_metadata
 import inspect
+import io
 import json
 import subprocess
+import sys
+import zipfile
 from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +21,7 @@ from pydantic import ValidationError
 import ultimate_ai_agent.core.evals as evals_api
 import ultimate_ai_agent.core.evals.tool_aware_acceptance as acceptance_module
 from scripts import run_foundation_gate as foundation_runner
+from scripts import verify_taw08_environment_preflight as taw08_preflight
 from scripts import verify_tool_aware_cognition_taw08 as taw08_verifier
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     _bind_publication_history_census,
@@ -978,9 +983,7 @@ def test_acceptance_rejects_founder_profile_digest_substitution() -> None:
     )
 
     assert report.status is TAW08AcceptanceStatus.failed
-    assert report.failure_refs == (
-        "failure-ref:taw08:founder-profile-binding-drift",
-    )
+    assert report.failure_refs == ("failure-ref:taw08:founder-profile-binding-drift",)
 
 
 def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
@@ -1215,6 +1218,11 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
         "verify_locked_evaluator_environment",
         lambda **_kwargs: _evaluator_environment_receipt(),
     )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_verify_preflight_execution",
+        lambda **_kwargs: None,
+    )
 
     receipt = verify_repository_foundation_gate(
         stage="exact_head",
@@ -1241,7 +1249,10 @@ def test_foundation_receipt_rejects_evaluator_from_another_revision(
         lambda _root: (f"git-sha:{prior_revision}", _unbound_foundation_gate_report()),
     )
 
-    with pytest.raises(RuntimeError, match="executing repository source differs"):
+    with pytest.raises(
+        RuntimeError,
+        match="executing repository source (differs|census is incomplete)",
+    ):
         verify_repository_foundation_gate(
             stage="exact_head",
             repository_root=taw08_verifier.ROOT,
@@ -1802,7 +1813,18 @@ def test_candidate_verifier_locks_resolved_evaluator_environment() -> None:
     )
 
 
-def test_locked_evaluator_environment_verifies_active_frozen_environment() -> None:
+def _stub_locked_wheel_verification(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_locked_wheel_distribution_identity",
+        lambda **_kwargs: ("sha256:" + "0" * 64, ()),
+    )
+
+
+def test_locked_evaluator_environment_verifies_active_frozen_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_locked_wheel_verification(monkeypatch)
     locked_content = {
         "repo-path-ref:pyproject.toml": (
             taw08_verifier.ROOT / "pyproject.toml"
@@ -1828,6 +1850,7 @@ def test_locked_evaluator_environment_verifies_active_frozen_environment() -> No
 def test_locked_evaluator_environment_rejects_installed_file_substitution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _stub_locked_wheel_verification(monkeypatch)
     locked_content = {
         "repo-path-ref:pyproject.toml": (
             taw08_verifier.ROOT / "pyproject.toml"
@@ -1836,14 +1859,20 @@ def test_locked_evaluator_environment_rejects_installed_file_substitution(
     }
     pydantic_distribution = importlib_metadata.distribution("pydantic")
     pydantic_entry = next(
-        item for item in pydantic_distribution.files or () if str(item).endswith("pydantic/__init__.py")
+        item
+        for item in pydantic_distribution.files or ()
+        if str(item).endswith("pydantic/__init__.py")
     )
     substituted_path = Path(pydantic_distribution.locate_file(pydantic_entry)).resolve()
     original_read_bytes = Path.read_bytes
 
     def substituted_read_bytes(path: Path) -> bytes:
         content = original_read_bytes(path)
-        return content + b"\n# substituted\n" if path.resolve() == substituted_path else content
+        return (
+            content + b"\n# substituted\n"
+            if path.resolve() == substituted_path
+            else content
+        )
 
     monkeypatch.setattr(Path, "read_bytes", substituted_read_bytes)
 
@@ -1879,31 +1908,78 @@ def test_locked_evaluator_environment_rejects_locked_package_mismatch(
         )
 
 
-def test_locked_evaluator_environment_rejects_wheel_record_substitution(
+def test_locked_evaluator_environment_authenticates_actual_wheel_bytes(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pyproject = (taw08_verifier.ROOT / "pyproject.toml").read_bytes()
-    current_lock = (taw08_verifier.ROOT / "uv.lock").read_text(encoding="utf-8")
-    selected_wheel_hash = (
-        "sha256:45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba"
-    )
-    assert selected_wheel_hash in current_lock
-    changed_lock = current_lock.replace(
-        selected_wheel_hash,
-        "sha256:" + "0" * 64,
-        1,
-    ).encode("utf-8")
-    locked_content = {
-        "repo-path-ref:pyproject.toml": pyproject,
-        "repo-path-ref:uv.lock": changed_lock,
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    filename = "sample-1.0-py3-none-any.whl"
+    members = {
+        "sample/__init__.py": b"VALUE = 1\n",
+        "sample-1.0.dist-info/METADATA": b"Name: sample\nVersion: 1.0\n",
+        "sample-1.0.dist-info/WHEEL": b"Wheel-Version: 1.0\nTag: py3-none-any\n",
     }
-    for path_ref, content in locked_content.items():
-        (tmp_path / path_ref.removeprefix("repo-path-ref:")).write_bytes(content)
+    record_rows = []
+    for path_ref, content in members.items():
+        digest = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b"=")
+        record_rows.append(f"{path_ref},sha256={digest.decode('ascii')},{len(content)}")
+    record_ref = "sample-1.0.dist-info/RECORD"
+    record = ("\n".join((*record_rows, f"{record_ref},,")) + "\n").encode()
+    members[record_ref] = record
+    wheel_buffer = io.BytesIO()
+    with zipfile.ZipFile(wheel_buffer, "w") as wheel:
+        for path_ref, content in members.items():
+            wheel.writestr(path_ref, content)
+    wheel_content = wheel_buffer.getvalue()
+    (wheelhouse / filename).write_bytes(wheel_content)
+    monkeypatch.setenv(taw08_verifier._LOCKED_WHEELHOUSE_ENV, str(wheelhouse))
+    installed_identity = tuple(
+        sorted(
+            (path_ref, len(content), hashlib.sha256(content).hexdigest())
+            for path_ref, content in members.items()
+        )
+    )
+    wheel_lock = [
+        {
+            "url": f"https://files.pythonhosted.org/packages/{filename}",
+            "hash": "sha256:" + hashlib.sha256(wheel_content).hexdigest(),
+            "size": len(wheel_content),
+        }
+    ]
+    preflight_lock = (
+        'wheels = [{ url = "'
+        + str(wheel_lock[0]["url"])
+        + '", hash = "'
+        + str(wheel_lock[0]["hash"])
+        + '", size = '
+        + str(wheel_lock[0]["size"])
+        + " }]\n"
+    ).encode()
+    authenticated_files = taw08_preflight._authenticated_wheel_files(
+        wheelhouse=wheelhouse,
+        uv_lock=preflight_lock,
+    )
+    assert authenticated_files["sample/__init__.py"] == (
+        len(members["sample/__init__.py"]),
+        hashlib.sha256(members["sample/__init__.py"]).hexdigest(),
+    )
 
-    with pytest.raises(RuntimeError, match="locked wheel artifact: pydantic"):
-        taw08_verifier.verify_locked_evaluator_environment(
-            locked_content_by_path_ref=locked_content,
-            repository_root=tmp_path,
+    identity = taw08_verifier._locked_wheel_distribution_identity(
+        name="sample",
+        version="1.0",
+        locked_wheels=wheel_lock,
+        installed_identity=installed_identity,
+    )
+    assert identity[0] == wheel_lock[0]["hash"]
+
+    wheel_lock[0]["hash"] = "sha256:" + "0" * 64
+    with pytest.raises(RuntimeError, match="locked wheel artifact: sample"):
+        taw08_verifier._locked_wheel_distribution_identity(
+            name="sample",
+            version="1.0",
+            locked_wheels=wheel_lock,
+            installed_identity=installed_identity,
         )
 
 
@@ -1940,6 +2016,7 @@ def test_locked_evaluator_environment_does_not_trust_ci_bootstrap_uv(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _stub_locked_wheel_verification(monkeypatch)
     locked_content = {
         "repo-path-ref:pyproject.toml": (
             taw08_verifier.ROOT / "pyproject.toml"
@@ -1964,6 +2041,54 @@ def test_locked_evaluator_environment_does_not_trust_ci_bootstrap_uv(
     )
 
     assert receipt.independent_lock_closure_verified is True
+
+
+def test_evaluator_preflight_rejects_unowned_startup_files(tmp_path: Path) -> None:
+    environment_root = tmp_path / "environment"
+    site_packages = (
+        environment_root
+        / "lib"
+        / f"python{sys.version_info.major}.{sys.version_info.minor}"
+        / "site-packages"
+    )
+    distribution = site_packages / "sample-1.0.dist-info"
+    distribution.mkdir(parents=True)
+    module = site_packages / "sample.py"
+    module.write_text("VALUE = 1\n", encoding="utf-8")
+    (distribution / "RECORD").write_text(
+        "sample.py,,\nsample-1.0.dist-info/RECORD,,\n",
+        encoding="utf-8",
+    )
+    module_content = module.read_bytes()
+    authenticated_files = {
+        "sample.py": (
+            len(module_content),
+            hashlib.sha256(module_content).hexdigest(),
+        )
+    }
+    taw08_preflight._verify_environment_census(
+        environment_root=environment_root.resolve(),
+        site_packages=site_packages.resolve(),
+        authenticated_files=authenticated_files,
+    )
+
+    (site_packages / "sitecustomize.py").write_text(
+        "raise SystemExit\n", encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="unauthenticated importable"):
+        taw08_preflight._verify_environment_census(
+            environment_root=environment_root.resolve(),
+            site_packages=site_packages.resolve(),
+            authenticated_files=authenticated_files,
+        )
+    (site_packages / "sitecustomize.py").unlink()
+    (site_packages / "ambient.pth").write_text("import ambient\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="unauthenticated importable"):
+        taw08_preflight._verify_environment_census(
+            environment_root=environment_root.resolve(),
+            site_packages=site_packages.resolve(),
+            authenticated_files=authenticated_files,
+        )
 
 
 def test_locked_evaluator_environment_rejects_candidate_lock_substitution(
@@ -2241,9 +2366,9 @@ def test_live_measurement_requires_exact_model_artifact_or_api_model_id() -> Non
     local_payload["model_artifact_or_configuration_ref"] = (
         "model-artifact-or-config-ref:placeholder"
     )
-    local_payload["same_host_baseline"][
-        "model_artifact_or_configuration_ref"
-    ] = "model-artifact-or-config-ref:placeholder"
+    local_payload["same_host_baseline"]["model_artifact_or_configuration_ref"] = (
+        "model-artifact-or-config-ref:placeholder"
+    )
     baseline = local_payload["same_host_baseline"]
     baseline["result_digest_ref"] = canonical_digest(
         {key: value for key, value in baseline.items() if key != "result_digest_ref"}
@@ -2260,9 +2385,9 @@ def test_live_measurement_requires_exact_model_artifact_or_api_model_id() -> Non
     api_payload["model_artifact_or_configuration_ref"] = (
         "model-id-ref:openai:configured"
     )
-    api_payload["same_host_baseline"][
-        "model_artifact_or_configuration_ref"
-    ] = "model-id-ref:openai:configured"
+    api_payload["same_host_baseline"]["model_artifact_or_configuration_ref"] = (
+        "model-id-ref:openai:configured"
+    )
     baseline = api_payload["same_host_baseline"]
     baseline["result_digest_ref"] = canonical_digest(
         {key: value for key, value in baseline.items() if key != "result_digest_ref"}
@@ -2690,6 +2815,11 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
                 {TAW08_REPOSITORY_VERIFIER_PATH_REF: "sha256:" + "0" * 64}
             ),
         ),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_verify_preflight_execution",
+        lambda **_kwargs: None,
     )
     with pytest.raises(RuntimeError, match="locked verifier child"):
         verify_repository_candidate(lock, repository_root=repository)
