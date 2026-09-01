@@ -224,15 +224,16 @@ dependency closure from the candidate lock, selects only compatible locked
 wheels, verifies every complete wheel against its locked size and SHA-256
 digest, and copies only those authenticated bytes into a temporary no-pip venv.
 The receipt child starts with isolated no-site mode (`python -I -S`); a
-standard-library preflight rejects symlinks and importable or startup files not
-owned by an installed distribution `RECORD` before adding that venv's
-site-packages. The child then binds installed distribution content back to each
-authenticated wheel and deletes the temporary environment when verification
-ends.
+standard-library preflight rejects symlinks and importable, startup, or
+loadable native-library files not owned by an installed distribution `RECORD`
+before adding that venv's site-packages. The child then binds installed
+distribution content back to each authenticated wheel and deletes the temporary
+environment when verification ends.
 
 Receipt issuance also binds the exact CPython executable and a complete
-content census of its non-package standard library. Every Git-backed check uses
-one absolute executable admitted across an operating-system administrator trust
+content census of its non-package standard library, including executable
+standard-library bytecode. Every Git-backed check uses one absolute executable
+admitted across an operating-system administrator trust
 boundary: Apple-platform signature verification on macOS, root-owned and
 non-writable provenance on other POSIX systems, or valid Authenticode
 provenance on Windows. The Git executable digest and provenance ref are bound

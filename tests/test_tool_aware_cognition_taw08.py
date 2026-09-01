@@ -1197,9 +1197,15 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert not hasattr(foundation_runner, "bind_foundation_gate_execution_report")
 
     observed_roots: list[Path] = []
+    observed_git_executables: list[str | Path] = []
 
-    def exact_revision(repository_root: Path) -> str:
+    def exact_revision(
+        repository_root: Path,
+        *,
+        git_executable: str | Path = "git",
+    ) -> str:
         observed_roots.append(repository_root)
+        observed_git_executables.append(git_executable)
         return CANDIDATE_REVISION_REF
 
     class FakeEvaluator:
@@ -1211,6 +1217,15 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
 
     monkeypatch.setattr(foundation_runner, "exact_repository_revision", exact_revision)
     monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_trusted_git_identity",
+        lambda: (
+            Path("/trusted/git"),
+            "sha256:" + "3" * 64,
+            "git-provenance-ref:test-trust-root",
+        ),
+    )
     monkeypatch.setattr(
         taw08_verifier,
         "verify_executing_repository_sources",
@@ -1239,6 +1254,7 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert receipt.revision_ref == CANDIDATE_REVISION_REF
     assert receipt.stage == "exact_head"
     assert observed_roots == [tmp_path, tmp_path]
+    assert observed_git_executables == [Path("/trusted/git"), Path("/trusted/git")]
 
 
 def test_foundation_receipt_rejects_evaluator_from_another_revision(
@@ -1254,7 +1270,10 @@ def test_foundation_receipt_rejects_evaluator_from_another_revision(
     monkeypatch.setattr(
         taw08_verifier,
         "evaluate_foundation_gate_at_exact_repository_revision",
-        lambda _root: (f"git-sha:{prior_revision}", _unbound_foundation_gate_report()),
+        lambda _root, **_kwargs: (
+            f"git-sha:{prior_revision}",
+            _unbound_foundation_gate_report(),
+        ),
     )
 
     with pytest.raises(
@@ -1438,6 +1457,29 @@ def test_foundation_exact_revision_mode_rejects_non_repository_root(
 ) -> None:
     with pytest.raises(RuntimeError, match="requires the repository root"):
         exact_repository_revision(tmp_path)
+
+
+def test_foundation_exact_revision_uses_explicit_git_executable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[list[str]] = []
+
+    def successful_run(command: list[str], **_kwargs: object):
+        observed.append(command)
+        stdout = str(tmp_path) + "\n" if "--show-toplevel" in command else ""
+        if command[-2:] == ["rev-parse", "HEAD"]:
+            stdout = "a" * 40 + "\n"
+        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+
+    monkeypatch.setattr(foundation_runner.subprocess, "run", successful_run)
+
+    assert exact_repository_revision(
+        tmp_path,
+        git_executable=Path("/trusted/git"),
+    ) == "git-sha:" + "a" * 40
+    assert len(observed) == 3
+    assert all(command[0] == "/trusted/git" for command in observed)
 
 
 def test_report_rejects_status_or_fingerprint_substitution() -> None:
@@ -2099,6 +2141,27 @@ def test_evaluator_preflight_rejects_unowned_startup_files(tmp_path: Path) -> No
         authenticated_files=authenticated_files,
     )
 
+    native_library = site_packages / "sample.DLL"
+    native_library.write_bytes(b"native payload")
+    with pytest.raises(RuntimeError, match="unauthenticated importable"):
+        taw08_preflight._verify_environment_census(
+            environment_root=environment_root.resolve(),
+            site_packages=site_packages.resolve(),
+            authenticated_files=authenticated_files,
+        )
+    native_content = native_library.read_bytes()
+    authenticated_files["sample.DLL"] = (
+        len(native_content),
+        hashlib.sha256(native_content).hexdigest(),
+    )
+    taw08_preflight._verify_environment_census(
+        environment_root=environment_root.resolve(),
+        site_packages=site_packages.resolve(),
+        authenticated_files=authenticated_files,
+    )
+    native_library.unlink()
+    authenticated_files.pop("sample.DLL")
+
     (site_packages / "sitecustomize.py").write_text(
         "raise SystemExit\n", encoding="utf-8"
     )
@@ -2193,6 +2256,28 @@ def test_git_commands_use_the_trusted_absolute_executable(
     assert observed == [["/trusted/git", "status"]]
 
 
+def test_candidate_lock_cleanliness_uses_authenticated_git(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, ...]] = []
+
+    def dirty_git(*args: str, **_kwargs: object) -> bytes:
+        observed.append(args)
+        if args[:2] == ("ls-tree", "-r"):
+            return b""
+        if args[:2] == ("diff", "--quiet"):
+            raise subprocess.CalledProcessError(1, args)
+        pytest.fail(f"unexpected Git command: {args}")
+
+    monkeypatch.setattr(taw08_verifier, "_git", dirty_git)
+    monkeypatch.setattr(taw08_verifier, "SLICE_CANDIDATE_PATHS", ("sample.py",))
+
+    with pytest.raises(RuntimeError, match="contract path is dirty"):
+        taw08_verifier._candidate_lock("a" * 40)
+
+    assert any(command[:2] == ("diff", "--quiet") for command in observed)
+
+
 def test_python_runtime_identity_binds_executable_and_standard_library(
     tmp_path: Path,
 ) -> None:
@@ -2202,6 +2287,10 @@ def test_python_runtime_identity_binds_executable_and_standard_library(
     standard_library.mkdir()
     module = standard_library / "hashlib.py"
     module.write_bytes(b"trusted hashlib")
+    bytecode_directory = standard_library / "__pycache__"
+    bytecode_directory.mkdir()
+    bytecode = bytecode_directory / "hashlib.cpython-test.pyc"
+    bytecode.write_bytes(b"trusted bytecode")
 
     baseline = taw08_verifier._python_runtime_identity(
         executable=executable,
@@ -2209,6 +2298,12 @@ def test_python_runtime_identity_binds_executable_and_standard_library(
     )
     module.write_bytes(b"substituted hashlib")
     changed_library = taw08_verifier._python_runtime_identity(
+        executable=executable,
+        standard_library_root=standard_library,
+    )
+    module.write_bytes(b"trusted hashlib")
+    bytecode.write_bytes(b"substituted bytecode")
+    changed_bytecode = taw08_verifier._python_runtime_identity(
         executable=executable,
         standard_library_root=standard_library,
     )
@@ -2220,7 +2315,8 @@ def test_python_runtime_identity_binds_executable_and_standard_library(
 
     assert baseline[0] == changed_library[0]
     assert baseline[2] != changed_library[2]
-    assert changed_library[0] != changed_executable[0]
+    assert baseline[2] != changed_bytecode[2]
+    assert changed_bytecode[0] != changed_executable[0]
 
 
 def test_locked_environment_uses_only_provisioned_lock_closure(
@@ -2406,6 +2502,7 @@ def test_receipt_binders_reject_unknown_fields_before_model_construct() -> None:
 
 def test_repository_censuses_are_derived_from_named_git_revisions(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repository = tmp_path / "repo"
     repository.mkdir()
@@ -2448,6 +2545,15 @@ def test_repository_censuses_are_derived_from_named_git_revisions(
     git("commit", "-m", "delta")
     delta = git("rev-parse", "HEAD")
 
+    trusted_git = taw08_verifier._git
+    observed_git_commands: list[tuple[str, ...]] = []
+
+    def observed_trusted_git(*args: str, **kwargs: object) -> bytes:
+        observed_git_commands.append(args)
+        return trusted_git(*args, **kwargs)
+
+    monkeypatch.setattr(taw08_verifier, "_git", observed_trusted_git)
+
     path_census = derive_revision_path_census(
         f"git-sha:{candidate}", repository_root=repository
     )
@@ -2470,6 +2576,7 @@ def test_repository_censuses_are_derived_from_named_git_revisions(
     )
     assert delta_census.commit_count == 2
     assert delta_census.candidate_ancestor_verified
+    assert any(command[:2] == ("merge-base", "--is-ancestor") for command in observed_git_commands)
 
 
 def test_schema_valid_secret_like_evidence_is_rejected() -> None:

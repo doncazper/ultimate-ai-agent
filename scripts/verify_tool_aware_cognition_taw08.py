@@ -320,7 +320,7 @@ def _python_runtime_identity(
     total_bytes = 0
     for path in sorted(standard_library_root.rglob("*")):
         relative = path.relative_to(standard_library_root)
-        if "site-packages" in relative.parts or "__pycache__" in relative.parts:
+        if "site-packages" in relative.parts:
             continue
         if path.is_dir() and not path.is_symlink():
             continue
@@ -894,14 +894,18 @@ def derive_revision_delta_census(
 ) -> RevisionDeltaCensus:
     candidate = candidate_revision_ref.removeprefix("git-sha:")
     delta = delta_revision_ref.removeprefix("git-sha:")
-    ancestry = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", candidate, delta],
-        cwd=repository_root,
-        check=False,
-        capture_output=True,
-    )
-    if ancestry.returncode != 0:
-        raise ValueError("evidence delta must descend from the locked candidate")
+    try:
+        _git(
+            "merge-base",
+            "--is-ancestor",
+            candidate,
+            delta,
+            repository_root=repository_root,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            "evidence delta must descend from the locked candidate"
+        ) from exc
     commits = tuple(
         item
         for item in _git(
@@ -1000,16 +1004,16 @@ def _candidate_lock(revision: str) -> tuple[CandidateLock, dict[str, bytes]]:
     )
     candidate_paths = tuple(sorted({*SLICE_CANDIDATE_PATHS, *gate_paths}))
     for path in candidate_paths:
-        comparison = subprocess.run(
-            ["git", "diff", "--quiet", revision, "--", path],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-        )
-        if comparison.returncode == 1:
-            raise RuntimeError(f"TAW-08 contract path is dirty at {revision}: {path}")
-        if comparison.returncode != 0:
-            raise RuntimeError(f"TAW-08 contract path comparison failed: {path}")
+        try:
+            _git("diff", "--quiet", revision, "--", path)
+        except subprocess.CalledProcessError as exc:
+            if exc.returncode == 1:
+                raise RuntimeError(
+                    f"TAW-08 contract path is dirty at {revision}: {path}"
+                ) from exc
+            raise RuntimeError(
+                f"TAW-08 contract path comparison failed: {path}"
+            ) from exc
         content = _git("show", f"{revision}:{path}")
         path_ref = f"repo-path-ref:{path}"
         content_by_ref[path_ref] = content
@@ -1246,8 +1250,10 @@ def verify_repository_foundation_gate(
 ) -> FoundationGateReceipt:
     if stage not in {"exact_head", "postmerge"}:
         raise ValueError("Foundation receipt stage is invalid")
+    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
     revision_ref, report = evaluate_foundation_gate_at_exact_repository_revision(
-        repository_root
+        repository_root,
+        git_executable=git_executable,
     )
     verify_executing_repository_sources(
         revision_ref.removeprefix("git-sha:"),

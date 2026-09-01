@@ -36,9 +36,14 @@ from scripts.verification.verification_github_prerequisites import (  # noqa: E4
 )
 
 
-def exact_repository_revision(repository_root: Path) -> str:
+def exact_repository_revision(
+    repository_root: Path,
+    *,
+    git_executable: str | Path = "git",
+) -> str:
+    git_command = str(git_executable)
     repository_probe = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
+        [git_command, "rev-parse", "--show-toplevel"],
         cwd=repository_root,
         check=False,
         capture_output=True,
@@ -54,7 +59,7 @@ def exact_repository_revision(repository_root: Path) -> str:
             "Foundation Gate exact revision provenance requires the repository root"
         )
     worktree_status = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all"],
+        [git_command, "status", "--porcelain", "--untracked-files=all"],
         cwd=resolved_root,
         check=True,
         capture_output=True,
@@ -65,7 +70,7 @@ def exact_repository_revision(repository_root: Path) -> str:
             "Foundation Gate revision provenance requires a clean worktree"
         )
     revision = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        [git_command, "rev-parse", "HEAD"],
         cwd=resolved_root,
         check=True,
         capture_output=True,
@@ -76,12 +81,23 @@ def exact_repository_revision(repository_root: Path) -> str:
 
 def evaluate_foundation_gate_at_exact_repository_revision(
     repository_root: Path,
+    *,
+    git_executable: str | Path = "git",
 ) -> tuple[str, FoundationGateReport]:
     """Run the canonical evaluator and inseparably bind its clean revision."""
 
-    evaluated_revision_ref = exact_repository_revision(repository_root)
+    evaluated_revision_ref = exact_repository_revision(
+        repository_root,
+        git_executable=git_executable,
+    )
     report = FoundationGateEvaluator(repository_root).evaluate()
-    if exact_repository_revision(repository_root) != evaluated_revision_ref:
+    if (
+        exact_repository_revision(
+            repository_root,
+            git_executable=git_executable,
+        )
+        != evaluated_revision_ref
+    ):
         raise RuntimeError("Foundation Gate revision changed during evaluation")
     bound = report.model_copy(
         update={"evaluated_revision_ref": evaluated_revision_ref}

@@ -105,7 +105,7 @@ def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         run_foundation_gate,
         "exact_repository_revision",
-        lambda _root: "git-sha:" + "a" * 40,
+        lambda _root, **_kwargs: "git-sha:" + "a" * 40,
     )
     monkeypatch.setattr(
         run_foundation_gate,
