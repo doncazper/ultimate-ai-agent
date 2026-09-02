@@ -49,7 +49,11 @@ false.
 
 ## Remaining FIN-003 work
 
-Categorization and other review decisions, canonical Action Inbox persistence,
-rule proposals and learning, confidence scoring, grouping by merchant or
-recurrence, bulk ChangeSets, API/UI surfaces, and any real-data handling remain
-separately scoped and gated.
+A separately admitted synthetic-only slice now previews the content-free
+consequences of `confirm`, `reject`, or `defer` over one exact current review
+item; see
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md`. Decision
+persistence or apply, corrections, splits, allocations, canonical Action Inbox
+persistence, rule proposals and learning, confidence scoring, grouping by
+merchant or recurrence, bulk ChangeSets, API/UI surfaces, and any real-data
+handling remain separately scoped and gated.
