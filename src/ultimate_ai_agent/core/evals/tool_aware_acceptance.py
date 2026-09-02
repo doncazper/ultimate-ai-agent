@@ -2094,19 +2094,10 @@ def _verify_and_bind_foundation_gate_report(
         or "local read/probe code" not in command_receipts[0].get("safe_summary", "")
     ):
         raise ValueError("Foundation receipt requires report-only command provenance")
-    safety_payload = {
-        **report_payload,
-        "results": [
-            {key: value for key, value in item.items() if key != "criterion_id"}
-            for item in results
-        ],
-    }
-    if durable_payload_has_forbidden_fields(safety_payload):
-        raise ValueError("Foundation report contains unsafe durable evidence")
     report_id = report_payload["report_id"]
     if not isinstance(report_id, str):
         raise ValueError("Foundation receipt requires a validated gate report")
-    return _bind_foundation_gate_receipt(
+    receipt = _bind_foundation_gate_receipt(
         stage=stage,
         revision_ref=revision_ref,
         report_digest_ref=canonical_digest(report_payload),
@@ -2116,6 +2107,9 @@ def _verify_and_bind_foundation_gate_report(
             evaluator_environment_receipt.receipt_digest_ref
         ),
     )
+    if durable_payload_has_forbidden_fields(receipt.model_dump(mode="json")):
+        raise ValueError("Foundation receipt contains unsafe durable evidence")
+    return receipt
 
 
 def verify_and_bind_founder_measurement_result(

@@ -1233,6 +1233,37 @@ def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
     assert first.receipt_digest_ref != second.receipt_digest_ref
 
 
+def test_foundation_receipt_allows_safe_transient_secret_hygiene_labels() -> None:
+    report = _unbound_foundation_gate_report()
+    first_result = report.results[0].model_copy(
+        update={
+            "safe_message": "Secret Hygiene criterion passed.",
+            "evidence_refs": [
+                "repo-path-ref:src/ultimate_ai_agent/core/secrets/hygiene.py"
+            ],
+        }
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": [first_result, *report.results[1:]]}),
+        CANDIDATE_REVISION_REF,
+    )
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.report_digest_ref == canonical_digest(report.model_dump(mode="json"))
+    assert (
+        taw08_verifier.durable_payload_has_forbidden_fields(
+            receipt.model_dump(mode="json")
+        )
+        is False
+    )
+
+
 def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
