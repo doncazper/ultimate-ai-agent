@@ -517,11 +517,7 @@ def _measurement_receipt(
     return verify_and_bind_founder_measurement_result(result)
 
 
-def _founder_evidence(
-    lock: CandidateLock,
-    *,
-    live_profile_hardware_pairs: tuple[tuple[str, str], ...] | None = None,
-):
+def _founder_evidence(lock: CandidateLock):
     stale_receipt = _measurement_receipt(
         lock, FounderMeasurementKind.stale_cache_recovery, "stale-recovery"
     )
@@ -531,12 +527,6 @@ def _founder_evidence(
     response_receipt = _measurement_receipt(
         lock, FounderMeasurementKind.response_scoring, "response-scoring"
     )
-    if live_profile_hardware_pairs is None:
-        live_profile_hardware_pairs = tuple(
-            (inference_profile_ref, hardware_family_ref)
-            for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
-            for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
-        )
     live_receipts = tuple(
         sorted(
             (
@@ -548,9 +538,8 @@ def _founder_evidence(
                     inference_profile_ref=inference_profile_ref,
                     hardware_family_ref=hardware_family_ref,
                 )
-                for inference_profile_ref, hardware_family_ref in (
-                    live_profile_hardware_pairs
-                )
+                for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
+                for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
             ),
             key=lambda receipt: receipt.receipt_digest_ref,
         )
@@ -598,6 +587,52 @@ def _founder_evidence(
         founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
         exact_head_foundation_receipt=foundation_receipt,
     )
+
+
+def _founder_evidence_for_live_profile_hardware_pairs(
+    lock: CandidateLock,
+    *,
+    live_profile_hardware_pairs: tuple[tuple[str, str], ...],
+):
+    evidence = _founder_evidence(lock)
+    requested_pairs = frozenset(live_profile_hardware_pairs)
+    live_receipts = tuple(
+        receipt
+        for receipt in evidence.live_model_hardware_receipts
+        if (
+            receipt.result.inference_profile_ref,
+            receipt.result.observed_hardware_family_ref,
+        )
+        in requested_pairs
+    )
+    assert len(requested_pairs) == len(live_profile_hardware_pairs)
+    assert len(live_receipts) == len(requested_pairs)
+    signature = _TEST_FOUNDER_DECISION_PRIVATE_KEY.sign(
+        founder_decision_signature_payload(
+            candidate_revision_ref=evidence.candidate_revision_ref,
+            candidate_manifest_digest_ref=evidence.candidate_manifest_digest_ref,
+            measurement_receipt_digest_refs=tuple(
+                item.receipt_digest_ref
+                for item in (
+                    evidence.stale_cache_recovery_receipt,
+                    evidence.routing_confidence_receipt,
+                    evidence.response_scoring_receipt,
+                    *live_receipts,
+                    evidence.end_to_end_journey_receipt,
+                )
+            ),
+            exact_head_foundation_receipt_digest_ref=(
+                evidence.exact_head_foundation_receipt.receipt_digest_ref
+            ),
+            founder_decision_ref=evidence.founder_decision_ref,
+        )
+    )
+    values = evidence.model_dump(mode="python", exclude={"evidence_digest_ref"})
+    values.update(
+        live_model_hardware_receipts=live_receipts,
+        founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
+    )
+    return bind_founder_private_acceptance_evidence(**values)
 
 
 def _pre_delta_report(lock: CandidateLock) -> TAW08AcceptanceReport:
@@ -988,9 +1023,23 @@ def test_founder_evidence_rejects_duplicate_measurement_receipts() -> None:
         bind_founder_private_acceptance_evidence(**values)
 
 
+def test_founder_evidence_requires_every_inference_hardware_pair() -> None:
+    """Require every submitted inference/hardware pair to be configured."""
+    lock = _candidate_lock()
+    values = _founder_evidence(lock).model_dump(
+        mode="json", exclude={"evidence_digest_ref"}
+    )
+    values["live_model_hardware_receipts"][0]["result"][
+        "inference_profile_ref"
+    ] = "inference-profile-ref:taw00:unconfigured-model"
+
+    with pytest.raises(ValidationError, match="profile census drift"):
+        bind_founder_private_acceptance_evidence(**values)
+
+
 def test_founder_evidence_accepts_one_configured_inference_hardware_run() -> None:
     lock = _candidate_lock()
-    evidence = _founder_evidence(
+    evidence = _founder_evidence_for_live_profile_hardware_pairs(
         lock,
         live_profile_hardware_pairs=(
             (TAW08_LOCAL_INFERENCE_PROFILE_REF, "hardware-family-ref:mac"),
