@@ -1505,7 +1505,7 @@ def verify(*, export_founder_inputs: bool = False) -> dict[str, object] | None:
         "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
         "raw_content_persisted": False,
     }
-    if durable_payload_has_forbidden_fields(payload):
+    if _founder_input_export_has_forbidden_fields(payload):
         raise RuntimeError("TAW-08 founder input export contains unsafe fields")
     return {**payload, "bundle_digest_ref": canonical_digest(payload)}
 
@@ -1898,6 +1898,46 @@ def _locked_child_environment(
     return environment
 
 
+def _founder_input_export_has_forbidden_fields(
+    payload: dict[str, object],
+) -> bool:
+    """Scan export content while treating validated repo path refs as identifiers."""
+
+    expected_keys = {
+        "schema_version",
+        "candidate_lock",
+        "candidate_verification_receipt",
+        "exact_head_foundation_receipt",
+        "raw_content_persisted",
+    }
+    if set(payload) not in (expected_keys, {*expected_keys, "bundle_digest_ref"}):
+        raise ValueError("founder input export schema drift")
+    candidate_lock = CandidateLock.model_validate(payload["candidate_lock"])
+    candidate_receipt = _CandidateLockVerificationReceipt.model_validate(
+        payload["candidate_verification_receipt"]
+    )
+    foundation_receipt = FoundationGateReceipt.model_validate(
+        payload["exact_head_foundation_receipt"]
+    )
+    if (
+        candidate_receipt.candidate_revision_ref != candidate_lock.git_revision_ref
+        or candidate_receipt.candidate_manifest_digest_ref
+        != candidate_lock.manifest_digest_ref
+        or foundation_receipt.stage != "exact_head"
+        or foundation_receipt.revision_ref != candidate_lock.git_revision_ref
+    ):
+        raise ValueError("founder input export candidate binding drift")
+    candidate_receipt_safety_payload = candidate_receipt.model_dump(mode="json")
+    candidate_receipt_safety_payload["executing_source_path_refs"] = ()
+    safety_payload = {
+        **payload,
+        "candidate_lock": candidate_lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt_safety_payload,
+        "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
+    }
+    return durable_payload_has_forbidden_fields(safety_payload)
+
+
 def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
     """Validate and canonicalize the bounded locked-child export."""
 
@@ -1919,7 +1959,7 @@ def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
             or exported.get("schema_version")
             != "uaa-taw08-founder-run-inputs.v1"
             or exported.get("raw_content_persisted") is not False
-            or durable_payload_has_forbidden_fields(exported)
+            or _founder_input_export_has_forbidden_fields(exported)
         ):
             raise ValueError("founder input export schema drift")
         digest_payload = {

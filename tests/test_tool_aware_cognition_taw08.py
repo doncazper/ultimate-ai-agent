@@ -2378,6 +2378,19 @@ def test_verify_exports_redacted_digest_bound_founder_inputs(
     lock = _candidate_lock()
     content_by_ref = {item.path_ref: b"" for item in lock.entries}
     candidate_receipt = _candidate_verification(lock)
+    candidate_receipt_payload = candidate_receipt.model_dump(
+        mode="json", exclude={"receipt_digest_ref"}
+    )
+    candidate_receipt_payload["executing_source_path_refs"] = (
+        "repo-path-ref:src/ultimate_ai_agent/core/context_budget/token_accounting.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/secrets/redaction.py",
+    )
+    candidate_receipt = type(candidate_receipt).model_validate(
+        {
+            **candidate_receipt_payload,
+            "receipt_digest_ref": canonical_digest(candidate_receipt_payload),
+        }
+    )
     foundation_receipt = _foundation_receipt()
     monkeypatch.setattr(
         taw08_verifier,
@@ -2414,7 +2427,8 @@ def test_verify_exports_redacted_digest_bound_founder_inputs(
         key: value for key, value in bundle.items() if key != "bundle_digest_ref"
     }
     assert bundle["bundle_digest_ref"] == canonical_digest(digest_payload)
-    assert taw08_verifier.durable_payload_has_forbidden_fields(bundle) is False
+    assert taw08_verifier.durable_payload_has_forbidden_fields(bundle) is True
+    assert taw08_verifier._founder_input_export_has_forbidden_fields(bundle) is False
     normalized = taw08_verifier._normalize_founder_input_export(
         json.dumps(bundle).encode("utf-8")
     )
@@ -2438,6 +2452,25 @@ def test_founder_input_export_rejects_deep_or_schema_extended_child_json() -> No
     with pytest.raises(RuntimeError, match="founder input export is invalid"):
         taw08_verifier._normalize_founder_input_export(
             json.dumps(extended).encode("utf-8")
+        )
+
+
+def test_founder_input_export_rejects_raw_candidate_receipt_field() -> None:
+    lock = _candidate_lock()
+    candidate_receipt = _candidate_verification(lock).model_dump(mode="json")
+    candidate_receipt["raw_payload"] = "secret-value"
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt,
+        "exact_head_foundation_receipt": _foundation_receipt().model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    bundle = {**payload, "bundle_digest_ref": canonical_digest(payload)}
+
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(bundle).encode("utf-8")
         )
 
 
