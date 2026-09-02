@@ -42,17 +42,24 @@ arbitrary digest or caller-authored `passed` label is insufficient:
 
 The accepted profile remains English-first, Qwen 3.8 27B with a 128K local
 context identity, configured ChatGPT/Codex API profile identities, and per-run
-observed Mac/Windows hardware. A run receipt must bind the exact model artifact
-or configured model ID and the observed host. This repository slice performs no
-such run and does not grant permission to call those models or providers.
+observed Mac/Windows hardware. The founder bundle accepts between one and 32
+unique, sorted live-run receipts; it does not require the full Cartesian product
+of configured inference profiles and hardware families. Every live receipt must
+use one accepted configured inference profile, identify the observed Mac or
+Windows hardware family for that run, and bind the exact model artifact or
+configured model ID and the observed host. Duplicate receipts and evidence
+rebound to another candidate remain invalid. Unobserved configured profiles or
+hardware families remain unqualified; founder-private acceptance does not turn
+them into measured or supported claims. This repository slice performs no such
+run and does not grant permission to call those models or providers.
 Local model evidence uses a SHA-256 artifact-digest identity; API evidence uses
 the exact configured OpenAI model ID rather than a generic profile placeholder.
 
 The founder-decision verification key is an acceptance authority, not ordinary
-caller input. This slice intentionally leaves that repository trust root
-unconfigured, so a caller cannot invent a decision and advance acceptance.
-Founder-private acceptance stays blocked until a later exact candidate binds
-the founder's public verification key; no private signing key is stored here.
+caller input. The repository binds the founder's public Ed25519 verification
+key; the matching private signing key remains permission-restricted outside the
+repository and is never included in durable evidence. A caller still cannot
+invent a decision or substitute measurements for another candidate.
 
 When the evidence is absent, `evaluate_taw08_acceptance` returns
 `blocked_missing_founder_evidence` with an exact missing-evidence census. Once
@@ -212,6 +219,15 @@ PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_tool_aware_cognition_taw
 UAA_TAW08_LOCKED_WHEELHOUSE=<pre-provisioned-wheelhouse> \
   PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw08.py
 ```
+
+An authorized local founder evaluator may set
+`UAA_TAW08_EXPORT_FOUNDER_INPUTS=1` on that same locked-verifier invocation to
+receive the redacted candidate, candidate-verification, and exact-head
+Foundation bundle on standard output. The bundle's canonical digest detects
+transport corruption; it is not producer authentication. A signer must invoke
+the locked verifier itself and consume the captured standard output directly
+before loading the founder key. It must not accept a caller-supplied or saved
+bundle as provenance evidence.
 
 The repository verifier locks the committed TAW-08 contract slice and proves
 that the no-evidence fixture remains blocked with every authority and public

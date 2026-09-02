@@ -32,7 +32,11 @@ TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_CANDIDATE_PATHS = 1024
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_REVISION_PATHS = 8192
-TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
+# Founder-private acceptance authority. The matching private key is retained
+# outside the repository and is never part of durable evaluation evidence.
+TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = (
+    "9a1ed72c07a95aa395c72e8f3c92e4f5077aa2ab474d03c6b5655a267a7c469c"
+)
 TAW08_FOUNDATION_GATE_SOURCE_PREFIX = "repo-path-ref:src/ultimate_ai_agent/core/gate/"
 TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS = (
     "repo-path-ref:src/ultimate_ai_agent/core/capabilities/__init__.py",
@@ -1247,22 +1251,13 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         receipt_digests = tuple(item.receipt_digest_ref for item in all_receipts)
         if len(receipt_digests) != len(set(receipt_digests)):
             raise ValueError("founder measurement receipts must be unique")
-        expected_live_census = {
-            (inference_profile_ref, hardware_family_ref)
-            for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
-            for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
-        }
-        actual_live_census = {
-            (
-                receipt.result.inference_profile_ref,
-                receipt.result.observed_hardware_family_ref,
-            )
+        if any(
+            receipt.result.inference_profile_ref not in TAW08_INFERENCE_PROFILE_REFS
+            or receipt.result.observed_hardware_family_ref
+            not in TAW08_HARDWARE_FAMILY_REFS
             for receipt in self.live_model_hardware_receipts
-        }
-        if actual_live_census != expected_live_census or len(
-            self.live_model_hardware_receipts
-        ) != len(expected_live_census):
-            raise ValueError("live-model inference and hardware census drift")
+        ):
+            raise ValueError("live-model measurement profile census drift")
         if any(
             receipt.result.candidate_revision_ref != self.candidate_revision_ref
             or receipt.result.candidate_manifest_digest_ref
