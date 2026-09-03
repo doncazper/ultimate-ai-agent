@@ -11,13 +11,15 @@ the named founder-private receipts, record the founder's decision, merge only a
 verified evidence-only delta, and bind exact-head and post-merge Foundation Gate
 receipts.
 
-The deterministic acceptance evaluator itself makes no model or provider call.
-The candidate-locked founder runner is the one accepted execution lane: under
-an exact temporary approval-bound lease it makes a fixed census of local Qwen
-calls and records only redacted evidence. It makes no remote-provider call, no
-second ordinary-chat model call, no runtime tool call, no route or Control
-Center mutation, no connector or external write, no holdout access, no public
-claim, and no production authority.
+The repository candidate adds no model-call runner, provider call, or authority
+lease mutation. Founder-private measurements are collected by a separately
+reviewed owner-private evaluator outside the repository through the already
+accepted local runtime and approval control plane under action-time founder
+authority. The repository treats that capture as untrusted input and accepts
+only the exact signed, digest-bound, redacted evidence defined below. This
+contract grants no remote-provider call, second ordinary-chat model call,
+runtime tool call, route or Control Center mutation, connector or external
+write, holdout access, public claim, or production authority.
 
 ## Founder-Private Acceptance
 
@@ -54,10 +56,11 @@ configured model ID and the observed host. Duplicate receipts and evidence
 rebound to another candidate remain invalid. Unobserved configured profiles or
 hardware families remain unqualified; founder-private acceptance does not turn
 them into measured or supported claims. Merely installing this repository does
-not grant permission to call those models or providers. The exact local-run
-authority and procedure are defined in
-`docs/evals/TOOL_AWARE_COGNITION_TAW08_FOUNDER_RUNNER.md`; configured
-ChatGPT/Codex API profiles remain unmeasured and are not called by that lane.
+not grant permission to call those models or providers. The separately
+reviewed owner-private evaluator remains outside this repository and must use
+the existing runtime approval control plane under action-time founder
+authority; configured ChatGPT/Codex API profiles remain unmeasured and are not
+called by the current founder-private evaluation.
 Local model evidence uses a SHA-256 artifact-digest identity; API evidence uses
 the exact configured OpenAI model ID rather than a generic profile placeholder.
 

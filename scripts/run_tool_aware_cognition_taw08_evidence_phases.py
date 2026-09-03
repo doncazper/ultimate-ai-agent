@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.parse
+from collections import defaultdict, deque
 from pathlib import Path
 
 try:
@@ -21,14 +22,20 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     import tomli as tomllib
 
+from packaging.markers import InvalidMarker, Marker, default_environment
+from packaging.tags import sys_tags
+from packaging.utils import canonicalize_name, parse_wheel_filename
+
 
 MAX_JSON_BYTES = 16 * 1024 * 1024
 MAX_ARTIFACT_BYTES = 4 * 1024 * 1024
 WORKER_PATH = Path(__file__).with_name("taw08_evidence_phase_worker.py")
+PREFLIGHT_PATH = Path(__file__).with_name("verify_taw08_environment_preflight.py")
 DRIVER_PATH_REF = (
     "repo-path-ref:scripts/run_tool_aware_cognition_taw08_evidence_phases.py"
 )
 WORKER_PATH_REF = "repo-path-ref:scripts/taw08_evidence_phase_worker.py"
+PREFLIGHT_PATH_REF = "repo-path-ref:scripts/verify_taw08_environment_preflight.py"
 PREPARE_PATHS = {
     "repo-path-ref:docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json": (
         "acceptance_report"
@@ -533,26 +540,155 @@ def _precheck_clean_worktree(path: Path) -> tuple[Path, str]:
     return root, revision
 
 
-def _locked_wheel_identities(uv_lock: bytes) -> dict[str, tuple[int, str]]:
-    if not uv_lock or len(uv_lock) > 64 * 1024 * 1024:
-        raise ValueError("uv.lock size is invalid")
-    try:
-        payload = tomllib.loads(uv_lock.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
-        raise ValueError("uv.lock is invalid") from exc
-    packages = payload.get("package")
-    if not isinstance(packages, list):
-        raise ValueError("uv.lock package census is invalid")
-    identities: dict[str, tuple[int, str]] = {}
-    for package in packages:
-        if not isinstance(package, dict):
+def _locked_reachable_packages(
+    *,
+    project_name: str,
+    packages: list[object],
+    marker_environment: dict[str, str],
+) -> dict[str, dict[str, object]]:
+    active_by_name: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for item in packages:
+        if not isinstance(item, dict):
             raise ValueError("uv.lock package census is invalid")
+        name = item.get("name")
+        version = item.get("version")
+        markers = item.get("resolution-markers", [])
+        if (
+            not isinstance(name, str)
+            or not isinstance(version, str)
+            or not isinstance(markers, list)
+            or any(not isinstance(marker, str) for marker in markers)
+        ):
+            raise ValueError("uv.lock package census is invalid")
+        try:
+            active = not markers or any(
+                Marker(marker).evaluate(marker_environment) for marker in markers
+            )
+        except InvalidMarker as exc:
+            raise ValueError("uv.lock package marker is invalid") from exc
+        if active:
+            active_by_name[canonicalize_name(name)].append(item)
+    project_candidates = active_by_name.get(project_name, [])
+    if len(project_candidates) != 1:
+        raise ValueError("uv.lock project package is ambiguous")
+    selected: dict[str, dict[str, object]] = {project_name: project_candidates[0]}
+    active_extras: dict[str, set[str]] = defaultdict(set)
+    active_extras[project_name].add("dev")
+    pending: deque[str] = deque((project_name,))
+    processed_extras: dict[str, frozenset[str]] = {}
+
+    def select_dependency(dependency: object, parent_extras: set[str]) -> None:
+        if not isinstance(dependency, dict):
+            raise ValueError("uv.lock dependency census is invalid")
+        name_value = dependency.get("name")
+        marker_value = dependency.get("marker")
+        version_value = dependency.get("version")
+        extras_value = dependency.get("extra", [])
+        if (
+            not isinstance(name_value, str)
+            or (marker_value is not None and not isinstance(marker_value, str))
+            or (version_value is not None and not isinstance(version_value, str))
+            or not isinstance(extras_value, list)
+            or any(not isinstance(extra, str) for extra in extras_value)
+        ):
+            raise ValueError("uv.lock dependency census is invalid")
+        if marker_value is not None:
+            try:
+                contexts = parent_extras or {""}
+                if not any(
+                    Marker(marker_value).evaluate(
+                        {**marker_environment, "extra": extra}
+                    )
+                    for extra in contexts
+                ):
+                    return
+            except InvalidMarker as exc:
+                raise ValueError("uv.lock dependency marker is invalid") from exc
+        name = canonicalize_name(name_value)
+        candidates = [
+            item
+            for item in active_by_name.get(name, [])
+            if version_value is None or item.get("version") == version_value
+        ]
+        identities = {(str(item.get("version")), id(item)): item for item in candidates}
+        if len(identities) != 1:
+            raise ValueError(f"uv.lock dependency is ambiguous: {name}")
+        package = next(iter(identities.values()))
+        existing = selected.get(name)
+        if existing is not None and existing is not package:
+            raise ValueError(f"uv.lock dependency identity drifts: {name}")
+        new_extras = set(extras_value) - active_extras[name]
+        if existing is None or new_extras:
+            selected[name] = package
+            active_extras[name].update(new_extras)
+            pending.append(name)
+
+    while pending:
+        name = pending.popleft()
+        extras = frozenset(active_extras[name])
+        if processed_extras.get(name) == extras:
+            continue
+        processed_extras[name] = extras
+        package = selected[name]
+        dependencies = package.get("dependencies", [])
+        optional_dependencies = package.get("optional-dependencies", {})
+        if not isinstance(dependencies, list) or not isinstance(
+            optional_dependencies, dict
+        ):
+            raise ValueError("uv.lock dependency census is invalid")
+        for dependency in dependencies:
+            select_dependency(dependency, set(extras))
+        for extra in extras:
+            extra_dependencies = optional_dependencies.get(extra, [])
+            if not isinstance(extra_dependencies, list):
+                raise ValueError("uv.lock optional dependency is invalid")
+            for dependency in extra_dependencies:
+                select_dependency(dependency, {extra})
+    selected.pop(project_name)
+    return selected
+
+
+def _compatible_locked_wheel_identities(
+    *,
+    pyproject: bytes,
+    uv_lock: bytes,
+) -> dict[str, tuple[int, str, str]]:
+    if (
+        not pyproject
+        or len(pyproject) > 4 * 1024 * 1024
+        or not uv_lock
+        or len(uv_lock) > 64 * 1024 * 1024
+    ):
+        raise ValueError("locked environment metadata size is invalid")
+    try:
+        project_payload = tomllib.loads(pyproject.decode("utf-8"))
+        lock_payload = tomllib.loads(uv_lock.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ValueError("locked environment metadata is invalid") from exc
+    project = project_payload.get("project")
+    packages = lock_payload.get("package")
+    if (
+        not isinstance(project, dict)
+        or not isinstance(project.get("name"), str)
+        or not isinstance(packages, list)
+    ):
+        raise ValueError("locked environment metadata is incomplete")
+    reachable = _locked_reachable_packages(
+        project_name=canonicalize_name(project["name"]),
+        packages=packages,
+        marker_environment=default_environment(),
+    )
+    tag_rank = {tag: index for index, tag in enumerate(sys_tags())}
+    selected: dict[str, tuple[int, str, str]] = {}
+    for name, package in sorted(reachable.items()):
+        version = str(package.get("version", ""))
         wheels = package.get("wheels", [])
         if not isinstance(wheels, list):
             raise ValueError("uv.lock wheel census is invalid")
+        candidates: list[tuple[int, str, int, str, str]] = []
         for wheel in wheels:
             if not isinstance(wheel, dict):
-                raise ValueError("uv.lock wheel census is invalid")
+                continue
             url = wheel.get("url")
             digest_ref = wheel.get("hash")
             size = wheel.get("size")
@@ -563,7 +699,7 @@ def _locked_wheel_identities(uv_lock: bytes) -> dict[str, tuple[int, str]]:
                 or not isinstance(size, int)
                 or size <= 0
             ):
-                raise ValueError("uv.lock wheel identity is invalid")
+                continue
             parsed = urllib.parse.urlsplit(url)
             filename = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
             if (
@@ -574,40 +710,65 @@ def _locked_wheel_identities(uv_lock: bytes) -> dict[str, tuple[int, str]]:
                 or not filename.endswith(".whl")
                 or len(filename) > 512
             ):
-                raise ValueError("uv.lock wheel URL is invalid")
-            identity = (size, digest_ref.removeprefix("sha256:"))
-            existing = identities.get(filename)
-            if existing is not None and existing != identity:
-                raise ValueError("uv.lock wheel filename is ambiguous")
-            identities[filename] = identity
-    if not identities:
-        raise ValueError("uv.lock wheel census is empty")
-    return identities
+                continue
+            try:
+                parsed_name, parsed_version, _build, wheel_tags = (
+                    parse_wheel_filename(filename)
+                )
+            except ValueError:
+                continue
+            compatible_ranks = tuple(
+                tag_rank[tag] for tag in wheel_tags if tag in tag_rank
+            )
+            if (
+                canonicalize_name(str(parsed_name)) != name
+                or str(parsed_version) != version
+                or not compatible_ranks
+            ):
+                continue
+            candidates.append(
+                (
+                    min(compatible_ranks),
+                    filename,
+                    size,
+                    digest_ref.removeprefix("sha256:"),
+                    url,
+                )
+            )
+        if not candidates:
+            raise ValueError(f"no compatible locked wheel artifact: {name}")
+        _rank, filename, size, digest, url = min(candidates)
+        identity = (size, digest, url)
+        existing = selected.get(filename)
+        if existing is not None and existing != identity:
+            raise ValueError("locked wheel filename is ambiguous")
+        selected[filename] = identity
+    if not selected or len(selected) > 2_048:
+        raise ValueError("locked wheel selection is invalid")
+    return selected
 
 
 def _copy_locked_wheelhouse(
-    *, provisioned: Path, selected: Path, uv_lock: bytes
+    *, provisioned: Path, selected: Path, pyproject: bytes, uv_lock: bytes
 ) -> tuple[Path, ...]:
     wheelhouse = _require_absolute_directory(provisioned, purpose="locked wheelhouse")
-    locked = _locked_wheel_identities(uv_lock)
-    wheel_paths = tuple(sorted(wheelhouse.glob("*.whl")))
-    if not wheel_paths or len(wheel_paths) > 2_048:
-        raise ValueError("locked wheelhouse census is invalid")
+    locked = _compatible_locked_wheel_identities(
+        pyproject=pyproject,
+        uv_lock=uv_lock,
+    )
     selected.mkdir(mode=0o700)
     copied: list[Path] = []
-    for source in wheel_paths:
+    for filename, (expected_size, expected_digest, _url) in sorted(locked.items()):
+        source = wheelhouse / filename
         if source.is_symlink() or not source.is_file() or source.parent != wheelhouse:
-            raise ValueError("locked wheelhouse contains an invalid artifact")
-        expected = locked.get(source.name)
-        if expected is None:
-            raise ValueError("locked wheelhouse contains an unlocked artifact")
+            raise ValueError("locked wheel artifact is unavailable")
         content = source.read_bytes()
         if (
-            len(content) != expected[0]
-            or hashlib.sha256(content).hexdigest() != expected[1]
+            len(content) != expected_size
+            or hashlib.sha256(content).hexdigest() != expected_digest
         ):
             raise ValueError("locked wheel artifact differs from uv.lock")
-        destination = selected / source.name
+        destination = selected / filename
         shutil.copyfile(source, destination)
         if destination.read_bytes() != content:
             raise RuntimeError("locked wheel copy drift")
@@ -621,8 +782,17 @@ def _materialize_environment(
     selected_wheelhouse: Path,
     wheels: tuple[Path, ...],
 ) -> Path:
-    pip_wheels = tuple(path for path in wheels if path.name.startswith("pip-"))
-    remaining = tuple(path for path in wheels if path not in pip_wheels)
+    pip_wheels: list[Path] = []
+    remaining: list[Path] = []
+    for path in wheels:
+        try:
+            name, _version, _build, _tags = parse_wheel_filename(path.name)
+        except ValueError as exc:
+            raise ValueError("locked installer wheel filename is invalid") from exc
+        if canonicalize_name(str(name)) == "pip":
+            pip_wheels.append(path)
+        else:
+            remaining.append(path)
     if len(pip_wheels) != 1 or not remaining:
         raise ValueError("locked installer closure is invalid")
     environment = _sanitized_environment()
@@ -864,6 +1034,12 @@ def _invoke_locked_worker(
         source_path=WORKER_PATH,
         path_ref=WORKER_PATH_REF,
     )
+    preflight_source = _candidate_source_bytes(
+        candidate_root=candidate_root,
+        candidate_revision=candidate_revision,
+        source_path=PREFLIGHT_PATH,
+        path_ref=PREFLIGHT_PATH_REF,
+    )
     source_digests = {
         "driver_source_digest_ref": (
             f"sha256:{hashlib.sha256(driver_source).hexdigest()}"
@@ -882,6 +1058,10 @@ def _invoke_locked_worker(
         staged_worker = scripts_root / WORKER_PATH.name
         staged_worker.write_bytes(worker_source)
         staged_worker.chmod(0o600)
+        staged_preflight = scripts_root / PREFLIGHT_PATH.name
+        staged_preflight.write_bytes(preflight_source)
+        staged_preflight.chmod(0o600)
+        pyproject = (candidate_root / "pyproject.toml").read_bytes()
         uv_lock = (candidate_root / "uv.lock").read_bytes()
         staged_uv_lock = worker_root / "uv.lock"
         staged_uv_lock.write_bytes(uv_lock)
@@ -890,6 +1070,7 @@ def _invoke_locked_worker(
         wheels = _copy_locked_wheelhouse(
             provisioned=locked_wheelhouse,
             selected=selected_wheelhouse,
+            pyproject=pyproject,
             uv_lock=uv_lock,
         )
         environment_root = temporary / "environment"
@@ -909,9 +1090,9 @@ def _invoke_locked_worker(
         )
         with os.fdopen(descriptor, "wb") as stream:
             stream.write(request_content)
-        preflight = candidate_root / "scripts/verify_taw08_environment_preflight.py"
-        if preflight.is_symlink() or not preflight.is_file():
-            raise ValueError("candidate preflight is unavailable")
+        rechecked_root, rechecked_revision = _precheck_clean_worktree(candidate_root)
+        if rechecked_root != candidate_root or rechecked_revision != candidate_revision:
+            raise ValueError("repository worktree revision drift")
         environment = {
             "PATH": os.environ.get("PATH", ""),
             "UAA_TAW08_LOCKED_CHILD_REVISION": candidate_revision,
@@ -933,7 +1114,7 @@ def _invoke_locked_worker(
                 "-I",
                 "-B",
                 "-S",
-                str(preflight),
+                str(staged_preflight),
                 str(staged_worker),
             ),
             cwd=candidate_root,

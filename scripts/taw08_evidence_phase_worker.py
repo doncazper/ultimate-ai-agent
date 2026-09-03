@@ -6,7 +6,10 @@ import errno
 import hashlib
 import json
 import os
+import re
+import shutil
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -321,6 +324,68 @@ def _require_directory(path_value: object, *, purpose: str) -> Path:
     return resolved
 
 
+def _preimport_git(repository_root: Path, *args: str) -> bytes:
+    executable = shutil.which("git")
+    if not executable:
+        raise RuntimeError("TAW-08 phase Git is unavailable")
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith(("GIT_", "PIP_", "PYTHON"))
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    completed = subprocess.run(
+        (executable, "--no-replace-objects", *args),
+        cwd=repository_root,
+        env=environment,
+        check=True,
+        capture_output=True,
+        timeout=120,
+    )
+    return completed.stdout
+
+
+def _require_preimport_clean_exact_worktree(
+    repository_root: Path,
+    *,
+    expected_revision: str,
+) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_revision):
+        raise RuntimeError("TAW-08 locked candidate revision is invalid")
+    top_level = Path(
+        _preimport_git(repository_root, "rev-parse", "--show-toplevel")
+        .decode("utf-8")
+        .strip()
+    ).resolve()
+    if top_level != repository_root:
+        raise RuntimeError("TAW-08 phase repository root drift")
+    revision = (
+        _preimport_git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii")
+        .strip()
+    )
+    if revision != expected_revision:
+        raise RuntimeError("TAW-08 phase repository revision drift")
+    hidden = _preimport_git(repository_root, "ls-files", "-v", "-z").split(b"\0")
+    if _preimport_git(
+        repository_root, "status", "--porcelain", "--untracked-files=all"
+    ) or any(
+        entry
+        and (
+            entry[:1] in {b"S", b"s"}
+            or (entry[:1].isalpha() and entry[:1].islower())
+        )
+        for entry in hidden
+    ):
+        raise RuntimeError("TAW-08 phase repository must be clean before import")
+
+
 def _load_repository_modules(candidate_root: Path) -> tuple[ModuleType, ModuleType]:
     # This worker is invoked only by the repository's authenticated -I/-S
     # preflight. Repository imports are deliberately delayed until that boundary.
@@ -333,6 +398,11 @@ def _load_repository_modules(candidate_root: Path) -> tuple[ModuleType, ModuleTy
     source_root = candidate_root / "src"
     if not source_root.is_dir():
         raise RuntimeError("TAW-08 candidate source root is unavailable")
+    expected_revision = os.environ.get("UAA_TAW08_LOCKED_CHILD_REVISION", "")
+    _require_preimport_clean_exact_worktree(
+        candidate_root,
+        expected_revision=expected_revision,
+    )
     sys.path.insert(0, str(candidate_root))
     sys.path.insert(0, str(source_root))
     import scripts.verify_tool_aware_cognition_taw08 as repository_verifier

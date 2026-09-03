@@ -1847,7 +1847,6 @@ class AuthorityLeaseApprovalRequirement(_AuthorityModel):
     requested_action: Literal["issue_authority_lease"] = "issue_authority_lease"
     resource_refs: list[str] = Field(default_factory=list)
     operator_ref: str = Field(..., min_length=1)
-    duration_minutes: int = Field(default=60, ge=5, le=480)
     risk_level: Literal["safe", "high"] = "high"
     data_classification: Literal["system_internal"] = "system_internal"
     purpose: str = Field(..., min_length=1, max_length=260)
@@ -2101,22 +2100,7 @@ def _lease_constraint_match(
                     f"reason-ref:authority:constraint-claim-missing:{kind.value}"
                 )
                 continue
-            exact_resource_refs_required = (
-                kind == AuthorityConstraintKind.resource_refs
-                and lease.constraints.get("exact_resource_refs_required") is True
-            )
-            if exact_resource_refs_required and (
-                len(actual_refs) != len(constraint.allowed_refs)
-                or len(actual_refs) != len(set(actual_refs))
-                or set(actual_refs) != set(constraint.allowed_refs)
-            ):
-                reason_refs.append(
-                    "reason-ref:authority:constraint-exact-resource-refs-mismatch"
-                )
-                continue
-            if not exact_resource_refs_required and not set(actual_refs).issubset(
-                set(constraint.allowed_refs)
-            ):
+            if not set(actual_refs).issubset(set(constraint.allowed_refs)):
                 reason_refs.append(
                     f"reason-ref:authority:constraint-ref-outside-scope:{kind.value}"
                 )
@@ -3349,7 +3333,6 @@ def build_authority_lease_approval_requirement(
         subject_ref=subject_ref,
         resource_refs=resource_refs,
         operator_ref=request.operator_ref,
-        duration_minutes=request.duration_minutes,
         risk_level="high" if approval_required else "safe",
         purpose=(
             "Validate exact operator approval before issuing an AuthorityLease "

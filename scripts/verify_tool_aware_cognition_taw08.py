@@ -101,15 +101,12 @@ SLICE_CANDIDATE_PATHS = tuple(
             ),
             "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
             "docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md",
-            "docs/evals/TOOL_AWARE_COGNITION_TAW08_FOUNDER_RUNNER.md",
             "docs/DOCUMENTATION_INDEX.md",
             "scripts/verify_taw08_environment_preflight.py",
             "scripts/verify_tool_aware_cognition_taw08.py",
             "src/ultimate_ai_agent/core/evals/__init__.py",
             "tests/test_tool_aware_cognition_taw08.py",
             "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
-            "tests/test_tool_aware_cognition_taw08_founder_runner.py",
-            "tests/test_tool_aware_cognition_taw08_live_lease.py",
             "tests/test_m164_llama_cpp_gateway.py",
         }
     )

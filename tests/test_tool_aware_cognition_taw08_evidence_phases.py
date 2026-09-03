@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import pytest
+from packaging.tags import Tag
 
 from ultimate_ai_agent.core.private_path_security import (
     require_private_tree,
@@ -623,19 +624,179 @@ def test_clean_worktree_precheck_rejects_dirty_and_hidden_entries(
         driver._precheck_clean_worktree(repository.resolve())
 
 
-def test_locked_wheel_identity_parser_rejects_untrusted_url() -> None:
-    good = b"""[[package]]
+def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> None:
+    repository = (tmp_path / "repository").resolve()
+    verifier_path = repository / "scripts/verify_tool_aware_cognition_taw08.py"
+    acceptance_path = (
+        repository
+        / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+    )
+    verifier_path.parent.mkdir(parents=True)
+    acceptance_path.parent.mkdir(parents=True)
+    for package in (
+        repository / "scripts/__init__.py",
+        repository / "src/ultimate_ai_agent/__init__.py",
+        repository / "src/ultimate_ai_agent/core/__init__.py",
+        repository / "src/ultimate_ai_agent/core/evals/__init__.py",
+    ):
+        package.write_text("", encoding="utf-8")
+    verifier_path.write_text("SAFE = True\n", encoding="utf-8")
+    acceptance_path.write_text("SAFE = True\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    _root, revision = driver._precheck_clean_worktree(repository)
+    sentinel = tmp_path / "candidate-import-ran"
+    verifier_path.write_text(
+        "import os\nfrom pathlib import Path\n"
+        'Path(os.environ["UAA_TEST_IMPORT_SENTINEL"]).write_text("ran")\n',
+        encoding="utf-8",
+    )
+    environment = driver._sanitized_environment()
+    environment.update(
+        {
+            "UAA_TAW08_PREFLIGHT_COMPLETE": "1",
+            "UAA_TAW08_LOCKED_CHILD_REVISION": revision,
+            "UAA_TEST_CANDIDATE": str(repository),
+            "UAA_TEST_IMPORT_SENTINEL": str(sentinel),
+            "UAA_TEST_WORKER": str(WORKER_PATH),
+        }
+    )
+    code = (
+        "import os, runpy\n"
+        "from pathlib import Path\n"
+        'worker = runpy.run_path(os.environ["UAA_TEST_WORKER"])\n'
+        'worker["_load_repository_modules"]('
+        'Path(os.environ["UAA_TEST_CANDIDATE"]).resolve())\n'
+    )
+
+    completed = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", "-c", code),
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert completed.returncode != 0
+    assert b"must be clean before import" in completed.stderr
+    assert not sentinel.exists()
+
+
+def test_locked_wheel_selection_uses_reachable_compatible_closure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    filenames = {
+        "pip": "pip-26.2.1-py3-none-any.whl",
+        "compatible": "demo-1.0-py3-none-any.whl",
+        "incompatible": "demo-1.0-cp310-cp310-win_amd64.whl",
+        "inactive": "inactive-1.0-py3-none-any.whl",
+        "unreachable": "unreachable-1.0-py3-none-any.whl",
+    }
+    content_by_name = {
+        filename: f"locked:{kind}".encode()
+        for kind, filename in filenames.items()
+    }
+
+    def wheel(filename: str) -> str:
+        content = content_by_name[filename]
+        return (
+            "{ url = \"https://files.pythonhosted.org/packages/"
+            f"{filename}\", hash = \"sha256:{hashlib.sha256(content).hexdigest()}\", "
+            f"size = {len(content)} }}"
+        )
+
+    pyproject = b'[project]\nname = "sample-project"\nversion = "1.0"\n'
+    uv_lock = "\n".join(
+        (
+            "version = 1",
+            "[[package]]",
+            'name = "sample-project"',
+            'version = "1.0"',
+            "[package.optional-dependencies]",
+            'dev = [{ name = "demo" }, { name = "pip" }, '
+            '{ name = "inactive", marker = "python_version < \'1\'" }]',
+            "[[package]]",
+            'name = "demo"',
+            'version = "1.0"',
+            f"wheels = [{wheel(filenames['incompatible'])}, "
+            f"{wheel(filenames['compatible'])}]",
+            "[[package]]",
+            'name = "pip"',
+            'version = "26.2.1"',
+            f"wheels = [{wheel(filenames['pip'])}]",
+            "[[package]]",
+            'name = "inactive"',
+            'version = "1.0"',
+            f"wheels = [{wheel(filenames['inactive'])}]",
+            "[[package]]",
+            'name = "unreachable"',
+            'version = "1.0"',
+            f"wheels = [{wheel(filenames['unreachable'])}]",
+        )
+    ).encode()
+    provisioned = tmp_path / "provisioned"
+    selected = tmp_path / "selected"
+    provisioned.mkdir()
+    for filename, content in content_by_name.items():
+        (provisioned / filename).write_bytes(content)
+    monkeypatch.setattr(driver, "sys_tags", lambda: (Tag("py3", "none", "any"),))
+
+    copied = driver._copy_locked_wheelhouse(
+        provisioned=provisioned.resolve(),
+        selected=selected,
+        pyproject=pyproject,
+        uv_lock=uv_lock,
+    )
+
+    assert tuple(path.name for path in copied) == (
+        filenames["compatible"],
+        filenames["pip"],
+    )
+    assert {path.name for path in selected.iterdir()} == {
+        filenames["compatible"],
+        filenames["pip"],
+    }
+
+
+def test_locked_wheel_selection_rejects_untrusted_or_incompatible_only_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pyproject = b'[project]\nname = "sample-project"\nversion = "1.0"\n'
+    uv_lock = b"""version = 1
+[[package]]
+name = "sample-project"
+version = "1.0"
+[package.optional-dependencies]
+dev = [{ name = "demo" }]
+[[package]]
 name = "demo"
 version = "1.0"
 wheels = [
-  { url = "https://files.pythonhosted.org/packages/demo-1.0-py3-none-any.whl", hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", size = 10 },
+  { url = "https://example.invalid/demo-1.0-py3-none-any.whl", hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", size = 10 },
 ]
 """
-    identities = driver._locked_wheel_identities(good)
-    assert identities["demo-1.0-py3-none-any.whl"] == (10, "a" * 64)
-    with pytest.raises(ValueError, match="URL"):
-        driver._locked_wheel_identities(
-            good.replace(b"files.pythonhosted.org", b"example.invalid")
+    monkeypatch.setattr(driver, "sys_tags", lambda: (Tag("py3", "none", "any"),))
+
+    with pytest.raises(ValueError, match="no compatible locked wheel"):
+        driver._compatible_locked_wheel_identities(
+            pyproject=pyproject,
+            uv_lock=uv_lock,
         )
 
 
@@ -645,12 +806,14 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
     candidate = tmp_path / "candidate"
     scripts = candidate / "scripts"
     scripts.mkdir(parents=True)
+    (candidate / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
     (candidate / "uv.lock").write_text("fixture\n", encoding="utf-8")
     preflight = scripts / "verify_taw08_environment_preflight.py"
     preflight.write_text("# fixture\n", encoding="utf-8")
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
     observed: dict[str, object] = {}
+    events: list[str] = []
 
     def fake_copy(**kwargs: object) -> tuple[Path, ...]:
         selected = kwargs["selected"]
@@ -659,6 +822,7 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
         return (selected / "pip-fixture.whl", selected / "dep-fixture.whl")
 
     def fake_materialize(**kwargs: object) -> Path:
+        events.append("materialize")
         environment_root = kwargs["environment_root"]
         assert isinstance(environment_root, Path)
         executable = environment_root / "bin" / "python"
@@ -667,6 +831,7 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
         return executable
 
     def fake_run(command: tuple[str, ...], **kwargs: object) -> SimpleNamespace:
+        events.append("invoke")
         observed["command"] = command
         observed.update(kwargs)
         return SimpleNamespace(
@@ -680,6 +845,7 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
     source_by_ref = {
         driver.DRIVER_PATH_REF: b"driver-source",
         driver.WORKER_PATH_REF: b"worker-source",
+        driver.PREFLIGHT_PATH_REF: b"preflight-source",
     }
     expected_source_digests = {
         field: "sha256:" + hashlib.sha256(source_by_ref[path_ref]).hexdigest()
@@ -694,7 +860,12 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
         assert isinstance(path_ref, str)
         return source_by_ref[path_ref]
 
+    def fake_precheck(path: Path) -> tuple[Path, str]:
+        events.append("recheck")
+        return path, "a" * 40
+
     monkeypatch.setattr(driver, "_candidate_source_bytes", fake_candidate_source_bytes)
+    monkeypatch.setattr(driver, "_precheck_clean_worktree", fake_precheck)
     monkeypatch.setattr(driver.subprocess, "run", fake_run)
     response, source_digests = driver._invoke_locked_worker(
         request={"phase": "prepare_delta"},
@@ -707,7 +878,9 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
     command = observed["command"]
     assert isinstance(command, tuple)
     assert command[1:4] == ("-I", "-B", "-S")
-    assert command[4] == str(preflight)
+    assert Path(command[4]).name == preflight.name
+    assert command[4] != str(preflight)
+    assert events == ["materialize", "recheck", "invoke"]
     environment = observed["env"]
     assert isinstance(environment, dict)
     assert "PYTHONPATH" not in environment

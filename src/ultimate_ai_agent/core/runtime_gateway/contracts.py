@@ -62,8 +62,6 @@ MAX_RUNTIME_RECEIPT_EVIDENCE_REFS = 32
 MAX_RUNTIME_CRITERION_VERIFICATION_BINDINGS = 32
 MAX_RUNTIME_GOAL_VERSION = 4096
 MAX_RUNTIME_EXECUTION_REF_LENGTH = 320
-RUNTIME_LOCAL_MODEL_ENDPOINT_REF_PREFIX = "runtime-local-model-endpoint-ref"
-RUNTIME_LOCAL_MODEL_MODEL_REF_PREFIX = "runtime-local-model-model-ref"
 
 
 class RuntimeProfile(str, Enum):
@@ -1036,41 +1034,6 @@ def _stable_ref(prefix: str, payload: Any) -> str:
     )
 
 
-def runtime_local_model_endpoint_ref(base_url: str) -> str:
-    validate_safe_execution_text(base_url, "runtime_local_model_base_url")
-    return _stable_ref(
-        RUNTIME_LOCAL_MODEL_ENDPOINT_REF_PREFIX,
-        {"base_url": base_url},
-    )
-
-
-def runtime_local_model_model_ref(model_ref: str) -> str:
-    validate_safe_execution_text(model_ref, "runtime_local_model_model_ref")
-    return _stable_ref(
-        RUNTIME_LOCAL_MODEL_MODEL_REF_PREFIX,
-        {"model_ref": model_ref},
-    )
-
-
-def _exact_local_model_authority_refs(
-    request: RuntimeInvocationRequest,
-) -> tuple[list[str], bool]:
-    endpoint_prefix = f"{RUNTIME_LOCAL_MODEL_ENDPOINT_REF_PREFIX}:sha256:"
-    model_prefix = f"{RUNTIME_LOCAL_MODEL_MODEL_REF_PREFIX}:sha256:"
-    endpoint_refs = tuple(
-        ref for ref in request.metadata_refs if ref.startswith(endpoint_prefix)
-    )
-    model_refs = tuple(
-        ref for ref in request.metadata_refs if ref.startswith(model_prefix)
-    )
-    if len(endpoint_refs) != 1 or len(model_refs) != 1:
-        return [], False
-    resource_refs = [*endpoint_refs, *model_refs]
-    if request.mission_ref:
-        resource_refs.append(request.mission_ref)
-    return sorted(set(resource_refs)), len(resource_refs) == len(set(resource_refs))
-
-
 def runtime_payload_fingerprint_ref(request: RuntimeInvocationRequest) -> str:
     excluded_fields = {"idempotency_ref"}
     if request.mission_ref is None:
@@ -1117,39 +1080,12 @@ def build_policy_decision(
 ) -> RuntimePolicyDecision:
     profile = RuntimeProfile(request.requested_profile)
     authority_decision = None
-    local_model_authority_binding_valid = True
     if active_authority_leases is not None:
         resource_refs = [request.mission_ref] if request.mission_ref else []
         authority_constraints = (
             {"mission_ref": request.mission_ref} if request.mission_ref else {}
         )
         if request.requested_authority == RuntimeAuthority.local_model.value:
-            resource_refs, local_model_authority_binding_valid = (
-                _exact_local_model_authority_refs(request)
-            )
-            authority_constraints = {
-                **authority_constraints,
-                **(
-                    {
-                        "endpoint_ref": next(
-                            ref
-                            for ref in resource_refs
-                            if ref.startswith(
-                                f"{RUNTIME_LOCAL_MODEL_ENDPOINT_REF_PREFIX}:sha256:"
-                            )
-                        ),
-                        "model_ref": next(
-                            ref
-                            for ref in resource_refs
-                            if ref.startswith(
-                                f"{RUNTIME_LOCAL_MODEL_MODEL_REF_PREFIX}:sha256:"
-                            )
-                        ),
-                    }
-                    if local_model_authority_binding_valid
-                    else {}
-                ),
-            }
             authority_request = AuthorityActionRequest(
                 action_ref=request.action_ref or invocation_ref,
                 domain=AuthorityDomain.provider_model_calls,
@@ -1190,18 +1126,11 @@ def build_policy_decision(
             )
         authority_decision = evaluate_authority_request(
             authority_request,
-            (
-                active_authority_leases
-                if local_model_authority_binding_valid
-                else []
-            ),
+            active_authority_leases,
         )
     authority_allows_execution = (
-        local_model_authority_binding_valid
-        and (
-            authority_decision is None
-            or authority_decision.outcome == AuthorityDecisionOutcome.allow.value
-        )
+        authority_decision is None
+        or authority_decision.outcome == AuthorityDecisionOutcome.allow.value
     )
     local_model_enabled = (
         request.requested_authority == RuntimeAuthority.local_model.value
@@ -1282,8 +1211,6 @@ def build_policy_decision(
         ]
     if approval_ref or request.approval_ref:
         reason_codes.append("APPROVAL_REF_IDENTIFIER_ONLY")
-    if not local_model_authority_binding_valid:
-        reason_codes.append("RUNTIME_LOCAL_MODEL_AUTHORITY_BINDING_INVALID")
     if authority_decision is not None:
         reason_codes.append(
             f"AUTHORITY_LEASE_DECISION_{str(authority_decision.outcome).upper()}"

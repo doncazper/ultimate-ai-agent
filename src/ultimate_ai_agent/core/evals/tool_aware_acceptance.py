@@ -122,9 +122,7 @@ TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
                 f"repo-path-ref:{path}"
                 for path in (
                     "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json",
-                    "scripts/manage_tool_aware_cognition_taw08_live_lease.py",
                     "scripts/run_tool_aware_cognition_taw08_evidence_phases.py",
-                    "scripts/run_tool_aware_cognition_taw08_founder_acceptance.py",
                     "src/ultimate_ai_agent/core/capabilities/awareness.py",
                     "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
                     "src/ultimate_ai_agent/core/capabilities/diagnostics.py",

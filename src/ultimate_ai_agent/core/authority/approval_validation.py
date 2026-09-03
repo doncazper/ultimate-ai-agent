@@ -884,7 +884,7 @@ def build_authority_lease_approval_request(
         resource_refs=list(requirement.resource_refs),
         event_ref=requirement.approval_scope_ref,
         trace_id=requirement.approval_scope_ref,
-        expires_at=utc_now() + timedelta(minutes=requirement.duration_minutes),
+        expires_at=utc_now() + timedelta(hours=1),
         metadata={
             "approval_scope_ref": requirement.approval_scope_ref,
             "authority_lease_approval_required": requirement.approval_required,

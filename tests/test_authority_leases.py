@@ -55,11 +55,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeInvocationRequest,
     RuntimeProfile,
 )
-from ultimate_ai_agent.core.runtime_gateway.contracts import (
-    build_policy_decision,
-    runtime_local_model_endpoint_ref,
-    runtime_local_model_model_ref,
-)
+from ultimate_ai_agent.core.runtime_gateway.contracts import build_policy_decision
 
 
 client = TestClient(app)
@@ -2357,125 +2353,6 @@ def test_authority_evaluator_bounds_mission_scoped_leases_to_mission_ref() -> No
     assert matched_decision.lease_ref == mission_lease.lease_ref
     assert constrained_decision.outcome == AuthorityDecisionOutcome.allow.value
     assert constrained_decision.lease_ref == mission_lease.lease_ref
-
-
-def test_authority_evaluator_can_require_exact_resource_ref_set() -> None:
-    allowed_refs = [
-        "mission-ref:test-exact-resource-set",
-        "resource-ref:test-exact-endpoint",
-        "resource-ref:test-exact-model",
-    ]
-    exact_lease = AuthorityLease(
-        lease_ref="authority-lease-ref:test-exact-resource-set",
-        mode=TrustMode.full_machine_access_session,
-        scope="mission",
-        mission_ref="mission-ref:test-exact-resource-set",
-        domains={AuthorityDomain.provider_model_calls: [AuthorityCapability.execute]},
-        authority_constraints=[
-            AuthorityConstraint(
-                constraint_ref="authority-constraint-ref:test-exact-resource-set",
-                kind=AuthorityConstraintKind.resource_refs,
-                allowed_refs=allowed_refs,
-                safe_summary="Require the exact bounded resource set.",
-            )
-        ],
-        constraints={"exact_resource_refs_required": True},
-        safe_summary="Test exact resource-set authority.",
-    )
-
-    def decide(resource_refs: list[str]) -> str:
-        return evaluate_authority_request(
-            AuthorityActionRequest(
-                action_ref="authority-action-ref:test-exact-resource-set",
-                domain=AuthorityDomain.provider_model_calls,
-                capability=AuthorityCapability.execute,
-                safe_summary="Exercise exact resource-set matching.",
-                resource_refs=resource_refs,
-                requested_mode=TrustMode.full_machine_access_session,
-            ),
-            [exact_lease],
-        ).outcome
-
-    assert decide(list(reversed(allowed_refs))) == AuthorityDecisionOutcome.allow.value
-    assert decide(allowed_refs[:-1]) != AuthorityDecisionOutcome.allow.value
-    assert decide([*allowed_refs, "resource-ref:test-extra"]) != (
-        AuthorityDecisionOutcome.allow.value
-    )
-    assert decide([*allowed_refs, allowed_refs[-1]]) != (
-        AuthorityDecisionOutcome.allow.value
-    )
-
-    subset_lease = exact_lease.model_copy(
-        update={
-            "lease_ref": "authority-lease-ref:test-resource-subset-compatible",
-            "constraints": {},
-        }
-    )
-    assert (
-        evaluate_authority_request(
-            AuthorityActionRequest(
-                action_ref="authority-action-ref:test-resource-subset-compatible",
-                domain=AuthorityDomain.provider_model_calls,
-                capability=AuthorityCapability.execute,
-                safe_summary="Preserve existing subset resource matching.",
-                resource_refs=allowed_refs[:-1],
-                requested_mode=TrustMode.full_machine_access_session,
-            ),
-            [subset_lease],
-        ).outcome
-        == AuthorityDecisionOutcome.allow.value
-    )
-
-
-def test_local_model_policy_binds_exact_mission_endpoint_and_model_refs() -> None:
-    mission_ref = "mission-ref:test-exact-local-model"
-    endpoint_ref = runtime_local_model_endpoint_ref("http://127.0.0.1:1234")
-    model_ref = runtime_local_model_model_ref("qwen3.8-27b")
-    exact_refs = sorted([mission_ref, endpoint_ref, model_ref])
-    exact_lease = AuthorityLease(
-        lease_ref="authority-lease-ref:test-exact-local-model",
-        mode=TrustMode.full_machine_access_session,
-        scope="mission",
-        mission_ref=mission_ref,
-        domains={AuthorityDomain.provider_model_calls: [AuthorityCapability.execute]},
-        authority_constraints=[
-            AuthorityConstraint(
-                constraint_ref="authority-constraint-ref:test-exact-local-model",
-                kind=AuthorityConstraintKind.resource_refs,
-                allowed_refs=exact_refs,
-                safe_summary="Bind one local model endpoint and model.",
-            )
-        ],
-        constraints={"exact_resource_refs_required": True},
-        safe_summary="Test exact local model authority.",
-    )
-
-    def policy(metadata_refs: list[str]) -> object:
-        return build_policy_decision(
-            RuntimeInvocationRequest(
-                requested_authority=RuntimeAuthority.local_model,
-                requested_profile=RuntimeProfile.local_runtime,
-                input_ref="runtime-input-ref:test-exact-local-model",
-                mission_ref=mission_ref,
-                safe_summary="Evaluate one exact local model call.",
-                metadata_refs=metadata_refs,
-            ),
-            invocation_ref="runtime-invocation-ref:test-exact-local-model",
-            local_model_gateway_validated=True,
-            active_authority_leases=[exact_lease],
-        )
-
-    assert policy([endpoint_ref, model_ref]).allowed_to_execute is True
-    for invalid_refs in (
-        [model_ref],
-        [endpoint_ref],
-        [endpoint_ref, endpoint_ref, model_ref],
-        [runtime_local_model_endpoint_ref("http://127.0.0.1:9999"), model_ref],
-        [endpoint_ref, runtime_local_model_model_ref("different-local-model")],
-    ):
-        denied = policy(invalid_refs)
-        assert denied.allowed_to_execute is False
-        assert denied.authority_decision_outcome != AuthorityDecisionOutcome.allow.value
 
 
 def test_authority_api_preview_enforces_mission_lease_scope(

@@ -26,7 +26,6 @@ DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY = "uaa-local-llama-cpp"
 DEFAULT_UAA_LLAMA_CPP_MODEL_ID = "uaa-llama-cpp-local"
 DEFAULT_UAA_LLAMA_CPP_BASE_URL = "http://127.0.0.1:8080"
 M164_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
-M164_MAX_NATIVE_MODEL_CATALOG_BYTES = 256 * 1024
 _M164_ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter"}
 
 
@@ -148,10 +147,7 @@ class StdlibM164LlamaCppGatewayTransport:
     ) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
-        self._opener = opener or request.build_opener(
-            request.ProxyHandler({}),
-            _M164NoRedirectHandler,
-        )
+        self._opener = opener or request.build_opener(_M164NoRedirectHandler)
 
     def chat_completions(
         self,
@@ -198,55 +194,6 @@ class StdlibM164LlamaCppGatewayTransport:
         if not isinstance(decoded, dict):
             raise ValueError("M164_GATEWAY_OBJECT_REQUIRED")
         return decoded
-
-
-def fetch_loopback_native_model_catalog(
-    base_url: str,
-    *,
-    timeout_seconds: float = 5.0,
-    max_response_bytes: int = M164_MAX_NATIVE_MODEL_CATALOG_BYTES,
-    opener: Any | None = None,
-) -> dict[str, Any]:
-    """Read bounded local-server model metadata without granting web access."""
-
-    normalized = _validate_loopback_base_url(base_url)
-    if not 0 < timeout_seconds <= 30:
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_TIMEOUT_INVALID")
-    if not 0 < max_response_bytes <= M164_MAX_NATIVE_MODEL_CATALOG_BYTES:
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_BOUND_INVALID")
-    http_request = request.Request(
-        f"{normalized}/api/v1/models",
-        headers={"Accept": "application/json"},
-        method="GET",
-    )
-    http_opener = opener or request.build_opener(
-        request.ProxyHandler({}),
-        _M164NoRedirectHandler,
-    )
-    try:
-        with http_opener.open(http_request, timeout=timeout_seconds) as response:
-            status = getattr(response, "status", None)
-            if status is None:
-                status = response.getcode()
-            content_type = response.headers.get_content_type()
-            if status != 200 or content_type != "application/json":
-                raise ValueError("M164_NATIVE_MODEL_CATALOG_RESPONSE_INVALID")
-            body = response.read(max_response_bytes + 1)
-    except urllib_error.HTTPError as exc:
-        if 300 <= exc.code < 400:
-            raise ValueError("M164_NATIVE_MODEL_CATALOG_REDIRECT_DENIED") from exc
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_UNAVAILABLE") from exc
-    except (TimeoutError, urllib_error.URLError) as exc:
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_UNAVAILABLE") from exc
-    if len(body) > max_response_bytes:
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_RESPONSE_TOO_LARGE")
-    try:
-        decoded = json.loads(body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_JSON_REQUIRED") from exc
-    if not isinstance(decoded, dict):
-        raise ValueError("M164_NATIVE_MODEL_CATALOG_OBJECT_REQUIRED")
-    return decoded
 
 
 def llama_cpp_gateway_enabled(env: Mapping[str, str] | None = None) -> bool:

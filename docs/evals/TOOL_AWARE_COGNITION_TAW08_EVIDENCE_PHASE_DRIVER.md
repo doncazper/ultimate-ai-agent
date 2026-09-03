@@ -81,8 +81,10 @@ performs that mutation itself.
 Use absolute paths throughout. `<absolute-python>` is an absolute path to a
 suitable Python interpreter. The driver path for all three phases must be the
 candidate-locked copy inside the clean `M1` worktree. Founder evidence must be
-the exact output from the founder runner for `M1`; a bundle for the pre-merge
-candidate head is not interchangeable.
+the exact signed, digest-bound output of the separately reviewed owner-private
+evaluator for `M1`; a capture for the pre-merge candidate head is not
+interchangeable. The driver never launches that evaluator or makes a model
+call.
 
 ```bash
 <absolute-python> \
