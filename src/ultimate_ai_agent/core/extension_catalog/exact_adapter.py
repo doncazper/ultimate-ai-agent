@@ -4,14 +4,13 @@ import hashlib
 import json
 import os
 import stat
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Literal, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
     AuthorityCapability,
@@ -312,7 +311,7 @@ class ExactExtensionRuntimePosture(_ExactExtensionModel):
                 raise ValueError("EXACT_EXTENSION_OBSERVATION_TIMEZONE_REQUIRED")
             if self.expires_at <= self.checked_at:
                 raise ValueError("EXACT_EXTENSION_OBSERVATION_WINDOW_INVALID")
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             if self.checked_at > now + EXACT_EXTENSION_MAX_FUTURE_CLOCK_SKEW:
                 raise ValueError("EXACT_EXTENSION_OBSERVATION_FUTURE_DATED")
             if self.expires_at - self.checked_at > EXACT_EXTENSION_MAX_OBSERVATION_TTL:
@@ -373,7 +372,7 @@ def exact_extension_runtime_blocker_codes(
         blockers.append("EXTENSION_SAFE_DISABLE_NOT_INACTIVE")
     if posture.kill_switch_status != ExactExtensionKillSwitchStatus.inactive.value:
         blockers.append("EXTENSION_KILL_SWITCH_NOT_INACTIVE")
-    now = current_time or datetime.now(UTC)
+    now = current_time or datetime.now(timezone.utc)
     if posture.checked_at is None or posture.expires_at is None:
         blockers.append("EXTENSION_FRESHNESS_UNKNOWN")
     elif posture.expires_at <= now:
@@ -692,7 +691,7 @@ def build_exact_extension_metadata_dispatch_request(
         raise ValueError("EXACT_EXTENSION_TARGET_PATH_INVALID")
     if start_deadline.tzinfo is None:
         raise ValueError("EXACT_EXTENSION_START_DEADLINE_TIMEZONE_REQUIRED")
-    if start_deadline > datetime.now(UTC) + EXACT_EXTENSION_MAX_START_TTL:
+    if start_deadline > datetime.now(timezone.utc) + EXACT_EXTENSION_MAX_START_TTL:
         raise ValueError("EXACT_EXTENSION_START_DEADLINE_TOO_DISTANT")
     manifest = ExactExtensionAdapterManifest.model_validate(
         build_default_exact_extension_adapter_manifest().model_dump(mode="python")

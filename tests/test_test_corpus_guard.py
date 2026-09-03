@@ -5597,6 +5597,51 @@ def test_parameter_identity_migration_approved_transition_is_exactly_bound(
     )
 
 
+def test_python310_dependency_identity_migration_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prior_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "a" * 64
+    current_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "b" * 64
+    prior_source = "def test_case(): pass\n"
+    current_source = "def test_case(): pass  # compatible\n"
+    monkeypatch.setattr(
+        guard,
+        "PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS",
+        {
+            prior_ref: (
+                current_ref,
+                hashlib.sha256(prior_source.encode()).hexdigest(),
+                hashlib.sha256(current_source.encode()).hexdigest(),
+            )
+        },
+    )
+
+    assert guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source,
+        current_source,
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source + "# substituted\n",
+        current_source,
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source,
+        current_source + "# substituted\n",
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {"tests/test_sample.py::test_other"},
+        prior_source,
+        current_source,
+    )
+
+
 def test_removed_declarations_reuses_validated_python_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -7528,6 +7573,67 @@ def test_exact_performance_runner_evidence_alignment_is_pair_bound(
             ".github/workflows/ci.yml": "pytest: prior\n",
         },
     )
+
+
+def test_exact_foundation_isolation_runner_alignment_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_path = "scripts/verification/ci_command_manifest.py"
+    dependency_path = "scripts/verification/verification_contracts.py"
+    prior = {
+        runner_path: "foundation = ['python', 'scripts/run_foundation_gate.py']\n",
+        dependency_path: "FOUNDATION = ('python',)\n",
+    }
+    current = {
+        runner_path: (
+            "foundation = ['python', '-I', '-B', '-S', "
+            "'scripts/run_foundation_gate.py']\n"
+        ),
+        dependency_path: "FOUNDATION = ('python', '-I', '-B', '-S')\n",
+    }
+    monkeypatch.setattr(
+        guard,
+        "FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+    assert guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path=current,
+        prior_by_path=prior,
+    ) == {runner_path, dependency_path}
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path={
+            **current,
+            dependency_path: current[dependency_path]
+            + "PYTEST_ADDOPTS = '--deselect=x'\n",
+        },
+        prior_by_path=prior,
+    )
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path=current,
+        prior_by_path={
+            **prior,
+            dependency_path: prior[dependency_path] + "# different base\n",
+        },
+    )
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path={runner_path: current[runner_path]},
+        prior_by_path={runner_path: prior[runner_path]},
+    )
+
+
+def test_foundation_isolation_alignment_current_fingerprints_are_exact() -> None:
+    root = Path(__file__).parents[1]
+    for path, (_, current_digest) in (
+        guard.FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH.items()
+    ):
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
 
 
 def test_changed_test_paths_accepts_exact_performance_runner_alignment(

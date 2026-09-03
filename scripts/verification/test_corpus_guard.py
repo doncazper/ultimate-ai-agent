@@ -89,6 +89,24 @@ PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
 PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
     "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
 )
+FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
+    "scripts/verification/ci_command_manifest.py": (
+        "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
+        "099f05922d85e8f3afdfcf80426a61874046854b61089cd68e323c82bbb853a2",
+    ),
+    "scripts/verification/verification_contracts.py": (
+        "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",
+        "22d0675a05459e05501763506e5716befd50b6b3653c4ae0656a42834d397b8c",
+    ),
+    "scripts/verification/verification_execution_identity.py": (
+        "4377e1bf45e4162b2ba46da8cafd63418c0f830f35c2d36458496cf8b98f97a2",
+        "9097cfb38f84a307ed6057b34b380ff59e1c3606dccd2d6236603c40c3714b7c",
+    ),
+    "scripts/verify_release_lanes.py": (
+        "4d8260090f8d9da6b211a0391becbf487e22ca061524479ba2418b67015e0517",
+        "120e9cfb345a0922cad88114c414b9278414145935dda3cf73b76b3cf2e46a4f",
+    ),
+}
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
     "uaa.test_corpus.parameter_dependency_identity.v2"
 )
@@ -159,6 +177,158 @@ PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "parametrize-sha256:"
         "a1cad82057a5aa64aa0238b17d3c3fb93e379d11a43ca40803f9a41a1c63e2a1",
         "9349c595efb4849d2a3e03a8515bd60713f43c1181707b450c7055adff900fe1",
+    ),
+}
+PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
+    "uaa.test_corpus.python310_dependency_identity.v1"
+)
+PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
+    (
+        "tests/test_approval_authority_v2_contracts.py::"
+        "test_approval_grant_revalidation_blocks_model_copy_mutations::"
+        "parametrize-sha256:8cb8c24c5be6615ceefe35b2984da6200f11492496ae67c8d92bf132d3cd95a7"
+    ): (
+        "tests/test_approval_authority_v2_contracts.py::"
+        "test_approval_grant_revalidation_blocks_model_copy_mutations::"
+        "parametrize-sha256:bb750959d9659d16a7a16c116052ff93236bd57e845b42af2037e47896903813",
+        "6566591c5a4f699030b68b36c094e7a2cae4a43a8c234443aba0931f6869bcf3",
+        "6566591c5a4f699030b68b36c094e7a2cae4a43a8c234443aba0931f6869bcf3",
+    ),
+    (
+        "tests/test_approval_authority_v2_contracts.py::"
+        "test_grant_expiry_revocation_replay_and_binding_mismatches_are_denied::"
+        "parametrize-sha256:6662d5694c65ab2e6863db22d22c66786600bd967f84d20368f91004860f8c50"
+    ): (
+        "tests/test_approval_authority_v2_contracts.py::"
+        "test_grant_expiry_revocation_replay_and_binding_mismatches_are_denied::"
+        "parametrize-sha256:2fc68f2f632307ba20df1f8c41874c828ca2ff76ea36a49b2487be0437577013",
+        "6566591c5a4f699030b68b36c094e7a2cae4a43a8c234443aba0931f6869bcf3",
+        "6566591c5a4f699030b68b36c094e7a2cae4a43a8c234443aba0931f6869bcf3",
+    ),
+    (
+        "tests/test_context_handoff_approval_binding.py::"
+        "test_expired_revoked_and_replayed_handoff_approvals_are_denied::"
+        "parametrize-sha256:50ad26d60fea7a12ea9923218a52e3c9169dccedbd46c393f37110714117ae97"
+    ): (
+        "tests/test_context_handoff_approval_binding.py::"
+        "test_expired_revoked_and_replayed_handoff_approvals_are_denied::"
+        "parametrize-sha256:4b97e56ff962f29ced6701f44c0e96d63b940659b7a5b58be721439209db2d10",
+        "17d97ffc6b05144b389b227060aaca448e9ee7a9efba957cf3ee495020ddbd94",
+        "17d97ffc6b05144b389b227060aaca448e9ee7a9efba957cf3ee495020ddbd94",
+    ),
+    (
+        "tests/test_exact_extension_adapter.py::"
+        "test_exact_extension_unknown_or_unsafe_posture_fails_before_start::"
+        "parametrize-sha256:f9052b9535da98a302e19bf0ddfaf3fb8c096eb4917d36e0a9878d6c4a5495ce"
+    ): (
+        "tests/test_exact_extension_adapter.py::"
+        "test_exact_extension_unknown_or_unsafe_posture_fails_before_start::"
+        "parametrize-sha256:3d13696dedf78dc76463a480ead6cd2be7291c69e0eed75c76f269eddf5a26f9",
+        "11ff7f2d7620466ca0285f0a56c444975bc28eef56f506f1d8892e65e7903eca",
+        "11ff7f2d7620466ca0285f0a56c444975bc28eef56f506f1d8892e65e7903eca",
+    ),
+    (
+        "tests/test_file_review_approval_capture_contracts.py::"
+        "test_capture_denies_binding_authority_and_lifecycle_failures::"
+        "parametrize-sha256:6118830bc255975501b71b7493b09b7c9a5e5073a4c94f4bbbe2a7b7636dc881"
+    ): (
+        "tests/test_file_review_approval_capture_contracts.py::"
+        "test_capture_denies_binding_authority_and_lifecycle_failures::"
+        "parametrize-sha256:6188c1b29fd799c511d322b6fa43b8ba0b3652228ac8a866c414db231e16d66f",
+        "646d88fe1739307f584ed1444ddb6c5af1322c17a01108f171895d50635226e8",
+        "646d88fe1739307f584ed1444ddb6c5af1322c17a01108f171895d50635226e8",
+    ),
+    (
+        "tests/test_file_review_approval_gate.py::"
+        "test_approval_binding_denies_mismatch_expiry_revocation_and_replay::"
+        "parametrize-sha256:0aa8f89ddcd901044bb66cf369897c94051235e1e957242f92f90c180d64a3a9"
+    ): (
+        "tests/test_file_review_approval_gate.py::"
+        "test_approval_binding_denies_mismatch_expiry_revocation_and_replay::"
+        "parametrize-sha256:a37bca7e98c64e9c8b2799355040a1a3ba51bc9b8938ea58677db97629dfead6",
+        "c0ea72b288779642b3af5cc8eed4b2052727855e281646ca8bd97350d1599977",
+        "c0ea72b288779642b3af5cc8eed4b2052727855e281646ca8bd97350d1599977",
+    ),
+    (
+        "tests/test_m126_connector_approval_capture.py::"
+        "test_m126_capture_denies_binding_authority_and_lifecycle_failures::"
+        "parametrize-sha256:e0859b2d7db1ab113319998cef89fbfae5aeafa37879215a3482b2242b74a81b"
+    ): (
+        "tests/test_m126_connector_approval_capture.py::"
+        "test_m126_capture_denies_binding_authority_and_lifecycle_failures::"
+        "parametrize-sha256:e04273a1c44e6b3752903964657bcac041a7f6034a83e60dddcb68c0156f57ef",
+        "598048e69147a18eefe4f6a946a56315683f23b0693ec1e9090ad990c67f8b47",
+        "598048e69147a18eefe4f6a946a56315683f23b0693ec1e9090ad990c67f8b47",
+    ),
+    (
+        "tests/test_m127_connector_write_dry_run_planner.py::"
+        "test_m127_denies_binding_lifecycle_and_allowlist_failures::"
+        "parametrize-sha256:f15a4c77a33ab12a1cb7614d7199d27618f088b3bb09c967116e2fab8c888dee"
+    ): (
+        "tests/test_m127_connector_write_dry_run_planner.py::"
+        "test_m127_denies_binding_lifecycle_and_allowlist_failures::"
+        "parametrize-sha256:5083c88bc00d2e58d7f7a8c77d9fdc4a8dc0f2277bfd7d5c686ecd7e6ff89e42",
+        "983a71eac9567ce3037aaeb8737335365e888ba9fc51201db2482eecf1d38b3e",
+        "983a71eac9567ce3037aaeb8737335365e888ba9fc51201db2482eecf1d38b3e",
+    ),
+    (
+        "tests/test_m49_mobile_review_approval_capture.py::"
+        "test_mobile_review_capture_denies_binding_lifecycle_and_test_refs::"
+        "parametrize-sha256:907b6f076f96b9cd3bf0257ff3e39ccf51157b28811f6ce616e6f91d7d5041b2"
+    ): (
+        "tests/test_m49_mobile_review_approval_capture.py::"
+        "test_mobile_review_capture_denies_binding_lifecycle_and_test_refs::"
+        "parametrize-sha256:9cf687d94359c4d171ceb63097df7c0d91b870008ff6eae870459aa2a851ef9e",
+        "1c04b4834fee6b6bd3b6b7403412f9d9cc289d0627bae12491171b4c16bc4e3e",
+        "1c04b4834fee6b6bd3b6b7403412f9d9cc289d0627bae12491171b4c16bc4e3e",
+    ),
+    (
+        "tests/test_msg_mx_004_matrix_harness_authority.py::"
+        "test_wrong_mission_session_or_stale_lease_denies::"
+        "parametrize-sha256:ef049d3fc63c746125db357a7afcc8d9c8337c546ebe53496215b1aba9ff6b13"
+    ): (
+        "tests/test_msg_mx_004_matrix_harness_authority.py::"
+        "test_wrong_mission_session_or_stale_lease_denies::"
+        "parametrize-sha256:e83f9673e420b20d652cda3428019015d587919d6169c1484bef66200d1499fe",
+        "0fcddd5f7fbb8a1bb37c0b4008cffa480dbd1f23f1560a630f58f774fe204ecd",
+        "0fcddd5f7fbb8a1bb37c0b4008cffa480dbd1f23f1560a630f58f774fe204ecd",
+    ),
+    (
+        "tests/test_msg_mx_006_matrix_sync_transport.py::"
+        "test_transient_scope_drift_is_denied_before_any_pipe_or_process::"
+        "parametrize-sha256:f7fa9d218b42f8e4dbbcb3b69b2b91216091e3f28b5f136dfcab5e30c03e10c4"
+    ): (
+        "tests/test_msg_mx_006_matrix_sync_transport.py::"
+        "test_transient_scope_drift_is_denied_before_any_pipe_or_process::"
+        "parametrize-sha256:2ee8905a2c0cbd963199c32c5728fa24ed4fe07bba658c5ec729c328c6cbbfa5",
+        "c84d0964643de6458edc5a82b6053e2a2f38d90235421afb64d77f5624bfac16",
+        "c84d0964643de6458edc5a82b6053e2a2f38d90235421afb64d77f5624bfac16",
+    ),
+    (
+        "tests/test_tool_aware_cognition_taw08.py::"
+        "test_candidate_lock_cleanliness_uses_authenticated_git::"
+        "parametrize-sha256:66f227ee4e7cadb1c8f359ef644982f0c63e6275236fc66d036c69eb42c7ecff::"
+        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e"
+    ): (
+        "tests/test_tool_aware_cognition_taw08.py::"
+        "test_candidate_lock_cleanliness_compares_worktree_bytes_to_revision::"
+        "parametrize-sha256:2a0e592582192912c6f0daecf048607875bb631e8151bc7faf3f9ec13f1b4c57::"
+        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e",
+        "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
+        "94a509e77af08a1de25b1066fd7bdb94e627d4ae72b492173d69788a808a5152",
+    ),
+    (
+        "tests/test_tool_aware_cognition_taw08.py::"
+        "test_foundation_receipt_rejects_evaluator_from_another_revision::"
+        "parametrize-sha256:d65125c3e4212fc8fe0d3f946d27028d9f962e7007c22443cb8c2080ace2ebb4::"
+        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e"
+    ): (
+        "tests/test_tool_aware_cognition_taw08.py::"
+        "test_foundation_receipt_rejects_evaluator_from_another_revision::"
+        "parametrize-sha256:e25930c90e57d14d8bc3c15b849750e21b0c4234917fb7c67e82490bbbce78cf::"
+        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e",
+        "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
+        "94a509e77af08a1de25b1066fd7bdb94e627d4ae72b492173d69788a808a5152",
     ),
 }
 TEST_CORPUS_GUARD_PATH = "scripts/verification/test_corpus_guard.py"
@@ -11754,6 +11924,29 @@ def _safe_performance_runner_evidence_alignment_paths(
     return expected_paths
 
 
+def _safe_foundation_isolation_runner_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the reviewed full-byte Foundation isolation dependency set."""
+
+    expected_paths = set(FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return expected_paths
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -11872,6 +12065,26 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             },
         )
     )
+    foundation_alignment_paths = effective_changed_runner_paths | (
+        all_changed & runner_dependencies
+    )
+    if foundation_alignment_paths == set(
+        FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH
+    ):
+        safe_runner_paths.update(
+            _safe_foundation_isolation_runner_alignment_paths(
+                current_by_path={
+                    path: _read_worktree_text(repo, path)
+                    if (repo / path).is_file()
+                    else ""
+                    for path in foundation_alignment_paths
+                },
+                prior_by_path={
+                    path: _base_text(repo, base_sha, path) or ""
+                    for path in foundation_alignment_paths
+                },
+            )
+        )
     for path in changed_runner_paths:
         current = current_runner_by_path[path]
         prior = prior_runner_by_path[path]
@@ -12779,6 +12992,26 @@ def _parameter_identity_migration_is_exact_approved_transition(
     ) == PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_SOURCE_DIGESTS
 
 
+def _python310_dependency_identity_migration_is_exact_transition(
+    prior_ref: str,
+    current_refs: set[str],
+    prior_text: str,
+    current_text: str,
+) -> bool:
+    """Admit one reviewed identity replacement bound to both complete test files."""
+
+    approved = PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS.get(prior_ref)
+    if approved is None:
+        return False
+    current_ref, prior_digest, current_digest = approved
+    return (
+        current_ref in current_refs
+        and hashlib.sha256(prior_text.encode("utf-8")).hexdigest() == prior_digest
+        and hashlib.sha256(current_text.encode("utf-8")).hexdigest()
+        == current_digest
+    )
+
+
 def removed_declarations(
     repo: Path,
     base_sha: str,
@@ -12790,6 +13023,9 @@ def removed_declarations(
     base_guard_source = _base_text(repo, base_sha, TEST_CORPUS_GUARD_PATH) or ""
     parameter_identity_migration_active = (
         PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER not in base_guard_source
+    )
+    python310_dependency_identity_migration_active = (
+        PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_MARKER not in base_guard_source
     )
     base_python_source_cache: dict[str, str | None] = {}
 
@@ -12956,6 +13192,20 @@ def removed_declarations(
             current_declarations = ()
             current_refs = set()
         path_removed = prior_refs - current_refs
+        if (
+            current_text is not None
+            and python310_dependency_identity_migration_active
+        ):
+            path_removed.difference_update(
+                prior_ref
+                for prior_ref in tuple(path_removed)
+                if _python310_dependency_identity_migration_is_exact_transition(
+                    prior_ref,
+                    current_refs,
+                    prior,
+                    current_text,
+                )
+            )
         if (
             path.endswith(".py")
             and parameter_identity_migration_active

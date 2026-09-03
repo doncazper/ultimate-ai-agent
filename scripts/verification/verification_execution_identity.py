@@ -11,12 +11,10 @@ import stat
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterator
-
-from ultimate_ai_agent.core._compat import UTC
 
 from scripts.verification.verification_contracts import (
     DIGEST_PATTERN,
@@ -134,7 +132,7 @@ def _validate_timestamp(value: object, *, label: str) -> datetime:
         raise VerificationExecutionIdentityError(
             f"{label} must be canonical UTC"
         ) from exc
-    if parsed.tzinfo != UTC:
+    if parsed.tzinfo != timezone.utc:
         raise VerificationExecutionIdentityError(f"{label} must be canonical UTC")
     return parsed
 
@@ -764,7 +762,7 @@ def _canonical_now(clock: Callable[[], datetime]) -> str:
     observed = clock()
     if not isinstance(observed, datetime) or observed.tzinfo is None:
         raise VerificationExecutionFenceError("verification fence clock is invalid")
-    return observed.astimezone(UTC).isoformat(timespec="microseconds").replace(
+    return observed.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
     )
 
@@ -921,7 +919,7 @@ class VerificationExecutionFence:
         *,
         max_entries: int = MAX_FENCE_ENTRIES,
         lock_timeout_seconds: float = 2.0,
-        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         token_factory: Callable[[], str] = lambda: secrets.token_hex(32),
     ) -> None:
         if (

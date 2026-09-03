@@ -3235,6 +3235,9 @@ describe("Web Control Center shell", () => {
     try {
       expect(await screen.findByText("Backend online")).toBeInTheDocument();
       const board = screen.getByTestId("work-board");
+      expect(
+        await within(board).findByLabelText("Action Inbox work queue card"),
+      ).toBeInTheDocument();
       const savedViewFilter = within(board).getByLabelText("Saved view filter");
       fireEvent.click(
         within(savedViewFilter).getByRole("button", { name: "Social Content" }),

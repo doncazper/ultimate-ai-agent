@@ -1,7 +1,5 @@
-from datetime import datetime
-
-from ultimate_ai_agent.core._compat import UTC
+from datetime import datetime, timezone
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)

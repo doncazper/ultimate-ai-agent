@@ -5,13 +5,10 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Any
-
-from ultimate_ai_agent.core._compat import UTC
-
 
 SAFE_REF_PATTERN = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,191}$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -193,7 +190,7 @@ def _validated_timestamp(value: str, *, label: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"{label} must be bounded canonical UTC") from exc
-    if parsed.tzinfo != UTC:
+    if parsed.tzinfo != timezone.utc:
         raise ValueError(f"{label} must be bounded canonical UTC")
     return parsed
 

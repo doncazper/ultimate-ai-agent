@@ -28,9 +28,7 @@ class FoundationGateLegacyChecksPart013Mixin:
             if not (self.root / path).exists()
         ]
         try:
-            from datetime import datetime
-
-            from ultimate_ai_agent.core._compat import UTC
+            from datetime import datetime, timezone
 
             from ultimate_ai_agent.core.hygiene.actor_context import (
                 ActorContext,
@@ -69,10 +67,10 @@ class FoundationGateLegacyChecksPart013Mixin:
                     actor_type=ActorType.orchestrator,
                     actor_id="m55-gate",
                     authority_source=AuthoritySource.explicit_user_request,
-                    created_at=datetime.now(UTC),
+                    created_at=datetime.now(timezone.utc),
                 ),
                 temporal_context=TemporalContext(
-                    current_time_utc=datetime.now(UTC),
+                    current_time_utc=datetime.now(timezone.utc),
                     freshness_class=FreshnessClass.daily,
                     staleness_policy=StalenessPolicy.allow_with_label,
                 ),

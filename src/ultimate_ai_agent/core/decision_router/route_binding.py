@@ -3,13 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     InvocationPolicy,
     TurnContractKind,
@@ -65,8 +64,10 @@ class RouteDecisionBinding(BaseModel):
     action_refs: list[str] = Field(default_factory=list)
     resource_refs: list[str] = Field(default_factory=list)
     idempotency_key: str = Field(..., min_length=1)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=5))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc) + timedelta(minutes=5)
+    )
     content_fingerprint_ref: str = Field(..., min_length=1)
     context_fingerprint_ref: str | None = None
     binding_fingerprint_ref: str | None = None
@@ -254,7 +255,7 @@ def build_route_decision_binding(
     created_at: datetime | None = None,
     ttl_seconds: int = 300,
 ) -> RouteDecisionBinding:
-    created = created_at or datetime.now(UTC)
+    created = created_at or datetime.now(timezone.utc)
     binding = RouteDecisionBinding(
         binding_ref=_hash_ref(
             "route-decision-binding",
@@ -347,7 +348,7 @@ def validate_route_decision_binding(
             fingerprint_ref,
             evidence_refs,
         )
-    checked_at = now or datetime.now(UTC)
+    checked_at = now or datetime.now(timezone.utc)
     if checked_at > binding.expires_at:
         return _validation_result(
             binding,

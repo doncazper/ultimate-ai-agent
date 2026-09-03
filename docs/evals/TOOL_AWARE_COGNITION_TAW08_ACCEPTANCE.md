@@ -277,8 +277,10 @@ content census of its non-package standard library, including executable
 standard-library bytecode. Every Git-backed check uses one absolute executable
 admitted across an operating-system administrator trust
 boundary: Apple-platform signature verification on macOS, root-owned and
-non-writable provenance on other POSIX systems, or valid Authenticode
-provenance on Windows. The Git executable digest and provenance ref are bound
+non-writable provenance on other POSIX systems, or a Program Files executable
+with administrator-owned non-writable ancestry and an Authenticode chain
+anchored in the local-machine root store on Windows. The Git executable digest,
+signer thumbprint, machine-root thumbprint, and provenance ref are bound
 into the same private evaluator-environment receipt; `PATH` alone cannot select
 the repository evidence reader. POSIX trust covers every resolved path ancestor,
 and the Windows locked child preserves an operating-system-validated

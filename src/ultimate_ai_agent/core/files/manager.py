@@ -1,11 +1,10 @@
 import hashlib
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals import (
     ApprovalRequest,
     ApprovalRiskLevel,
@@ -987,8 +986,8 @@ class LocalFileManager:
 
     def _as_utc(self, value: datetime) -> datetime:
         if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value.astimezone(UTC)
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _blocked(
         self,

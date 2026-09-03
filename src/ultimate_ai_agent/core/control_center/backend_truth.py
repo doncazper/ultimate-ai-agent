@@ -5,12 +5,11 @@ import json
 import re
 import threading
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.build_identity import BuildIdentity, build_identity
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
@@ -61,7 +60,7 @@ def _register_issued_backend_truth(payload: dict[str, Any]) -> None:
         "valid_until": payload["valid_until"],
     }
     with _ISSUED_ENVELOPE_LOCK:
-        current = utc_now().astimezone(UTC)
+        current = utc_now().astimezone(timezone.utc)
         for ref, existing in list(_ISSUED_ENVELOPES.items()):
             try:
                 valid_until = datetime.fromisoformat(
@@ -90,7 +89,7 @@ def backend_truth_envelope_is_current(
         issued = dict(existing) if existing is not None else None
     if issued is None:
         return False
-    current = (now or utc_now()).astimezone(UTC)
+    current = (now or utc_now()).astimezone(timezone.utc)
     try:
         generated_at = datetime.fromisoformat(
             str(issued["generated_at"]).replace("Z", "+00:00")
@@ -578,7 +577,7 @@ def build_control_center_backend_truth(
     now: datetime | None = None,
     identity: BuildIdentity | None = None,
 ) -> dict[str, Any]:
-    generated_at = (now or utc_now()).astimezone(UTC).replace(microsecond=0)
+    generated_at = (now or utc_now()).astimezone(timezone.utc).replace(microsecond=0)
     current_identity = identity or build_identity()
     storage_unavailable = repo is None
     if repo is None:

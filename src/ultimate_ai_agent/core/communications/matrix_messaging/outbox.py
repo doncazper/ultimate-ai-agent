@@ -8,13 +8,12 @@ import os
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.communications.matrix_sync.cache import (
     MatrixCacheCryptoBackend,
     MatrixCacheKeyUnavailable,
@@ -322,7 +321,7 @@ class MatrixEncryptedOutbox:
             or record.room_ref != room_ref
         ):
             raise MatrixOutboxError("MATRIX_OUTBOX_EXACT_SCOPE_MISMATCH")
-        if datetime.now(UTC) >= record.expires_at:
+        if datetime.now(timezone.utc) >= record.expires_at:
             raise MatrixOutboxError("MATRIX_OUTBOX_RECORD_EXPIRED")
         return record
 

@@ -700,6 +700,95 @@ def _validated_windows_system_root() -> Path:
     return authoritative
 
 
+_WINDOWS_GIT_TRUST_SCRIPT = (
+    "$ErrorActionPreference='Stop';"
+    "$p=(Get-Item -LiteralPath $args[0] -Force).FullName;"
+    "$roots=@("
+    "[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles),"
+    "[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)"
+    ")|Where-Object{$_};"
+    "$root=$roots|Where-Object{"
+    "$prefix=$_.TrimEnd([IO.Path]::DirectorySeparatorChar)+"
+    "[IO.Path]::DirectorySeparatorChar;"
+    "$p.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)"
+    "}|Select-Object -First 1;"
+    "if(-not $root){exit 11};"
+    "$trusted=@('S-1-5-18','S-1-5-32-544',"
+    "'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464');"
+    "$writeMask=([int64][Security.AccessControl.FileSystemRights]::Write -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::Delete -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::ChangePermissions -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::TakeOwnership -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles);"
+    "$q=Get-Item -LiteralPath $p -Force;"
+    "while($true){"
+    "$acl=Get-Acl -LiteralPath $q.FullName;"
+    "$owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;"
+    "if($trusted -notcontains $owner){exit 12};"
+    "$rules=$acl.GetAccessRules($true,$true,"
+    "[Security.Principal.SecurityIdentifier]);"
+    "foreach($ace in $rules){"
+    "$applies=($ace.PropagationFlags -band "
+    "[Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0;"
+    "$writes=([int64]$ace.FileSystemRights -band $writeMask) -ne 0;"
+    "if($applies -and $writes -and "
+    "$ace.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow "
+    "-and $trusted -notcontains $ace.IdentityReference.Value){exit 13}"
+    "};"
+    "if([string]::Equals($q.FullName,$root,"
+    "[StringComparison]::OrdinalIgnoreCase)){break};"
+    "$q=$q.Parent;if($null -eq $q){exit 14}"
+    "};"
+    "$s=Get-AuthenticodeSignature -LiteralPath $p;"
+    "if($s.Status.ToString() -ne 'Valid' -or $null -eq $s.SignerCertificate){"
+    "exit 15};"
+    "$chain=New-Object Security.Cryptography.X509Certificates.X509Chain;"
+    "$chain.ChainPolicy.RevocationMode="
+    "[Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck;"
+    "$chain.ChainPolicy.VerificationFlags="
+    "[Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag;"
+    "if(-not $chain.Build($s.SignerCertificate) -or "
+    "$chain.ChainElements.Count -lt 1){exit 16};"
+    "$signer=$s.SignerCertificate.Thumbprint.ToUpperInvariant();"
+    "$anchor=$chain.ChainElements[$chain.ChainElements.Count-1].Certificate."
+    "Thumbprint.ToUpperInvariant();"
+    "$machineRoots=@(Get-ChildItem -Path Cert:\\LocalMachine\\Root|"
+    "ForEach-Object{$_.Thumbprint.ToUpperInvariant()});"
+    "if($machineRoots -notcontains $anchor){exit 17};"
+    "Write-Output ($signer+' '+$anchor)"
+)
+
+
+def _validated_windows_git_provenance(
+    executable: Path,
+    powershell: Path,
+) -> tuple[str, str]:
+    signature = subprocess.run(
+        (
+            str(powershell),
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            _WINDOWS_GIT_TRUST_SCRIPT,
+            str(executable),
+        ),
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    try:
+        output = signature.stdout.decode("ascii", errors="strict").strip().split()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("Foundation Gate trusted Git lacks OS provenance") from exc
+    if (
+        signature.returncode != 0
+        or len(output) != 2
+        or any(re.fullmatch(r"[0-9A-F]{40,64}", value) is None for value in output)
+    ):
+        raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+    return output[0].lower(), output[1].lower()
+
+
 def _trusted_preimport_git() -> str:
     system = platform.system().strip().lower()
     executable_value = (
@@ -740,29 +829,7 @@ def _trusted_preimport_git() -> str:
         powershell = (
             system_root / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         )
-        signature = subprocess.run(
-            (
-                str(powershell),
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                "$s=Get-AuthenticodeSignature -LiteralPath $args[0];"
-                "Write-Output ($s.Status.ToString()+' '+"
-                "$s.SignerCertificate.Thumbprint)",
-                str(executable),
-            ),
-            check=False,
-            capture_output=True,
-            timeout=30,
-        )
-        output = signature.stdout.decode("ascii", errors="strict").strip().split()
-        if (
-            signature.returncode != 0
-            or len(output) != 2
-            or output[0] != "Valid"
-            or not re.fullmatch(r"[0-9A-F]{40,64}", output[1])
-        ):
-            raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+        _validated_windows_git_provenance(executable, powershell)
     else:
         raise RuntimeError("Foundation Gate trusted Git platform is unsupported")
     return str(executable)

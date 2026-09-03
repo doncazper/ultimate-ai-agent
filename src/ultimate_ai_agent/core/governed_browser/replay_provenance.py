@@ -16,7 +16,6 @@ from weakref import ReferenceType, ref as weakref_ref
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ultimate_ai_agent.core._compat import WeakrefableSlots
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_task_ref,
@@ -55,6 +54,12 @@ _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX = {
         "reason-ref:governed-external-action:dispatch-worker-start-failed"
     ),
 }
+
+
+class _WeakrefableSlots:
+    """Supply a Python 3.10-compatible weak-reference slot."""
+
+    __slots__ = ("__weakref__",)
 _POST_START_GUARD_REASON_REFS = (
     "reason-ref:governed-external-action:post-start-revalidation-denied",
     (
@@ -346,7 +351,7 @@ class _ReplayContextToken:
 
 
 @dataclass(frozen=True, slots=True, init=False)
-class ExternalActionReplayValidationContext(WeakrefableSlots):
+class ExternalActionReplayValidationContext(_WeakrefableSlots):
     """Opaque, in-process proof that one replay came from the exact terminal row."""
 
     envelope: ExternalActionReplayEvidenceEnvelope

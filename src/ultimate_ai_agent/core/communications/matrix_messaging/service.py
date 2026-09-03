@@ -3,10 +3,9 @@ from __future__ import annotations
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
@@ -357,7 +356,7 @@ class MatrixMessagingRuntime:
             request_ref=command.request_ref,
             request_fingerprint_ref=command.request_fingerprint_ref,
             nonce=secrets.token_hex(32),
-            issued_at=datetime.now(UTC),
+            issued_at=datetime.now(timezone.utc),
             deadline=command.start_deadline,
             account_ref=command.account_ref,
             homeserver_ref=command.homeserver_ref,

@@ -3568,6 +3568,58 @@ def test_foundation_runner_selects_apple_git_before_path_lookup(
     assert foundation_runner._trusted_preimport_git() == "/usr/bin/git"
 
 
+def test_windows_git_trust_requires_machine_anchor_and_admin_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, ...] | list[str]] = []
+
+    def successful_run(command: tuple[str, ...] | list[str], **_kwargs: object):
+        observed.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=("A" * 40 + " " + "B" * 40 + "\n").encode("ascii"),
+        )
+
+    monkeypatch.setattr(subprocess, "run", successful_run)
+
+    for module in (taw08_verifier, foundation_runner):
+        assert module._validated_windows_git_provenance(
+            Path("C:/Program Files/Git/cmd/git.exe"),
+            Path("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"),
+        ) == ("a" * 40, "b" * 40)
+
+    assert len(observed) == 2
+    for command in observed:
+        script = command[4]
+        assert "GetFolderPath([Environment+SpecialFolder]::ProgramFiles)" in script
+        assert "GetAccessRules" in script
+        assert "S-1-5-32-544" in script
+        assert "Cert:\\LocalMachine\\Root" in script
+        assert "CurrentUser" not in script
+
+
+def test_windows_git_trust_rejects_non_machine_or_user_writable_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(
+            command,
+            17,
+            stdout=("A" * 40 + " " + "B" * 40 + "\n").encode("ascii"),
+        ),
+    )
+
+    for module in (taw08_verifier, foundation_runner):
+        with pytest.raises(RuntimeError, match="trusted provenance|trusted Git"):
+            module._validated_windows_git_provenance(
+                Path("C:/Users/founder/git.exe"),
+                Path("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"),
+            )
+
+
 def test_posix_git_trust_rejects_writable_parent_directory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

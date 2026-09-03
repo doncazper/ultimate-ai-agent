@@ -1,10 +1,9 @@
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Any, Iterator, List, Optional
 
-from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationDecision, ApprovalValidationRequest
 from ultimate_ai_agent.core.approvals.enums import (
     ApprovalDecisionStatus,
@@ -359,7 +358,7 @@ class LocalApprovalAuthority:
             consent_refs=route_request.consent_refs,
             event_ref=route_request.event_ref,
             trace_id=route_request.request_id,
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
 
     @staticmethod
@@ -389,5 +388,5 @@ class LocalApprovalAuthority:
             resource_refs=resource_refs or [tool_request.tool_id],
             tool_id=tool_request.tool_id,
             consent_refs=tool_request.consent_refs,
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
