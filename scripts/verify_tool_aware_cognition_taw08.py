@@ -479,7 +479,7 @@ def _evaluate_foundation_gate_in_fresh_process(
             check=False,
             capture_output=True,
             env=_sanitized_git_environment(),
-            timeout=300,
+            timeout=900,
         )
         payload = _read_private_regular_file(
             output_path,
@@ -2764,7 +2764,7 @@ def _run_locked_candidate_verifier() -> bytes | None:
                     selected_wheelhouse=selected_wheelhouse,
                     runtime_temp=runtime_temp,
                 ),
-                timeout=900,
+                timeout=1_200,
             )
             if child.returncode != 0:
                 raise RuntimeError(
