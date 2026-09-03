@@ -2692,6 +2692,22 @@ def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
         raise RuntimeError("TAW-08 founder input export is invalid") from exc
 
 
+def _locked_child_failure_summary(stderr: bytes) -> str:
+    if not stderr or len(stderr) > 64 * 1024:
+        return "failure detail unavailable"
+    try:
+        final_line = stderr.decode("ascii").splitlines()[-1]
+    except (UnicodeDecodeError, IndexError):
+        return "failure detail unavailable"
+    match = re.fullmatch(
+        r"(?:RuntimeError|ValueError): ([A-Za-z0-9][A-Za-z0-9 ._-]{0,159})",
+        final_line,
+    )
+    if match is None:
+        return "failure detail unavailable"
+    return match.group(1)
+
+
 def _run_locked_candidate_verifier() -> bytes | None:
     revision = _fresh_exact_repository_revision(ROOT).removeprefix("git-sha:")
     provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
@@ -2751,7 +2767,10 @@ def _run_locked_candidate_verifier() -> bytes | None:
                 timeout=900,
             )
             if child.returncode != 0:
-                raise RuntimeError("TAW-08 locked candidate verifier failed")
+                raise RuntimeError(
+                    "TAW-08 locked candidate verifier failed: "
+                    + _locked_child_failure_summary(child.stderr)
+                )
             if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
                 return _normalize_founder_input_export(child.stdout)
         finally:

@@ -3387,6 +3387,22 @@ def test_founder_input_export_requires_isolated_locked_preflight() -> None:
     assert "requires the isolated locked preflight" in completed.stderr
 
 
+def test_locked_child_failure_summary_is_redacted_and_bounded() -> None:
+    assert (
+        taw08_verifier._locked_child_failure_summary(
+            b"Traceback: /private/path\nRuntimeError: TAW-08 safe gate failed\n"
+        )
+        == "TAW-08 safe gate failed"
+    )
+    assert (
+        taw08_verifier._locked_child_failure_summary(b"RuntimeError: unsafe/path\n")
+        == "failure detail unavailable"
+    )
+    assert taw08_verifier._locked_child_failure_summary(b"x" * (64 * 1024 + 1)) == (
+        "failure detail unavailable"
+    )
+
+
 def test_taw08_git_inspection_pins_exact_worktree_root(tmp_path: Path) -> None:
     repository = tmp_path / "repository"
     alternate = tmp_path / "alternate"
