@@ -4,13 +4,14 @@ import hashlib
 import json
 import os
 import stat
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Literal, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
     AuthorityCapability,

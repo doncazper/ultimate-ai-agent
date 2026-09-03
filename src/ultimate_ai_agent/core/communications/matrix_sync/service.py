@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from weakref import WeakSet
 
+from ultimate_ai_agent.core._compat import WeakrefableSlots
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.authority.dispatch_contracts import (
@@ -63,10 +64,9 @@ def _transport_result_mapper(result: object) -> MatrixSyncOperationResult:
     repr=False,
     slots=True,
     init=False,
-    weakref_slot=True,
     eq=False,
 )
-class MatrixSyncTransportBoundExecutor:
+class MatrixSyncTransportBoundExecutor(WeakrefableSlots):
     _transport: MatrixSyncTransport = field(repr=False, compare=False)
     _target: MatrixSyncTransientTarget = field(repr=False, compare=False)
     _pseudonymization_salt: bytes = field(repr=False, compare=False)

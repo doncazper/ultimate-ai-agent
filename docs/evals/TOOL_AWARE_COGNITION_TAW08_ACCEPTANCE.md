@@ -288,16 +288,19 @@ configuration environment variables removed, so caller state cannot substitute
 objects, refs, or a different repository. Receipt launchers and locked children
 also reject assume-unchanged and skip-worktree index entries before treating a
 checkout as clean. Cleanliness is established from the exact tree and stage-zero
-index census plus direct Git-blob hashing of every raw worktree file or symlink;
-it does not rely on `git status`, working-tree `git diff`, or content-conversion
+index census plus direct Git-blob hashing of every raw tracked regular file;
+tracked symlinks are rejected rather than trusted as candidate source. It does
+not rely on `git status`, working-tree `git diff`, or content-conversion
 filters. Candidate materialization rejects effective filter configuration or
 attributes and overrides repository hooks with a newly created, owner-only,
 verified-empty hooks directory before `git worktree add` or removal.
 Lazy object fetching is disabled for every evidence-producing Git command, so
 missing promisor objects fail closed instead of invoking a repository-selected
 remote helper. Before repository imports, the evidence worker also rejects
-ignored Python, bytecode, native-extension, and dynamic-library paths under
-`src/` or `scripts/`; `-B` alone is not treated as bytecode provenance.
+ignored Python, bytecode, native-extension, and dynamic-library paths across
+the repository import roots. Exact non-imported bootstrap/cache boundaries are
+excluded explicitly rather than trusted through broad ignore rules; `-B` alone
+is not treated as bytecode provenance.
 
 Repository evidence-delta receipts may be issued only by the same clean,
 candidate-bound locked verifier child used for candidate evidence. A caller

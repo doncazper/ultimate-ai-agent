@@ -3,9 +3,10 @@ from __future__ import annotations
 
 # ruff: noqa: E402 - the built-in-only isolation bootstrap must run first
 
-# Exact provenance must start before the script directory can satisfy imports.
-# ``sys`` and the platform execution module are built into the interpreter, so
-# this re-exec path cannot be shadowed by repository-local source or bytecode.
+# Exact provenance must start before normal ``site`` startup can execute an
+# ambient ``.pth`` file or ``sitecustomize`` module.  An already-started unsafe
+# process cannot safely choose the interpreter for a self-reexec, so callers
+# must supply isolation at process creation.
 import sys as _foundation_bootstrap_sys
 
 _FOUNDATION_BOOTSTRAP_SAFE = bool(
@@ -13,21 +14,8 @@ _FOUNDATION_BOOTSTRAP_SAFE = bool(
     and _foundation_bootstrap_sys.flags.no_site
 )
 if __name__ == "__main__" and not _FOUNDATION_BOOTSTRAP_SAFE:
-    if _foundation_bootstrap_sys.platform == "win32":
-        import nt as _foundation_bootstrap_os
-    else:
-        import posix as _foundation_bootstrap_os
-
-    _foundation_bootstrap_os.execv(
-        _foundation_bootstrap_sys.executable,
-        (
-            _foundation_bootstrap_sys.executable,
-            "-I",
-            "-B",
-            "-S",
-            __file__,
-            *_foundation_bootstrap_sys.argv[1:],
-        ),
+    raise SystemExit(
+        "Foundation Gate entrypoint requires python -I -B -S"
     )
 
 import argparse
@@ -45,6 +33,7 @@ import sysconfig
 import tempfile
 import time
 import warnings
+from ctypes import wintypes
 from pathlib import Path
 
 warnings.filterwarnings(
@@ -200,7 +189,6 @@ def _require_raw_clean_worktree(
                     )
             target = parent / components[-1]
             before = os.lstat(target)
-            hasher = hashlib.new(object_format)
             if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
                 raise RuntimeError(
                     "Foundation Gate revision provenance requires a clean worktree"
@@ -211,31 +199,11 @@ def _require_raw_clean_worktree(
                 raise RuntimeError(
                     "Foundation Gate revision provenance requires a clean worktree"
                 )
-            descriptor = os.open(
-                target,
-                os.O_RDONLY
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
+            raw_object_id = (
+                run("hash-object", "--no-filters", "--", os.fsdecode(path))
+                .decode("ascii", errors="strict")
+                .strip()
             )
-            try:
-                opened = os.fstat(descriptor)
-                if not os.path.samestat(before, opened):
-                    raise RuntimeError(
-                        "Foundation Gate repository worktree path changed"
-                    )
-                hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
-                while True:
-                    chunk = os.read(descriptor, 1024 * 1024)
-                    if not chunk:
-                        break
-                    hasher.update(chunk)
-                closed_over = os.fstat(descriptor)
-            finally:
-                os.close(descriptor)
-            if not os.path.samestat(opened, closed_over):
-                raise RuntimeError(
-                    "Foundation Gate repository worktree path changed"
-                )
             after = os.lstat(target)
         except FileNotFoundError as exc:
             raise RuntimeError(
@@ -250,7 +218,7 @@ def _require_raw_clean_worktree(
             or before.st_size != after.st_size
             or before.st_mtime_ns != after.st_mtime_ns
             or before.st_ctime_ns != after.st_ctime_ns
-            or hasher.hexdigest().encode("ascii") != object_id
+            or raw_object_id.encode("ascii") != object_id
         ):
             raise RuntimeError(
                 "Foundation Gate revision provenance requires a clean worktree"
@@ -300,6 +268,299 @@ def _index_has_hidden_worktree_entries(
     )
 
 
+class _WindowsAclSizeInformation(ctypes.Structure):
+    _fields_ = (
+        ("AceCount", wintypes.DWORD),
+        ("AclBytesInUse", wintypes.DWORD),
+        ("AclBytesFree", wintypes.DWORD),
+    )
+
+
+class _WindowsAceHeader(ctypes.Structure):
+    _fields_ = (
+        ("AceType", ctypes.c_ubyte),
+        ("AceFlags", ctypes.c_ubyte),
+        ("AceSize", wintypes.WORD),
+    )
+
+
+class _WindowsSidAndAttributes(ctypes.Structure):
+    _fields_ = (("Sid", ctypes.c_void_p), ("Attributes", wintypes.DWORD))
+
+
+class _WindowsTokenUser(ctypes.Structure):
+    _fields_ = (("User", _WindowsSidAndAttributes),)
+
+
+def _windows_error(message: str) -> RuntimeError:
+    return RuntimeError(f"{message} (winerror={ctypes.get_last_error()})")
+
+
+def _configure_windows_acl_apis(advapi: object, kernel: object) -> None:
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorDacl.argtypes = (  # type: ignore[attr-defined]
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.BOOL),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.BOOL),
+    )
+    advapi.GetSecurityDescriptorDacl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.SetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    )
+    advapi.SetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.OpenProcessToken.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    )
+    advapi.OpenProcessToken.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetTokenInformation.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetTokenInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+    )
+    advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.EqualSid.argtypes = (ctypes.c_void_p, ctypes.c_void_p)  # type: ignore[attr-defined]
+    advapi.EqualSid.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorControl.argtypes = (  # type: ignore[attr-defined]
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.WORD),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetSecurityDescriptorControl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.ConvertStringSidToSidW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        ctypes.POINTER(ctypes.c_void_p),
+    )
+    advapi.ConvertStringSidToSidW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAclInformation.argtypes = (  # type: ignore[attr-defined]
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    )
+    advapi.GetAclInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAce.argtypes = (  # type: ignore[attr-defined]
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p),
+    )
+    advapi.GetAce.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE  # type: ignore[attr-defined]
+    kernel.LocalFree.argtypes = (ctypes.c_void_p,)  # type: ignore[attr-defined]
+    kernel.LocalFree.restype = ctypes.c_void_p  # type: ignore[attr-defined]
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)  # type: ignore[attr-defined]
+    kernel.CloseHandle.restype = wintypes.BOOL  # type: ignore[attr-defined]
+
+
+def _apply_windows_private_directory_acl(path: Path) -> None:
+    """Replace inherited grants with current-owner/System/admin full control."""
+
+    if os.name != "nt":
+        raise RuntimeError("Foundation Gate Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
+        1,
+        ctypes.byref(descriptor),
+        None,
+    ):
+        raise _windows_error("Foundation Gate private ACL creation failed")
+    try:
+        present = wintypes.BOOL()
+        defaulted = wintypes.BOOL()
+        dacl = ctypes.c_void_p()
+        if not advapi.GetSecurityDescriptorDacl(
+            descriptor,
+            ctypes.byref(present),
+            ctypes.byref(dacl),
+            ctypes.byref(defaulted),
+        ) or not present.value or not dacl.value:
+            raise _windows_error("Foundation Gate private ACL creation failed")
+        result = advapi.SetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x80000004,
+            None,
+            None,
+            dacl,
+            None,
+        )
+        if result != 0:
+            raise RuntimeError(
+                f"Foundation Gate private ACL application failed (winerror={result})"
+            )
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def _validate_windows_private_directory_acl(path: Path) -> None:
+    """Fail closed unless the directory has the exact protected private DACL."""
+
+    if os.name != "nt":
+        raise RuntimeError("Foundation Gate Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    token = wintypes.HANDLE()
+    descriptor = ctypes.c_void_p()
+    allowed_sid_handles: list[ctypes.c_void_p] = []
+    try:
+        if not advapi.OpenProcessToken(
+            kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)
+        ):
+            raise _windows_error("Foundation Gate private ACL owner lookup failed")
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(
+            token,
+            1,
+            None,
+            0,
+            ctypes.byref(required),
+        )
+        if not required.value or required.value > 64 * 1024:
+            raise _windows_error("Foundation Gate private ACL owner lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+            token,
+            1,
+            token_buffer,
+            required,
+            ctypes.byref(required),
+        ):
+            raise _windows_error("Foundation Gate private ACL owner lookup failed")
+        current_sid = ctypes.cast(
+            token_buffer, ctypes.POINTER(_WindowsTokenUser)
+        ).contents.User.Sid
+
+        owner = ctypes.c_void_p()
+        dacl = ctypes.c_void_p()
+        result = advapi.GetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x00000005,
+            ctypes.byref(owner),
+            None,
+            ctypes.byref(dacl),
+            None,
+            ctypes.byref(descriptor),
+        )
+        if result != 0 or not owner.value or not dacl.value or not descriptor.value:
+            raise RuntimeError(
+                f"Foundation Gate private ACL inspection failed (winerror={result})"
+            )
+        if not advapi.EqualSid(owner, current_sid):
+            raise RuntimeError("Foundation Gate private ACL owner is invalid")
+        control = wintypes.WORD()
+        revision = wintypes.DWORD()
+        if not advapi.GetSecurityDescriptorControl(
+            descriptor, ctypes.byref(control), ctypes.byref(revision)
+        ) or not control.value & 0x1000:
+            raise RuntimeError("Foundation Gate private ACL is not protected")
+
+        for sid_text in ("S-1-3-4", "S-1-5-18", "S-1-5-32-544"):
+            sid = ctypes.c_void_p()
+            if not advapi.ConvertStringSidToSidW(sid_text, ctypes.byref(sid)):
+                raise _windows_error("Foundation Gate private ACL SID lookup failed")
+            allowed_sid_handles.append(sid)
+        information = _WindowsAclSizeInformation()
+        if not advapi.GetAclInformation(
+            dacl,
+            ctypes.byref(information),
+            ctypes.sizeof(information),
+            2,
+        ) or information.AceCount != len(allowed_sid_handles):
+            raise RuntimeError("Foundation Gate private ACL grants are invalid")
+        observed: set[int] = set()
+        for index in range(information.AceCount):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise _windows_error("Foundation Gate private ACL grant lookup failed")
+            header = ctypes.cast(
+                ace, ctypes.POINTER(_WindowsAceHeader)
+            ).contents
+            mask = ctypes.c_uint32.from_address(ace.value + 4).value
+            ace_sid = ctypes.c_void_p(ace.value + 8)
+            matches = tuple(
+                sid_index
+                for sid_index, sid in enumerate(allowed_sid_handles)
+                if advapi.EqualSid(ace_sid, sid)
+            )
+            if (
+                header.AceType != 0
+                or header.AceFlags != 0x03
+                or header.AceSize < 12
+                or mask != 0x001F01FF
+                or len(matches) != 1
+                or matches[0] in observed
+            ):
+                raise RuntimeError("Foundation Gate private ACL grants are invalid")
+            observed.add(matches[0])
+        if len(observed) != len(allowed_sid_handles):
+            raise RuntimeError("Foundation Gate private ACL grants are invalid")
+    finally:
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        for sid in allowed_sid_handles:
+            kernel.LocalFree(sid)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
+def _validate_private_directory(path: Path, *, require_empty: bool) -> None:
+    metadata = os.lstat(path)
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise RuntimeError("Foundation Gate private directory is unsafe")
+    if os.name == "posix":
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise RuntimeError("Foundation Gate private directory is unsafe")
+    elif os.name == "nt":
+        _validate_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("Foundation Gate private directory platform is unsupported")
+    if require_empty and any(path.iterdir()):
+        raise RuntimeError("Foundation Gate private directory is unsafe")
+
+
+def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
+    if os.name == "posix":
+        path.chmod(0o700)
+    elif os.name == "nt":
+        _apply_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("Foundation Gate private directory platform is unsupported")
+    _validate_private_directory(path, require_empty=require_empty)
+
+
 def _prepare_external_import_cache(
     repository_root: Path,
 ) -> tuple[tempfile.TemporaryDirectory, Path]:
@@ -321,16 +582,7 @@ def _prepare_external_import_cache(
         dir=temporary_root,
     )
     cache_root = Path(cache_handle.name)
-    cache_root.chmod(0o700)
-    cache_metadata = cache_root.lstat()
-    if (
-        not stat.S_ISDIR(cache_metadata.st_mode)
-        or stat.S_ISLNK(cache_metadata.st_mode)
-        or (hasattr(os, "getuid") and cache_metadata.st_uid != os.getuid())
-        or stat.S_IMODE(cache_metadata.st_mode) != 0o700
-        or any(cache_root.iterdir())
-    ):
-        raise RuntimeError("Foundation Gate import cache is unsafe")
+    _harden_private_directory(cache_root, require_empty=True)
     sys.pycache_prefix = str(cache_root)
     sys.dont_write_bytecode = True
     return cache_handle, cache_root
@@ -360,6 +612,9 @@ def _require_no_ignored_repository_import_sources(
             # this module starts and its dot-prefixed name is not importable
             # from ROOT.  Every other ignored repository path is censused.
             ":(top,exclude,glob).venv/**",
+            # The pinned uv bootstrap is never appended to sys.path.  It may
+            # exist in canonical CI before the Foundation lane starts.
+            ":(top,exclude,glob).ci-bootstrap/**",
         ],
         cwd=repository_root,
         check=True,
@@ -446,7 +701,12 @@ def _validated_windows_system_root() -> Path:
 
 
 def _trusted_preimport_git() -> str:
-    executable_value = shutil.which("git")
+    system = platform.system().strip().lower()
+    executable_value = (
+        "/usr/bin/git"
+        if os.name == "posix" and system == "darwin"
+        else shutil.which("git")
+    )
     if not executable_value:
         raise RuntimeError("Foundation Gate trusted Git is unavailable")
     try:
@@ -456,7 +716,6 @@ def _trusted_preimport_git() -> str:
         raise RuntimeError("Foundation Gate trusted Git is unavailable") from exc
     if not stat.S_ISREG(metadata.st_mode) or not os.access(executable, os.X_OK):
         raise RuntimeError("Foundation Gate trusted Git is unsafe")
-    system = platform.system().strip().lower()
     if os.name == "posix":
         _validate_posix_admin_path(executable)
         if system == "darwin":
@@ -557,6 +816,103 @@ def _runtime_dependency_path() -> Path:
     return candidate
 
 
+def _authenticated_locked_dependency_path(
+    repository_root: Path,
+    *,
+    revision: str | None,
+    git_command: str,
+    git_environment: dict[str, str],
+) -> Path | None:
+    """Authenticate imported dependencies from exact lock-bound wheel bytes."""
+
+    evidence = {
+        "complete": os.environ.get("UAA_TAW08_PREFLIGHT_COMPLETE"),
+        "digest": os.environ.get("UAA_TAW08_PREFLIGHT_DIGEST"),
+        "environment": os.environ.get("UAA_TAW08_ENVIRONMENT_ROOT"),
+        "wheelhouse": os.environ.get("UAA_TAW08_LOCKED_WHEELHOUSE"),
+        "revision": os.environ.get("UAA_TAW08_LOCKED_CHILD_REVISION"),
+    }
+    if all(value is None for value in evidence.values()):
+        return None
+    if revision is None or any(value is None for value in evidence.values()):
+        raise RuntimeError("Foundation Gate locked dependency preflight is invalid")
+    if evidence["complete"] != "1" or evidence["revision"] != revision:
+        raise RuntimeError("Foundation Gate locked dependency preflight is invalid")
+    preflight_ref = "scripts/verify_taw08_environment_preflight.py"
+    completed = subprocess.run(
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "show",
+            f"{revision}:{preflight_ref}",
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    )
+    source = completed.stdout
+    expected_digest = "sha256:" + hashlib.sha256(source).hexdigest()
+    preflight_path = repository_root / preflight_ref
+    raw_preflight_object_id = subprocess.run(
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "hash-object",
+            "--no-filters",
+            "--",
+            preflight_ref,
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    ).stdout.strip()
+    committed_preflight_object_id = subprocess.run(
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "rev-parse",
+            f"{revision}:{preflight_ref}",
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    ).stdout.strip()
+    if (
+        evidence["digest"] != expected_digest
+        or not source
+        or len(source) > 1024 * 1024
+        or raw_preflight_object_id != committed_preflight_object_id
+    ):
+        raise RuntimeError("Foundation Gate locked dependency preflight is invalid")
+    namespace: dict[str, object] = {
+        "__builtins__": __builtins__,
+        "__file__": str(preflight_path),
+        "__name__": "_uaa_foundation_locked_dependency_preflight",
+        "__package__": None,
+    }
+    try:
+        exec(compile(source, str(preflight_path), "exec"), namespace)
+        verify_environment = namespace["verify_environment"]
+        if not callable(verify_environment):
+            raise TypeError("preflight verifier is not callable")
+        dependency_path = verify_environment(  # type: ignore[operator]
+            repository_root / "scripts" / "run_foundation_gate.py"
+        )
+    except (KeyError, OSError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "Foundation Gate locked dependency preflight failed"
+        ) from exc
+    if not isinstance(dependency_path, Path):
+        raise RuntimeError("Foundation Gate locked dependency preflight failed")
+    return dependency_path.resolve()
+
+
 def _establish_preimport_repository_posture(repository_root: Path) -> str | None:
     """Prove or explicitly withhold clean provenance before repo imports."""
 
@@ -595,9 +951,42 @@ if _FOUNDATION_BOOTSTRAP_SAFE:
     _FOUNDATION_IMPORT_CACHE_HANDLE, _FOUNDATION_IMPORT_CACHE = (
         _prepare_external_import_cache(ROOT)
     )
-_PREIMPORT_CLEAN_REVISION = _establish_preimport_repository_posture(ROOT)
+# Strict pre-import repository attestation belongs to the executable Gate path.
+# Importers use this module's pure helpers and must not execute repository readers
+# merely by importing them (which also keeps test-corpus identities bindable).
+_PREIMPORT_CLEAN_REVISION = (
+    _establish_preimport_repository_posture(ROOT) if __name__ == "__main__" else None
+)
+
+# The locked TAW wrapper needs only the commit identity to create its detached,
+# independently checked candidate.  This narrow bootstrap exits before any
+# repository environment dependency is imported and never issues a Gate report.
+if __name__ == "__main__" and sys.argv[1:] == ["--preimport-revision-probe"]:
+    if (
+        not _FOUNDATION_BOOTSTRAP_SAFE
+        or _PREIMPORT_REPOSITORY_MODULE_PATHS
+        or _PREIMPORT_CLEAN_REVISION is None
+    ):
+        raise SystemExit("Foundation Gate preimport revision probe failed")
+    print(f"git-sha:{_PREIMPORT_CLEAN_REVISION}")
+    raise SystemExit(0)
 
 _FOUNDATION_DEPENDENCY_PATH = _runtime_dependency_path()
+_FOUNDATION_AUTHENTICATED_DEPENDENCY_PATH = (
+    _authenticated_locked_dependency_path(
+        ROOT,
+        revision=_PREIMPORT_CLEAN_REVISION,
+        git_command=_trusted_preimport_git(),
+        git_environment=_sanitized_git_environment(),
+    )
+    if __name__ == "__main__"
+    else None
+)
+if (
+    _FOUNDATION_AUTHENTICATED_DEPENDENCY_PATH is not None
+    and _FOUNDATION_AUTHENTICATED_DEPENDENCY_PATH != _FOUNDATION_DEPENDENCY_PATH.resolve()
+):
+    raise RuntimeError("Foundation Gate runtime dependency path is unauthenticated")
 if str(_FOUNDATION_DEPENDENCY_PATH) not in sys.path:
     sys.path.append(str(_FOUNDATION_DEPENDENCY_PATH))
 sys.path.insert(0, str(ROOT))
@@ -663,6 +1052,10 @@ def exact_repository_revision(
         if _PREIMPORT_REPOSITORY_MODULE_PATHS:
             raise RuntimeError(
                 "Foundation Gate exact provenance requires a fresh process"
+            )
+        if _FOUNDATION_AUTHENTICATED_DEPENDENCY_PATH is None:
+            raise RuntimeError(
+                "Foundation Gate exact provenance requires locked dependencies"
             )
         if _PREIMPORT_CLEAN_REVISION is None:
             raise RuntimeError(
@@ -738,11 +1131,10 @@ def evaluate_foundation_gate_for_repository_state(
     try:
         return evaluate_foundation_gate_at_exact_repository_revision(repository_root)
     except RuntimeError as exc:
-        if (
-            require_clean_revision
-            or str(exc)
-            != "Foundation Gate revision provenance requires a clean worktree"
-        ):
+        if require_clean_revision or str(exc) not in {
+            "Foundation Gate revision provenance requires a clean worktree",
+            "Foundation Gate exact provenance requires locked dependencies",
+        }:
             raise
     return None, FoundationGateEvaluator(repository_root).evaluate()
 

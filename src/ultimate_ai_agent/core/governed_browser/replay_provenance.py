@@ -16,6 +16,7 @@ from weakref import ReferenceType, ref as weakref_ref
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core._compat import WeakrefableSlots
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_task_ref,
@@ -344,8 +345,8 @@ class _ReplayContextToken:
     __slots__ = ()
 
 
-@dataclass(frozen=True, slots=True, init=False, weakref_slot=True)
-class ExternalActionReplayValidationContext:
+@dataclass(frozen=True, slots=True, init=False)
+class ExternalActionReplayValidationContext(WeakrefableSlots):
     """Opaque, in-process proof that one replay came from the exact terminal row."""
 
     envelope: ExternalActionReplayEvidenceEnvelope

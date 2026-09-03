@@ -2008,6 +2008,73 @@ def test_foundation_bootstrap_prevents_initial_sourceless_module_execution(
     assert not sentinel.exists()
 
 
+def test_foundation_bootstrap_never_reexecutes_after_ambient_site_startup(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    runner = scripts / "run_foundation_gate.py"
+    runner.write_bytes(Path(foundation_runner.__file__).read_bytes())
+    startup = tmp_path / "startup"
+    startup.mkdir()
+    sentinel = tmp_path / "ambient-sitecustomize-ran"
+    (startup / "sitecustomize.py").write_text(
+        "import sys\n"
+        f"open({str(sentinel)!r}, 'w').write('ran')\n"
+        "sys.executable = 'attacker-selected-python'\n",
+        encoding="utf-8",
+    )
+    environment = {**os.environ, "PYTHONPATH": str(startup)}
+
+    completed = subprocess.run(
+        (sys.executable, str(runner), "--command-mode", "report-only"),
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert sentinel.is_file()
+    assert completed.returncode != 0
+    assert b"requires python -I -B -S" in completed.stderr
+    assert b"Foundation Gate Summary" not in completed.stdout
+
+
+def test_foundation_ignored_census_allows_only_nonimported_ci_bootstrap(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-ci-bootstrap"
+    repository.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    (repository / ".gitignore").write_text(".ci-bootstrap/\n", encoding="utf-8")
+    subprocess.run(("git", "add", ".gitignore"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    bootstrap_source = repository / ".ci-bootstrap/lib/bootstrap.py"
+    bootstrap_source.parent.mkdir(parents=True)
+    bootstrap_source.write_text("BOOTSTRAP = True\n", encoding="utf-8")
+
+    foundation_runner._require_no_ignored_repository_import_sources(
+        repository,
+        git_command=foundation_runner._trusted_preimport_git(),
+        git_environment=foundation_runner._sanitized_git_environment(),
+    )
+
+
 def test_foundation_preimport_posture_rejects_ignored_root_package(
     tmp_path: Path,
 ) -> None:
@@ -3198,10 +3265,72 @@ def test_locked_child_preserves_validated_windows_system_root(
         revision="a" * 40,
         environment_root=tmp_path / "environment",
         selected_wheelhouse=tmp_path / "wheelhouse",
+        runtime_temp=tmp_path / "runtime-temp",
         platform_name="nt",
     )
 
     assert environment["SystemRoot"] == "C:/Windows"
+    assert environment["TMPDIR"] == str(tmp_path / "runtime-temp")
+    assert environment["TEMP"] == str(tmp_path / "runtime-temp")
+    assert environment["TMP"] == str(tmp_path / "runtime-temp")
+
+
+def test_locked_child_uses_only_the_provisioned_runtime_temp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    runtime_temp = tmp_path / "runtime-temp"
+    runtime_temp.mkdir()
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "ambient-tmpdir"))
+    monkeypatch.setenv("TEMP", str(tmp_path / "ambient-temp"))
+    monkeypatch.setenv("TMP", str(tmp_path / "ambient-tmp"))
+    environment = taw08_verifier._locked_child_environment(
+        revision="a" * 40,
+        environment_root=tmp_path / "environment",
+        selected_wheelhouse=tmp_path / "wheelhouse",
+        runtime_temp=runtime_temp,
+    )
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            "-c",
+            "import tempfile; print(tempfile.gettempdir())",
+        ),
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert Path(completed.stdout.strip()).resolve() == runtime_temp.resolve()
+
+
+def test_private_directory_uses_windows_acl_instead_of_posix_mode_bits(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "private"
+    directory.mkdir()
+    calls: list[tuple[str, Path]] = []
+    monkeypatch.setattr(taw08_verifier.os, "name", "nt")
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_apply_windows_private_directory_acl",
+        lambda path: calls.append(("apply", path)),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_directory_acl",
+        lambda path: calls.append(("validate", path)),
+    )
+
+    taw08_verifier._harden_private_directory(directory, require_empty=True)
+
+    assert calls == [("apply", directory), ("validate", directory)]
 
 
 def test_locked_child_forwards_founder_input_export_only_when_requested(
@@ -3212,6 +3341,7 @@ def test_locked_child_forwards_founder_input_export_only_when_requested(
         "revision": "a" * 40,
         "environment_root": tmp_path / "environment",
         "selected_wheelhouse": tmp_path / "wheelhouse",
+        "runtime_temp": tmp_path / "runtime-temp",
     }
 
     assert "UAA_TAW08_EXPORT_FOUNDER_INPUTS" not in (
@@ -3381,6 +3511,7 @@ def test_trusted_git_rejects_path_substitution(
     substituted_git.write_bytes(b"substituted git")
     substituted_git.chmod(0o777)
     taw08_verifier._trusted_git_identity.cache_clear()
+    monkeypatch.setattr(taw08_verifier.platform, "system", lambda: "Linux")
     monkeypatch.setattr(
         taw08_verifier.shutil,
         "which",
@@ -3391,6 +3522,50 @@ def test_trusted_git_rejects_path_substitution(
         taw08_verifier._trusted_git_identity()
 
     taw08_verifier._trusted_git_identity.cache_clear()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin provenance regression")
+def test_trusted_git_selects_apple_git_before_path_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taw08_verifier._trusted_git_identity.cache_clear()
+    monkeypatch.setattr(
+        taw08_verifier.shutil,
+        "which",
+        lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
+    )
+    monkeypatch.setattr(taw08_verifier, "_validate_posix_admin_path", lambda _path: None)
+    monkeypatch.setattr(
+        taw08_verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, b"", b""),
+    )
+
+    executable, digest_ref, provenance_ref = taw08_verifier._trusted_git_identity()
+
+    assert executable == Path("/usr/bin/git")
+    assert digest_ref.startswith("sha256:")
+    assert provenance_ref == "git-provenance-ref:apple-platform-signed"
+    taw08_verifier._trusted_git_identity.cache_clear()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin provenance regression")
+def test_foundation_runner_selects_apple_git_before_path_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        foundation_runner.shutil,
+        "which",
+        lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
+    )
+    monkeypatch.setattr(foundation_runner, "_validate_posix_admin_path", lambda _path: None)
+    monkeypatch.setattr(
+        foundation_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, b"", b""),
+    )
+
+    assert foundation_runner._trusted_preimport_git() == "/usr/bin/git"
 
 
 def test_posix_git_trust_rejects_writable_parent_directory(

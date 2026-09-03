@@ -11,10 +11,12 @@ import stat
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterator
+
+from ultimate_ai_agent.core._compat import UTC
 
 from scripts.verification.verification_contracts import (
     DIGEST_PATTERN,

@@ -333,6 +333,9 @@ def command_registry() -> dict[str, CommandSpec]:
                 "command:foundation-gate.ci-parallel",
                 (
                     ".venv/bin/python",
+                    "-I",
+                    "-B",
+                    "-S",
                     "scripts/run_foundation_gate.py",
                     "--command-mode",
                     "ci-parallel",

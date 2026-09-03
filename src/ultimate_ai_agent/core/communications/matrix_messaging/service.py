@@ -3,9 +3,10 @@ from __future__ import annotations
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.authority.dispatch_contracts import (

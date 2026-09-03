@@ -509,7 +509,7 @@ def _trusted_git_executable() -> Path:
     """Resolve Git across the same OS-administrator trust boundary as the verifier."""
 
     _require_posix_private_path_support()
-    executable_value = shutil.which("git")
+    executable_value = "/usr/bin/git" if sys.platform == "darwin" else shutil.which("git")
     if not executable_value:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable")
     try:
@@ -585,7 +585,7 @@ def _git_tree_entries(
         components = path.split(b"/")
         if (
             object_type != b"blob"
-            or mode not in {b"100644", b"100755", b"120000"}
+            or mode not in {b"100644", b"100755"}
             or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
             or size < 0
             or size > 64 * 1024 * 1024
@@ -640,44 +640,33 @@ def _raw_worktree_blob_id(
         target = parent / components[-1]
         before = os.lstat(target)
         hasher = hashlib.new(object_format)
-        if mode == b"120000":
-            if not stat.S_ISLNK(before.st_mode):
-                raise ValueError("repository worktree path is invalid")
-            content = os.fsencode(os.readlink(target))
-            if len(content) != expected_size:
-                raise ValueError("repository worktree content differs from Git")
-            hasher.update(f"blob {len(content)}\0".encode("ascii"))
-            hasher.update(content)
-        else:
-            if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
-                raise ValueError("repository worktree content differs from Git")
-            if os.name == "posix" and bool(before.st_mode & 0o111) != (
-                mode == b"100755"
-            ):
-                raise ValueError("repository worktree mode differs from Git")
-            descriptor = os.open(
-                target,
-                os.O_RDONLY
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
-            )
-            try:
-                opened = os.fstat(descriptor)
-                if not os.path.samestat(before, opened):
-                    raise ValueError(
-                        "repository worktree path changed during inspection"
-                    )
-                hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
-                while True:
-                    chunk = os.read(descriptor, 1024 * 1024)
-                    if not chunk:
-                        break
-                    hasher.update(chunk)
-                closed_over = os.fstat(descriptor)
-            finally:
-                os.close(descriptor)
-            if not os.path.samestat(opened, closed_over):
+        if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
+            raise ValueError("repository worktree content differs from Git")
+        if os.name == "posix" and bool(before.st_mode & 0o111) != (
+            mode == b"100755"
+        ):
+            raise ValueError("repository worktree mode differs from Git")
+        descriptor = os.open(
+            target,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        try:
+            opened = os.fstat(descriptor)
+            if not os.path.samestat(before, opened):
                 raise ValueError("repository worktree path changed during inspection")
+            hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                hasher.update(chunk)
+            closed_over = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        if not os.path.samestat(opened, closed_over):
+            raise ValueError("repository worktree path changed during inspection")
         after = os.lstat(target)
     except OSError as exc:
         raise ValueError("repository worktree path is invalid") from exc
@@ -757,8 +746,9 @@ def _require_no_ignored_executable_sources(repository_root: Path) -> None:
             "--exclude-standard",
             "-z",
             "--",
-            "src",
-            "scripts",
+            ".",
+            ":(top,exclude,glob).venv/**",
+            ":(top,exclude,glob).ci-bootstrap/**",
         ),
         purpose="ignored executable-source census",
     )

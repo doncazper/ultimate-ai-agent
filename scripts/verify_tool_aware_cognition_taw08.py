@@ -19,6 +19,7 @@ import tempfile
 import urllib.parse
 import zipfile
 from collections import defaultdict, deque
+from ctypes import wintypes
 from functools import lru_cache
 from pathlib import Path
 from types import ModuleType
@@ -172,7 +173,12 @@ def _validated_windows_system_root() -> Path:
 def _trusted_git_identity() -> tuple[Path, str, str]:
     """Resolve Git only across an OS-admin trust boundary and bind its bytes."""
 
-    executable_value = shutil.which("git")
+    system = platform.system().strip().lower()
+    executable_value = (
+        "/usr/bin/git"
+        if os.name == "posix" and system == "darwin"
+        else shutil.which("git")
+    )
     if not executable_value:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable")
     executable = Path(executable_value)
@@ -183,7 +189,6 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
     if not resolved.is_file() or not content or len(content) > 256 * 1024 * 1024:
         raise RuntimeError("TAW-08 trusted Git executable is invalid")
-    system = platform.system().strip().lower()
     if os.name == "posix":
         _validate_posix_admin_path(resolved)
         if system == "darwin":
@@ -286,21 +291,6 @@ def _sanitized_git_environment() -> dict[str, str]:
     return environment
 
 
-_FRESH_FOUNDATION_REVISION_PROBE = """\
-import pathlib
-import runpy
-import sys
-
-namespace = runpy.run_path(sys.argv[1], run_name="uaa_foundation_revision_probe")
-print(
-    namespace["exact_repository_revision"](
-        pathlib.Path(sys.argv[2]),
-        git_executable=namespace["_trusted_preimport_git"](),
-    )
-)
-"""
-
-
 def _fresh_exact_repository_revision(repository_root: Path) -> str:
     """Obtain clean revision proof in an isolated, no-site Python process."""
 
@@ -310,10 +300,8 @@ def _fresh_exact_repository_revision(repository_root: Path) -> str:
             "-I",
             "-B",
             "-S",
-            "-c",
-            _FRESH_FOUNDATION_REVISION_PROBE,
             str(repository_root / "scripts/run_foundation_gate.py"),
-            str(repository_root),
+            "--preimport-revision-probe",
         ),
         cwd=repository_root,
         check=False,
@@ -2127,11 +2115,298 @@ def _locked_child_command(
     )
 
 
+class _WindowsAclSizeInformation(ctypes.Structure):
+    _fields_ = (
+        ("AceCount", wintypes.DWORD),
+        ("AclBytesInUse", wintypes.DWORD),
+        ("AclBytesFree", wintypes.DWORD),
+    )
+
+
+class _WindowsAceHeader(ctypes.Structure):
+    _fields_ = (
+        ("AceType", ctypes.c_ubyte),
+        ("AceFlags", ctypes.c_ubyte),
+        ("AceSize", wintypes.WORD),
+    )
+
+
+class _WindowsSidAndAttributes(ctypes.Structure):
+    _fields_ = (("Sid", ctypes.c_void_p), ("Attributes", wintypes.DWORD))
+
+
+class _WindowsTokenUser(ctypes.Structure):
+    _fields_ = (("User", _WindowsSidAndAttributes),)
+
+
+def _windows_error(message: str) -> RuntimeError:
+    return RuntimeError(f"{message} (winerror={ctypes.get_last_error()})")
+
+
+def _configure_windows_acl_apis(advapi: object, kernel: object) -> None:
+    pointer = ctypes.c_void_p
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorDacl.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        ctypes.POINTER(wintypes.BOOL),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(wintypes.BOOL),
+    )
+    advapi.GetSecurityDescriptorDacl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.SetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        pointer,
+        pointer,
+        pointer,
+        pointer,
+    )
+    advapi.SetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.OpenProcessToken.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    )
+    advapi.OpenProcessToken.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetTokenInformation.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        pointer,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetTokenInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+    )
+    advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.EqualSid.argtypes = (pointer, pointer)  # type: ignore[attr-defined]
+    advapi.EqualSid.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorControl.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        ctypes.POINTER(wintypes.WORD),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetSecurityDescriptorControl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.ConvertStringSidToSidW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        ctypes.POINTER(pointer),
+    )
+    advapi.ConvertStringSidToSidW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAclInformation.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        pointer,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    )
+    advapi.GetAclInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAce.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+    )
+    advapi.GetAce.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE  # type: ignore[attr-defined]
+    kernel.LocalFree.argtypes = (pointer,)  # type: ignore[attr-defined]
+    kernel.LocalFree.restype = pointer  # type: ignore[attr-defined]
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)  # type: ignore[attr-defined]
+    kernel.CloseHandle.restype = wintypes.BOOL  # type: ignore[attr-defined]
+
+
+def _apply_windows_private_directory_acl(path: Path) -> None:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
+        1,
+        ctypes.byref(descriptor),
+        None,
+    ):
+        raise _windows_error("TAW-08 private ACL creation failed")
+    try:
+        present = wintypes.BOOL()
+        defaulted = wintypes.BOOL()
+        dacl = ctypes.c_void_p()
+        if not advapi.GetSecurityDescriptorDacl(
+            descriptor,
+            ctypes.byref(present),
+            ctypes.byref(dacl),
+            ctypes.byref(defaulted),
+        ) or not present.value or not dacl.value:
+            raise _windows_error("TAW-08 private ACL creation failed")
+        result = advapi.SetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x80000004,
+            None,
+            None,
+            dacl,
+            None,
+        )
+        if result != 0:
+            raise RuntimeError(
+                f"TAW-08 private ACL application failed (winerror={result})"
+            )
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def _validate_windows_private_directory_acl(path: Path) -> None:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    token = wintypes.HANDLE()
+    descriptor = ctypes.c_void_p()
+    allowed_sid_handles: list[ctypes.c_void_p] = []
+    try:
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        if not advapi.OpenProcessToken(
+            kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)
+        ):
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if not required.value or required.value > 64 * 1024:
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+            token, 1, token_buffer, required, ctypes.byref(required)
+        ):
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        current_sid = ctypes.cast(
+            token_buffer, ctypes.POINTER(_WindowsTokenUser)
+        ).contents.User.Sid
+        owner = ctypes.c_void_p()
+        dacl = ctypes.c_void_p()
+        result = advapi.GetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x00000005,
+            ctypes.byref(owner),
+            None,
+            ctypes.byref(dacl),
+            None,
+            ctypes.byref(descriptor),
+        )
+        if result != 0 or not owner.value or not dacl.value or not descriptor.value:
+            raise RuntimeError(
+                f"TAW-08 private ACL inspection failed (winerror={result})"
+            )
+        if not advapi.EqualSid(owner, current_sid):
+            raise RuntimeError("TAW-08 private ACL owner is invalid")
+        control = wintypes.WORD()
+        revision = wintypes.DWORD()
+        if not advapi.GetSecurityDescriptorControl(
+            descriptor, ctypes.byref(control), ctypes.byref(revision)
+        ) or not control.value & 0x1000:
+            raise RuntimeError("TAW-08 private ACL is not protected")
+        for sid_text in ("S-1-3-4", "S-1-5-18", "S-1-5-32-544"):
+            sid = ctypes.c_void_p()
+            if not advapi.ConvertStringSidToSidW(sid_text, ctypes.byref(sid)):
+                raise _windows_error("TAW-08 private ACL SID lookup failed")
+            allowed_sid_handles.append(sid)
+        information = _WindowsAclSizeInformation()
+        if not advapi.GetAclInformation(
+            dacl,
+            ctypes.byref(information),
+            ctypes.sizeof(information),
+            2,
+        ) or information.AceCount != len(allowed_sid_handles):
+            raise RuntimeError("TAW-08 private ACL grants are invalid")
+        observed: set[int] = set()
+        for index in range(information.AceCount):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise _windows_error("TAW-08 private ACL grant lookup failed")
+            header = ctypes.cast(
+                ace, ctypes.POINTER(_WindowsAceHeader)
+            ).contents
+            mask = ctypes.c_uint32.from_address(ace.value + 4).value
+            ace_sid = ctypes.c_void_p(ace.value + 8)
+            matches = tuple(
+                sid_index
+                for sid_index, sid in enumerate(allowed_sid_handles)
+                if advapi.EqualSid(ace_sid, sid)
+            )
+            if (
+                header.AceType != 0
+                or header.AceFlags != 0x03
+                or header.AceSize < 12
+                or mask != 0x001F01FF
+                or len(matches) != 1
+                or matches[0] in observed
+            ):
+                raise RuntimeError("TAW-08 private ACL grants are invalid")
+            observed.add(matches[0])
+        if len(observed) != len(allowed_sid_handles):
+            raise RuntimeError("TAW-08 private ACL grants are invalid")
+    finally:
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        for sid in allowed_sid_handles:
+            kernel.LocalFree(sid)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
+def _validate_private_directory(path: Path, *, require_empty: bool) -> None:
+    metadata = os.lstat(path)
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise RuntimeError("TAW-08 private directory is unsafe")
+    if os.name == "posix":
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise RuntimeError("TAW-08 private directory is unsafe")
+    elif os.name == "nt":
+        _validate_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("TAW-08 private directory platform is unsupported")
+    if require_empty and any(path.iterdir()):
+        raise RuntimeError("TAW-08 private directory is unsafe")
+
+
+def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
+    if os.name == "posix":
+        path.chmod(0o700)
+    elif os.name == "nt":
+        _apply_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("TAW-08 private directory platform is unsupported")
+    _validate_private_directory(path, require_empty=require_empty)
+
+
 def _locked_child_environment(
     *,
     revision: str,
     environment_root: Path,
     selected_wheelhouse: Path,
+    runtime_temp: Path,
     platform_name: str = os.name,
 ) -> dict[str, str]:
     environment = {
@@ -2139,6 +2414,9 @@ def _locked_child_environment(
         _LOCKED_CHILD_REVISION_ENV: revision,
         _ENVIRONMENT_ROOT_ENV: str(environment_root),
         _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
+        "TMPDIR": str(runtime_temp),
+        "TEMP": str(runtime_temp),
+        "TMP": str(runtime_temp),
     }
     if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
         environment[_EXPORT_FOUNDER_INPUTS_ENV] = "1"
@@ -2240,19 +2518,20 @@ def _run_locked_candidate_verifier() -> bytes | None:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")
     provisioned_wheelhouse = Path(provisioned_wheelhouse_value).resolve()
     with tempfile.TemporaryDirectory(prefix="uaa-taw08-locked-") as temporary:
-        candidate_root = Path(temporary) / "candidate"
-        environment_root = Path(temporary) / "environment"
-        selected_wheelhouse = Path(temporary) / "selected-wheelhouse"
-        hooks_root = Path(temporary) / "hooks"
+        temporary_root = Path(temporary).resolve()
+        if temporary_root.is_relative_to(ROOT.resolve()):
+            raise RuntimeError("TAW-08 locked temporary root is unsafe")
+        _harden_private_directory(temporary_root, require_empty=True)
+        candidate_root = temporary_root / "candidate"
+        environment_root = temporary_root / "environment"
+        selected_wheelhouse = temporary_root / "selected-wheelhouse"
+        hooks_root = temporary_root / "hooks"
+        runtime_temp = temporary_root / "runtime-temp"
         hooks_root.mkdir(mode=0o700)
+        runtime_temp.mkdir(mode=0o700)
+        _harden_private_directory(hooks_root, require_empty=True)
+        _harden_private_directory(runtime_temp, require_empty=True)
         hooks_metadata = os.lstat(hooks_root)
-        if (
-            not stat.S_ISDIR(hooks_metadata.st_mode)
-            or (hasattr(os, "getuid") and hooks_metadata.st_uid != os.getuid())
-            or hooks_metadata.st_mode & 0o077
-            or any(hooks_root.iterdir())
-        ):
-            raise RuntimeError("TAW-08 inert Git hooks directory is invalid")
         hooks_config = ("-c", f"core.hooksPath={hooks_root}")
         added = False
         try:
@@ -2284,6 +2563,7 @@ def _run_locked_candidate_verifier() -> bytes | None:
                     revision=revision,
                     environment_root=environment_root,
                     selected_wheelhouse=selected_wheelhouse,
+                    runtime_temp=runtime_temp,
                 ),
                 timeout=300,
             )
@@ -2296,10 +2576,10 @@ def _run_locked_candidate_verifier() -> bytes | None:
                 current_hooks = os.lstat(hooks_root)
                 if (
                     not os.path.samestat(hooks_metadata, current_hooks)
-                    or current_hooks.st_mode & 0o077
-                    or any(hooks_root.iterdir())
                 ):
                     raise RuntimeError("TAW-08 inert Git hooks directory changed")
+                _validate_private_directory(hooks_root, require_empty=True)
+                _validate_private_directory(runtime_temp, require_empty=False)
                 _git(
                     "worktree",
                     "remove",

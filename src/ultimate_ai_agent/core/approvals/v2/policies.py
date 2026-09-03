@@ -1,5 +1,7 @@
 from typing import Any
-from datetime import UTC, datetime
+from datetime import datetime
+
+from ultimate_ai_agent.core._compat import UTC
 
 from ultimate_ai_agent.core.approvals.v2.contracts import (
     ActionIntent,

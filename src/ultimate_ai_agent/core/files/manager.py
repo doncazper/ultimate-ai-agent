@@ -1,10 +1,11 @@
 import hashlib
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals import (
     ApprovalRequest,
     ApprovalRiskLevel,

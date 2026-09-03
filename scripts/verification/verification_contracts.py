@@ -5,10 +5,12 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Any
+
+from ultimate_ai_agent.core._compat import UTC
 
 
 SAFE_REF_PATTERN = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,191}$")

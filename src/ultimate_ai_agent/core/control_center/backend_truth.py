@@ -5,11 +5,12 @@ import json
 import re
 import threading
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.build_identity import BuildIdentity, build_identity
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,

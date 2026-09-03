@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     InvocationPolicy,
     TurnContractKind,

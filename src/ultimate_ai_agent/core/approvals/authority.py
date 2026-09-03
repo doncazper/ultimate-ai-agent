@@ -1,9 +1,10 @@
 import uuid
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from threading import RLock
 from typing import Any, Iterator, List, Optional
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.approvals.decisions import ApprovalValidationDecision, ApprovalValidationRequest
 from ultimate_ai_agent.core.approvals.enums import (
     ApprovalDecisionStatus,

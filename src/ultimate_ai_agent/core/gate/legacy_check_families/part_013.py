@@ -28,7 +28,9 @@ class FoundationGateLegacyChecksPart013Mixin:
             if not (self.root / path).exists()
         ]
         try:
-            from datetime import UTC, datetime
+            from datetime import datetime
+
+            from ultimate_ai_agent.core._compat import UTC
 
             from ultimate_ai_agent.core.hygiene.actor_context import (
                 ActorContext,

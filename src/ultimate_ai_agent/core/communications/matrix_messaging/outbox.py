@@ -8,12 +8,13 @@ import os
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core._compat import UTC
 from ultimate_ai_agent.core.communications.matrix_sync.cache import (
     MatrixCacheCryptoBackend,
     MatrixCacheKeyUnavailable,

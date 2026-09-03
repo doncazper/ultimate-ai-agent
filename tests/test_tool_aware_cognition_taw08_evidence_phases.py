@@ -1139,6 +1139,97 @@ def test_worker_rejects_ignored_bytecode_before_repository_import(
     assert not sentinel.exists()
 
 
+def test_driver_and_worker_reject_ignored_root_package_before_import(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    (repository / ".gitignore").write_text("root_shadow/\n", encoding="utf-8")
+    tracked = repository / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("import root_shadow\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    ignored = repository / "root_shadow/__init__.py"
+    ignored.parent.mkdir()
+    ignored.write_text("MALICIOUS = True\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="ignored executable sources"):
+        driver._precheck_clean_worktree(repository)
+    with pytest.raises(RuntimeError, match="must be clean before import"):
+        worker._require_preimport_clean_exact_worktree(
+            repository,
+            expected_revision=revision,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_driver_and_worker_reject_tracked_symlink_before_import(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("MALICIOUS = True\n", encoding="utf-8")
+    tracked = repository / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.symlink_to(outside)
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    with pytest.raises(ValueError, match="tree census is invalid"):
+        driver._precheck_clean_worktree(repository)
+    with pytest.raises(RuntimeError, match="must be clean before import"):
+        worker._require_preimport_clean_exact_worktree(
+            repository,
+            expected_revision=revision,
+        )
+
+
 def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> None:
     repository = (tmp_path / "repository").resolve()
     verifier_path = repository / "scripts/verify_tool_aware_cognition_taw08.py"
@@ -1225,7 +1316,10 @@ def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> N
     )
 
     assert substituted.returncode != 0
-    assert b"trusted provenance" in substituted.stderr
+    if sys.platform == "darwin":
+        assert b"must be clean before import" in substituted.stderr
+    else:
+        assert b"trusted provenance" in substituted.stderr
     assert not sentinel.exists()
 
 
@@ -1239,6 +1333,7 @@ def test_phase_git_rejects_path_substitution(
     substituted_git = tmp_path / "git"
     substituted_git.write_bytes(b"substituted git")
     substituted_git.chmod(0o777)
+    monkeypatch.setattr(module.sys, "platform", "linux")
     monkeypatch.setattr(
         module.shutil,
         "which",
