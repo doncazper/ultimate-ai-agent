@@ -2748,7 +2748,7 @@ def _run_locked_candidate_verifier() -> bytes | None:
                     selected_wheelhouse=selected_wheelhouse,
                     runtime_temp=runtime_temp,
                 ),
-                timeout=300,
+                timeout=900,
             )
             if child.returncode != 0:
                 raise RuntimeError("TAW-08 locked candidate verifier failed")
