@@ -1975,6 +1975,83 @@ def test_foundation_preimport_posture_diverts_cache_and_rejects_legacy_bytecode(
         )
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX temporary-root regression")
+def test_foundation_import_cache_rejects_writable_nonsticky_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    unsafe_root = tmp_path / "unsafe-temp"
+    unsafe_root.mkdir(mode=0o700)
+    unsafe_root.chmod(0o777)
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(unsafe_root))
+
+    try:
+        with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+            foundation_runner._prepare_external_import_cache(repository)
+    finally:
+        unsafe_root.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
+def test_foundation_clean_worktree_rejects_other_only_executable_mode(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    tracked = repository / "tracked.sh"
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    tracked.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    tracked.chmod(0o700)
+    subprocess.run(("git", "add", "tracked.sh"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    tracked.chmod(0o001)
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        foundation_runner._require_raw_clean_worktree(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+def test_active_foundation_command_examples_use_isolated_python() -> None:
+    repository = Path(__file__).resolve().parents[1]
+    active_documents = [repository / "AGENTS.md"]
+    active_documents.extend(
+        path
+        for path in (repository / "docs").rglob("*.md")
+        if "archive" not in path.relative_to(repository / "docs").parts
+    )
+    forbidden = (
+        ".venv/bin/python scripts/run_foundation_gate.py",
+        "PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py",
+        "python scripts/run_foundation_gate.py",
+    )
+
+    offenders = [
+        str(path.relative_to(repository))
+        for path in active_documents
+        if any(fragment in path.read_text(encoding="utf-8") for fragment in forbidden)
+    ]
+    assert offenders == []
+
+
 def test_foundation_bootstrap_prevents_initial_sourceless_module_execution(
     tmp_path: Path,
 ) -> None:

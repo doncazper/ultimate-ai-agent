@@ -178,7 +178,7 @@ Run this when authority, runtime, command execution, provider, connector,
 memory write, background, browser, or release posture changed:
 
 ```bash
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 If an environment dependency blocks a check, report it and do not claim

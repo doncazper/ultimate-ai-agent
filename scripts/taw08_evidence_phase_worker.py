@@ -495,7 +495,7 @@ def _raw_worktree_blob_id(
         hasher = hashlib.new(object_format)
         if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
             raise RuntimeError("TAW-08 repository worktree content differs from Git")
-        if os.name == "posix" and bool(before.st_mode & 0o111) != (
+        if os.name == "posix" and bool(before.st_mode & stat.S_IXUSR) != (
             mode == b"100755"
         ):
             raise RuntimeError("TAW-08 repository worktree mode differs from Git")
@@ -1062,7 +1062,7 @@ def _manifest_from_git(
     verifier: ModuleType,
     acceptance: ModuleType,
     *,
-    candidate_root: Path,
+    delta_root: Path,
     candidate_lock: Any,
     delta_revision: str,
 ) -> tuple[Any, Any, dict[str, bytes]]:
@@ -1070,7 +1070,7 @@ def _manifest_from_git(
     census = verifier.derive_revision_delta_census(
         candidate_lock.git_revision_ref,
         delta_revision_ref,
-        repository_root=candidate_root,
+        repository_root=delta_root,
     )
     expected_path_refs = tuple(
         sorted(
@@ -1089,7 +1089,7 @@ def _manifest_from_git(
         path_ref: verifier._git(
             "show",
             f"{delta_revision}:{path_ref.removeprefix('repo-path-ref:')}",
-            repository_root=candidate_root,
+            repository_root=delta_root,
         )
         for path_ref in census.path_refs
     }
@@ -1157,7 +1157,7 @@ def _verify_delta(
     manifest, _census, _content = _manifest_from_git(
         verifier,
         acceptance,
-        candidate_root=candidate_root,
+        delta_root=delta_root,
         candidate_lock=candidate_lock,
         delta_revision=delta_revision,
     )
@@ -1167,7 +1167,7 @@ def _verify_delta(
         validated_acceptance_reports_by_path_ref={
             acceptance.TAW08_ACCEPTANCE_REPORT_PATH_REF: pre_report
         },
-        repository_root=candidate_root,
+        repository_root=delta_root,
     )
     stored_phase_receipt: dict[str, object] | None = None
     if existing_receipt_path is None:
@@ -1449,7 +1449,7 @@ def _verify_publication(
     manifest, _census, _content = _manifest_from_git(
         verifier,
         acceptance,
-        candidate_root=candidate_root,
+        delta_root=delta_root,
         candidate_lock=candidate_lock,
         delta_revision=delta_revision,
     )
@@ -1461,7 +1461,7 @@ def _verify_publication(
         validated_acceptance_reports_by_path_ref={
             acceptance.TAW08_ACCEPTANCE_REPORT_PATH_REF: pre_report
         },
-        repository_root=candidate_root,
+        repository_root=delta_root,
     )
     if delta_receipt != stored_delta_receipt:
         raise ValueError("verified delta receipt differs from Git")
@@ -1500,7 +1500,7 @@ def _verify_publication(
     history = verifier.derive_publication_history_census(
         manifest.delta_revision_ref,
         f"git-sha:{publication_revision}",
-        repository_root=candidate_root,
+        repository_root=publication_root,
     )
     expected_publication_paths = (acceptance.TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,)
     if (
@@ -1516,7 +1516,7 @@ def _verify_publication(
         delta=manifest,
         delta_verification_receipt=delta_receipt,
         postmerge_foundation_receipt=postmerge_receipt,
-        repository_root=candidate_root,
+        repository_root=publication_root,
     )
     final_report = acceptance.evaluate_taw08_acceptance(
         candidate_lock=candidate_lock,

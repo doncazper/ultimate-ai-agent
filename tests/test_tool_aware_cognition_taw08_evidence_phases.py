@@ -970,6 +970,44 @@ def test_raw_clean_worktree_rejects_filter_masked_python_without_execution(
     assert not sentinel.exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
+@pytest.mark.parametrize("checker", ("driver", "worker"))
+def test_raw_clean_worktree_rejects_other_only_executable_mode(
+    tmp_path: Path,
+    checker: str,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    tracked = repository / "tracked.sh"
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    tracked.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    tracked.chmod(0o700)
+    subprocess.run(("git", "add", "tracked.sh"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    tracked.chmod(0o001)
+
+    if checker == "driver":
+        with pytest.raises(ValueError, match="worktree must be clean"):
+            driver._precheck_clean_worktree(repository)
+    else:
+        with pytest.raises(RuntimeError, match="phase repository must be clean"):
+            worker._require_raw_clean_worktree(repository)
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
 def test_raw_tree_census_never_lazy_fetches_from_promisor(tmp_path: Path) -> None:
     seed = tmp_path / "seed"
@@ -1916,9 +1954,15 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     class PhaseVerifier:
         def __init__(self) -> None:
             self.foundation_roots: list[Path] = []
+            self.delta_roots: list[Path] = []
+            self.publication_history_roots: list[Path] = []
+            self.publication_verification_roots: list[Path] = []
             self.expand_publication_history = False
 
-        def verify_repository_evidence_delta(self, **_kwargs: object) -> object:
+        def verify_repository_evidence_delta(self, **kwargs: object) -> object:
+            repository_root = kwargs["repository_root"]
+            assert isinstance(repository_root, Path)
+            self.delta_roots.append(repository_root)
             return delta_receipt
 
         def verify_repository_foundation_gate(self, **kwargs: object) -> object:
@@ -1931,16 +1975,22 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
             return fresh_foundation_receipt
 
         def derive_publication_history_census(
-            self, *_args: object, **_kwargs: object
+            self, *_args: object, **kwargs: object
         ) -> SimpleNamespace:
+            repository_root = kwargs["repository_root"]
+            assert isinstance(repository_root, Path)
+            self.publication_history_roots.append(repository_root)
             paths = (acceptance.TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,)
             if self.expand_publication_history:
                 paths += ("repo-path-ref:src/unexpected.py",)
             return SimpleNamespace(path_refs=paths, history_path_refs=paths)
 
         def verify_repository_final_acceptance_publication(
-            self, **_kwargs: object
+            self, **kwargs: object
         ) -> object:
+            repository_root = kwargs["repository_root"]
+            assert isinstance(repository_root, Path)
+            self.publication_verification_roots.append(repository_root)
             return publication_receipt
 
     verifier = PhaseVerifier()
@@ -1969,6 +2019,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
 
     def manifest_from_git(*_args: object, **kwargs: object) -> tuple[object, ...]:
         assert kwargs["delta_revision"] == m2
+        assert kwargs["delta_root"] == delta_root
         return manifest, SimpleNamespace(), {}
 
     stored_phase_receipt: dict[str, object] = {}
@@ -2073,6 +2124,10 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         expected_source_digests=SOURCE_DIGESTS,
     )
     assert publication_phase_receipt["publication_revision_ref"] == f"git-sha:{m3}"
+    assert len(verifier.delta_roots) >= 2
+    assert set(verifier.delta_roots) == {delta_root}
+    assert verifier.publication_history_roots == [publication_root]
+    assert verifier.publication_verification_roots == [publication_root]
     assert publication_phase_receipt["status"] == (
         "founder_private_accepted_promotion_blocked"
     )

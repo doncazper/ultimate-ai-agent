@@ -33,7 +33,7 @@ PYTHONPATH=src python -m pytest
 python scripts/verify_current_baseline.py
 python scripts/verify_skill_package_security_rule.py
 python scripts/verify_all.py
-python scripts/run_foundation_gate.py
+python -I -B -S scripts/run_foundation_gate.py
 python scripts/verify_openapi_contract.py
 python -m ruff check .
 ```

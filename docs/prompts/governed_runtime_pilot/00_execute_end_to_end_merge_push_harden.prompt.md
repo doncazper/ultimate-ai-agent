@@ -160,7 +160,7 @@ git diff --check
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 make frontend-check
 ```
 

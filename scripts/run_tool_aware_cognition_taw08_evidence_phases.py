@@ -642,7 +642,7 @@ def _raw_worktree_blob_id(
         hasher = hashlib.new(object_format)
         if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
             raise ValueError("repository worktree content differs from Git")
-        if os.name == "posix" and bool(before.st_mode & 0o111) != (
+        if os.name == "posix" and bool(before.st_mode & stat.S_IXUSR) != (
             mode == b"100755"
         ):
             raise ValueError("repository worktree mode differs from Git")

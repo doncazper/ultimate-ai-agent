@@ -193,7 +193,7 @@ def _require_raw_clean_worktree(
                 raise RuntimeError(
                     "Foundation Gate revision provenance requires a clean worktree"
                 )
-            if os.name == "posix" and bool(before.st_mode & 0o111) != (
+            if os.name == "posix" and bool(before.st_mode & stat.S_IXUSR) != (
                 mode == b"100755"
             ):
                 raise RuntimeError(
@@ -577,12 +577,25 @@ def _prepare_external_import_cache(
         or temporary_root.is_relative_to(repository_root.resolve())
     ):
         raise RuntimeError("Foundation Gate import cache root is unsafe")
+    if os.name == "posix":
+        root_mode = stat.S_IMODE(root_metadata.st_mode)
+        if root_metadata.st_uid not in {0, os.getuid()} or (
+            root_mode & 0o022 and not root_mode & stat.S_ISVTX
+        ):
+            raise RuntimeError("Foundation Gate import cache root is unsafe")
     cache_handle = tempfile.TemporaryDirectory(
         prefix="uaa-foundation-import-cache-",
         dir=temporary_root,
     )
     cache_root = Path(cache_handle.name)
-    _harden_private_directory(cache_root, require_empty=True)
+    try:
+        _harden_private_directory(cache_root, require_empty=True)
+        final_root_metadata = os.lstat(temporary_root)
+        if not os.path.samestat(root_metadata, final_root_metadata):
+            raise RuntimeError("Foundation Gate import cache root changed")
+    except BaseException:
+        cache_handle.cleanup()
+        raise
     sys.pycache_prefix = str(cache_root)
     sys.dont_write_bytecode = True
     return cache_handle, cache_root
