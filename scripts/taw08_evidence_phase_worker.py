@@ -27,6 +27,10 @@ GIT_READ_CONFIG = (
     "core.checkStat=default",
     "-c",
     "core.ignoreStat=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+    "-c",
+    f"core.attributesFile={os.devnull}",
 )
 REQUEST_ENV = "UAA_TAW08_PHASE_REQUEST"
 WORKER_DIGEST_ENV = "UAA_TAW08_PHASE_WORKER_DIGEST"
@@ -120,9 +124,7 @@ def _require_no_extended_acl_grants_fd(
     *,
     purpose: str,
 ) -> None:
-    if any(
-        tag != 2 for tag in _darwin_extended_acl_tags(descriptor, purpose=purpose)
-    ):
+    if any(tag != 2 for tag in _darwin_extended_acl_tags(descriptor, purpose=purpose)):
         raise ValueError(f"{purpose} has unsafe extended ACL grants")
 
 
@@ -152,9 +154,7 @@ def _require_root_owned_lexical_symlinks(path: Path, *, purpose: str) -> None:
             metadata = os.lstat(lexical)
             if stat.S_ISLNK(metadata.st_mode):
                 if metadata.st_uid != 0:
-                    raise ValueError(
-                        f"{purpose} contains an unsafe linked ancestor"
-                    )
+                    raise ValueError(f"{purpose} contains an unsafe linked ancestor")
                 continue
             if (
                 not stat.S_ISDIR(metadata.st_mode)
@@ -201,9 +201,7 @@ def _require_safe_private_ancestor_chain(path: Path, *, purpose: str) -> None:
         resolved = path.resolve(strict=True)
     except OSError as exc:
         raise ValueError(f"{purpose} is unavailable") from exc
-    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-        os, "O_NOFOLLOW", 0
-    )
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
     if not nofollow_flag:
         raise ValueError("private path enforcement is unavailable on this platform")
     ancestor = resolved.parent
@@ -265,9 +263,7 @@ def _read_owner_only_file(path: Path, *, purpose: str) -> tuple[Path, bytes]:
         or initial.st_size > MAX_JSON_BYTES
     ):
         raise ValueError(f"{purpose} must be owner-only")
-    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-        os, "O_NOFOLLOW", 0
-    )
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
     if not nofollow_flag:
         raise ValueError("private path enforcement is unavailable on this platform")
     descriptor = os.open(
@@ -383,7 +379,11 @@ def _trusted_git_executable() -> Path:
     return resolved
 
 
-def _preimport_git(repository_root: Path, *args: str) -> bytes:
+def _preimport_git(
+    repository_root: Path,
+    *args: str,
+    input_bytes: bytes | None = None,
+) -> bytes:
     executable = _trusted_git_executable()
     environment = {
         key: value
@@ -394,6 +394,8 @@ def _preimport_git(repository_root: Path, *args: str) -> bytes:
         {
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_TERMINAL_PROMPT": "0",
         }
     )
@@ -403,9 +405,240 @@ def _preimport_git(repository_root: Path, *args: str) -> bytes:
         env=environment,
         check=True,
         capture_output=True,
+        input=input_bytes,
         timeout=120,
     )
     return completed.stdout
+
+
+def _nul_records(payload: bytes, *, purpose: str) -> list[bytes]:
+    if len(payload) > MAX_JSON_BYTES or (payload and not payload.endswith(b"\0")):
+        raise RuntimeError(f"TAW-08 {purpose} is invalid")
+    records = payload[:-1].split(b"\0") if payload else []
+    if len(records) > 20_000 or any(not record for record in records):
+        raise RuntimeError(f"TAW-08 {purpose} is invalid")
+    return records
+
+
+def _git_tree_entries(
+    repository_root: Path, *, revision: str
+) -> dict[bytes, tuple[bytes, bytes, int]]:
+    records = _nul_records(
+        _preimport_git(repository_root, "ls-tree", "-rlz", "--full-tree", revision),
+        purpose="repository Git tree census",
+    )
+    entries: dict[bytes, tuple[bytes, bytes, int]] = {}
+    for record in records:
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_type, object_id, size_value = metadata.split(b" ", 3)
+            size = int(size_value)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("TAW-08 repository Git tree census is invalid") from exc
+        components = path.split(b"/")
+        if (
+            object_type != b"blob"
+            or mode not in {b"100644", b"100755", b"120000"}
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or size < 0
+            or size > 64 * 1024 * 1024
+            or path.startswith(b"/")
+            or any(component in {b"", b".", b".."} for component in components)
+            or path in entries
+        ):
+            raise RuntimeError("TAW-08 repository Git tree census is invalid")
+        entries[path] = (mode, object_id, size)
+    if sum(size for _mode, _object_id, size in entries.values()) > 1024**3:
+        raise RuntimeError("TAW-08 repository Git tree census is invalid")
+    return entries
+
+
+def _git_index_entries(repository_root: Path) -> dict[bytes, tuple[bytes, bytes]]:
+    records = _nul_records(
+        _preimport_git(repository_root, "ls-files", "--stage", "-z"),
+        purpose="repository Git index census",
+    )
+    entries: dict[bytes, tuple[bytes, bytes]] = {}
+    for record in records:
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_id, stage = metadata.split(b" ", 2)
+        except ValueError as exc:
+            raise RuntimeError("TAW-08 repository Git index census is invalid") from exc
+        if (
+            stage != b"0"
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or path in entries
+        ):
+            raise RuntimeError("TAW-08 repository Git index census is invalid")
+        entries[path] = (mode, object_id)
+    return entries
+
+
+def _raw_worktree_blob_id(
+    repository_root: Path,
+    *,
+    path: bytes,
+    mode: bytes,
+    expected_size: int,
+    object_format: str,
+) -> str:
+    components = [os.fsdecode(component) for component in path.split(b"/")]
+    parent = repository_root
+    try:
+        for component in components[:-1]:
+            parent = parent / component
+            if not stat.S_ISDIR(os.lstat(parent).st_mode):
+                raise RuntimeError("TAW-08 repository worktree path is invalid")
+        target = parent / components[-1]
+        before = os.lstat(target)
+        hasher = hashlib.new(object_format)
+        if mode == b"120000":
+            if not stat.S_ISLNK(before.st_mode):
+                raise RuntimeError("TAW-08 repository worktree path is invalid")
+            content = os.fsencode(os.readlink(target))
+            if len(content) != expected_size:
+                raise RuntimeError(
+                    "TAW-08 repository worktree content differs from Git"
+                )
+            hasher.update(f"blob {len(content)}\0".encode("ascii"))
+            hasher.update(content)
+        else:
+            if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
+                raise RuntimeError(
+                    "TAW-08 repository worktree content differs from Git"
+                )
+            if os.name == "posix" and bool(before.st_mode & 0o111) != (
+                mode == b"100755"
+            ):
+                raise RuntimeError("TAW-08 repository worktree mode differs from Git")
+            descriptor = os.open(
+                target,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+            try:
+                opened = os.fstat(descriptor)
+                if not os.path.samestat(before, opened):
+                    raise RuntimeError(
+                        "TAW-08 repository worktree path changed during inspection"
+                    )
+                hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+                closed_over = os.fstat(descriptor)
+            finally:
+                os.close(descriptor)
+            if not os.path.samestat(opened, closed_over):
+                raise RuntimeError(
+                    "TAW-08 repository worktree path changed during inspection"
+                )
+        after = os.lstat(target)
+    except OSError as exc:
+        raise RuntimeError("TAW-08 repository worktree path is invalid") from exc
+    if (
+        not os.path.samestat(before, after)
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or before.st_ctime_ns != after.st_ctime_ns
+    ):
+        raise RuntimeError("TAW-08 repository worktree path changed during inspection")
+    return hasher.hexdigest()
+
+
+def _require_raw_clean_worktree(
+    repository_root: Path, *, expected_revision: str | None = None
+) -> str:
+    """Compare raw worktree bytes and modes with HEAD without Git conversions."""
+
+    revision = (
+        _preimport_git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+    )
+    if not re.fullmatch(r"[0-9a-f]{40}", revision) or (
+        expected_revision is not None and revision != expected_revision
+    ):
+        raise RuntimeError("TAW-08 phase repository revision drift")
+    object_format = (
+        _preimport_git(repository_root, "rev-parse", "--show-object-format")
+        .decode("ascii", errors="strict")
+        .strip()
+    )
+    if object_format not in {"sha1", "sha256"}:
+        raise RuntimeError("TAW-08 repository Git object format is invalid")
+    tree_entries = _git_tree_entries(repository_root, revision=revision)
+    index_entries = _git_index_entries(repository_root)
+    if {
+        path: (mode, object_id)
+        for path, (mode, object_id, _size) in tree_entries.items()
+    } != index_entries:
+        raise RuntimeError("TAW-08 phase repository must be clean")
+    for path, (mode, object_id, size) in tree_entries.items():
+        try:
+            actual_object_id = _raw_worktree_blob_id(
+                repository_root,
+                path=path,
+                mode=mode,
+                expected_size=size,
+                object_format=object_format,
+            ).encode("ascii")
+        except RuntimeError as exc:
+            raise RuntimeError("TAW-08 phase repository must be clean") from exc
+        if actual_object_id != object_id:
+            raise RuntimeError("TAW-08 phase repository must be clean")
+    untracked = _preimport_git(
+        repository_root,
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z",
+    )
+    if _nul_records(untracked, purpose="repository untracked-path census"):
+        raise RuntimeError("TAW-08 phase repository must be clean")
+    if (
+        _preimport_git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+        != revision
+    ):
+        raise RuntimeError("TAW-08 phase repository revision drift")
+    return revision
+
+
+def _require_no_ignored_executable_sources(repository_root: Path) -> None:
+    ignored = _nul_records(
+        _preimport_git(
+            repository_root,
+            "ls-files",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "-z",
+            "--",
+            "src",
+            "scripts",
+        ),
+        purpose="ignored executable-source census",
+    )
+    executable_suffixes = (
+        b".py",
+        b".pyc",
+        b".pyo",
+        b".so",
+        b".pyd",
+        b".dll",
+        b".dylib",
+    )
+    if any(
+        b"__pycache__" in path.split(b"/") or path.lower().endswith(executable_suffixes)
+        for path in ignored
+    ):
+        raise RuntimeError("TAW-08 phase repository has ignored executable sources")
 
 
 def _require_preimport_clean_exact_worktree(
@@ -423,24 +656,33 @@ def _require_preimport_clean_exact_worktree(
     if top_level != repository_root:
         raise RuntimeError("TAW-08 phase repository root drift")
     revision = (
-        _preimport_git(repository_root, "rev-parse", "HEAD")
-        .decode("ascii")
-        .strip()
+        _preimport_git(repository_root, "rev-parse", "HEAD").decode("ascii").strip()
     )
     if revision != expected_revision:
         raise RuntimeError("TAW-08 phase repository revision drift")
-    hidden = _preimport_git(repository_root, "ls-files", "-v", "-z").split(b"\0")
-    if _preimport_git(
-        repository_root, "status", "--porcelain", "--untracked-files=all"
-    ) or any(
-        entry
-        and (
-            entry[:1] in {b"S", b"s"}
-            or (entry[:1].isalpha() and entry[:1].islower())
+    try:
+        _require_raw_clean_worktree(
+            repository_root, expected_revision=expected_revision
         )
+        _require_no_ignored_executable_sources(repository_root)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "TAW-08 phase repository must be clean before import"
+        ) from exc
+    hidden = _preimport_git(repository_root, "ls-files", "-v", "-z").split(b"\0")
+    if any(
+        entry
+        and (entry[:1] in {b"S", b"s"} or (entry[:1].isalpha() and entry[:1].islower()))
         for entry in hidden
     ):
         raise RuntimeError("TAW-08 phase repository must be clean before import")
+    if (
+        _preimport_git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+        != expected_revision
+    ):
+        raise RuntimeError("TAW-08 phase repository revision drift")
 
 
 def _load_repository_modules(candidate_root: Path) -> tuple[ModuleType, ModuleType]:
@@ -513,13 +755,16 @@ def _require_clean_exact_worktree(
     )
     if expected_revision is not None and revision != expected_revision:
         raise RuntimeError("TAW-08 phase repository revision drift")
-    if verifier._git(
-        "status",
-        "--porcelain",
-        "--untracked-files=all",
-        repository_root=repository_root,
-    ) or verifier._index_has_hidden_worktree_entries(repository_root=repository_root):
+    _require_raw_clean_worktree(repository_root, expected_revision=revision)
+    if verifier._index_has_hidden_worktree_entries(repository_root=repository_root):
         raise RuntimeError("TAW-08 phase repository must be clean")
+    if (
+        _preimport_git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+        != revision
+    ):
+        raise RuntimeError("TAW-08 phase repository revision drift")
     return revision
 
 

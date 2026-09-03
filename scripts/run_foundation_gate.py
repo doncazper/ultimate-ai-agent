@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
 import json
 import os
+import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -47,6 +50,10 @@ _GIT_READ_CONFIG = (
     "core.checkStat=default",
     "-c",
     "core.ignoreStat=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+    "-c",
+    f"core.attributesFile={os.devnull}",
 )
 
 
@@ -60,10 +67,198 @@ def _sanitized_git_environment() -> dict[str, str]:
         {
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_TERMINAL_PROMPT": "0",
         }
     )
     return environment
+
+
+def _require_raw_clean_worktree(
+    repository_root: Path,
+    *,
+    git_command: str,
+    git_environment: dict[str, str],
+) -> str:
+    """Compare raw worktree bytes and modes with HEAD without Git conversions."""
+
+    def run(*arguments: str, input_bytes: bytes | None = None) -> bytes:
+        completed = subprocess.run(
+            [
+                git_command,
+                "--no-replace-objects",
+                *_GIT_READ_CONFIG,
+                *arguments,
+            ],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            env=git_environment,
+            input=input_bytes,
+        )
+        return completed.stdout
+
+    def records(payload: bytes, *, purpose: str) -> list[bytes]:
+        if len(payload) > 16 * 1024 * 1024 or (payload and not payload.endswith(b"\0")):
+            raise RuntimeError(f"Foundation Gate {purpose} is invalid")
+        values = payload[:-1].split(b"\0") if payload else []
+        if len(values) > 20_000 or any(not value for value in values):
+            raise RuntimeError(f"Foundation Gate {purpose} is invalid")
+        return values
+
+    revision = run("rev-parse", "HEAD").decode("ascii", errors="strict").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise RuntimeError("Foundation Gate repository revision is invalid")
+    object_format = (
+        run("rev-parse", "--show-object-format")
+        .decode("ascii", errors="strict")
+        .strip()
+    )
+    if object_format not in {"sha1", "sha256"}:
+        raise RuntimeError("Foundation Gate Git object format is invalid")
+
+    tree_entries: dict[bytes, tuple[bytes, bytes, int]] = {}
+    for record in records(
+        run("ls-tree", "-rlz", "--full-tree", revision),
+        purpose="Git tree census",
+    ):
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_type, object_id, size_value = metadata.split(b" ", 3)
+            size = int(size_value)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("Foundation Gate Git tree census is invalid") from exc
+        components = path.split(b"/")
+        if (
+            object_type != b"blob"
+            or mode not in {b"100644", b"100755", b"120000"}
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or size < 0
+            or size > 64 * 1024 * 1024
+            or path.startswith(b"/")
+            or any(component in {b"", b".", b".."} for component in components)
+            or path in tree_entries
+        ):
+            raise RuntimeError("Foundation Gate Git tree census is invalid")
+        tree_entries[path] = (mode, object_id, size)
+    if sum(size for _mode, _object_id, size in tree_entries.values()) > 1024**3:
+        raise RuntimeError("Foundation Gate Git tree census is invalid")
+
+    index_entries: dict[bytes, tuple[bytes, bytes]] = {}
+    for record in records(run("ls-files", "--stage", "-z"), purpose="Git index census"):
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_id, stage = metadata.split(b" ", 2)
+        except ValueError as exc:
+            raise RuntimeError("Foundation Gate Git index census is invalid") from exc
+        if (
+            stage != b"0"
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or path in index_entries
+        ):
+            raise RuntimeError("Foundation Gate Git index census is invalid")
+        index_entries[path] = (mode, object_id)
+    if {
+        path: (mode, object_id)
+        for path, (mode, object_id, _size) in tree_entries.items()
+    } != index_entries:
+        raise RuntimeError(
+            "Foundation Gate revision provenance requires a clean worktree"
+        )
+
+    for path, (mode, object_id, expected_size) in tree_entries.items():
+        components = [os.fsdecode(component) for component in path.split(b"/")]
+        parent = repository_root
+        try:
+            for component in components[:-1]:
+                parent = parent / component
+                if not stat.S_ISDIR(os.lstat(parent).st_mode):
+                    raise RuntimeError(
+                        "Foundation Gate repository worktree path is invalid"
+                    )
+            target = parent / components[-1]
+            before = os.lstat(target)
+            hasher = hashlib.new(object_format)
+            if mode == b"120000":
+                if not stat.S_ISLNK(before.st_mode):
+                    raise RuntimeError(
+                        "Foundation Gate repository worktree path is invalid"
+                    )
+                content = os.fsencode(os.readlink(target))
+                if len(content) != expected_size:
+                    raise RuntimeError(
+                        "Foundation Gate revision provenance requires a clean worktree"
+                    )
+                hasher.update(f"blob {len(content)}\0".encode("ascii"))
+                hasher.update(content)
+            else:
+                if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
+                    raise RuntimeError(
+                        "Foundation Gate revision provenance requires a clean worktree"
+                    )
+                if os.name == "posix" and bool(before.st_mode & 0o111) != (
+                    mode == b"100755"
+                ):
+                    raise RuntimeError(
+                        "Foundation Gate revision provenance requires a clean worktree"
+                    )
+                descriptor = os.open(
+                    target,
+                    os.O_RDONLY
+                    | getattr(os, "O_CLOEXEC", 0)
+                    | getattr(os, "O_NOFOLLOW", 0),
+                )
+                try:
+                    opened = os.fstat(descriptor)
+                    if not os.path.samestat(before, opened):
+                        raise RuntimeError(
+                            "Foundation Gate repository worktree path changed"
+                        )
+                    hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
+                    while True:
+                        chunk = os.read(descriptor, 1024 * 1024)
+                        if not chunk:
+                            break
+                        hasher.update(chunk)
+                    closed_over = os.fstat(descriptor)
+                finally:
+                    os.close(descriptor)
+                if not os.path.samestat(opened, closed_over):
+                    raise RuntimeError(
+                        "Foundation Gate repository worktree path changed"
+                    )
+            after = os.lstat(target)
+        except OSError as exc:
+            raise RuntimeError(
+                "Foundation Gate repository worktree path is invalid"
+            ) from exc
+        if (
+            not os.path.samestat(before, after)
+            or before.st_size != after.st_size
+            or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_ctime_ns != after.st_ctime_ns
+            or hasher.hexdigest().encode("ascii") != object_id
+        ):
+            raise RuntimeError(
+                "Foundation Gate revision provenance requires a clean worktree"
+            )
+
+    if records(
+        run(
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ),
+        purpose="untracked-path census",
+    ):
+        raise RuntimeError(
+            "Foundation Gate revision provenance requires a clean worktree"
+        )
+    if run("rev-parse", "HEAD").decode("ascii", errors="strict").strip() != revision:
+        raise RuntimeError("Foundation Gate repository revision drift")
+    return revision
 
 
 def _index_has_hidden_worktree_entries(
@@ -88,10 +283,7 @@ def _index_has_hidden_worktree_entries(
     ).stdout.split(b"\0")
     return any(
         entry
-        and (
-            entry[:1] in {b"S", b"s"}
-            or (entry[:1].isalpha() and entry[:1].islower())
-        )
+        and (entry[:1] in {b"S", b"s"} or (entry[:1].isalpha() and entry[:1].islower()))
         for entry in entries
     )
 
@@ -126,25 +318,11 @@ def exact_repository_revision(
         raise RuntimeError(
             "Foundation Gate exact revision provenance requires the repository root"
         )
-    worktree_status = subprocess.run(
-        [
-            git_command,
-            "--no-replace-objects",
-            *_GIT_READ_CONFIG,
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-        ],
-        cwd=resolved_root,
-        check=True,
-        capture_output=True,
-        text=True,
-        env=git_environment,
-    ).stdout
-    if worktree_status:
-        raise RuntimeError(
-            "Foundation Gate revision provenance requires a clean worktree"
-        )
+    revision = _require_raw_clean_worktree(
+        resolved_root,
+        git_command=git_command,
+        git_environment=git_environment,
+    )
     if _index_has_hidden_worktree_entries(
         resolved_root,
         git_command=git_command,
@@ -153,7 +331,7 @@ def exact_repository_revision(
         raise RuntimeError(
             "Foundation Gate revision provenance rejects hidden index entries"
         )
-    revision = subprocess.run(
+    revision_after = subprocess.run(
         [
             git_command,
             "--no-replace-objects",
@@ -167,6 +345,8 @@ def exact_repository_revision(
         text=True,
         env=git_environment,
     ).stdout.strip()
+    if revision_after != revision:
+        raise RuntimeError("Foundation Gate repository revision drift")
     return f"git-sha:{revision}"
 
 
@@ -190,9 +370,7 @@ def evaluate_foundation_gate_at_exact_repository_revision(
         != evaluated_revision_ref
     ):
         raise RuntimeError("Foundation Gate revision changed during evaluation")
-    bound = report.model_copy(
-        update={"evaluated_revision_ref": evaluated_revision_ref}
-    )
+    bound = report.model_copy(update={"evaluated_revision_ref": evaluated_revision_ref})
     bound = bound.model_copy(
         update={
             "evaluation_provenance_digest_ref": (
@@ -302,7 +480,9 @@ COMMAND_MODES = {
 }
 
 
-def run_command(command_ref: str, command_mode: str, args: list[str], safe_summary: str) -> FoundationGateCommandReceipt:
+def run_command(
+    command_ref: str, command_mode: str, args: list[str], safe_summary: str
+) -> FoundationGateCommandReceipt:
     print(f"\nRunning: {' '.join(args)}")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
@@ -495,22 +675,24 @@ def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
         lines.append("- No command receipts recorded.")
     latency_gate = payload.get("latency_gate")
     if latency_gate:
-        lines.extend([
-            "",
-            "## Latency Gate",
-            "",
-            f"- Status: `{latency_gate['status']}`",
-            f"- p50/p95 status: `{latency_gate['p50_p95_status']}`",
-            f"- Release latency: `{latency_gate['release_latency_status']}`",
-            f"- Hot-path profile: `{latency_gate['hot_path_profile_status']}`",
-            (
-                "- Foundation Gate latency: "
-                f"best `{latency_gate['foundation_gate_best_ms']}` ms "
-                f"(budget `{latency_gate['foundation_gate_best_budget_ms']}` ms), "
-                f"mean `{latency_gate['foundation_gate_mean_ms']}` ms "
-                f"(budget `{latency_gate['foundation_gate_mean_budget_ms']}` ms)"
-            ),
-        ])
+        lines.extend(
+            [
+                "",
+                "## Latency Gate",
+                "",
+                f"- Status: `{latency_gate['status']}`",
+                f"- p50/p95 status: `{latency_gate['p50_p95_status']}`",
+                f"- Release latency: `{latency_gate['release_latency_status']}`",
+                f"- Hot-path profile: `{latency_gate['hot_path_profile_status']}`",
+                (
+                    "- Foundation Gate latency: "
+                    f"best `{latency_gate['foundation_gate_best_ms']}` ms "
+                    f"(budget `{latency_gate['foundation_gate_best_budget_ms']}` ms), "
+                    f"mean `{latency_gate['foundation_gate_mean_ms']}` ms "
+                    f"(budget `{latency_gate['foundation_gate_mean_budget_ms']}` ms)"
+                ),
+            ]
+        )
         if latency_gate.get("foundation_gate_report_json"):
             lines.append(
                 f"- Report path: `{latency_gate['foundation_gate_report_json']}`"
@@ -523,8 +705,7 @@ def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
             for result in optional_prerequisites:
                 reason_codes = ", ".join(result.get("reason_codes", [])) or "none"
                 lines.append(
-                    f"- `{result['safe_label']}`: `{result['status']}` "
-                    f"({reason_codes})"
+                    f"- `{result['safe_label']}`: `{result['status']}` ({reason_codes})"
                 )
         lines.extend(["", "### Latency Path Results", ""])
         for result in latency_gate.get("path_results", []):
@@ -541,29 +722,37 @@ def write_markdown_payload(payload: dict, markdown_path: Path) -> None:
                 lines.append(f"- {failure}")
     release_lanes = payload.get("release_verification_lanes")
     if release_lanes:
-        lines.extend([
-            "",
-            "## Release Verification Lanes",
-            "",
-            f"- Manifest status: `{release_lanes['overall_status']}`",
-            f"- Definition status: `{release_lanes['definition_status']}`",
-            f"- Command execution status: `{release_lanes['command_execution_status']}`",
-            f"- Lane count: `{release_lanes['lane_count']}`",
-            f"- Accepted failures: `{len(release_lanes.get('accepted_failures', []))}`",
-            f"- Validation failures: `{len(release_lanes.get('validation_failures', []))}`",
-            "- Lanes: "
-            + ", ".join(f"`{lane_id}`" for lane_id in release_lanes.get("lane_ids", [])),
-        ])
+        lines.extend(
+            [
+                "",
+                "## Release Verification Lanes",
+                "",
+                f"- Manifest status: `{release_lanes['overall_status']}`",
+                f"- Definition status: `{release_lanes['definition_status']}`",
+                f"- Command execution status: `{release_lanes['command_execution_status']}`",
+                f"- Lane count: `{release_lanes['lane_count']}`",
+                f"- Accepted failures: `{len(release_lanes.get('accepted_failures', []))}`",
+                f"- Validation failures: `{len(release_lanes.get('validation_failures', []))}`",
+                "- Lanes: "
+                + ", ".join(
+                    f"`{lane_id}`" for lane_id in release_lanes.get("lane_ids", [])
+                ),
+            ]
+        )
         lines.extend(["", "### Lane Status Semantics", ""])
         for status, meaning in release_lanes.get("status_semantics", {}).items():
             lines.append(f"- `{status}`: {meaning}")
-    lines.extend([
-        "",
-        "## Criteria",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Criteria",
+            "",
+        ]
+    )
     for result in payload["results"]:
-        lines.append(f"- `{result['criterion_id']}`: `{result['status']}` - {result['safe_message']}")
+        lines.append(
+            f"- `{result['criterion_id']}`: `{result['status']}` - {result['safe_message']}"
+        )
     write_text_atomic(markdown_path, "\n".join(lines) + "\n")
 
 
@@ -608,9 +797,19 @@ def main(argv: list[str] | None = None) -> int:
             "ci-parallel records verification satisfied by required parallel CI jobs."
         ),
     )
-    parser.add_argument("--skip-commands", action="store_true", help="Legacy alias for --command-mode report-only.")
-    parser.add_argument("--no-write-latest", action="store_true", help="Do not update reports/foundation_gate/latest_* files.")
-    parser.add_argument("--output", help="Optional path for an additional JSON report copy.")
+    parser.add_argument(
+        "--skip-commands",
+        action="store_true",
+        help="Legacy alias for --command-mode report-only.",
+    )
+    parser.add_argument(
+        "--no-write-latest",
+        action="store_true",
+        help="Do not update reports/foundation_gate/latest_* files.",
+    )
+    parser.add_argument(
+        "--output", help="Optional path for an additional JSON report copy."
+    )
     parser.add_argument("--ci-prerequisite-manifest")
     parser.add_argument("--ci-prerequisite-sha")
     parser.add_argument("--ci-prerequisite-base-sha")
@@ -658,11 +857,9 @@ def main(argv: list[str] | None = None) -> int:
             command_failures.append(command_ref)
 
     foundation_gate_started = time.perf_counter()
-    _evaluated_revision_ref, report = (
-        evaluate_foundation_gate_for_repository_state(
-            ROOT,
-            require_clean_revision=args.require_clean_revision,
-        )
+    _evaluated_revision_ref, report = evaluate_foundation_gate_for_repository_state(
+        ROOT,
+        require_clean_revision=args.require_clean_revision,
     )
     foundation_gate_elapsed_ms = round(
         (time.perf_counter() - foundation_gate_started) * 1000,
@@ -725,7 +922,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Latency gate: {report.latency_gate.status}")
         print(f"Latency p50/p95 status: {report.latency_gate.p50_p95_status}")
     if report.release_verification_lanes is not None:
-        print(f"Release lane definitions: {report.release_verification_lanes.definition_status}")
+        print(
+            f"Release lane definitions: {report.release_verification_lanes.definition_status}"
+        )
         print(
             "Release lane command execution: "
             f"{report.release_verification_lanes.command_execution_status}"

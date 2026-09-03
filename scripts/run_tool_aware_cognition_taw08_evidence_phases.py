@@ -34,6 +34,10 @@ GIT_READ_CONFIG = (
     "core.checkStat=default",
     "-c",
     "core.ignoreStat=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+    "-c",
+    f"core.attributesFile={os.devnull}",
 )
 WORKER_PATH = Path(__file__).with_name("taw08_evidence_phase_worker.py")
 PREFLIGHT_PATH = Path(__file__).with_name("verify_taw08_environment_preflight.py")
@@ -158,9 +162,7 @@ def _require_no_extended_acl_grants_fd(
     *,
     purpose: str,
 ) -> None:
-    if any(
-        tag != 2 for tag in _darwin_extended_acl_tags(descriptor, purpose=purpose)
-    ):
+    if any(tag != 2 for tag in _darwin_extended_acl_tags(descriptor, purpose=purpose)):
         raise ValueError(f"{purpose} has unsafe extended ACL grants")
 
 
@@ -190,9 +192,7 @@ def _require_root_owned_lexical_symlinks(path: Path, *, purpose: str) -> None:
             metadata = os.lstat(lexical)
             if stat.S_ISLNK(metadata.st_mode):
                 if metadata.st_uid != 0:
-                    raise ValueError(
-                        f"{purpose} contains an unsafe linked ancestor"
-                    )
+                    raise ValueError(f"{purpose} contains an unsafe linked ancestor")
                 continue
             if (
                 not stat.S_ISDIR(metadata.st_mode)
@@ -239,9 +239,7 @@ def _require_safe_private_ancestor_chain(path: Path, *, purpose: str) -> None:
         resolved = path.resolve(strict=True)
     except OSError as exc:
         raise ValueError(f"{purpose} is unavailable") from exc
-    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-        os, "O_NOFOLLOW", 0
-    )
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
     if not nofollow_flag:
         raise ValueError("private path enforcement is unavailable on this platform")
     ancestor = resolved.parent
@@ -285,6 +283,8 @@ def _require_safe_private_ancestor_chain(path: Path, *, purpose: str) -> None:
         if ancestor.parent == ancestor:
             break
         ancestor = ancestor.parent
+
+
 RECEIPT_NAMES = {
     "prepare_delta": "prepare_delta_phase_receipt.json",
     "verify_delta": "verified_delta_phase_receipt.json",
@@ -336,9 +336,7 @@ def _read_owner_only_file(path: Path, *, purpose: str) -> tuple[Path, bytes]:
         or initial.st_size > MAX_JSON_BYTES
     ):
         raise ValueError(f"{purpose} must be owner-only")
-    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-        os, "O_NOFOLLOW", 0
-    )
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
     if not nofollow_flag:
         raise ValueError("private path enforcement is unavailable on this platform")
     descriptor = os.open(
@@ -406,9 +404,7 @@ def _prepare_output_directory(path: Path) -> Path:
             )
         ):
             raise ValueError("output directory parent is unsafe")
-        nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-            os, "O_NOFOLLOW", 0
-        )
+        nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
         if not nofollow_flag:
             raise ValueError("private path enforcement is unavailable on this platform")
         parent_descriptor = -1
@@ -443,9 +439,7 @@ def _prepare_output_directory(path: Path) -> Path:
         or stat.S_IMODE(metadata.st_mode) & 0o077
     ):
         raise ValueError("output directory must be absolute and owner-only")
-    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(
-        os, "O_NOFOLLOW", 0
-    )
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
     if not nofollow_flag:
         raise ValueError("private path enforcement is unavailable on this platform")
     descriptor = -1
@@ -487,6 +481,8 @@ def _sanitized_environment() -> dict[str, str]:
         {
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_TERMINAL_PROMPT": "0",
             "PIP_CONFIG_FILE": os.devnull,
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
@@ -544,7 +540,11 @@ def _trusted_git_executable() -> Path:
     return resolved
 
 
-def _git(repository_root: Path, *args: str) -> bytes:
+def _git(
+    repository_root: Path,
+    *args: str,
+    input_bytes: bytes | None = None,
+) -> bytes:
     executable = _trusted_git_executable()
     completed = subprocess.run(
         (str(executable), "--no-replace-objects", *GIT_READ_CONFIG, *args),
@@ -552,9 +552,230 @@ def _git(repository_root: Path, *args: str) -> bytes:
         env=_sanitized_environment(),
         check=True,
         capture_output=True,
+        input=input_bytes,
         timeout=120,
     )
     return completed.stdout
+
+
+def _nul_records(payload: bytes, *, purpose: str) -> list[bytes]:
+    if len(payload) > MAX_JSON_BYTES or (payload and not payload.endswith(b"\0")):
+        raise ValueError(f"{purpose} is invalid")
+    records = payload[:-1].split(b"\0") if payload else []
+    if len(records) > 20_000 or any(not record for record in records):
+        raise ValueError(f"{purpose} is invalid")
+    return records
+
+
+def _git_tree_entries(
+    repository_root: Path, *, revision: str
+) -> dict[bytes, tuple[bytes, bytes, int]]:
+    records = _nul_records(
+        _git(repository_root, "ls-tree", "-rlz", "--full-tree", revision),
+        purpose="repository Git tree census",
+    )
+    entries: dict[bytes, tuple[bytes, bytes, int]] = {}
+    for record in records:
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_type, object_id, size_value = metadata.split(b" ", 3)
+            size = int(size_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("repository Git tree census is invalid") from exc
+        components = path.split(b"/")
+        if (
+            object_type != b"blob"
+            or mode not in {b"100644", b"100755", b"120000"}
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or size < 0
+            or size > 64 * 1024 * 1024
+            or path.startswith(b"/")
+            or any(component in {b"", b".", b".."} for component in components)
+            or path in entries
+        ):
+            raise ValueError("repository Git tree census is invalid")
+        entries[path] = (mode, object_id, size)
+    if sum(size for _mode, _object_id, size in entries.values()) > 1024**3:
+        raise ValueError("repository Git tree census is invalid")
+    return entries
+
+
+def _git_index_entries(repository_root: Path) -> dict[bytes, tuple[bytes, bytes]]:
+    records = _nul_records(
+        _git(repository_root, "ls-files", "--stage", "-z"),
+        purpose="repository Git index census",
+    )
+    entries: dict[bytes, tuple[bytes, bytes]] = {}
+    for record in records:
+        try:
+            metadata, path = record.split(b"\t", 1)
+            mode, object_id, stage = metadata.split(b" ", 2)
+        except ValueError as exc:
+            raise ValueError("repository Git index census is invalid") from exc
+        if (
+            stage != b"0"
+            or not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", object_id)
+            or path in entries
+        ):
+            raise ValueError("repository Git index census is invalid")
+        entries[path] = (mode, object_id)
+    return entries
+
+
+def _raw_worktree_blob_id(
+    repository_root: Path,
+    *,
+    path: bytes,
+    mode: bytes,
+    expected_size: int,
+    object_format: str,
+) -> str:
+    components = [os.fsdecode(component) for component in path.split(b"/")]
+    parent = repository_root
+    try:
+        for component in components[:-1]:
+            parent = parent / component
+            if not stat.S_ISDIR(os.lstat(parent).st_mode):
+                raise ValueError("repository worktree path is invalid")
+        target = parent / components[-1]
+        before = os.lstat(target)
+        hasher = hashlib.new(object_format)
+        if mode == b"120000":
+            if not stat.S_ISLNK(before.st_mode):
+                raise ValueError("repository worktree path is invalid")
+            content = os.fsencode(os.readlink(target))
+            if len(content) != expected_size:
+                raise ValueError("repository worktree content differs from Git")
+            hasher.update(f"blob {len(content)}\0".encode("ascii"))
+            hasher.update(content)
+        else:
+            if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
+                raise ValueError("repository worktree content differs from Git")
+            if os.name == "posix" and bool(before.st_mode & 0o111) != (
+                mode == b"100755"
+            ):
+                raise ValueError("repository worktree mode differs from Git")
+            descriptor = os.open(
+                target,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+            try:
+                opened = os.fstat(descriptor)
+                if not os.path.samestat(before, opened):
+                    raise ValueError(
+                        "repository worktree path changed during inspection"
+                    )
+                hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+                closed_over = os.fstat(descriptor)
+            finally:
+                os.close(descriptor)
+            if not os.path.samestat(opened, closed_over):
+                raise ValueError("repository worktree path changed during inspection")
+        after = os.lstat(target)
+    except OSError as exc:
+        raise ValueError("repository worktree path is invalid") from exc
+    if (
+        not os.path.samestat(before, after)
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or before.st_ctime_ns != after.st_ctime_ns
+    ):
+        raise ValueError("repository worktree path changed during inspection")
+    return hasher.hexdigest()
+
+
+def _require_raw_clean_worktree(repository_root: Path) -> str:
+    """Compare raw worktree bytes and modes with HEAD without Git conversions."""
+
+    revision = (
+        _git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+    )
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("repository worktree revision is invalid")
+    object_format = (
+        _git(repository_root, "rev-parse", "--show-object-format")
+        .decode("ascii", errors="strict")
+        .strip()
+    )
+    if object_format not in {"sha1", "sha256"}:
+        raise ValueError("repository Git object format is invalid")
+    tree_entries = _git_tree_entries(repository_root, revision=revision)
+    index_entries = _git_index_entries(repository_root)
+    if {
+        path: (mode, object_id)
+        for path, (mode, object_id, _size) in tree_entries.items()
+    } != index_entries:
+        raise ValueError("repository worktree must be clean")
+    for path, (mode, object_id, size) in tree_entries.items():
+        try:
+            actual_object_id = _raw_worktree_blob_id(
+                repository_root,
+                path=path,
+                mode=mode,
+                expected_size=size,
+                object_format=object_format,
+            ).encode("ascii")
+        except ValueError as exc:
+            raise ValueError("repository worktree must be clean") from exc
+        if actual_object_id != object_id:
+            raise ValueError("repository worktree must be clean")
+    untracked = _git(
+        repository_root,
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z",
+    )
+    if _nul_records(untracked, purpose="repository untracked-path census"):
+        raise ValueError("repository worktree must be clean")
+    if (
+        _git(repository_root, "rev-parse", "HEAD")
+        .decode("ascii", errors="strict")
+        .strip()
+        != revision
+    ):
+        raise ValueError("repository worktree revision drift")
+    return revision
+
+
+def _require_no_ignored_executable_sources(repository_root: Path) -> None:
+    ignored = _nul_records(
+        _git(
+            repository_root,
+            "ls-files",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "-z",
+            "--",
+            "src",
+            "scripts",
+        ),
+        purpose="ignored executable-source census",
+    )
+    executable_suffixes = (
+        b".py",
+        b".pyc",
+        b".pyo",
+        b".so",
+        b".pyd",
+        b".dll",
+        b".dylib",
+    )
+    if any(
+        b"__pycache__" in path.split(b"/") or path.lower().endswith(executable_suffixes)
+        for path in ignored
+    ):
+        raise ValueError("repository worktree contains ignored executable sources")
 
 
 def _candidate_source_bytes(
@@ -793,8 +1014,8 @@ def _precheck_clean_worktree(path: Path) -> tuple[Path, str]:
     ).resolve()
     if top_level != root:
         raise ValueError("repository worktree root drift")
-    if _git(root, "status", "--porcelain", "--untracked-files=all"):
-        raise ValueError("repository worktree must be clean")
+    revision = _require_raw_clean_worktree(root)
+    _require_no_ignored_executable_sources(root)
     hidden = _git(root, "ls-files", "-v", "-z").split(b"\0")
     if any(
         entry
@@ -802,9 +1023,8 @@ def _precheck_clean_worktree(path: Path) -> tuple[Path, str]:
         for entry in hidden
     ):
         raise ValueError("repository worktree contains hidden index entries")
-    revision = _git(root, "rev-parse", "HEAD").decode("ascii").strip()
-    if not re.fullmatch(r"[0-9a-f]{40}", revision):
-        raise ValueError("repository worktree revision is invalid")
+    if _git(root, "rev-parse", "HEAD").decode("ascii").strip() != revision:
+        raise ValueError("repository worktree revision drift")
     return root, revision
 
 
@@ -998,8 +1218,8 @@ def _compatible_locked_wheel_identities(
             ):
                 continue
             try:
-                parsed_name, parsed_version, _build, wheel_tags = (
-                    parse_wheel_filename(filename)
+                parsed_name, parsed_version, _build, wheel_tags = parse_wheel_filename(
+                    filename
                 )
             except ValueError:
                 continue

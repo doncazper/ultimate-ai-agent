@@ -1034,9 +1034,9 @@ def test_founder_evidence_requires_every_inference_hardware_pair() -> None:
     values = _founder_evidence(lock).model_dump(
         mode="json", exclude={"evidence_digest_ref"}
     )
-    values["live_model_hardware_receipts"][0]["result"][
-        "inference_profile_ref"
-    ] = "inference-profile-ref:taw00:unconfigured-model"
+    values["live_model_hardware_receipts"][0]["result"]["inference_profile_ref"] = (
+        "inference-profile-ref:taw00:unconfigured-model"
+    )
 
     with pytest.raises(ValidationError, match="profile census drift"):
         bind_founder_private_acceptance_evidence(**values)
@@ -1389,13 +1389,9 @@ def test_foundation_receipt_rejects_unsafe_report_content(surface: str) -> None:
     elif surface == "summary_path":
         report = report.model_copy(update={"summary": unsafe_path})
     elif surface == "summary_credential":
-        report = report.model_copy(
-            update={"summary": "api_" + "key=" + "A" * 24}
-        )
+        report = report.model_copy(update={"summary": "api_" + "key=" + "A" * 24})
     elif surface == "evidence_ref_path":
-        first_result = first_result.model_copy(
-            update={"evidence_refs": [unsafe_path]}
-        )
+        first_result = first_result.model_copy(update={"evidence_refs": [unsafe_path]})
         report = report.model_copy(
             update={"results": [first_result, *report.results[1:]]}
         )
@@ -1419,11 +1415,7 @@ def test_foundation_receipt_rejects_unsafe_report_content(surface: str) -> None:
         )
     elif surface == "evidence_ref_assignment_credential":
         first_result = first_result.model_copy(
-            update={
-                "evidence_refs": [
-                    "evidence-ref:api_key:ABCDEFGHIJKLMNOPQRSTUVWX"
-                ]
-            }
+            update={"evidence_refs": ["evidence-ref:api_key:ABCDEFGHIJKLMNOPQRSTUVWX"]}
         )
         report = report.model_copy(
             update={"results": [first_result, *report.results[1:]]}
@@ -1883,6 +1875,57 @@ def test_foundation_revision_provenance_disables_repository_fsmonitor(
     assert not sentinel.exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX filter regression")
+def test_foundation_revision_provenance_uses_raw_bytes_not_clean_filter(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-filter"
+    repository.mkdir()
+
+    def git(*args: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.py"
+    tracked.write_bytes(b"SAFE")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    (repository / ".git/info/attributes").write_text(
+        "tracked.py filter=mask\n", encoding="utf-8"
+    )
+    sentinel = tmp_path / "foundation-filter-ran"
+    clean_filter = tmp_path / "foundation-clean-filter"
+    clean_filter.write_text(
+        f"#!/bin/sh\nprintf ran >> {str(sentinel)!r}\nprintf SAFE\n",
+        encoding="utf-8",
+    )
+    clean_filter.chmod(0o700)
+    git("config", "filter.mask.clean", str(clean_filter))
+    git("config", "filter.mask.required", "true")
+    tracked.write_bytes(b"EVIL")
+    assert git("status", "--porcelain").stdout == b""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+    assert not sentinel.exists()
+
+
 def test_foundation_exact_revision_mode_rejects_non_repository_root(
     tmp_path: Path,
 ) -> None:
@@ -1894,6 +1937,33 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    real_run = subprocess.run
+    real_run(("git", "init", "-q"), cwd=tmp_path, check=True)
+    tracked = tmp_path / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    real_run(("git", "add", "tracked.txt"), cwd=tmp_path, check=True)
+    real_run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=tmp_path,
+        check=True,
+    )
+    revision = real_run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     observed: list[list[str]] = []
     observed_environments: list[dict[str, str]] = []
     monkeypatch.setenv("GIT_DIR", "/untrusted/repository")
@@ -1902,23 +1972,24 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     def successful_run(command: list[str], **kwargs: object):
         observed.append(command)
         observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
-        if "ls-files" in command:
-            return subprocess.CompletedProcess(command, 0, stdout=b"")
-        stdout = str(tmp_path) + "\n" if "--show-toplevel" in command else ""
-        if command[-2:] == ["rev-parse", "HEAD"]:
-            stdout = "a" * 40 + "\n"
-        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+        return real_run(
+            ["git", *command[1:]],
+            **kwargs,  # type: ignore[arg-type]
+        )
 
     monkeypatch.setattr(foundation_runner.subprocess, "run", successful_run)
 
-    assert exact_repository_revision(
-        tmp_path,
-        git_executable=Path("/trusted/git"),
-    ) == "git-sha:" + "a" * 40
-    assert len(observed) == 4
+    assert (
+        exact_repository_revision(
+            tmp_path,
+            git_executable=Path("/trusted/git"),
+        )
+        == f"git-sha:{revision}"
+    )
+    assert len(observed) >= 9
     assert all(command[0] == "/trusted/git" for command in observed)
     assert all(
-        command[1:12]
+        command[1:16]
         == [
             "--no-replace-objects",
             "-c",
@@ -1931,6 +2002,10 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
             "core.checkStat=default",
             "-c",
             "core.ignoreStat=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "-c",
+            f"core.attributesFile={os.devnull}",
         ]
         for command in observed
     )
@@ -1938,6 +2013,9 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     assert all(
         "GIT_REPLACE_REF_BASE" not in environment
         for environment in observed_environments
+    )
+    assert all(
+        environment["GIT_NO_LAZY_FETCH"] == "1" for environment in observed_environments
     )
 
 
@@ -1947,11 +2025,15 @@ def test_foundation_exact_revision_rejects_hidden_index_entries(
     monkeypatch: pytest.MonkeyPatch,
     index_tag: bytes,
 ) -> None:
+    monkeypatch.setattr(
+        foundation_runner,
+        "_require_raw_clean_worktree",
+        lambda *_args, **_kwargs: "a" * 40,
+    )
+
     def successful_run(command: list[str], **_kwargs: object):
         if "--show-toplevel" in command:
             return subprocess.CompletedProcess(command, 0, stdout=str(tmp_path) + "\n")
-        if "status" in command:
-            return subprocess.CompletedProcess(command, 0, stdout="")
         if "ls-files" in command:
             return subprocess.CompletedProcess(
                 command,
@@ -2413,12 +2495,16 @@ def test_locked_evaluator_environment_receipt_ignores_installer_path_variance(
     variance = {"digest": "a" * 64}
     observed_identities: list[tuple[tuple[str, int, str], ...]] = []
 
-    def installed_identity(*_args: object, **_kwargs: object) -> tuple[tuple[str, int, str], ...]:
+    def installed_identity(
+        *_args: object, **_kwargs: object
+    ) -> tuple[tuple[str, int, str], ...]:
         return (("../../../bin/tool", 64, variance["digest"]),)
 
     locked_digest = {"value": "4" * 64}
 
-    def locked_identity(**kwargs: object) -> tuple[str, tuple[tuple[str, int, str], ...]]:
+    def locked_identity(
+        **kwargs: object,
+    ) -> tuple[str, tuple[tuple[str, int, str], ...]]:
         observed_identities.append(kwargs["installed_identity"])  # type: ignore[arg-type]
         return (
             "sha256:" + locked_digest["value"],
@@ -3018,34 +3104,151 @@ def test_git_commands_use_the_trusted_absolute_executable(
             "core.checkStat=default",
             "-c",
             "core.ignoreStat=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "-c",
+            f"core.attributesFile={os.devnull}",
             "status",
         ]
     ]
     assert "GIT_DIR" not in observed_environments[0]
     assert "GIT_OBJECT_DIRECTORY" not in observed_environments[0]
     assert observed_environments[0]["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert observed_environments[0]["GIT_NO_LAZY_FETCH"] == "1"
 
 
-def test_candidate_lock_cleanliness_uses_authenticated_git(
+@pytest.mark.skipif(os.name != "posix", reason="POSIX Git hook regression")
+def test_trusted_worktree_materialization_disables_post_checkout_hook(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+
+    def git(*arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    revision = git("rev-parse", "HEAD").stdout.decode("ascii").strip()
+    configured_hooks = tmp_path / "configured-hooks"
+    configured_hooks.mkdir(mode=0o700)
+    sentinel = tmp_path / "post-checkout-ran"
+    hook = configured_hooks / "post-checkout"
+    hook.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o700)
+    git("config", "core.hooksPath", str(configured_hooks))
+
+    inert_hooks = tmp_path / "inert-hooks"
+    inert_hooks.mkdir(mode=0o700)
+    candidate = tmp_path / "candidate"
+    hooks_config = ("-c", f"core.hooksPath={inert_hooks}")
+    taw08_verifier._git(
+        "worktree",
+        "add",
+        "--detach",
+        str(candidate),
+        revision,
+        repository_root=repository,
+        extra_config=hooks_config,
+    )
+    try:
+        assert not sentinel.exists()
+        assert not tuple(inert_hooks.iterdir())
+    finally:
+        taw08_verifier._git(
+            "worktree",
+            "remove",
+            str(candidate),
+            repository_root=repository,
+            extra_config=hooks_config,
+        )
+    assert not sentinel.exists()
+
+
+def test_worktree_filter_configuration_and_attributes_fail_closed(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+
+    def git(*arguments: str) -> None:
+        subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.py"
+    tracked.write_text("SAFE = True\n", encoding="utf-8")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    git("config", "extensions.worktreeConfig", "true")
+    git("config", "--worktree", "filter.mask.clean", "/bin/cat")
+    with pytest.raises(RuntimeError, match="filters are not permitted"):
+        taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+    git("config", "--worktree", "--unset", "filter.mask.clean")
+    (repository / ".git/info/attributes").write_text(
+        "tracked.py filter=mask\n", encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="filters are not permitted"):
+        taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+
+def test_candidate_lock_cleanliness_compares_worktree_bytes_to_revision(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: list[tuple[str, ...]] = []
+    (tmp_path / "sample.py").write_bytes(b"dirty\n")
 
     def dirty_git(*args: str, **_kwargs: object) -> bytes:
         observed.append(args)
         if args[:2] == ("ls-tree", "-r"):
             return b""
-        if args[:2] == ("diff", "--quiet"):
-            raise subprocess.CalledProcessError(1, args)
+        if args[0] == "show":
+            return b"candidate\n"
         pytest.fail(f"unexpected Git command: {args}")
 
     monkeypatch.setattr(taw08_verifier, "_git", dirty_git)
     monkeypatch.setattr(taw08_verifier, "SLICE_CANDIDATE_PATHS", ("sample.py",))
 
     with pytest.raises(RuntimeError, match="contract path is dirty"):
-        taw08_verifier._candidate_lock("a" * 40)
+        taw08_verifier._candidate_lock("a" * 40, repository_root=tmp_path)
 
-    assert any(command[:2] == ("diff", "--quiet") for command in observed)
+    assert ("show", f"{'a' * 40}:sample.py") in observed
+    assert not any(command[0] == "diff" for command in observed)
 
 
 def test_python_runtime_identity_binds_executable_and_standard_library(
@@ -3409,7 +3612,10 @@ def test_repository_censuses_are_derived_from_named_git_revisions(
     )
     assert delta_census.commit_count == 2
     assert delta_census.candidate_ancestor_verified
-    assert any(command[:2] == ("merge-base", "--is-ancestor") for command in observed_git_commands)
+    assert any(
+        command[:2] == ("merge-base", "--is-ancestor")
+        for command in observed_git_commands
+    )
 
 
 def test_schema_valid_secret_like_evidence_is_rejected() -> None:

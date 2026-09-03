@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import sysconfig
@@ -51,6 +52,10 @@ _GIT_READ_CONFIG = (
     "core.checkStat=default",
     "-c",
     "core.ignoreStat=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+    "-c",
+    f"core.attributesFile={os.devnull}",
 )
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
@@ -100,6 +105,7 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
 )
 from scripts.run_foundation_gate import (  # noqa: E402
     evaluate_foundation_gate_at_exact_repository_revision,
+    exact_repository_revision,
     report_only_receipt,
 )
 
@@ -203,11 +209,7 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
     elif os.name == "nt":
         system_root = _validated_windows_system_root()
         powershell = (
-            system_root
-            / "System32"
-            / "WindowsPowerShell"
-            / "v1.0"
-            / "powershell.exe"
+            system_root / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         )
         signature = subprocess.run(
             [
@@ -242,14 +244,26 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
     )
 
 
-def _git(*args: str, repository_root: Path = ROOT) -> bytes:
+def _git(
+    *args: str,
+    repository_root: Path = ROOT,
+    input_bytes: bytes | None = None,
+    extra_config: tuple[str, ...] = (),
+) -> bytes:
     executable, _digest_ref, _provenance_ref = _trusted_git_identity()
     result = subprocess.run(
-        [str(executable), "--no-replace-objects", *_GIT_READ_CONFIG, *args],
+        [
+            str(executable),
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            *extra_config,
+            *args,
+        ],
         cwd=repository_root,
         check=True,
         capture_output=True,
         env=_sanitized_git_environment(),
+        input=input_bytes,
     )
     return result.stdout
 
@@ -264,10 +278,69 @@ def _sanitized_git_environment() -> dict[str, str]:
         {
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_TERMINAL_PROMPT": "0",
         }
     )
     return environment
+
+
+def _require_no_repository_git_filters(*, repository_root: Path = ROOT) -> None:
+    """Reject repository controls that can execute or mask content filters."""
+
+    config_names = _git(
+        "config",
+        "--includes",
+        "--null",
+        "--name-only",
+        "--list",
+        repository_root=repository_root,
+    )
+    if len(config_names) > 16 * 1024 * 1024:
+        raise RuntimeError("TAW-08 repository Git filter configuration is invalid")
+    if config_names and not config_names.endswith(b"\0"):
+        raise RuntimeError("TAW-08 repository Git filter configuration is invalid")
+    if any(
+        name.lower().startswith(b"filter.")
+        for name in config_names.rstrip(b"\0").split(b"\0")
+        if name
+    ):
+        raise RuntimeError("TAW-08 repository Git filters are not permitted")
+
+    tracked_paths = _git("ls-files", "-z", repository_root=repository_root)
+    if len(tracked_paths) > 16 * 1024 * 1024 or (
+        tracked_paths and not tracked_paths.endswith(b"\0")
+    ):
+        raise RuntimeError("TAW-08 repository Git path census is invalid")
+    paths = tracked_paths.rstrip(b"\0").split(b"\0") if tracked_paths else []
+    if len(paths) > 20_000 or any(not path for path in paths):
+        raise RuntimeError("TAW-08 repository Git path census is invalid")
+    for source_args in ((), ("--source=HEAD",)):
+        attributes = _git(
+            "check-attr",
+            "-z",
+            "--stdin",
+            *source_args,
+            "filter",
+            repository_root=repository_root,
+            input_bytes=tracked_paths,
+        )
+        if len(attributes) > 16 * 1024 * 1024 or (
+            attributes and not attributes.endswith(b"\0")
+        ):
+            raise RuntimeError("TAW-08 repository Git filter attributes are invalid")
+        records = attributes.rstrip(b"\0").split(b"\0") if attributes else []
+        if len(records) != len(paths) * 3:
+            raise RuntimeError("TAW-08 repository Git filter attributes are invalid")
+        for index, path in enumerate(paths):
+            actual_path, attribute, value = records[index * 3 : index * 3 + 3]
+            if actual_path != path or attribute != b"filter":
+                raise RuntimeError(
+                    "TAW-08 repository Git filter attributes are invalid"
+                )
+            if value not in {b"unspecified", b"unset"}:
+                raise RuntimeError("TAW-08 repository Git filters are not permitted")
 
 
 def _index_has_hidden_worktree_entries(*, repository_root: Path = ROOT) -> bool:
@@ -279,10 +352,7 @@ def _index_has_hidden_worktree_entries(*, repository_root: Path = ROOT) -> bool:
     ).split(b"\0")
     return any(
         entry
-        and (
-            entry[:1] in {b"S", b"s"}
-            or (entry[:1].isalpha() and entry[:1].islower())
-        )
+        and (entry[:1] in {b"S", b"s"} or (entry[:1].isalpha() and entry[:1].islower()))
         for entry in entries
     )
 
@@ -295,11 +365,15 @@ def verify_executing_repository_sources(
 ) -> tuple[tuple[str, ...], str]:
     """Bind every loaded repository Python source to the candidate Git tree."""
 
-    current_revision = _git(
-        "rev-parse",
-        "HEAD",
-        repository_root=repository_root,
-    ).decode("ascii").strip()
+    current_revision = (
+        _git(
+            "rev-parse",
+            "HEAD",
+            repository_root=repository_root,
+        )
+        .decode("ascii")
+        .strip()
+    )
     if revision != current_revision:
         raise RuntimeError(
             "TAW-08 executing repository source differs from the candidate"
@@ -903,9 +977,7 @@ def verify_locked_evaluator_environment(
             locked_wheels=locked_wheels_by_identity.get((name, version), []),
             installed_identity=installed_identity,
         )
-        distribution_content_identities.append(
-            (name, version, locked_wheel_identity)
-        )
+        distribution_content_identities.append((name, version, locked_wheel_identity))
     distribution_content_identities = tuple(distribution_content_identities)
     (
         python_executable_digest_ref,
@@ -1107,28 +1179,21 @@ def _candidate_lock(
     )
     candidate_paths = tuple(sorted({*SLICE_CANDIDATE_PATHS, *gate_paths}))
     for path in candidate_paths:
-        try:
-            _git(
-                "diff",
-                "--quiet",
-                revision,
-                "--",
-                path,
-                repository_root=repository_root,
-            )
-        except subprocess.CalledProcessError as exc:
-            if exc.returncode == 1:
-                raise RuntimeError(
-                    f"TAW-08 contract path is dirty at {revision}: {path}"
-                ) from exc
-            raise RuntimeError(
-                f"TAW-08 contract path comparison failed: {path}"
-            ) from exc
         content = _git(
             "show",
             f"{revision}:{path}",
             repository_root=repository_root,
         )
+        worktree_path = repository_root / path
+        try:
+            metadata = os.lstat(worktree_path)
+            worktree_content = worktree_path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError(
+                f"TAW-08 contract path comparison failed: {path}"
+            ) from exc
+        if not stat.S_ISREG(metadata.st_mode) or worktree_content != content:
+            raise RuntimeError(f"TAW-08 contract path is dirty at {revision}: {path}")
         path_ref = f"repo-path-ref:{path}"
         content_by_ref[path_ref] = content
         entries.append(
@@ -1247,21 +1312,19 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 candidate receipts require the locked verifier child"
         )
-    if _git("rev-parse", "HEAD", repository_root=repository_root).decode(
-        "ascii"
-    ).strip() != revision or _git(
-        "status",
-        "--porcelain",
-        "--untracked-files=all",
-        repository_root=repository_root,
+    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
+    if (
+        exact_repository_revision(
+            repository_root,
+            git_executable=git_executable,
+        )
+        != f"git-sha:{revision}"
     ):
         raise RuntimeError(
             "TAW-08 locked verifier child requires the clean candidate checkout"
         )
     if _index_has_hidden_worktree_entries(repository_root=repository_root):
-        raise RuntimeError(
-            "TAW-08 locked verifier child rejects hidden index entries"
-        )
+        raise RuntimeError("TAW-08 locked verifier child rejects hidden index entries")
     revision_path_census = derive_revision_path_census(
         lock.git_revision_ref,
         repository_root=repository_root,
@@ -1436,9 +1499,7 @@ def verify_repository_final_acceptance_publication(
         repository_root=repository_root,
     )
     if not candidate_verification_receipt.verified:
-        raise RuntimeError(
-            "TAW-08 publication issuer lacks candidate-bound provenance"
-        )
+        raise RuntimeError("TAW-08 publication issuer lacks candidate-bound provenance")
     publication_revision = publication_revision_ref.removeprefix("git-sha:")
     publication_path = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF.removeprefix(
         "repo-path-ref:"
@@ -1982,24 +2043,24 @@ def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
         if (
             not isinstance(exported, dict)
             or set(exported) != expected_keys
-            or exported.get("schema_version")
-            != "uaa-taw08-founder-run-inputs.v1"
+            or exported.get("schema_version") != "uaa-taw08-founder-run-inputs.v1"
             or exported.get("raw_content_persisted") is not False
             or _founder_input_export_has_forbidden_fields(exported)
         ):
             raise ValueError("founder input export schema drift")
         digest_payload = {
-            key: value
-            for key, value in exported.items()
-            if key != "bundle_digest_ref"
+            key: value for key, value in exported.items() if key != "bundle_digest_ref"
         }
         if exported.get("bundle_digest_ref") != canonical_digest(digest_payload):
             raise ValueError("founder input export digest drift")
-        return json.dumps(
-            exported,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("ascii") + b"\n"
+        return (
+            json.dumps(
+                exported,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("ascii")
+            + b"\n"
+        )
     except (
         UnicodeDecodeError,
         json.JSONDecodeError,
@@ -2011,11 +2072,11 @@ def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
 
 
 def _run_locked_candidate_verifier() -> bytes | None:
-    revision = _git("rev-parse", "HEAD").decode("ascii").strip()
-    if _git("status", "--porcelain", "--untracked-files=all"):
-        raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
-    if _index_has_hidden_worktree_entries():
-        raise RuntimeError("TAW-08 verifier launcher rejects hidden index entries")
+    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
+    revision = exact_repository_revision(
+        ROOT,
+        git_executable=git_executable,
+    ).removeprefix("git-sha:")
     provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
     if not provisioned_wheelhouse_value:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")
@@ -2024,25 +2085,27 @@ def _run_locked_candidate_verifier() -> bytes | None:
         candidate_root = Path(temporary) / "candidate"
         environment_root = Path(temporary) / "environment"
         selected_wheelhouse = Path(temporary) / "selected-wheelhouse"
+        hooks_root = Path(temporary) / "hooks"
+        hooks_root.mkdir(mode=0o700)
+        hooks_metadata = os.lstat(hooks_root)
+        if (
+            not stat.S_ISDIR(hooks_metadata.st_mode)
+            or (hasattr(os, "getuid") and hooks_metadata.st_uid != os.getuid())
+            or hooks_metadata.st_mode & 0o077
+            or any(hooks_root.iterdir())
+        ):
+            raise RuntimeError("TAW-08 inert Git hooks directory is invalid")
+        hooks_config = ("-c", f"core.hooksPath={hooks_root}")
         added = False
         try:
-            git_executable, _git_digest_ref, _git_provenance_ref = (
-                _trusted_git_identity()
-            )
-            subprocess.run(
-                [
-                    str(git_executable),
-                    "--no-replace-objects",
-                    "worktree",
-                    "add",
-                    "--detach",
-                    str(candidate_root),
-                    revision,
-                ],
-                cwd=ROOT,
-                check=True,
-                capture_output=True,
-                env=_sanitized_git_environment(),
+            _require_no_repository_git_filters()
+            _git(
+                "worktree",
+                "add",
+                "--detach",
+                str(candidate_root),
+                revision,
+                extra_config=hooks_config,
             )
             added = True
             environment_python = _materialize_locked_environment(
@@ -2072,18 +2135,18 @@ def _run_locked_candidate_verifier() -> bytes | None:
                 return _normalize_founder_input_export(child.stdout)
         finally:
             if added:
-                subprocess.run(
-                    [
-                        str(_trusted_git_identity()[0]),
-                        "--no-replace-objects",
-                        "worktree",
-                        "remove",
-                        str(candidate_root),
-                    ],
-                    cwd=ROOT,
-                    check=True,
-                    capture_output=True,
-                    env=_sanitized_git_environment(),
+                current_hooks = os.lstat(hooks_root)
+                if (
+                    not os.path.samestat(hooks_metadata, current_hooks)
+                    or current_hooks.st_mode & 0o077
+                    or any(hooks_root.iterdir())
+                ):
+                    raise RuntimeError("TAW-08 inert Git hooks directory changed")
+                _git(
+                    "worktree",
+                    "remove",
+                    str(candidate_root),
+                    extra_config=hooks_config,
                 )
     return None
 

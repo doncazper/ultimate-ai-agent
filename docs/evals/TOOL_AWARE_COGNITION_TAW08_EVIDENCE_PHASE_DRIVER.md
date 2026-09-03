@@ -70,6 +70,14 @@ materialized offline from the authenticated wheelhouse.
   index entries, unexpected changed paths, history-only or reverted extra
   paths, schema drift, digest drift, source substitution, status substitution,
   and authority expansion.
+- Worktree cleanliness is filter-independent: the driver and locked worker
+  compare the exact tree and stage-zero index, hash every raw tracked file or
+  symlink as a Git blob, reject standard-visible untracked paths, and recheck
+  the bound revision. They never use `git status` or working-tree `git diff` as
+  acceptance evidence.
+- Ignored executable-source paths under `src/` or `scripts/` are rejected
+  before any repository import, and Git object reads disable lazy fetching so
+  missing promisor objects cannot invoke repository-selected remote helpers.
 - Candidate, delta, and publication bytes and path censuses come from clean
   exact Git worktrees. The two Markdown files are reconstructed from the `M1`
   Git bytes, and every byte before the start marker and after the end marker is

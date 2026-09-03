@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import py_compile
 from types import SimpleNamespace
 import subprocess
 import sys
@@ -364,14 +365,20 @@ def test_private_path_checks_allow_admin_alias_and_reject_user_symlink() -> None
         private.write_text("{}\n", encoding="utf-8")
         private.chmod(0o600)
 
-        assert driver._require_owner_only_file(
-            private,
-            purpose="phase input",
-        ) == private.resolve()
-        assert worker._owner_only_file(private, purpose="phase input") == private.resolve()
-        assert driver._prepare_output_directory(alias_root / "output") == (
-            alias_root / "output"
-        ).resolve()
+        assert (
+            driver._require_owner_only_file(
+                private,
+                purpose="phase input",
+            )
+            == private.resolve()
+        )
+        assert (
+            worker._owner_only_file(private, purpose="phase input") == private.resolve()
+        )
+        assert (
+            driver._prepare_output_directory(alias_root / "output")
+            == (alias_root / "output").resolve()
+        )
 
         target = alias_root / "target"
         target.mkdir(mode=0o700)
@@ -633,19 +640,22 @@ def test_main_authenticates_bootstrap_before_private_input_or_output(
     monkeypatch.setattr(driver, "_bootstrap_lock_tooling", reject_bootstrap)
     monkeypatch.setattr(driver, "_require_owner_only_file", forbidden_private_read)
 
-    assert driver.main(
-        [
-            "prepare_delta",
-            "--candidate-worktree",
-            str(candidate),
-            "--founder-evidence",
-            str(founder),
-            "--locked-wheelhouse",
-            str(wheelhouse),
-            "--output-dir",
-            str(output),
-        ]
-    ) == 1
+    assert (
+        driver.main(
+            [
+                "prepare_delta",
+                "--candidate-worktree",
+                str(candidate),
+                "--founder-evidence",
+                str(founder),
+                "--locked-wheelhouse",
+                str(wheelhouse),
+                "--output-dir",
+                str(output),
+            ]
+        )
+        == 1
+    )
     assert not private_read
     assert not output.exists()
 
@@ -887,12 +897,253 @@ def test_clean_worktree_precheck_disables_repository_fsmonitor(
     assert not sentinel.exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX filter regression")
+@pytest.mark.parametrize("checker", ("driver", "worker"))
+@pytest.mark.parametrize("attribute_source", ("tracked", "info"))
+def test_raw_clean_worktree_rejects_filter_masked_python_without_execution(
+    tmp_path: Path,
+    checker: str,
+    attribute_source: str,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    tracked = repository / "tracked.py"
+    attributes = repository / ".gitattributes"
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    tracked.write_bytes(b"SAFE")
+    if attribute_source == "tracked":
+        attributes.write_text("tracked.py filter=mask\n", encoding="utf-8")
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    if attribute_source == "info":
+        (repository / ".git/info/attributes").write_text(
+            "tracked.py filter=mask\n", encoding="utf-8"
+        )
+    sentinel = tmp_path / "filter-ran"
+    clean_filter = tmp_path / "clean-filter"
+    clean_filter.write_text(
+        f"#!/bin/sh\nprintf ran >> {str(sentinel)!r}\nprintf SAFE\n",
+        encoding="utf-8",
+    )
+    clean_filter.chmod(0o700)
+    subprocess.run(
+        ("git", "config", "filter.mask.clean", str(clean_filter)),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "filter.mask.required", "true"),
+        cwd=repository,
+        check=True,
+    )
+    tracked.write_bytes(b"EVIL")
+    ordinary = subprocess.run(
+        ("git", "status", "--porcelain"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+    assert ordinary.stdout == b""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    if checker == "driver":
+        with pytest.raises(ValueError, match="must be clean"):
+            driver._precheck_clean_worktree(repository)
+    else:
+        with pytest.raises(RuntimeError, match="must be clean"):
+            worker._require_raw_clean_worktree(repository)
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+def test_raw_tree_census_never_lazy_fetches_from_promisor(tmp_path: Path) -> None:
+    seed = tmp_path / "seed"
+    source = tmp_path / "source.git"
+    partial = tmp_path / "partial"
+    seed.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=seed, check=True)
+    (seed / "tracked.txt").write_text("promised content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=seed, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=seed,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "clone", "--bare", "-q", str(seed), str(source)),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "uploadpack.allowFilter", "true"),
+        cwd=source,
+        check=True,
+    )
+    subprocess.run(
+        (
+            "git",
+            "clone",
+            "-q",
+            "--filter=blob:none",
+            "--no-checkout",
+            f"file://{source}",
+            str(partial),
+        ),
+        check=True,
+    )
+    sentinel = tmp_path / "promisor-helper-ran"
+    helper = tmp_path / "promisor-helper"
+    helper.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nexit 1\n",
+        encoding="utf-8",
+    )
+    helper.chmod(0o700)
+    subprocess.run(
+        ("git", "config", "remote.origin.url", f"ext::{helper}"),
+        cwd=partial,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "protocol.ext.allow", "always"),
+        cwd=partial,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=partial,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    with pytest.raises(ValueError, match="tree census is invalid"):
+        driver._git_tree_entries(partial, revision=revision)
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX bytecode regression")
+def test_worker_rejects_ignored_bytecode_before_repository_import(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    verifier_path = repository / "scripts/verify_tool_aware_cognition_taw08.py"
+    acceptance_path = (
+        repository / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+    )
+    verifier_path.parent.mkdir(parents=True)
+    acceptance_path.parent.mkdir(parents=True)
+    for package in (
+        repository / "scripts/__init__.py",
+        repository / "src/ultimate_ai_agent/__init__.py",
+        repository / "src/ultimate_ai_agent/core/__init__.py",
+        repository / "src/ultimate_ai_agent/core/evals/__init__.py",
+    ):
+        package.write_text("", encoding="utf-8")
+    verifier_path.write_text("SAFE = True\n", encoding="utf-8")
+    acceptance_path.write_text("SAFE = True\n", encoding="utf-8")
+    (repository / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    sentinel = tmp_path / "ignored-bytecode-ran"
+    malicious_source = tmp_path / "malicious.py"
+    malicious_source.write_text(
+        f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    cached = Path(importlib.util.cache_from_source(str(verifier_path)))
+    cached.parent.mkdir()
+    py_compile.compile(
+        str(malicious_source),
+        cfile=str(cached),
+        dfile=str(verifier_path),
+        doraise=True,
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    )
+
+    with pytest.raises(ValueError, match="ignored executable sources"):
+        driver._precheck_clean_worktree(repository)
+
+    environment = driver._sanitized_environment()
+    environment.update(
+        {
+            "UAA_TAW08_PREFLIGHT_COMPLETE": "1",
+            "UAA_TAW08_LOCKED_CHILD_REVISION": revision,
+            "UAA_TEST_CANDIDATE": str(repository),
+            "UAA_TEST_IMPORT_SENTINEL": str(sentinel),
+            "UAA_TEST_WORKER": str(WORKER_PATH),
+        }
+    )
+    code = (
+        "import os, runpy\n"
+        "from pathlib import Path\n"
+        'worker = runpy.run_path(os.environ["UAA_TEST_WORKER"])\n'
+        'worker["_load_repository_modules"]('
+        'Path(os.environ["UAA_TEST_CANDIDATE"]).resolve())\n'
+    )
+    completed = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", "-c", code),
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert completed.returncode != 0
+    assert b"must be clean before import" in completed.stderr
+    assert not sentinel.exists()
+
+
 def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> None:
     repository = (tmp_path / "repository").resolve()
     verifier_path = repository / "scripts/verify_tool_aware_cognition_taw08.py"
     acceptance_path = (
-        repository
-        / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+        repository / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
     )
     verifier_path.parent.mkdir(parents=True)
     acceptance_path.parent.mkdir(parents=True)
@@ -1005,14 +1256,16 @@ def test_phase_git_commands_use_authenticated_absolute_executable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: list[tuple[str, ...]] = []
+    observed_environments: list[dict[str, str]] = []
     monkeypatch.setattr(
         module,
         "_trusted_git_executable",
         lambda: Path("/trusted/git"),
     )
 
-    def successful_run(command: tuple[str, ...], **_kwargs: object):
+    def successful_run(command: tuple[str, ...], **kwargs: object):
         observed.append(command)
+        observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
         return subprocess.CompletedProcess(command, 0, stdout=b"trusted output")
 
     monkeypatch.setattr(module.subprocess, "run", successful_run)
@@ -1036,9 +1289,14 @@ def test_phase_git_commands_use_authenticated_absolute_executable(
             "core.checkStat=default",
             "-c",
             "core.ignoreStat=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "-c",
+            f"core.attributesFile={os.devnull}",
             "status",
         )
     ]
+    assert observed_environments[0]["GIT_NO_LAZY_FETCH"] == "1"
 
 
 def _bootstrap_lock_for(content: bytes, *, digest: str | None = None) -> bytes:
@@ -1160,15 +1418,14 @@ def test_locked_wheel_selection_uses_reachable_compatible_closure(
         "unreachable": "unreachable-1.0-py3-none-any.whl",
     }
     content_by_name = {
-        filename: f"locked:{kind}".encode()
-        for kind, filename in filenames.items()
+        filename: f"locked:{kind}".encode() for kind, filename in filenames.items()
     }
 
     def wheel(filename: str) -> str:
         content = content_by_name[filename]
         return (
-            "{ url = \"https://files.pythonhosted.org/packages/"
-            f"{filename}\", hash = \"sha256:{hashlib.sha256(content).hexdigest()}\", "
+            '{ url = "https://files.pythonhosted.org/packages/'
+            f'{filename}", hash = "sha256:{hashlib.sha256(content).hexdigest()}", '
             f"size = {len(content)} }}"
         )
 
@@ -1507,9 +1764,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         stage="postmerge",
         revision_ref=f"git-sha:{m2}",
         command_mode="report-only",
-        evaluator_environment_receipt={
-            "receipt_digest_ref": "sha256:" + "3" * 64
-        },
+        evaluator_environment_receipt={"receipt_digest_ref": "sha256:" + "3" * 64},
         evaluator_environment_digest_ref="sha256:" + "3" * 64,
         receipt_digest_ref="sha256:" + "4" * 64,
         passed=True,
@@ -1548,9 +1803,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
             "tool_aware_cognition_taw08_final_acceptance_report_v1.json"
         )
 
-        def redacted_acceptance_report_artifact(
-            self, _report: object
-        ) -> _Dumpable:
+        def redacted_acceptance_report_artifact(self, _report: object) -> _Dumpable:
             return _Dumpable(status="founder_private_accepted_postmerge_pending")
 
         def evaluate_taw08_acceptance(self, **kwargs: object) -> SimpleNamespace:
