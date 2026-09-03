@@ -196,6 +196,19 @@ _HIGH_SIGNAL_SECRET_RE = re.compile(
 _FOUNDATION_REPORT_PASS_MESSAGE_OVERRIDES = {
     "m5_shadow_replay_passes": "M5 shadow replay passed.",
 }
+_FOUNDATION_LATENCY_SAFE_LABELS = frozenset(
+    {
+        "GET /health",
+        "GET /api/manifest",
+        "POST /models/route/preview",
+        "POST /task-decomposition/classify",
+        "POST /task-decomposition/decompose",
+        "POST /files/read/preview",
+        "GET /v1/models",
+        "POST /v1/chat/completions",
+        "Control Center first useful local render",
+    }
+)
 _NON_EXACT_MODEL_ID_TOKENS = frozenset(
     {"any", "anything", "configured", "placeholder", "test", "unknown"}
 )
@@ -2216,6 +2229,24 @@ def _verify_and_bind_foundation_gate_report(
             safety_item.pop("safe_message", None)
         safety_results.append(safety_item)
     safety_payload = {**report_payload, "results": safety_results}
+    latency_gate = report_payload.get("latency_gate")
+    if latency_gate is not None:
+        if not isinstance(latency_gate, dict):
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_latency_gate = dict(latency_gate)
+        for field_name in ("path_results", "optional_prerequisites"):
+            path_results = latency_gate.get(field_name)
+            if not isinstance(path_results, list) or any(
+                not isinstance(item, dict)
+                or item.get("safe_label") not in _FOUNDATION_LATENCY_SAFE_LABELS
+                for item in path_results
+            ):
+                raise ValueError("Foundation report contains unsafe durable evidence")
+            safe_latency_gate[field_name] = [
+                {key: value for key, value in item.items() if key != "safe_label"}
+                for item in path_results
+            ]
+        safety_payload["latency_gate"] = safe_latency_gate
     if durable_payload_has_forbidden_fields(safety_payload):
         raise ValueError("Foundation report contains unsafe durable evidence")
     report_id = report_payload["report_id"]

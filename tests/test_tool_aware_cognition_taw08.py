@@ -86,6 +86,8 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.reports import (
     FoundationGateCommandReceipt,
+    FoundationGateLatencyPathResult,
+    FoundationGateLatencySummary,
     FoundationGateReport,
     FoundationGateResult,
     build_foundation_gate_report,
@@ -1401,6 +1403,59 @@ def test_foundation_receipt_allows_safe_transient_secret_hygiene_labels() -> Non
         )
         is False
     )
+
+
+def _foundation_report_with_latency_label(safe_label: str) -> FoundationGateReport:
+    latency = FoundationGateLatencySummary(
+        schema_version="foundation-gate-latency.v1",
+        task_ref="task-ref:foundation-gate-latency",
+        status="failed",
+        p50_p95_status="passed",
+        foundation_gate_status="passed",
+        foundation_gate_best_budget_ms=1.0,
+        foundation_gate_mean_budget_ms=1.0,
+        release_latency_status="passed",
+        hot_path_profile_status="passed",
+        path_results=[
+            FoundationGateLatencyPathResult(
+                path_id="health",
+                safe_label=safe_label,
+                required=True,
+                status="passed",
+                samples=1,
+                budget_status="passed",
+            )
+        ],
+    )
+    return _bind_test_foundation_provenance(
+        _unbound_foundation_gate_report().model_copy(update={"latency_gate": latency}),
+        CANDIDATE_REVISION_REF,
+    )
+
+
+def test_foundation_receipt_treats_only_canonical_latency_routes_as_identifiers() -> (
+    None
+):
+    safe_report = _foundation_report_with_latency_label("GET /health")
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=safe_report,
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.passed
+    unsafe_report = _foundation_report_with_latency_label(
+        "/" + "Users" + "/fixture/raw.log"
+    )
+    with pytest.raises(ValueError, match="unsafe durable evidence"):
+        _verify_and_bind_foundation_gate_report(
+            report=unsafe_report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
 
 
 @pytest.mark.parametrize(
