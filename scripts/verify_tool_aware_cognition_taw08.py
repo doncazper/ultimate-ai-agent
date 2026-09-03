@@ -25,17 +25,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Literal
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
-    import tomli as tomllib
-
-from packaging.markers import InvalidMarker, Marker, default_environment
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.tags import sys_tags
-from packaging.utils import canonicalize_name, parse_wheel_filename
-from packaging.version import InvalidVersion, Version
-
 ROOT = Path(__file__).resolve().parents[1]
 _LOCKED_CHILD_REVISION_ENV = "UAA_TAW08_LOCKED_CHILD_REVISION"
 _ENVIRONMENT_ROOT_ENV = "UAA_TAW08_ENVIRONMENT_ROOT"
@@ -43,6 +32,32 @@ _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
 _EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+
+if (
+    os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1"
+    and not os.environ.get(_LOCKED_CHILD_REVISION_ENV)
+    and not (
+        sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.dont_write_bytecode
+        and os.environ.get(_PREFLIGHT_COMPLETE_ENV) == "1"
+    )
+):
+    raise RuntimeError(
+        "TAW-08 founder input export requires the isolated locked preflight"
+    )
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
+
+from packaging.markers import InvalidMarker, Marker, default_environment  # noqa: E402
+from packaging.requirements import InvalidRequirement, Requirement  # noqa: E402
+from packaging.tags import sys_tags  # noqa: E402
+from packaging.utils import canonicalize_name, parse_wheel_filename  # noqa: E402
+from packaging.version import InvalidVersion, Version  # noqa: E402
+
 _GIT_READ_CONFIG = (
     "-c",
     "core.fsmonitor=false",
@@ -306,8 +321,7 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
         )
         signer, anchor = _validated_windows_git_provenance(resolved, powershell)
         provenance_ref = (
-            "git-provenance-ref:windows-machine-authenticode:"
-            f"{signer}:{anchor}"
+            f"git-provenance-ref:windows-machine-authenticode:{signer}:{anchor}"
         )
     else:
         raise RuntimeError("TAW-08 Git executable platform is unsupported")
@@ -330,6 +344,9 @@ def _git(
             str(executable),
             "--no-replace-objects",
             *_GIT_READ_CONFIG,
+            "-c",
+            f"core.worktree={repository_root.resolve()}",
+            f"--work-tree={repository_root.resolve()}",
             *extra_config,
             *args,
         ],
@@ -438,8 +455,12 @@ def _evaluate_foundation_gate_in_fresh_process(
 ) -> tuple[str, FoundationGateReport]:
     """Evaluate Foundation Gate beyond the repository pre-import boundary."""
 
-    with tempfile.TemporaryDirectory(prefix="uaa-taw08-foundation-") as temporary:
-        output_path = Path(temporary) / "foundation-gate.json"
+    temporary, temporary_root = _prepare_private_temporary_directory(
+        prefix="uaa-taw08-foundation-",
+        repository_root=repository_root,
+    )
+    try:
+        output_path = temporary_root / "foundation-gate.json"
         completed = subprocess.run(
             (
                 sys.executable,
@@ -460,27 +481,18 @@ def _evaluate_foundation_gate_in_fresh_process(
             env=_sanitized_git_environment(),
             timeout=300,
         )
-        try:
-            metadata = output_path.lstat()
-            payload = output_path.read_bytes()
-        except OSError as exc:
-            raise RuntimeError(
-                "TAW-08 fresh Foundation evaluation failed"
-            ) from exc
-        if (
-            completed.returncode != 0
-            or not stat.S_ISREG(metadata.st_mode)
-            or stat.S_ISLNK(metadata.st_mode)
-            or not payload
-            or len(payload) > 16 * 1024 * 1024
-        ):
+        payload = _read_private_regular_file(
+            output_path,
+            maximum=16 * 1024 * 1024,
+        )
+        if completed.returncode != 0 or not payload:
             raise RuntimeError("TAW-08 fresh Foundation evaluation failed")
         try:
             report = FoundationGateReport.model_validate_json(payload)
         except (UnicodeDecodeError, ValueError) as exc:
-            raise RuntimeError(
-                "TAW-08 fresh Foundation report is invalid"
-            ) from exc
+            raise RuntimeError("TAW-08 fresh Foundation report is invalid") from exc
+    finally:
+        temporary.cleanup()
     revision_ref = report.evaluated_revision_ref
     if not isinstance(revision_ref, str) or not re.fullmatch(
         r"git-sha:[0-9a-f]{40}", revision_ref
@@ -1533,10 +1545,7 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 candidate receipts require the locked verifier child"
         )
-    if (
-        _fresh_exact_repository_revision(repository_root)
-        != f"git-sha:{revision}"
-    ):
+    if _fresh_exact_repository_revision(repository_root) != f"git-sha:{revision}":
         raise RuntimeError(
             "TAW-08 locked verifier child requires the clean candidate checkout"
         )
@@ -1607,18 +1616,19 @@ def verify_repository_evidence_delta(
     delta: EvidenceOnlyDeltaManifest,
     validated_acceptance_reports_by_path_ref: dict[str, TAW08AcceptanceReport]
     | None = None,
-    repository_root: Path = ROOT,
+    candidate_repository_root: Path = ROOT,
+    delta_repository_root: Path = ROOT,
 ) -> _EvidenceOnlyDeltaVerificationReceipt:
     candidate_verification_receipt = verify_repository_candidate(
         candidate_lock,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if not candidate_verification_receipt.verified:
         raise RuntimeError("TAW-08 delta issuer lacks candidate-bound provenance")
     census = derive_revision_delta_census(
         candidate_lock.git_revision_ref,
         delta.delta_revision_ref,
-        repository_root=repository_root,
+        repository_root=delta_repository_root,
     )
     delta_revision = delta.delta_revision_ref.removeprefix("git-sha:")
     candidate_revision = candidate_lock.git_revision_ref.removeprefix("git-sha:")
@@ -1626,7 +1636,7 @@ def verify_repository_evidence_delta(
         path_ref: _git(
             "show",
             f"{delta_revision}:{path_ref.removeprefix('repo-path-ref:')}",
-            repository_root=repository_root,
+            repository_root=delta_repository_root,
         )
         for path_ref in census.path_refs
     }
@@ -1634,7 +1644,7 @@ def verify_repository_evidence_delta(
         path_ref: _git(
             "show",
             f"{candidate_revision}:{path_ref.removeprefix('repo-path-ref:')}",
-            repository_root=repository_root,
+            repository_root=delta_repository_root,
         )
         for path_ref in census.path_refs
         if path_ref.endswith(".md")
@@ -1658,9 +1668,7 @@ def verify_repository_foundation_gate(
 ) -> FoundationGateReceipt:
     if stage not in {"exact_head", "postmerge"}:
         raise ValueError("Foundation receipt stage is invalid")
-    revision_ref, report = _evaluate_foundation_gate_in_fresh_process(
-        repository_root
-    )
+    revision_ref, report = _evaluate_foundation_gate_in_fresh_process(repository_root)
     revision = revision_ref.removeprefix("git-sha:")
     verify_executing_repository_sources(
         revision,
@@ -1704,18 +1712,19 @@ def verify_repository_final_acceptance_publication(
     delta: EvidenceOnlyDeltaManifest,
     delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
-    repository_root: Path = ROOT,
+    candidate_repository_root: Path = ROOT,
+    publication_repository_root: Path = ROOT,
 ) -> _FinalAcceptancePublicationReceipt:
     candidate_revision = candidate_revision_ref.removeprefix("git-sha:")
     issuer_lock, _candidate_content = _candidate_lock(
         candidate_revision,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if issuer_lock.manifest_digest_ref != candidate_manifest_digest_ref:
         raise RuntimeError("TAW-08 publication issuer candidate binding drift")
     candidate_verification_receipt = verify_repository_candidate(
         issuer_lock,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if not candidate_verification_receipt.verified:
         raise RuntimeError("TAW-08 publication issuer lacks candidate-bound provenance")
@@ -1726,12 +1735,12 @@ def verify_repository_final_acceptance_publication(
     publication_content = _git(
         "show",
         f"{publication_revision}:{publication_path}",
-        repository_root=repository_root,
+        repository_root=publication_repository_root,
     )
     publication_history_census = derive_publication_history_census(
         delta.delta_revision_ref,
         publication_revision_ref,
-        repository_root=repository_root,
+        repository_root=publication_repository_root,
     )
     return _verify_and_bind_final_acceptance_publication(
         publication_revision_ref=publication_revision_ref,
@@ -2321,12 +2330,16 @@ def _apply_windows_private_directory_acl(path: Path) -> None:
         present = wintypes.BOOL()
         defaulted = wintypes.BOOL()
         dacl = ctypes.c_void_p()
-        if not advapi.GetSecurityDescriptorDacl(
-            descriptor,
-            ctypes.byref(present),
-            ctypes.byref(dacl),
-            ctypes.byref(defaulted),
-        ) or not present.value or not dacl.value:
+        if (
+            not advapi.GetSecurityDescriptorDacl(
+                descriptor,
+                ctypes.byref(present),
+                ctypes.byref(dacl),
+                ctypes.byref(defaulted),
+            )
+            or not present.value
+            or not dacl.value
+        ):
             raise _windows_error("TAW-08 private ACL creation failed")
         result = advapi.SetNamedSecurityInfoW(
             str(path),
@@ -2392,9 +2405,12 @@ def _validate_windows_private_directory_acl(path: Path) -> None:
             raise RuntimeError("TAW-08 private ACL owner is invalid")
         control = wintypes.WORD()
         revision = wintypes.DWORD()
-        if not advapi.GetSecurityDescriptorControl(
-            descriptor, ctypes.byref(control), ctypes.byref(revision)
-        ) or not control.value & 0x1000:
+        if (
+            not advapi.GetSecurityDescriptorControl(
+                descriptor, ctypes.byref(control), ctypes.byref(revision)
+            )
+            or not control.value & 0x1000
+        ):
             raise RuntimeError("TAW-08 private ACL is not protected")
         for sid_text in ("S-1-3-4", "S-1-5-18", "S-1-5-32-544"):
             sid = ctypes.c_void_p()
@@ -2414,9 +2430,7 @@ def _validate_windows_private_directory_acl(path: Path) -> None:
             ace = ctypes.c_void_p()
             if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
                 raise _windows_error("TAW-08 private ACL grant lookup failed")
-            header = ctypes.cast(
-                ace, ctypes.POINTER(_WindowsAceHeader)
-            ).contents
+            header = ctypes.cast(ace, ctypes.POINTER(_WindowsAceHeader)).contents
             mask = ctypes.c_uint32.from_address(ace.value + 4).value
             ace_sid = ctypes.c_void_p(ace.value + 8)
             matches = tuple(
@@ -2468,6 +2482,104 @@ def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
     else:
         raise RuntimeError("TAW-08 private directory platform is unsupported")
     _validate_private_directory(path, require_empty=require_empty)
+
+
+def _prepare_private_temporary_directory(
+    *, prefix: str, repository_root: Path
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    temporary_parent = Path(tempfile.gettempdir()).resolve()
+    try:
+        parent_metadata = temporary_parent.lstat()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 temporary directory root is unavailable") from exc
+    if (
+        stat.S_ISLNK(parent_metadata.st_mode)
+        or not stat.S_ISDIR(parent_metadata.st_mode)
+        or temporary_parent.is_relative_to(repository_root.resolve())
+    ):
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    if os.name == "posix":
+        parent_mode = stat.S_IMODE(parent_metadata.st_mode)
+        if parent_metadata.st_uid not in {0, os.getuid()} or (
+            parent_mode & 0o022 and not parent_mode & stat.S_ISVTX
+        ):
+            raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    handle: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory(
+        prefix=prefix,
+        dir=temporary_parent,
+    )
+    try:
+        root = Path(handle.name).resolve(strict=True)
+        _harden_private_directory(root, require_empty=True)
+        final_parent_metadata = os.lstat(temporary_parent)
+        if not os.path.samestat(parent_metadata, final_parent_metadata):
+            raise RuntimeError("TAW-08 temporary directory root changed")
+    except BaseException:
+        handle.cleanup()
+        raise
+    return handle, root
+
+
+def _read_private_regular_file(path: Path, *, maximum: int) -> bytes:
+    try:
+        initial = path.lstat()
+        if (
+            stat.S_ISLNK(initial.st_mode)
+            or not stat.S_ISREG(initial.st_mode)
+            or initial.st_nlink != 1
+            or (os.name == "posix" and initial.st_uid != os.getuid())
+        ):
+            raise RuntimeError("TAW-08 private evidence file is unsafe")
+        descriptor = os.open(
+            path,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | (getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)),
+        )
+        try:
+            opened = os.fstat(descriptor)
+            if not os.path.samestat(initial, opened):
+                raise RuntimeError("TAW-08 private evidence file changed")
+            if os.name == "posix":
+                os.fchmod(descriptor, 0o600)
+                hardened = os.fstat(descriptor)
+                if (
+                    not os.path.samestat(opened, hardened)
+                    or stat.S_IMODE(hardened.st_mode) != 0o600
+                ):
+                    raise RuntimeError("TAW-08 private evidence file is unsafe")
+                opened = hardened
+            chunks: list[bytes] = []
+            observed = 0
+            while True:
+                chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - observed))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                observed += len(chunk)
+                if observed > maximum:
+                    raise RuntimeError("TAW-08 private evidence file is invalid")
+            closed_over = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        final = path.lstat()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 private evidence file is unavailable") from exc
+    compared_fields = (
+        "st_mode",
+        "st_uid",
+        "st_nlink",
+        "st_size",
+        "st_mtime_ns",
+        "st_ctime_ns",
+    )
+    if not os.path.samestat(opened, final) or any(
+        getattr(opened, field) != getattr(closed_over, field)
+        or getattr(opened, field) != getattr(final, field)
+        for field in compared_fields
+    ):
+        raise RuntimeError("TAW-08 private evidence file changed")
+    return b"".join(chunks)
 
 
 def _locked_child_environment(
@@ -2586,11 +2698,13 @@ def _run_locked_candidate_verifier() -> bytes | None:
     if not provisioned_wheelhouse_value:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")
     provisioned_wheelhouse = Path(provisioned_wheelhouse_value).resolve()
-    with tempfile.TemporaryDirectory(prefix="uaa-taw08-locked-") as temporary:
-        temporary_root = Path(temporary).resolve()
+    temporary, temporary_root = _prepare_private_temporary_directory(
+        prefix="uaa-taw08-locked-",
+        repository_root=ROOT,
+    )
+    try:
         if temporary_root.is_relative_to(ROOT.resolve()):
             raise RuntimeError("TAW-08 locked temporary root is unsafe")
-        _harden_private_directory(temporary_root, require_empty=True)
         candidate_root = temporary_root / "candidate"
         environment_root = temporary_root / "environment"
         selected_wheelhouse = temporary_root / "selected-wheelhouse"
@@ -2643,9 +2757,7 @@ def _run_locked_candidate_verifier() -> bytes | None:
         finally:
             if added:
                 current_hooks = os.lstat(hooks_root)
-                if (
-                    not os.path.samestat(hooks_metadata, current_hooks)
-                ):
+                if not os.path.samestat(hooks_metadata, current_hooks):
                     raise RuntimeError("TAW-08 inert Git hooks directory changed")
                 _validate_private_directory(hooks_root, require_empty=True)
                 _validate_private_directory(runtime_temp, require_empty=False)
@@ -2655,6 +2767,8 @@ def _run_locked_candidate_verifier() -> bytes | None:
                     str(candidate_root),
                     extra_config=hooks_config,
                 )
+    finally:
+        temporary.cleanup()
     return None
 
 

@@ -1426,10 +1426,41 @@ def test_phase_git_commands_use_authenticated_absolute_executable(
             f"core.hooksPath={os.devnull}",
             "-c",
             f"core.attributesFile={os.devnull}",
+            "-c",
+            f"core.worktree={tmp_path.resolve()}",
+            f"--work-tree={tmp_path.resolve()}",
             "status",
         )
     ]
     assert observed_environments[0]["GIT_NO_LAZY_FETCH"] == "1"
+
+
+@pytest.mark.parametrize("module", (driver, worker))
+def test_phase_git_inspection_pins_exact_worktree_root(
+    module: object,
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    alternate = tmp_path / "alternate"
+    repository.mkdir()
+    alternate.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "config", "core.worktree", str(alternate)),
+        cwd=repository,
+        check=True,
+    )
+
+    if module is driver:
+        output = module._git(repository, "rev-parse", "--show-toplevel")
+    else:
+        output = module._preimport_git(
+            repository,
+            "rev-parse",
+            "--show-toplevel",
+        )
+
+    assert Path(output.decode("utf-8").strip()).resolve() == repository.resolve()
 
 
 def _bootstrap_lock_for(content: bytes, *, digest: str | None = None) -> bytes:
@@ -1954,15 +1985,17 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     class PhaseVerifier:
         def __init__(self) -> None:
             self.foundation_roots: list[Path] = []
-            self.delta_roots: list[Path] = []
+            self.delta_roots: list[tuple[Path, Path]] = []
             self.publication_history_roots: list[Path] = []
-            self.publication_verification_roots: list[Path] = []
+            self.publication_verification_roots: list[tuple[Path, Path]] = []
             self.expand_publication_history = False
 
         def verify_repository_evidence_delta(self, **kwargs: object) -> object:
-            repository_root = kwargs["repository_root"]
-            assert isinstance(repository_root, Path)
-            self.delta_roots.append(repository_root)
+            candidate_repository_root = kwargs["candidate_repository_root"]
+            delta_repository_root = kwargs["delta_repository_root"]
+            assert isinstance(candidate_repository_root, Path)
+            assert isinstance(delta_repository_root, Path)
+            self.delta_roots.append((candidate_repository_root, delta_repository_root))
             return delta_receipt
 
         def verify_repository_foundation_gate(self, **kwargs: object) -> object:
@@ -1988,9 +2021,13 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         def verify_repository_final_acceptance_publication(
             self, **kwargs: object
         ) -> object:
-            repository_root = kwargs["repository_root"]
-            assert isinstance(repository_root, Path)
-            self.publication_verification_roots.append(repository_root)
+            candidate_repository_root = kwargs["candidate_repository_root"]
+            publication_repository_root = kwargs["publication_repository_root"]
+            assert isinstance(candidate_repository_root, Path)
+            assert isinstance(publication_repository_root, Path)
+            self.publication_verification_roots.append(
+                (candidate_repository_root, publication_repository_root)
+            )
             return publication_receipt
 
     verifier = PhaseVerifier()
@@ -2125,9 +2162,11 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     )
     assert publication_phase_receipt["publication_revision_ref"] == f"git-sha:{m3}"
     assert len(verifier.delta_roots) >= 2
-    assert set(verifier.delta_roots) == {delta_root}
+    assert set(verifier.delta_roots) == {(candidate_root, delta_root)}
     assert verifier.publication_history_roots == [publication_root]
-    assert verifier.publication_verification_roots == [publication_root]
+    assert verifier.publication_verification_roots == [
+        (candidate_root, publication_root)
+    ]
     assert publication_phase_receipt["status"] == (
         "founder_private_accepted_promotion_blocked"
     )

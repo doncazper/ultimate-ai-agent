@@ -348,7 +348,9 @@ def _trusted_git_executable() -> Path:
     """Resolve Git across the same OS-administrator trust boundary as the verifier."""
 
     _require_posix_private_path_support()
-    executable_value = "/usr/bin/git" if sys.platform == "darwin" else shutil.which("git")
+    executable_value = (
+        "/usr/bin/git" if sys.platform == "darwin" else shutil.which("git")
+    )
     if not executable_value:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable")
     try:
@@ -400,7 +402,15 @@ def _preimport_git(
         }
     )
     completed = subprocess.run(
-        (str(executable), "--no-replace-objects", *GIT_READ_CONFIG, *args),
+        (
+            str(executable),
+            "--no-replace-objects",
+            *GIT_READ_CONFIG,
+            "-c",
+            f"core.worktree={repository_root.resolve()}",
+            f"--work-tree={repository_root.resolve()}",
+            *args,
+        ),
         cwd=repository_root,
         env=environment,
         check=True,
@@ -501,9 +511,7 @@ def _raw_worktree_blob_id(
             raise RuntimeError("TAW-08 repository worktree mode differs from Git")
         descriptor = os.open(
             target,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
         try:
             opened = os.fstat(descriptor)
@@ -1167,7 +1175,8 @@ def _verify_delta(
         validated_acceptance_reports_by_path_ref={
             acceptance.TAW08_ACCEPTANCE_REPORT_PATH_REF: pre_report
         },
-        repository_root=delta_root,
+        candidate_repository_root=candidate_root,
+        delta_repository_root=delta_root,
     )
     stored_phase_receipt: dict[str, object] | None = None
     if existing_receipt_path is None:
@@ -1461,7 +1470,8 @@ def _verify_publication(
         validated_acceptance_reports_by_path_ref={
             acceptance.TAW08_ACCEPTANCE_REPORT_PATH_REF: pre_report
         },
-        repository_root=delta_root,
+        candidate_repository_root=candidate_root,
+        delta_repository_root=delta_root,
     )
     if delta_receipt != stored_delta_receipt:
         raise ValueError("verified delta receipt differs from Git")
@@ -1516,7 +1526,8 @@ def _verify_publication(
         delta=manifest,
         delta_verification_receipt=delta_receipt,
         postmerge_foundation_receipt=postmerge_receipt,
-        repository_root=publication_root,
+        candidate_repository_root=candidate_root,
+        publication_repository_root=publication_root,
     )
     final_report = acceptance.evaluate_taw08_acceptance(
         candidate_lock=candidate_lock,

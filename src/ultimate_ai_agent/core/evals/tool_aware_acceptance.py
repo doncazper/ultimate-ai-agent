@@ -1882,6 +1882,17 @@ def build_final_acceptance_publication_artifact(
     )
 
 
+def _reject_duplicate_json_object_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("final publication contains duplicate object keys")
+        payload[key] = value
+    return payload
+
+
 def _verify_and_bind_final_acceptance_publication(
     *,
     publication_revision_ref: str,
@@ -1918,13 +1929,22 @@ def _verify_and_bind_final_acceptance_publication(
         postmerge_foundation_receipt=postmerge_foundation_receipt,
     )
     try:
-        raw_payload = json.loads(publication_content)
+        raw_payload = json.loads(
+            publication_content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(raw_payload):
             raise ValueError("final publication contains forbidden durable fields")
         published_artifact = FinalAcceptancePublicationArtifact.model_validate(
             raw_payload
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, ValidationError, RecursionError):
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValidationError,
+        RecursionError,
+        ValueError,
+    ):
         raise ValueError("final publication artifact schema is invalid") from None
     if published_artifact != expected_artifact:
         raise ValueError("final publication artifact binding drift")
@@ -2135,8 +2155,7 @@ def _verify_and_bind_foundation_gate_report(
         or criterion_ids != expected_criterion_ids
         or len(criterion_ids) != len(set(criterion_ids))
         or any(
-            item["status"] != "passed" or item.get("failures") != []
-            for item in results
+            item["status"] != "passed" or item.get("failures") != [] for item in results
         )
         or report_payload["overall_status"] != "passed"
         or report_payload["overall_status"] != expected_status
@@ -2173,8 +2192,7 @@ def _verify_and_bind_foundation_gate_report(
         criterion = criteria_by_id[criterion_id]
         evidence_refs = item.get("evidence_refs")
         if not isinstance(evidence_refs, list) or any(
-            not _foundation_report_identifier_is_safe(value)
-            for value in evidence_refs
+            not _foundation_report_identifier_is_safe(value) for value in evidence_refs
         ):
             raise ValueError("Foundation report contains unsafe durable evidence")
         safety_item = {

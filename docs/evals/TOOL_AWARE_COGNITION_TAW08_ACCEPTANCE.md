@@ -235,11 +235,15 @@ secret-like values.
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_tool_aware_cognition_taw08.py
 UAA_TAW08_LOCKED_WHEELHOUSE=<pre-provisioned-wheelhouse> \
-  PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw08.py
+UAA_TAW08_ENVIRONMENT_ROOT=<owner-private-evaluator-runtime> \
+  <owner-private-evaluator-runtime>/bin/python -I -B -S \
+  scripts/verify_taw08_environment_preflight.py \
+  scripts/verify_tool_aware_cognition_taw08.py
 ```
 
 An authorized local founder evaluator may set
-`UAA_TAW08_EXPORT_FOUNDER_INPUTS=1` on that same locked-verifier invocation to
+`UAA_TAW08_EXPORT_FOUNDER_INPUTS=1` on that same isolated locked-preflight
+invocation to
 receive the redacted candidate, candidate-verification, and exact-head
 Foundation bundle on standard output. The bundle's canonical digest detects
 transport corruption; it is not producer authentication. A signer must invoke

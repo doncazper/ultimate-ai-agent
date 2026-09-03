@@ -958,6 +958,45 @@ def test_final_publication_requires_exact_durable_artifact_bytes() -> None:
         )
 
 
+def test_final_publication_rejects_duplicate_json_object_keys() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    verification = _delta_verification(lock, delta)
+    artifact = build_final_acceptance_publication_artifact(
+        candidate_revision_ref=lock.git_revision_ref,
+        candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        founder_evidence_digest_ref=_founder_evidence(lock).evidence_digest_ref,
+        delta=delta,
+        delta_verification_receipt=verification,
+        postmerge_foundation_receipt=_postmerge_receipt(),
+    )
+    canonical = json.dumps(
+        artifact.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    duplicate = (
+        b'{"candidate_revision_ref":'
+        + json.dumps(lock.git_revision_ref).encode()
+        + b","
+        + canonical[1:]
+    )
+
+    with pytest.raises(ValueError, match="artifact schema is invalid"):
+        _verify_and_bind_final_acceptance_publication(
+            publication_revision_ref=PUBLICATION_REVISION_REF,
+            publication_path_ref=TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
+            publication_content=duplicate,
+            publication_history_census=_publication_history_census(),
+            candidate_revision_ref=lock.git_revision_ref,
+            candidate_manifest_digest_ref=lock.manifest_digest_ref,
+            founder_evidence_digest_ref=_founder_evidence(lock).evidence_digest_ref,
+            delta=delta,
+            delta_verification_receipt=verification,
+            postmerge_foundation_receipt=_postmerge_receipt(),
+        )
+
+
 def test_postmerge_receipt_must_bind_evidence_delta_revision() -> None:
     lock = _candidate_lock()
     delta = _delta(lock)
@@ -1905,9 +1944,7 @@ def test_filter_attribute_check_uses_git_239_compatible_cached_mode(
     assert len(attribute_calls) == 2
     assert any("--cached" in call for call in attribute_calls)
     assert not any(
-        argument.startswith("--source")
-        for call in attribute_calls
-        for argument in call
+        argument.startswith("--source") for call in attribute_calls for argument in call
     )
 
 
@@ -2211,9 +2248,7 @@ def test_foundation_preimport_posture_rejects_ignored_package_symlink(
     (repository / "src").mkdir()
     outside_package = tmp_path / "outside-pydantic"
     outside_package.mkdir()
-    (outside_package / "__init__.py").write_text(
-        "MALICIOUS = True\n", encoding="utf-8"
-    )
+    (outside_package / "__init__.py").write_text("MALICIOUS = True\n", encoding="utf-8")
     (repository / "src/pydantic").symlink_to(
         outside_package,
         target_is_directory=True,
@@ -2501,6 +2536,7 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
         ]
         for command in observed
     )
+    assert all(f"--work-tree={tmp_path.resolve()}" in command for command in observed)
     assert all("GIT_DIR" not in environment for environment in observed_environments)
     assert all(
         "GIT_REPLACE_REF_BASE" not in environment
@@ -3328,6 +3364,74 @@ def test_locked_child_requires_isolated_no_site_mode() -> None:
     assert command[1:4] == ("-I", "-B", "-S")
 
 
+def test_founder_input_export_requires_isolated_locked_preflight() -> None:
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "UAA_TAW08_EXPORT_FOUNDER_INPUTS": "1",
+    }
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            str(taw08_verifier.ROOT / "scripts/verify_tool_aware_cognition_taw08.py"),
+        ),
+        cwd=taw08_verifier.ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "requires the isolated locked preflight" in completed.stderr
+
+
+def test_taw08_git_inspection_pins_exact_worktree_root(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    alternate = tmp_path / "alternate"
+    repository.mkdir()
+    alternate.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "config", "core.worktree", str(alternate)),
+        cwd=repository,
+        check=True,
+    )
+
+    top_level = (
+        taw08_verifier._git(
+            "rev-parse",
+            "--show-toplevel",
+            repository_root=repository,
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+    assert Path(top_level).resolve() == repository.resolve()
+
+
+def test_taw08_private_temporary_root_rejects_nonsticky_shared_parent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    unsafe_parent = tmp_path / "unsafe-temp"
+    unsafe_parent.mkdir(mode=0o777)
+    unsafe_parent.chmod(0o777)
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(unsafe_parent),
+    )
+
+    with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+        taw08_verifier._prepare_private_temporary_directory(
+            prefix="taw08-test-",
+            repository_root=taw08_verifier.ROOT,
+        )
+
+
 def test_locked_child_preserves_validated_windows_system_root(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -3611,7 +3715,9 @@ def test_trusted_git_selects_apple_git_before_path_lookup(
         "which",
         lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
     )
-    monkeypatch.setattr(taw08_verifier, "_validate_posix_admin_path", lambda _path: None)
+    monkeypatch.setattr(
+        taw08_verifier, "_validate_posix_admin_path", lambda _path: None
+    )
     monkeypatch.setattr(
         taw08_verifier.subprocess,
         "run",
@@ -3635,7 +3741,9 @@ def test_foundation_runner_selects_apple_git_before_path_lookup(
         "which",
         lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
     )
-    monkeypatch.setattr(foundation_runner, "_validate_posix_admin_path", lambda _path: None)
+    monkeypatch.setattr(
+        foundation_runner, "_validate_posix_admin_path", lambda _path: None
+    )
     monkeypatch.setattr(
         foundation_runner.subprocess,
         "run",
@@ -3760,6 +3868,9 @@ def test_git_commands_use_the_trusted_absolute_executable(
             f"core.hooksPath={os.devnull}",
             "-c",
             f"core.attributesFile={os.devnull}",
+            "-c",
+            f"core.worktree={tmp_path.resolve()}",
+            f"--work-tree={tmp_path.resolve()}",
             "status",
         ]
     ]

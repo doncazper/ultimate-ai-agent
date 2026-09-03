@@ -509,7 +509,9 @@ def _trusted_git_executable() -> Path:
     """Resolve Git across the same OS-administrator trust boundary as the verifier."""
 
     _require_posix_private_path_support()
-    executable_value = "/usr/bin/git" if sys.platform == "darwin" else shutil.which("git")
+    executable_value = (
+        "/usr/bin/git" if sys.platform == "darwin" else shutil.which("git")
+    )
     if not executable_value:
         raise RuntimeError("TAW-08 trusted Git executable is unavailable")
     try:
@@ -547,7 +549,15 @@ def _git(
 ) -> bytes:
     executable = _trusted_git_executable()
     completed = subprocess.run(
-        (str(executable), "--no-replace-objects", *GIT_READ_CONFIG, *args),
+        (
+            str(executable),
+            "--no-replace-objects",
+            *GIT_READ_CONFIG,
+            "-c",
+            f"core.worktree={repository_root.resolve()}",
+            f"--work-tree={repository_root.resolve()}",
+            *args,
+        ),
         cwd=repository_root,
         env=_sanitized_environment(),
         check=True,
@@ -648,9 +658,7 @@ def _raw_worktree_blob_id(
             raise ValueError("repository worktree mode differs from Git")
         descriptor = os.open(
             target,
-            os.O_RDONLY
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
         )
         try:
             opened = os.fstat(descriptor)
