@@ -2,20 +2,26 @@ from __future__ import annotations
 
 import base64
 import ast
-import builtins
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
-import runpy
 from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
 
+try:
+    import tomllib as test_tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as test_tomllib
+
 import pytest
+from packaging.markers import InvalidMarker, Marker, default_environment
 from packaging.tags import Tag
+from packaging.tags import sys_tags as packaging_sys_tags
+from packaging.utils import canonicalize_name, parse_wheel_filename
 
 from ultimate_ai_agent.core.private_path_security import (
     require_private_tree,
@@ -26,7 +32,6 @@ from ultimate_ai_agent.core.private_path_security import (
 ROOT = Path(__file__).resolve().parents[1]
 DRIVER_PATH = ROOT / "scripts/run_tool_aware_cognition_taw08_evidence_phases.py"
 WORKER_PATH = ROOT / "scripts/taw08_evidence_phase_worker.py"
-VERIFIER_PATH = ROOT / "scripts/verify_tool_aware_cognition_taw08.py"
 
 
 def _load(name: str, path: Path):
@@ -40,6 +45,13 @@ def _load(name: str, path: Path):
 
 driver = _load("taw08_evidence_phase_driver", DRIVER_PATH)
 worker = _load("taw08_evidence_phase_worker_test", WORKER_PATH)
+driver.tomllib = test_tomllib
+driver.InvalidMarker = InvalidMarker
+driver.Marker = Marker
+driver.default_environment = default_environment
+driver.sys_tags = packaging_sys_tags
+driver.canonicalize_name = canonicalize_name
+driver.parse_wheel_filename = parse_wheel_filename
 SOURCE_DIGESTS = {
     "driver_source_digest_ref": "sha256:" + "d" * 64,
     "worker_source_digest_ref": "sha256:" + "e" * 64,
@@ -249,6 +261,39 @@ def test_private_inputs_and_outputs_fail_closed(tmp_path: Path) -> None:
     driver._write_private(output, b"first\n")
     with pytest.raises(FileExistsError, match="refusing to overwrite"):
         driver._write_private(output, b"second\n")
+
+
+def test_verify_delta_retry_reuses_receipt_and_rebuilds_missing_artifact(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path.resolve()
+    request = {"phase": "verify_delta"}
+    receipt = output_dir / driver.RECEIPT_NAMES["verify_delta"]
+    receipt.write_text("{}\n", encoding="utf-8")
+    receipt.chmod(0o600)
+
+    rebound = driver._bind_existing_verify_delta_receipt(
+        request,
+        output_dir=output_dir,
+    )
+
+    assert rebound == {
+        **request,
+        "existing_verified_delta_receipt_path": str(receipt),
+    }
+    assert not (output_dir / next(iter(driver.FINAL_PATHS)).rsplit("/", 1)[-1]).exists()
+
+
+def test_verify_delta_retry_rejects_artifact_without_receipt(tmp_path: Path) -> None:
+    artifact = tmp_path / next(iter(driver.FINAL_PATHS)).rsplit("/", 1)[-1]
+    artifact.write_text("{}\n", encoding="utf-8")
+    artifact.chmod(0o600)
+
+    with pytest.raises(ValueError, match="output is incomplete"):
+        driver._bind_existing_verify_delta_receipt(
+            {"phase": "verify_delta"},
+            output_dir=tmp_path.resolve(),
+        )
 
 
 def test_private_tree_walk_is_explicit_bounded_and_fail_closed(
@@ -486,6 +531,21 @@ def test_main_redacts_path_bearing_failures(
     def fail_with_path(*_args: object, **_kwargs: object) -> Path:
         raise subprocess.TimeoutExpired(cmd=secret_path, timeout=1)
 
+    candidate = (tmp_path / "candidate").resolve()
+    candidate.mkdir()
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    monkeypatch.setattr(driver, "_require_isolated_bootstrap", lambda: None)
+    monkeypatch.setattr(
+        driver,
+        "_precheck_clean_worktree",
+        lambda _path: (candidate, "a" * 40),
+    )
+    monkeypatch.setattr(
+        driver,
+        "_bootstrap_lock_tooling",
+        lambda **_kwargs: tempfile.TemporaryDirectory(),
+    )
     monkeypatch.setattr(driver, "_require_owner_only_file", fail_with_path)
     result = driver.main(
         [
@@ -495,7 +555,7 @@ def test_main_redacts_path_bearing_failures(
             "--founder-evidence",
             secret_path,
             "--locked-wheelhouse",
-            str(tmp_path / "wheelhouse"),
+            str(wheelhouse),
             "--output-dir",
             str(tmp_path / "output"),
         ]
@@ -506,6 +566,130 @@ def test_main_redacts_path_bearing_failures(
     assert captured.out == ""
     assert captured.err == "TAW-08 evidence phase blocked: bounded failure\n"
     assert secret_path not in captured.err
+
+
+def test_main_rejects_ambient_python_before_private_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    private_read = False
+
+    def forbidden_private_read(*_args: object, **_kwargs: object) -> Path:
+        nonlocal private_read
+        private_read = True
+        raise AssertionError("private input was read")
+
+    monkeypatch.setattr(driver, "_require_owner_only_file", forbidden_private_read)
+    result = driver.main(
+        [
+            "prepare_delta",
+            "--candidate-worktree",
+            str(tmp_path / "candidate"),
+            "--founder-evidence",
+            str(tmp_path / "founder.json"),
+            "--locked-wheelhouse",
+            str(tmp_path / "wheelhouse"),
+            "--output-dir",
+            str(tmp_path / "output"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert not private_read
+    assert captured.out == ""
+    assert captured.err == "TAW-08 evidence phase blocked: bounded failure\n"
+
+
+def test_main_authenticates_bootstrap_before_private_input_or_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = (tmp_path / "candidate").resolve()
+    candidate.mkdir()
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    founder = tmp_path / "founder.json"
+    founder.write_text("private\n", encoding="utf-8")
+    founder.chmod(0o600)
+    output = tmp_path / "output"
+    private_read = False
+
+    def forbidden_private_read(*_args: object, **_kwargs: object) -> Path:
+        nonlocal private_read
+        private_read = True
+        raise AssertionError("private input was read")
+
+    def reject_bootstrap(**_kwargs: object) -> None:
+        raise ValueError("bootstrap wheel digest drift")
+
+    monkeypatch.setattr(driver, "_require_isolated_bootstrap", lambda: None)
+    monkeypatch.setattr(
+        driver,
+        "_precheck_clean_worktree",
+        lambda _path: (candidate, "a" * 40),
+    )
+    monkeypatch.setattr(driver, "_bootstrap_lock_tooling", reject_bootstrap)
+    monkeypatch.setattr(driver, "_require_owner_only_file", forbidden_private_read)
+
+    assert driver.main(
+        [
+            "prepare_delta",
+            "--candidate-worktree",
+            str(candidate),
+            "--founder-evidence",
+            str(founder),
+            "--locked-wheelhouse",
+            str(wheelhouse),
+            "--output-dir",
+            str(output),
+        ]
+    ) == 1
+    assert not private_read
+    assert not output.exists()
+
+
+def test_documented_isolated_bootstrap_ignores_sitecustomize(
+    tmp_path: Path,
+) -> None:
+    injected = tmp_path / "injected"
+    injected.mkdir()
+    sentinel = tmp_path / "sitecustomize-ran"
+    (injected / "sitecustomize.py").write_text(
+        f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(injected)
+
+    completed = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", str(DRIVER_PATH), "--help"),
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0
+    assert not sentinel.exists()
+
+
+def test_driver_has_only_standard_library_startup_imports() -> None:
+    tree = ast.parse(DRIVER_PATH.read_text(encoding="utf-8"), filename=str(DRIVER_PATH))
+    imported_roots = {
+        alias.name.split(".", 1)[0]
+        for node in tree.body
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    imported_roots.update(
+        node.module.split(".", 1)[0]
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    )
+
+    assert imported_roots <= {*sys.stdlib_module_names, "__future__"}
 
 
 def test_owner_checks_fail_closed_when_posix_identity_is_unavailable(
@@ -532,51 +716,66 @@ def test_owner_checks_fail_closed_when_posix_identity_is_unavailable(
         worker._owner_only_file(private, purpose="test")
 
 
-def test_python_310_import_uses_locked_dev_environment_tomli_fallback(
+def test_bootstrap_uses_pip_vendored_tomli_for_python_310_compatibility(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    real_import = builtins.__import__
-    fake_tomli = SimpleNamespace(TOMLDecodeError=ValueError, loads=lambda _value: {})
+    staged = tmp_path / "pip-locked-py3-none-any.whl"
+    imported: list[str] = []
+    fake_tomli = SimpleNamespace(
+        __file__=f"{staged}/pip/_vendor/tomli/__init__.py",
+        TOMLDecodeError=ValueError,
+        loads=lambda _value: {},
+    )
+    fake_markers = SimpleNamespace(
+        __file__=f"{staged}/pip/_vendor/packaging/markers.py",
+        InvalidMarker=ValueError,
+        Marker=object,
+        default_environment=lambda: {},
+    )
+    fake_tags = SimpleNamespace(
+        __file__=f"{staged}/pip/_vendor/packaging/tags.py",
+        sys_tags=lambda: (),
+    )
+    fake_utils = SimpleNamespace(
+        __file__=f"{staged}/pip/_vendor/packaging/utils.py",
+        canonicalize_name=str.lower,
+        parse_wheel_filename=lambda _value: (),
+    )
+    modules = {
+        "pip._vendor.tomli": fake_tomli,
+        "pip._vendor.packaging.markers": fake_markers,
+        "pip._vendor.packaging.tags": fake_tags,
+        "pip._vendor.packaging.utils": fake_utils,
+    }
 
-    def import_without_tomllib(name: str, *args: object, **kwargs: object) -> object:
-        if name == "tomllib":
-            raise ModuleNotFoundError("No module named 'tomllib'")
-        if name == "tomli":
-            return fake_tomli
-        return real_import(name, *args, **kwargs)
+    def authenticated_import(name: str) -> object:
+        imported.append(name)
+        return modules[name]
 
-    monkeypatch.setattr(builtins, "__import__", import_without_tomllib)
-    driver_namespace = runpy.run_path(
-        str(DRIVER_PATH), run_name="python310_compat_driver"
-    )
-    verifier_tree = ast.parse(
-        VERIFIER_PATH.read_text(encoding="utf-8"), filename=str(VERIFIER_PATH)
-    )
-    verifier_fallback = next(
-        node
-        for node in verifier_tree.body
-        if isinstance(node, ast.Try)
-        and any(
-            isinstance(imported, ast.Import)
-            and any(alias.name == "tomllib" for alias in imported.names)
-            for imported in node.body
-        )
-    )
-    verifier_namespace: dict[str, object] = {}
-    exec(
-        compile(
-            ast.Module(body=[verifier_fallback], type_ignores=[]),
-            str(VERIFIER_PATH),
-            "exec",
-        ),
-        verifier_namespace,
-    )
-    locked_packages = driver.tomllib.loads(
+    for name in (
+        "tomllib",
+        "InvalidMarker",
+        "Marker",
+        "default_environment",
+        "sys_tags",
+        "canonicalize_name",
+        "parse_wheel_filename",
+    ):
+        monkeypatch.setattr(driver, name, getattr(driver, name))
+    monkeypatch.setattr(driver.sys, "path", list(driver.sys.path))
+    monkeypatch.setattr(driver.importlib, "import_module", authenticated_import)
+    driver._install_bootstrap_lock_tooling(staged)
+
+    assert imported[0] == "pip._vendor.tomli"
+    assert "tomllib" not in imported
+    assert "tomli" not in imported
+    assert driver.tomllib is fake_tomli
+
+    locked_packages = test_tomllib.loads(
         (ROOT / "uv.lock").read_text(encoding="utf-8")
     )["package"]
 
-    assert driver_namespace["tomllib"] is fake_tomli
-    assert verifier_namespace["tomllib"] is fake_tomli
     assert any(package.get("name") == "tomli" for package in locked_packages)
 
 
@@ -623,6 +822,69 @@ def test_clean_worktree_precheck_rejects_dirty_and_hidden_entries(
     )
     with pytest.raises(ValueError, match="hidden index"):
         driver._precheck_clean_worktree(repository.resolve())
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX fsmonitor regression")
+def test_clean_worktree_precheck_disables_repository_fsmonitor(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    tracked = repository / "tracked.txt"
+    sentinel = tmp_path / "fsmonitor-ran"
+    hook = tmp_path / "lying-fsmonitor"
+    hook.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nprintf 'unchanged-token\\0'\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o755)
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    tracked.write_text("same-size-a\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    original = tracked.stat()
+    subprocess.run(
+        ("git", "config", "core.fsmonitor", str(hook)),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "core.trustctime", "false"),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(("git", "status", "--porcelain"), cwd=repository, check=True)
+    assert sentinel.exists()
+    sentinel.unlink()
+    tracked.write_text("same-size-b\n", encoding="utf-8")
+    os.utime(tracked, ns=(original.st_atime_ns, original.st_mtime_ns))
+    ordinary = subprocess.run(
+        ("git", "status", "--porcelain"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+    assert ordinary.stdout == b""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    with pytest.raises(ValueError, match="must be clean"):
+        driver._precheck_clean_worktree(repository)
+    assert not sentinel.exists()
 
 
 def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> None:
@@ -760,7 +1022,130 @@ def test_phase_git_commands_use_authenticated_absolute_executable(
         output = module._preimport_git(tmp_path, "status")
 
     assert output == b"trusted output"
-    assert observed == [("/trusted/git", "--no-replace-objects", "status")]
+    assert observed == [
+        (
+            "/trusted/git",
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.ignoreStat=false",
+            "status",
+        )
+    ]
+
+
+def _bootstrap_lock_for(content: bytes, *, digest: str | None = None) -> bytes:
+    digest = digest or hashlib.sha256(content).hexdigest()
+    return (
+        "version = 1\n\n"
+        "[[package]]\n"
+        'name = "pip"\n'
+        'version = "26.2.1"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        "wheels = [\n"
+        '    { url = "https://files.pythonhosted.org/packages/locked/'
+        'pip-26.2.1-py3-none-any.whl", '
+        f'hash = "sha256:{digest}", size = {len(content)}, '
+        'upload-time = "2026-08-04T22:51:12.472Z" },\n'
+        "]\n"
+    ).encode()
+
+
+def test_bootstrap_pip_wheel_is_exactly_locked_and_privately_staged(
+    tmp_path: Path,
+) -> None:
+    content = b"locked pip wheel"
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    wheel = wheelhouse / "pip-26.2.1-py3-none-any.whl"
+    wheel.write_bytes(content)
+    identity = driver._bootstrap_pip_identity(_bootstrap_lock_for(content))
+
+    temporary, staged = driver._stage_bootstrap_pip_wheel(
+        locked_wheelhouse=wheelhouse,
+        identity=identity,
+    )
+    try:
+        assert staged.read_bytes() == content
+        assert stat_mode(staged) == 0o600
+        wheel.write_bytes(b"changed after staging")
+        assert staged.read_bytes() == content
+    finally:
+        temporary.cleanup()
+
+
+def test_bootstrap_pip_wheel_rejects_unsafe_temporary_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    content = b"locked pip wheel"
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    (wheelhouse / "pip-26.2.1-py3-none-any.whl").write_bytes(content)
+    unsafe_temporary_root = tmp_path / "unsafe-temporary-root"
+    unsafe_temporary_root.mkdir(mode=0o700)
+    unsafe_temporary_root.chmod(0o777)
+    monkeypatch.setattr(driver.tempfile, "tempdir", str(unsafe_temporary_root))
+    identity = driver._bootstrap_pip_identity(_bootstrap_lock_for(content))
+
+    try:
+        with pytest.raises(ValueError, match=r"unsafe (lexical )?ancestor"):
+            driver._stage_bootstrap_pip_wheel(
+                locked_wheelhouse=wheelhouse,
+                identity=identity,
+            )
+    finally:
+        unsafe_temporary_root.chmod(0o700)
+
+
+@pytest.mark.parametrize("failure", ("missing", "tampered", "duplicate"))
+def test_bootstrap_pip_wheel_rejects_missing_tampered_or_duplicate_identity(
+    tmp_path: Path,
+    failure: str,
+) -> None:
+    content = b"locked pip wheel"
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    wheel = wheelhouse / "pip-26.2.1-py3-none-any.whl"
+    if failure != "missing":
+        wheel.write_bytes(b"tampered" if failure == "tampered" else content)
+    if failure == "duplicate":
+        (wheelhouse / "pip-99.0-py3-none-any.whl").write_bytes(b"other")
+    identity = driver._bootstrap_pip_identity(_bootstrap_lock_for(content))
+
+    with pytest.raises(ValueError, match="bootstrap pip wheel"):
+        driver._stage_bootstrap_pip_wheel(
+            locked_wheelhouse=wheelhouse,
+            identity=identity,
+        )
+
+
+def test_bootstrap_pip_identity_rejects_duplicate_or_wrong_digest_lock(
+    tmp_path: Path,
+) -> None:
+    content = b"locked pip wheel"
+    valid = _bootstrap_lock_for(content)
+    duplicate = valid + valid.removeprefix(b"version = 1\n\n")
+    with pytest.raises(ValueError, match="ambiguous"):
+        driver._bootstrap_pip_identity(duplicate)
+
+    wrong = _bootstrap_lock_for(content, digest="f" * 64)
+    identity = driver._bootstrap_pip_identity(wrong)
+    wheelhouse = (tmp_path / "wheelhouse").resolve()
+    wheelhouse.mkdir()
+    (wheelhouse / identity[0]).write_bytes(content)
+    with pytest.raises(ValueError, match="differs from uv.lock"):
+        driver._stage_bootstrap_pip_wheel(
+            locked_wheelhouse=wheelhouse,
+            identity=identity,
+        )
 
 
 def test_locked_wheel_selection_uses_reachable_compatible_closure(
@@ -866,14 +1251,53 @@ wheels = [
         )
 
 
+def test_environment_materialization_bootstrap_is_isolated_and_no_site(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, ...]] = []
+    selected = tmp_path / "selected"
+    selected.mkdir()
+    wheels = (
+        selected / "pip-fixture.whl",
+        selected / "dependency-fixture.whl",
+    )
+
+    def parse_wheel(filename: str) -> tuple[object, object, object, object]:
+        return ("pip" if filename.startswith("pip-") else "dependency", None, None, ())
+
+    def successful_run(command: tuple[str, ...], **_kwargs: object):
+        observed.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(driver, "parse_wheel_filename", parse_wheel)
+    monkeypatch.setattr(driver, "canonicalize_name", str.lower)
+    monkeypatch.setattr(driver.subprocess, "run", successful_run)
+
+    driver._materialize_environment(
+        environment_root=tmp_path / "environment",
+        selected_wheelhouse=selected,
+        wheels=wheels,
+    )
+
+    assert observed[0][:6] == (
+        sys.executable,
+        "-I",
+        "-B",
+        "-S",
+        "-m",
+        "venv",
+    )
+
+
 def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     candidate = tmp_path / "candidate"
     scripts = candidate / "scripts"
     scripts.mkdir(parents=True)
-    (candidate / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
-    (candidate / "uv.lock").write_text("fixture\n", encoding="utf-8")
+    (candidate / "pyproject.toml").write_text("tampered project\n", encoding="utf-8")
+    (candidate / "uv.lock").write_text("tampered lock\n", encoding="utf-8")
     preflight = scripts / "verify_taw08_environment_preflight.py"
     preflight.write_text("# fixture\n", encoding="utf-8")
     wheelhouse = tmp_path / "wheelhouse"
@@ -882,6 +1306,8 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
     events: list[str] = []
 
     def fake_copy(**kwargs: object) -> tuple[Path, ...]:
+        assert kwargs["pyproject"] == b"authenticated project"
+        assert kwargs["uv_lock"] == b"authenticated lock"
         selected = kwargs["selected"]
         assert isinstance(selected, Path)
         selected.mkdir(mode=0o700)
@@ -912,6 +1338,8 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
         driver.DRIVER_PATH_REF: b"driver-source",
         driver.WORKER_PATH_REF: b"worker-source",
         driver.PREFLIGHT_PATH_REF: b"preflight-source",
+        driver.PYPROJECT_PATH_REF: b"authenticated project",
+        driver.UV_LOCK_PATH_REF: b"authenticated lock",
     }
     expected_source_digests = {
         field: "sha256:" + hashlib.sha256(source_by_ref[path_ref]).hexdigest()
@@ -1087,6 +1515,16 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         passed=True,
         redacted=True,
         raw_content_persisted=False,
+        report_ref="foundation-report-ref:stored",
+        report_digest_ref="sha256:" + "6" * 64,
+    )
+    fresh_foundation_receipt = _Dumpable(
+        **{
+            **vars(foundation_receipt),
+            "receipt_digest_ref": "sha256:" + "7" * 64,
+            "report_ref": "foundation-report-ref:fresh-rerun",
+            "report_digest_ref": "sha256:" + "8" * 64,
+        }
     )
     publication_receipt = _Dumpable(receipt_digest_ref="sha256:" + "5" * 64)
     final_artifact = _Dumpable(
@@ -1140,7 +1578,9 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
             repository_root = kwargs["repository_root"]
             assert isinstance(repository_root, Path)
             self.foundation_roots.append(repository_root)
-            return foundation_receipt
+            if len(self.foundation_roots) == 1:
+                return foundation_receipt
+            return fresh_foundation_receipt
 
         def derive_publication_history_census(
             self, *_args: object, **_kwargs: object
@@ -1184,14 +1624,18 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         return manifest, SimpleNamespace(), {}
 
     stored_phase_receipt: dict[str, object] = {}
+    stored_components: dict[str, object] = {
+        "manifest": manifest,
+        "delta_receipt": delta_receipt,
+    }
 
     def load_verified_delta_receipt(
         *_args: object, **_kwargs: object
     ) -> tuple[object, ...]:
         return (
             stored_phase_receipt,
-            manifest,
-            delta_receipt,
+            stored_components["manifest"],
+            stored_components["delta_receipt"],
             foundation_receipt,
         )
 
@@ -1243,6 +1687,29 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         driver.FINAL_PATHS
     )
 
+    retry_request = {
+        **delta_request,
+        "existing_verified_delta_receipt_path": str(tmp_path / "verified-delta.json"),
+    }
+    retry_response = worker._verify_delta(verifier, acceptance, retry_request)
+    assert retry_response == delta_response
+
+    original_source_digest = stored_phase_receipt["driver_source_digest_ref"]
+    stored_phase_receipt["driver_source_digest_ref"] = "sha256:" + "9" * 64
+    with pytest.raises(ValueError, match="stored verified delta phase binding drift"):
+        worker._verify_delta(verifier, acceptance, retry_request)
+    stored_phase_receipt["driver_source_digest_ref"] = original_source_digest
+
+    stored_components["manifest"] = SimpleNamespace(drifted=True)
+    with pytest.raises(ValueError, match="stored verified delta phase binding drift"):
+        worker._verify_delta(verifier, acceptance, retry_request)
+    stored_components["manifest"] = manifest
+
+    stored_components["delta_receipt"] = SimpleNamespace(drifted=True)
+    with pytest.raises(ValueError, match="stored verified delta phase binding drift"):
+        worker._verify_delta(verifier, acceptance, retry_request)
+    stored_components["delta_receipt"] = delta_receipt
+
     publication_request = {
         **delta_request,
         "phase": "verify_publication",
@@ -1262,7 +1729,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
         "founder_private_accepted_promotion_blocked"
     )
     assert publication_artifacts == []
-    assert verifier.foundation_roots == [delta_root, delta_root]
+    assert verifier.foundation_roots == [delta_root, delta_root, delta_root]
 
     verifier.expand_publication_history = True
     with pytest.raises(ValueError, match="M2-to-M3 path census drift"):

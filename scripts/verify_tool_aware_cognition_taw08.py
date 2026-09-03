@@ -40,6 +40,18 @@ _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
 _EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+_GIT_READ_CONFIG = (
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "core.trustctime=true",
+    "-c",
+    "core.checkStat=default",
+    "-c",
+    "core.ignoreStat=false",
+)
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -233,7 +245,7 @@ def _trusted_git_identity() -> tuple[Path, str, str]:
 def _git(*args: str, repository_root: Path = ROOT) -> bytes:
     executable, _digest_ref, _provenance_ref = _trusted_git_identity()
     result = subprocess.run(
-        [str(executable), "--no-replace-objects", *args],
+        [str(executable), "--no-replace-objects", *_GIT_READ_CONFIG, *args],
         cwd=repository_root,
         check=True,
         capture_output=True,

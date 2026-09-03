@@ -37,9 +37,15 @@ public quality claims, and production authority remain false and blocked.
 ## Candidate-locked execution boundary
 
 The phase driver and worker are operational sources in the `M1` candidate
-lock. The driver must execute from the exact clean `M1` checkout. Before every
-phase it proves that both local source files equal their committed `M1` Git
-bytes and derives their exact SHA-256 digests.
+lock. The driver must execute from the exact clean `M1` checkout with Python's
+isolated, no-bytecode, and no-site flags (`-I -B -S`). Its startup is
+standard-library-only: before reading founder evidence or creating output, it
+authenticates the OS-admin Git executable, disables repository-local file
+monitoring, proves the candidate is clean, binds its own bytes and `uv.lock` to
+the candidate revision, and loads TOML/wheel tooling only from a privately
+staged copy of the exact locked `pip` wheel. Before every phase it also proves
+that both local operational source files equal their committed `M1` Git bytes
+and derives their exact SHA-256 digests.
 
 Those two source digests are added to the phase request. The worker is copied
 from the candidate bytes into a temporary owner-only file, and its digest is
@@ -87,7 +93,7 @@ interchangeable. The driver never launches that evaluator or makes a model
 call.
 
 ```bash
-<absolute-python> \
+<absolute-python> -I -B -S \
   <clean-M1-worktree>/scripts/run_tool_aware_cognition_taw08_evidence_phases.py \
   prepare_delta \
   --candidate-worktree <clean-M1-worktree> \
@@ -99,7 +105,7 @@ call.
 After the three staged files are the only committed `M1..M2` changes:
 
 ```bash
-<absolute-python> \
+<absolute-python> -I -B -S \
   <clean-M1-worktree>/scripts/run_tool_aware_cognition_taw08_evidence_phases.py \
   verify_delta \
   --candidate-worktree <clean-M1-worktree> \
@@ -112,7 +118,7 @@ After the three staged files are the only committed `M1..M2` changes:
 After the emitted final JSON is the only committed `M2..M3` change:
 
 ```bash
-<absolute-python> \
+<absolute-python> -I -B -S \
   <clean-M1-worktree>/scripts/run_tool_aware_cognition_taw08_evidence_phases.py \
   verify_publication \
   --candidate-worktree <clean-M1-worktree> \

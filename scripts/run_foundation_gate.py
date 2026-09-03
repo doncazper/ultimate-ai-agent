@@ -36,6 +36,20 @@ from scripts.verification.verification_github_prerequisites import (  # noqa: E4
 )
 
 
+_GIT_READ_CONFIG = (
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "core.trustctime=true",
+    "-c",
+    "core.checkStat=default",
+    "-c",
+    "core.ignoreStat=false",
+)
+
+
 def _sanitized_git_environment() -> dict[str, str]:
     environment = {
         key: value
@@ -59,7 +73,14 @@ def _index_has_hidden_worktree_entries(
     git_environment: dict[str, str],
 ) -> bool:
     entries = subprocess.run(
-        [git_command, "--no-replace-objects", "ls-files", "-v", "-z"],
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "ls-files",
+            "-v",
+            "-z",
+        ],
         cwd=repository_root,
         check=True,
         capture_output=True,
@@ -83,7 +104,13 @@ def exact_repository_revision(
     git_command = str(git_executable)
     git_environment = _sanitized_git_environment()
     repository_probe = subprocess.run(
-        [git_command, "--no-replace-objects", "rev-parse", "--show-toplevel"],
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "rev-parse",
+            "--show-toplevel",
+        ],
         cwd=repository_root,
         check=False,
         capture_output=True,
@@ -103,6 +130,7 @@ def exact_repository_revision(
         [
             git_command,
             "--no-replace-objects",
+            *_GIT_READ_CONFIG,
             "status",
             "--porcelain",
             "--untracked-files=all",
@@ -126,7 +154,13 @@ def exact_repository_revision(
             "Foundation Gate revision provenance rejects hidden index entries"
         )
     revision = subprocess.run(
-        [git_command, "--no-replace-objects", "rev-parse", "HEAD"],
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "rev-parse",
+            "HEAD",
+        ],
         cwd=resolved_root,
         check=True,
         capture_output=True,

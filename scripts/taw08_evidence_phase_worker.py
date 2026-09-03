@@ -16,6 +16,18 @@ from types import ModuleType
 from typing import Any
 
 MAX_JSON_BYTES = 16 * 1024 * 1024
+GIT_READ_CONFIG = (
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "core.trustctime=true",
+    "-c",
+    "core.checkStat=default",
+    "-c",
+    "core.ignoreStat=false",
+)
 REQUEST_ENV = "UAA_TAW08_PHASE_REQUEST"
 WORKER_DIGEST_ENV = "UAA_TAW08_PHASE_WORKER_DIGEST"
 DRIVER_PATH_REF = (
@@ -386,7 +398,7 @@ def _preimport_git(repository_root: Path, *args: str) -> bytes:
         }
     )
     completed = subprocess.run(
-        (str(executable), "--no-replace-objects", *args),
+        (str(executable), "--no-replace-objects", *GIT_READ_CONFIG, *args),
         cwd=repository_root,
         env=environment,
         check=True,
@@ -883,7 +895,13 @@ def _verify_delta(
         "founder_evidence_path",
         *SOURCE_DIGEST_FIELDS,
     }
-    if set(request) != expected:
+    existing_receipt_path = request.get("existing_verified_delta_receipt_path")
+    if set(request) not in {
+        frozenset(expected),
+        frozenset((*expected, "existing_verified_delta_receipt_path")),
+    } or (
+        existing_receipt_path is not None and not isinstance(existing_receipt_path, str)
+    ):
         raise ValueError("TAW-08 delta request schema drift")
     candidate_root = _require_directory(
         request["candidate_repository"], purpose="candidate repository"
@@ -918,9 +936,40 @@ def _verify_delta(
         },
         repository_root=candidate_root,
     )
-    postmerge_receipt = verifier.verify_repository_foundation_gate(
-        stage="postmerge", repository_root=delta_root
-    )
+    stored_phase_receipt: dict[str, object] | None = None
+    if existing_receipt_path is None:
+        postmerge_receipt = verifier.verify_repository_foundation_gate(
+            stage="postmerge", repository_root=delta_root
+        )
+    else:
+        (
+            stored_phase_receipt,
+            stored_manifest,
+            stored_delta_receipt,
+            stored_postmerge_receipt,
+        ) = _load_verified_delta_receipt(acceptance, existing_receipt_path)
+        if (
+            stored_phase_receipt["candidate_revision_ref"]
+            != candidate_lock.git_revision_ref
+            or stored_phase_receipt["candidate_manifest_digest_ref"]
+            != candidate_lock.manifest_digest_ref
+            or stored_phase_receipt["founder_evidence_digest_ref"]
+            != founder_evidence.evidence_digest_ref
+            or stored_phase_receipt["driver_source_digest_ref"]
+            != request["driver_source_digest_ref"]
+            or stored_phase_receipt["worker_source_digest_ref"]
+            != request["worker_source_digest_ref"]
+            or stored_phase_receipt["pre_delta_report_fingerprint_ref"]
+            != pre_report.report_fingerprint_ref
+            or stored_manifest != manifest
+            or stored_delta_receipt != delta_receipt
+        ):
+            raise ValueError("stored verified delta phase binding drift")
+        postmerge_receipt = _verify_current_postmerge_foundation_receipt(
+            verifier,
+            delta_root=delta_root,
+            stored_receipt=stored_postmerge_receipt,
+        )
     if (
         postmerge_receipt.revision_ref != manifest.delta_revision_ref
         or postmerge_receipt.stage != "postmerge"
@@ -982,6 +1031,8 @@ def _verify_delta(
             "raw_content_persisted": False,
         }
     )
+    if stored_phase_receipt is not None and receipt != stored_phase_receipt:
+        raise ValueError("stored verified delta phase receipt drift")
     _require_clean_exact_worktree(
         verifier,
         candidate_root,

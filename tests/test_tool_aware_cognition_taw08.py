@@ -1836,6 +1836,53 @@ def test_foundation_revision_provenance_requires_clean_worktree(
         exact_repository_revision(repository)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX fsmonitor regression")
+def test_foundation_revision_provenance_disables_repository_fsmonitor(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-fsmonitor"
+    repository.mkdir()
+    tracked = repository / "tracked.txt"
+    sentinel = tmp_path / "foundation-fsmonitor-ran"
+    hook = tmp_path / "lying-foundation-fsmonitor"
+    hook.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nprintf 'unchanged-token\\0'\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o755)
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    tracked.write_text("same-size-a\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "candidate")
+    original = tracked.stat()
+    git("config", "core.fsmonitor", str(hook))
+    git("config", "core.trustctime", "false")
+    git("status", "--porcelain")
+    assert sentinel.exists()
+    sentinel.unlink()
+    tracked.write_text("same-size-b\n", encoding="utf-8")
+    os.utime(tracked, ns=(original.st_atime_ns, original.st_mtime_ns))
+    assert git("status", "--porcelain") == ""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+    assert not sentinel.exists()
+
+
 def test_foundation_exact_revision_mode_rejects_non_repository_root(
     tmp_path: Path,
 ) -> None:
@@ -1870,7 +1917,23 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     ) == "git-sha:" + "a" * 40
     assert len(observed) == 4
     assert all(command[0] == "/trusted/git" for command in observed)
-    assert all(command[1] == "--no-replace-objects" for command in observed)
+    assert all(
+        command[1:12]
+        == [
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.ignoreStat=false",
+        ]
+        for command in observed
+    )
     assert all("GIT_DIR" not in environment for environment in observed_environments)
     assert all(
         "GIT_REPLACE_REF_BASE" not in environment
@@ -2941,7 +3004,23 @@ def test_git_commands_use_the_trusted_absolute_executable(
     monkeypatch.setattr(taw08_verifier.subprocess, "run", successful_run)
 
     assert taw08_verifier._git("status", repository_root=tmp_path) == b"trusted output"
-    assert observed == [["/trusted/git", "--no-replace-objects", "status"]]
+    assert observed == [
+        [
+            "/trusted/git",
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.ignoreStat=false",
+            "status",
+        ]
+    ]
     assert "GIT_DIR" not in observed_environments[0]
     assert "GIT_OBJECT_DIRECTORY" not in observed_environments[0]
     assert observed_environments[0]["GIT_CONFIG_NOSYSTEM"] == "1"

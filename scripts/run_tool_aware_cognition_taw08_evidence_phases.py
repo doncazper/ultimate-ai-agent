@@ -5,6 +5,7 @@ import base64
 import ctypes
 import errno
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -16,19 +17,24 @@ import tempfile
 import urllib.parse
 from collections import defaultdict, deque
 from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
-    import tomli as tomllib
-
-from packaging.markers import InvalidMarker, Marker, default_environment
-from packaging.tags import sys_tags
-from packaging.utils import canonicalize_name, parse_wheel_filename
-
+from types import ModuleType
+from typing import Any
 
 MAX_JSON_BYTES = 16 * 1024 * 1024
 MAX_ARTIFACT_BYTES = 4 * 1024 * 1024
+MAX_BOOTSTRAP_WHEEL_BYTES = MAX_JSON_BYTES
+GIT_READ_CONFIG = (
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "core.trustctime=true",
+    "-c",
+    "core.checkStat=default",
+    "-c",
+    "core.ignoreStat=false",
+)
 WORKER_PATH = Path(__file__).with_name("taw08_evidence_phase_worker.py")
 PREFLIGHT_PATH = Path(__file__).with_name("verify_taw08_environment_preflight.py")
 DRIVER_PATH_REF = (
@@ -36,6 +42,8 @@ DRIVER_PATH_REF = (
 )
 WORKER_PATH_REF = "repo-path-ref:scripts/taw08_evidence_phase_worker.py"
 PREFLIGHT_PATH_REF = "repo-path-ref:scripts/verify_taw08_environment_preflight.py"
+PYPROJECT_PATH_REF = "repo-path-ref:pyproject.toml"
+UV_LOCK_PATH_REF = "repo-path-ref:uv.lock"
 PREPARE_PATHS = {
     "repo-path-ref:docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json": (
         "acceptance_report"
@@ -61,6 +69,18 @@ OUTPUT_NAMES = {
         for path_ref in FINAL_PATHS
     },
 }
+
+# The operational entrypoint starts with the standard library only. These
+# bindings are populated from the authenticated, candidate-locked pip wheel
+# before any owner-private evidence is read.
+tomllib: ModuleType | None = None
+InvalidMarker: type[Exception] | None = None
+Marker: Any = None
+default_environment: Any = None
+sys_tags: Any = None
+canonicalize_name: Any = None
+parse_wheel_filename: Any = None
+_BOOTSTRAP_PIP_IDENTITY: tuple[str, int, str, str] | None = None
 
 
 def _require_posix_private_path_support() -> None:
@@ -527,7 +547,7 @@ def _trusted_git_executable() -> Path:
 def _git(repository_root: Path, *args: str) -> bytes:
     executable = _trusted_git_executable()
     completed = subprocess.run(
-        (str(executable), "--no-replace-objects", *args),
+        (str(executable), "--no-replace-objects", *GIT_READ_CONFIG, *args),
         cwd=repository_root,
         env=_sanitized_environment(),
         check=True,
@@ -563,6 +583,209 @@ def _candidate_source_bytes(
     return content
 
 
+def _require_isolated_bootstrap() -> None:
+    if not (sys.flags.isolated and sys.flags.no_site and sys.flags.dont_write_bytecode):
+        raise RuntimeError("TAW-08 phase driver requires -I -B -S")
+
+
+def _bootstrap_pip_identity(uv_lock: bytes) -> tuple[str, int, str, str]:
+    if not uv_lock or len(uv_lock) > 64 * 1024 * 1024:
+        raise ValueError("bootstrap lock metadata size is invalid")
+    try:
+        lock_text = uv_lock.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("bootstrap lock metadata is invalid") from exc
+    package_blocks = lock_text.split("\n[[package]]\n")[1:]
+    pip_blocks = [
+        block
+        for block in package_blocks
+        if re.search(r'(?m)^name = "pip"$', block) is not None
+    ]
+    if len(pip_blocks) != 1:
+        raise ValueError("bootstrap pip package is ambiguous")
+    block = pip_blocks[0]
+    versions = re.findall(r'(?m)^version = "([A-Za-z0-9.!+_-]+)"$', block)
+    wheel_sections = re.findall(r"(?ms)^wheels = \[\n(.*?)^\]$", block)
+    if len(versions) != 1 or len(wheel_sections) != 1:
+        raise ValueError("bootstrap pip package is invalid")
+    records = [line.strip() for line in wheel_sections[0].splitlines() if line.strip()]
+    if len(records) != 1:
+        raise ValueError("bootstrap pip wheel is ambiguous")
+    record = re.fullmatch(
+        r'\{ url = "([^"]+)", hash = "sha256:([0-9a-f]{64})", '
+        r'size = ([1-9][0-9]*), upload-time = "[^"]+" \},',
+        records[0],
+    )
+    if record is None:
+        raise ValueError("bootstrap pip wheel identity is invalid")
+    url, digest, size_value = record.groups()
+    parsed = urllib.parse.urlsplit(url)
+    filename = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
+    expected_filename = f"pip-{versions[0]}-py3-none-any.whl"
+    size = int(size_value)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "files.pythonhosted.org"
+        or parsed.query
+        or parsed.fragment
+        or filename != expected_filename
+        or size > MAX_BOOTSTRAP_WHEEL_BYTES
+    ):
+        raise ValueError("bootstrap pip wheel identity is invalid")
+    return filename, size, digest, url
+
+
+def _stage_bootstrap_pip_wheel(
+    *,
+    locked_wheelhouse: Path,
+    identity: tuple[str, int, str, str],
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    filename, expected_size, expected_digest, _url = identity
+    wheel_candidates = tuple(
+        path
+        for path in locked_wheelhouse.iterdir()
+        if re.fullmatch(r"pip-[^-]+-py3-none-any\.whl", path.name)
+    )
+    if len(wheel_candidates) != 1 or wheel_candidates[0].name != filename:
+        raise ValueError("bootstrap pip wheel is unavailable or ambiguous")
+    source = wheel_candidates[0]
+    if (
+        source.is_symlink()
+        or not source.is_file()
+        or source.parent != locked_wheelhouse
+    ):
+        raise ValueError("bootstrap pip wheel is unavailable")
+    content = source.read_bytes()
+    if (
+        len(content) != expected_size
+        or hashlib.sha256(content).hexdigest() != expected_digest
+    ):
+        raise ValueError("bootstrap pip wheel differs from uv.lock")
+    temporary: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory(
+        prefix="uaa-taw08-bootstrap-"
+    )
+    try:
+        root = Path(temporary.name).resolve(strict=True)
+        root.chmod(0o700)
+        staged = root / filename
+        descriptor = os.open(
+            staged,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_CLOEXEC", 0)
+            | (getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)),
+            0o600,
+        )
+        try:
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as stream:
+                descriptor = -1
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+        _verify_staged_bootstrap_pip_wheel(staged, identity=identity)
+    except BaseException:
+        temporary.cleanup()
+        raise
+    return temporary, staged
+
+
+def _verify_staged_bootstrap_pip_wheel(
+    staged_pip_wheel: Path,
+    *,
+    identity: tuple[str, int, str, str],
+) -> None:
+    filename, expected_size, expected_digest, _url = identity
+    resolved, content = _read_owner_only_file(
+        staged_pip_wheel,
+        purpose="staged bootstrap pip wheel",
+    )
+    if (
+        resolved != staged_pip_wheel.resolve()
+        or staged_pip_wheel.name != filename
+        or len(content) != expected_size
+        or hashlib.sha256(content).hexdigest() != expected_digest
+    ):
+        raise RuntimeError("bootstrap pip wheel staging drift")
+
+
+def _install_bootstrap_lock_tooling(staged_pip_wheel: Path) -> None:
+    global InvalidMarker
+    global Marker
+    global canonicalize_name
+    global default_environment
+    global parse_wheel_filename
+    global sys_tags
+    global tomllib
+
+    staged_prefix = f"{staged_pip_wheel}{os.sep}"
+    sys.path.insert(0, str(staged_pip_wheel))
+    importlib.invalidate_caches()
+    try:
+        toml_module = importlib.import_module("pip._vendor.tomli")
+        markers_module = importlib.import_module("pip._vendor.packaging.markers")
+        tags_module = importlib.import_module("pip._vendor.packaging.tags")
+        utils_module = importlib.import_module("pip._vendor.packaging.utils")
+    except (ImportError, OSError) as exc:
+        raise RuntimeError("authenticated bootstrap tooling is unavailable") from exc
+    for module in (toml_module, markers_module, tags_module, utils_module):
+        origin = getattr(module, "__file__", None)
+        if not isinstance(origin, str) or not origin.startswith(staged_prefix):
+            raise RuntimeError("authenticated bootstrap tooling provenance drift")
+    tomllib = toml_module
+    InvalidMarker = markers_module.InvalidMarker
+    Marker = markers_module.Marker
+    default_environment = markers_module.default_environment
+    sys_tags = tags_module.sys_tags
+    canonicalize_name = utils_module.canonicalize_name
+    parse_wheel_filename = utils_module.parse_wheel_filename
+
+
+def _bootstrap_lock_tooling(
+    *,
+    candidate_root: Path,
+    candidate_revision: str,
+    locked_wheelhouse: Path,
+) -> tempfile.TemporaryDirectory[str]:
+    global _BOOTSTRAP_PIP_IDENTITY
+
+    _candidate_source_bytes(
+        candidate_root=candidate_root,
+        candidate_revision=candidate_revision,
+        source_path=Path(__file__),
+        path_ref=DRIVER_PATH_REF,
+    )
+    _candidate_source_bytes(
+        candidate_root=candidate_root,
+        candidate_revision=candidate_revision,
+        source_path=candidate_root / "pyproject.toml",
+        path_ref=PYPROJECT_PATH_REF,
+    )
+    uv_lock = _candidate_source_bytes(
+        candidate_root=candidate_root,
+        candidate_revision=candidate_revision,
+        source_path=candidate_root / "uv.lock",
+        path_ref=UV_LOCK_PATH_REF,
+    )
+    identity = _bootstrap_pip_identity(uv_lock)
+    temporary, staged = _stage_bootstrap_pip_wheel(
+        locked_wheelhouse=locked_wheelhouse,
+        identity=identity,
+    )
+    try:
+        _verify_staged_bootstrap_pip_wheel(staged, identity=identity)
+        _install_bootstrap_lock_tooling(staged)
+    except BaseException:
+        temporary.cleanup()
+        raise
+    _BOOTSTRAP_PIP_IDENTITY = identity
+    return temporary
+
+
 def _precheck_clean_worktree(path: Path) -> tuple[Path, str]:
     root = _require_absolute_directory(path, purpose="repository worktree")
     top_level = Path(
@@ -585,12 +808,29 @@ def _precheck_clean_worktree(path: Path) -> tuple[Path, str]:
     return root, revision
 
 
+def _require_lock_tooling() -> None:
+    if any(
+        binding is None
+        for binding in (
+            tomllib,
+            InvalidMarker,
+            Marker,
+            default_environment,
+            sys_tags,
+            canonicalize_name,
+            parse_wheel_filename,
+        )
+    ):
+        raise RuntimeError("authenticated bootstrap tooling is unavailable")
+
+
 def _locked_reachable_packages(
     *,
     project_name: str,
     packages: list[object],
     marker_environment: dict[str, str],
 ) -> dict[str, dict[str, object]]:
+    _require_lock_tooling()
     active_by_name: dict[str, list[dict[str, object]]] = defaultdict(list)
     for item in packages:
         if not isinstance(item, dict):
@@ -698,6 +938,7 @@ def _compatible_locked_wheel_identities(
     pyproject: bytes,
     uv_lock: bytes,
 ) -> dict[str, tuple[int, str, str]]:
+    _require_lock_tooling()
     if (
         not pyproject
         or len(pyproject) > 4 * 1024 * 1024
@@ -801,6 +1042,16 @@ def _copy_locked_wheelhouse(
         pyproject=pyproject,
         uv_lock=uv_lock,
     )
+    if _BOOTSTRAP_PIP_IDENTITY is not None:
+        bootstrap_filename, bootstrap_size, bootstrap_digest, bootstrap_url = (
+            _BOOTSTRAP_PIP_IDENTITY
+        )
+        if locked.get(bootstrap_filename) != (
+            bootstrap_size,
+            bootstrap_digest,
+            bootstrap_url,
+        ):
+            raise ValueError("bootstrap pip wheel is outside the locked closure")
     selected.mkdir(mode=0o700)
     copied: list[Path] = []
     for filename, (expected_size, expected_digest, _url) in sorted(locked.items()):
@@ -827,6 +1078,7 @@ def _materialize_environment(
     selected_wheelhouse: Path,
     wheels: tuple[Path, ...],
 ) -> Path:
+    _require_lock_tooling()
     pip_wheels: list[Path] = []
     remaining: list[Path] = []
     for path in wheels:
@@ -842,7 +1094,7 @@ def _materialize_environment(
         raise ValueError("locked installer closure is invalid")
     environment = _sanitized_environment()
     create = subprocess.run(
-        (sys.executable, "-m", "venv", str(environment_root)),
+        (sys.executable, "-I", "-B", "-S", "-m", "venv", str(environment_root)),
         env=environment,
         check=False,
         capture_output=True,
@@ -982,6 +1234,26 @@ def _request_for(
     return request
 
 
+def _bind_existing_verify_delta_receipt(
+    request: dict[str, object], *, output_dir: Path
+) -> dict[str, object]:
+    existing_receipt = output_dir / RECEIPT_NAMES["verify_delta"]
+    existing_artifact = output_dir / next(iter(FINAL_PATHS)).rsplit("/", 1)[-1]
+    if existing_artifact.exists() and not existing_receipt.exists():
+        raise ValueError("verify_delta output is incomplete")
+    if existing_receipt.exists():
+        return {
+            **request,
+            "existing_verified_delta_receipt_path": str(
+                _require_owner_only_file(
+                    existing_receipt,
+                    purpose="existing verified delta phase receipt",
+                )
+            ),
+        }
+    return request
+
+
 def _validate_response(
     response: object,
     *,
@@ -1106,8 +1378,18 @@ def _invoke_locked_worker(
         staged_preflight = scripts_root / PREFLIGHT_PATH.name
         staged_preflight.write_bytes(preflight_source)
         staged_preflight.chmod(0o600)
-        pyproject = (candidate_root / "pyproject.toml").read_bytes()
-        uv_lock = (candidate_root / "uv.lock").read_bytes()
+        pyproject = _candidate_source_bytes(
+            candidate_root=candidate_root,
+            candidate_revision=candidate_revision,
+            source_path=candidate_root / "pyproject.toml",
+            path_ref=PYPROJECT_PATH_REF,
+        )
+        uv_lock = _candidate_source_bytes(
+            candidate_root=candidate_root,
+            candidate_revision=candidate_revision,
+            source_path=candidate_root / "uv.lock",
+            path_ref=UV_LOCK_PATH_REF,
+        )
         staged_uv_lock = worker_root / "uv.lock"
         staged_uv_lock.write_bytes(uv_lock)
         staged_uv_lock.chmod(0o600)
@@ -1212,20 +1494,27 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    arguments = _parser().parse_args(argv)
+    bootstrap_temporary: tempfile.TemporaryDirectory[str] | None = None
     try:
+        _require_isolated_bootstrap()
         _require_posix_private_path_support()
+        arguments = _parser().parse_args(argv)
+        locked_wheelhouse = _require_absolute_directory(
+            arguments.locked_wheelhouse, purpose="locked wheelhouse"
+        )
+        candidate_root, candidate_revision = _precheck_clean_worktree(
+            arguments.candidate_worktree
+        )
+        bootstrap_temporary = _bootstrap_lock_tooling(
+            candidate_root=candidate_root,
+            candidate_revision=candidate_revision,
+            locked_wheelhouse=locked_wheelhouse,
+        )
         founder_evidence = _require_owner_only_file(
             arguments.founder_evidence, purpose="founder evidence"
         )
         arguments.founder_evidence = founder_evidence
-        locked_wheelhouse = _require_absolute_directory(
-            arguments.locked_wheelhouse, purpose="locked wheelhouse"
-        )
         output_dir = _prepare_output_directory(arguments.output_dir)
-        candidate_root, candidate_revision = _precheck_clean_worktree(
-            arguments.candidate_worktree
-        )
         roots = {"candidate": candidate_root}
         if arguments.phase in {"verify_delta", "verify_publication"}:
             delta_root, _delta_revision = _precheck_clean_worktree(
@@ -1242,6 +1531,11 @@ def main(argv: list[str] | None = None) -> int:
                 purpose="verified delta phase receipt",
             )
         request = _request_for(arguments, roots)
+        if arguments.phase == "verify_delta":
+            request = _bind_existing_verify_delta_receipt(
+                request,
+                output_dir=output_dir,
+            )
         response, source_digests = _invoke_locked_worker(
             request=request,
             candidate_root=candidate_root,
@@ -1262,6 +1556,9 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         print("TAW-08 evidence phase blocked: bounded failure", file=sys.stderr)
         return 1
+    finally:
+        if bootstrap_temporary is not None:
+            bootstrap_temporary.cleanup()
     summary = {
         "schema_version": "uaa-taw08-phase-driver-summary.v1",
         "phase": arguments.phase,
