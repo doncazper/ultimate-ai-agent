@@ -62,6 +62,9 @@ def test_beta_local_gate_foundation_gate_is_report_only() -> None:
 
     assert foundation.argv == (
         ".venv/bin/python",
+        "-I",
+        "-B",
+        "-S",
         "scripts/run_foundation_gate.py",
         "--command-mode",
         "report-only",
