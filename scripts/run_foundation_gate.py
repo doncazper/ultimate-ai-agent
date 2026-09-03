@@ -1,12 +1,47 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+# ruff: noqa: E402 - the built-in-only isolation bootstrap must run first
+
+# Exact provenance must start before the script directory can satisfy imports.
+# ``sys`` and the platform execution module are built into the interpreter, so
+# this re-exec path cannot be shadowed by repository-local source or bytecode.
+import sys as _foundation_bootstrap_sys
+
+_FOUNDATION_BOOTSTRAP_SAFE = bool(
+    _foundation_bootstrap_sys.flags.isolated
+    and _foundation_bootstrap_sys.flags.no_site
+)
+if __name__ == "__main__" and not _FOUNDATION_BOOTSTRAP_SAFE:
+    if _foundation_bootstrap_sys.platform == "win32":
+        import nt as _foundation_bootstrap_os
+    else:
+        import posix as _foundation_bootstrap_os
+
+    _foundation_bootstrap_os.execv(
+        _foundation_bootstrap_sys.executable,
+        (
+            _foundation_bootstrap_sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            __file__,
+            *_foundation_bootstrap_sys.argv[1:],
+        ),
+    )
+
 import argparse
+import ctypes
 import hashlib
 import json
 import os
+import platform
 import re
+import shutil
 import stat
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import time
 import warnings
@@ -19,24 +54,6 @@ warnings.filterwarnings(
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "src"))
-
-from ultimate_ai_agent.core.gate import (  # noqa: E402
-    FoundationGateCommandReceipt,
-    FoundationGateEvaluator,
-    FoundationGateLatencySummary,
-    FoundationGateReport,
-    FoundationGateReleaseLaneSummary,
-    FoundationGateStatus,
-)
-from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
-    foundation_gate_evaluation_provenance_digest,
-)
-from scripts.verification.verification_github_prerequisites import (  # noqa: E402
-    FoundationPrerequisiteManifest,
-    load_foundation_prerequisite_manifest,
-)
 
 
 _GIT_READ_CONFIG = (
@@ -141,6 +158,10 @@ def _require_raw_clean_worktree(
             or path in tree_entries
         ):
             raise RuntimeError("Foundation Gate Git tree census is invalid")
+        if mode == b"120000":
+            raise RuntimeError(
+                "Foundation Gate exact provenance rejects tracked symlinks"
+            )
         tree_entries[path] = (mode, object_id, size)
     if sum(size for _mode, _object_id, size in tree_entries.values()) > 1024**3:
         raise RuntimeError("Foundation Gate Git tree census is invalid")
@@ -180,55 +201,46 @@ def _require_raw_clean_worktree(
             target = parent / components[-1]
             before = os.lstat(target)
             hasher = hashlib.new(object_format)
-            if mode == b"120000":
-                if not stat.S_ISLNK(before.st_mode):
-                    raise RuntimeError(
-                        "Foundation Gate repository worktree path is invalid"
-                    )
-                content = os.fsencode(os.readlink(target))
-                if len(content) != expected_size:
-                    raise RuntimeError(
-                        "Foundation Gate revision provenance requires a clean worktree"
-                    )
-                hasher.update(f"blob {len(content)}\0".encode("ascii"))
-                hasher.update(content)
-            else:
-                if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
-                    raise RuntimeError(
-                        "Foundation Gate revision provenance requires a clean worktree"
-                    )
-                if os.name == "posix" and bool(before.st_mode & 0o111) != (
-                    mode == b"100755"
-                ):
-                    raise RuntimeError(
-                        "Foundation Gate revision provenance requires a clean worktree"
-                    )
-                descriptor = os.open(
-                    target,
-                    os.O_RDONLY
-                    | getattr(os, "O_CLOEXEC", 0)
-                    | getattr(os, "O_NOFOLLOW", 0),
+            if not stat.S_ISREG(before.st_mode) or before.st_size != expected_size:
+                raise RuntimeError(
+                    "Foundation Gate revision provenance requires a clean worktree"
                 )
-                try:
-                    opened = os.fstat(descriptor)
-                    if not os.path.samestat(before, opened):
-                        raise RuntimeError(
-                            "Foundation Gate repository worktree path changed"
-                        )
-                    hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
-                    while True:
-                        chunk = os.read(descriptor, 1024 * 1024)
-                        if not chunk:
-                            break
-                        hasher.update(chunk)
-                    closed_over = os.fstat(descriptor)
-                finally:
-                    os.close(descriptor)
-                if not os.path.samestat(opened, closed_over):
+            if os.name == "posix" and bool(before.st_mode & 0o111) != (
+                mode == b"100755"
+            ):
+                raise RuntimeError(
+                    "Foundation Gate revision provenance requires a clean worktree"
+                )
+            descriptor = os.open(
+                target,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+            )
+            try:
+                opened = os.fstat(descriptor)
+                if not os.path.samestat(before, opened):
                     raise RuntimeError(
                         "Foundation Gate repository worktree path changed"
                     )
+                hasher.update(f"blob {opened.st_size}\0".encode("ascii"))
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+                closed_over = os.fstat(descriptor)
+            finally:
+                os.close(descriptor)
+            if not os.path.samestat(opened, closed_over):
+                raise RuntimeError(
+                    "Foundation Gate repository worktree path changed"
+                )
             after = os.lstat(target)
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "Foundation Gate revision provenance requires a clean worktree"
+            ) from exc
         except OSError as exc:
             raise RuntimeError(
                 "Foundation Gate repository worktree path is invalid"
@@ -288,6 +300,326 @@ def _index_has_hidden_worktree_entries(
     )
 
 
+def _prepare_external_import_cache(
+    repository_root: Path,
+) -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Divert Python cache reads before repository modules become importable."""
+
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    try:
+        root_metadata = temporary_root.lstat()
+    except OSError as exc:
+        raise RuntimeError("Foundation Gate import cache root is unavailable") from exc
+    if (
+        stat.S_ISLNK(root_metadata.st_mode)
+        or not stat.S_ISDIR(root_metadata.st_mode)
+        or temporary_root.is_relative_to(repository_root.resolve())
+    ):
+        raise RuntimeError("Foundation Gate import cache root is unsafe")
+    cache_handle = tempfile.TemporaryDirectory(
+        prefix="uaa-foundation-import-cache-",
+        dir=temporary_root,
+    )
+    cache_root = Path(cache_handle.name)
+    cache_root.chmod(0o700)
+    cache_metadata = cache_root.lstat()
+    if (
+        not stat.S_ISDIR(cache_metadata.st_mode)
+        or stat.S_ISLNK(cache_metadata.st_mode)
+        or (hasattr(os, "getuid") and cache_metadata.st_uid != os.getuid())
+        or stat.S_IMODE(cache_metadata.st_mode) != 0o700
+        or any(cache_root.iterdir())
+    ):
+        raise RuntimeError("Foundation Gate import cache is unsafe")
+    sys.pycache_prefix = str(cache_root)
+    sys.dont_write_bytecode = True
+    return cache_handle, cache_root
+
+
+def _require_no_ignored_repository_import_sources(
+    repository_root: Path,
+    *,
+    git_command: str,
+    git_environment: dict[str, str],
+) -> None:
+    """Reject ignored sources reachable from the repository import roots."""
+
+    completed = subprocess.run(
+        [
+            git_command,
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "ls-files",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "-z",
+            "--",
+            ".",
+            # A repository-local virtual environment is already active before
+            # this module starts and its dot-prefixed name is not importable
+            # from ROOT.  Every other ignored repository path is censused.
+            ":(top,exclude,glob).venv/**",
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=git_environment,
+    )
+    payload = completed.stdout
+    if len(payload) > 64 * 1024 * 1024 or (payload and not payload.endswith(b"\0")):
+        raise RuntimeError("Foundation Gate ignored import census is invalid")
+    paths = payload[:-1].split(b"\0") if payload else []
+    if len(paths) > 200_000 or any(not path for path in paths):
+        raise RuntimeError("Foundation Gate ignored import census is invalid")
+    legacy_or_source_suffixes = (
+        b".py",
+        b".pyc",
+        b".pyo",
+        b".so",
+        b".pyd",
+        b".dll",
+        b".dylib",
+    )
+    for path in paths:
+        lowered = path.lower()
+        components = lowered.split(b"/")
+        try:
+            metadata = os.lstat(repository_root / os.fsdecode(path))
+        except OSError as exc:
+            raise RuntimeError(
+                "Foundation Gate ignored import census changed"
+            ) from exc
+        decoded_components = tuple(os.fsdecode(item) for item in path.split(b"/"))
+        import_candidates = (decoded_components,)
+        if decoded_components[:1] == ("src",):
+            import_candidates += (decoded_components[1:],)
+        if stat.S_ISLNK(metadata.st_mode) and any(
+            candidate
+            and all(component.isidentifier() for component in candidate)
+            for candidate in import_candidates
+        ):
+            raise RuntimeError(
+                "Foundation Gate repository has ignored symlink import sources"
+            )
+        if b"__pycache__" in components and lowered.endswith((b".pyc", b".pyo")):
+            # The fresh external sys.pycache_prefix makes repository-local
+            # cache directories unreachable to every subsequent import.
+            continue
+        if lowered.endswith(legacy_or_source_suffixes):
+            raise RuntimeError(
+                "Foundation Gate repository has ignored executable import sources"
+            )
+
+
+def _validate_posix_admin_path(path: Path) -> None:
+    for component in (path, *path.parents):
+        try:
+            metadata = component.stat()
+        except OSError as exc:
+            raise RuntimeError(
+                "Foundation Gate trusted Git lacks OS provenance"
+            ) from exc
+        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+
+
+def _validated_windows_system_root() -> Path:
+    if os.name != "nt":
+        raise RuntimeError("Foundation Gate Windows system root is unavailable")
+    value = os.environ.get("SystemRoot")
+    if not value or len(value) > 260 or "\x00" in value:
+        raise RuntimeError("Foundation Gate Windows system root is unavailable")
+    try:
+        buffer = ctypes.create_unicode_buffer(32_768)
+        length = ctypes.windll.kernel32.GetWindowsDirectoryW(  # type: ignore[attr-defined]
+            buffer,
+            len(buffer),
+        )
+        configured = Path(value).resolve(strict=True)
+        authoritative = Path(buffer.value).resolve(strict=True)
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError("Foundation Gate Windows system root is unavailable") from exc
+    if length <= 0 or length >= len(buffer) or configured != authoritative:
+        raise RuntimeError("Foundation Gate Windows system root is unavailable")
+    return authoritative
+
+
+def _trusted_preimport_git() -> str:
+    executable_value = shutil.which("git")
+    if not executable_value:
+        raise RuntimeError("Foundation Gate trusted Git is unavailable")
+    try:
+        executable = Path(executable_value).resolve(strict=True)
+        metadata = executable.stat()
+    except OSError as exc:
+        raise RuntimeError("Foundation Gate trusted Git is unavailable") from exc
+    if not stat.S_ISREG(metadata.st_mode) or not os.access(executable, os.X_OK):
+        raise RuntimeError("Foundation Gate trusted Git is unsafe")
+    system = platform.system().strip().lower()
+    if os.name == "posix":
+        _validate_posix_admin_path(executable)
+        if system == "darwin":
+            if executable != Path("/usr/bin/git"):
+                raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+            signature = subprocess.run(
+                (
+                    "/usr/bin/codesign",
+                    "--verify",
+                    "--strict",
+                    "-R=anchor apple",
+                    str(executable),
+                ),
+                check=False,
+                capture_output=True,
+                timeout=30,
+            )
+            if signature.returncode != 0:
+                raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+    elif os.name == "nt":
+        system_root = _validated_windows_system_root()
+        powershell = (
+            system_root / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        )
+        signature = subprocess.run(
+            (
+                str(powershell),
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "$s=Get-AuthenticodeSignature -LiteralPath $args[0];"
+                "Write-Output ($s.Status.ToString()+' '+"
+                "$s.SignerCertificate.Thumbprint)",
+                str(executable),
+            ),
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        output = signature.stdout.decode("ascii", errors="strict").strip().split()
+        if (
+            signature.returncode != 0
+            or len(output) != 2
+            or output[0] != "Valid"
+            or not re.fullmatch(r"[0-9A-F]{40,64}", output[1])
+        ):
+            raise RuntimeError("Foundation Gate trusted Git lacks OS provenance")
+    else:
+        raise RuntimeError("Foundation Gate trusted Git platform is unsupported")
+    return str(executable)
+
+
+def _preloaded_repository_module_paths(repository_root: Path) -> tuple[str, ...]:
+    """Record repository code that executed before the provenance seal."""
+
+    resolved_root = repository_root.resolve()
+    this_module = Path(__file__).resolve()
+    observed: set[str] = set()
+    for module in tuple(sys.modules.values()):
+        module_file = getattr(module, "__file__", None)
+        if not isinstance(module_file, str):
+            continue
+        try:
+            path = Path(module_file).resolve()
+        except OSError:
+            continue
+        if path == this_module or not path.is_relative_to(resolved_root):
+            continue
+        observed.add(path.relative_to(resolved_root).as_posix())
+    return tuple(sorted(observed))
+
+
+def _runtime_dependency_path() -> Path:
+    """Locate site-packages without executing any environment ``.pth`` files."""
+
+    executable = Path(sys.executable)
+    environment_root = executable.parent.parent
+    if (environment_root / "pyvenv.cfg").is_file():
+        if os.name == "nt":
+            candidate = environment_root / "Lib" / "site-packages"
+        else:
+            candidate = (
+                environment_root
+                / "lib"
+                / f"python{sys.version_info.major}.{sys.version_info.minor}"
+                / "site-packages"
+            )
+    else:
+        candidate = Path(sysconfig.get_path("purelib"))
+    try:
+        metadata = candidate.lstat()
+    except OSError as exc:
+        raise RuntimeError(
+            "Foundation Gate runtime dependency path is unavailable"
+        ) from exc
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise RuntimeError("Foundation Gate runtime dependency path is unsafe")
+    return candidate
+
+
+def _establish_preimport_repository_posture(repository_root: Path) -> str | None:
+    """Prove or explicitly withhold clean provenance before repo imports."""
+
+    git_command = _trusted_preimport_git()
+    git_environment = _sanitized_git_environment()
+    _require_no_ignored_repository_import_sources(
+        repository_root,
+        git_command=git_command,
+        git_environment=git_environment,
+    )
+    try:
+        revision = _require_raw_clean_worktree(
+            repository_root,
+            git_command=git_command,
+            git_environment=git_environment,
+        )
+    except RuntimeError as exc:
+        if str(exc) == (
+            "Foundation Gate revision provenance requires a clean worktree"
+        ):
+            return None
+        raise
+    if _index_has_hidden_worktree_entries(
+        repository_root,
+        git_command=git_command,
+        git_environment=git_environment,
+    ):
+        return None
+    return revision
+
+
+_PREIMPORT_REPOSITORY_MODULE_PATHS = _preloaded_repository_module_paths(ROOT)
+_FOUNDATION_IMPORT_CACHE_HANDLE: tempfile.TemporaryDirectory | None = None
+_FOUNDATION_IMPORT_CACHE: Path | None = None
+if _FOUNDATION_BOOTSTRAP_SAFE:
+    _FOUNDATION_IMPORT_CACHE_HANDLE, _FOUNDATION_IMPORT_CACHE = (
+        _prepare_external_import_cache(ROOT)
+    )
+_PREIMPORT_CLEAN_REVISION = _establish_preimport_repository_posture(ROOT)
+
+_FOUNDATION_DEPENDENCY_PATH = _runtime_dependency_path()
+if str(_FOUNDATION_DEPENDENCY_PATH) not in sys.path:
+    sys.path.append(str(_FOUNDATION_DEPENDENCY_PATH))
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+from ultimate_ai_agent.core.gate import (  # noqa: E402
+    FoundationGateCommandReceipt,
+    FoundationGateEvaluator,
+    FoundationGateLatencySummary,
+    FoundationGateReport,
+    FoundationGateReleaseLaneSummary,
+    FoundationGateStatus,
+)
+from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
+    foundation_gate_evaluation_provenance_digest,
+)
+from scripts.verification.verification_github_prerequisites import (  # noqa: E402
+    FoundationPrerequisiteManifest,
+    load_foundation_prerequisite_manifest,
+)
+
+
 def exact_repository_revision(
     repository_root: Path,
     *,
@@ -323,6 +655,21 @@ def exact_repository_revision(
         git_command=git_command,
         git_environment=git_environment,
     )
+    if resolved_root == ROOT.resolve():
+        if not _FOUNDATION_BOOTSTRAP_SAFE:
+            raise RuntimeError(
+                "Foundation Gate exact provenance requires an isolated no-site process"
+            )
+        if _PREIMPORT_REPOSITORY_MODULE_PATHS:
+            raise RuntimeError(
+                "Foundation Gate exact provenance requires a fresh process"
+            )
+        if _PREIMPORT_CLEAN_REVISION is None:
+            raise RuntimeError(
+                "Foundation Gate revision provenance requires a clean worktree"
+            )
+        if revision != _PREIMPORT_CLEAN_REVISION:
+            raise RuntimeError("Foundation Gate repository revision drift")
     if _index_has_hidden_worktree_entries(
         resolved_root,
         git_command=git_command,

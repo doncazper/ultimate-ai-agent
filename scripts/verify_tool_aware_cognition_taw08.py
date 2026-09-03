@@ -21,6 +21,7 @@ import zipfile
 from collections import defaultdict, deque
 from functools import lru_cache
 from pathlib import Path
+from types import ModuleType
 from typing import Literal
 
 try:
@@ -103,10 +104,9 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     durable_payload_has_forbidden_fields,
     verify_candidate_lock,
 )
-from scripts.run_foundation_gate import (  # noqa: E402
-    evaluate_foundation_gate_at_exact_repository_revision,
-    exact_repository_revision,
-    report_only_receipt,
+from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
+    FoundationGateCommandReceipt,
+    FoundationGateReport,
 )
 
 
@@ -286,6 +286,166 @@ def _sanitized_git_environment() -> dict[str, str]:
     return environment
 
 
+_FRESH_FOUNDATION_REVISION_PROBE = """\
+import pathlib
+import runpy
+import sys
+
+namespace = runpy.run_path(sys.argv[1], run_name="uaa_foundation_revision_probe")
+print(
+    namespace["exact_repository_revision"](
+        pathlib.Path(sys.argv[2]),
+        git_executable=namespace["_trusted_preimport_git"](),
+    )
+)
+"""
+
+
+def _fresh_exact_repository_revision(repository_root: Path) -> str:
+    """Obtain clean revision proof in an isolated, no-site Python process."""
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            "-c",
+            _FRESH_FOUNDATION_REVISION_PROBE,
+            str(repository_root / "scripts/run_foundation_gate.py"),
+            str(repository_root),
+        ),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_sanitized_git_environment(),
+        timeout=180,
+    )
+    revision_ref = completed.stdout.strip()
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 128
+        or not re.fullmatch(r"git-sha:[0-9a-f]{40}", revision_ref)
+    ):
+        raise RuntimeError("TAW-08 fresh Foundation revision probe failed")
+    return revision_ref
+
+
+def _load_candidate_foundation_source_for_census(
+    *,
+    repository_root: Path,
+    revision: str,
+) -> None:
+    """Execute the exact tracked Foundation source without consulting bytecode."""
+
+    module_name = "_uaa_taw08_verified_foundation_gate"
+    source_path = repository_root / "scripts/run_foundation_gate.py"
+    expected = _git(
+        "show",
+        f"{revision}:scripts/run_foundation_gate.py",
+        repository_root=repository_root,
+    )
+    try:
+        metadata = source_path.lstat()
+        actual = source_path.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 Foundation source is unavailable") from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or actual != expected
+    ):
+        raise RuntimeError("TAW-08 Foundation source differs from the candidate")
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        if getattr(existing, "__file__", None) != str(source_path):
+            raise RuntimeError("TAW-08 Foundation source module is ambiguous")
+        return
+    module = ModuleType(module_name)
+    module.__file__ = str(source_path)
+    module.__package__ = "scripts"
+    sys.modules[module_name] = module
+    try:
+        exec(
+            compile(expected, str(source_path), "exec", dont_inherit=True),
+            module.__dict__,
+        )
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
+
+
+def _evaluate_foundation_gate_in_fresh_process(
+    repository_root: Path,
+) -> tuple[str, FoundationGateReport]:
+    """Evaluate Foundation Gate beyond the repository pre-import boundary."""
+
+    with tempfile.TemporaryDirectory(prefix="uaa-taw08-foundation-") as temporary:
+        output_path = Path(temporary) / "foundation-gate.json"
+        completed = subprocess.run(
+            (
+                sys.executable,
+                "-I",
+                "-B",
+                "-S",
+                str(repository_root / "scripts/run_foundation_gate.py"),
+                "--command-mode",
+                "report-only",
+                "--no-write-latest",
+                "--require-clean-revision",
+                "--output",
+                str(output_path),
+            ),
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            env=_sanitized_git_environment(),
+            timeout=300,
+        )
+        try:
+            metadata = output_path.lstat()
+            payload = output_path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError(
+                "TAW-08 fresh Foundation evaluation failed"
+            ) from exc
+        if (
+            completed.returncode != 0
+            or not stat.S_ISREG(metadata.st_mode)
+            or stat.S_ISLNK(metadata.st_mode)
+            or not payload
+            or len(payload) > 16 * 1024 * 1024
+        ):
+            raise RuntimeError("TAW-08 fresh Foundation evaluation failed")
+        try:
+            report = FoundationGateReport.model_validate_json(payload)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise RuntimeError(
+                "TAW-08 fresh Foundation report is invalid"
+            ) from exc
+    revision_ref = report.evaluated_revision_ref
+    if not isinstance(revision_ref, str) or not re.fullmatch(
+        r"git-sha:[0-9a-f]{40}", revision_ref
+    ):
+        raise RuntimeError("TAW-08 fresh Foundation revision binding is invalid")
+    return revision_ref, report
+
+
+def _report_only_receipt() -> FoundationGateCommandReceipt:
+    return FoundationGateCommandReceipt(
+        command_ref="command:foundation_gate.typed_report",
+        command_mode="report-only",
+        status="report_only",
+        satisfied_by="typed-foundation-gate-evaluator",
+        safe_summary=(
+            "No external verifier commands were run. The typed Foundation Gate "
+            "evaluator and latency summary still run local read/probe code; use "
+            "--no-write-latest when the latest report files must not be updated."
+        ),
+    )
+
+
 def _require_no_repository_git_filters(*, repository_root: Path = ROOT) -> None:
     """Reject repository controls that can execute or mask content filters."""
 
@@ -316,7 +476,11 @@ def _require_no_repository_git_filters(*, repository_root: Path = ROOT) -> None:
     paths = tracked_paths.rstrip(b"\0").split(b"\0") if tracked_paths else []
     if len(paths) > 20_000 or any(not path for path in paths):
         raise RuntimeError("TAW-08 repository Git path census is invalid")
-    for source_args in ((), ("--source=HEAD",)):
+    # The raw tree/index/worktree comparison has already established that the
+    # index is exactly HEAD.  ``--cached`` therefore checks the same committed
+    # attributes without relying on ``check-attr --source``, which is absent
+    # from the supported Git 2.39 runtime on hosted macOS.
+    for source_args in ((), ("--cached",)):
         attributes = _git(
             "check-attr",
             "-z",
@@ -1312,12 +1476,8 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 candidate receipts require the locked verifier child"
         )
-    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
     if (
-        exact_repository_revision(
-            repository_root,
-            git_executable=git_executable,
-        )
+        _fresh_exact_repository_revision(repository_root)
         != f"git-sha:{revision}"
     ):
         raise RuntimeError(
@@ -1325,6 +1485,10 @@ def verify_repository_candidate(
         )
     if _index_has_hidden_worktree_entries(repository_root=repository_root):
         raise RuntimeError("TAW-08 locked verifier child rejects hidden index entries")
+    _load_candidate_foundation_source_for_census(
+        repository_root=repository_root,
+        revision=revision,
+    )
     revision_path_census = derive_revision_path_census(
         lock.git_revision_ref,
         repository_root=repository_root,
@@ -1437,10 +1601,8 @@ def verify_repository_foundation_gate(
 ) -> FoundationGateReceipt:
     if stage not in {"exact_head", "postmerge"}:
         raise ValueError("Foundation receipt stage is invalid")
-    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
-    revision_ref, report = evaluate_foundation_gate_at_exact_repository_revision(
-        repository_root,
-        git_executable=git_executable,
+    revision_ref, report = _evaluate_foundation_gate_in_fresh_process(
+        repository_root
     )
     revision = revision_ref.removeprefix("git-sha:")
     verify_executing_repository_sources(
@@ -1465,7 +1627,7 @@ def verify_repository_foundation_gate(
     report = report.model_copy(
         update={
             "command_mode": "report-only",
-            "command_receipts": [report_only_receipt("report-only")],
+            "command_receipts": [_report_only_receipt()],
         }
     )
     return _verify_and_bind_foundation_gate_report(
@@ -2072,11 +2234,7 @@ def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
 
 
 def _run_locked_candidate_verifier() -> bytes | None:
-    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
-    revision = exact_repository_revision(
-        ROOT,
-        git_executable=git_executable,
-    ).removeprefix("git-sha:")
+    revision = _fresh_exact_repository_revision(ROOT).removeprefix("git-sha:")
     provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
     if not provisioned_wheelhouse_value:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")

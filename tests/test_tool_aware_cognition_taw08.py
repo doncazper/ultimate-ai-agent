@@ -7,6 +7,7 @@ import inspect
 import io
 import json
 import os
+import py_compile
 import subprocess
 import sys
 import zipfile
@@ -1474,34 +1475,17 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert not hasattr(foundation_runner, "bind_foundation_gate_execution_report")
 
     observed_roots: list[Path] = []
-    observed_git_executables: list[str | Path] = []
 
-    def exact_revision(
+    def fresh_foundation(
         repository_root: Path,
-        *,
-        git_executable: str | Path = "git",
-    ) -> str:
+    ) -> tuple[str, FoundationGateReport]:
         observed_roots.append(repository_root)
-        observed_git_executables.append(git_executable)
-        return CANDIDATE_REVISION_REF
+        return CANDIDATE_REVISION_REF, _foundation_gate_report()
 
-    class FakeEvaluator:
-        def __init__(self, repository_root: Path) -> None:
-            assert repository_root == tmp_path
-
-        def evaluate(self):
-            return _unbound_foundation_gate_report()
-
-    monkeypatch.setattr(foundation_runner, "exact_repository_revision", exact_revision)
-    monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
     monkeypatch.setattr(
         taw08_verifier,
-        "_trusted_git_identity",
-        lambda: (
-            Path("/trusted/git"),
-            "sha256:" + "3" * 64,
-            "git-provenance-ref:test-trust-root",
-        ),
+        "_evaluate_foundation_gate_in_fresh_process",
+        fresh_foundation,
     )
     monkeypatch.setattr(
         taw08_verifier,
@@ -1530,8 +1514,7 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     )
     assert receipt.revision_ref == CANDIDATE_REVISION_REF
     assert receipt.stage == "exact_head"
-    assert observed_roots == [tmp_path, tmp_path]
-    assert observed_git_executables == [Path("/trusted/git"), Path("/trusted/git")]
+    assert observed_roots == [tmp_path]
 
 
 def test_foundation_receipt_rejects_evaluator_from_another_revision(
@@ -1546,10 +1529,10 @@ def test_foundation_receipt_rejects_evaluator_from_another_revision(
     ).stdout.strip()
     monkeypatch.setattr(
         taw08_verifier,
-        "evaluate_foundation_gate_at_exact_repository_revision",
-        lambda _root, **_kwargs: (
+        "_evaluate_foundation_gate_in_fresh_process",
+        lambda _root: (
             f"git-sha:{prior_revision}",
-            _unbound_foundation_gate_report(),
+            _foundation_gate_report(f"git-sha:{prior_revision}"),
         ),
     )
 
@@ -1825,6 +1808,371 @@ def test_foundation_revision_provenance_requires_clean_worktree(
 
     tracked.write_text("dirty\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+
+    tracked.unlink()
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+
+
+def test_foundation_development_mode_accepts_deleted_tracked_path_as_dirty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "foundation-deleted-path"
+    repository.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-q", "-m", "candidate")
+    tracked.unlink()
+    report = _unbound_foundation_gate_report()
+
+    class FakeEvaluator:
+        def __init__(self, repository_root: Path) -> None:
+            assert repository_root == repository
+
+        def evaluate(self) -> FoundationGateReport:
+            return report
+
+    monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
+
+    revision_ref, development_report = (
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            repository,
+            require_clean_revision=False,
+        )
+    )
+    assert revision_ref is None
+    assert development_report is report
+
+
+def test_filter_attribute_check_uses_git_239_compatible_cached_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "git-239-attributes"
+    repository.mkdir()
+
+    def git(*arguments: str) -> None:
+        subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / "tracked.py").write_text("SAFE = True\n", encoding="utf-8")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    observed: list[tuple[str, ...]] = []
+    original_git = taw08_verifier._git
+
+    def git_239(*args: str, **kwargs: object) -> bytes:
+        observed.append(args)
+        if any(argument.startswith("--source") for argument in args):
+            raise subprocess.CalledProcessError(129, args)
+        return original_git(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(taw08_verifier, "_git", git_239)
+
+    taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+    attribute_calls = tuple(call for call in observed if call[0] == "check-attr")
+    assert len(attribute_calls) == 2
+    assert any("--cached" in call for call in attribute_calls)
+    assert not any(
+        argument.startswith("--source")
+        for call in attribute_calls
+        for argument in call
+    )
+
+
+def test_foundation_preimport_posture_diverts_cache_and_rejects_legacy_bytecode(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-preimport"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("*.pyc\n", encoding="utf-8")
+    tracked = repository / "src/package/module.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("SAFE = True\n", encoding="utf-8")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    cache = repository / "src/package/__pycache__/module.cpython-test.pyc"
+    cache.parent.mkdir()
+    cache.write_bytes(b"ignored cache is diverted")
+    git_environment = foundation_runner._sanitized_git_environment()
+
+    original_prefix = sys.pycache_prefix
+    original_dont_write = sys.dont_write_bytecode
+    cache_handle, cache_root = foundation_runner._prepare_external_import_cache(
+        repository
+    )
+    try:
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=git_environment,
+        )
+        assert cache_root.is_dir()
+        assert not cache_root.is_relative_to(repository)
+        assert sys.pycache_prefix == str(cache_root)
+    finally:
+        sys.pycache_prefix = original_prefix
+        sys.dont_write_bytecode = original_dont_write
+        cache_handle.cleanup()
+
+    legacy = repository / "src/package/legacy.pyc"
+    legacy.write_bytes(b"ignored legacy bytecode")
+    with pytest.raises(RuntimeError, match="ignored executable import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=git_environment,
+        )
+
+
+def test_foundation_bootstrap_prevents_initial_sourceless_module_execution(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    runner = scripts / "run_foundation_gate.py"
+    runner.write_bytes(Path(foundation_runner.__file__).read_bytes())
+    sentinel = tmp_path / "ignored-bootstrap-ran"
+    malicious_source = scripts / "argparse.py"
+    malicious_source.write_text(
+        f"open({str(sentinel)!r}, 'w').write('executed')\n",
+        encoding="utf-8",
+    )
+    malicious_bytecode = scripts / "argparse.pyc"
+    py_compile.compile(
+        str(malicious_source),
+        cfile=str(malicious_bytecode),
+        doraise=True,
+    )
+    malicious_source.unlink()
+
+    completed = subprocess.run(
+        (sys.executable, str(runner), "--command-mode", "report-only"),
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert completed.returncode != 0
+    assert not sentinel.exists()
+
+
+def test_foundation_preimport_posture_rejects_ignored_root_package(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-root-package"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("pydantic/\n", encoding="utf-8")
+    package = repository / "pydantic/__init__.py"
+    package.parent.mkdir()
+    package.write_text("MALICIOUS = True\n", encoding="utf-8")
+    git("add", ".gitignore")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="ignored executable import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_foundation_preimport_posture_rejects_ignored_package_symlink(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-ignored-symlink"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("src/pydantic\n", encoding="utf-8")
+    (repository / "src").mkdir()
+    outside_package = tmp_path / "outside-pydantic"
+    outside_package.mkdir()
+    (outside_package / "__init__.py").write_text(
+        "MALICIOUS = True\n", encoding="utf-8"
+    )
+    (repository / "src/pydantic").symlink_to(
+        outside_package,
+        target_is_directory=True,
+    )
+    git("add", ".gitignore")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="ignored symlink import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_foundation_exact_revision_rejects_tracked_symlink(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-tracked-symlink"
+    repository.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("MALICIOUS = True\n", encoding="utf-8")
+    (repository / "dependency.py").symlink_to(outside)
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    git("add", "dependency.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="rejects tracked symlinks"):
+        exact_repository_revision(repository)
+
+
+def test_foundation_direct_caller_cannot_issue_root_exact_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "foundation-direct-caller"
+    repository.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    (repository / "tracked.txt").write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    revision = git("rev-parse", "HEAD")
+    monkeypatch.setattr(foundation_runner, "ROOT", repository)
+    monkeypatch.setattr(foundation_runner, "_FOUNDATION_BOOTSTRAP_SAFE", False)
+    monkeypatch.setattr(
+        foundation_runner,
+        "_PREIMPORT_REPOSITORY_MODULE_PATHS",
+        (),
+    )
+    monkeypatch.setattr(
+        foundation_runner,
+        "_PREIMPORT_CLEAN_REVISION",
+        revision,
+    )
+
+    with pytest.raises(RuntimeError, match="isolated no-site process"):
         exact_repository_revision(repository)
 
 
@@ -4230,6 +4578,11 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
         taw08_verifier,
         "_verify_preflight_execution",
         lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_fresh_exact_repository_revision",
+        lambda _repository_root: revision_ref,
     )
     with pytest.raises(RuntimeError, match="locked verifier child"):
         verify_repository_candidate(lock, repository_root=repository)
