@@ -6,6 +6,7 @@ import builtins
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import runpy
 from types import SimpleNamespace
@@ -695,6 +696,71 @@ def test_worker_rechecks_candidate_before_repository_import(tmp_path: Path) -> N
     assert completed.returncode != 0
     assert b"must be clean before import" in completed.stderr
     assert not sentinel.exists()
+
+    substituted_bin = tmp_path / "substituted-bin"
+    substituted_bin.mkdir()
+    substituted_git = substituted_bin / "git"
+    substituted_git.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    substituted_git.chmod(0o755)
+    environment["PATH"] = str(substituted_bin) + os.pathsep + environment["PATH"]
+    substituted = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", "-c", code),
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert substituted.returncode != 0
+    assert b"trusted provenance" in substituted.stderr
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX provenance regression")
+@pytest.mark.parametrize("module", (driver, worker))
+def test_phase_git_rejects_path_substitution(
+    module: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    substituted_git = tmp_path / "git"
+    substituted_git.write_bytes(b"substituted git")
+    substituted_git.chmod(0o777)
+    monkeypatch.setattr(
+        module.shutil,
+        "which",
+        lambda _name: str(substituted_git),
+    )
+
+    with pytest.raises(RuntimeError, match="trusted provenance"):
+        module._trusted_git_executable()
+
+
+@pytest.mark.parametrize("module", (driver, worker))
+def test_phase_git_commands_use_authenticated_absolute_executable(
+    module: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        module,
+        "_trusted_git_executable",
+        lambda: Path("/trusted/git"),
+    )
+
+    def successful_run(command: tuple[str, ...], **_kwargs: object):
+        observed.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b"trusted output")
+
+    monkeypatch.setattr(module.subprocess, "run", successful_run)
+    if module is driver:
+        output = module._git(tmp_path, "status")
+    else:
+        output = module._preimport_git(tmp_path, "status")
+
+    assert output == b"trusted output"
+    assert observed == [("/trusted/git", "--no-replace-objects", "status")]
 
 
 def test_locked_wheel_selection_uses_reachable_compatible_closure(

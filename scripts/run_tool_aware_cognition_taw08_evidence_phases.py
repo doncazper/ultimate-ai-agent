@@ -477,12 +477,57 @@ def _sanitized_environment() -> dict[str, str]:
     return environment
 
 
+def _validate_posix_admin_path(path: Path) -> None:
+    for component in (path, *path.parents):
+        try:
+            metadata = component.stat()
+        except OSError as exc:
+            raise RuntimeError(
+                "TAW-08 Git executable lacks trusted provenance"
+            ) from exc
+        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+
+
+def _trusted_git_executable() -> Path:
+    """Resolve Git across the same OS-administrator trust boundary as the verifier."""
+
+    _require_posix_private_path_support()
+    executable_value = shutil.which("git")
+    if not executable_value:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable")
+    try:
+        resolved = Path(executable_value).resolve(strict=True)
+        content = resolved.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
+    if not resolved.is_file() or not content or len(content) > 256 * 1024 * 1024:
+        raise RuntimeError("TAW-08 trusted Git executable is invalid")
+    _validate_posix_admin_path(resolved)
+    if sys.platform == "darwin":
+        if resolved != Path("/usr/bin/git"):
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+        signature = subprocess.run(
+            (
+                "/usr/bin/codesign",
+                "--verify",
+                "--strict",
+                "-R=anchor apple",
+                str(resolved),
+            ),
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
+        if signature.returncode != 0:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+    return resolved
+
+
 def _git(repository_root: Path, *args: str) -> bytes:
-    executable = shutil.which("git")
-    if not executable:
-        raise RuntimeError("Git is unavailable")
+    executable = _trusted_git_executable()
     completed = subprocess.run(
-        (executable, "--no-replace-objects", *args),
+        (str(executable), "--no-replace-objects", *args),
         cwd=repository_root,
         env=_sanitized_environment(),
         check=True,
