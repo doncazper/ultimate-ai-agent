@@ -33,6 +33,8 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     build_local_model_receipt,
     build_policy_decision,
     runtime_invocation_has_committed_receipt,
+    runtime_local_model_endpoint_ref,
+    runtime_local_model_model_ref,
     runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.command import (
@@ -1345,11 +1347,11 @@ def _prompt_ref(request: RuntimeLocalModelCallRequest) -> str:
 
 
 def _endpoint_ref(base_url: str) -> str:
-    return _hash_ref("runtime-local-model-endpoint-ref", {"base_url": base_url})
+    return runtime_local_model_endpoint_ref(base_url)
 
 
 def _model_ref(model_ref: str) -> str:
-    return _hash_ref("runtime-local-model-model-ref", {"model_ref": model_ref})
+    return runtime_local_model_model_ref(model_ref)
 
 
 def _operation_idempotency_ref(base_ref: str, operation: str) -> str:

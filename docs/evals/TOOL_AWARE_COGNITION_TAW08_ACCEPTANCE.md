@@ -11,10 +11,13 @@ the named founder-private receipts, record the founder's decision, merge only a
 verified evidence-only delta, and bind exact-head and post-merge Foundation Gate
 receipts.
 
-This slice adds no model or provider call, no second ordinary-chat model call,
-no route or Control Center surface, no proposal, approval grant, tool execution,
-connector, external write, holdout access, public claim, or production
-authority.
+The deterministic acceptance evaluator itself makes no model or provider call.
+The candidate-locked founder runner is the one accepted execution lane: under
+an exact temporary approval-bound lease it makes a fixed census of local Qwen
+calls and records only redacted evidence. It makes no remote-provider call, no
+second ordinary-chat model call, no runtime tool call, no route or Control
+Center mutation, no connector or external write, no holdout access, no public
+claim, and no production authority.
 
 ## Founder-Private Acceptance
 
@@ -42,17 +45,33 @@ arbitrary digest or caller-authored `passed` label is insufficient:
 
 The accepted profile remains English-first, Qwen 3.8 27B with a 128K local
 context identity, configured ChatGPT/Codex API profile identities, and per-run
-observed Mac/Windows hardware. A run receipt must bind the exact model artifact
-or configured model ID and the observed host. This repository slice performs no
-such run and does not grant permission to call those models or providers.
+observed Mac/Windows hardware. The founder bundle accepts between one and 32
+unique, sorted live-run receipts; it does not require the full Cartesian product
+of configured inference profiles and hardware families. Every live receipt must
+use one accepted configured inference profile, identify the observed Mac or
+Windows hardware family for that run, and bind the exact model artifact or
+configured model ID and the observed host. Duplicate receipts and evidence
+rebound to another candidate remain invalid. Unobserved configured profiles or
+hardware families remain unqualified; founder-private acceptance does not turn
+them into measured or supported claims. Merely installing this repository does
+not grant permission to call those models or providers. The exact local-run
+authority and procedure are defined in
+`docs/evals/TOOL_AWARE_COGNITION_TAW08_FOUNDER_RUNNER.md`; configured
+ChatGPT/Codex API profiles remain unmeasured and are not called by that lane.
 Local model evidence uses a SHA-256 artifact-digest identity; API evidence uses
 the exact configured OpenAI model ID rather than a generic profile placeholder.
 
+After the candidate is merged and founder evidence is collected, the finite
+M1/M2/M3 publication sequence is defined in
+`docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md`. Its
+candidate-locked driver and isolated worker emit staging artifacts only; they
+do not edit, commit, push, merge, or broaden authority.
+
 The founder-decision verification key is an acceptance authority, not ordinary
-caller input. This slice intentionally leaves that repository trust root
-unconfigured, so a caller cannot invent a decision and advance acceptance.
-Founder-private acceptance stays blocked until a later exact candidate binds
-the founder's public verification key; no private signing key is stored here.
+caller input. The repository binds the founder's public Ed25519 verification
+key; the matching private signing key remains permission-restricted outside the
+repository and is never included in durable evidence. A caller still cannot
+invent a decision or substitute measurements for another candidate.
 
 When the evidence is absent, `evaluate_taw08_acceptance` returns
 `blocked_missing_founder_evidence` with an exact missing-evidence census. Once
@@ -117,8 +136,11 @@ Executable code, routes, prompts, policy data, configuration, dependencies,
 evaluators, thresholds, corpora, labels, raw content, and holdout material
 cannot be represented as evidence-only. Both the board and release-truth
 reconciliations are mandatory and must publish `implemented` before the delta
-can verify. Each may update only the entire canonical TAW-07/TAW-08 status
-narrative and single machine-owned JSON block
+can verify. The M2 delta's endpoint and complete per-commit history must both
+contain exactly the canonical acceptance report plus those two Markdown truth
+documents; optional sidecars, the final publication artifact, and transient or
+reverted paths are not valid M2 evidence. Each may update only the entire
+canonical TAW-07/TAW-08 status narrative and single machine-owned JSON block
 between the named TAW-08 markers in each active Markdown truth document. The
 verifier binds the narrative to the structured status, reads the candidate
 revision, and rejects any prefix, suffix, duplicate-marker, schema, or secret
@@ -212,6 +234,15 @@ PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_tool_aware_cognition_taw
 UAA_TAW08_LOCKED_WHEELHOUSE=<pre-provisioned-wheelhouse> \
   PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw08.py
 ```
+
+An authorized local founder evaluator may set
+`UAA_TAW08_EXPORT_FOUNDER_INPUTS=1` on that same locked-verifier invocation to
+receive the redacted candidate, candidate-verification, and exact-head
+Foundation bundle on standard output. The bundle's canonical digest detects
+transport corruption; it is not producer authentication. A signer must invoke
+the locked verifier itself and consume the captured standard output directly
+before loading the founder key. It must not accept a caller-supplied or saved
+bundle as provenance evidence.
 
 The repository verifier locks the committed TAW-08 contract slice and proves
 that the no-evidence fixture remains blocked with every authority and public

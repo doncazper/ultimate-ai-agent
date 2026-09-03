@@ -6,6 +6,7 @@ import ctypes
 import hashlib
 import importlib.metadata as importlib_metadata
 import io
+import json
 import os
 import platform
 import re
@@ -14,13 +15,17 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
-import tomllib
 import urllib.parse
 import zipfile
 from collections import defaultdict, deque
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
 
 from packaging.markers import InvalidMarker, Marker, default_environment
 from packaging.requirements import InvalidRequirement, Requirement
@@ -34,10 +39,12 @@ _ENVIRONMENT_ROOT_ENV = "UAA_TAW08_ENVIRONMENT_ROOT"
 _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
+_EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
+    TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS,
     TAW08_DELTA_VERIFICATION_MISSING_REF,
     TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
     TAW08_FINAL_PUBLICATION_MISSING_REF,
@@ -76,6 +83,7 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     SourceProjection,
     canonical_digest,
     derive_local_python_dependencies,
+    durable_payload_has_forbidden_fields,
     verify_candidate_lock,
 )
 from scripts.run_foundation_gate import (  # noqa: E402
@@ -92,20 +100,23 @@ SLICE_CANDIDATE_PATHS = tuple(
                 for ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
             ),
             "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW08_FOUNDER_RUNNER.md",
+            "docs/DOCUMENTATION_INDEX.md",
             "scripts/verify_taw08_environment_preflight.py",
             "scripts/verify_tool_aware_cognition_taw08.py",
             "src/ultimate_ai_agent/core/evals/__init__.py",
             "tests/test_tool_aware_cognition_taw08.py",
+            "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
+            "tests/test_tool_aware_cognition_taw08_founder_runner.py",
+            "tests/test_tool_aware_cognition_taw08_live_lease.py",
+            "tests/test_m164_llama_cpp_gateway.py",
         }
     )
 )
-EVIDENCE_ONLY_DELTA_PATHS = (
-    "docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_board_reconciliation_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_release_truth_reconciliation_v1.json",
-    "docs/kanban/current_board.md",
-    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+EVIDENCE_ONLY_DELTA_PATHS = tuple(
+    path_ref.removeprefix("repo-path-ref:")
+    for path_ref in TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS
 )
 
 
@@ -275,6 +286,15 @@ def verify_executing_repository_sources(
 ) -> tuple[tuple[str, ...], str]:
     """Bind every loaded repository Python source to the candidate Git tree."""
 
+    current_revision = _git(
+        "rev-parse",
+        "HEAD",
+        repository_root=repository_root,
+    ).decode("ascii").strip()
+    if revision != current_revision:
+        raise RuntimeError(
+            "TAW-08 executing repository source differs from the candidate"
+        )
     resolved_source_root = source_root.resolve()
     source_paths: dict[str, Path] = {}
     for module in tuple(sys.modules.values()):
@@ -875,7 +895,7 @@ def verify_locked_evaluator_environment(
             installed_identity=installed_identity,
         )
         distribution_content_identities.append(
-            (name, version, locked_wheel_identity, installed_identity)
+            (name, version, locked_wheel_identity)
         )
     distribution_content_identities = tuple(distribution_content_identities)
     (
@@ -1350,11 +1370,11 @@ def verify_repository_foundation_gate(
         repository_root,
         git_executable=git_executable,
     )
+    revision = revision_ref.removeprefix("git-sha:")
     verify_executing_repository_sources(
-        revision_ref.removeprefix("git-sha:"),
+        revision,
         repository_root=repository_root,
     )
-    revision = revision_ref.removeprefix("git-sha:")
     _verify_preflight_execution(repository_root=repository_root)
     evaluator_environment_receipt = verify_locked_evaluator_environment(
         locked_content_by_path_ref={
@@ -1438,7 +1458,7 @@ def verify_repository_final_acceptance_publication(
     )
 
 
-def verify() -> None:
+def verify(*, export_founder_inputs: bool = False) -> dict[str, object] | None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     lock, content_by_ref = _candidate_lock(revision)
     expected_refs = tuple(item.path_ref for item in lock.entries)
@@ -1490,6 +1510,21 @@ def verify() -> None:
         )
     ):
         raise RuntimeError("TAW-08 verifier detected authority or content expansion")
+    if not export_founder_inputs:
+        return None
+    foundation_receipt = verify_repository_foundation_gate(stage="exact_head")
+    if foundation_receipt.revision_ref != lock.git_revision_ref:
+        raise RuntimeError("TAW-08 Foundation export candidate binding drift")
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt.model_dump(mode="json"),
+        "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    if _founder_input_export_has_forbidden_fields(payload):
+        raise RuntimeError("TAW-08 founder input export contains unsafe fields")
+    return {**payload, "bundle_digest_ref": canonical_digest(payload)}
 
 
 def _locked_reachable_packages(
@@ -1873,12 +1908,100 @@ def _locked_child_environment(
         _ENVIRONMENT_ROOT_ENV: str(environment_root),
         _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
     }
+    if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+        environment[_EXPORT_FOUNDER_INPUTS_ENV] = "1"
     if platform_name == "nt":
         environment["SystemRoot"] = str(_validated_windows_system_root())
     return environment
 
 
-def _run_locked_candidate_verifier() -> None:
+def _founder_input_export_has_forbidden_fields(
+    payload: dict[str, object],
+) -> bool:
+    """Scan export content while treating validated repo path refs as identifiers."""
+
+    expected_keys = {
+        "schema_version",
+        "candidate_lock",
+        "candidate_verification_receipt",
+        "exact_head_foundation_receipt",
+        "raw_content_persisted",
+    }
+    if set(payload) not in (expected_keys, {*expected_keys, "bundle_digest_ref"}):
+        raise ValueError("founder input export schema drift")
+    candidate_lock = CandidateLock.model_validate(payload["candidate_lock"])
+    candidate_receipt = _CandidateLockVerificationReceipt.model_validate(
+        payload["candidate_verification_receipt"]
+    )
+    foundation_receipt = FoundationGateReceipt.model_validate(
+        payload["exact_head_foundation_receipt"]
+    )
+    if (
+        candidate_receipt.candidate_revision_ref != candidate_lock.git_revision_ref
+        or candidate_receipt.candidate_manifest_digest_ref
+        != candidate_lock.manifest_digest_ref
+        or foundation_receipt.stage != "exact_head"
+        or foundation_receipt.revision_ref != candidate_lock.git_revision_ref
+    ):
+        raise ValueError("founder input export candidate binding drift")
+    candidate_receipt_safety_payload = candidate_receipt.model_dump(mode="json")
+    candidate_receipt_safety_payload["executing_source_path_refs"] = ()
+    safety_payload = {
+        **payload,
+        "candidate_lock": candidate_lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt_safety_payload,
+        "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
+    }
+    return durable_payload_has_forbidden_fields(safety_payload)
+
+
+def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
+    """Validate and canonicalize the bounded locked-child export."""
+
+    if not child_stdout or len(child_stdout) > 4 * 1024 * 1024:
+        raise RuntimeError("TAW-08 founder input export is invalid")
+    expected_keys = {
+        "schema_version",
+        "candidate_lock",
+        "candidate_verification_receipt",
+        "exact_head_foundation_receipt",
+        "raw_content_persisted",
+        "bundle_digest_ref",
+    }
+    try:
+        exported = json.loads(child_stdout)
+        if (
+            not isinstance(exported, dict)
+            or set(exported) != expected_keys
+            or exported.get("schema_version")
+            != "uaa-taw08-founder-run-inputs.v1"
+            or exported.get("raw_content_persisted") is not False
+            or _founder_input_export_has_forbidden_fields(exported)
+        ):
+            raise ValueError("founder input export schema drift")
+        digest_payload = {
+            key: value
+            for key, value in exported.items()
+            if key != "bundle_digest_ref"
+        }
+        if exported.get("bundle_digest_ref") != canonical_digest(digest_payload):
+            raise ValueError("founder input export digest drift")
+        return json.dumps(
+            exported,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("ascii") + b"\n"
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise RuntimeError("TAW-08 founder input export is invalid") from exc
+
+
+def _run_locked_candidate_verifier() -> bytes | None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     if _git("status", "--porcelain", "--untracked-files=all"):
         raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
@@ -1936,6 +2059,8 @@ def _run_locked_candidate_verifier() -> None:
             )
             if child.returncode != 0:
                 raise RuntimeError("TAW-08 locked candidate verifier failed")
+            if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+                return _normalize_founder_input_export(child.stdout)
         finally:
             if added:
                 subprocess.run(
@@ -1951,13 +2076,21 @@ def _run_locked_candidate_verifier() -> None:
                     capture_output=True,
                     env=_sanitized_git_environment(),
                 )
+    return None
 
 
 def main() -> int:
+    export_founder_inputs = os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1"
     if os.environ.get(_LOCKED_CHILD_REVISION_ENV):
-        verify()
+        bundle = verify(export_founder_inputs=export_founder_inputs)
+        if bundle is not None:
+            print(json.dumps(bundle, sort_keys=True, separators=(",", ":")))
+            return 0
     else:
-        _run_locked_candidate_verifier()
+        exported = _run_locked_candidate_verifier()
+        if exported is not None:
+            sys.stdout.buffer.write(exported)
+            return 0
     print(
         "Tool-aware cognition TAW-08 acceptance contract verified; founder-private "
         "acceptance remains blocked on exact measured evidence."

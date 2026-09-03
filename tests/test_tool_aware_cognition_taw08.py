@@ -17,7 +17,10 @@ from types import SimpleNamespace
 
 import pytest
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from pydantic import ValidationError
 
 import ultimate_ai_agent.core.evals as evals_api
@@ -40,6 +43,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_HARDWARE_FAMILY_REFS,
     TAW08_INFERENCE_PROFILE_REFS,
     TAW08_LOCAL_INFERENCE_PROFILE_REF,
+    TAW08_M2_PATH_REFS,
     TAW08_RECONCILIATION_END,
     TAW08_RECONCILIATION_JSON,
     TAW08_RECONCILIATION_NARRATIVES,
@@ -109,6 +113,34 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
 CANDIDATE_REVISION_REF = "git-sha:" + "1" * 40
 DELTA_REVISION_REF = "git-sha:" + "2" * 40
 _TEST_FOUNDER_DECISION_PRIVATE_KEY = Ed25519PrivateKey.generate()
+PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX = (
+    acceptance_module.TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX
+)
+
+
+def test_production_founder_decision_key_matches_known_signature_vector() -> None:
+    assert PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX == (
+        "9a1ed72c07a95aa395c72e8f3c92e4f5077aa2ab474d03c6b5655a267a7c469c"
+    )
+    message = founder_decision_signature_payload(
+        candidate_revision_ref="git-sha:" + "1" * 40,
+        candidate_manifest_digest_ref="sha256:" + "2" * 64,
+        measurement_receipt_digest_refs=tuple(
+            "sha256:" + str(index) * 64 for index in range(3, 8)
+        ),
+        exact_head_foundation_receipt_digest_ref="sha256:" + "8" * 64,
+        founder_decision_ref="decision-ref:taw08:production-key-vector:accepted",
+    )
+
+    Ed25519PublicKey.from_public_bytes(
+        bytes.fromhex(PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX)
+    ).verify(
+        bytes.fromhex(
+            "5571cf9dd64f08078757976ce6208f4291594b819bb944cdae19baed9b4922948"
+            "67277f9123165a42c443b4e80b561bd1c8c419831a81b5555dd293a8383890d"
+        ),
+        message,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -139,12 +171,16 @@ def _revision_path_census(path_refs: set[str]) -> RevisionPathCensus:
     )
 
 
-def _revision_delta_census(path_refs: tuple[str, ...]) -> RevisionDeltaCensus:
+def _revision_delta_census(
+    path_refs: tuple[str, ...],
+    *,
+    history_path_refs: tuple[str, ...] | None = None,
+) -> RevisionDeltaCensus:
     return bind_revision_delta_census(
         candidate_revision_ref=CANDIDATE_REVISION_REF,
         delta_revision_ref=DELTA_REVISION_REF,
         path_refs=tuple(sorted(path_refs)),
-        history_path_refs=tuple(sorted(path_refs)),
+        history_path_refs=tuple(sorted(history_path_refs or path_refs)),
         commit_count=1,
         candidate_ancestor_verified=True,
         provenance_ref="provenance-ref:git-history-path-census",
@@ -558,6 +594,52 @@ def _founder_evidence(lock: CandidateLock):
     )
 
 
+def _founder_evidence_for_live_profile_hardware_pairs(
+    lock: CandidateLock,
+    *,
+    live_profile_hardware_pairs: tuple[tuple[str, str], ...],
+):
+    evidence = _founder_evidence(lock)
+    requested_pairs = frozenset(live_profile_hardware_pairs)
+    live_receipts = tuple(
+        receipt
+        for receipt in evidence.live_model_hardware_receipts
+        if (
+            receipt.result.inference_profile_ref,
+            receipt.result.observed_hardware_family_ref,
+        )
+        in requested_pairs
+    )
+    assert len(requested_pairs) == len(live_profile_hardware_pairs)
+    assert len(live_receipts) == len(requested_pairs)
+    signature = _TEST_FOUNDER_DECISION_PRIVATE_KEY.sign(
+        founder_decision_signature_payload(
+            candidate_revision_ref=evidence.candidate_revision_ref,
+            candidate_manifest_digest_ref=evidence.candidate_manifest_digest_ref,
+            measurement_receipt_digest_refs=tuple(
+                item.receipt_digest_ref
+                for item in (
+                    evidence.stale_cache_recovery_receipt,
+                    evidence.routing_confidence_receipt,
+                    evidence.response_scoring_receipt,
+                    *live_receipts,
+                    evidence.end_to_end_journey_receipt,
+                )
+            ),
+            exact_head_foundation_receipt_digest_ref=(
+                evidence.exact_head_foundation_receipt.receipt_digest_ref
+            ),
+            founder_decision_ref=evidence.founder_decision_ref,
+        )
+    )
+    values = evidence.model_dump(mode="python", exclude={"evidence_digest_ref"})
+    values.update(
+        live_model_hardware_receipts=live_receipts,
+        founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
+    )
+    return bind_founder_private_acceptance_evidence(**values)
+
+
 def _pre_delta_report(lock: CandidateLock) -> TAW08AcceptanceReport:
     return evaluate_taw08_acceptance(
         candidate_lock=lock,
@@ -947,19 +1029,46 @@ def test_founder_evidence_rejects_duplicate_measurement_receipts() -> None:
 
 
 def test_founder_evidence_requires_every_inference_hardware_pair() -> None:
+    """Require every submitted inference/hardware pair to be configured."""
     lock = _candidate_lock()
     values = _founder_evidence(lock).model_dump(
         mode="json", exclude={"evidence_digest_ref"}
     )
-    values["live_model_hardware_receipts"] = tuple(
-        values["live_model_hardware_receipts"][:-1]
+    values["live_model_hardware_receipts"][0]["result"][
+        "inference_profile_ref"
+    ] = "inference-profile-ref:taw00:unconfigured-model"
+
+    with pytest.raises(ValidationError, match="profile census drift"):
+        bind_founder_private_acceptance_evidence(**values)
+
+
+def test_founder_evidence_accepts_one_configured_inference_hardware_run() -> None:
+    lock = _candidate_lock()
+    evidence = _founder_evidence_for_live_profile_hardware_pairs(
+        lock,
+        live_profile_hardware_pairs=(
+            (TAW08_LOCAL_INFERENCE_PROFILE_REF, "hardware-family-ref:mac"),
+        ),
     )
 
-    with pytest.raises(
-        ValidationError,
-        match="live-model inference and hardware census drift",
-    ):
-        bind_founder_private_acceptance_evidence(**values)
+    assert len(evidence.live_model_hardware_receipts) == 1
+    assert (
+        evidence.live_model_hardware_receipts[0].result.inference_profile_ref
+        == TAW08_LOCAL_INFERENCE_PROFILE_REF
+    )
+    assert (
+        evidence.live_model_hardware_receipts[0].result.observed_hardware_family_ref
+        == "hardware-family-ref:mac"
+    )
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        candidate_verification_receipt=_candidate_verification(lock),
+        founder_evidence=evidence,
+    )
+    assert report.status == (
+        TAW08AcceptanceStatus.founder_private_accepted_postmerge_pending
+    )
+    assert report.founder_private_accepted is True
 
 
 def test_live_measurement_requires_bound_same_host_baseline() -> None:
@@ -1014,6 +1123,36 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
     )
 
 
+def test_evidence_only_delta_requires_exact_m2_path_census() -> None:
+    lock = _candidate_lock()
+    contents = _delta_contents(lock)
+    delta = _delta(lock)
+    report = _pre_delta_report(lock)
+    extra_path_ref = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF
+
+    assert tuple(sorted(contents)) == TAW08_M2_PATH_REFS
+    for census in (
+        _revision_delta_census(
+            tuple(sorted((*contents, extra_path_ref))),
+        ),
+        _revision_delta_census(
+            tuple(sorted(contents)),
+            history_path_refs=tuple(sorted((*contents, extra_path_ref))),
+        ),
+    ):
+        failures = verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            candidate_content_by_path_ref=_candidate_truth_contents(),
+            revision_delta_census=census,
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: report
+            },
+        )
+        assert "failure-ref:taw08:evidence-delta-m2-protocol-drift" in failures
+
+
 def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None:
     lock = _candidate_lock()
     delta = _delta(lock)
@@ -1030,6 +1169,7 @@ def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None
     )
 
     assert failures == (
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:evidence-delta-path-census-drift",
         "failure-ref:taw08:evidence-delta-unapproved-path",
         "failure-ref:taw08:revision-history-unapproved-path",
@@ -1094,6 +1234,7 @@ def test_evidence_only_delta_cannot_overlap_candidate_artifact() -> None:
         "failure-ref:taw08:evidence-delta-acceptance-path-overlap",
         "failure-ref:taw08:evidence-delta-acceptance-report-missing",
         "failure-ref:taw08:evidence-delta-artifact-schema-invalid",
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:evidence-delta-unapproved-path",
         "failure-ref:taw08:revision-history-unapproved-path",
     )
@@ -1176,6 +1317,149 @@ def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
         first_environment.receipt_digest_ref
     )
     assert first.receipt_digest_ref != second.receipt_digest_ref
+
+
+def test_foundation_receipt_allows_safe_transient_secret_hygiene_labels() -> None:
+    report = _unbound_foundation_gate_report()
+    criterion = next(
+        item
+        for item in default_foundation_gate_criteria()
+        if item.criterion_id == "secret_hygiene_clean"
+    )
+    result_index = next(
+        index
+        for index, item in enumerate(report.results)
+        if item.criterion_id == criterion.criterion_id
+    )
+    canonical_result = report.results[result_index].model_copy(
+        update={
+            "safe_message": f"{criterion.name} passed.",
+            "evidence_refs": [
+                "repo-path-ref:src/ultimate_ai_agent/core/secrets/hygiene.py",
+                "src/ultimate_ai_agent/core/secrets/hygiene.py",
+            ],
+        }
+    )
+    results = list(report.results)
+    results[result_index] = canonical_result
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        CANDIDATE_REVISION_REF,
+    )
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.report_digest_ref == canonical_digest(report.model_dump(mode="json"))
+    assert (
+        taw08_verifier.durable_payload_has_forbidden_fields(
+            receipt.model_dump(mode="json")
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "surface",
+    (
+        "safe_message_path",
+        "summary_path",
+        "summary_credential",
+        "evidence_ref_path",
+        "evidence_ref_nested_path",
+        "evidence_ref_credential",
+        "evidence_ref_assignment_credential",
+        "evidence_ref_traversal",
+        "command_safe_summary_path",
+    ),
+)
+def test_foundation_receipt_rejects_unsafe_report_content(surface: str) -> None:
+    report = _unbound_foundation_gate_report()
+    unsafe_path = "/" + "Users" + "/fixture/raw.log"
+    first_result = report.results[0]
+    if surface == "safe_message_path":
+        first_result = first_result.model_copy(update={"safe_message": unsafe_path})
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "summary_path":
+        report = report.model_copy(update={"summary": unsafe_path})
+    elif surface == "summary_credential":
+        report = report.model_copy(
+            update={"summary": "api_" + "key=" + "A" * 24}
+        )
+    elif surface == "evidence_ref_path":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": [unsafe_path]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_nested_path":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": ["evidence-ref:file:/private/tmp/raw.log"]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_credential":
+        first_result = first_result.model_copy(
+            update={
+                "evidence_refs": [
+                    "evidence-ref:sk_" + "live_" + "abcdefghijklmnopqrstuvwxyz"
+                ]
+            }
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_assignment_credential":
+        first_result = first_result.model_copy(
+            update={
+                "evidence_refs": [
+                    "evidence-ref:api_key:ABCDEFGHIJKLMNOPQRSTUVWX"
+                ]
+            }
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_traversal":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": ["src/ultimate_ai_agent/../private.txt"]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    else:
+        command_receipt = report.command_receipts[0].model_copy(
+            update={
+                "safe_summary": (
+                    "Evaluated canonical criteria with local read/probe code. "
+                    + unsafe_path
+                )
+            }
+        )
+        report = report.model_copy(update={"command_receipts": [command_receipt]})
+    report = _bind_test_foundation_provenance(
+        report,
+        CANDIDATE_REVISION_REF,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Foundation report contains unsafe durable evidence",
+    ):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
 
 
 def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
@@ -1384,6 +1668,105 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
             revision_ref=CANDIDATE_REVISION_REF,
             evaluator_environment_receipt=_evaluator_environment_receipt(),
         )
+
+
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_rejects_skipped_canonical_result(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={
+            "status": FoundationGateStatus.skipped,
+            "warnings": ["warning-ref:taw08:missing-evaluator"],
+        }
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(
+            update={
+                "results": results,
+                "passed_count": report.passed_count - 1,
+            }
+        ),
+        revision_ref,
+    )
+
+    with pytest.raises(ValueError, match="passing report-only gate"):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage=stage,
+            revision_ref=revision_ref,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_rejects_passed_result_with_failures(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={"failures": ["failure-ref:taw08:explicit-failure"]}
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        revision_ref,
+    )
+
+    with pytest.raises(ValueError, match="passing report-only gate"):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage=stage,
+            revision_ref=revision_ref,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_preserves_passed_result_advisory_warnings(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={"warnings": ["warning-ref:taw08:bounded-observation"]}
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        revision_ref,
+    )
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage=stage,
+        revision_ref=revision_ref,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.passed is True
 
 
 def test_foundation_receipt_uses_canonical_report_criterion_order() -> None:
@@ -1954,6 +2337,67 @@ def test_locked_evaluator_environment_verifies_active_frozen_environment(
     )
 
 
+def test_locked_evaluator_environment_receipt_ignores_installer_path_variance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_locked_wheel_verification(monkeypatch)
+    locked_content = {
+        "repo-path-ref:pyproject.toml": (
+            taw08_verifier.ROOT / "pyproject.toml"
+        ).read_bytes(),
+        "repo-path-ref:uv.lock": (taw08_verifier.ROOT / "uv.lock").read_bytes(),
+    }
+    variance = {"digest": "a" * 64}
+    observed_identities: list[tuple[tuple[str, int, str], ...]] = []
+
+    def installed_identity(*_args: object, **_kwargs: object) -> tuple[tuple[str, int, str], ...]:
+        return (("../../../bin/tool", 64, variance["digest"]),)
+
+    locked_digest = {"value": "4" * 64}
+
+    def locked_identity(**kwargs: object) -> tuple[str, tuple[tuple[str, int, str], ...]]:
+        observed_identities.append(kwargs["installed_identity"])  # type: ignore[arg-type]
+        return (
+            "sha256:" + locked_digest["value"],
+            (("package/module.py", 7, "5" * 64),),
+        )
+
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_installed_distribution_content_identity",
+        installed_identity,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_locked_wheel_distribution_identity",
+        locked_identity,
+    )
+
+    first = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+    variance["digest"] = "b" * 64
+    second = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+
+    assert observed_identities[0] != observed_identities[-1]
+    assert (
+        first.installed_distributions_digest_ref
+        == second.installed_distributions_digest_ref
+    )
+    assert first.receipt_digest_ref == second.receipt_digest_ref
+
+    locked_digest["value"] = "6" * 64
+    changed = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+    assert (
+        changed.installed_distributions_digest_ref
+        != first.installed_distributions_digest_ref
+    )
+
+
 def test_locked_evaluator_environment_rejects_installed_file_substitution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2263,6 +2707,169 @@ def test_locked_child_preserves_validated_windows_system_root(
     assert environment["SystemRoot"] == "C:/Windows"
 
 
+def test_locked_child_forwards_founder_input_export_only_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    kwargs = {
+        "revision": "a" * 40,
+        "environment_root": tmp_path / "environment",
+        "selected_wheelhouse": tmp_path / "wheelhouse",
+    }
+
+    assert "UAA_TAW08_EXPORT_FOUNDER_INPUTS" not in (
+        taw08_verifier._locked_child_environment(**kwargs)
+    )
+    monkeypatch.setenv("UAA_TAW08_EXPORT_FOUNDER_INPUTS", "1")
+
+    assert (
+        taw08_verifier._locked_child_environment(**kwargs)[
+            "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+        ]
+        == "1"
+    )
+
+
+def test_verify_exports_redacted_digest_bound_founder_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = _candidate_lock()
+    content_by_ref = {item.path_ref: b"" for item in lock.entries}
+    candidate_receipt = _candidate_verification(lock)
+    candidate_receipt_payload = candidate_receipt.model_dump(
+        mode="json", exclude={"receipt_digest_ref"}
+    )
+    candidate_receipt_payload["executing_source_path_refs"] = (
+        "repo-path-ref:src/ultimate_ai_agent/core/context_budget/token_accounting.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/secrets/redaction.py",
+    )
+    candidate_receipt = type(candidate_receipt).model_validate(
+        {
+            **candidate_receipt_payload,
+            "receipt_digest_ref": canonical_digest(candidate_receipt_payload),
+        }
+    )
+    foundation_receipt = _foundation_receipt()
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_git",
+        lambda *_args, **_kwargs: ("1" * 40).encode("ascii"),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_candidate_lock",
+        lambda _revision: (lock, content_by_ref),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_candidate_lock",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_repository_candidate",
+        lambda _lock: candidate_receipt,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_repository_foundation_gate",
+        lambda *, stage: foundation_receipt,
+    )
+
+    bundle = taw08_verifier.verify(export_founder_inputs=True)
+
+    assert bundle is not None
+    assert bundle["schema_version"] == "uaa-taw08-founder-run-inputs.v1"
+    assert bundle["raw_content_persisted"] is False
+    digest_payload = {
+        key: value for key, value in bundle.items() if key != "bundle_digest_ref"
+    }
+    assert bundle["bundle_digest_ref"] == canonical_digest(digest_payload)
+    assert taw08_verifier.durable_payload_has_forbidden_fields(bundle) is True
+    assert taw08_verifier._founder_input_export_has_forbidden_fields(bundle) is False
+    normalized = taw08_verifier._normalize_founder_input_export(
+        json.dumps(bundle).encode("utf-8")
+    )
+    assert json.loads(normalized) == bundle
+
+
+@pytest.mark.parametrize(
+    "unsafe_path_ref",
+    (
+        r"repo-path-ref:C:\Users\fixture\raw.log",
+        r"repo-path-ref:..\private\raw.log",
+        "repo-path-ref:docs/evidence/sk_"
+        + "live_"
+        + "abcdefghijklmnopqrstuvwxyz0123456789",
+        "repo-path-ref:docs/api_key:abcdefghijklmnopqrstuvwxyz",
+    ),
+)
+def test_founder_input_export_rejects_unsafe_executing_source_path_refs(
+    unsafe_path_ref: str,
+) -> None:
+    lock = _candidate_lock()
+    candidate_receipt = _candidate_verification(lock)
+    candidate_receipt_payload = candidate_receipt.model_dump(
+        mode="json", exclude={"receipt_digest_ref"}
+    )
+    candidate_receipt_payload["executing_source_path_refs"] = (unsafe_path_ref,)
+    candidate_receipt_payload["receipt_digest_ref"] = canonical_digest(
+        candidate_receipt_payload
+    )
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt_payload,
+        "exact_head_foundation_receipt": _foundation_receipt().model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    bundle = {**payload, "bundle_digest_ref": canonical_digest(payload)}
+
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(bundle).encode("utf-8")
+        )
+
+
+def test_founder_input_export_rejects_deep_or_schema_extended_child_json() -> None:
+    deeply_nested = b"[" * 2_000 + b"0" + b"]" * 2_000
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(deeply_nested)
+
+    extended = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": {},
+        "candidate_verification_receipt": {},
+        "exact_head_foundation_receipt": {},
+        "raw_content_persisted": False,
+        "bundle_digest_ref": "sha256:" + "0" * 64,
+        "unexpected": False,
+    }
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(extended).encode("utf-8")
+        )
+
+
+def test_founder_input_export_rejects_raw_candidate_receipt_field() -> None:
+    lock = _candidate_lock()
+    candidate_receipt = _candidate_verification(lock).model_dump(mode="json")
+    candidate_receipt["raw_payload"] = "secret-value"
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt,
+        "exact_head_foundation_receipt": _foundation_receipt().model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    bundle = {**payload, "bundle_digest_ref": canonical_digest(payload)}
+
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(bundle).encode("utf-8")
+        )
+
+
 def test_venv_script_directory_supports_windows_and_posix() -> None:
     assert taw08_verifier._venv_scripts_directory("nt") == "Scripts"
     assert taw08_verifier._venv_scripts_directory("posix") == "bin"
@@ -2566,6 +3173,7 @@ def test_delta_verifier_requires_revision_derived_path_census() -> None:
             TAW08_ACCEPTANCE_REPORT_PATH_REF: _pre_delta_report(lock)
         },
     ) == (
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:revision-delta-path-census-drift",
         "failure-ref:taw08:revision-history-unapproved-path",
     )
@@ -2596,6 +3204,32 @@ def test_delta_verification_receipt_binds_revision_path_census() -> None:
     assert report.failure_refs == (
         "failure-ref:taw08:delta-verification-binding-drift",
     )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    (
+        (
+            "history_path_refs",
+            tuple(
+                sorted((*TAW08_M2_PATH_REFS, TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF))
+            ),
+        ),
+        ("artifact_count", len(TAW08_M2_PATH_REFS) + 1),
+    ),
+)
+def test_delta_verification_receipt_requires_exact_m2_census(
+    field_name: str, field_value: object
+) -> None:
+    lock = _candidate_lock()
+    receipt = _delta_verification(lock, _delta(lock))
+    payload = receipt.model_dump(mode="json", exclude={"receipt_digest_ref"})
+    payload[field_name] = field_value
+
+    with pytest.raises(ValidationError, match="receipt M2 census drift"):
+        _EvidenceOnlyDeltaVerificationReceipt.model_validate(
+            {**payload, "receipt_digest_ref": canonical_digest(payload)}
+        )
 
 
 def test_receipt_binders_reject_unknown_fields_before_model_construct() -> None:
@@ -2705,7 +3339,7 @@ def test_schema_valid_secret_like_evidence_is_rejected() -> None:
         mode="json"
     )
     artifact["report_fingerprint_ref"] = (
-        "taw08-acceptance-report-ref:sk_live_abcdefghijklmnopqrstuv"
+        "taw08-acceptance-report-ref:sk_" + "live_" + "abcdefghijklmnopqrstuv"
     )
     content = json.dumps(artifact).encode()
     delta = _delta(lock, content)
@@ -2763,6 +3397,36 @@ def test_live_measurement_requires_exact_runtime_identity() -> None:
     ).result.model_dump(mode="json")
     payload["model_profile_ref"] = None
     with pytest.raises(ValidationError, match="identity census is incomplete"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "unsupported_ref"),
+    (
+        (
+            "inference_profile_ref",
+            "inference-profile-ref:taw00:unconfigured-model",
+        ),
+        ("observed_hardware_family_ref", "hardware-family-ref:unsupported"),
+    ),
+)
+def test_live_measurement_requires_configured_inference_and_hardware_profiles(
+    field_name: str,
+    unsupported_ref: str,
+) -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.live_model_hardware,
+        f"unsupported-{field_name}",
+    ).result.model_dump(mode="json")
+    payload[field_name] = unsupported_ref
+    payload["same_host_baseline"][field_name] = unsupported_ref
+    baseline = payload["same_host_baseline"]
+    baseline["result_digest_ref"] = canonical_digest(
+        {key: value for key, value in baseline.items() if key != "result_digest_ref"}
+    )
+
+    with pytest.raises(ValidationError, match="profile census drift"):
         FounderMeasurementResult.model_validate(payload)
 
 
@@ -3074,6 +3738,7 @@ def test_evidence_delta_requires_canonical_acceptance_report() -> None:
     ) == (
         "failure-ref:taw08:active-truth-reconciliation-missing",
         "failure-ref:taw08:evidence-delta-acceptance-report-missing",
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
     )
 
 
