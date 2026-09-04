@@ -655,6 +655,17 @@ def _nul_records(payload: bytes, *, purpose: str) -> list[bytes]:
 def _git_tree_entries(
     repository_root: Path, *, revision: str
 ) -> dict[bytes, tuple[bytes, bytes, int]]:
+    for config_query in (
+        ("--get", "extensions.partialClone"),
+        ("--get-regexp", r"^remote\..*\.promisor$"),
+    ):
+        try:
+            _git(repository_root, "config", "--local", *config_query)
+        except subprocess.CalledProcessError as exc:
+            if exc.returncode != 1:
+                raise ValueError("repository Git tree census is invalid") from exc
+        else:
+            raise ValueError("repository Git tree census is invalid")
     records = _nul_records(
         _git(repository_root, "ls-tree", "-rlz", "--full-tree", revision),
         purpose="repository Git tree census",

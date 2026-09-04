@@ -1078,9 +1078,13 @@ def test_raw_tree_census_never_lazy_fetches_from_promisor(tmp_path: Path) -> Non
         text=True,
     ).stdout.strip()
 
-    with pytest.raises(ValueError, match="tree census is invalid"):
-        driver._git_tree_entries(partial, revision=revision)
-    assert not sentinel.exists()
+    for checker, error_type in (
+        (driver._git_tree_entries, ValueError),
+        (worker._git_tree_entries, RuntimeError),
+    ):
+        with pytest.raises(error_type, match="tree census is invalid"):
+            checker(partial, revision=revision)
+        assert not sentinel.exists()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX bytecode regression")

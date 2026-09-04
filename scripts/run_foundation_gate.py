@@ -127,6 +127,20 @@ def _require_raw_clean_worktree(
     if object_format not in {"sha1", "sha256"}:
         raise RuntimeError("Foundation Gate Git object format is invalid")
 
+    for config_query in (
+        ("--get", "extensions.partialClone"),
+        ("--get-regexp", r"^remote\..*\.promisor$"),
+    ):
+        try:
+            run("config", "--local", *config_query)
+        except subprocess.CalledProcessError as exc:
+            if exc.returncode != 1:
+                raise RuntimeError(
+                    "Foundation Gate Git tree census is invalid"
+                ) from exc
+        else:
+            raise RuntimeError("Foundation Gate Git tree census is invalid")
+
     tree_entries: dict[bytes, tuple[bytes, bytes, int]] = {}
     for record in records(
         run("ls-tree", "-rlz", "--full-tree", revision),
