@@ -1,6 +1,8 @@
 from typing import Any
 from pathlib import Path
 import json
+import os
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
@@ -256,6 +258,80 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     assert "exact-SHA, exact-plan" in payload["command_receipts"][0]["safe_summary"]
     assert payload["latency_gate"]["foundation_gate_report_json"] is None
     assert payload["latency_gate"]["report_refs"] == {}
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+def test_foundation_tree_census_rejects_promisor_without_lazy_fetch(
+    tmp_path: Path,
+) -> None:
+    seed = tmp_path / "seed"
+    source = tmp_path / "source.git"
+    partial = tmp_path / "partial"
+    seed.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=seed, check=True)
+    (seed / "tracked.txt").write_text("promised content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=seed, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=seed,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "clone", "--bare", "-q", str(seed), str(source)),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "uploadpack.allowFilter", "true"),
+        cwd=source,
+        check=True,
+    )
+    subprocess.run(
+        (
+            "git",
+            "clone",
+            "-q",
+            "--filter=blob:none",
+            "--no-checkout",
+            f"file://{source}",
+            str(partial),
+        ),
+        check=True,
+    )
+    sentinel = tmp_path / "promisor-helper-ran"
+    helper = tmp_path / "promisor-helper"
+    helper.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nexit 1\n",
+        encoding="utf-8",
+    )
+    helper.chmod(0o700)
+    subprocess.run(
+        ("git", "config", "remote.origin.url", f"ext::{helper}"),
+        cwd=partial,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "protocol.ext.allow", "always"),
+        cwd=partial,
+        check=True,
+    )
+
+    with pytest.raises(RuntimeError, match="Git tree census is invalid"):
+        run_foundation_gate._require_raw_clean_worktree(
+            partial,
+            git_command=run_foundation_gate._trusted_preimport_git(),
+            git_environment=run_foundation_gate._sanitized_git_environment(),
+        )
+    assert not sentinel.exists()
 
 
 def test_parallel_ci_mode_rejects_missing_exact_receipt_evidence() -> None:
