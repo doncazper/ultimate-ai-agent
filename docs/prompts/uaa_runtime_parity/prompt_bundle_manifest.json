@@ -14,7 +14,7 @@
     "docs/prompts/uaa_runtime_parity/07_mature_action_execution_and_signed_evidence.prompt.md",
     "docs/prompts/uaa_runtime_parity/08_cockpit_cli_api_parity_and_final_hardening.prompt.md"
   ],
-  "bundle_hash": "sha256:ae1368ffc89c392667f4608e549e3490c42a00a16e28986ffc7873b89380ffab",
+  "bundle_hash": "sha256:8b1dde43e25e394aa5ad450a896de99b0a853d8539e9d1c56e88c6d2132c2ed1",
   "stable_within_run": true,
   "created_at": "2026-07-05"
 }
