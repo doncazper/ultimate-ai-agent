@@ -1416,6 +1416,15 @@ def _foundation_report_with_latency_label(safe_label: str) -> FoundationGateRepo
         foundation_gate_mean_budget_ms=1.0,
         release_latency_status="passed",
         hot_path_profile_status="passed",
+        environment_safe_summary={
+            "measurement_mode": "local_foundation_gate_latency_summary",
+            "runner": "scripts.check_foundation_gate_latency",
+            "optional_prerequisite_policy": "skipped_or_blocked_with_reason_codes",
+            "machine_identity_recorded": False,
+            "environment_variables_recorded": False,
+            "raw_paths_recorded": False,
+            "raw_logs_recorded": False,
+        },
         path_results=[
             FoundationGateLatencyPathResult(
                 path_id="health",
@@ -1452,6 +1461,23 @@ def test_foundation_receipt_treats_only_canonical_latency_routes_as_identifiers(
     with pytest.raises(ValueError, match="unsafe durable evidence"):
         _verify_and_bind_foundation_gate_report(
             report=unsafe_report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+    assert safe_report.latency_gate is not None
+    unsafe_environment = dict(safe_report.latency_gate.environment_safe_summary)
+    unsafe_environment["raw_paths_recorded"] = True
+    unsafe_latency = safe_report.latency_gate.model_copy(
+        update={"environment_safe_summary": unsafe_environment}
+    )
+    unsafe_attestation_report = _bind_test_foundation_provenance(
+        safe_report.model_copy(update={"latency_gate": unsafe_latency}),
+        CANDIDATE_REVISION_REF,
+    )
+    with pytest.raises(ValueError, match="unsafe durable evidence"):
+        _verify_and_bind_foundation_gate_report(
+            report=unsafe_attestation_report,
             stage="exact_head",
             revision_ref=CANDIDATE_REVISION_REF,
             evaluator_environment_receipt=_evaluator_environment_receipt(),

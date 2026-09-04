@@ -209,6 +209,27 @@ _FOUNDATION_LATENCY_SAFE_LABELS = frozenset(
         "Control Center first useful local render",
     }
 )
+_FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY = {
+    "measurement_mode": "local_foundation_gate_latency_summary",
+    "runner": "scripts.check_foundation_gate_latency",
+    "optional_prerequisite_policy": "skipped_or_blocked_with_reason_codes",
+    "machine_identity_recorded": False,
+    "environment_variables_recorded": False,
+    "raw_paths_recorded": False,
+    "raw_logs_recorded": False,
+}
+_FOUNDATION_RELEASE_REPORT_SAFETY = {
+    "raw_prompt_included": False,
+    "raw_response_included": False,
+    "raw_provider_payload_included": False,
+    "raw_path_included": False,
+    "raw_log_included": False,
+    "username_included": False,
+    "hostname_included": False,
+    "serial_included": False,
+    "environment_dump_included": False,
+    "credential_material_included": False,
+}
 _NON_EXACT_MODEL_ID_TOKENS = frozenset(
     {"any", "anything", "configured", "placeholder", "test", "unknown"}
 )
@@ -2246,7 +2267,25 @@ def _verify_and_bind_foundation_gate_report(
                 {key: value for key, value in item.items() if key != "safe_label"}
                 for item in path_results
             ]
+        environment_safe_summary = latency_gate.get("environment_safe_summary")
+        if environment_safe_summary != _FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY:
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_latency_gate["environment_safe_summary"] = {
+            key: value
+            for key, value in environment_safe_summary.items()
+            if not key.startswith("raw_")
+        }
         safety_payload["latency_gate"] = safe_latency_gate
+    release_lanes = report_payload.get("release_verification_lanes")
+    if release_lanes is not None:
+        if (
+            not isinstance(release_lanes, dict)
+            or release_lanes.get("report_safety") != _FOUNDATION_RELEASE_REPORT_SAFETY
+        ):
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_release_lanes = dict(release_lanes)
+        safe_release_lanes["report_safety"] = {}
+        safety_payload["release_verification_lanes"] = safe_release_lanes
     if durable_payload_has_forbidden_fields(safety_payload):
         raise ValueError("Foundation report contains unsafe durable evidence")
     report_id = report_payload["report_id"]
