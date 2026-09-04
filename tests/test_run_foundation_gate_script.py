@@ -28,6 +28,12 @@ class _FastFoundationGateEvaluator:
 
 
 def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        run_foundation_gate,
+        "_PREIMPORT_TRUSTED_GIT_COMMAND",
+        "/trusted/test/git",
+    )
+
     def fast_latency_summary(
         *,
         foundation_gate_report_json: Any,
