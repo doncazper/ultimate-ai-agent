@@ -285,6 +285,81 @@ def _require_safe_private_ancestor_chain(path: Path, *, purpose: str) -> None:
         ancestor = ancestor.parent
 
 
+def _prepare_private_temporary_directory(
+    *, purpose: str, prefix: str
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    _require_posix_private_path_support()
+    temporary_parent = Path(tempfile.gettempdir())
+    if not temporary_parent.is_absolute() or temporary_parent.is_symlink():
+        raise ValueError(f"{purpose} parent has an unsafe ancestor")
+    _require_root_owned_lexical_symlinks(temporary_parent, purpose=f"{purpose} parent")
+    try:
+        resolved_parent = temporary_parent.resolve(strict=True)
+        initial = os.lstat(resolved_parent)
+    except OSError as exc:
+        raise ValueError(f"{purpose} parent is unavailable") from exc
+    parent_mode = stat.S_IMODE(initial.st_mode)
+    if (
+        not stat.S_ISDIR(initial.st_mode)
+        or initial.st_uid not in {0, os.getuid()}
+        or (parent_mode & 0o022 and not parent_mode & stat.S_ISVTX)
+    ):
+        raise ValueError(f"{purpose} parent has an unsafe ancestor")
+    nofollow_flag = getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow_flag:
+        raise ValueError("private path enforcement is unavailable on this platform")
+    descriptor = -1
+    temporary: tempfile.TemporaryDirectory[str] | None = None
+    try:
+        descriptor = os.open(
+            resolved_parent,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_DIRECTORY", 0)
+            | nofollow_flag,
+        )
+        opened = os.fstat(descriptor)
+        if not os.path.samestat(initial, opened):
+            raise ValueError(f"{purpose} parent changed during inspection")
+        _require_no_extended_acl_grants_fd(descriptor, purpose=f"{purpose} parent")
+        temporary = tempfile.TemporaryDirectory(prefix=prefix, dir=resolved_parent)
+        root = Path(temporary.name).resolve(strict=True)
+        if root.parent != resolved_parent:
+            raise ValueError(f"{purpose} root escaped its parent")
+        root.chmod(0o700)
+        root_metadata = os.lstat(root)
+        if (
+            not stat.S_ISDIR(root_metadata.st_mode)
+            or root_metadata.st_uid != os.getuid()
+            or stat.S_IMODE(root_metadata.st_mode) != 0o700
+        ):
+            raise ValueError(f"{purpose} root is unsafe")
+        closed_over = os.fstat(descriptor)
+        final = os.lstat(resolved_parent)
+        # Creating the child legitimately changes the parent's timestamps and
+        # directory link count.  Its device, inode, mode, and owner must remain
+        # stable across creation.
+        stable_fields = ("st_dev", "st_ino", "st_mode", "st_uid")
+        if (
+            not os.path.samestat(opened, closed_over)
+            or not os.path.samestat(opened, final)
+            or any(
+                getattr(opened, field) != getattr(closed_over, field)
+                or getattr(opened, field) != getattr(final, field)
+                for field in stable_fields
+            )
+        ):
+            raise ValueError(f"{purpose} parent changed during inspection")
+    except BaseException:
+        if temporary is not None:
+            temporary.cleanup()
+        raise
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return temporary, root
+
+
 RECEIPT_NAMES = {
     "prepare_delta": "prepare_delta_phase_receipt.json",
     "verify_delta": "verified_delta_phase_receipt.json",
@@ -769,11 +844,25 @@ def _require_no_ignored_executable_sources(repository_root: Path) -> None:
         b".dll",
         b".dylib",
     )
-    if any(
-        b"__pycache__" in path.split(b"/") or path.lower().endswith(executable_suffixes)
-        for path in ignored
-    ):
-        raise ValueError("repository worktree contains ignored executable sources")
+    for path in ignored:
+        lowered = path.lower()
+        components = lowered.split(b"/")
+        try:
+            metadata = os.lstat(repository_root / os.fsdecode(path))
+        except OSError as exc:
+            raise ValueError("ignored executable-source census changed") from exc
+        decoded_components = tuple(os.fsdecode(item) for item in path.split(b"/"))
+        import_candidates = (decoded_components,)
+        if decoded_components[:1] == ("src",):
+            import_candidates += (decoded_components[1:],)
+        if stat.S_ISLNK(metadata.st_mode) and any(
+            candidate
+            and all(component.isidentifier() for component in candidate)
+            for candidate in import_candidates
+        ):
+            raise ValueError("repository worktree contains ignored executable sources")
+        if b"__pycache__" in components or lowered.endswith(executable_suffixes):
+            raise ValueError("repository worktree contains ignored executable sources")
 
 
 def _candidate_source_bytes(
@@ -880,12 +969,11 @@ def _stage_bootstrap_pip_wheel(
         or hashlib.sha256(content).hexdigest() != expected_digest
     ):
         raise ValueError("bootstrap pip wheel differs from uv.lock")
-    temporary: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory(
-        prefix="uaa-taw08-bootstrap-"
+    temporary, root = _prepare_private_temporary_directory(
+        purpose="bootstrap temporary directory",
+        prefix="uaa-taw08-bootstrap-",
     )
     try:
-        root = Path(temporary.name).resolve(strict=True)
-        root.chmod(0o700)
         staged = root / filename
         descriptor = os.open(
             staged,
@@ -1584,9 +1672,11 @@ def _invoke_locked_worker(
         ),
     }
     request = {**request, **source_digests}
-    with tempfile.TemporaryDirectory(prefix="uaa-taw08-phases-") as temporary_value:
-        temporary = Path(temporary_value).resolve(strict=True)
-        temporary.chmod(0o700)
+    temporary_handle, temporary = _prepare_private_temporary_directory(
+        purpose="phase worker temporary directory",
+        prefix="uaa-taw08-phases-",
+    )
+    try:
         worker_root = temporary / "worker-root"
         scripts_root = worker_root / "scripts"
         scripts_root.mkdir(parents=True, mode=0o700)
@@ -1679,6 +1769,8 @@ def _invoke_locked_worker(
         if not isinstance(response, dict):
             raise RuntimeError("locked TAW-08 phase response is invalid")
         return response, source_digests
+    finally:
+        temporary_handle.cleanup()
 
 
 def _parser() -> argparse.ArgumentParser:

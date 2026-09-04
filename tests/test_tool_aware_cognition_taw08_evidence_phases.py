@@ -1224,6 +1224,57 @@ def test_driver_and_worker_reject_ignored_root_package_before_import(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_driver_and_worker_reject_ignored_symlink_import_package(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+    tracked = repository / "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("SAFE = True\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    outside = tmp_path / "outside-cryptography"
+    outside.mkdir()
+    ignored = repository / "src/cryptography"
+    ignored.symlink_to(outside, target_is_directory=True)
+    (repository / ".git/info/exclude").write_text(
+        "src/cryptography\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ignored executable sources"):
+        driver._precheck_clean_worktree(repository)
+    with pytest.raises(RuntimeError, match="must be clean before import"):
+        worker._require_preimport_clean_exact_worktree(
+            repository,
+            expected_revision=revision,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
 def test_driver_and_worker_reject_tracked_symlink_before_import(
     tmp_path: Path,
 ) -> None:
@@ -1525,6 +1576,101 @@ def test_bootstrap_pip_wheel_rejects_unsafe_temporary_ancestor(
             )
     finally:
         unsafe_temporary_root.chmod(0o700)
+
+
+def test_phase_worker_temporary_root_rejects_unsafe_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unsafe_temporary_root = tmp_path / "unsafe-phase-temporary-root"
+    unsafe_temporary_root.mkdir(mode=0o700)
+    unsafe_temporary_root.chmod(0o777)
+    monkeypatch.setattr(driver.tempfile, "tempdir", str(unsafe_temporary_root))
+
+    try:
+        with pytest.raises(ValueError, match="unsafe ancestor"):
+            driver._prepare_private_temporary_directory(
+                purpose="phase worker temporary directory",
+                prefix="uaa-taw08-phases-",
+            )
+    finally:
+        unsafe_temporary_root.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
+@pytest.mark.parametrize("purpose", ("TAW-08 M1-to-M2", "TAW-08 M2-to-M3"))
+def test_later_evidence_artifact_modes_must_remain_non_executable(
+    tmp_path: Path,
+    purpose: str,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    path_ref = "repo-path-ref:docs/evals/taw08-report.json"
+    artifact = repository / path_ref.removeprefix("repo-path-ref:")
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "non-executable",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    non_executable = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    worker._require_regular_artifact_modes(
+        repository,
+        revision=non_executable,
+        path_refs=(path_ref,),
+        purpose=purpose,
+    )
+
+    artifact.chmod(0o755)
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "executable",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    executable = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    with pytest.raises(ValueError, match=f"{purpose} artifact mode drift"):
+        worker._require_regular_artifact_modes(
+            repository,
+            revision=executable,
+            path_refs=(path_ref,),
+            purpose=purpose,
+        )
 
 
 @pytest.mark.parametrize("failure", ("missing", "tampered", "duplicate"))
@@ -2079,6 +2225,11 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     monkeypatch.setattr(worker, "_candidate_context", candidate_context)
     monkeypatch.setattr(worker, "_require_clean_exact_worktree", require_clean)
     monkeypatch.setattr(worker, "_manifest_from_git", manifest_from_git)
+    monkeypatch.setattr(
+        worker,
+        "_require_regular_artifact_modes",
+        lambda *_args, **_kwargs: None,
+    )
     monkeypatch.setattr(
         worker,
         "_reconciliation_content",

@@ -630,11 +630,46 @@ def _require_no_ignored_executable_sources(repository_root: Path) -> None:
         b".dll",
         b".dylib",
     )
-    if any(
-        b"__pycache__" in path.split(b"/") or path.lower().endswith(executable_suffixes)
-        for path in ignored
-    ):
-        raise RuntimeError("TAW-08 phase repository has ignored executable sources")
+    for path in ignored:
+        lowered = path.lower()
+        components = lowered.split(b"/")
+        try:
+            metadata = os.lstat(repository_root / os.fsdecode(path))
+        except OSError as exc:
+            raise RuntimeError(
+                "TAW-08 phase ignored executable-source census changed"
+            ) from exc
+        decoded_components = tuple(os.fsdecode(item) for item in path.split(b"/"))
+        import_candidates = (decoded_components,)
+        if decoded_components[:1] == ("src",):
+            import_candidates += (decoded_components[1:],)
+        if stat.S_ISLNK(metadata.st_mode) and any(
+            candidate
+            and all(component.isidentifier() for component in candidate)
+            for candidate in import_candidates
+        ):
+            raise RuntimeError(
+                "TAW-08 phase repository has ignored executable sources"
+            )
+        if b"__pycache__" in components or lowered.endswith(executable_suffixes):
+            raise RuntimeError(
+                "TAW-08 phase repository has ignored executable sources"
+            )
+
+
+def _require_regular_artifact_modes(
+    repository_root: Path,
+    *,
+    revision: str,
+    path_refs: tuple[str, ...],
+    purpose: str,
+) -> None:
+    tree_entries = _git_tree_entries(repository_root, revision=revision)
+    for path_ref in path_refs:
+        path = os.fsencode(path_ref.removeprefix("repo-path-ref:"))
+        entry = tree_entries.get(path)
+        if entry is None or entry[0] != b"100644":
+            raise ValueError(f"{purpose} artifact mode drift")
 
 
 def _require_preimport_clean_exact_worktree(
@@ -1093,6 +1128,12 @@ def _manifest_from_git(
         or census.history_path_refs != expected_path_refs
     ):
         raise ValueError("TAW-08 M1-to-M2 path census drift")
+    _require_regular_artifact_modes(
+        delta_root,
+        revision=delta_revision,
+        path_refs=expected_path_refs,
+        purpose="TAW-08 M1-to-M2",
+    )
     content_by_ref = {
         path_ref: verifier._git(
             "show",
@@ -1518,6 +1559,12 @@ def _verify_publication(
         or history.history_path_refs != expected_publication_paths
     ):
         raise ValueError("TAW-08 M2-to-M3 path census drift")
+    _require_regular_artifact_modes(
+        publication_root,
+        revision=publication_revision,
+        path_refs=expected_publication_paths,
+        purpose="TAW-08 M2-to-M3",
+    )
     publication_receipt = verifier.verify_repository_final_acceptance_publication(
         publication_revision_ref=f"git-sha:{publication_revision}",
         candidate_revision_ref=candidate_lock.git_revision_ref,
