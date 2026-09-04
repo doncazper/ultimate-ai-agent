@@ -96,11 +96,15 @@ FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     ),
     "scripts/verification/verification_contracts.py": (
         "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",
-        "22d0675a05459e05501763506e5716befd50b6b3653c4ae0656a42834d397b8c",
+        "5262a6389e8aa75e9f62b504e12104e5f548e8042632474eba648107e6f4038e",
     ),
     "scripts/verification/verification_execution_identity.py": (
         "4377e1bf45e4162b2ba46da8cafd63418c0f830f35c2d36458496cf8b98f97a2",
-        "9097cfb38f84a307ed6057b34b380ff59e1c3606dccd2d6236603c40c3714b7c",
+        "113c15ef4d11c4453cde483284d85eabd1dcb733f46ea8477253f5d8db2e63f9",
+    ),
+    "scripts/verification/verification_risk.py": (
+        "4845775291b56522f2dd257f9bdb32d9c2971a81aa88090646bbc8b4846e7cb1",
+        "2011bd426dc2a60df06f4737b6b77ac7bf1c86cc3f8addf86a7364b3acdd8a31",
     ),
     "scripts/verify_release_lanes.py": (
         "4d8260090f8d9da6b211a0391becbf487e22ca061524479ba2418b67015e0517",
@@ -315,7 +319,7 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "parametrize-sha256:2a0e592582192912c6f0daecf048607875bb631e8151bc7faf3f9ec13f1b4c57::"
         "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "064d69215d4534307a97cd668c2d66ae7c129d20fde5fdbbc539b25537be78c4",
+        "26da215e20dc60c5416c6b0e8ee8cd7ac07d46f69ee2dd75ec6511cd2f2ac575",
     ),
     (
         "tests/test_tool_aware_cognition_taw08.py::"
@@ -328,7 +332,18 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "parametrize-sha256:e25930c90e57d14d8bc3c15b849750e21b0c4234917fb7c67e82490bbbce78cf::"
         "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "064d69215d4534307a97cd668c2d66ae7c129d20fde5fdbbc539b25537be78c4",
+        "26da215e20dc60c5416c6b0e8ee8cd7ac07d46f69ee2dd75ec6511cd2f2ac575",
+    ),
+    (
+        "tests/test_verification_selection.py::"
+        "test_destructive_or_unknown_change_kinds_fail_closed::"
+        "parametrize-sha256:a56d78051ef01787caaa9ad7617dbd1934025023b09ff30ff8a9a270fc4cecd4"
+    ): (
+        "tests/test_verification_selection.py::"
+        "test_destructive_or_unknown_change_kinds_fail_closed::"
+        "parametrize-sha256:6a161026f9d5827ca50ad5c27d927221013438c0a4667c8bcbbce8ce2236f9b2",
+        "a406d721ebe8da05b7f371b0cfc7fe8925c9bb31f6f5749a62b120718459890c",
+        "a406d721ebe8da05b7f371b0cfc7fe8925c9bb31f6f5749a62b120718459890c",
     ),
 }
 TEST_CORPUS_GUARD_PATH = "scripts/verification/test_corpus_guard.py"
