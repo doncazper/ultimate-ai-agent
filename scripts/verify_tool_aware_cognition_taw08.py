@@ -2607,10 +2607,75 @@ def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
     _validate_private_directory(path, require_empty=require_empty)
 
 
+def _validate_posix_temporary_ancestor_chain(path: Path) -> None:
+    if not path.is_absolute():
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow_flag:
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    lexical_components: list[Path] = []
+    lexical = Path(path.anchor)
+    for part in path.parts[1:]:
+        lexical /= part
+        lexical_components.append(lexical)
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeError("TAW-08 temporary directory root is unsafe") from exc
+    components = [
+        *((component, True) for component in lexical_components),
+        *((component, False) for component in (resolved, *resolved.parents)),
+    ]
+    for component, allow_root_symlink in components:
+        descriptor = -1
+        try:
+            initial = os.lstat(component)
+            if stat.S_ISLNK(initial.st_mode):
+                if not allow_root_symlink or initial.st_uid != 0:
+                    raise RuntimeError("TAW-08 temporary directory root is unsafe")
+                final = os.lstat(component)
+                if not os.path.samestat(initial, final):
+                    raise RuntimeError("TAW-08 temporary directory root changed")
+                continue
+            mode = stat.S_IMODE(initial.st_mode)
+            if (
+                not stat.S_ISDIR(initial.st_mode)
+                or initial.st_uid not in {0, os.getuid()}
+                or (mode & 0o022 and not mode & stat.S_ISVTX)
+            ):
+                raise RuntimeError("TAW-08 temporary directory root is unsafe")
+            descriptor = os.open(
+                component,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_DIRECTORY", 0)
+                | nofollow_flag,
+            )
+            opened = os.fstat(descriptor)
+            final = os.lstat(component)
+            if (
+                not os.path.samestat(initial, opened)
+                or not os.path.samestat(opened, final)
+                or any(
+                    getattr(opened, field) != getattr(final, field)
+                    for field in ("st_dev", "st_ino", "st_mode", "st_uid")
+                )
+            ):
+                raise RuntimeError("TAW-08 temporary directory root changed")
+        except OSError as exc:
+            raise RuntimeError("TAW-08 temporary directory root is unsafe") from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+
 def _prepare_private_temporary_directory(
     *, prefix: str, repository_root: Path
 ) -> tuple[tempfile.TemporaryDirectory[str], Path]:
-    temporary_parent = Path(tempfile.gettempdir()).resolve()
+    unresolved_temporary_parent = Path(tempfile.gettempdir())
+    if os.name == "posix":
+        _validate_posix_temporary_ancestor_chain(unresolved_temporary_parent)
+    temporary_parent = unresolved_temporary_parent.resolve()
     try:
         parent_metadata = temporary_parent.lstat()
     except OSError as exc:

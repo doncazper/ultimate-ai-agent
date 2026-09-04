@@ -89,6 +89,7 @@ from ultimate_ai_agent.core.gate.reports import (
     FoundationGateCommandReceipt,
     FoundationGateLatencyPathResult,
     FoundationGateLatencySummary,
+    FoundationGateReleaseLaneSummary,
     FoundationGateReport,
     FoundationGateResult,
     build_foundation_gate_report,
@@ -362,7 +363,7 @@ def _candidate_verification(
 @lru_cache(maxsize=8)
 def _unbound_foundation_gate_report():
     checked_at = datetime(2026, 8, 30, tzinfo=timezone.utc)
-    return build_foundation_gate_report(
+    report = build_foundation_gate_report(
         version="0.104.0",
         results=[
             FoundationGateResult(
@@ -388,6 +389,38 @@ def _unbound_foundation_gate_report():
                 checked_at=checked_at,
             )
         ],
+    )
+    return report.model_copy(
+        update={
+            "latency_gate": FoundationGateLatencySummary(
+                schema_version="uaa_foundation_gate_latency_summary.v1",
+                task_ref="UAA-P1-043",
+                status="passed",
+                p50_p95_status="passed",
+                foundation_gate_status="passed",
+                foundation_gate_best_ms=1.0,
+                foundation_gate_mean_ms=1.0,
+                foundation_gate_best_budget_ms=30_000.0,
+                foundation_gate_mean_budget_ms=25_000.0,
+                release_latency_status="passed",
+                hot_path_profile_status="passed",
+                environment_safe_summary=dict(
+                    acceptance_module._FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY
+                ),
+            ),
+            "release_verification_lanes": FoundationGateReleaseLaneSummary(
+                schema_version="uaa_release_verification_lanes.v1",
+                task_ref="UAA-P1-013",
+                overall_status="definition_pass",
+                definition_status="pass",
+                command_execution_status="not_executed",
+                lane_count=1,
+                lane_ids=["performance"],
+                report_safety=dict(
+                    acceptance_module._FOUNDATION_RELEASE_REPORT_SAFETY
+                ),
+            ),
+        }
     )
 
 
@@ -1166,6 +1199,50 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
     )
 
 
+def test_evidence_delta_rejects_duplicate_acceptance_report_keys() -> None:
+    lock = _candidate_lock()
+    canonical = _safe_delta_content(lock)
+    duplicate = (
+        b'{"candidate_revision_ref":'
+        + json.dumps(lock.git_revision_ref).encode()
+        + b","
+        + canonical[1:]
+    )
+    contents = _delta_contents(lock, duplicate)
+    delta = _delta(lock, duplicate)
+
+    assert "failure-ref:taw08:evidence-delta-artifact-schema-invalid" in (
+        verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            revision_delta_census=_revision_delta_census(tuple(sorted(contents))),
+            candidate_content_by_path_ref=_candidate_truth_contents(),
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: _pre_delta_report(lock)
+            },
+        )
+    )
+
+
+def test_evidence_delta_rejects_duplicate_reconciliation_keys() -> None:
+    canonical = _reconciliation_content(BOARD_PATH_REF, status="blocked")
+    duplicate = canonical.replace(
+        b'{"entries":',
+        b'{"raw_content_persisted":true,"entries":',
+        1,
+    )
+
+    assert (
+        acceptance_module._parse_bounded_claim_reconciliation_markdown(
+            BOARD_PATH_REF,
+            duplicate,
+            canonical,
+        )
+        is None
+    )
+
+
 def test_evidence_only_delta_requires_exact_m2_path_census() -> None:
     lock = _candidate_lock()
     contents = _delta_contents(lock)
@@ -1335,6 +1412,44 @@ def test_foundation_receipt_requires_validated_gate_output() -> None:
         )
 
 
+def test_foundation_receipt_requires_passing_latency_subgate() -> None:
+    report = _foundation_gate_report()
+    assert report.latency_gate is not None
+    failed_latency = report.latency_gate.model_copy(
+        update={"status": "failed", "failures": ["bounded latency failure"]}
+    )
+
+    with pytest.raises(ValueError, match="latency and release lane sub-gates"):
+        _verify_and_bind_foundation_gate_report(
+            report=report.model_copy(update={"latency_gate": failed_latency}),
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+def test_foundation_receipt_requires_validated_release_lane_definitions() -> None:
+    report = _foundation_gate_report()
+    assert report.release_verification_lanes is not None
+    failed_release_lanes = report.release_verification_lanes.model_copy(
+        update={
+            "overall_status": "definition_fail",
+            "definition_status": "fail",
+            "validation_failures": ["bounded definition failure"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="latency and release lane sub-gates"):
+        _verify_and_bind_foundation_gate_report(
+            report=report.model_copy(
+                update={"release_verification_lanes": failed_release_lanes}
+            ),
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
 def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
     first_environment = _evaluator_environment_receipt()
     second_environment = _evaluator_environment_receipt(
@@ -1410,7 +1525,7 @@ def _foundation_report_with_latency_label(safe_label: str) -> FoundationGateRepo
     latency = FoundationGateLatencySummary(
         schema_version="foundation-gate-latency.v1",
         task_ref="task-ref:foundation-gate-latency",
-        status="failed",
+        status="passed",
         p50_p95_status="passed",
         foundation_gate_status="passed",
         foundation_gate_best_budget_ms=1.0,
@@ -2118,6 +2233,27 @@ def test_foundation_import_cache_rejects_writable_nonsticky_parent(
         unsafe_root.chmod(0o700)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor-chain regression")
+def test_foundation_import_cache_rejects_unsafe_parent_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    unsafe_ancestor = tmp_path / "unsafe-ancestor"
+    unsafe_ancestor.mkdir(mode=0o700)
+    temporary_root = unsafe_ancestor / "private-temp"
+    temporary_root.mkdir(mode=0o700)
+    unsafe_ancestor.chmod(0o777)
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(temporary_root))
+
+    try:
+        with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+            foundation_runner._prepare_external_import_cache(repository)
+    finally:
+        unsafe_ancestor.chmod(0o700)
+
+
 def test_foundation_import_cache_validates_windows_parent_acl(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2148,11 +2284,15 @@ def test_foundation_import_cache_validates_windows_parent_acl(
         lambda path: private_checks.append(path),
     )
 
+    original_prefix = sys.pycache_prefix
+    original_dont_write = sys.dont_write_bytecode
     handle, cache_root = foundation_runner._prepare_external_import_cache(repository)
     try:
         assert parent_checks == [temporary_root.resolve()]
         assert private_checks == [cache_root]
     finally:
+        sys.pycache_prefix = original_prefix
+        sys.dont_write_bytecode = original_dont_write
         handle.cleanup()
 
 
@@ -3598,6 +3738,32 @@ def test_taw08_private_temporary_root_rejects_nonsticky_shared_parent(
             prefix="taw08-test-",
             repository_root=taw08_verifier.ROOT,
         )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor-chain regression")
+def test_taw08_private_temporary_root_rejects_unsafe_parent_ancestor(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    unsafe_ancestor = tmp_path / "unsafe-ancestor"
+    unsafe_ancestor.mkdir(mode=0o700)
+    temporary_parent = unsafe_ancestor / "private-temp"
+    temporary_parent.mkdir(mode=0o700)
+    unsafe_ancestor.chmod(0o777)
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(temporary_parent),
+    )
+
+    try:
+        with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+            taw08_verifier._prepare_private_temporary_directory(
+                prefix="taw08-test-",
+                repository_root=taw08_verifier.ROOT,
+            )
+    finally:
+        unsafe_ancestor.chmod(0o700)
 
 
 def test_locked_child_preserves_validated_windows_system_root(

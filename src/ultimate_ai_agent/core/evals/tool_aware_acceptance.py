@@ -1922,7 +1922,7 @@ def _reject_duplicate_json_object_keys(
     payload: dict[str, object] = {}
     for key, value in pairs:
         if key in payload:
-            raise ValueError("final publication contains duplicate object keys")
+            raise ValueError("acceptance artifact contains duplicate object keys")
         payload[key] = value
     return payload
 
@@ -2200,6 +2200,36 @@ def _verify_and_bind_foundation_gate_report(
         or report_payload["command_mode"] != "report-only"
     ):
         raise ValueError("Foundation receipt requires a passing report-only gate")
+    latency_gate = report_payload["latency_gate"]
+    release_lanes = report_payload["release_verification_lanes"]
+    if (
+        not isinstance(latency_gate, dict)
+        or any(
+            latency_gate.get(field) != "passed"
+            for field in (
+                "status",
+                "p50_p95_status",
+                "foundation_gate_status",
+                "release_latency_status",
+                "hot_path_profile_status",
+            )
+        )
+        or latency_gate.get("failures") != []
+        or latency_gate.get("accepted_failures") != []
+        or not isinstance(release_lanes, dict)
+        or release_lanes.get("overall_status") != "definition_pass"
+        or release_lanes.get("definition_status") != "pass"
+        or release_lanes.get("command_execution_status") != "not_executed"
+        or release_lanes.get("accepted_failures") != []
+        or release_lanes.get("validation_failures") != []
+        or not isinstance(release_lanes.get("lane_ids"), list)
+        or not release_lanes["lane_ids"]
+        or len(release_lanes["lane_ids"]) != len(set(release_lanes["lane_ids"]))
+        or release_lanes.get("lane_count") != len(release_lanes["lane_ids"])
+    ):
+        raise ValueError(
+            "Foundation receipt requires passing latency and release lane sub-gates"
+        )
     command_receipts = report_payload["command_receipts"]
     if (
         not isinstance(command_receipts, list)
@@ -2572,7 +2602,10 @@ def _parse_bounded_claim_reconciliation_markdown(
     ):
         return None
     try:
-        payload = json.loads(changed_parts[2])
+        payload = json.loads(
+            changed_parts[2],
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(payload):
             return None
         artifact = ClaimReconciliationArtifact.model_validate(payload)
@@ -2607,7 +2640,10 @@ def _parse_evidence_delta_artifact(
             candidate_content,
         )
     try:
-        payload = json.loads(content)
+        payload = json.loads(
+            content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(payload):
             return None
         if entry.artifact_kind is EvidenceOnlyArtifactKind.acceptance_report:
