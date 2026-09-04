@@ -589,6 +589,10 @@ def _prepare_external_import_cache(
             root_mode & 0o022 and not root_mode & stat.S_ISVTX
         ):
             raise RuntimeError("Foundation Gate import cache root is unsafe")
+    elif os.name == "nt":
+        _validate_windows_private_directory_acl(temporary_root)
+    else:
+        raise RuntimeError("Foundation Gate import cache root is unsafe")
     cache_handle = tempfile.TemporaryDirectory(
         prefix="uaa-foundation-import-cache-",
         dir=temporary_root,
@@ -1011,7 +1015,9 @@ def _authenticated_locked_dependency_path(
     return dependency_path.resolve()
 
 
-def _establish_preimport_repository_posture(repository_root: Path) -> str | None:
+def _establish_preimport_repository_posture(
+    repository_root: Path,
+) -> tuple[str | None, str]:
     """Prove or explicitly withhold clean provenance before repo imports."""
 
     git_command = _trusted_preimport_git()
@@ -1031,15 +1037,15 @@ def _establish_preimport_repository_posture(repository_root: Path) -> str | None
         if str(exc) == (
             "Foundation Gate revision provenance requires a clean worktree"
         ):
-            return None
+            return None, git_command
         raise
     if _index_has_hidden_worktree_entries(
         repository_root,
         git_command=git_command,
         git_environment=git_environment,
     ):
-        return None
-    return revision
+        return None, git_command
+    return revision, git_command
 
 
 _PREIMPORT_REPOSITORY_MODULE_PATHS = _preloaded_repository_module_paths(ROOT)
@@ -1052,9 +1058,19 @@ if _FOUNDATION_BOOTSTRAP_SAFE:
 # Strict pre-import repository attestation belongs to the executable Gate path.
 # Importers use this module's pure helpers and must not execute repository readers
 # merely by importing them (which also keeps test-corpus identities bindable).
-_PREIMPORT_CLEAN_REVISION = (
-    _establish_preimport_repository_posture(ROOT) if __name__ == "__main__" else None
-)
+if __name__ == "__main__":
+    _PREIMPORT_CLEAN_REVISION, _PREIMPORT_TRUSTED_GIT_COMMAND = (
+        _establish_preimport_repository_posture(ROOT)
+    )
+else:
+    _PREIMPORT_CLEAN_REVISION = None
+    _PREIMPORT_TRUSTED_GIT_COMMAND = None
+
+
+def _require_preimport_trusted_git_command() -> str:
+    if _PREIMPORT_TRUSTED_GIT_COMMAND is None:
+        raise RuntimeError("Foundation Gate trusted Git is unavailable")
+    return _PREIMPORT_TRUSTED_GIT_COMMAND
 
 # The locked TAW wrapper needs only the commit identity to create its detached,
 # independently checked candidate.  This narrow bootstrap exits before any
@@ -1074,7 +1090,7 @@ _FOUNDATION_AUTHENTICATED_DEPENDENCY_PATH = (
     _authenticated_locked_dependency_path(
         ROOT,
         revision=_PREIMPORT_CLEAN_REVISION,
-        git_command=_trusted_preimport_git(),
+        git_command=_require_preimport_trusted_git_command(),
         git_environment=_sanitized_git_environment(),
     )
     if __name__ == "__main__"
@@ -1229,11 +1245,15 @@ def evaluate_foundation_gate_for_repository_state(
     repository_root: Path,
     *,
     require_clean_revision: bool,
+    git_executable: str | Path = "git",
 ) -> tuple[str | None, FoundationGateReport]:
     """Preserve dirty-tree development checks without issuing provenance."""
 
     try:
-        return evaluate_foundation_gate_at_exact_repository_revision(repository_root)
+        return evaluate_foundation_gate_at_exact_repository_revision(
+            repository_root,
+            git_executable=git_executable,
+        )
     except RuntimeError as exc:
         if require_clean_revision or str(exc) not in {
             "Foundation Gate revision provenance requires a clean worktree",
@@ -1703,6 +1723,7 @@ def main(argv: list[str] | None = None) -> int:
     _evaluated_revision_ref, report = evaluate_foundation_gate_for_repository_state(
         ROOT,
         require_clean_revision=args.require_clean_revision,
+        git_executable=_require_preimport_trusted_git_command(),
     )
     foundation_gate_elapsed_ms = round(
         (time.perf_counter() - foundation_gate_started) * 1000,

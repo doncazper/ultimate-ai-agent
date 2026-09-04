@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import importlib.metadata as importlib_metadata
@@ -1672,7 +1673,12 @@ def test_foundation_development_mode_preserves_dirty_tree_evaluation(
 ) -> None:
     report = _unbound_foundation_gate_report()
 
-    def dirty_revision(_root: Path):
+    def dirty_revision(
+        _root: Path,
+        *,
+        git_executable: str | Path,
+    ):
+        assert git_executable == "git"
         raise RuntimeError(
             "Foundation Gate revision provenance requires a clean worktree"
         )
@@ -2110,6 +2116,38 @@ def test_foundation_import_cache_rejects_writable_nonsticky_parent(
             foundation_runner._prepare_external_import_cache(repository)
     finally:
         unsafe_root.chmod(0o700)
+
+
+def test_foundation_import_cache_validates_windows_parent_acl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    temporary_root = tmp_path / "windows-temp"
+    temporary_root.mkdir()
+    observed: list[Path] = []
+    posix_path = type(tmp_path)
+    monkeypatch.setattr(foundation_runner, "Path", posix_path)
+    monkeypatch.setattr(foundation_runner.os, "name", "nt")
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(temporary_root))
+    monkeypatch.setattr(
+        foundation_runner,
+        "_apply_windows_private_directory_acl",
+        lambda _path: None,
+    )
+    monkeypatch.setattr(
+        foundation_runner,
+        "_validate_windows_private_directory_acl",
+        lambda path: observed.append(path),
+    )
+
+    handle, cache_root = foundation_runner._prepare_external_import_cache(repository)
+    try:
+        assert observed[0] == temporary_root.resolve()
+        assert observed[1] == cache_root
+    finally:
+        handle.cleanup()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
@@ -3848,6 +3886,47 @@ def test_foundation_runner_selects_apple_git_before_path_lookup(
     )
 
     assert foundation_runner._trusted_preimport_git() == "/usr/bin/git"
+
+
+def test_foundation_state_evaluation_reuses_authenticated_git(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    observed: list[str | Path] = []
+
+    def exact_revision(
+        _repository_root: Path,
+        *,
+        git_executable: str | Path,
+    ) -> tuple[str, object]:
+        observed.append(git_executable)
+        raise RuntimeError("authenticated-git-probe")
+
+    monkeypatch.setattr(
+        foundation_runner,
+        "evaluate_foundation_gate_at_exact_repository_revision",
+        exact_revision,
+    )
+
+    with pytest.raises(RuntimeError, match="authenticated-git-probe"):
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            tmp_path,
+            require_clean_revision=True,
+            git_executable="/trusted/preimport/git",
+        )
+
+    assert observed == ["/trusted/preimport/git"]
+    source = (Path(__file__).resolve().parents[1] / "scripts/run_foundation_gate.py").read_text(
+        encoding="utf-8"
+    )
+    trusted_git_calls = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_trusted_preimport_git"
+    ]
+    assert len(trusted_git_calls) == 1
 
 
 def test_windows_git_trust_requires_machine_anchor_and_admin_path(
