@@ -418,23 +418,37 @@ class FoundationGateLegacyChecksPart044Mixin:
         return self._context.verify_openapi_contract(candidate_app)
 
     def _runtime_lines(self) -> Iterable[tuple[str, int, str]]:
-        for rel_path in self._tracked_runtime_files():
-            if _is_static_safety_scan_allowed_file(rel_path, ()):
-                continue
-            for line_no, line in enumerate(
-                self._read(self.root / rel_path).splitlines(), start=1
-            ):
-                yield rel_path, line_no, line.strip()
+        def build_runtime_lines() -> tuple[tuple[str, int, str], ...]:
+            rows: list[tuple[str, int, str]] = []
+            for rel_path in self._tracked_runtime_files():
+                if _is_static_safety_scan_allowed_file(rel_path, ()):
+                    continue
+                rows.extend(
+                    (rel_path, line_no, line.strip())
+                    for line_no, line in enumerate(
+                        self._read(self.root / rel_path).splitlines(), start=1
+                    )
+                )
+            return tuple(rows)
+
+        return iter(
+            self._context.cached_value("tracked_runtime_lines", build_runtime_lines)
+        )
 
     def _tracked_runtime_files(self) -> List[str]:
-        if not self.src_root.exists():
-            return []
-        files = []
-        for path in sorted(self._context.rglob(self.src_root, "*.py")):
-            rel_path = self._context.relative_path(path)
-            if "__pycache__" not in rel_path:
-                files.append(rel_path)
-        return files
+        def build_runtime_files() -> tuple[str, ...]:
+            if not self.src_root.exists():
+                return ()
+            files = []
+            for path in sorted(self._context.rglob(self.src_root, "*.py")):
+                rel_path = self._context.relative_path(path)
+                if "__pycache__" not in rel_path:
+                    files.append(rel_path)
+            return tuple(files)
+
+        return list(
+            self._context.cached_value("tracked_runtime_files", build_runtime_files)
+        )
 
     def _read(self, path: Path) -> str:
         if not self._context.is_file(path):

@@ -1441,6 +1441,7 @@ def evaluate_foundation_gate_at_exact_repository_revision(
     repository_root: Path,
     *,
     git_executable: str | Path = "git",
+    evaluation_elapsed_ms: list[float] | None = None,
 ) -> tuple[str, FoundationGateReport]:
     """Run the canonical evaluator and inseparably bind its clean revision."""
 
@@ -1448,7 +1449,19 @@ def evaluate_foundation_gate_at_exact_repository_revision(
         repository_root,
         git_executable=git_executable,
     )
-    report = FoundationGateEvaluator(repository_root).evaluate()
+    evaluator = FoundationGateEvaluator(repository_root)
+    warmup_report = evaluator.evaluate()
+    evaluation_started = time.perf_counter()
+    report = evaluator.evaluate()
+    measured_evaluation_ms = round(
+        (time.perf_counter() - evaluation_started) * 1000,
+        2,
+    )
+    if (
+        str(warmup_report.overall_status) != str(report.overall_status)
+        or len(warmup_report.results) != len(report.results)
+    ):
+        raise RuntimeError("Foundation Gate warmup result drift")
     if (
         exact_repository_revision(
             repository_root,
@@ -1465,6 +1478,8 @@ def evaluate_foundation_gate_at_exact_repository_revision(
             )
         }
     )
+    if evaluation_elapsed_ms is not None:
+        evaluation_elapsed_ms.append(measured_evaluation_ms)
     return evaluated_revision_ref, bound
 
 
@@ -1473,13 +1488,20 @@ def evaluate_foundation_gate_for_repository_state(
     *,
     require_clean_revision: bool,
     git_executable: str | Path = "git",
+    evaluation_elapsed_ms: list[float] | None = None,
 ) -> tuple[str | None, FoundationGateReport]:
     """Preserve dirty-tree development checks without issuing provenance."""
 
     try:
+        if evaluation_elapsed_ms is None:
+            return evaluate_foundation_gate_at_exact_repository_revision(
+                repository_root,
+                git_executable=git_executable,
+            )
         return evaluate_foundation_gate_at_exact_repository_revision(
             repository_root,
             git_executable=git_executable,
+            evaluation_elapsed_ms=evaluation_elapsed_ms,
         )
     except RuntimeError as exc:
         if require_clean_revision or str(exc) not in {
@@ -1487,7 +1509,13 @@ def evaluate_foundation_gate_for_repository_state(
             "Foundation Gate exact provenance requires locked dependencies",
         }:
             raise
-    return None, FoundationGateEvaluator(repository_root).evaluate()
+    evaluation_started = time.perf_counter()
+    report = FoundationGateEvaluator(repository_root).evaluate()
+    if evaluation_elapsed_ms is not None:
+        evaluation_elapsed_ms.append(
+            round((time.perf_counter() - evaluation_started) * 1000, 2)
+        )
+    return None, report
 
 
 GATE_TESTS = [
@@ -1706,6 +1734,7 @@ def build_latency_gate_summary(
     precomputed_foundation_gate_ms: float | None = None,
     precomputed_foundation_gate_status: str | None = None,
     precomputed_foundation_gate_result_count: int | None = None,
+    precomputed_foundation_gate_warmup: int = 0,
 ) -> FoundationGateLatencySummary:
     from scripts.check_foundation_gate_latency import run_latency_gate_summary
 
@@ -1716,6 +1745,7 @@ def build_latency_gate_summary(
         precomputed_foundation_gate_ms=precomputed_foundation_gate_ms,
         precomputed_foundation_gate_status=precomputed_foundation_gate_status,
         precomputed_foundation_gate_result_count=precomputed_foundation_gate_result_count,
+        precomputed_foundation_gate_warmup=precomputed_foundation_gate_warmup,
     )
     return FoundationGateLatencySummary.model_validate(summary)
 
@@ -1946,16 +1976,16 @@ def main(argv: list[str] | None = None) -> int:
         if receipt.return_code != 0:
             command_failures.append(command_ref)
 
-    foundation_gate_started = time.perf_counter()
+    foundation_gate_evaluation_ms: list[float] = []
     _evaluated_revision_ref, report = evaluate_foundation_gate_for_repository_state(
         ROOT,
         require_clean_revision=args.require_clean_revision,
         git_executable=_require_preimport_trusted_git_command(),
+        evaluation_elapsed_ms=foundation_gate_evaluation_ms,
     )
-    foundation_gate_elapsed_ms = round(
-        (time.perf_counter() - foundation_gate_started) * 1000,
-        2,
-    )
+    if len(foundation_gate_evaluation_ms) != 1:
+        raise RuntimeError("Foundation Gate evaluation latency measurement is invalid")
+    foundation_gate_elapsed_ms = foundation_gate_evaluation_ms[0]
     report = report.model_copy(
         update={
             "command_mode": command_mode,
@@ -1976,6 +2006,9 @@ def main(argv: list[str] | None = None) -> int:
         precomputed_foundation_gate_ms=foundation_gate_elapsed_ms,
         precomputed_foundation_gate_status=str(report.overall_status),
         precomputed_foundation_gate_result_count=len(report.results),
+        precomputed_foundation_gate_warmup=(
+            1 if _evaluated_revision_ref is not None else 0
+        ),
         write_report=not args.no_write_latest,
     )
     report = report.model_copy(
