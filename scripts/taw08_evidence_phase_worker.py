@@ -433,18 +433,54 @@ def _nul_records(payload: bytes, *, purpose: str) -> list[bytes]:
 def _git_tree_entries(
     repository_root: Path, *, revision: str
 ) -> dict[bytes, tuple[bytes, bytes, int]]:
-    for config_query in (
-        ("--get", "extensions.partialClone"),
-        ("--get-regexp", r"^remote\..*\.promisor$"),
-    ):
+    try:
+        _preimport_git(
+            repository_root,
+            "config",
+            "--local",
+            "--get",
+            "extensions.partialClone",
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise RuntimeError(
+                "TAW-08 repository Git tree census is invalid"
+            ) from exc
+    else:
+        raise RuntimeError("TAW-08 repository Git tree census is invalid")
+    try:
+        promisor_configuration = _preimport_git(
+            repository_root,
+            "config",
+            "--local",
+            "--type=bool",
+            "--get-regexp",
+            r"^remote\..*\.promisor$",
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise RuntimeError(
+                "TAW-08 repository Git tree census is invalid"
+            ) from exc
+    else:
         try:
-            _preimport_git(repository_root, "config", "--local", *config_query)
-        except subprocess.CalledProcessError as exc:
-            if exc.returncode != 1:
-                raise RuntimeError(
-                    "TAW-08 repository Git tree census is invalid"
-                ) from exc
-        else:
+            promisor_lines = promisor_configuration.decode(
+                "utf-8", errors="strict"
+            ).splitlines()
+            promisor_values = tuple(
+                line.rsplit(maxsplit=1)[1] for line in promisor_lines
+            )
+        except (UnicodeDecodeError, IndexError) as exc:
+            raise RuntimeError(
+                "TAW-08 repository Git tree census is invalid"
+            ) from exc
+        if (
+            not promisor_lines
+            or len(promisor_configuration) > 64 * 1024
+            or len(promisor_lines) > 256
+            or any(value not in {"true", "false"} for value in promisor_values)
+            or "true" in promisor_values
+        ):
             raise RuntimeError("TAW-08 repository Git tree census is invalid")
     records = _nul_records(
         _preimport_git(repository_root, "ls-tree", "-rlz", "--full-tree", revision),

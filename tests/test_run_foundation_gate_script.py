@@ -334,6 +334,51 @@ def test_foundation_tree_census_rejects_promisor_without_lazy_fetch(
     assert not sentinel.exists()
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+def test_foundation_tree_census_accepts_explicitly_disabled_promisor(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "complete"
+    repository.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    (repository / "tracked.txt").write_text("complete content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "remote.origin.promisor", "false"),
+        cwd=repository,
+        check=True,
+    )
+
+    revision = run_foundation_gate._require_raw_clean_worktree(
+        repository,
+        git_command=run_foundation_gate._trusted_preimport_git(),
+        git_environment=run_foundation_gate._sanitized_git_environment(),
+    )
+
+    assert revision == subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
 def test_parallel_ci_mode_rejects_missing_exact_receipt_evidence() -> None:
     with pytest.raises(SystemExit) as error:
         run_foundation_gate.main(["--command-mode", "ci-parallel", "--no-write-latest"])

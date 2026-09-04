@@ -2126,7 +2126,8 @@ def test_foundation_import_cache_validates_windows_parent_acl(
     repository.mkdir()
     temporary_root = tmp_path / "windows-temp"
     temporary_root.mkdir()
-    observed: list[Path] = []
+    parent_checks: list[Path] = []
+    private_checks: list[Path] = []
     posix_path = type(tmp_path)
     monkeypatch.setattr(foundation_runner, "Path", posix_path)
     monkeypatch.setattr(foundation_runner.os, "name", "nt")
@@ -2138,16 +2139,48 @@ def test_foundation_import_cache_validates_windows_parent_acl(
     )
     monkeypatch.setattr(
         foundation_runner,
+        "_validate_windows_private_parent_acl",
+        lambda path: parent_checks.append(path),
+    )
+    monkeypatch.setattr(
+        foundation_runner,
         "_validate_windows_private_directory_acl",
-        lambda path: observed.append(path),
+        lambda path: private_checks.append(path),
     )
 
     handle, cache_root = foundation_runner._prepare_external_import_cache(repository)
     try:
-        assert observed[0] == temporary_root.resolve()
-        assert observed[1] == cache_root
+        assert parent_checks == [temporary_root.resolve()]
+        assert private_checks == [cache_root]
     finally:
         handle.cleanup()
+
+
+@pytest.mark.parametrize(
+    ("ace_type", "access_mask", "trustee_is_trusted", "expected"),
+    (
+        (0, 0x001200A9, False, False),
+        (0, 0x00000002, False, True),
+        (0, 0x00000040, False, True),
+        (0, 0x10000000, True, False),
+        (5, 0x40000000, False, True),
+        (1, 0x10000000, False, False),
+    ),
+)
+def test_foundation_windows_parent_acl_policy_rejects_only_untrusted_grants(
+    ace_type: int,
+    access_mask: int,
+    trustee_is_trusted: bool,
+    expected: bool,
+) -> None:
+    assert (
+        foundation_runner._windows_parent_acl_grant_is_unsafe(
+            ace_type=ace_type,
+            access_mask=access_mask,
+            trustee_is_trusted=trustee_is_trusted,
+        )
+        is expected
+    )
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
@@ -3647,6 +3680,74 @@ def test_private_directory_uses_windows_acl_instead_of_posix_mode_bits(
     taw08_verifier._harden_private_directory(directory, require_empty=True)
 
     assert calls == [("apply", directory), ("validate", directory)]
+
+
+@pytest.mark.parametrize(
+    ("ace_type", "access_mask", "trustee_is_trusted", "expected"),
+    (
+        (0, 0x001200A9, False, False),
+        (0, 0x00000002, False, True),
+        (0, 0x00000040, False, True),
+        (0, 0x10000000, True, False),
+        (9, 0x40000000, False, True),
+        (1, 0x10000000, False, False),
+    ),
+)
+def test_taw08_windows_parent_acl_policy_rejects_only_untrusted_grants(
+    ace_type: int,
+    access_mask: int,
+    trustee_is_trusted: bool,
+    expected: bool,
+) -> None:
+    assert (
+        taw08_verifier._windows_parent_acl_grant_is_unsafe(
+            ace_type=ace_type,
+            access_mask=access_mask,
+            trustee_is_trusted=trustee_is_trusted,
+        )
+        is expected
+    )
+
+
+def test_taw08_private_temporary_root_validates_windows_parent_acl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    temporary_root = tmp_path / "windows-temp"
+    temporary_root.mkdir()
+    parent_checks: list[Path] = []
+    posix_path = type(tmp_path)
+    monkeypatch.setattr(taw08_verifier, "Path", posix_path)
+    monkeypatch.setattr(taw08_verifier.os, "name", "nt")
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(temporary_root),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_parent_acl",
+        lambda path: parent_checks.append(path),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_apply_windows_private_directory_acl",
+        lambda _path: None,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_directory_acl",
+        lambda _path: None,
+    )
+
+    handle, _root = taw08_verifier._prepare_private_temporary_directory(
+        prefix="taw08-windows-parent-",
+        repository_root=tmp_path / "repository",
+    )
+    try:
+        assert parent_checks == [temporary_root.resolve()]
+    finally:
+        handle.cleanup()
 
 
 def test_locked_child_forwards_founder_input_export_only_when_requested(

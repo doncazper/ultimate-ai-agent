@@ -12,7 +12,14 @@ import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from enum import StrEnum
+try:
+    from enum import StrEnum as _StringEnum
+except ImportError:  # pragma: no cover - exercised by the Python 3.10 verifier
+    from enum import Enum
+
+    class _StringEnum(str, Enum):
+        def __str__(self) -> str:
+            return self.value
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -64,7 +71,7 @@ class VerificationExecutionFenceCapacityError(VerificationExecutionFenceError):
     """The bounded execution fence cannot accept another exact identity."""
 
 
-class VerificationExecutionFenceDisposition(StrEnum):
+class VerificationExecutionFenceDisposition(_StringEnum):
     START_GRANTED = "start_granted"
     TERMINAL_PROOF_REUSED = "terminal_proof_reused"
     DETERMINISTIC_FAILURE_REJECTED = "deterministic_failure_rejected"
@@ -72,7 +79,7 @@ class VerificationExecutionFenceDisposition(StrEnum):
     EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED = "exclusive_resource_attempt_rejected"
 
 
-class VerificationExecutionFailureCategory(StrEnum):
+class VerificationExecutionFailureCategory(_StringEnum):
     NOT_APPLICABLE = "not_applicable"
     DETERMINISTIC_CODE_FAILURE = "deterministic_code_failure"
     INFRASTRUCTURE_FAILURE = "infrastructure_failure"

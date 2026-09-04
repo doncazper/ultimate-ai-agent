@@ -264,6 +264,54 @@ def test_private_inputs_and_outputs_fail_closed(tmp_path: Path) -> None:
         driver._write_private(output, b"second\n")
 
 
+def test_phase_output_directory_must_be_outside_every_verified_worktree(
+    tmp_path: Path,
+) -> None:
+    candidate = (tmp_path / "candidate").resolve()
+    candidate.mkdir()
+    nested_output = candidate / "ignored-output"
+
+    with pytest.raises(ValueError, match="outside verified worktrees"):
+        driver._require_output_outside_worktrees(
+            nested_output,
+            worktree_roots=(candidate,),
+        )
+
+    assert not nested_output.exists()
+    driver._require_output_outside_worktrees(
+        tmp_path / "external-output",
+        worktree_roots=(candidate,),
+    )
+
+
+def test_foundation_import_closure_uses_python310_compatible_string_enums() -> None:
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-B",
+            "-c",
+            (
+                "import enum; hasattr(enum, 'StrEnum') and "
+                "delattr(enum, 'StrEnum'); "
+                "from scripts.verification.verification_github_prerequisites "
+                "import VerificationTerminalStatus; "
+                "from scripts.verification.verification_execution_identity "
+                "import VerificationExecutionFailureCategory; "
+                "from scripts.verification.verification_risk import ChangeKind; "
+                "assert str(VerificationTerminalStatus.PASSED) == 'passed'; "
+                "assert str(VerificationExecutionFailureCategory.BLOCKED) == "
+                "'blocked'; assert str(ChangeKind.ADDED) == 'added'"
+            ),
+        ),
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_verify_delta_retry_reuses_receipt_and_rebuilds_missing_artifact(
     tmp_path: Path,
 ) -> None:
@@ -1085,6 +1133,54 @@ def test_raw_tree_census_never_lazy_fetches_from_promisor(tmp_path: Path) -> Non
         with pytest.raises(error_type, match="tree census is invalid"):
             checker(partial, revision=revision)
         assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+@pytest.mark.parametrize("checker", ("driver", "worker"))
+def test_phase_tree_census_accepts_explicitly_disabled_promisor(
+    tmp_path: Path,
+    checker: str,
+) -> None:
+    repository = (tmp_path / "complete").resolve()
+    repository.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    (repository / "tracked.txt").write_text("complete content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "remote.origin.promisor", "false"),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    entries = (
+        driver._git_tree_entries(repository, revision=revision)
+        if checker == "driver"
+        else worker._git_tree_entries(repository, revision=revision)
+    )
+
+    assert b"tracked.txt" in entries
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX bytecode regression")

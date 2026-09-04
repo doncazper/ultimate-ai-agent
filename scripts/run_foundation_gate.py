@@ -127,18 +127,41 @@ def _require_raw_clean_worktree(
     if object_format not in {"sha1", "sha256"}:
         raise RuntimeError("Foundation Gate Git object format is invalid")
 
-    for config_query in (
-        ("--get", "extensions.partialClone"),
-        ("--get-regexp", r"^remote\..*\.promisor$"),
-    ):
+    try:
+        run("config", "--local", "--get", "extensions.partialClone")
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise RuntimeError("Foundation Gate Git tree census is invalid") from exc
+    else:
+        raise RuntimeError("Foundation Gate Git tree census is invalid")
+    try:
+        promisor_configuration = run(
+            "config",
+            "--local",
+            "--type=bool",
+            "--get-regexp",
+            r"^remote\..*\.promisor$",
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise RuntimeError("Foundation Gate Git tree census is invalid") from exc
+    else:
         try:
-            run("config", "--local", *config_query)
-        except subprocess.CalledProcessError as exc:
-            if exc.returncode != 1:
-                raise RuntimeError(
-                    "Foundation Gate Git tree census is invalid"
-                ) from exc
-        else:
+            promisor_lines = promisor_configuration.decode(
+                "utf-8", errors="strict"
+            ).splitlines()
+            promisor_values = tuple(
+                line.rsplit(maxsplit=1)[1] for line in promisor_lines
+            )
+        except (UnicodeDecodeError, IndexError) as exc:
+            raise RuntimeError("Foundation Gate Git tree census is invalid") from exc
+        if (
+            not promisor_lines
+            or len(promisor_configuration) > 64 * 1024
+            or len(promisor_lines) > 256
+            or any(value not in {"true", "false"} for value in promisor_values)
+            or "true" in promisor_values
+        ):
             raise RuntimeError("Foundation Gate Git tree census is invalid")
 
     tree_entries: dict[bytes, tuple[bytes, bytes, int]] = {}
@@ -310,6 +333,33 @@ class _WindowsSidAndAttributes(ctypes.Structure):
 
 class _WindowsTokenUser(ctypes.Structure):
     _fields_ = (("User", _WindowsSidAndAttributes),)
+
+
+_WINDOWS_DANGEROUS_DIRECTORY_RIGHTS = (
+    0x00000002  # FILE_ADD_FILE
+    | 0x00000004  # FILE_ADD_SUBDIRECTORY
+    | 0x00000010  # FILE_WRITE_EA
+    | 0x00000040  # FILE_DELETE_CHILD
+    | 0x00000100  # FILE_WRITE_ATTRIBUTES
+    | 0x00010000  # DELETE
+    | 0x00040000  # WRITE_DAC
+    | 0x00080000  # WRITE_OWNER
+    | 0x10000000  # GENERIC_ALL
+    | 0x40000000  # GENERIC_WRITE
+)
+_WINDOWS_ALLOW_ACE_TYPES = frozenset({0, 5, 9, 11})
+
+
+def _windows_parent_acl_grant_is_unsafe(
+    *, ace_type: int, access_mask: int, trustee_is_trusted: bool
+) -> bool:
+    """Return whether one parent ACE grants dangerous authority to a stranger."""
+
+    return (
+        ace_type in _WINDOWS_ALLOW_ACE_TYPES
+        and not trustee_is_trusted
+        and bool(access_mask & _WINDOWS_DANGEROUS_DIRECTORY_RIGHTS)
+    )
 
 
 def _windows_error(message: str) -> RuntimeError:
@@ -556,6 +606,104 @@ def _validate_windows_private_directory_acl(path: Path) -> None:
             kernel.CloseHandle(token)
 
 
+def _validate_windows_private_parent_acl(path: Path) -> None:
+    """Reject a Windows parent that grants write/delete authority to strangers."""
+
+    if os.name != "nt":
+        raise RuntimeError("Foundation Gate Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    token = wintypes.HANDLE()
+    descriptor = ctypes.c_void_p()
+    trusted_sid_handles: list[ctypes.c_void_p] = []
+    try:
+        if not advapi.OpenProcessToken(
+            kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)
+        ):
+            raise _windows_error("Foundation Gate parent ACL owner lookup failed")
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if not required.value or required.value > 64 * 1024:
+            raise _windows_error("Foundation Gate parent ACL owner lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+            token, 1, token_buffer, required, ctypes.byref(required)
+        ):
+            raise _windows_error("Foundation Gate parent ACL owner lookup failed")
+        current_sid = ctypes.cast(
+            token_buffer, ctypes.POINTER(_WindowsTokenUser)
+        ).contents.User.Sid
+        owner = ctypes.c_void_p()
+        dacl = ctypes.c_void_p()
+        result = advapi.GetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x00000005,
+            ctypes.byref(owner),
+            None,
+            ctypes.byref(dacl),
+            None,
+            ctypes.byref(descriptor),
+        )
+        if result != 0 or not owner.value or not dacl.value or not descriptor.value:
+            raise RuntimeError(
+                f"Foundation Gate parent ACL inspection failed (winerror={result})"
+            )
+        if not advapi.EqualSid(owner, current_sid):
+            raise RuntimeError("Foundation Gate parent ACL owner is invalid")
+        for sid_text in (
+            "S-1-3-0",  # Creator Owner
+            "S-1-3-4",  # Owner Rights
+            "S-1-5-18",  # Local System
+            "S-1-5-32-544",  # Builtin Administrators
+        ):
+            sid = ctypes.c_void_p()
+            if not advapi.ConvertStringSidToSidW(sid_text, ctypes.byref(sid)):
+                raise _windows_error("Foundation Gate parent ACL SID lookup failed")
+            trusted_sid_handles.append(sid)
+        information = _WindowsAclSizeInformation()
+        if (
+            not advapi.GetAclInformation(
+                dacl,
+                ctypes.byref(information),
+                ctypes.sizeof(information),
+                2,
+            )
+            or information.AceCount > 1024
+        ):
+            raise RuntimeError("Foundation Gate parent ACL grants are invalid")
+        for index in range(information.AceCount):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise _windows_error("Foundation Gate parent ACL grant lookup failed")
+            header = ctypes.cast(ace, ctypes.POINTER(_WindowsAceHeader)).contents
+            if header.AceSize < 8:
+                raise RuntimeError("Foundation Gate parent ACL grants are invalid")
+            mask = ctypes.c_uint32.from_address(ace.value + 4).value
+            trustee_is_trusted = False
+            if header.AceType == 0:
+                if header.AceSize < 12:
+                    raise RuntimeError("Foundation Gate parent ACL grants are invalid")
+                ace_sid = ctypes.c_void_p(ace.value + 8)
+                trustee_is_trusted = bool(advapi.EqualSid(ace_sid, current_sid)) or any(
+                    advapi.EqualSid(ace_sid, sid) for sid in trusted_sid_handles
+                )
+            if _windows_parent_acl_grant_is_unsafe(
+                ace_type=header.AceType,
+                access_mask=mask,
+                trustee_is_trusted=trustee_is_trusted,
+            ):
+                raise RuntimeError("Foundation Gate parent ACL grants are unsafe")
+    finally:
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        for sid in trusted_sid_handles:
+            kernel.LocalFree(sid)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
 def _validate_private_directory(path: Path, *, require_empty: bool) -> None:
     metadata = os.lstat(path)
     if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
@@ -604,7 +752,7 @@ def _prepare_external_import_cache(
         ):
             raise RuntimeError("Foundation Gate import cache root is unsafe")
     elif os.name == "nt":
-        _validate_windows_private_directory_acl(temporary_root)
+        _validate_windows_private_parent_acl(temporary_root)
     else:
         raise RuntimeError("Foundation Gate import cache root is unsafe")
     cache_handle = tempfile.TemporaryDirectory(

@@ -4,7 +4,14 @@ import hashlib
 import json
 import unicodedata
 from dataclasses import asdict, dataclass
-from enum import StrEnum
+try:
+    from enum import StrEnum as _StringEnum
+except ImportError:  # pragma: no cover - exercised by the Python 3.10 verifier
+    from enum import Enum
+
+    class _StringEnum(str, Enum):
+        def __str__(self) -> str:
+            return self.value
 from pathlib import PurePosixPath
 
 from scripts.verification.verification_contracts import VerificationRiskTier
@@ -15,7 +22,7 @@ MAX_CHANGE_RECORDS = 512
 MAX_UNSAFE_PATH_REFS = 512
 
 
-class ChangeKind(StrEnum):
+class ChangeKind(_StringEnum):
     ADDED = "added"
     MODIFIED = "modified"
     DELETED = "deleted"

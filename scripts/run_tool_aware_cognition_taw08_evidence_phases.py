@@ -546,6 +546,27 @@ def _prepare_output_directory(path: Path) -> Path:
     return resolved
 
 
+def _require_output_outside_worktrees(
+    path: Path, *, worktree_roots: tuple[Path, ...]
+) -> None:
+    """Reject output that would create or modify files inside a verified tree."""
+
+    if not path.is_absolute():
+        raise ValueError("output directory must be absolute and owner-only")
+    try:
+        candidate = (
+            path.resolve(strict=True)
+            if path.exists()
+            else path.parent.resolve(strict=True) / path.name
+        )
+    except OSError as exc:
+        raise ValueError("output directory is unavailable") from exc
+    for root in worktree_roots:
+        resolved_root = root.resolve(strict=True)
+        if candidate == resolved_root or candidate.is_relative_to(resolved_root):
+            raise ValueError("output directory must be outside verified worktrees")
+
+
 def _sanitized_environment() -> dict[str, str]:
     environment = {
         key: value
@@ -655,16 +676,48 @@ def _nul_records(payload: bytes, *, purpose: str) -> list[bytes]:
 def _git_tree_entries(
     repository_root: Path, *, revision: str
 ) -> dict[bytes, tuple[bytes, bytes, int]]:
-    for config_query in (
-        ("--get", "extensions.partialClone"),
-        ("--get-regexp", r"^remote\..*\.promisor$"),
-    ):
+    try:
+        _git(
+            repository_root,
+            "config",
+            "--local",
+            "--get",
+            "extensions.partialClone",
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise ValueError("repository Git tree census is invalid") from exc
+    else:
+        raise ValueError("repository Git tree census is invalid")
+    try:
+        promisor_configuration = _git(
+            repository_root,
+            "config",
+            "--local",
+            "--type=bool",
+            "--get-regexp",
+            r"^remote\..*\.promisor$",
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise ValueError("repository Git tree census is invalid") from exc
+    else:
         try:
-            _git(repository_root, "config", "--local", *config_query)
-        except subprocess.CalledProcessError as exc:
-            if exc.returncode != 1:
-                raise ValueError("repository Git tree census is invalid") from exc
-        else:
+            promisor_lines = promisor_configuration.decode(
+                "utf-8", errors="strict"
+            ).splitlines()
+            promisor_values = tuple(
+                line.rsplit(maxsplit=1)[1] for line in promisor_lines
+            )
+        except (UnicodeDecodeError, IndexError) as exc:
+            raise ValueError("repository Git tree census is invalid") from exc
+        if (
+            not promisor_lines
+            or len(promisor_configuration) > 64 * 1024
+            or len(promisor_lines) > 256
+            or any(value not in {"true", "false"} for value in promisor_values)
+            or "true" in promisor_values
+        ):
             raise ValueError("repository Git tree census is invalid")
     records = _nul_records(
         _git(repository_root, "ls-tree", "-rlz", "--full-tree", revision),
@@ -1831,11 +1884,6 @@ def main(argv: list[str] | None = None) -> int:
             candidate_revision=candidate_revision,
             locked_wheelhouse=locked_wheelhouse,
         )
-        founder_evidence = _require_owner_only_file(
-            arguments.founder_evidence, purpose="founder evidence"
-        )
-        arguments.founder_evidence = founder_evidence
-        output_dir = _prepare_output_directory(arguments.output_dir)
         roots = {"candidate": candidate_root}
         if arguments.phase in {"verify_delta", "verify_publication"}:
             delta_root, _delta_revision = _precheck_clean_worktree(
@@ -1851,6 +1899,19 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.verified_delta_receipt,
                 purpose="verified delta phase receipt",
             )
+        founder_evidence = _require_owner_only_file(
+            arguments.founder_evidence, purpose="founder evidence"
+        )
+        arguments.founder_evidence = founder_evidence
+        _require_output_outside_worktrees(
+            arguments.output_dir,
+            worktree_roots=tuple(roots.values()),
+        )
+        output_dir = _prepare_output_directory(arguments.output_dir)
+        _require_output_outside_worktrees(
+            output_dir,
+            worktree_roots=tuple(roots.values()),
+        )
         request = _request_for(arguments, roots)
         if arguments.phase == "verify_delta":
             request = _bind_existing_verify_delta_receipt(
