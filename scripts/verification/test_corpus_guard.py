@@ -92,7 +92,7 @@ PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
 FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verification/ci_command_manifest.py": (
         "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
-        "099f05922d85e8f3afdfcf80426a61874046854b61089cd68e323c82bbb853a2",
+        "1ab89d536a62035467b2b2f1031830839986dcd9739942390ce00ba1d6aa7b42",
     ),
     "scripts/verification/verification_contracts.py": (
         "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",

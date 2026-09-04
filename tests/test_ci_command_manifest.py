@@ -361,6 +361,26 @@ def test_static_verification_timeout_covers_full_corpus_inventory() -> None:
     )
 
 
+def test_performance_lane_timeout_covers_the_full_foundation_report() -> None:
+    job = next(
+        job
+        for job in manifest.CI_JOB_GRAPH
+        if job.job_ref == "release-lane-performance"
+    )
+    registry = manifest.command_registry()
+    lane = manifest.lane_registry()["performance"]
+    foundation_report = registry["command:foundation-gate.report-only"]
+
+    assert foundation_report.timeout_seconds == 900
+    assert (
+        sum(
+            registry[command_ref].timeout_seconds
+            for command_ref in lane.command_refs
+        )
+        <= job.timeout_minutes * 60
+    )
+
+
 def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:
     lane_ref = "ci-pytest-shard-1-reproduce"
     command_ref = "command:pytest.shard-1-reproduce"
