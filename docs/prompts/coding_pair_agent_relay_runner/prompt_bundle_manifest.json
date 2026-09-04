@@ -13,7 +13,7 @@
     "docs/prompts/coding_pair_agent_relay_runner/06_coding_chat_cli_api_ui_surfaces.prompt.md",
     "docs/prompts/coding_pair_agent_relay_runner/07_final_hardening_and_graduation_truth.prompt.md"
   ],
-  "bundle_hash": "sha256:0b8cd3246d27ace4cd048043b67ae62e732e067f842a47a51430adfca1075219",
+  "bundle_hash": "sha256:fe198d96ebf6630bb50df4fe87d8c27c35954cd396aa730eb0384295d99f2fcf",
   "stable_within_run": true,
   "created_at": "2026-07-05"
 }
