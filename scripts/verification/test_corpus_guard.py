@@ -308,12 +308,12 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_candidate_lock_cleanliness_uses_authenticated_git::"
         "parametrize-sha256:66f227ee4e7cadb1c8f359ef644982f0c63e6275236fc66d036c69eb42c7ecff::"
-        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e"
+        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637"
     ): (
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_candidate_lock_cleanliness_compares_worktree_bytes_to_revision::"
         "parametrize-sha256:2a0e592582192912c6f0daecf048607875bb631e8151bc7faf3f9ec13f1b4c57::"
-        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e",
+        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
         "142ea79af749615fce41cb88cbd7a5f56bf6052ff42492eb97a6f4f4f7db128e",
     ),
@@ -321,12 +321,12 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_foundation_receipt_rejects_evaluator_from_another_revision::"
         "parametrize-sha256:d65125c3e4212fc8fe0d3f946d27028d9f962e7007c22443cb8c2080ace2ebb4::"
-        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e"
+        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637"
     ): (
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_foundation_receipt_rejects_evaluator_from_another_revision::"
         "parametrize-sha256:e25930c90e57d14d8bc3c15b849750e21b0c4234917fb7c67e82490bbbce78cf::"
-        "autouse-sha256:4583a09188b5e89759e901fe4ee9cd47b6c0355a86dd8323ec8f9411e0adad6e",
+        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
         "142ea79af749615fce41cb88cbd7a5f56bf6052ff42492eb97a6f4f4f7db128e",
     ),
