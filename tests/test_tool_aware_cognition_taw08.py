@@ -5689,9 +5689,30 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "reconcile mutable founder-private status. Only that owner may perform bounded\n"
         "active-truth reconciliation. Independent promotion remains a separate gate."
     )
+    mutable_status_values = (
+        "accepted",
+        "blocked",
+        "pending",
+        "required",
+        "missing",
+        "complete",
+        "completed",
+        "failed",
+        "passing",
+        "passed",
+        "ready",
+        "implemented",
+        "planned",
+        "partial",
+        "skipped",
+        "mock-only",
+        "mock only",
+    )
+    mutable_status_pattern = "(?:" + "|".join(
+        re.escape(value) for value in mutable_status_values
+    ) + ")"
     founder_status_terms = re.compile(
-        r"\b(?:acceptance|accepted|accepts|blocked|pending|required|missing|"
-        r"complete|completed|failed|passing|passed|ready|status)\b",
+        rf"\b(?:acceptance|accepts|status|{mutable_status_pattern})\b",
         flags=re.IGNORECASE,
     )
     founder_scope_terms = re.compile(
@@ -5699,14 +5720,10 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         flags=re.IGNORECASE,
     )
     section_status_claim = re.compile(
-        r"(?:\b(?:acceptance|dogfood)\b.{0,96}\b(?:accepted|blocked|pending|"
-        r"required|missing|complete|completed|failed|passing|passed|ready)\b)|"
-        r"(?:\b(?:accepted|blocked|pending|required|missing|complete|completed|"
-        r"failed|passing|passed|ready)\b.{0,96}\b(?:acceptance|dogfood)\b)|"
-        r"(?:\bstatus\b.{0,48}\b(?:accepted|blocked|pending|required|missing|"
-        r"complete|completed|failed|passing|passed|ready)\b)|"
-        r"(?:^(?:is\s+|remains\s+)?(?:accepted|blocked|pending|required|missing|"
-        r"complete|completed|failed|passing|passed|ready)[.!]?$)",
+        rf"(?:\b(?:acceptance|dogfood)\b.{{0,96}}\b{mutable_status_pattern}\b)|"
+        rf"(?:\b{mutable_status_pattern}\b.{{0,96}}\b(?:acceptance|dogfood)\b)|"
+        rf"(?:\bstatus\b.{{0,48}}\b{mutable_status_pattern}\b)|"
+        rf"(?:^(?:is\s+|remains\s+)?{mutable_status_pattern}[.!]?$)",
         flags=re.IGNORECASE,
     )
 
@@ -5772,6 +5789,11 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "## Founder Scope\n\nPending.",
         "  ## Founder Scope\n\nPending.",
         "Founder Scope\n---\n\nPending.",
+        "## Founder Scope\n\nAcceptance is partial.",
+        "## Founder Scope\n\nStatus: planned.",
+        "## Founder Scope\n\nStatus: implemented.",
+        "## Founder Scope\n\nStatus: skipped.",
+        "## Founder Scope\n\nStatus: mock-only.",
     ):
         with pytest.raises(AssertionError):
             assert_non_owner_contract(f"{non_owner_notice}\n\n{stale_section}")
