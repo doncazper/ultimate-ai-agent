@@ -5726,66 +5726,102 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         ) + ")"
 
     mutable_status_pattern = status_pattern(mutable_status_values)
-    founder_status_terms = re.compile(
-        rf"\b(?:acceptance|accepts|status|{mutable_status_pattern})\b",
+    direct_owner_scope_terms = re.compile(
+        r"\b(?:founder|dogfood)\b|owner[- _]?private",
         flags=re.IGNORECASE,
     )
-    founder_scope_terms = re.compile(
-        r"\b(?:founder|(?:private[- ]?)?dogfood)\b",
+    direct_status_claim = re.compile(
+        rf"\b(?:acceptance|status)\b|"
+        rf"\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
+        rf"{mutable_status_pattern}\b|"
+        r"\b(?:awaits?|requires?)\s+(?:human\s+)?review\b",
         flags=re.IGNORECASE,
     )
-    section_status_claim = re.compile(
-        rf"(?:\b(?:acceptance|dogfood|status|state|evaluation)\b.{{0,96}}"
-        rf"\b{mutable_status_pattern}\b)|"
-        rf"(?:\b{mutable_status_pattern}\b.{{0,96}}"
-        rf"\b(?:acceptance|dogfood|status|state)\b)|"
-        rf"(?:\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
-        rf"{mutable_status_pattern}\b)|"
-        rf"(?:^{mutable_status_pattern}[.!]?$)",
+    owner_section_scope_terms = re.compile(
+        r"\b(?:founder|dogfood|acceptance|private|q22)\b|"
+        r"taw[- _]?0?8|owner[- _]?private",
         flags=re.IGNORECASE,
     )
+    allowed_owner_sections = {
+        "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md": (
+            (
+                2,
+                "founder private-dogfood gate",
+                "294c00214e422d31cd0d11d3b16967c7d6ca67cdf34afae9c0539bc19fcdbd52",
+            ),
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md": (
+            (
+                2,
+                "founder scope",
+                "be449444ed93f32aa4c890c0319498b92f601d3989eed442088ac22e5bc2b226",
+            ),
+        ),
+    }
 
-    def markdown_heading(lines: list[str]) -> tuple[int, str] | None:
-        if not lines:
-            return None
-        atx = re.match(
-            r"^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)$",
-            lines[0],
-        )
-        if atx is not None:
-            return len(atx.group(1)), atx.group(2)
-        if len(lines) >= 2:
-            setext = re.fullmatch(r" {0,3}(=+|-+)[ \t]*", lines[-1])
-            if setext is not None:
-                return (1 if setext.group(1).startswith("=") else 2), " ".join(
-                    lines[:-1]
+    def markdown_headings(document: str) -> tuple[tuple[int, int, str], ...]:
+        lines = document.splitlines(keepends=True)
+        headings: list[tuple[int, int, str]] = []
+        line_index = 0
+        while line_index < len(lines):
+            line = lines[line_index].rstrip("\r\n")
+            atx = re.match(r"^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)$", line)
+            if atx is not None:
+                heading_text = re.sub(
+                    r"[ \t]+#+[ \t]*$", "", atx.group(2)
+                ).strip()
+                headings.append((line_index, len(atx.group(1)), heading_text))
+                line_index += 1
+                continue
+            if line_index + 1 < len(lines):
+                setext = re.fullmatch(
+                    r" {0,3}(=+|-+)[ \t]*",
+                    lines[line_index + 1].rstrip("\r\n"),
                 )
-        return None
+                if setext is not None:
+                    level = 1 if setext.group(1).startswith("=") else 2
+                    headings.append((line_index, level, line.strip()))
+                    line_index += 2
+                    continue
+            line_index += 1
+        return tuple(headings)
 
-    def assert_non_owner_contract(document: str) -> None:
+    def assert_non_owner_contract(path: Path, document: str) -> None:
         assert document.count(non_owner_notice) == 1
         assert "Acceptance-state role: `owner-contract`." not in document
         non_owner_content = document.replace(non_owner_notice, "")
-        section_scope_by_level: dict[int, bool] = {}
-        for paragraph in re.split(r"\n\s*\n", non_owner_content):
-            normalized = " ".join(paragraph.split()).casefold()
-            lines = paragraph.splitlines()
-            heading = markdown_heading(lines)
-            if heading is not None:
-                level, heading_text = heading
-                section_scope_by_level = {
-                    prior_level: scoped
-                    for prior_level, scoped in section_scope_by_level.items()
-                    if prior_level < level
-                }
-                section_scope_by_level[level] = bool(
-                    founder_scope_terms.search(heading_text)
+        lines = non_owner_content.splitlines(keepends=True)
+        headings = markdown_headings(non_owner_content)
+        scoped_sections: list[tuple[int, str, str]] = []
+        scoped_line_ranges: list[tuple[int, int]] = []
+        for heading_index, (start, level, heading_text) in enumerate(headings):
+            if owner_section_scope_terms.search(heading_text) is None:
+                continue
+            end = len(lines)
+            for next_start, next_level, _next_text in headings[heading_index + 1 :]:
+                if next_level <= level:
+                    end = next_start
+                    break
+            section = "".join(lines[start:end]).encode("utf-8")
+            scoped_sections.append(
+                (
+                    level,
+                    " ".join(heading_text.split()).casefold(),
+                    hashlib.sha256(section).hexdigest(),
                 )
-            direct_scope = founder_scope_terms.search(normalized) is not None
-            if direct_scope:
-                assert founder_status_terms.search(normalized) is None
-            elif any(section_scope_by_level.values()):
-                assert section_status_claim.search(normalized) is None
+            )
+            scoped_line_ranges.append((start, end))
+        path_ref = path.relative_to(repository).as_posix()
+        assert tuple(scoped_sections) == allowed_owner_sections.get(path_ref, ())
+        unscoped_content = "".join(
+            line
+            for line_index, line in enumerate(lines)
+            if not any(start <= line_index < end for start, end in scoped_line_ranges)
+        )
+        for paragraph in re.split(r"\n\s*\n", unscoped_content):
+            normalized = " ".join(paragraph.split()).casefold()
+            if direct_owner_scope_terms.search(normalized):
+                assert direct_status_claim.search(normalized) is None
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5795,11 +5831,14 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     for document in (acceptance_contract, documentation_index, taw07_contract):
         assert "bounded active-truth reconciliation" in " ".join(document.split())
     for path in non_owner_contracts:
-        assert_non_owner_contract(path.read_text(encoding="utf-8"))
+        assert_non_owner_contract(path, path.read_text(encoding="utf-8"))
+    adversarial_path = non_owner_contracts[1]
     for stale_section in (
         "Founder-private acceptance remains pending.",
         "Acceptance for the founder is blocked.",
         "Founder dogfood is accepted.",
+        "Founder acceptance awaits review.",
+        "Owner-private evaluation requires human review.",
         "Private-dogfood acceptance remains pending.",
         "Dogfood is blocked.",
         "## Founder/private-dogfood\n\nAcceptance remains pending.",
@@ -5816,9 +5855,27 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "## Founder Scope\n\nStatus: shipped.",
         "## Founder Scope\n\nStatus: accepted_failure.",
         "## Founder Scope\n\nThe evaluation remains pending.",
+        "## TAW-08 Acceptance\n\nPending.",
+        "## Owner-Private Evaluation\n\nStatus: pending.",
+        "## Q22 Status\n\nStill pending.",
+        "## Founder Scope\n\nAcceptance awaits review.",
+        "## Founder Scope\n\nStill pending.",
     ):
         with pytest.raises(AssertionError):
-            assert_non_owner_contract(f"{non_owner_notice}\n\n{stale_section}")
+            assert_non_owner_contract(
+                adversarial_path,
+                f"{non_owner_notice}\n\n{stale_section}",
+            )
+    for path, heading in (
+        (non_owner_contracts[0], "## Founder Private-Dogfood Gate"),
+        (non_owner_contracts[-1], "## Founder Scope"),
+    ):
+        document = path.read_text(encoding="utf-8")
+        with pytest.raises(AssertionError):
+            assert_non_owner_contract(
+                path,
+                document.replace(heading, f"{heading}\n\nStill pending.", 1),
+            )
     assert acceptance_contract.count(
         "Acceptance-state role: `owner-contract`."
     ) == 1
