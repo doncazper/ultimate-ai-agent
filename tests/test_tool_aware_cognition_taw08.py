@@ -5651,3 +5651,145 @@ def test_python_310_compatible_string_enums_are_used() -> None:
     assert TAW08AcceptanceStatus.blocked_missing_founder_evidence.value == (
         "blocked_missing_founder_evidence"
     )
+
+
+def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
+    repository = Path(__file__).resolve().parents[1]
+    non_owner_contracts = tuple(
+        repository / path
+        for path in (
+            "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW01_CAPABILITY_EVIDENCE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW02_FAMILIARITY_ASSESSMENT.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW03_PROGRESSIVE_RETRIEVAL.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW04_CHAT_SHADOW.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW05_OUTCOMES.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md",
+        )
+    )
+    acceptance_contract = (
+        repository / "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md"
+    ).read_text(encoding="utf-8")
+    documentation_index = (repository / "docs/DOCUMENTATION_INDEX.md").read_text(
+        encoding="utf-8"
+    )
+    release_truth = (
+        repository / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+    ).read_text(encoding="utf-8")
+    taw07_contract = (
+        repository / "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md"
+    ).read_text(encoding="utf-8")
+    non_owner_notice = (
+        "Acceptance-state role: `non-owner`.\n"
+        "Canonical mutable-state owner: "
+        "`docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.\n"
+        "This document records implementation evidence only; it cannot assert or\n"
+        "reconcile mutable founder-private status. Only that owner may perform bounded\n"
+        "active-truth reconciliation. Independent promotion remains a separate gate."
+    )
+    assert taw08_verifier.VERIFICATION_SUCCESS_MESSAGE == (
+        "Tool-aware cognition TAW-08 contract and closed-state fixtures verified; "
+        "this verifier does not assert current founder-private acceptance."
+    )
+    assert "acceptance remains blocked" not in taw08_verifier.VERIFICATION_SUCCESS_MESSAGE
+    allowed_non_owner_contract_digests = {
+        "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md": (
+            "1a260f13c8d624eef436727d35e69e58470cba0a5c5adf6c4632c88b466120a7"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW01_CAPABILITY_EVIDENCE.md": (
+            "9ba53310d5bc75b109e4286f9a5bebc82edd6e8947c37cf4c3e6209157dbb9c5"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW02_FAMILIARITY_ASSESSMENT.md": (
+            "0ac8b73d4200b24aa9cbacd9e80673c17d1e07d941347665853424430437c13a"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW03_PROGRESSIVE_RETRIEVAL.md": (
+            "d0a8f696b087e951cb866f396e6a1b5dd997c8463d927f131a6ac441f2c36e41"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW04_CHAT_SHADOW.md": (
+            "4c8a55c03bc4901fc76a7c59d99930418b30798f7a2ee306e7dbc7780fe4ece7"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW05_OUTCOMES.md": (
+            "6810ccaa2a2d3fe158e77f2d2e15d67d3e5b452e0b5827e30b52b60beabceb37"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md": (
+            "7d93287e6f27c9651f3484e35e9cb2f6e0c4057eba39b4207c2156e2be5a897b"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md": (
+            "4d30bc02275b1a1f7525950f91743af911e7a73c99d11bd6c18ead0ca8848261"
+        ),
+    }
+
+    def assert_non_owner_contract(path: Path, document: str) -> None:
+        assert document.count(non_owner_notice) == 1
+        assert "Acceptance-state role: `owner-contract`." not in document
+        path_ref = path.relative_to(repository).as_posix()
+        assert hashlib.sha256(document.encode("utf-8")).hexdigest() == (
+            allowed_non_owner_contract_digests[path_ref]
+        )
+
+    assert "actual founder acceptance remains" not in acceptance_contract
+    assert "actual measured founder acceptance" not in documentation_index
+    assert "blocked for Q22 TAW-08 founder acceptance" not in release_truth
+    assert "Missing: Q22 TAW-08 founder acceptance" not in release_truth
+    assert "TAW-08 must supply the missing" not in taw07_contract
+    for document in (acceptance_contract, documentation_index, taw07_contract):
+        assert "bounded active-truth reconciliation" in " ".join(document.split())
+    for path in non_owner_contracts:
+        assert_non_owner_contract(path, path.read_text(encoding="utf-8"))
+    adversarial_path = non_owner_contracts[1]
+    for stale_section in (
+        "Founder-private acceptance remains pending.",
+        "Acceptance for the founder is blocked.",
+        "Founder dogfood is accepted.",
+        "Founder acceptance awaits review.",
+        "Owner-private evaluation requires human review.",
+        "TAW-08 acceptance remains pending.",
+        "Q22 status is blocked.",
+        "TAW-08 awaits review.",
+        "Q22 requires human review.",
+        "TAW-08 is awaiting review.",
+        "Q22 needs human review.",
+        "Private-dogfood acceptance remains pending.",
+        "Dogfood is blocked.",
+        "## Founder/private-dogfood\n\nAcceptance remains pending.",
+        "## Dogfood\n\nStatus: blocked.",
+        "## Founder Scope\n\nPending.",
+        "  ## Founder Scope\n\nPending.",
+        "Founder Scope\n---\n\nPending.",
+        "## Founder Scope\n\nAcceptance is partial.",
+        "## Founder Scope\n\nStatus: planned.",
+        "## Founder Scope\n\nStatus: implemented.",
+        "## Founder Scope\n\nStatus: skipped.",
+        "## Founder Scope\n\nStatus: mock-only.",
+        "## Founder Scope\n\nStatus: mock_only.",
+        "## Founder Scope\n\nStatus: shipped.",
+        "## Founder Scope\n\nStatus: accepted_failure.",
+        "## Founder Scope\n\nThe evaluation remains pending.",
+        "## TAW-08 Acceptance\n\nPending.",
+        "## Owner-Private Evaluation\n\nStatus: pending.",
+        "## Q22 Status\n\nStill pending.",
+        "## Founder Scope\n\nAcceptance awaits review.",
+        "## Founder Scope\n\nStill pending.",
+    ):
+        with pytest.raises(AssertionError):
+            assert_non_owner_contract(
+                adversarial_path,
+                f"{non_owner_notice}\n\n{stale_section}",
+            )
+    for path, heading in (
+        (non_owner_contracts[0], "## Founder Private-Dogfood Gate"),
+        (non_owner_contracts[-1], "## Founder Scope"),
+    ):
+        document = path.read_text(encoding="utf-8")
+        with pytest.raises(AssertionError):
+            assert_non_owner_contract(
+                path,
+                document.replace(heading, f"{heading}\n\nStill pending.", 1),
+            )
+    assert acceptance_contract.count(
+        "Acceptance-state role: `owner-contract`."
+    ) == 1
+    assert "Acceptance-state role: `non-owner`." not in acceptance_contract
+    assert "independent-promotion evidence;" not in taw07_contract
+    assert "Independent-promotion evidence remains outside TAW-08" in taw07_contract

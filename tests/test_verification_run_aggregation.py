@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 
 import pytest
@@ -222,6 +223,41 @@ def test_whole_run_is_canonical_content_bound_and_order_independent() -> None:
     assert first.run_manifest.missing_unit_refs == ()
     assert len(first.derived_receipts) == 1
     first.run_manifest.validate()
+
+
+def test_commandless_aggregate_binds_source_platform_observations() -> None:
+    units = _units()
+    plan = _plan(units)
+    first_source = _refingerprint(
+        replace(
+            _receipt(plan, units[0]),
+            observed_platform_fingerprint="a" * 64,
+        )
+    )
+    second_source = _refingerprint(
+        replace(
+            _receipt(plan, units[1]),
+            observed_platform_fingerprint="b" * 64,
+        )
+    )
+
+    result = aggregate_verification_run(
+        plan,
+        units,
+        (second_source, first_source),
+        execution_surface_ref=SURFACE,
+    )
+
+    expected = hashlib.sha256(
+        json.dumps(
+            (
+                ("unit:a", "a" * 64),
+                ("unit:b", "b" * 64),
+            ),
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    assert result.derived_receipts[0].observed_platform_fingerprint == expected
 
 
 def test_declared_typed_optional_block_does_not_weaken_required_units() -> None:

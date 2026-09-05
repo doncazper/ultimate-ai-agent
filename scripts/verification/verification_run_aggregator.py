@@ -26,9 +26,6 @@ from scripts.verification.verification_contracts import (
 from scripts.verification.verification_execution_identity import (
     build_verification_execution_identity,
 )
-from scripts.verification.ci_command_manifest import observed_platform_fingerprint
-
-
 RUN_SCHEMA_VERSION = "uaa_verification_run.v3"
 RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v4"
 
@@ -37,6 +34,22 @@ RECEIPT_SCHEMA_VERSION = "uaa_verification_receipt.v4"
 class VerificationAggregateResult:
     run_manifest: VerificationRunManifest
     derived_receipts: tuple[VerificationReceipt, ...]
+
+
+def _aggregate_observed_platform_fingerprint(
+    dependencies: tuple[VerificationReceipt, ...],
+) -> str:
+    """Bind a commandless aggregate to its source platform observations."""
+
+    bindings = tuple(
+        (receipt.unit_ref, receipt.observed_platform_fingerprint)
+        for receipt in dependencies
+    )
+    if any(fingerprint is None for _unit_ref, fingerprint in bindings):
+        raise ValueError("aggregate receipt requires observed platform proof")
+    return hashlib.sha256(
+        json.dumps(bindings, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _timestamp(value: str) -> datetime:
@@ -176,7 +189,9 @@ def _derive_aggregate_receipt(
             unit,
             execution_surface_ref=execution_surface_ref,
         ).identity_ref,
-        observed_platform_fingerprint=observed_platform_fingerprint(),
+        observed_platform_fingerprint=(
+            _aggregate_observed_platform_fingerprint(dependencies)
+        ),
     )
     fingerprint = verification_receipt_fingerprint(receipt)
     receipt = replace(
