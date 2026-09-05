@@ -64,7 +64,9 @@ The envelope binds:
 - canonical command manifest and verifier definition fingerprints;
 - dependency lock-set, stable declared runner profile, test collection, shard
   plan, and TypeScript project/runtime fingerprints where applicable, plus a
-  separate observed platform fingerprint on each receipt;
+  separate observed platform fingerprint on each executed receipt; commandless
+  aggregate receipts content-bind the constituent observed-platform proofs so
+  exact recomputation remains stable across hosted runners;
 - terminal receipt, command/result membership, redaction posture, and proof
   equivalence;
 - the derived pytest run manifest for the commandless `pytest` context; that
