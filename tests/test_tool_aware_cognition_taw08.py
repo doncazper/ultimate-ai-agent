@@ -9,6 +9,7 @@ import io
 import json
 import os
 import py_compile
+import re
 import subprocess
 import sys
 import zipfile
@@ -5680,6 +5681,19 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     taw07_contract = (
         repository / "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md"
     ).read_text(encoding="utf-8")
+    non_owner_notice = (
+        "Acceptance-state role: `non-owner`.\n"
+        "Canonical mutable-state owner: "
+        "`docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.\n"
+        "This document records implementation evidence only; it cannot assert or\n"
+        "reconcile mutable founder-private status. Only that owner may perform bounded\n"
+        "active-truth reconciliation. Independent promotion remains a separate gate."
+    )
+    founder_status_terms = re.compile(
+        r"\b(?:acceptance|accepted|accepts|blocked|pending|required|missing|"
+        r"complete|completed|failed|passing|passed|ready|status)\b",
+        flags=re.IGNORECASE,
+    )
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5687,11 +5701,24 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     assert "Missing: Q22 TAW-08 founder acceptance" not in release_truth
     assert "TAW-08 must supply the missing" not in taw07_contract
     for document in (acceptance_contract, documentation_index, taw07_contract):
-        assert "bounded active-truth reconciliation" in document
+        assert "bounded active-truth reconciliation" in " ".join(document.split())
     for path in non_owner_contracts:
         document = path.read_text(encoding="utf-8")
-        assert document.count("Acceptance-state role: `non-owner`.") == 1
+        assert document.count(non_owner_notice) == 1
         assert "Acceptance-state role: `owner-contract`." not in document
+        non_owner_content = document.replace(non_owner_notice, "")
+        for paragraph in re.split(r"\n\s*\n", non_owner_content):
+            normalized = " ".join(paragraph.split()).casefold()
+            if "founder" in normalized:
+                assert founder_status_terms.search(normalized) is None
+    for stale_claim in (
+        "Founder-private acceptance remains pending.",
+        "Acceptance for the founder is blocked.",
+        "Founder dogfood is accepted.",
+    ):
+        normalized = stale_claim.casefold()
+        assert "founder" in normalized
+        assert founder_status_terms.search(normalized) is not None
     assert acceptance_contract.count(
         "Acceptance-state role: `owner-contract`."
     ) == 1

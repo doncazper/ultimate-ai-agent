@@ -1,15 +1,16 @@
 # Tool-Aware Cognition TAW-07 Development Hardening
 
-Status: deterministic development contract implemented; TAW-07 qualification is
-`blocked_missing_acceptance_evidence`. The repository fixture proves structural
-contract behavior only, not accepted model, response, recovery, statistical, or
-hardware evidence.
+Status: deterministic development hardening contract implemented. Measured
+evidence evaluation belongs to TAW-08; the repository fixture proves structural
+contract behavior only, not model, response, recovery, statistical, or hardware
+evidence.
 Independent promotion and public quality claims remain blocked.
 
-Acceptance-state role: `non-owner`. This slice records bounded implementation
-evidence only. Mutable founder-private acceptance state is owned by the
-content-addressed TAW-08 report and its two bounded active-truth reconciliations;
-independent promotion is a separate gate.
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
 TAW-04 evidence-only chat decision. It does not activate routing, change model
@@ -18,7 +19,7 @@ a tool, access a connector, write externally, or open the independent holdout.
 
 ## Founder Scope
 
-The accepted founder profile remains English-first with Qwen 3.8 27B and a 128K
+The bounded founder profile remains English-first with Qwen 3.8 27B and a 128K
 local context identity. Configured ChatGPT/Codex API profiles remain configuration
 identities only; this slice makes no API call. Mac and Windows hardware evidence
 is still recorded per run rather than inferred from a repository fixture.
@@ -127,8 +128,8 @@ The repository verifier generates a deterministic identity-preserving no-effect
 fixture to prove the contract and all fail-closed calculations. Those fixture
 latencies and identity-equal response fingerprints are structural regression
 evidence, not claims about measured model or hardware performance. Actual
-founder-dogfood measurements must bind exact model artifacts, hardware, and
-candidate evidence before TAW-08 acceptance.
+Founder measurements must bind exact model artifacts, hardware, and candidate
+evidence before TAW-08 evaluation.
 
 ## Fail-Closed Behavior
 
@@ -166,10 +167,12 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-TAW-08 is the only lane permitted to bind founder-private stale-recovery,
-routing-confidence, response-scoring, and live-model/hardware evidence; lock the
-complete candidate manifest; record founder-private dogfood acceptance with
-exact measured evidence; and reconcile product claims.
+
+TAW-08 is the only lane permitted to bind stale-recovery, routing-confidence,
+response-scoring, and live-model/hardware evidence for the founder profile; lock
+the exact candidate manifest; write the measured report; and reconcile product
+claims.
+
 Independent-promotion evidence remains outside TAW-08. It belongs to its
 separately governed future gate. External custody, blind scoring, independently
 accepted baseline evidence, public claims, runtime model/provider calls, and

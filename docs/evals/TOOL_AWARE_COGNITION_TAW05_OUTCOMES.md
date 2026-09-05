@@ -1,15 +1,16 @@
 # TAW-05 Outcome Evidence And Governed Improvement
 
-Status: bounded founder-private-dogfood implementation evidence. This slice
+Status: bounded implementation evidence. This slice
 adds a pure Python Core projection over immutable safe-ref evidence. It does
 not add a receipt-arrival handler, durable statistics mutation, runtime tool
 execution, model/provider call, ordinary-chat call, connector, external write,
 online training, automatic policy or alias promotion, or authority.
 
-Acceptance-state role: `non-owner`. This slice records bounded implementation
-evidence only. Mutable founder-private acceptance state is owned by the
-content-addressed TAW-08 report and its two bounded active-truth reconciliations;
-independent promotion is a separate gate.
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 ## Contract
 
@@ -96,5 +97,4 @@ rejection, count recomputation, and all zero-authority invariants.
 
 TAW-06 may add human-readable CLI and API diagnostics only through a shared,
 redacted, bounded Python Core read model with OpenAPI, API-manifest,
-side-effect-classification, and parity proof. TAW-05 does not complete Q22 and
-does not own mutable founder-private acceptance state.
+side-effect-classification, and parity proof. TAW-05 does not complete Q22.
