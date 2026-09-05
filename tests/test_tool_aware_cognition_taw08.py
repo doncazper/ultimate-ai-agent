@@ -5688,6 +5688,11 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "reconcile mutable founder-private status. Only that owner may perform bounded\n"
         "active-truth reconciliation. Independent promotion remains a separate gate."
     )
+    assert taw08_verifier.VERIFICATION_SUCCESS_MESSAGE == (
+        "Tool-aware cognition TAW-08 contract and closed-state fixtures verified; "
+        "this verifier does not assert current founder-private acceptance."
+    )
+    assert "acceptance remains blocked" not in taw08_verifier.VERIFICATION_SUCCESS_MESSAGE
     allowed_non_owner_contract_digests = {
         "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md": (
             "1a260f13c8d624eef436727d35e69e58470cba0a5c5adf6c4632c88b466120a7"
