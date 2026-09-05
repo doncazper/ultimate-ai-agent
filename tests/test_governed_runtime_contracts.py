@@ -1467,6 +1467,34 @@ def test_runtime_local_model_separates_raw_envelope_and_content_byte_limits(
     assert attempt.response_preview == content[:16]
 
 
+def test_runtime_local_model_allows_bounded_hardware_timeout() -> None:
+    import ultimate_ai_agent.core.local_model_management.gateway as local_model_gateway
+    import ultimate_ai_agent.core.runtime_gateway.local_model as runtime_local_model
+
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)],
+        safe_summary="Allow a bounded local model timeout for slower hardware.",
+        timeout_seconds=120.0,
+    )
+
+    transport = runtime_local_model._default_transport_factory(request)
+
+    assert transport.timeout_seconds == 120.0
+    assert transport.max_response_bytes == local_model_gateway.M164_MAX_RESPONSE_BYTES
+    with pytest.raises(ValidationError):
+        RuntimeLocalModelCallRequest(
+            base_url="http://127.0.0.1:8080",
+            model_ref="uaa-local-runtime",
+            messages=[
+                RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
+            ],
+            safe_summary="Reject an unbounded local model timeout.",
+            timeout_seconds=120.001,
+        )
+
+
 def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
     tmp_path: Path,
 ) -> None:
