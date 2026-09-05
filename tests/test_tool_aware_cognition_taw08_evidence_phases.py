@@ -2051,15 +2051,11 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
 
 def test_publication_reverifies_stored_postmerge_foundation_receipt(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    candidate_revision = "0" * 40
-    delta_revision = "1" * 40
-    monkeypatch.setenv(worker.LOCKED_CHILD_REVISION_ENV, candidate_revision)
     environment = SimpleNamespace(receipt_digest_ref="sha256:" + "e" * 64)
     stored_receipt = SimpleNamespace(
         stage="postmerge",
-        revision_ref=f"git-sha:{delta_revision}",
+        revision_ref="git-sha:" + "1" * 40,
         command_mode="report-only",
         evaluator_environment_receipt=environment,
         evaluator_environment_digest_ref=environment.receipt_digest_ref,
@@ -2095,12 +2091,9 @@ def test_publication_reverifies_stored_postmerge_foundation_receipt(
             verifier,
             delta_root=tmp_path,
             stored_receipt=stored_receipt,
-            candidate_revision=candidate_revision,
-            delta_revision=delta_revision,
         )
         is stored_receipt
     )
-    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == candidate_revision
 
     for field, value in (
         ("revision_ref", "git-sha:" + "2" * 40),
@@ -2118,12 +2111,9 @@ def test_publication_reverifies_stored_postmerge_foundation_receipt(
                 verifier,
                 delta_root=tmp_path,
                 stored_receipt=stored_receipt,
-                candidate_revision=candidate_revision,
-                delta_revision=delta_revision,
             )
 
     assert observed == {"stage": "postmerge", "repository_root": tmp_path}
-    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == candidate_revision
 
 
 def test_foundation_revision_binding_fails_closed_and_restores_after_error(

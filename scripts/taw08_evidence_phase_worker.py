@@ -1304,7 +1304,7 @@ def _verify_delta(
             or stored_delta_receipt != delta_receipt
         ):
             raise ValueError("stored verified delta phase binding drift")
-        postmerge_receipt = _verify_current_postmerge_foundation_receipt(
+        postmerge_receipt = _verify_current_postmerge_foundation_receipt_at_revision(
             verifier,
             delta_root=delta_root,
             stored_receipt=stored_postmerge_receipt,
@@ -1493,15 +1493,10 @@ def _verify_current_postmerge_foundation_receipt(
     *,
     delta_root: Path,
     stored_receipt: Any,
-    candidate_revision: str,
-    delta_revision: str,
 ) -> Any:
-    current_receipt = _verify_repository_foundation_gate_at_revision(
-        verifier,
+    current_receipt = verifier.verify_repository_foundation_gate(
         stage="postmerge",
         repository_root=delta_root,
-        candidate_revision=candidate_revision,
-        foundation_revision=delta_revision,
     )
     stable_fields = (
         "stage",
@@ -1526,6 +1521,31 @@ def _verify_current_postmerge_foundation_receipt(
     ):
         raise ValueError("stored postmerge Foundation receipt differs from Git")
     return stored_receipt
+
+
+def _verify_current_postmerge_foundation_receipt_at_revision(
+    verifier: ModuleType,
+    *,
+    delta_root: Path,
+    stored_receipt: Any,
+    candidate_revision: str,
+    delta_revision: str,
+) -> Any:
+    if (
+        re.fullmatch(r"[0-9a-f]{40}", candidate_revision) is None
+        or re.fullmatch(r"[0-9a-f]{40}", delta_revision) is None
+        or os.environ.get(LOCKED_CHILD_REVISION_ENV) != candidate_revision
+    ):
+        raise RuntimeError("TAW-08 Foundation revision binding drift")
+    os.environ[LOCKED_CHILD_REVISION_ENV] = delta_revision
+    try:
+        return _verify_current_postmerge_foundation_receipt(
+            verifier,
+            delta_root=delta_root,
+            stored_receipt=stored_receipt,
+        )
+    finally:
+        os.environ[LOCKED_CHILD_REVISION_ENV] = candidate_revision
 
 
 def _verify_publication(
@@ -1605,7 +1625,7 @@ def _verify_publication(
     )
     if delta_receipt != stored_delta_receipt:
         raise ValueError("verified delta receipt differs from Git")
-    postmerge_receipt = _verify_current_postmerge_foundation_receipt(
+    postmerge_receipt = _verify_current_postmerge_foundation_receipt_at_revision(
         verifier,
         delta_root=delta_root,
         stored_receipt=postmerge_receipt,
