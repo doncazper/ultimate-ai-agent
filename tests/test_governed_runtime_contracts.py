@@ -19,9 +19,7 @@ from pydantic import ValidationError
 
 from scripts.dev import uaa_runtime
 import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
-import ultimate_ai_agent.core.runtime_gateway.local_model as runtime_local_model
 import ultimate_ai_agent.core.runtime_gateway.storage as runtime_storage
-import ultimate_ai_agent.core.local_model_management.gateway as local_model_gateway
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -1409,6 +1407,9 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
 def test_runtime_local_model_separates_raw_envelope_and_content_byte_limits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import ultimate_ai_agent.core.local_model_management.gateway as local_model_gateway
+    import ultimate_ai_agent.core.runtime_gateway.local_model as runtime_local_model
+
     content = "R" * 1_500
     body = json.dumps(
         local_model_gateway._openai_chat_response(
