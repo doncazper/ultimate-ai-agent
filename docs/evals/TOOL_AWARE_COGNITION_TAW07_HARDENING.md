@@ -6,6 +6,11 @@ contract behavior only, not accepted model, response, recovery, statistical, or
 hardware evidence.
 Independent promotion and public quality claims remain blocked.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
 TAW-04 evidence-only chat decision. It does not activate routing, change model
 context, call a model or provider, construct a proposal, grant approval, execute
@@ -161,10 +166,11 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-TAW-08 must supply the missing stale-recovery, routing-confidence,
-response-scoring, live-model/hardware, and independently verified holdout evidence;
-lock the complete candidate manifest; and record
-founder-private dogfood acceptance with exact measured evidence, reconcile
-product claims, and preserve the independent promotion gate. External custody,
-blind scoring, independently accepted baseline evidence, public claims, runtime
-model/provider calls, and production authority remain blocked.
+TAW-08 is the only lane permitted to bind founder-private stale-recovery,
+routing-confidence, response-scoring, and live-model/hardware evidence; lock the
+complete candidate manifest; record founder-private dogfood acceptance with
+exact measured evidence; and reconcile product claims.
+Independent-promotion evidence remains outside TAW-08. It belongs to its
+separately governed future gate. External custody, blind scoring, independently
+accepted baseline evidence, public claims, runtime model/provider calls, and
+production authority remain blocked.

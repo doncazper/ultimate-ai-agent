@@ -1,15 +1,18 @@
 # Tool-Aware Cognition TAW-08 Acceptance Contract
 
-Status: candidate-lock and founder-private acceptance contract implemented;
-actual founder acceptance remains `blocked_missing_founder_evidence`.
-Independent promotion, public quality claims, and Q22 completion remain blocked.
+Status: candidate-lock and founder-private acceptance contract implemented.
+Acceptance-state role: `owner-contract`. Founder-private acceptance state may
+advance only through the content-addressed TAW-08 acceptance report plus its two
+bounded active-truth reconciliations. Independent promotion and public quality
+claims remain blocked.
 
-TAW-08 now has a deterministic contract for the last acceptance boundary. It
-does not claim that the product has been measured or accepted. It makes the
-remaining work finite and machine-checkable: lock the exact candidate, collect
-the named founder-private receipts, record the founder's decision, merge only a
-verified evidence-only delta, and bind exact-head and post-merge Foundation Gate
-receipts.
+TAW-08 has a deterministic contract for the last acceptance boundary. This
+contract document does not itself claim that the product has been measured or
+accepted; the canonical report and reconciliations own that mutable state. The
+contract makes the remaining work finite and machine-checkable: lock the exact
+candidate, collect the named founder-private receipts, record the founder's
+decision, merge only a verified evidence-only delta, and bind exact-head and
+post-merge Foundation Gate receipts.
 
 The repository candidate adds no model-call runner, provider call, or authority
 lease mutation. Founder-private measurements are collected by a separately

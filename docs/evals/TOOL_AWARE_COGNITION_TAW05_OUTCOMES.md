@@ -6,6 +6,11 @@ not add a receipt-arrival handler, durable statistics mutation, runtime tool
 execution, model/provider call, ordinary-chat call, connector, external write,
 online training, automatic policy or alias promotion, or authority.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 ## Contract
 
 TAW-05 binds every observation to a versioned capability contract, exact TAW-01
@@ -91,5 +96,5 @@ rejection, count recomputation, and all zero-authority invariants.
 
 TAW-06 may add human-readable CLI and API diagnostics only through a shared,
 redacted, bounded Python Core read model with OpenAPI, API-manifest,
-side-effect-classification, and parity proof. TAW-05 does not complete Q22;
-TAW-06 through TAW-08 and founder-dogfood acceptance remain required.
+side-effect-classification, and parity proof. TAW-05 does not complete Q22 and
+does not own mutable founder-private acceptance state.

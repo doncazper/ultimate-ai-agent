@@ -2,6 +2,11 @@
 
 Status: founder private-dogfood implementation accepted; independent promotion evidence pending
 
+Acceptance-state role: `non-owner`. This baseline accepts only the bounded
+implementation direction. Mutable founder-private acceptance state is owned by
+the content-addressed TAW-08 report and its two bounded active-truth
+reconciliations; independent promotion is a separate gate.
+
 Baseline: v0.104.0 / 0.104.0
 
 Protocol: `docs/evals/tool_aware_cognition_taw00_protocol_v1.json`

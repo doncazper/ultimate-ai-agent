@@ -5,6 +5,11 @@ does not change chat routing, assemble a prompt, invoke a model/provider,
 construct a proposal, request approval, execute a capability, or grant
 authority.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 ## Purpose
 
 TAW-03 adds a deterministic local retrieval boundary over the merged TAW-01

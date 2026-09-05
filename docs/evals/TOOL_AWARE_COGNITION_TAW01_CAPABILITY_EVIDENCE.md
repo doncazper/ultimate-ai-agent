@@ -3,6 +3,11 @@
 Status: implemented for founder-private dogfood; independent promotion remains
 blocked.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 Contract: `contract-ref:taw01:capability-awareness-envelope:v1`.
 
 ## Outcome

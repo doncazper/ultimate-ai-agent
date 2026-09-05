@@ -6,6 +6,11 @@ does not change ordinary-chat routing, model context, capability proposal,
 approval, execution, provider/model behavior, connectors, external writes, or
 authority. No Control Center surface is included in this slice.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 ## Shared Read Model
 
 `build_tool_aware_operator_diagnostic` validates one exact TAW-04 shadow
@@ -109,6 +114,5 @@ and zero-authority invariants.
 
 TAW-07 now provides the bounded development-corpus quality, latency, fault,
 safe-disable, and adversarial hardening contract under the accepted founder
-profile without opening an independent holdout. TAW-06 does not complete Q22;
-TAW-08 founder-dogfood acceptance and later independent promotion remain
-required.
+profile without opening an independent holdout. TAW-06 does not complete Q22
+and does not own mutable founder-private acceptance state.

@@ -5651,3 +5651,50 @@ def test_python_310_compatible_string_enums_are_used() -> None:
     assert TAW08AcceptanceStatus.blocked_missing_founder_evidence.value == (
         "blocked_missing_founder_evidence"
     )
+
+
+def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
+    repository = Path(__file__).resolve().parents[1]
+    non_owner_contracts = tuple(
+        repository / path
+        for path in (
+            "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW01_CAPABILITY_EVIDENCE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW02_FAMILIARITY_ASSESSMENT.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW03_PROGRESSIVE_RETRIEVAL.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW04_CHAT_SHADOW.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW05_OUTCOMES.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md",
+        )
+    )
+    acceptance_contract = (
+        repository / "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md"
+    ).read_text(encoding="utf-8")
+    documentation_index = (repository / "docs/DOCUMENTATION_INDEX.md").read_text(
+        encoding="utf-8"
+    )
+    release_truth = (
+        repository / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+    ).read_text(encoding="utf-8")
+    taw07_contract = (
+        repository / "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md"
+    ).read_text(encoding="utf-8")
+
+    assert "actual founder acceptance remains" not in acceptance_contract
+    assert "actual measured founder acceptance" not in documentation_index
+    assert "blocked for Q22 TAW-08 founder acceptance" not in release_truth
+    assert "Missing: Q22 TAW-08 founder acceptance" not in release_truth
+    assert "TAW-08 must supply the missing" not in taw07_contract
+    for document in (acceptance_contract, documentation_index, taw07_contract):
+        assert "bounded active-truth reconciliation" in document
+    for path in non_owner_contracts:
+        document = path.read_text(encoding="utf-8")
+        assert document.count("Acceptance-state role: `non-owner`.") == 1
+        assert "Acceptance-state role: `owner-contract`." not in document
+    assert acceptance_contract.count(
+        "Acceptance-state role: `owner-contract`."
+    ) == 1
+    assert "Acceptance-state role: `non-owner`." not in acceptance_contract
+    assert "independent-promotion evidence;" not in taw07_contract
+    assert "Independent-promotion evidence remains outside TAW-08" in taw07_contract

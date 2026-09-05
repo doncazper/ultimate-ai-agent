@@ -6,6 +6,11 @@ assemble model context, invoke a model/provider, construct a proposal, request
 approval, execute a capability, fetch the web, activate a skill, or grant
 authority.
 
+Acceptance-state role: `non-owner`. This slice records bounded implementation
+evidence only. Mutable founder-private acceptance state is owned by the
+content-addressed TAW-08 report and its two bounded active-truth reconciliations;
+independent promotion is a separate gate.
+
 ## Purpose
 
 TAW-04 adds a deterministic Python Core decision between the merged TAW-02
