@@ -2051,11 +2051,15 @@ def test_locked_worker_command_uses_isolated_preflight_not_pythonpath(
 
 def test_publication_reverifies_stored_postmerge_foundation_receipt(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    candidate_revision = "0" * 40
+    delta_revision = "1" * 40
+    monkeypatch.setenv(worker.LOCKED_CHILD_REVISION_ENV, candidate_revision)
     environment = SimpleNamespace(receipt_digest_ref="sha256:" + "e" * 64)
     stored_receipt = SimpleNamespace(
         stage="postmerge",
-        revision_ref="git-sha:" + "1" * 40,
+        revision_ref=f"git-sha:{delta_revision}",
         command_mode="report-only",
         evaluator_environment_receipt=environment,
         evaluator_environment_digest_ref=environment.receipt_digest_ref,
@@ -2091,9 +2095,12 @@ def test_publication_reverifies_stored_postmerge_foundation_receipt(
             verifier,
             delta_root=tmp_path,
             stored_receipt=stored_receipt,
+            candidate_revision=candidate_revision,
+            delta_revision=delta_revision,
         )
         is stored_receipt
     )
+    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == candidate_revision
 
     for field, value in (
         ("revision_ref", "git-sha:" + "2" * 40),
@@ -2111,9 +2118,49 @@ def test_publication_reverifies_stored_postmerge_foundation_receipt(
                 verifier,
                 delta_root=tmp_path,
                 stored_receipt=stored_receipt,
+                candidate_revision=candidate_revision,
+                delta_revision=delta_revision,
             )
 
     assert observed == {"stage": "postmerge", "repository_root": tmp_path}
+    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == candidate_revision
+
+
+def test_foundation_revision_binding_fails_closed_and_restores_after_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate_revision = "1" * 40
+    delta_revision = "2" * 40
+    observed: list[str | None] = []
+
+    def fail_foundation(**_kwargs: object) -> object:
+        observed.append(os.environ.get(worker.LOCKED_CHILD_REVISION_ENV))
+        raise RuntimeError("foundation failed")
+
+    verifier = SimpleNamespace(verify_repository_foundation_gate=fail_foundation)
+    monkeypatch.setenv(worker.LOCKED_CHILD_REVISION_ENV, candidate_revision)
+    with pytest.raises(RuntimeError, match="foundation failed"):
+        worker._verify_repository_foundation_gate_at_revision(
+            verifier,
+            stage="postmerge",
+            repository_root=tmp_path,
+            candidate_revision=candidate_revision,
+            foundation_revision=delta_revision,
+        )
+    assert observed == [delta_revision]
+    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == candidate_revision
+
+    monkeypatch.setenv(worker.LOCKED_CHILD_REVISION_ENV, "3" * 40)
+    with pytest.raises(RuntimeError, match="Foundation revision binding drift"):
+        worker._verify_repository_foundation_gate_at_revision(
+            verifier,
+            stage="postmerge",
+            repository_root=tmp_path,
+            candidate_revision=candidate_revision,
+            foundation_revision=delta_revision,
+        )
+    assert observed == [delta_revision]
 
 
 def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
@@ -2128,6 +2175,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     m1 = "1" * 40
     m2 = "2" * 40
     m3 = "3" * 40
+    monkeypatch.setenv(worker.LOCKED_CHILD_REVISION_ENV, m1)
     candidate_lock = SimpleNamespace(
         git_revision_ref=f"git-sha:{m1}",
         manifest_digest_ref="sha256:" + "a" * 64,
@@ -2231,6 +2279,7 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     class PhaseVerifier:
         def __init__(self) -> None:
             self.foundation_roots: list[Path] = []
+            self.foundation_revision_bindings: list[str | None] = []
             self.delta_roots: list[tuple[Path, Path]] = []
             self.publication_history_roots: list[Path] = []
             self.publication_verification_roots: list[tuple[Path, Path]] = []
@@ -2249,6 +2298,9 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
             repository_root = kwargs["repository_root"]
             assert isinstance(repository_root, Path)
             self.foundation_roots.append(repository_root)
+            self.foundation_revision_bindings.append(
+                os.environ.get(worker.LOCKED_CHILD_REVISION_ENV)
+            )
             if len(self.foundation_roots) == 1:
                 return foundation_receipt
             return fresh_foundation_receipt
@@ -2423,6 +2475,8 @@ def test_worker_phase_sequence_materializes_exact_receipts_and_artifacts(
     )
     assert publication_artifacts == []
     assert verifier.foundation_roots == [delta_root, delta_root, delta_root]
+    assert verifier.foundation_revision_bindings == [m2, m2, m2]
+    assert os.environ[worker.LOCKED_CHILD_REVISION_ENV] == m1
 
     verifier.expand_publication_history = True
     with pytest.raises(ValueError, match="M2-to-M3 path census drift"):
