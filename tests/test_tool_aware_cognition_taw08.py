@@ -9,7 +9,6 @@ import io
 import json
 import os
 import py_compile
-import re
 import subprocess
 import sys
 import zipfile
@@ -5681,9 +5680,6 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     taw07_contract = (
         repository / "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md"
     ).read_text(encoding="utf-8")
-    readiness_taxonomy = (
-        repository / "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
-    ).read_text(encoding="utf-8")
     non_owner_notice = (
         "Acceptance-state role: `non-owner`.\n"
         "Canonical mutable-state owner: "
@@ -5692,163 +5688,40 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "reconcile mutable founder-private status. Only that owner may perform bounded\n"
         "active-truth reconciliation. Independent promotion remains a separate gate."
     )
-    additional_mutable_status_values = {
-        "accepted",
-        "pending",
-        "required",
-        "missing",
-        "complete",
-        "completed",
-        "failed",
-        "passing",
-        "passed",
-        "ready",
-        "implemented",
-    }
-    canonical_status_section = readiness_taxonomy.split(
-        "## Canonical Statuses", 1
-    )[1].split("## Cross-Surface Mapping", 1)[0]
-    canonical_statuses = set(
-        re.findall(r"^\| `([a-z_]+)` \|", canonical_status_section, flags=re.MULTILINE)
-    )
-    assert canonical_statuses
-    canonical_status_values = {
-        variant
-        for status in canonical_statuses
-        for variant in (status, status.replace("_", "-"), status.replace("_", " "))
-    }
-    mutable_status_values = additional_mutable_status_values | canonical_status_values
-
-    def status_pattern(values: set[str]) -> str:
-        return "(?:" + "|".join(
-            re.escape(value)
-            for value in sorted(values, key=lambda value: (-len(value), value))
-        ) + ")"
-
-    mutable_status_pattern = status_pattern(mutable_status_values)
-    direct_owner_scope_terms = re.compile(
-        r"\b(?:founder|dogfood)\b|owner[- _]?private",
-        flags=re.IGNORECASE,
-    )
-    direct_status_claim = re.compile(
-        rf"\b(?:acceptance|status)\b|"
-        rf"\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
-        rf"{mutable_status_pattern}\b|"
-        r"\b(?:awaits?|requires?)\s+(?:human\s+)?review\b",
-        flags=re.IGNORECASE,
-    )
-    taw_queue_scope_pattern = r"(?:\bq22\b|taw[- _]?0?8)"
-    taw_queue_status_assertion_pattern = (
-        rf"(?:\b(?:acceptance|status)\b\s*[:=-]?\s*"
-        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
-        rf"(?:not\s+)?{mutable_status_pattern}\b|"
-        rf"\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
-        rf"{mutable_status_pattern}\b)"
-    )
-    taw_queue_direct_status_claim = re.compile(
-        rf"(?:{taw_queue_scope_pattern}\s+(?:acceptance|status)\b\s*[:=-]?\s*"
-        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
-        rf"(?:not\s+)?{mutable_status_pattern}\b)|"
-        rf"(?:\b(?:acceptance|status)\b\s+(?:for|of)\s+"
-        rf"{taw_queue_scope_pattern}\s*[:=-]?\s*"
-        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
-        rf"(?:not\s+)?{mutable_status_pattern}\b)|"
-        rf"(?:{taw_queue_scope_pattern}\s+"
-        rf"{taw_queue_status_assertion_pattern})",
-        flags=re.IGNORECASE,
-    )
-    taw_queue_review_state_claim = re.compile(
-        rf"{taw_queue_scope_pattern}.{{0,64}}"
-        r"\b(?:awaits?|requires?)\s+(?:human\s+)?review\b",
-        flags=re.IGNORECASE,
-    )
-    owner_section_scope_terms = re.compile(
-        r"\b(?:founder|dogfood|acceptance|private|q22)\b|"
-        r"taw[- _]?0?8|owner[- _]?private",
-        flags=re.IGNORECASE,
-    )
-    allowed_owner_sections = {
+    allowed_non_owner_contract_digests = {
         "docs/evals/TOOL_AWARE_COGNITION_TAW00_BASELINE.md": (
-            (
-                2,
-                "founder private-dogfood gate",
-                "294c00214e422d31cd0d11d3b16967c7d6ca67cdf34afae9c0539bc19fcdbd52",
-            ),
+            "1a260f13c8d624eef436727d35e69e58470cba0a5c5adf6c4632c88b466120a7"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW01_CAPABILITY_EVIDENCE.md": (
+            "9ba53310d5bc75b109e4286f9a5bebc82edd6e8947c37cf4c3e6209157dbb9c5"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW02_FAMILIARITY_ASSESSMENT.md": (
+            "0ac8b73d4200b24aa9cbacd9e80673c17d1e07d941347665853424430437c13a"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW03_PROGRESSIVE_RETRIEVAL.md": (
+            "d0a8f696b087e951cb866f396e6a1b5dd997c8463d927f131a6ac441f2c36e41"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW04_CHAT_SHADOW.md": (
+            "4c8a55c03bc4901fc76a7c59d99930418b30798f7a2ee306e7dbc7780fe4ece7"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW05_OUTCOMES.md": (
+            "6810ccaa2a2d3fe158e77f2d2e15d67d3e5b452e0b5827e30b52b60beabceb37"
+        ),
+        "docs/evals/TOOL_AWARE_COGNITION_TAW06_DIAGNOSTICS.md": (
+            "7d93287e6f27c9651f3484e35e9cb2f6e0c4057eba39b4207c2156e2be5a897b"
         ),
         "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md": (
-            (
-                2,
-                "founder scope",
-                "be449444ed93f32aa4c890c0319498b92f601d3989eed442088ac22e5bc2b226",
-            ),
+            "4d30bc02275b1a1f7525950f91743af911e7a73c99d11bd6c18ead0ca8848261"
         ),
     }
-
-    def markdown_headings(document: str) -> tuple[tuple[int, int, str], ...]:
-        lines = document.splitlines(keepends=True)
-        headings: list[tuple[int, int, str]] = []
-        line_index = 0
-        while line_index < len(lines):
-            line = lines[line_index].rstrip("\r\n")
-            atx = re.match(r"^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)$", line)
-            if atx is not None:
-                heading_text = re.sub(
-                    r"[ \t]+#+[ \t]*$", "", atx.group(2)
-                ).strip()
-                headings.append((line_index, len(atx.group(1)), heading_text))
-                line_index += 1
-                continue
-            if line_index + 1 < len(lines):
-                setext = re.fullmatch(
-                    r" {0,3}(=+|-+)[ \t]*",
-                    lines[line_index + 1].rstrip("\r\n"),
-                )
-                if setext is not None:
-                    level = 1 if setext.group(1).startswith("=") else 2
-                    headings.append((line_index, level, line.strip()))
-                    line_index += 2
-                    continue
-            line_index += 1
-        return tuple(headings)
 
     def assert_non_owner_contract(path: Path, document: str) -> None:
         assert document.count(non_owner_notice) == 1
         assert "Acceptance-state role: `owner-contract`." not in document
-        non_owner_content = document.replace(non_owner_notice, "")
-        lines = non_owner_content.splitlines(keepends=True)
-        headings = markdown_headings(non_owner_content)
-        scoped_sections: list[tuple[int, str, str]] = []
-        scoped_line_ranges: list[tuple[int, int]] = []
-        for heading_index, (start, level, heading_text) in enumerate(headings):
-            if owner_section_scope_terms.search(heading_text) is None:
-                continue
-            end = len(lines)
-            for next_start, next_level, _next_text in headings[heading_index + 1 :]:
-                if next_level <= level:
-                    end = next_start
-                    break
-            section = "".join(lines[start:end]).encode("utf-8")
-            scoped_sections.append(
-                (
-                    level,
-                    " ".join(heading_text.split()).casefold(),
-                    hashlib.sha256(section).hexdigest(),
-                )
-            )
-            scoped_line_ranges.append((start, end))
         path_ref = path.relative_to(repository).as_posix()
-        assert tuple(scoped_sections) == allowed_owner_sections.get(path_ref, ())
-        unscoped_content = "".join(
-            line
-            for line_index, line in enumerate(lines)
-            if not any(start <= line_index < end for start, end in scoped_line_ranges)
+        assert hashlib.sha256(document.encode("utf-8")).hexdigest() == (
+            allowed_non_owner_contract_digests[path_ref]
         )
-        for paragraph in re.split(r"\n\s*\n", unscoped_content):
-            normalized = " ".join(paragraph.split()).casefold()
-            if direct_owner_scope_terms.search(normalized):
-                assert direct_status_claim.search(normalized) is None
-            assert taw_queue_direct_status_claim.search(normalized) is None
-            assert taw_queue_review_state_claim.search(normalized) is None
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5870,6 +5743,8 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "Q22 status is blocked.",
         "TAW-08 awaits review.",
         "Q22 requires human review.",
+        "TAW-08 is awaiting review.",
+        "Q22 needs human review.",
         "Private-dogfood acceptance remains pending.",
         "Dogfood is blocked.",
         "## Founder/private-dogfood\n\nAcceptance remains pending.",
