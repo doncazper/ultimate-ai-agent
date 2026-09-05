@@ -51,9 +51,9 @@ change, model context, proposal, approval grant, execution, provider call,
 connector, external write, or authority is added.
 
 [//]: # (TAW08-RECONCILIATION:START)
-The bounded TAW-07 deterministic development contract recomputes the exact 24-case / 240-observation catalog-state and safe-disable matrix, latency and context budgets, paired founder-private quality deltas, catalog-injection census, and exact TAW-04 decision bindings without model/provider calls or real-hardware measurement. Its clean fixture report remains `blocked_missing_acceptance_evidence`: structural checks are not accepted metrics, and stale-cache recovery, routing confidence bounds, response-level injection scoring, exact live model/config/context/backend/hardware measurements, complete powered measurement strata, and independently verified holdout evidence are missing. The bounded TAW-08 contract binds the exact candidate lock, evaluator environment, complete post-lock history, three-kind evidence-only delta, founder evidence/decision refs, exact-head and post-merge Foundation receipts, both active-truth reconciliations, and a final content-addressed publication receipt. Actual founder-private acceptance evidence is not yet collected; the current report remains `blocked_missing_founder_evidence`, so Q22 completion, independent promotion, and public claims remain gated.
+TAW-08 founder-private acceptance evidence is verified at the refs below. The founder-private report is accepted; independent promotion and public claims remain gated, and Q22 follows the canonical Queue V2 disposition.
 [//]: # (TAW08-RECONCILIATION:JSON)
-{"entries":[{"claim_ref":"claim-ref:queue-v2/Q22/taw08-current-board","evidence_refs":[],"status":"blocked"}],"raw_content_persisted":false,"schema_version":"uaa-taw08-claim-reconciliation.v1"}
+{"entries":[{"claim_ref":"claim-ref:queue-v2/Q22/taw08-current-board","evidence_refs":["sha256:bbbbd59363d994a81ae030578ec300c29dfbc433d29886b9f85fb7d2d9e55e6c","taw08-acceptance-report-ref:sha256:9c28ca70d7d18f9c87d3b59cbfe1d8fabd3902dc5aeec24635db4383f4e90a82"],"status":"implemented"}],"raw_content_persisted":false,"schema_version":"uaa-taw08-claim-reconciliation.v1"}
 [//]: # (TAW08-RECONCILIATION:END)
 
 Queue V2 Wave 6 is the planned founder functional-adoption sequence after the
