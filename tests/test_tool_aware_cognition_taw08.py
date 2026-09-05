@@ -5698,6 +5698,42 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         r"\b(?:founder|(?:private[- ]?)?dogfood)\b",
         flags=re.IGNORECASE,
     )
+    section_status_claim = re.compile(
+        r"(?:\b(?:acceptance|dogfood)\b.{0,96}\b(?:accepted|blocked|pending|"
+        r"required|missing|complete|completed|failed|passing|passed|ready)\b)|"
+        r"(?:\b(?:accepted|blocked|pending|required|missing|complete|completed|"
+        r"failed|passing|passed|ready)\b.{0,96}\b(?:acceptance|dogfood)\b)|"
+        r"(?:\bstatus\b.{0,48}\b(?:accepted|blocked|pending|required|missing|"
+        r"complete|completed|failed|passing|passed|ready)\b)|"
+        r"(?:^(?:is\s+|remains\s+)?(?:accepted|blocked|pending|required|missing|"
+        r"complete|completed|failed|passing|passed|ready)[.!]?$)",
+        flags=re.IGNORECASE,
+    )
+
+    def assert_non_owner_contract(document: str) -> None:
+        assert document.count(non_owner_notice) == 1
+        assert "Acceptance-state role: `owner-contract`." not in document
+        non_owner_content = document.replace(non_owner_notice, "")
+        section_scope_by_level: dict[int, bool] = {}
+        for paragraph in re.split(r"\n\s*\n", non_owner_content):
+            normalized = " ".join(paragraph.split()).casefold()
+            lines = paragraph.splitlines()
+            heading = re.match(r"^(#{1,6})\s+(.+)$", lines[0]) if lines else None
+            if heading is not None:
+                level = len(heading.group(1))
+                section_scope_by_level = {
+                    prior_level: scoped
+                    for prior_level, scoped in section_scope_by_level.items()
+                    if prior_level < level
+                }
+                section_scope_by_level[level] = bool(
+                    founder_scope_terms.search(heading.group(2))
+                )
+            direct_scope = founder_scope_terms.search(normalized) is not None
+            if direct_scope:
+                assert founder_status_terms.search(normalized) is None
+            elif any(section_scope_by_level.values()):
+                assert section_status_claim.search(normalized) is None
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5707,24 +5743,19 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     for document in (acceptance_contract, documentation_index, taw07_contract):
         assert "bounded active-truth reconciliation" in " ".join(document.split())
     for path in non_owner_contracts:
-        document = path.read_text(encoding="utf-8")
-        assert document.count(non_owner_notice) == 1
-        assert "Acceptance-state role: `owner-contract`." not in document
-        non_owner_content = document.replace(non_owner_notice, "")
-        for paragraph in re.split(r"\n\s*\n", non_owner_content):
-            normalized = " ".join(paragraph.split()).casefold()
-            if founder_scope_terms.search(normalized):
-                assert founder_status_terms.search(normalized) is None
-    for stale_claim in (
+        assert_non_owner_contract(path.read_text(encoding="utf-8"))
+    for stale_section in (
         "Founder-private acceptance remains pending.",
         "Acceptance for the founder is blocked.",
         "Founder dogfood is accepted.",
         "Private-dogfood acceptance remains pending.",
         "Dogfood is blocked.",
+        "## Founder/private-dogfood\n\nAcceptance remains pending.",
+        "## Dogfood\n\nStatus: blocked.",
+        "## Founder Scope\n\nPending.",
     ):
-        normalized = stale_claim.casefold()
-        assert founder_scope_terms.search(normalized) is not None
-        assert founder_status_terms.search(normalized) is not None
+        with pytest.raises(AssertionError):
+            assert_non_owner_contract(f"{non_owner_notice}\n\n{stale_section}")
     assert acceptance_contract.count(
         "Acceptance-state role: `owner-contract`."
     ) == 1
