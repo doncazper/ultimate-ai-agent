@@ -5694,6 +5694,10 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         r"complete|completed|failed|passing|passed|ready|status)\b",
         flags=re.IGNORECASE,
     )
+    founder_scope_terms = re.compile(
+        r"\b(?:founder|(?:private[- ]?)?dogfood)\b",
+        flags=re.IGNORECASE,
+    )
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5709,15 +5713,17 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         non_owner_content = document.replace(non_owner_notice, "")
         for paragraph in re.split(r"\n\s*\n", non_owner_content):
             normalized = " ".join(paragraph.split()).casefold()
-            if "founder" in normalized:
+            if founder_scope_terms.search(normalized):
                 assert founder_status_terms.search(normalized) is None
     for stale_claim in (
         "Founder-private acceptance remains pending.",
         "Acceptance for the founder is blocked.",
         "Founder dogfood is accepted.",
+        "Private-dogfood acceptance remains pending.",
+        "Dogfood is blocked.",
     ):
         normalized = stale_claim.casefold()
-        assert "founder" in normalized
+        assert founder_scope_terms.search(normalized) is not None
         assert founder_status_terms.search(normalized) is not None
     assert acceptance_contract.count(
         "Acceptance-state role: `owner-contract`."
