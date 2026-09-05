@@ -5737,6 +5737,26 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         r"\b(?:awaits?|requires?)\s+(?:human\s+)?review\b",
         flags=re.IGNORECASE,
     )
+    taw_queue_scope_pattern = r"(?:\bq22\b|taw[- _]?0?8)"
+    taw_queue_status_assertion_pattern = (
+        rf"(?:\b(?:acceptance|status)\b\s*[:=-]?\s*"
+        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
+        rf"(?:not\s+)?{mutable_status_pattern}\b|"
+        rf"\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
+        rf"{mutable_status_pattern}\b)"
+    )
+    taw_queue_direct_status_claim = re.compile(
+        rf"(?:{taw_queue_scope_pattern}\s+(?:acceptance|status)\b\s*[:=-]?\s*"
+        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
+        rf"(?:not\s+)?{mutable_status_pattern}\b)|"
+        rf"(?:\b(?:acceptance|status)\b\s+(?:for|of)\s+"
+        rf"{taw_queue_scope_pattern}\s*[:=-]?\s*"
+        rf"(?:(?:is|are|was|were|remains?|became|becomes?)\s+)?"
+        rf"(?:not\s+)?{mutable_status_pattern}\b)|"
+        rf"(?:{taw_queue_scope_pattern}\s+"
+        rf"{taw_queue_status_assertion_pattern})",
+        flags=re.IGNORECASE,
+    )
     owner_section_scope_terms = re.compile(
         r"\b(?:founder|dogfood|acceptance|private|q22)\b|"
         r"taw[- _]?0?8|owner[- _]?private",
@@ -5822,6 +5842,7 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
             normalized = " ".join(paragraph.split()).casefold()
             if direct_owner_scope_terms.search(normalized):
                 assert direct_status_claim.search(normalized) is None
+            assert taw_queue_direct_status_claim.search(normalized) is None
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5839,6 +5860,8 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "Founder dogfood is accepted.",
         "Founder acceptance awaits review.",
         "Owner-private evaluation requires human review.",
+        "TAW-08 acceptance remains pending.",
+        "Q22 status is blocked.",
         "Private-dogfood acceptance remains pending.",
         "Dogfood is blocked.",
         "## Founder/private-dogfood\n\nAcceptance remains pending.",
