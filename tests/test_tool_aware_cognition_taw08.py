@@ -5681,6 +5681,9 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     taw07_contract = (
         repository / "docs/evals/TOOL_AWARE_COGNITION_TAW07_HARDENING.md"
     ).read_text(encoding="utf-8")
+    readiness_taxonomy = (
+        repository / "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
+    ).read_text(encoding="utf-8")
     non_owner_notice = (
         "Acceptance-state role: `non-owner`.\n"
         "Canonical mutable-state owner: "
@@ -5689,9 +5692,8 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "reconcile mutable founder-private status. Only that owner may perform bounded\n"
         "active-truth reconciliation. Independent promotion remains a separate gate."
     )
-    mutable_status_values = (
+    additional_mutable_status_values = {
         "accepted",
-        "blocked",
         "pending",
         "required",
         "missing",
@@ -5702,15 +5704,28 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "passed",
         "ready",
         "implemented",
-        "planned",
-        "partial",
-        "skipped",
-        "mock-only",
-        "mock only",
+    }
+    canonical_status_section = readiness_taxonomy.split(
+        "## Canonical Statuses", 1
+    )[1].split("## Cross-Surface Mapping", 1)[0]
+    canonical_statuses = set(
+        re.findall(r"^\| `([a-z_]+)` \|", canonical_status_section, flags=re.MULTILINE)
     )
-    mutable_status_pattern = "(?:" + "|".join(
-        re.escape(value) for value in mutable_status_values
-    ) + ")"
+    assert canonical_statuses
+    canonical_status_values = {
+        variant
+        for status in canonical_statuses
+        for variant in (status, status.replace("_", "-"), status.replace("_", " "))
+    }
+    mutable_status_values = additional_mutable_status_values | canonical_status_values
+
+    def status_pattern(values: set[str]) -> str:
+        return "(?:" + "|".join(
+            re.escape(value)
+            for value in sorted(values, key=lambda value: (-len(value), value))
+        ) + ")"
+
+    mutable_status_pattern = status_pattern(mutable_status_values)
     founder_status_terms = re.compile(
         rf"\b(?:acceptance|accepts|status|{mutable_status_pattern})\b",
         flags=re.IGNORECASE,
@@ -5720,10 +5735,13 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         flags=re.IGNORECASE,
     )
     section_status_claim = re.compile(
-        rf"(?:\b(?:acceptance|dogfood)\b.{{0,96}}\b{mutable_status_pattern}\b)|"
-        rf"(?:\b{mutable_status_pattern}\b.{{0,96}}\b(?:acceptance|dogfood)\b)|"
-        rf"(?:\bstatus\b.{{0,48}}\b{mutable_status_pattern}\b)|"
-        rf"(?:^(?:is\s+|remains\s+)?{mutable_status_pattern}[.!]?$)",
+        rf"(?:\b(?:acceptance|dogfood|status|state|evaluation)\b.{{0,96}}"
+        rf"\b{mutable_status_pattern}\b)|"
+        rf"(?:\b{mutable_status_pattern}\b.{{0,96}}"
+        rf"\b(?:acceptance|dogfood|status|state)\b)|"
+        rf"(?:\b(?:is|are|was|were|remains?|became|becomes?)\s+(?:not\s+)?"
+        rf"{mutable_status_pattern}\b)|"
+        rf"(?:^{mutable_status_pattern}[.!]?$)",
         flags=re.IGNORECASE,
     )
 
@@ -5794,6 +5812,10 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "## Founder Scope\n\nStatus: implemented.",
         "## Founder Scope\n\nStatus: skipped.",
         "## Founder Scope\n\nStatus: mock-only.",
+        "## Founder Scope\n\nStatus: mock_only.",
+        "## Founder Scope\n\nStatus: shipped.",
+        "## Founder Scope\n\nStatus: accepted_failure.",
+        "## Founder Scope\n\nThe evaluation remains pending.",
     ):
         with pytest.raises(AssertionError):
             assert_non_owner_contract(f"{non_owner_notice}\n\n{stale_section}")

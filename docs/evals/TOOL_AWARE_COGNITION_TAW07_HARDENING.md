@@ -26,7 +26,7 @@ is still recorded per run rather than inferred from a repository fixture.
 
 The durable development corpus is
 `docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json`. It contains 24
-synthetic cases. Its accepted corpus digest locks the complete case-to-category,
+synthetic cases. Its corpus digest locks the complete case-to-category,
 rubric, parameter, variant, and generated-content mapping rather than only a
 category census:
 
@@ -40,15 +40,15 @@ category census:
   field path.
 
 The development seed is intentionally available because this is the development
-corpus. No acceptance-holdout seed, parameter, generated input, case hash, label,
+corpus. No private-holdout seed, parameter, generated input, case hash, label,
 expected decision, or per-case result is present. A validated public
-`HoldoutCommitment` envelope may bind the accepted TAW-00 cycle, custodian,
+`HoldoutCommitment` envelope may bind the TAW-00 cycle, custodian,
 HMAC-SHA256 commitment, creation-order evidence, and custodian attestation before
 the report is preserved for later qualification. The report records whether the
 envelope is present but always records `holdout_evidence_verified=false`.
 Because TAW-07 cannot independently resolve those refs or open the HMAC
-commitment, a passing status is not representable in this contract. The private
-holdout material remains unrepresentable here.
+commitment, no positive qualification result can be represented in this contract.
+The private holdout material remains unrepresentable here.
 
 ## Exact Matrix
 
