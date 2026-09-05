@@ -33,32 +33,6 @@ _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
 _EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
-
-if (
-    os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1"
-    and not (
-        os.environ.get(_LOCKED_CHILD_REVISION_ENV)
-        and sys.flags.isolated
-        and sys.flags.no_site
-        and sys.flags.dont_write_bytecode
-        and os.environ.get(_PREFLIGHT_COMPLETE_ENV) == "1"
-    )
-):
-    raise RuntimeError(
-        "TAW-08 founder input export requires the isolated locked preflight"
-    )
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
-    import tomli as tomllib
-
-from packaging.markers import InvalidMarker, Marker, default_environment  # noqa: E402
-from packaging.requirements import InvalidRequirement, Requirement  # noqa: E402
-from packaging.tags import sys_tags  # noqa: E402
-from packaging.utils import canonicalize_name, parse_wheel_filename  # noqa: E402
-from packaging.version import InvalidVersion, Version  # noqa: E402
-
 _GIT_READ_CONFIG = (
     "-c",
     "core.fsmonitor=false",
@@ -74,81 +48,6 @@ _GIT_READ_CONFIG = (
     f"core.hooksPath={os.devnull}",
     "-c",
     f"core.attributesFile={os.devnull}",
-)
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "src"))
-
-from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
-    TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS,
-    TAW08_DELTA_VERIFICATION_MISSING_REF,
-    TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
-    TAW08_FINAL_PUBLICATION_MISSING_REF,
-    TAW08_FOUNDATION_GATE_SOURCE_PREFIX,
-    TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
-    TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
-    TAW08AcceptanceStatus,
-    TAW08AcceptanceReport,
-    TAW08_REQUIRED_ACCEPTANCE_PATH_REFS,
-    TAW08_REPOSITORY_VERIFIER_PATH_REF,
-    TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
-    _CandidateLockVerificationReceipt,
-    _EvaluatorEnvironmentReceipt,
-    EvidenceOnlyDeltaManifest,
-    _EvidenceOnlyDeltaVerificationReceipt,
-    _FinalAcceptancePublicationReceipt,
-    FoundationGateReceipt,
-    _PublicationHistoryCensus,
-    RevisionDeltaCensus,
-    RevisionPathCensus,
-    bind_revision_delta_census,
-    bind_revision_path_census,
-    evaluate_taw08_acceptance,
-    _bind_candidate_lock_verification_receipt,
-    _verify_and_bind_evidence_only_delta,
-    _bind_publication_history_census,
-    _bind_evaluator_environment_receipt,
-    _verify_and_bind_final_acceptance_publication,
-    _verify_and_bind_foundation_gate_report,
-)
-from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
-    CandidateLock,
-    CandidateManifestEntry,
-    SourceDependencyClosure,
-    SourceDependencyEntry,
-    SourceProjection,
-    canonical_digest,
-    derive_local_python_dependencies,
-    durable_payload_has_forbidden_fields,
-    verify_candidate_lock,
-)
-from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
-    FoundationGateCommandReceipt,
-    FoundationGateReport,
-)
-
-
-SLICE_CANDIDATE_PATHS = tuple(
-    sorted(
-        {
-            *(
-                ref.removeprefix("repo-path-ref:")
-                for ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
-            ),
-            "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
-            "docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md",
-            "docs/DOCUMENTATION_INDEX.md",
-            "scripts/verify_taw08_environment_preflight.py",
-            "scripts/verify_tool_aware_cognition_taw08.py",
-            "src/ultimate_ai_agent/core/evals/__init__.py",
-            "tests/test_tool_aware_cognition_taw08.py",
-            "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
-            "tests/test_m164_llama_cpp_gateway.py",
-        }
-    )
-)
-EVIDENCE_ONLY_DELTA_PATHS = tuple(
-    path_ref.removeprefix("repo-path-ref:")
-    for path_ref in TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS
 )
 
 _WINDOWS_GIT_TRUST_SCRIPT = (
@@ -376,6 +275,174 @@ def _sanitized_git_environment() -> dict[str, str]:
         }
     )
     return environment
+
+
+def _authenticate_locked_child_before_imports(repository_root: Path) -> str:
+    """Prove the exact clean candidate without executing its worktree probe."""
+
+    try:
+        revision = (
+            _git("rev-parse", "HEAD", repository_root=repository_root)
+            .decode("ascii", errors="strict")
+            .strip()
+        )
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise RuntimeError("TAW-08 locked candidate revision is invalid") from exc
+    if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise RuntimeError("TAW-08 locked candidate revision is invalid")
+
+    probe_ref = "scripts/run_foundation_gate.py"
+    try:
+        committed_probe = _git(
+            "show",
+            f"{revision}:{probe_ref}",
+            repository_root=repository_root,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError("TAW-08 committed clean-revision probe is unavailable") from exc
+    if not committed_probe or len(committed_probe) > 4 * 1024 * 1024:
+        raise RuntimeError("TAW-08 committed clean-revision probe is invalid")
+
+    probe_path = repository_root / probe_ref
+    bootstrap = (
+        "import sys;"
+        "source=sys.stdin.buffer.read();"
+        "probe=sys.argv[1];"
+        "sys.argv=[probe,'--preimport-revision-probe'];"
+        "namespace={'__name__':'__main__','__file__':probe,'__package__':None};"
+        "exec(compile(source,probe,'exec',dont_inherit=True),namespace)"
+    )
+    completed = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", "-c", bootstrap, str(probe_path)),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        env=_sanitized_git_environment(),
+        input=committed_probe,
+        timeout=180,
+    )
+    expected = f"git-sha:{revision}".encode("ascii")
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 128
+        or completed.stdout.strip() != expected
+    ):
+        raise RuntimeError("TAW-08 locked candidate requires a clean exact revision")
+    try:
+        final_revision = (
+            _git("rev-parse", "HEAD", repository_root=repository_root)
+            .decode("ascii", errors="strict")
+            .strip()
+        )
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise RuntimeError("TAW-08 locked candidate revision drift") from exc
+    if final_revision != revision:
+        raise RuntimeError("TAW-08 locked candidate revision drift")
+    return revision
+
+
+if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+    locked_revision = os.environ.get(_LOCKED_CHILD_REVISION_ENV, "")
+    if not (
+        re.fullmatch(r"[0-9a-f]{40}", locked_revision)
+        and sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.dont_write_bytecode
+        and os.environ.get(_PREFLIGHT_COMPLETE_ENV) == "1"
+    ):
+        raise RuntimeError(
+            "TAW-08 founder input export requires the isolated locked preflight"
+        )
+    if _authenticate_locked_child_before_imports(ROOT) != locked_revision:
+        raise RuntimeError("TAW-08 locked child revision binding is invalid")
+
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
+
+from packaging.markers import InvalidMarker, Marker, default_environment  # noqa: E402
+from packaging.requirements import InvalidRequirement, Requirement  # noqa: E402
+from packaging.tags import sys_tags  # noqa: E402
+from packaging.utils import canonicalize_name, parse_wheel_filename  # noqa: E402
+from packaging.version import InvalidVersion, Version  # noqa: E402
+
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
+    TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS,
+    TAW08_DELTA_VERIFICATION_MISSING_REF,
+    TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
+    TAW08_FINAL_PUBLICATION_MISSING_REF,
+    TAW08_FOUNDATION_GATE_SOURCE_PREFIX,
+    TAW08_FOUNDER_EVIDENCE_MISSING_REFS,
+    TAW08_POSTMERGE_EVIDENCE_MISSING_REF,
+    TAW08AcceptanceStatus,
+    TAW08AcceptanceReport,
+    TAW08_REQUIRED_ACCEPTANCE_PATH_REFS,
+    TAW08_REPOSITORY_VERIFIER_PATH_REF,
+    TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS,
+    _CandidateLockVerificationReceipt,
+    _EvaluatorEnvironmentReceipt,
+    EvidenceOnlyDeltaManifest,
+    _EvidenceOnlyDeltaVerificationReceipt,
+    _FinalAcceptancePublicationReceipt,
+    FoundationGateReceipt,
+    _PublicationHistoryCensus,
+    RevisionDeltaCensus,
+    RevisionPathCensus,
+    bind_revision_delta_census,
+    bind_revision_path_census,
+    evaluate_taw08_acceptance,
+    _bind_candidate_lock_verification_receipt,
+    _verify_and_bind_evidence_only_delta,
+    _bind_publication_history_census,
+    _bind_evaluator_environment_receipt,
+    _verify_and_bind_final_acceptance_publication,
+    _verify_and_bind_foundation_gate_report,
+)
+from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
+    CandidateLock,
+    CandidateManifestEntry,
+    SourceDependencyClosure,
+    SourceDependencyEntry,
+    SourceProjection,
+    canonical_digest,
+    derive_local_python_dependencies,
+    durable_payload_has_forbidden_fields,
+    verify_candidate_lock,
+)
+from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
+    FoundationGateCommandReceipt,
+    FoundationGateReport,
+)
+
+
+SLICE_CANDIDATE_PATHS = tuple(
+    sorted(
+        {
+            *(
+                ref.removeprefix("repo-path-ref:")
+                for ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
+            ),
+            "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md",
+            "docs/DOCUMENTATION_INDEX.md",
+            "scripts/verify_taw08_environment_preflight.py",
+            "scripts/verify_tool_aware_cognition_taw08.py",
+            "src/ultimate_ai_agent/core/evals/__init__.py",
+            "tests/test_tool_aware_cognition_taw08.py",
+            "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
+            "tests/test_m164_llama_cpp_gateway.py",
+        }
+    )
+)
+EVIDENCE_ONLY_DELTA_PATHS = tuple(
+    path_ref.removeprefix("repo-path-ref:")
+    for path_ref in TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS
+)
 
 
 def _fresh_exact_repository_revision(repository_root: Path) -> str:

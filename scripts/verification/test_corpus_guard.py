@@ -319,7 +319,7 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "parametrize-sha256:2a0e592582192912c6f0daecf048607875bb631e8151bc7faf3f9ec13f1b4c57::"
         "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "13e9f0e680f13ea86bce3a038830f0e6c8064d1238257040ac4f071e94de904d",
+        "92356f7971429502a9e45e1a29ef1b47f0a2b37e8fb3cf5ec834291dd563e9b8",
     ),
     (
         "tests/test_tool_aware_cognition_taw08.py::"
@@ -332,7 +332,7 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "parametrize-sha256:ac4e61a0c5b8c4570b710d4f4774b484b0b2a922eaf8b91496150c6bce64222c::"
         "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "13e9f0e680f13ea86bce3a038830f0e6c8064d1238257040ac4f071e94de904d",
+        "92356f7971429502a9e45e1a29ef1b47f0a2b37e8fb3cf5ec834291dd563e9b8",
     ),
     (
         "tests/test_verification_selection.py::"

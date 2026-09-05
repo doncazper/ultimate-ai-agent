@@ -3702,24 +3702,79 @@ def test_founder_input_export_requires_isolated_locked_preflight() -> None:
     assert "requires the isolated locked preflight" in completed.stderr
 
 
-def test_founder_input_export_rejects_caller_supplied_preflight_markers() -> None:
+def test_founder_input_export_rejects_caller_supplied_preflight_markers(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "candidate"
+    scripts = repository / "scripts"
+    scripts.mkdir(parents=True)
+    verifier_path = scripts / "verify_tool_aware_cognition_taw08.py"
+    foundation_path = scripts / "run_foundation_gate.py"
+    preflight_path = scripts / "verify_taw08_environment_preflight.py"
+    verifier_path.write_bytes(Path(taw08_verifier.__file__).read_bytes())
+    foundation_path.write_bytes(
+        taw08_verifier.ROOT.joinpath("scripts/run_foundation_gate.py").read_bytes()
+    )
+    preflight_path.write_text("# locked preflight\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "config", "user.name", "TAW-08 Test"),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "user.email", "taw08@example.invalid"),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "commit", "-q", "-m", "locked candidate"),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert (
+        taw08_verifier._authenticate_locked_child_before_imports(repository)
+        == revision
+    )
+
+    forged_bundle = repository / "forged-founder-bundle"
+    preflight_path.write_text(
+        "from pathlib import Path\n"
+        f"Path({str(forged_bundle)!r}).write_text('forged', encoding='utf-8')\n"
+        "print('{\"forged\":true}')\n"
+        "raise SystemExit(0)\n",
+        encoding="utf-8",
+    )
     environment = {
         "PATH": os.environ.get("PATH", ""),
         "UAA_TAW08_EXPORT_FOUNDER_INPUTS": "1",
         "UAA_TAW08_PREFLIGHT_COMPLETE": "1",
-        "UAA_TAW08_PREFLIGHT_DIGEST": "sha256:" + "0" * 64,
+        "UAA_TAW08_PREFLIGHT_DIGEST": (
+            "sha256:" + hashlib.sha256(preflight_path.read_bytes()).hexdigest()
+        ),
         "UAA_TAW08_ENVIRONMENT_ROOT": "/caller/runtime",
         "UAA_TAW08_LOCKED_WHEELHOUSE": "/caller/wheelhouse",
+        "UAA_TAW08_LOCKED_CHILD_REVISION": revision,
     }
+    if "SystemRoot" in os.environ:
+        environment["SystemRoot"] = os.environ["SystemRoot"]
     completed = subprocess.run(
         (
             sys.executable,
             "-I",
             "-B",
             "-S",
-            str(taw08_verifier.ROOT / "scripts/verify_tool_aware_cognition_taw08.py"),
+            str(verifier_path),
         ),
-        cwd=taw08_verifier.ROOT,
+        cwd=repository,
         env=environment,
         check=False,
         capture_output=True,
@@ -3727,7 +3782,9 @@ def test_founder_input_export_rejects_caller_supplied_preflight_markers() -> Non
     )
 
     assert completed.returncode != 0
-    assert "requires the isolated locked preflight" in completed.stderr
+    assert "locked candidate requires a clean exact revision" in completed.stderr
+    assert completed.stdout == ""
+    assert not forged_bundle.exists()
 
 
 def test_locked_child_failure_summary_is_redacted_and_bounded() -> None:
