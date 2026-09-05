@@ -5757,6 +5757,11 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         rf"{taw_queue_status_assertion_pattern})",
         flags=re.IGNORECASE,
     )
+    taw_queue_review_state_claim = re.compile(
+        rf"{taw_queue_scope_pattern}.{{0,64}}"
+        r"\b(?:awaits?|requires?)\s+(?:human\s+)?review\b",
+        flags=re.IGNORECASE,
+    )
     owner_section_scope_terms = re.compile(
         r"\b(?:founder|dogfood|acceptance|private|q22)\b|"
         r"taw[- _]?0?8|owner[- _]?private",
@@ -5843,6 +5848,7 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
             if direct_owner_scope_terms.search(normalized):
                 assert direct_status_claim.search(normalized) is None
             assert taw_queue_direct_status_claim.search(normalized) is None
+            assert taw_queue_review_state_claim.search(normalized) is None
 
     assert "actual founder acceptance remains" not in acceptance_contract
     assert "actual measured founder acceptance" not in documentation_index
@@ -5862,6 +5868,8 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "Owner-private evaluation requires human review.",
         "TAW-08 acceptance remains pending.",
         "Q22 status is blocked.",
+        "TAW-08 awaits review.",
+        "Q22 requires human review.",
         "Private-dogfood acceptance remains pending.",
         "Dogfood is blocked.",
         "## Founder/private-dogfood\n\nAcceptance remains pending.",
