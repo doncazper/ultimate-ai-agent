@@ -5732,6 +5732,10 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
     assert "actual measured founder acceptance" not in documentation_index
     assert "blocked for Q22 TAW-08 founder acceptance" not in release_truth
     assert "Missing: Q22 TAW-08 founder acceptance" not in release_truth
+    assert (
+        "current founder-private evidence status is governed by the canonical "
+        "`TAW08-RECONCILIATION` block above"
+    ) in release_truth
     assert "TAW-08 must supply the missing" not in taw07_contract
     for document in (acceptance_contract, documentation_index, taw07_contract):
         assert "bounded active-truth reconciliation" in " ".join(document.split())
