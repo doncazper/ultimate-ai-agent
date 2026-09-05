@@ -241,15 +241,16 @@ UAA_TAW08_ENVIRONMENT_ROOT=<owner-private-evaluator-runtime> \
   scripts/verify_tool_aware_cognition_taw08.py
 ```
 
-An authorized local founder evaluator may set
-`UAA_TAW08_EXPORT_FOUNDER_INPUTS=1` on that same isolated locked-preflight
-invocation to
-receive the redacted candidate, candidate-verification, and exact-head
-Foundation bundle on standard output. The bundle's canonical digest detects
-transport corruption; it is not producer authentication. A signer must invoke
-the locked verifier itself and consume the captured standard output directly
-before loading the founder key. It must not accept a caller-supplied or saved
-bundle as provenance evidence.
+The repo-local command above is structural verification only and must not be
+used as a founder-input signing bootstrap. Founder-input export is available
+only inside the locked child after an owner-private evaluator has authenticated
+and materialized the clean exact candidate revision. Caller-supplied preflight
+environment markers do not authenticate that boundary. The evaluator consumes
+the redacted candidate, candidate-verification, and exact-head Foundation
+bundle directly from that child before loading the founder key. The bundle's
+canonical digest detects transport corruption; it is not producer
+authentication, and a signer must not accept a caller-supplied or saved bundle
+as provenance evidence.
 
 The repository verifier locks the committed TAW-08 contract slice and proves
 that the no-evidence fixture remains blocked with every authority and public

@@ -2254,6 +2254,29 @@ def test_foundation_import_cache_rejects_unsafe_parent_ancestor(
         unsafe_ancestor.chmod(0o700)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor ACL regression")
+def test_foundation_import_cache_rejects_extended_acl_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_descriptors: list[int] = []
+
+    def unsafe_acl(descriptor: int) -> tuple[int, ...]:
+        observed_descriptors.append(descriptor)
+        return (1,)
+
+    monkeypatch.setattr(
+        foundation_runner,
+        "_darwin_extended_acl_tags",
+        unsafe_acl,
+    )
+
+    with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+        foundation_runner._validate_posix_temporary_ancestor_chain(tmp_path)
+
+    assert observed_descriptors
+
+
 def test_foundation_import_cache_validates_windows_parent_acl(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -3679,6 +3702,34 @@ def test_founder_input_export_requires_isolated_locked_preflight() -> None:
     assert "requires the isolated locked preflight" in completed.stderr
 
 
+def test_founder_input_export_rejects_caller_supplied_preflight_markers() -> None:
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "UAA_TAW08_EXPORT_FOUNDER_INPUTS": "1",
+        "UAA_TAW08_PREFLIGHT_COMPLETE": "1",
+        "UAA_TAW08_PREFLIGHT_DIGEST": "sha256:" + "0" * 64,
+        "UAA_TAW08_ENVIRONMENT_ROOT": "/caller/runtime",
+        "UAA_TAW08_LOCKED_WHEELHOUSE": "/caller/wheelhouse",
+    }
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            str(taw08_verifier.ROOT / "scripts/verify_tool_aware_cognition_taw08.py"),
+        ),
+        cwd=taw08_verifier.ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "requires the isolated locked preflight" in completed.stderr
+
+
 def test_locked_child_failure_summary_is_redacted_and_bounded() -> None:
     assert (
         taw08_verifier._locked_child_failure_summary(
@@ -3764,6 +3815,29 @@ def test_taw08_private_temporary_root_rejects_unsafe_parent_ancestor(
             )
     finally:
         unsafe_ancestor.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor ACL regression")
+def test_taw08_private_temporary_root_rejects_extended_acl_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_descriptors: list[int] = []
+
+    def unsafe_acl(descriptor: int) -> tuple[int, ...]:
+        observed_descriptors.append(descriptor)
+        return (1,)
+
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_darwin_extended_acl_tags",
+        unsafe_acl,
+    )
+
+    with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+        taw08_verifier._validate_posix_temporary_ancestor_chain(tmp_path)
+
+    assert observed_descriptors
 
 
 def test_locked_child_preserves_validated_windows_system_root(

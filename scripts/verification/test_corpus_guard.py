@@ -312,27 +312,27 @@ PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS = {
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_candidate_lock_cleanliness_uses_authenticated_git::"
         "parametrize-sha256:66f227ee4e7cadb1c8f359ef644982f0c63e6275236fc66d036c69eb42c7ecff::"
-        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637"
+        "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914"
     ): (
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_candidate_lock_cleanliness_compares_worktree_bytes_to_revision::"
         "parametrize-sha256:2a0e592582192912c6f0daecf048607875bb631e8151bc7faf3f9ec13f1b4c57::"
-        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
+        "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "26da215e20dc60c5416c6b0e8ee8cd7ac07d46f69ee2dd75ec6511cd2f2ac575",
+        "13e9f0e680f13ea86bce3a038830f0e6c8064d1238257040ac4f071e94de904d",
     ),
     (
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_foundation_receipt_rejects_evaluator_from_another_revision::"
         "parametrize-sha256:d65125c3e4212fc8fe0d3f946d27028d9f962e7007c22443cb8c2080ace2ebb4::"
-        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637"
+        "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914"
     ): (
         "tests/test_tool_aware_cognition_taw08.py::"
         "test_foundation_receipt_rejects_evaluator_from_another_revision::"
-        "parametrize-sha256:e25930c90e57d14d8bc3c15b849750e21b0c4234917fb7c67e82490bbbce78cf::"
-        "autouse-sha256:d58bad035902eb9b41e546da706a6799199772d44708936b1f16541afa39e637",
+        "parametrize-sha256:ac4e61a0c5b8c4570b710d4f4774b484b0b2a922eaf8b91496150c6bce64222c::"
+        "autouse-sha256:6be89dd88c9c10ab3b4bacea7b98c832c2c6f77460b853dcbd33a2d3b8355914",
         "e8290f05f6897f690361f012c2fec449271ada258a0ff55ed7a78dcb48937638",
-        "26da215e20dc60c5416c6b0e8ee8cd7ac07d46f69ee2dd75ec6511cd2f2ac575",
+        "13e9f0e680f13ea86bce3a038830f0e6c8064d1238257040ac4f071e94de904d",
     ),
     (
         "tests/test_verification_selection.py::"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import csv
 import ctypes
+import errno
 import hashlib
 import importlib.metadata as importlib_metadata
 import io
@@ -35,9 +36,9 @@ _EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
 
 if (
     os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1"
-    and not os.environ.get(_LOCKED_CHILD_REVISION_ENV)
     and not (
-        sys.flags.isolated
+        os.environ.get(_LOCKED_CHILD_REVISION_ENV)
+        and sys.flags.isolated
         and sys.flags.no_site
         and sys.flags.dont_write_bytecode
         and os.environ.get(_PREFLIGHT_COMPLETE_ENV) == "1"
@@ -2607,6 +2608,71 @@ def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
     _validate_private_directory(path, require_empty=require_empty)
 
 
+def _darwin_extended_acl_tags(descriptor: int) -> tuple[int, ...]:
+    if sys.platform != "darwin":
+        return ()
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        acl_get_fd_np = libc.acl_get_fd_np
+        acl_get_fd_np.argtypes = (ctypes.c_int, ctypes.c_int)
+        acl_get_fd_np.restype = ctypes.c_void_p
+        acl_get_entry = libc.acl_get_entry
+        acl_get_entry.argtypes = (
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_void_p),
+        )
+        acl_get_entry.restype = ctypes.c_int
+        acl_get_tag_type = libc.acl_get_tag_type
+        acl_get_tag_type.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_int),
+        )
+        acl_get_tag_type.restype = ctypes.c_int
+        acl_free = libc.acl_free
+        acl_free.argtypes = (ctypes.c_void_p,)
+        acl_free.restype = ctypes.c_int
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified") from exc
+    ctypes.set_errno(0)
+    acl = acl_get_fd_np(descriptor, 0x100)
+    if not acl:
+        if ctypes.get_errno() == errno.ENOENT:
+            return ()
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    try:
+        tags: list[int] = []
+        for index in range(170):
+            ctypes.set_errno(0)
+            entry = ctypes.c_void_p()
+            entry_selector = 0 if index == 0 else -1
+            entry_result = acl_get_entry(acl, entry_selector, ctypes.byref(entry))
+            if entry_result == -1 and ctypes.get_errno() == errno.EINVAL and index:
+                break
+            if entry_result != 0 or entry.value is None:
+                raise RuntimeError(
+                    "TAW-08 temporary directory ACL cannot be verified"
+                )
+            tag = ctypes.c_int()
+            if acl_get_tag_type(entry, ctypes.byref(tag)) != 0:
+                raise RuntimeError(
+                    "TAW-08 temporary directory ACL cannot be verified"
+                )
+            tags.append(tag.value)
+        else:
+            raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    finally:
+        free_result = acl_free(acl)
+    if free_result != 0:
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    return tuple(tags)
+
+
+def _require_no_extended_acl_grants_fd(descriptor: int) -> None:
+    if any(tag != 2 for tag in _darwin_extended_acl_tags(descriptor)):
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+
+
 def _validate_posix_temporary_ancestor_chain(path: Path) -> None:
     if not path.is_absolute():
         raise RuntimeError("TAW-08 temporary directory root is unsafe")
@@ -2652,6 +2718,7 @@ def _validate_posix_temporary_ancestor_chain(path: Path) -> None:
                 | nofollow_flag,
             )
             opened = os.fstat(descriptor)
+            _require_no_extended_acl_grants_fd(descriptor)
             final = os.lstat(component)
             if (
                 not os.path.samestat(initial, opened)
