@@ -3,30 +3,28 @@ from __future__ import annotations
 import base64
 import csv
 import ctypes
+import errno
 import hashlib
 import importlib.metadata as importlib_metadata
 import io
+import json
 import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import sysconfig
 import tempfile
-import tomllib
 import urllib.parse
 import zipfile
 from collections import defaultdict, deque
+from ctypes import wintypes
 from functools import lru_cache
 from pathlib import Path
+from types import ModuleType
 from typing import Literal
-
-from packaging.markers import InvalidMarker, Marker, default_environment
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.tags import sys_tags
-from packaging.utils import canonicalize_name, parse_wheel_filename
-from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).resolve().parents[1]
 _LOCKED_CHILD_REVISION_ENV = "UAA_TAW08_LOCKED_CHILD_REVISION"
@@ -34,10 +32,347 @@ _ENVIRONMENT_ROOT_ENV = "UAA_TAW08_ENVIRONMENT_ROOT"
 _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
+_EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+_GIT_READ_CONFIG = (
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.untrackedCache=false",
+    "-c",
+    "core.trustctime=true",
+    "-c",
+    "core.checkStat=default",
+    "-c",
+    "core.ignoreStat=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+    "-c",
+    f"core.attributesFile={os.devnull}",
+)
+
+_WINDOWS_GIT_TRUST_SCRIPT = (
+    "$ErrorActionPreference='Stop';"
+    "$p=(Get-Item -LiteralPath $args[0] -Force).FullName;"
+    "$roots=@("
+    "[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles),"
+    "[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)"
+    ")|Where-Object{$_};"
+    "$root=$roots|Where-Object{"
+    "$prefix=$_.TrimEnd([IO.Path]::DirectorySeparatorChar)+"
+    "[IO.Path]::DirectorySeparatorChar;"
+    "$p.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)"
+    "}|Select-Object -First 1;"
+    "if(-not $root){exit 11};"
+    "$trusted=@('S-1-5-18','S-1-5-32-544',"
+    "'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464');"
+    "$writeMask=([int64][Security.AccessControl.FileSystemRights]::Write -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::Delete -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::ChangePermissions -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::TakeOwnership -bor "
+    "[int64][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles);"
+    "$q=Get-Item -LiteralPath $p -Force;"
+    "while($true){"
+    "$acl=Get-Acl -LiteralPath $q.FullName;"
+    "$owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;"
+    "if($trusted -notcontains $owner){exit 12};"
+    "$rules=$acl.GetAccessRules($true,$true,"
+    "[Security.Principal.SecurityIdentifier]);"
+    "foreach($ace in $rules){"
+    "$applies=($ace.PropagationFlags -band "
+    "[Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0;"
+    "$writes=([int64]$ace.FileSystemRights -band $writeMask) -ne 0;"
+    "if($applies -and $writes -and "
+    "$ace.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow "
+    "-and $trusted -notcontains $ace.IdentityReference.Value){exit 13}"
+    "};"
+    "if([string]::Equals($q.FullName,$root,"
+    "[StringComparison]::OrdinalIgnoreCase)){break};"
+    "$q=$q.Parent;if($null -eq $q){exit 14}"
+    "};"
+    "$s=Get-AuthenticodeSignature -LiteralPath $p;"
+    "if($s.Status.ToString() -ne 'Valid' -or $null -eq $s.SignerCertificate){"
+    "exit 15};"
+    "$chain=New-Object Security.Cryptography.X509Certificates.X509Chain;"
+    "$chain.ChainPolicy.RevocationMode="
+    "[Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck;"
+    "$chain.ChainPolicy.VerificationFlags="
+    "[Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag;"
+    "if(-not $chain.Build($s.SignerCertificate) -or "
+    "$chain.ChainElements.Count -lt 1){exit 16};"
+    "$signer=$s.SignerCertificate.Thumbprint.ToUpperInvariant();"
+    "$anchor=$chain.ChainElements[$chain.ChainElements.Count-1].Certificate."
+    "Thumbprint.ToUpperInvariant();"
+    "$machineRoots=@(Get-ChildItem -Path Cert:\\LocalMachine\\Root|"
+    "ForEach-Object{$_.Thumbprint.ToUpperInvariant()});"
+    "if($machineRoots -notcontains $anchor){exit 17};"
+    "Write-Output ($signer+' '+$anchor)"
+)
+
+
+def _validate_posix_admin_path(path: Path) -> None:
+    for component in (path, *path.parents):
+        try:
+            metadata = component.stat()
+        except OSError as exc:
+            raise RuntimeError(
+                "TAW-08 Git executable lacks trusted provenance"
+            ) from exc
+        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+
+
+def _validated_windows_system_root() -> Path:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    value = os.environ.get("SystemRoot")
+    if not value or len(value) > 260 or "\x00" in value:
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    try:
+        buffer = ctypes.create_unicode_buffer(32_768)
+        length = ctypes.windll.kernel32.GetWindowsDirectoryW(  # type: ignore[attr-defined]
+            buffer,
+            len(buffer),
+        )
+        configured = Path(value).resolve(strict=True)
+        authoritative = Path(buffer.value).resolve(strict=True)
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError("TAW-08 Windows system root is unavailable") from exc
+    if length <= 0 or length >= len(buffer) or configured != authoritative:
+        raise RuntimeError("TAW-08 Windows system root is unavailable")
+    return authoritative
+
+
+def _validated_windows_git_provenance(
+    executable: Path,
+    powershell: Path,
+) -> tuple[str, str]:
+    signature = subprocess.run(
+        [
+            str(powershell),
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            _WINDOWS_GIT_TRUST_SCRIPT,
+            str(executable),
+        ],
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    try:
+        output = signature.stdout.decode("ascii", errors="strict").strip().split()
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("TAW-08 Git executable lacks trusted provenance") from exc
+    if (
+        signature.returncode != 0
+        or len(output) != 2
+        or any(re.fullmatch(r"[0-9A-F]{40,64}", value) is None for value in output)
+    ):
+        raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+    return output[0].lower(), output[1].lower()
+
+
+@lru_cache(maxsize=1)
+def _trusted_git_identity() -> tuple[Path, str, str]:
+    """Resolve Git only across an OS-admin trust boundary and bind its bytes."""
+
+    system = platform.system().strip().lower()
+    executable_value = (
+        "/usr/bin/git"
+        if os.name == "posix" and system == "darwin"
+        else shutil.which("git")
+    )
+    if not executable_value:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable")
+    executable = Path(executable_value)
+    try:
+        resolved = executable.resolve(strict=True)
+        content = resolved.read_bytes()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
+    if not resolved.is_file() or not content or len(content) > 256 * 1024 * 1024:
+        raise RuntimeError("TAW-08 trusted Git executable is invalid")
+    if os.name == "posix":
+        _validate_posix_admin_path(resolved)
+        if system == "darwin":
+            if resolved != Path("/usr/bin/git"):
+                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+            signature = subprocess.run(
+                [
+                    "/usr/bin/codesign",
+                    "--verify",
+                    "--strict",
+                    "-R=anchor apple",
+                    str(resolved),
+                ],
+                check=False,
+                capture_output=True,
+                timeout=30,
+            )
+            if signature.returncode != 0:
+                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+            provenance_ref = "git-provenance-ref:apple-platform-signed"
+        else:
+            provenance_ref = "git-provenance-ref:posix-root-owned-nonwritable"
+    elif os.name == "nt":
+        system_root = _validated_windows_system_root()
+        powershell = (
+            system_root / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        )
+        signer, anchor = _validated_windows_git_provenance(resolved, powershell)
+        provenance_ref = (
+            f"git-provenance-ref:windows-machine-authenticode:{signer}:{anchor}"
+        )
+    else:
+        raise RuntimeError("TAW-08 Git executable platform is unsupported")
+    return (
+        resolved,
+        "sha256:" + hashlib.sha256(content).hexdigest(),
+        provenance_ref,
+    )
+
+
+def _git(
+    *args: str,
+    repository_root: Path = ROOT,
+    input_bytes: bytes | None = None,
+    extra_config: tuple[str, ...] = (),
+) -> bytes:
+    executable, _digest_ref, _provenance_ref = _trusted_git_identity()
+    result = subprocess.run(
+        [
+            str(executable),
+            "--no-replace-objects",
+            *_GIT_READ_CONFIG,
+            "-c",
+            f"core.worktree={repository_root.resolve()}",
+            f"--work-tree={repository_root.resolve()}",
+            *extra_config,
+            *args,
+        ],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        env=_sanitized_git_environment(),
+        input=input_bytes,
+    )
+    return result.stdout
+
+
+def _sanitized_git_environment() -> dict[str, str]:
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith("GIT_")
+    }
+    environment.update(
+        {
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    return environment
+
+
+def _authenticate_locked_child_before_imports(repository_root: Path) -> str:
+    """Prove the exact clean candidate without executing its worktree probe."""
+
+    try:
+        revision = (
+            _git("rev-parse", "HEAD", repository_root=repository_root)
+            .decode("ascii", errors="strict")
+            .strip()
+        )
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise RuntimeError("TAW-08 locked candidate revision is invalid") from exc
+    if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise RuntimeError("TAW-08 locked candidate revision is invalid")
+
+    probe_ref = "scripts/run_foundation_gate.py"
+    try:
+        committed_probe = _git(
+            "show",
+            f"{revision}:{probe_ref}",
+            repository_root=repository_root,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError("TAW-08 committed clean-revision probe is unavailable") from exc
+    if not committed_probe or len(committed_probe) > 4 * 1024 * 1024:
+        raise RuntimeError("TAW-08 committed clean-revision probe is invalid")
+
+    probe_path = repository_root / probe_ref
+    bootstrap = (
+        "import sys;"
+        "source=sys.stdin.buffer.read();"
+        "probe=sys.argv[1];"
+        "sys.argv=[probe,'--preimport-revision-probe'];"
+        "namespace={'__name__':'__main__','__file__':probe,'__package__':None};"
+        "exec(compile(source,probe,'exec',dont_inherit=True),namespace)"
+    )
+    completed = subprocess.run(
+        (sys.executable, "-I", "-B", "-S", "-c", bootstrap, str(probe_path)),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        env=_sanitized_git_environment(),
+        input=committed_probe,
+        timeout=180,
+    )
+    expected = f"git-sha:{revision}".encode("ascii")
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 128
+        or completed.stdout.strip() != expected
+    ):
+        raise RuntimeError("TAW-08 locked candidate requires a clean exact revision")
+    try:
+        final_revision = (
+            _git("rev-parse", "HEAD", repository_root=repository_root)
+            .decode("ascii", errors="strict")
+            .strip()
+        )
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise RuntimeError("TAW-08 locked candidate revision drift") from exc
+    if final_revision != revision:
+        raise RuntimeError("TAW-08 locked candidate revision drift")
+    return revision
+
+
+if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+    locked_revision = os.environ.get(_LOCKED_CHILD_REVISION_ENV, "")
+    if not (
+        re.fullmatch(r"[0-9a-f]{40}", locked_revision)
+        and sys.flags.isolated
+        and sys.flags.no_site
+        and sys.flags.dont_write_bytecode
+        and os.environ.get(_PREFLIGHT_COMPLETE_ENV) == "1"
+    ):
+        raise RuntimeError(
+            "TAW-08 founder input export requires the isolated locked preflight"
+        )
+    if _authenticate_locked_child_before_imports(ROOT) != locked_revision:
+        raise RuntimeError("TAW-08 locked child revision binding is invalid")
+
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
+
+from packaging.markers import InvalidMarker, Marker, default_environment  # noqa: E402
+from packaging.requirements import InvalidRequirement, Requirement  # noqa: E402
+from packaging.tags import sys_tags  # noqa: E402
+from packaging.utils import canonicalize_name, parse_wheel_filename  # noqa: E402
+from packaging.version import InvalidVersion, Version  # noqa: E402
+
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.evals.tool_aware_acceptance import (  # noqa: E402
+    TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS,
     TAW08_DELTA_VERIFICATION_MISSING_REF,
     TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
     TAW08_FINAL_PUBLICATION_MISSING_REF,
@@ -76,11 +411,12 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (  # noqa: E402
     SourceProjection,
     canonical_digest,
     derive_local_python_dependencies,
+    durable_payload_has_forbidden_fields,
     verify_candidate_lock,
 )
-from scripts.run_foundation_gate import (  # noqa: E402
-    evaluate_foundation_gate_at_exact_repository_revision,
-    report_only_receipt,
+from ultimate_ai_agent.core.gate.reports import (  # noqa: E402
+    FoundationGateCommandReceipt,
+    FoundationGateReport,
 )
 
 
@@ -92,162 +428,220 @@ SLICE_CANDIDATE_PATHS = tuple(
                 for ref in TAW08_REQUIRED_ACCEPTANCE_PATH_REFS
             ),
             "docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md",
+            "docs/evals/TOOL_AWARE_COGNITION_TAW08_EVIDENCE_PHASE_DRIVER.md",
+            "docs/DOCUMENTATION_INDEX.md",
             "scripts/verify_taw08_environment_preflight.py",
             "scripts/verify_tool_aware_cognition_taw08.py",
             "src/ultimate_ai_agent/core/evals/__init__.py",
             "tests/test_tool_aware_cognition_taw08.py",
+            "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
+            "tests/test_m164_llama_cpp_gateway.py",
         }
     )
 )
-EVIDENCE_ONLY_DELTA_PATHS = (
-    "docs/evals/tool_aware_cognition_taw08_acceptance_report_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_board_reconciliation_v1.json",
-    "docs/evals/tool_aware_cognition_taw08_release_truth_reconciliation_v1.json",
-    "docs/kanban/current_board.md",
-    "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+EVIDENCE_ONLY_DELTA_PATHS = tuple(
+    path_ref.removeprefix("repo-path-ref:")
+    for path_ref in TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS
 )
 
 
-def _validate_posix_admin_path(path: Path) -> None:
-    for component in (path, *path.parents):
-        try:
-            metadata = component.stat()
-        except OSError as exc:
-            raise RuntimeError(
-                "TAW-08 Git executable lacks trusted provenance"
-            ) from exc
-        if metadata.st_uid != 0 or metadata.st_mode & 0o022:
-            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
+def _fresh_exact_repository_revision(repository_root: Path) -> str:
+    """Obtain clean revision proof in an isolated, no-site Python process."""
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            str(repository_root / "scripts/run_foundation_gate.py"),
+            "--preimport-revision-probe",
+        ),
+        cwd=repository_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_sanitized_git_environment(),
+        timeout=180,
+    )
+    revision_ref = completed.stdout.strip()
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 128
+        or not re.fullmatch(r"git-sha:[0-9a-f]{40}", revision_ref)
+    ):
+        raise RuntimeError("TAW-08 fresh Foundation revision probe failed")
+    return revision_ref
 
 
-def _validated_windows_system_root() -> Path:
-    if os.name != "nt":
-        raise RuntimeError("TAW-08 Windows system root is unavailable")
-    value = os.environ.get("SystemRoot")
-    if not value or len(value) > 260 or "\x00" in value:
-        raise RuntimeError("TAW-08 Windows system root is unavailable")
+def _load_candidate_foundation_source_for_census(
+    *,
+    repository_root: Path,
+    revision: str,
+) -> None:
+    """Execute the exact tracked Foundation source without consulting bytecode."""
+
+    module_name = "_uaa_taw08_verified_foundation_gate"
+    source_path = repository_root / "scripts/run_foundation_gate.py"
+    expected = _git(
+        "show",
+        f"{revision}:scripts/run_foundation_gate.py",
+        repository_root=repository_root,
+    )
     try:
-        buffer = ctypes.create_unicode_buffer(32_768)
-        length = ctypes.windll.kernel32.GetWindowsDirectoryW(  # type: ignore[attr-defined]
-            buffer,
-            len(buffer),
-        )
-        configured = Path(value).resolve(strict=True)
-        authoritative = Path(buffer.value).resolve(strict=True)
-    except (AttributeError, OSError) as exc:
-        raise RuntimeError("TAW-08 Windows system root is unavailable") from exc
-    if length <= 0 or length >= len(buffer) or configured != authoritative:
-        raise RuntimeError("TAW-08 Windows system root is unavailable")
-    return authoritative
-
-
-@lru_cache(maxsize=1)
-def _trusted_git_identity() -> tuple[Path, str, str]:
-    """Resolve Git only across an OS-admin trust boundary and bind its bytes."""
-
-    executable_value = shutil.which("git")
-    if not executable_value:
-        raise RuntimeError("TAW-08 trusted Git executable is unavailable")
-    executable = Path(executable_value)
-    try:
-        resolved = executable.resolve(strict=True)
-        content = resolved.read_bytes()
+        metadata = source_path.lstat()
+        actual = source_path.read_bytes()
     except OSError as exc:
-        raise RuntimeError("TAW-08 trusted Git executable is unavailable") from exc
-    if not resolved.is_file() or not content or len(content) > 256 * 1024 * 1024:
-        raise RuntimeError("TAW-08 trusted Git executable is invalid")
-    system = platform.system().strip().lower()
-    if os.name == "posix":
-        _validate_posix_admin_path(resolved)
-        if system == "darwin":
-            if resolved != Path("/usr/bin/git"):
-                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
-            signature = subprocess.run(
-                [
-                    "/usr/bin/codesign",
-                    "--verify",
-                    "--strict",
-                    "-R=anchor apple",
-                    str(resolved),
-                ],
-                check=False,
-                capture_output=True,
-                timeout=30,
-            )
-            if signature.returncode != 0:
-                raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
-            provenance_ref = "git-provenance-ref:apple-platform-signed"
-        else:
-            provenance_ref = "git-provenance-ref:posix-root-owned-nonwritable"
-    elif os.name == "nt":
-        system_root = _validated_windows_system_root()
-        powershell = (
-            system_root
-            / "System32"
-            / "WindowsPowerShell"
-            / "v1.0"
-            / "powershell.exe"
+        raise RuntimeError("TAW-08 Foundation source is unavailable") from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or stat.S_ISLNK(metadata.st_mode)
+        or actual != expected
+    ):
+        raise RuntimeError("TAW-08 Foundation source differs from the candidate")
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        if getattr(existing, "__file__", None) != str(source_path):
+            raise RuntimeError("TAW-08 Foundation source module is ambiguous")
+        return
+    module = ModuleType(module_name)
+    module.__file__ = str(source_path)
+    module.__package__ = "scripts"
+    sys.modules[module_name] = module
+    try:
+        exec(
+            compile(expected, str(source_path), "exec", dont_inherit=True),
+            module.__dict__,
         )
-        signature = subprocess.run(
-            [
-                str(powershell),
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                "$s=Get-AuthenticodeSignature -LiteralPath $args[0];"
-                "Write-Output ($s.Status.ToString()+' '+"
-                "$s.SignerCertificate.Thumbprint)",
-                str(resolved),
-            ],
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
+
+
+def _evaluate_foundation_gate_in_fresh_process(
+    repository_root: Path,
+) -> tuple[str, FoundationGateReport]:
+    """Evaluate Foundation Gate beyond the repository pre-import boundary."""
+
+    temporary, temporary_root = _prepare_private_temporary_directory(
+        prefix="uaa-taw08-foundation-",
+        repository_root=repository_root,
+    )
+    try:
+        output_path = temporary_root / "foundation-gate.json"
+        completed = subprocess.run(
+            (
+                sys.executable,
+                "-I",
+                "-B",
+                "-S",
+                str(repository_root / "scripts/run_foundation_gate.py"),
+                "--command-mode",
+                "report-only",
+                "--no-write-latest",
+                "--require-clean-revision",
+                "--output",
+                str(output_path),
+            ),
+            cwd=repository_root,
             check=False,
             capture_output=True,
-            timeout=30,
+            env=_sanitized_git_environment(),
+            timeout=900,
         )
-        output = signature.stdout.decode("ascii", errors="strict").strip().split()
-        if (
-            signature.returncode != 0
-            or len(output) != 2
-            or output[0] != "Valid"
-            or not re.fullmatch(r"[0-9A-F]{40,64}", output[1])
+        payload = _read_private_regular_file(
+            output_path,
+            maximum=16 * 1024 * 1024,
+        )
+        if completed.returncode != 0 or not payload:
+            raise RuntimeError("TAW-08 fresh Foundation evaluation failed")
+        try:
+            report = FoundationGateReport.model_validate_json(payload)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise RuntimeError("TAW-08 fresh Foundation report is invalid") from exc
+    finally:
+        temporary.cleanup()
+    revision_ref = report.evaluated_revision_ref
+    if not isinstance(revision_ref, str) or not re.fullmatch(
+        r"git-sha:[0-9a-f]{40}", revision_ref
+    ):
+        raise RuntimeError("TAW-08 fresh Foundation revision binding is invalid")
+    return revision_ref, report
+
+
+def _report_only_receipt() -> FoundationGateCommandReceipt:
+    return FoundationGateCommandReceipt(
+        command_ref="command:foundation_gate.typed_report",
+        command_mode="report-only",
+        status="report_only",
+        satisfied_by="typed-foundation-gate-evaluator",
+        safe_summary=(
+            "No external verifier commands were run. The typed Foundation Gate "
+            "evaluator and latency summary still run local read/probe code; use "
+            "--no-write-latest when the latest report files must not be updated."
+        ),
+    )
+
+
+def _require_no_repository_git_filters(*, repository_root: Path = ROOT) -> None:
+    """Reject repository controls that can execute or mask content filters."""
+
+    config_names = _git(
+        "config",
+        "--includes",
+        "--null",
+        "--name-only",
+        "--list",
+        repository_root=repository_root,
+    )
+    if len(config_names) > 16 * 1024 * 1024:
+        raise RuntimeError("TAW-08 repository Git filter configuration is invalid")
+    if config_names and not config_names.endswith(b"\0"):
+        raise RuntimeError("TAW-08 repository Git filter configuration is invalid")
+    if any(
+        name.lower().startswith(b"filter.")
+        for name in config_names.rstrip(b"\0").split(b"\0")
+        if name
+    ):
+        raise RuntimeError("TAW-08 repository Git filters are not permitted")
+
+    tracked_paths = _git("ls-files", "-z", repository_root=repository_root)
+    if len(tracked_paths) > 16 * 1024 * 1024 or (
+        tracked_paths and not tracked_paths.endswith(b"\0")
+    ):
+        raise RuntimeError("TAW-08 repository Git path census is invalid")
+    paths = tracked_paths.rstrip(b"\0").split(b"\0") if tracked_paths else []
+    if len(paths) > 20_000 or any(not path for path in paths):
+        raise RuntimeError("TAW-08 repository Git path census is invalid")
+    # The raw tree/index/worktree comparison has already established that the
+    # index is exactly HEAD.  ``--cached`` therefore checks the same committed
+    # attributes without relying on ``check-attr --source``, which is absent
+    # from the supported Git 2.39 runtime on hosted macOS.
+    for source_args in ((), ("--cached",)):
+        attributes = _git(
+            "check-attr",
+            "-z",
+            "--stdin",
+            *source_args,
+            "filter",
+            repository_root=repository_root,
+            input_bytes=tracked_paths,
+        )
+        if len(attributes) > 16 * 1024 * 1024 or (
+            attributes and not attributes.endswith(b"\0")
         ):
-            raise RuntimeError("TAW-08 Git executable lacks trusted provenance")
-        provenance_ref = "git-provenance-ref:windows-authenticode:" + output[1].lower()
-    else:
-        raise RuntimeError("TAW-08 Git executable platform is unsupported")
-    return (
-        resolved,
-        "sha256:" + hashlib.sha256(content).hexdigest(),
-        provenance_ref,
-    )
-
-
-def _git(*args: str, repository_root: Path = ROOT) -> bytes:
-    executable, _digest_ref, _provenance_ref = _trusted_git_identity()
-    result = subprocess.run(
-        [str(executable), "--no-replace-objects", *args],
-        cwd=repository_root,
-        check=True,
-        capture_output=True,
-        env=_sanitized_git_environment(),
-    )
-    return result.stdout
-
-
-def _sanitized_git_environment() -> dict[str, str]:
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.upper().startswith("GIT_")
-    }
-    environment.update(
-        {
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_CONFIG_GLOBAL": os.devnull,
-            "GIT_TERMINAL_PROMPT": "0",
-        }
-    )
-    return environment
+            raise RuntimeError("TAW-08 repository Git filter attributes are invalid")
+        records = attributes.rstrip(b"\0").split(b"\0") if attributes else []
+        if len(records) != len(paths) * 3:
+            raise RuntimeError("TAW-08 repository Git filter attributes are invalid")
+        for index, path in enumerate(paths):
+            actual_path, attribute, value = records[index * 3 : index * 3 + 3]
+            if actual_path != path or attribute != b"filter":
+                raise RuntimeError(
+                    "TAW-08 repository Git filter attributes are invalid"
+                )
+            if value not in {b"unspecified", b"unset"}:
+                raise RuntimeError("TAW-08 repository Git filters are not permitted")
 
 
 def _index_has_hidden_worktree_entries(*, repository_root: Path = ROOT) -> bool:
@@ -259,10 +653,7 @@ def _index_has_hidden_worktree_entries(*, repository_root: Path = ROOT) -> bool:
     ).split(b"\0")
     return any(
         entry
-        and (
-            entry[:1] in {b"S", b"s"}
-            or (entry[:1].isalpha() and entry[:1].islower())
-        )
+        and (entry[:1] in {b"S", b"s"} or (entry[:1].isalpha() and entry[:1].islower()))
         for entry in entries
     )
 
@@ -275,6 +666,19 @@ def verify_executing_repository_sources(
 ) -> tuple[tuple[str, ...], str]:
     """Bind every loaded repository Python source to the candidate Git tree."""
 
+    current_revision = (
+        _git(
+            "rev-parse",
+            "HEAD",
+            repository_root=repository_root,
+        )
+        .decode("ascii")
+        .strip()
+    )
+    if revision != current_revision:
+        raise RuntimeError(
+            "TAW-08 executing repository source differs from the candidate"
+        )
     resolved_source_root = source_root.resolve()
     source_paths: dict[str, Path] = {}
     for module in tuple(sys.modules.values()):
@@ -874,9 +1278,7 @@ def verify_locked_evaluator_environment(
             locked_wheels=locked_wheels_by_identity.get((name, version), []),
             installed_identity=installed_identity,
         )
-        distribution_content_identities.append(
-            (name, version, locked_wheel_identity, installed_identity)
-        )
+        distribution_content_identities.append((name, version, locked_wheel_identity))
     distribution_content_identities = tuple(distribution_content_identities)
     (
         python_executable_digest_ref,
@@ -1078,28 +1480,21 @@ def _candidate_lock(
     )
     candidate_paths = tuple(sorted({*SLICE_CANDIDATE_PATHS, *gate_paths}))
     for path in candidate_paths:
-        try:
-            _git(
-                "diff",
-                "--quiet",
-                revision,
-                "--",
-                path,
-                repository_root=repository_root,
-            )
-        except subprocess.CalledProcessError as exc:
-            if exc.returncode == 1:
-                raise RuntimeError(
-                    f"TAW-08 contract path is dirty at {revision}: {path}"
-                ) from exc
-            raise RuntimeError(
-                f"TAW-08 contract path comparison failed: {path}"
-            ) from exc
         content = _git(
             "show",
             f"{revision}:{path}",
             repository_root=repository_root,
         )
+        worktree_path = repository_root / path
+        try:
+            metadata = os.lstat(worktree_path)
+            worktree_content = worktree_path.read_bytes()
+        except OSError as exc:
+            raise RuntimeError(
+                f"TAW-08 contract path comparison failed: {path}"
+            ) from exc
+        if not stat.S_ISREG(metadata.st_mode) or worktree_content != content:
+            raise RuntimeError(f"TAW-08 contract path is dirty at {revision}: {path}")
         path_ref = f"repo-path-ref:{path}"
         content_by_ref[path_ref] = content
         entries.append(
@@ -1218,21 +1613,16 @@ def verify_repository_candidate(
         raise RuntimeError(
             "TAW-08 candidate receipts require the locked verifier child"
         )
-    if _git("rev-parse", "HEAD", repository_root=repository_root).decode(
-        "ascii"
-    ).strip() != revision or _git(
-        "status",
-        "--porcelain",
-        "--untracked-files=all",
-        repository_root=repository_root,
-    ):
+    if _fresh_exact_repository_revision(repository_root) != f"git-sha:{revision}":
         raise RuntimeError(
             "TAW-08 locked verifier child requires the clean candidate checkout"
         )
     if _index_has_hidden_worktree_entries(repository_root=repository_root):
-        raise RuntimeError(
-            "TAW-08 locked verifier child rejects hidden index entries"
-        )
+        raise RuntimeError("TAW-08 locked verifier child rejects hidden index entries")
+    _load_candidate_foundation_source_for_census(
+        repository_root=repository_root,
+        revision=revision,
+    )
     revision_path_census = derive_revision_path_census(
         lock.git_revision_ref,
         repository_root=repository_root,
@@ -1294,18 +1684,19 @@ def verify_repository_evidence_delta(
     delta: EvidenceOnlyDeltaManifest,
     validated_acceptance_reports_by_path_ref: dict[str, TAW08AcceptanceReport]
     | None = None,
-    repository_root: Path = ROOT,
+    candidate_repository_root: Path = ROOT,
+    delta_repository_root: Path = ROOT,
 ) -> _EvidenceOnlyDeltaVerificationReceipt:
     candidate_verification_receipt = verify_repository_candidate(
         candidate_lock,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if not candidate_verification_receipt.verified:
         raise RuntimeError("TAW-08 delta issuer lacks candidate-bound provenance")
     census = derive_revision_delta_census(
         candidate_lock.git_revision_ref,
         delta.delta_revision_ref,
-        repository_root=repository_root,
+        repository_root=delta_repository_root,
     )
     delta_revision = delta.delta_revision_ref.removeprefix("git-sha:")
     candidate_revision = candidate_lock.git_revision_ref.removeprefix("git-sha:")
@@ -1313,7 +1704,7 @@ def verify_repository_evidence_delta(
         path_ref: _git(
             "show",
             f"{delta_revision}:{path_ref.removeprefix('repo-path-ref:')}",
-            repository_root=repository_root,
+            repository_root=delta_repository_root,
         )
         for path_ref in census.path_refs
     }
@@ -1321,7 +1712,7 @@ def verify_repository_evidence_delta(
         path_ref: _git(
             "show",
             f"{candidate_revision}:{path_ref.removeprefix('repo-path-ref:')}",
-            repository_root=repository_root,
+            repository_root=delta_repository_root,
         )
         for path_ref in census.path_refs
         if path_ref.endswith(".md")
@@ -1345,16 +1736,12 @@ def verify_repository_foundation_gate(
 ) -> FoundationGateReceipt:
     if stage not in {"exact_head", "postmerge"}:
         raise ValueError("Foundation receipt stage is invalid")
-    git_executable, _git_digest_ref, _git_provenance_ref = _trusted_git_identity()
-    revision_ref, report = evaluate_foundation_gate_at_exact_repository_revision(
-        repository_root,
-        git_executable=git_executable,
-    )
+    revision_ref, report = _evaluate_foundation_gate_in_fresh_process(repository_root)
+    revision = revision_ref.removeprefix("git-sha:")
     verify_executing_repository_sources(
-        revision_ref.removeprefix("git-sha:"),
+        revision,
         repository_root=repository_root,
     )
-    revision = revision_ref.removeprefix("git-sha:")
     _verify_preflight_execution(repository_root=repository_root)
     evaluator_environment_receipt = verify_locked_evaluator_environment(
         locked_content_by_path_ref={
@@ -1373,7 +1760,7 @@ def verify_repository_foundation_gate(
     report = report.model_copy(
         update={
             "command_mode": "report-only",
-            "command_receipts": [report_only_receipt("report-only")],
+            "command_receipts": [_report_only_receipt()],
         }
     )
     return _verify_and_bind_foundation_gate_report(
@@ -1393,23 +1780,22 @@ def verify_repository_final_acceptance_publication(
     delta: EvidenceOnlyDeltaManifest,
     delta_verification_receipt: _EvidenceOnlyDeltaVerificationReceipt,
     postmerge_foundation_receipt: FoundationGateReceipt,
-    repository_root: Path = ROOT,
+    candidate_repository_root: Path = ROOT,
+    publication_repository_root: Path = ROOT,
 ) -> _FinalAcceptancePublicationReceipt:
     candidate_revision = candidate_revision_ref.removeprefix("git-sha:")
     issuer_lock, _candidate_content = _candidate_lock(
         candidate_revision,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if issuer_lock.manifest_digest_ref != candidate_manifest_digest_ref:
         raise RuntimeError("TAW-08 publication issuer candidate binding drift")
     candidate_verification_receipt = verify_repository_candidate(
         issuer_lock,
-        repository_root=repository_root,
+        repository_root=candidate_repository_root,
     )
     if not candidate_verification_receipt.verified:
-        raise RuntimeError(
-            "TAW-08 publication issuer lacks candidate-bound provenance"
-        )
+        raise RuntimeError("TAW-08 publication issuer lacks candidate-bound provenance")
     publication_revision = publication_revision_ref.removeprefix("git-sha:")
     publication_path = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF.removeprefix(
         "repo-path-ref:"
@@ -1417,12 +1803,12 @@ def verify_repository_final_acceptance_publication(
     publication_content = _git(
         "show",
         f"{publication_revision}:{publication_path}",
-        repository_root=repository_root,
+        repository_root=publication_repository_root,
     )
     publication_history_census = derive_publication_history_census(
         delta.delta_revision_ref,
         publication_revision_ref,
-        repository_root=repository_root,
+        repository_root=publication_repository_root,
     )
     return _verify_and_bind_final_acceptance_publication(
         publication_revision_ref=publication_revision_ref,
@@ -1438,7 +1824,7 @@ def verify_repository_final_acceptance_publication(
     )
 
 
-def verify() -> None:
+def verify(*, export_founder_inputs: bool = False) -> dict[str, object] | None:
     revision = _git("rev-parse", "HEAD").decode("ascii").strip()
     lock, content_by_ref = _candidate_lock(revision)
     expected_refs = tuple(item.path_ref for item in lock.entries)
@@ -1490,6 +1876,21 @@ def verify() -> None:
         )
     ):
         raise RuntimeError("TAW-08 verifier detected authority or content expansion")
+    if not export_founder_inputs:
+        return None
+    foundation_receipt = verify_repository_foundation_gate(stage="exact_head")
+    if foundation_receipt.revision_ref != lock.git_revision_ref:
+        raise RuntimeError("TAW-08 Foundation export candidate binding drift")
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt.model_dump(mode="json"),
+        "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    if _founder_input_export_has_forbidden_fields(payload):
+        raise RuntimeError("TAW-08 founder input export contains unsafe fields")
+    return {**payload, "bundle_digest_ref": canonical_digest(payload)}
 
 
 def _locked_reachable_packages(
@@ -1860,11 +2261,659 @@ def _locked_child_command(
     )
 
 
+class _WindowsAclSizeInformation(ctypes.Structure):
+    _fields_ = (
+        ("AceCount", wintypes.DWORD),
+        ("AclBytesInUse", wintypes.DWORD),
+        ("AclBytesFree", wintypes.DWORD),
+    )
+
+
+class _WindowsAceHeader(ctypes.Structure):
+    _fields_ = (
+        ("AceType", ctypes.c_ubyte),
+        ("AceFlags", ctypes.c_ubyte),
+        ("AceSize", wintypes.WORD),
+    )
+
+
+class _WindowsSidAndAttributes(ctypes.Structure):
+    _fields_ = (("Sid", ctypes.c_void_p), ("Attributes", wintypes.DWORD))
+
+
+class _WindowsTokenUser(ctypes.Structure):
+    _fields_ = (("User", _WindowsSidAndAttributes),)
+
+
+_WINDOWS_DANGEROUS_DIRECTORY_RIGHTS = (
+    0x00000002  # FILE_ADD_FILE
+    | 0x00000004  # FILE_ADD_SUBDIRECTORY
+    | 0x00000010  # FILE_WRITE_EA
+    | 0x00000040  # FILE_DELETE_CHILD
+    | 0x00000100  # FILE_WRITE_ATTRIBUTES
+    | 0x00010000  # DELETE
+    | 0x00040000  # WRITE_DAC
+    | 0x00080000  # WRITE_OWNER
+    | 0x10000000  # GENERIC_ALL
+    | 0x40000000  # GENERIC_WRITE
+)
+_WINDOWS_ALLOW_ACE_TYPES = frozenset({0, 5, 9, 11})
+
+
+def _windows_parent_acl_grant_is_unsafe(
+    *, ace_type: int, access_mask: int, trustee_is_trusted: bool
+) -> bool:
+    """Return whether one parent ACE grants dangerous authority to a stranger."""
+
+    return (
+        ace_type in _WINDOWS_ALLOW_ACE_TYPES
+        and not trustee_is_trusted
+        and bool(access_mask & _WINDOWS_DANGEROUS_DIRECTORY_RIGHTS)
+    )
+
+
+def _windows_error(message: str) -> RuntimeError:
+    return RuntimeError(f"{message} (winerror={ctypes.get_last_error()})")
+
+
+def _configure_windows_acl_apis(advapi: object, kernel: object) -> None:
+    pointer = ctypes.c_void_p
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorDacl.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        ctypes.POINTER(wintypes.BOOL),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(wintypes.BOOL),
+    )
+    advapi.GetSecurityDescriptorDacl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.SetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        pointer,
+        pointer,
+        pointer,
+        pointer,
+    )
+    advapi.SetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.OpenProcessToken.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    )
+    advapi.OpenProcessToken.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetTokenInformation.argtypes = (  # type: ignore[attr-defined]
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        pointer,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetTokenInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetNamedSecurityInfoW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+        ctypes.POINTER(pointer),
+    )
+    advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD  # type: ignore[attr-defined]
+    advapi.EqualSid.argtypes = (pointer, pointer)  # type: ignore[attr-defined]
+    advapi.EqualSid.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetSecurityDescriptorControl.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        ctypes.POINTER(wintypes.WORD),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.GetSecurityDescriptorControl.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.ConvertStringSidToSidW.argtypes = (  # type: ignore[attr-defined]
+        wintypes.LPCWSTR,
+        ctypes.POINTER(pointer),
+    )
+    advapi.ConvertStringSidToSidW.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAclInformation.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        pointer,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    )
+    advapi.GetAclInformation.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    advapi.GetAce.argtypes = (  # type: ignore[attr-defined]
+        pointer,
+        wintypes.DWORD,
+        ctypes.POINTER(pointer),
+    )
+    advapi.GetAce.restype = wintypes.BOOL  # type: ignore[attr-defined]
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE  # type: ignore[attr-defined]
+    kernel.LocalFree.argtypes = (pointer,)  # type: ignore[attr-defined]
+    kernel.LocalFree.restype = pointer  # type: ignore[attr-defined]
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)  # type: ignore[attr-defined]
+    kernel.CloseHandle.restype = wintypes.BOOL  # type: ignore[attr-defined]
+
+
+def _apply_windows_private_directory_acl(path: Path) -> None:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    descriptor = ctypes.c_void_p()
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
+        1,
+        ctypes.byref(descriptor),
+        None,
+    ):
+        raise _windows_error("TAW-08 private ACL creation failed")
+    try:
+        present = wintypes.BOOL()
+        defaulted = wintypes.BOOL()
+        dacl = ctypes.c_void_p()
+        if (
+            not advapi.GetSecurityDescriptorDacl(
+                descriptor,
+                ctypes.byref(present),
+                ctypes.byref(dacl),
+                ctypes.byref(defaulted),
+            )
+            or not present.value
+            or not dacl.value
+        ):
+            raise _windows_error("TAW-08 private ACL creation failed")
+        result = advapi.SetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x80000004,
+            None,
+            None,
+            dacl,
+            None,
+        )
+        if result != 0:
+            raise RuntimeError(
+                f"TAW-08 private ACL application failed (winerror={result})"
+            )
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def _validate_windows_private_directory_acl(path: Path) -> None:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    token = wintypes.HANDLE()
+    descriptor = ctypes.c_void_p()
+    allowed_sid_handles: list[ctypes.c_void_p] = []
+    try:
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        if not advapi.OpenProcessToken(
+            kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)
+        ):
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if not required.value or required.value > 64 * 1024:
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+            token, 1, token_buffer, required, ctypes.byref(required)
+        ):
+            raise _windows_error("TAW-08 private ACL owner lookup failed")
+        current_sid = ctypes.cast(
+            token_buffer, ctypes.POINTER(_WindowsTokenUser)
+        ).contents.User.Sid
+        owner = ctypes.c_void_p()
+        dacl = ctypes.c_void_p()
+        result = advapi.GetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x00000005,
+            ctypes.byref(owner),
+            None,
+            ctypes.byref(dacl),
+            None,
+            ctypes.byref(descriptor),
+        )
+        if result != 0 or not owner.value or not dacl.value or not descriptor.value:
+            raise RuntimeError(
+                f"TAW-08 private ACL inspection failed (winerror={result})"
+            )
+        if not advapi.EqualSid(owner, current_sid):
+            raise RuntimeError("TAW-08 private ACL owner is invalid")
+        control = wintypes.WORD()
+        revision = wintypes.DWORD()
+        if (
+            not advapi.GetSecurityDescriptorControl(
+                descriptor, ctypes.byref(control), ctypes.byref(revision)
+            )
+            or not control.value & 0x1000
+        ):
+            raise RuntimeError("TAW-08 private ACL is not protected")
+        for sid_text in ("S-1-3-4", "S-1-5-18", "S-1-5-32-544"):
+            sid = ctypes.c_void_p()
+            if not advapi.ConvertStringSidToSidW(sid_text, ctypes.byref(sid)):
+                raise _windows_error("TAW-08 private ACL SID lookup failed")
+            allowed_sid_handles.append(sid)
+        information = _WindowsAclSizeInformation()
+        if not advapi.GetAclInformation(
+            dacl,
+            ctypes.byref(information),
+            ctypes.sizeof(information),
+            2,
+        ) or information.AceCount != len(allowed_sid_handles):
+            raise RuntimeError("TAW-08 private ACL grants are invalid")
+        observed: set[int] = set()
+        for index in range(information.AceCount):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise _windows_error("TAW-08 private ACL grant lookup failed")
+            header = ctypes.cast(ace, ctypes.POINTER(_WindowsAceHeader)).contents
+            mask = ctypes.c_uint32.from_address(ace.value + 4).value
+            ace_sid = ctypes.c_void_p(ace.value + 8)
+            matches = tuple(
+                sid_index
+                for sid_index, sid in enumerate(allowed_sid_handles)
+                if advapi.EqualSid(ace_sid, sid)
+            )
+            if (
+                header.AceType != 0
+                or header.AceFlags != 0x03
+                or header.AceSize < 12
+                or mask != 0x001F01FF
+                or len(matches) != 1
+                or matches[0] in observed
+            ):
+                raise RuntimeError("TAW-08 private ACL grants are invalid")
+            observed.add(matches[0])
+        if len(observed) != len(allowed_sid_handles):
+            raise RuntimeError("TAW-08 private ACL grants are invalid")
+    finally:
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        for sid in allowed_sid_handles:
+            kernel.LocalFree(sid)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
+def _validate_windows_private_parent_acl(path: Path) -> None:
+    if os.name != "nt":
+        raise RuntimeError("TAW-08 Windows ACL support is unavailable")
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    _configure_windows_acl_apis(advapi, kernel)
+    token = wintypes.HANDLE()
+    descriptor = ctypes.c_void_p()
+    trusted_sid_handles: list[ctypes.c_void_p] = []
+    try:
+        if not advapi.OpenProcessToken(
+            kernel.GetCurrentProcess(), 0x0008, ctypes.byref(token)
+        ):
+            raise _windows_error("TAW-08 parent ACL owner lookup failed")
+        required = wintypes.DWORD()
+        advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
+        if not required.value or required.value > 64 * 1024:
+            raise _windows_error("TAW-08 parent ACL owner lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi.GetTokenInformation(
+            token, 1, token_buffer, required, ctypes.byref(required)
+        ):
+            raise _windows_error("TAW-08 parent ACL owner lookup failed")
+        current_sid = ctypes.cast(
+            token_buffer, ctypes.POINTER(_WindowsTokenUser)
+        ).contents.User.Sid
+        owner = ctypes.c_void_p()
+        dacl = ctypes.c_void_p()
+        result = advapi.GetNamedSecurityInfoW(
+            str(path),
+            1,
+            0x00000005,
+            ctypes.byref(owner),
+            None,
+            ctypes.byref(dacl),
+            None,
+            ctypes.byref(descriptor),
+        )
+        if result != 0 or not owner.value or not dacl.value or not descriptor.value:
+            raise RuntimeError(
+                f"TAW-08 parent ACL inspection failed (winerror={result})"
+            )
+        if not advapi.EqualSid(owner, current_sid):
+            raise RuntimeError("TAW-08 parent ACL owner is invalid")
+        for sid_text in (
+            "S-1-3-0",  # Creator Owner
+            "S-1-3-4",  # Owner Rights
+            "S-1-5-18",  # Local System
+            "S-1-5-32-544",  # Builtin Administrators
+        ):
+            sid = ctypes.c_void_p()
+            if not advapi.ConvertStringSidToSidW(sid_text, ctypes.byref(sid)):
+                raise _windows_error("TAW-08 parent ACL SID lookup failed")
+            trusted_sid_handles.append(sid)
+        information = _WindowsAclSizeInformation()
+        if (
+            not advapi.GetAclInformation(
+                dacl,
+                ctypes.byref(information),
+                ctypes.sizeof(information),
+                2,
+            )
+            or information.AceCount > 1024
+        ):
+            raise RuntimeError("TAW-08 parent ACL grants are invalid")
+        for index in range(information.AceCount):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise _windows_error("TAW-08 parent ACL grant lookup failed")
+            header = ctypes.cast(ace, ctypes.POINTER(_WindowsAceHeader)).contents
+            if header.AceSize < 8:
+                raise RuntimeError("TAW-08 parent ACL grants are invalid")
+            mask = ctypes.c_uint32.from_address(ace.value + 4).value
+            trustee_is_trusted = False
+            if header.AceType == 0:
+                if header.AceSize < 12:
+                    raise RuntimeError("TAW-08 parent ACL grants are invalid")
+                ace_sid = ctypes.c_void_p(ace.value + 8)
+                trustee_is_trusted = bool(advapi.EqualSid(ace_sid, current_sid)) or any(
+                    advapi.EqualSid(ace_sid, sid) for sid in trusted_sid_handles
+                )
+            if _windows_parent_acl_grant_is_unsafe(
+                ace_type=header.AceType,
+                access_mask=mask,
+                trustee_is_trusted=trustee_is_trusted,
+            ):
+                raise RuntimeError("TAW-08 parent ACL grants are unsafe")
+    finally:
+        if descriptor.value:
+            kernel.LocalFree(descriptor)
+        for sid in trusted_sid_handles:
+            kernel.LocalFree(sid)
+        if token.value:
+            kernel.CloseHandle(token)
+
+
+def _validate_private_directory(path: Path, *, require_empty: bool) -> None:
+    metadata = os.lstat(path)
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise RuntimeError("TAW-08 private directory is unsafe")
+    if os.name == "posix":
+        if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise RuntimeError("TAW-08 private directory is unsafe")
+    elif os.name == "nt":
+        _validate_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("TAW-08 private directory platform is unsupported")
+    if require_empty and any(path.iterdir()):
+        raise RuntimeError("TAW-08 private directory is unsafe")
+
+
+def _harden_private_directory(path: Path, *, require_empty: bool) -> None:
+    if os.name == "posix":
+        path.chmod(0o700)
+    elif os.name == "nt":
+        _apply_windows_private_directory_acl(path)
+    else:
+        raise RuntimeError("TAW-08 private directory platform is unsupported")
+    _validate_private_directory(path, require_empty=require_empty)
+
+
+def _darwin_extended_acl_tags(descriptor: int) -> tuple[int, ...]:
+    if sys.platform != "darwin":
+        return ()
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        acl_get_fd_np = libc.acl_get_fd_np
+        acl_get_fd_np.argtypes = (ctypes.c_int, ctypes.c_int)
+        acl_get_fd_np.restype = ctypes.c_void_p
+        acl_get_entry = libc.acl_get_entry
+        acl_get_entry.argtypes = (
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_void_p),
+        )
+        acl_get_entry.restype = ctypes.c_int
+        acl_get_tag_type = libc.acl_get_tag_type
+        acl_get_tag_type.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_int),
+        )
+        acl_get_tag_type.restype = ctypes.c_int
+        acl_free = libc.acl_free
+        acl_free.argtypes = (ctypes.c_void_p,)
+        acl_free.restype = ctypes.c_int
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified") from exc
+    ctypes.set_errno(0)
+    acl = acl_get_fd_np(descriptor, 0x100)
+    if not acl:
+        if ctypes.get_errno() == errno.ENOENT:
+            return ()
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    try:
+        tags: list[int] = []
+        for index in range(170):
+            ctypes.set_errno(0)
+            entry = ctypes.c_void_p()
+            entry_selector = 0 if index == 0 else -1
+            entry_result = acl_get_entry(acl, entry_selector, ctypes.byref(entry))
+            if entry_result == -1 and ctypes.get_errno() == errno.EINVAL and index:
+                break
+            if entry_result != 0 or entry.value is None:
+                raise RuntimeError(
+                    "TAW-08 temporary directory ACL cannot be verified"
+                )
+            tag = ctypes.c_int()
+            if acl_get_tag_type(entry, ctypes.byref(tag)) != 0:
+                raise RuntimeError(
+                    "TAW-08 temporary directory ACL cannot be verified"
+                )
+            tags.append(tag.value)
+        else:
+            raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    finally:
+        free_result = acl_free(acl)
+    if free_result != 0:
+        raise RuntimeError("TAW-08 temporary directory ACL cannot be verified")
+    return tuple(tags)
+
+
+def _require_no_extended_acl_grants_fd(descriptor: int) -> None:
+    if any(tag != 2 for tag in _darwin_extended_acl_tags(descriptor)):
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+
+
+def _validate_posix_temporary_ancestor_chain(path: Path) -> None:
+    if not path.is_absolute():
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow_flag:
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    lexical_components: list[Path] = []
+    lexical = Path(path.anchor)
+    for part in path.parts[1:]:
+        lexical /= part
+        lexical_components.append(lexical)
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeError("TAW-08 temporary directory root is unsafe") from exc
+    components = [
+        *((component, True) for component in lexical_components),
+        *((component, False) for component in (resolved, *resolved.parents)),
+    ]
+    for component, allow_root_symlink in components:
+        descriptor = -1
+        try:
+            initial = os.lstat(component)
+            if stat.S_ISLNK(initial.st_mode):
+                if not allow_root_symlink or initial.st_uid != 0:
+                    raise RuntimeError("TAW-08 temporary directory root is unsafe")
+                final = os.lstat(component)
+                if not os.path.samestat(initial, final):
+                    raise RuntimeError("TAW-08 temporary directory root changed")
+                continue
+            mode = stat.S_IMODE(initial.st_mode)
+            if (
+                not stat.S_ISDIR(initial.st_mode)
+                or initial.st_uid not in {0, os.getuid()}
+                or (mode & 0o022 and not mode & stat.S_ISVTX)
+            ):
+                raise RuntimeError("TAW-08 temporary directory root is unsafe")
+            descriptor = os.open(
+                component,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_DIRECTORY", 0)
+                | nofollow_flag,
+            )
+            opened = os.fstat(descriptor)
+            _require_no_extended_acl_grants_fd(descriptor)
+            final = os.lstat(component)
+            if (
+                not os.path.samestat(initial, opened)
+                or not os.path.samestat(opened, final)
+                or any(
+                    getattr(opened, field) != getattr(final, field)
+                    for field in ("st_dev", "st_ino", "st_mode", "st_uid")
+                )
+            ):
+                raise RuntimeError("TAW-08 temporary directory root changed")
+        except OSError as exc:
+            raise RuntimeError("TAW-08 temporary directory root is unsafe") from exc
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+
+def _prepare_private_temporary_directory(
+    *, prefix: str, repository_root: Path
+) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    unresolved_temporary_parent = Path(tempfile.gettempdir())
+    if os.name == "posix":
+        _validate_posix_temporary_ancestor_chain(unresolved_temporary_parent)
+    temporary_parent = unresolved_temporary_parent.resolve()
+    try:
+        parent_metadata = temporary_parent.lstat()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 temporary directory root is unavailable") from exc
+    if (
+        stat.S_ISLNK(parent_metadata.st_mode)
+        or not stat.S_ISDIR(parent_metadata.st_mode)
+        or temporary_parent.is_relative_to(repository_root.resolve())
+    ):
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    if os.name == "posix":
+        parent_mode = stat.S_IMODE(parent_metadata.st_mode)
+        if parent_metadata.st_uid not in {0, os.getuid()} or (
+            parent_mode & 0o022 and not parent_mode & stat.S_ISVTX
+        ):
+            raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    elif os.name == "nt":
+        _validate_windows_private_parent_acl(temporary_parent)
+    else:
+        raise RuntimeError("TAW-08 temporary directory root is unsafe")
+    handle: tempfile.TemporaryDirectory[str] = tempfile.TemporaryDirectory(
+        prefix=prefix,
+        dir=temporary_parent,
+    )
+    try:
+        root = Path(handle.name).resolve(strict=True)
+        _harden_private_directory(root, require_empty=True)
+        final_parent_metadata = os.lstat(temporary_parent)
+        if not os.path.samestat(parent_metadata, final_parent_metadata):
+            raise RuntimeError("TAW-08 temporary directory root changed")
+    except BaseException:
+        handle.cleanup()
+        raise
+    return handle, root
+
+
+def _read_private_regular_file(path: Path, *, maximum: int) -> bytes:
+    try:
+        initial = path.lstat()
+        if (
+            stat.S_ISLNK(initial.st_mode)
+            or not stat.S_ISREG(initial.st_mode)
+            or initial.st_nlink != 1
+            or (os.name == "posix" and initial.st_uid != os.getuid())
+        ):
+            raise RuntimeError("TAW-08 private evidence file is unsafe")
+        descriptor = os.open(
+            path,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | (getattr(os, "O_NOFOLLOW_ANY", 0) or getattr(os, "O_NOFOLLOW", 0)),
+        )
+        try:
+            opened = os.fstat(descriptor)
+            if not os.path.samestat(initial, opened):
+                raise RuntimeError("TAW-08 private evidence file changed")
+            if os.name == "posix":
+                os.fchmod(descriptor, 0o600)
+                hardened = os.fstat(descriptor)
+                if (
+                    not os.path.samestat(opened, hardened)
+                    or stat.S_IMODE(hardened.st_mode) != 0o600
+                ):
+                    raise RuntimeError("TAW-08 private evidence file is unsafe")
+                opened = hardened
+            chunks: list[bytes] = []
+            observed = 0
+            while True:
+                chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - observed))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                observed += len(chunk)
+                if observed > maximum:
+                    raise RuntimeError("TAW-08 private evidence file is invalid")
+            closed_over = os.fstat(descriptor)
+        finally:
+            os.close(descriptor)
+        final = path.lstat()
+    except OSError as exc:
+        raise RuntimeError("TAW-08 private evidence file is unavailable") from exc
+    compared_fields = (
+        "st_mode",
+        "st_uid",
+        "st_nlink",
+        "st_size",
+        "st_mtime_ns",
+        "st_ctime_ns",
+    )
+    if not os.path.samestat(opened, final) or any(
+        getattr(opened, field) != getattr(closed_over, field)
+        or getattr(opened, field) != getattr(final, field)
+        for field in compared_fields
+    ):
+        raise RuntimeError("TAW-08 private evidence file changed")
+    return b"".join(chunks)
+
+
 def _locked_child_environment(
     *,
     revision: str,
     environment_root: Path,
     selected_wheelhouse: Path,
+    runtime_temp: Path,
     platform_name: str = os.name,
 ) -> dict[str, str]:
     environment = {
@@ -1872,45 +2921,153 @@ def _locked_child_environment(
         _LOCKED_CHILD_REVISION_ENV: revision,
         _ENVIRONMENT_ROOT_ENV: str(environment_root),
         _LOCKED_WHEELHOUSE_ENV: str(selected_wheelhouse),
+        "TMPDIR": str(runtime_temp),
+        "TEMP": str(runtime_temp),
+        "TMP": str(runtime_temp),
     }
+    if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+        environment[_EXPORT_FOUNDER_INPUTS_ENV] = "1"
     if platform_name == "nt":
         environment["SystemRoot"] = str(_validated_windows_system_root())
     return environment
 
 
-def _run_locked_candidate_verifier() -> None:
-    revision = _git("rev-parse", "HEAD").decode("ascii").strip()
-    if _git("status", "--porcelain", "--untracked-files=all"):
-        raise RuntimeError("TAW-08 verifier launcher requires a clean worktree")
-    if _index_has_hidden_worktree_entries():
-        raise RuntimeError("TAW-08 verifier launcher rejects hidden index entries")
+def _founder_input_export_has_forbidden_fields(
+    payload: dict[str, object],
+) -> bool:
+    """Scan export content while treating validated repo path refs as identifiers."""
+
+    expected_keys = {
+        "schema_version",
+        "candidate_lock",
+        "candidate_verification_receipt",
+        "exact_head_foundation_receipt",
+        "raw_content_persisted",
+    }
+    if set(payload) not in (expected_keys, {*expected_keys, "bundle_digest_ref"}):
+        raise ValueError("founder input export schema drift")
+    candidate_lock = CandidateLock.model_validate(payload["candidate_lock"])
+    candidate_receipt = _CandidateLockVerificationReceipt.model_validate(
+        payload["candidate_verification_receipt"]
+    )
+    foundation_receipt = FoundationGateReceipt.model_validate(
+        payload["exact_head_foundation_receipt"]
+    )
+    if (
+        candidate_receipt.candidate_revision_ref != candidate_lock.git_revision_ref
+        or candidate_receipt.candidate_manifest_digest_ref
+        != candidate_lock.manifest_digest_ref
+        or foundation_receipt.stage != "exact_head"
+        or foundation_receipt.revision_ref != candidate_lock.git_revision_ref
+    ):
+        raise ValueError("founder input export candidate binding drift")
+    candidate_receipt_safety_payload = candidate_receipt.model_dump(mode="json")
+    candidate_receipt_safety_payload["executing_source_path_refs"] = ()
+    safety_payload = {
+        **payload,
+        "candidate_lock": candidate_lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt_safety_payload,
+        "exact_head_foundation_receipt": foundation_receipt.model_dump(mode="json"),
+    }
+    return durable_payload_has_forbidden_fields(safety_payload)
+
+
+def _normalize_founder_input_export(child_stdout: bytes) -> bytes:
+    """Validate and canonicalize the bounded locked-child export."""
+
+    if not child_stdout or len(child_stdout) > 4 * 1024 * 1024:
+        raise RuntimeError("TAW-08 founder input export is invalid")
+    expected_keys = {
+        "schema_version",
+        "candidate_lock",
+        "candidate_verification_receipt",
+        "exact_head_foundation_receipt",
+        "raw_content_persisted",
+        "bundle_digest_ref",
+    }
+    try:
+        exported = json.loads(child_stdout)
+        if (
+            not isinstance(exported, dict)
+            or set(exported) != expected_keys
+            or exported.get("schema_version") != "uaa-taw08-founder-run-inputs.v1"
+            or exported.get("raw_content_persisted") is not False
+            or _founder_input_export_has_forbidden_fields(exported)
+        ):
+            raise ValueError("founder input export schema drift")
+        digest_payload = {
+            key: value for key, value in exported.items() if key != "bundle_digest_ref"
+        }
+        if exported.get("bundle_digest_ref") != canonical_digest(digest_payload):
+            raise ValueError("founder input export digest drift")
+        return (
+            json.dumps(
+                exported,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("ascii")
+            + b"\n"
+        )
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise RuntimeError("TAW-08 founder input export is invalid") from exc
+
+
+def _locked_child_failure_summary(stderr: bytes) -> str:
+    if not stderr or len(stderr) > 64 * 1024:
+        return "failure detail unavailable"
+    try:
+        final_line = stderr.decode("ascii").splitlines()[-1]
+    except (UnicodeDecodeError, IndexError):
+        return "failure detail unavailable"
+    match = re.fullmatch(
+        r"(?:RuntimeError|ValueError): ([A-Za-z0-9][A-Za-z0-9 ._-]{0,159})",
+        final_line,
+    )
+    if match is None:
+        return "failure detail unavailable"
+    return match.group(1)
+
+
+def _run_locked_candidate_verifier() -> bytes | None:
+    revision = _fresh_exact_repository_revision(ROOT).removeprefix("git-sha:")
     provisioned_wheelhouse_value = os.environ.get(_LOCKED_WHEELHOUSE_ENV)
     if not provisioned_wheelhouse_value:
         raise RuntimeError("TAW-08 verifier requires a provisioned wheelhouse")
     provisioned_wheelhouse = Path(provisioned_wheelhouse_value).resolve()
-    with tempfile.TemporaryDirectory(prefix="uaa-taw08-locked-") as temporary:
-        candidate_root = Path(temporary) / "candidate"
-        environment_root = Path(temporary) / "environment"
-        selected_wheelhouse = Path(temporary) / "selected-wheelhouse"
+    temporary, temporary_root = _prepare_private_temporary_directory(
+        prefix="uaa-taw08-locked-",
+        repository_root=ROOT,
+    )
+    try:
+        if temporary_root.is_relative_to(ROOT.resolve()):
+            raise RuntimeError("TAW-08 locked temporary root is unsafe")
+        candidate_root = temporary_root / "candidate"
+        environment_root = temporary_root / "environment"
+        selected_wheelhouse = temporary_root / "selected-wheelhouse"
+        hooks_root = temporary_root / "hooks"
+        runtime_temp = temporary_root / "runtime-temp"
+        hooks_root.mkdir(mode=0o700)
+        runtime_temp.mkdir(mode=0o700)
+        _harden_private_directory(hooks_root, require_empty=True)
+        _harden_private_directory(runtime_temp, require_empty=True)
+        hooks_metadata = os.lstat(hooks_root)
+        hooks_config = ("-c", f"core.hooksPath={hooks_root}")
         added = False
         try:
-            git_executable, _git_digest_ref, _git_provenance_ref = (
-                _trusted_git_identity()
-            )
-            subprocess.run(
-                [
-                    str(git_executable),
-                    "--no-replace-objects",
-                    "worktree",
-                    "add",
-                    "--detach",
-                    str(candidate_root),
-                    revision,
-                ],
-                cwd=ROOT,
-                check=True,
-                capture_output=True,
-                env=_sanitized_git_environment(),
+            _require_no_repository_git_filters()
+            _git(
+                "worktree",
+                "add",
+                "--detach",
+                str(candidate_root),
+                revision,
+                extra_config=hooks_config,
             )
             added = True
             environment_python = _materialize_locked_environment(
@@ -1931,33 +3088,47 @@ def _run_locked_candidate_verifier() -> None:
                     revision=revision,
                     environment_root=environment_root,
                     selected_wheelhouse=selected_wheelhouse,
+                    runtime_temp=runtime_temp,
                 ),
-                timeout=300,
+                timeout=1_200,
             )
             if child.returncode != 0:
-                raise RuntimeError("TAW-08 locked candidate verifier failed")
+                raise RuntimeError(
+                    "TAW-08 locked candidate verifier failed: "
+                    + _locked_child_failure_summary(child.stderr)
+                )
+            if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
+                return _normalize_founder_input_export(child.stdout)
         finally:
             if added:
-                subprocess.run(
-                    [
-                        str(_trusted_git_identity()[0]),
-                        "--no-replace-objects",
-                        "worktree",
-                        "remove",
-                        str(candidate_root),
-                    ],
-                    cwd=ROOT,
-                    check=True,
-                    capture_output=True,
-                    env=_sanitized_git_environment(),
+                current_hooks = os.lstat(hooks_root)
+                if not os.path.samestat(hooks_metadata, current_hooks):
+                    raise RuntimeError("TAW-08 inert Git hooks directory changed")
+                _validate_private_directory(hooks_root, require_empty=True)
+                _validate_private_directory(runtime_temp, require_empty=False)
+                _git(
+                    "worktree",
+                    "remove",
+                    str(candidate_root),
+                    extra_config=hooks_config,
                 )
+    finally:
+        temporary.cleanup()
+    return None
 
 
 def main() -> int:
+    export_founder_inputs = os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1"
     if os.environ.get(_LOCKED_CHILD_REVISION_ENV):
-        verify()
+        bundle = verify(export_founder_inputs=export_founder_inputs)
+        if bundle is not None:
+            print(json.dumps(bundle, sort_keys=True, separators=(",", ":")))
+            return 0
     else:
-        _run_locked_candidate_verifier()
+        exported = _run_locked_candidate_verifier()
+        if exported is not None:
+            sys.stdout.buffer.write(exported)
+            return 0
     print(
         "Tool-aware cognition TAW-08 acceptance contract verified; founder-private "
         "acceptance remains blocked on exact measured evidence."

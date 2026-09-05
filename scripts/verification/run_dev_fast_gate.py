@@ -117,6 +117,9 @@ def build_serial_phases() -> list[Phase]:
             command_ref="command:foundation-gate-report-only-no-write",
             command=(
                 python,
+                "-I",
+                "-B",
+                "-S",
                 "scripts/run_foundation_gate.py",
                 "--command-mode",
                 "report-only",

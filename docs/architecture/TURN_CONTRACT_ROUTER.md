@@ -511,7 +511,7 @@ For the broader local product check, run:
 ```bash
 make frontend-check
 make frontend-visual-check
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 Preflight lanes:

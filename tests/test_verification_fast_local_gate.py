@@ -40,7 +40,7 @@ def test_make_verify_keeps_full_proof_with_sharded_pytest_and_summary_runner() -
     assert make_target_body(text, "verify") == [
         "$(MAKE) ruff test-sharded verify-static",
         "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py",
-        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only",
+        "$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only",
     ]
     dev_sharded_body = make_target_body(text, "verify-dev-sharded")
     assert "scripts/verification/run_dev_fast_gate.py" in " ".join(dev_sharded_body)

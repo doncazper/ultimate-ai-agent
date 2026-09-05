@@ -23,7 +23,7 @@ Operator Runtime Excellence baseline.
 .venv/bin/python scripts/verify_current_baseline.py
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_all.py
-.venv/bin/python scripts/run_foundation_gate.py
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest
 ```

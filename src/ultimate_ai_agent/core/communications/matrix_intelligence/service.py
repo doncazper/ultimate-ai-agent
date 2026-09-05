@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -124,7 +124,7 @@ class MatrixIntelligenceRuntime:
             )
         if self._mode != "local":
             raise RuntimeError("MATRIX_INTELLIGENCE_RUNTIME_BINDING_INVALID")
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         if command.operation == MatrixIntelligenceOperation.room_ai_policy_read:
             policy = self._store.read_policy(command, now=now)
             return _result(

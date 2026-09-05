@@ -5,11 +5,17 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
-from enum import StrEnum
+from datetime import datetime, timezone
+try:
+    from enum import StrEnum as _StringEnum
+except ImportError:  # pragma: no cover - exercised by the Python 3.10 verifier
+    from enum import Enum
+
+    class _StringEnum(str, Enum):
+        def __str__(self) -> str:
+            return self.value
 from pathlib import PurePosixPath
 from typing import Any
-
 
 SAFE_REF_PATTERN = re.compile(r"^[a-z0-9][a-z0-9:._-]{0,191}$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -81,7 +87,7 @@ UTC_TIMESTAMP_PATTERN = re.compile(
 )
 
 
-class VerificationRiskTier(StrEnum):
+class VerificationRiskTier(_StringEnum):
     TIER_0 = "tier_0"
     TIER_1 = "tier_1"
     TIER_2 = "tier_2"
@@ -92,13 +98,13 @@ class VerificationRiskTier(StrEnum):
         return int(self.value.rsplit("_", maxsplit=1)[-1])
 
 
-class VerificationUnitKind(StrEnum):
+class VerificationUnitKind(_StringEnum):
     COMMAND = "command"
     AGGREGATE = "aggregate"
     AUDIT = "audit"
 
 
-class VerificationTerminalStatus(StrEnum):
+class VerificationTerminalStatus(_StringEnum):
     PASSED = "passed"
     FAILED = "failed"
     BLOCKED = "blocked"
@@ -107,7 +113,7 @@ class VerificationTerminalStatus(StrEnum):
     UNKNOWN = "unknown"
 
 
-class VerificationGateStatus(StrEnum):
+class VerificationGateStatus(_StringEnum):
     PASSED = "passed"
     DENIED = "denied"
     BLOCKED = "blocked"
@@ -191,7 +197,7 @@ def _validated_timestamp(value: str, *, label: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"{label} must be bounded canonical UTC") from exc
-    if parsed.tzinfo != UTC:
+    if parsed.tzinfo != timezone.utc:
         raise ValueError(f"{label} must be bounded canonical UTC")
     return parsed
 

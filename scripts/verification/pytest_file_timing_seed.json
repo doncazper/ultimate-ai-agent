@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1003,
+  "timed_file_count": 1004,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -4537,6 +4537,11 @@
     },
     {
       "path": "tests/test_tool_aware_cognition_taw08.py",
+      "seconds": 0.99,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
       "seconds": 0.99,
       "source": "operator-supplied-advisory"
     },

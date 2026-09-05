@@ -1671,7 +1671,7 @@ Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_safe_exception
 Command: PYTHONPATH=src .venv/bin/python -m pytest tests/test_secret_broker_redaction.py
 
 UAA-QA-004 Foundation Gate report
-Command: .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+Command: .venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 
 UAA-QA-005 Performance baseline
 Command: .venv/bin/python scripts/benchmark_foundation_gate.py

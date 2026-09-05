@@ -81,5 +81,5 @@ idempotency, audit, and receipt posture required by that path.
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_approval_authority.py tests/test_approval_authority_v2_contracts.py tests/test_approval_integration_kernel.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py tests/test_control_center_api_routes.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```

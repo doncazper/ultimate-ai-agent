@@ -1904,7 +1904,7 @@ Required tests/verifiers: `make frontend-check`,
 `PYTHONPATH=src .venv/bin/python -m pytest tests/test_operator_loop_p1_011.py`,
 `PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py`,
 `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`,
-`.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`.
+`.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only`.
 
 Safety notes: UI changes remain inspection-only. Backend authority remains
 Python Agent Core plus LocalApprovalAuthority through existing routes.

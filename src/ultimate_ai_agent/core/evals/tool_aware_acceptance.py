@@ -22,7 +22,11 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
     verify_candidate_lock,
     verify_source_dependency_closure,
 )
-from ultimate_ai_agent.core.execution.validation import validate_execution_ref
+from ultimate_ai_agent.core.execution.validation import (
+    contains_absolute_local_path,
+    validate_execution_ref,
+)
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
 
 TAW08_CONTRACT_REF = "contract-ref:taw08:founder-private-acceptance:v1"
@@ -32,7 +36,11 @@ TAW08_MAX_EVIDENCE_DELTA_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_CANDIDATE_PATHS = 1024
 TAW08_MAX_CANDIDATE_ARTIFACT_BYTES = 4 * 1024 * 1024
 TAW08_MAX_REVISION_PATHS = 8192
-TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = None
+# Founder-private acceptance authority. The matching private key is retained
+# outside the repository and is never part of durable evaluation evidence.
+TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX: str | None = (
+    "9a1ed72c07a95aa395c72e8f3c92e4f5077aa2ab474d03c6b5655a267a7c469c"
+)
 TAW08_FOUNDATION_GATE_SOURCE_PREFIX = "repo-path-ref:src/ultimate_ai_agent/core/gate/"
 TAW08_UNRESOLVED_DYNAMIC_IMPORT_PATH_REFS = (
     "repo-path-ref:src/ultimate_ai_agent/core/capabilities/__init__.py",
@@ -51,6 +59,9 @@ TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF = (
 TAW08_ACTIVE_TRUTH_PATH_REFS = (
     "repo-path-ref:docs/kanban/current_board.md",
     "repo-path-ref:docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+)
+TAW08_M2_PATH_REFS = tuple(
+    sorted((TAW08_ACCEPTANCE_REPORT_PATH_REF, *TAW08_ACTIVE_TRUTH_PATH_REFS))
 )
 TAW08_ALLOWED_EVIDENCE_ONLY_PATH_REFS = tuple(
     sorted(
@@ -110,17 +121,25 @@ TAW08_REQUIRED_ACCEPTANCE_PATH_REFS = tuple(
             *(
                 f"repo-path-ref:{path}"
                 for path in (
+                    "docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json",
+                    "scripts/run_tool_aware_cognition_taw08_evidence_phases.py",
                     "src/ultimate_ai_agent/core/capabilities/awareness.py",
                     "src/ultimate_ai_agent/core/capabilities/chat_shadow.py",
                     "src/ultimate_ai_agent/core/capabilities/diagnostics.py",
                     "src/ultimate_ai_agent/core/capabilities/familiarity.py",
                     "src/ultimate_ai_agent/core/capabilities/outcomes.py",
                     "src/ultimate_ai_agent/core/capabilities/retrieval.py",
+                    "src/ultimate_ai_agent/core/authority/approval_validation.py",
+                    "src/ultimate_ai_agent/core/authority/contracts.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_acceptance.py",
                     "src/ultimate_ai_agent/core/evals/tool_aware_hardening.py",
+                    "src/ultimate_ai_agent/core/local_model_management/gateway.py",
+                    "src/ultimate_ai_agent/core/private_path_security.py",
+                    "src/ultimate_ai_agent/core/runtime_gateway/local_model.py",
                     "scripts/run_foundation_gate.py",
                     "scripts/verify_taw08_environment_preflight.py",
                     "scripts/verify_tool_aware_cognition_taw08.py",
+                    "scripts/taw08_evidence_phase_worker.py",
                 )
             ),
         }
@@ -161,6 +180,56 @@ _API_MODEL_ID_RE = re.compile(r"^model-id-ref:openai:[A-Za-z0-9][A-Za-z0-9._-]{1
 _HARDWARE_OBSERVATION_DIGEST_RE = re.compile(
     r"^hardware-observation-ref:sha256:[0-9a-f]{64}$"
 )
+_FOUNDATION_REPORT_SAFE_REF_RE = re.compile(
+    r"^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+)
+_FOUNDATION_REPORT_RELATIVE_IDENTIFIER_RE = re.compile(
+    r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+)
+_REPOSITORY_PATH_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.@+/-]+$")
+_FOUNDATION_REPORT_LOCAL_PATH_FRAGMENT_RE = re.compile(
+    r"(?i)(?:/Users/|/home/|/var/|/etc/|[A-Za-z]:[\\/]|\\\\[^\\]+\\)"
+)
+_HIGH_SIGNAL_SECRET_RE = re.compile(
+    r"(?i)(?:^|[:/_-])(?:sk_live|sk_test|ghp|github_pat|xox[baprs]|AIza)[_-]?[A-Za-z0-9]+"
+)
+_FOUNDATION_REPORT_PASS_MESSAGE_OVERRIDES = {
+    "m5_shadow_replay_passes": "M5 shadow replay passed.",
+}
+_FOUNDATION_LATENCY_SAFE_LABELS = frozenset(
+    {
+        "GET /health",
+        "GET /api/manifest",
+        "POST /models/route/preview",
+        "POST /task-decomposition/classify",
+        "POST /task-decomposition/decompose",
+        "POST /files/read/preview",
+        "GET /v1/models",
+        "POST /v1/chat/completions",
+        "Control Center first useful local render",
+    }
+)
+_FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY = {
+    "measurement_mode": "local_foundation_gate_latency_summary",
+    "runner": "scripts.check_foundation_gate_latency",
+    "optional_prerequisite_policy": "skipped_or_blocked_with_reason_codes",
+    "machine_identity_recorded": False,
+    "environment_variables_recorded": False,
+    "raw_paths_recorded": False,
+    "raw_logs_recorded": False,
+}
+_FOUNDATION_RELEASE_REPORT_SAFETY = {
+    "raw_prompt_included": False,
+    "raw_response_included": False,
+    "raw_provider_payload_included": False,
+    "raw_path_included": False,
+    "raw_log_included": False,
+    "username_included": False,
+    "hostname_included": False,
+    "serial_included": False,
+    "environment_dump_included": False,
+    "credential_material_included": False,
+}
 _NON_EXACT_MODEL_ID_TOKENS = frozenset(
     {"any", "anything", "configured", "placeholder", "test", "unknown"}
 )
@@ -321,8 +390,12 @@ def _validate_repo_path_refs(values: tuple[str, ...], field_name: str) -> None:
             not path
             or path.startswith("/")
             or len(path) > 512
+            or not _REPOSITORY_PATH_IDENTIFIER_RE.fullmatch(path)
             or any(part in ("", ".", "..") for part in parts)
             or any(character in path for character in ("\x00", "\n", "\r"))
+            or contains_absolute_local_path(path)
+            or contains_obvious_secret({"value": path})
+            or _HIGH_SIGNAL_SECRET_RE.search(path)
         ):
             raise ValueError(f"{field_name} contains an unsafe repository path")
 
@@ -389,6 +462,27 @@ class RevisionDeltaCensus(_FrozenModel):
 
 def _validate_ref(value: str, field_name: str) -> None:
     validate_execution_ref(value, field_name)
+
+
+def _foundation_report_identifier_is_safe(value: object) -> bool:
+    """Accept only bounded structured refs or normalized repository identifiers."""
+
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 512
+        or contains_absolute_local_path(value)
+        or contains_obvious_secret({"value": value})
+        or _FOUNDATION_REPORT_LOCAL_PATH_FRAGMENT_RE.search(value)
+        or _HIGH_SIGNAL_SECRET_RE.search(value)
+    ):
+        return False
+    if _FOUNDATION_REPORT_SAFE_REF_RE.fullmatch(value):
+        ref_path = value.split(":", maxsplit=1)[1]
+        return all(part not in ("", ".", "..") for part in ref_path.split("/"))
+    if not _FOUNDATION_REPORT_RELATIVE_IDENTIFIER_RE.fullmatch(value):
+        return False
+    return all(part not in ("", ".", "..") for part in value.split("/"))
 
 
 def _validate_digest(value: str, field_name: str) -> None:
@@ -714,6 +808,10 @@ class _EvidenceOnlyDeltaVerificationReceipt(_FrozenModel):
             "published_acceptance_report_fingerprint_ref",
         )
         _validate_repo_path_refs(self.history_path_refs, "history_path_refs")
+        if self.history_path_refs != TAW08_M2_PATH_REFS or self.artifact_count != len(
+            TAW08_M2_PATH_REFS
+        ):
+            raise ValueError("delta verification receipt M2 census drift")
         expected = canonical_digest(
             self.model_dump(mode="json", exclude={"receipt_digest_ref"})
         )
@@ -1247,22 +1345,13 @@ class FounderPrivateAcceptanceEvidence(_FrozenModel):
         receipt_digests = tuple(item.receipt_digest_ref for item in all_receipts)
         if len(receipt_digests) != len(set(receipt_digests)):
             raise ValueError("founder measurement receipts must be unique")
-        expected_live_census = {
-            (inference_profile_ref, hardware_family_ref)
-            for inference_profile_ref in TAW08_INFERENCE_PROFILE_REFS
-            for hardware_family_ref in TAW08_HARDWARE_FAMILY_REFS
-        }
-        actual_live_census = {
-            (
-                receipt.result.inference_profile_ref,
-                receipt.result.observed_hardware_family_ref,
-            )
+        if any(
+            receipt.result.inference_profile_ref not in TAW08_INFERENCE_PROFILE_REFS
+            or receipt.result.observed_hardware_family_ref
+            not in TAW08_HARDWARE_FAMILY_REFS
             for receipt in self.live_model_hardware_receipts
-        }
-        if actual_live_census != expected_live_census or len(
-            self.live_model_hardware_receipts
-        ) != len(expected_live_census):
-            raise ValueError("live-model inference and hardware census drift")
+        ):
+            raise ValueError("live-model measurement profile census drift")
         if any(
             receipt.result.candidate_revision_ref != self.candidate_revision_ref
             or receipt.result.candidate_manifest_digest_ref
@@ -1827,6 +1916,17 @@ def build_final_acceptance_publication_artifact(
     )
 
 
+def _reject_duplicate_json_object_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("acceptance artifact contains duplicate object keys")
+        payload[key] = value
+    return payload
+
+
 def _verify_and_bind_final_acceptance_publication(
     *,
     publication_revision_ref: str,
@@ -1863,13 +1963,22 @@ def _verify_and_bind_final_acceptance_publication(
         postmerge_foundation_receipt=postmerge_foundation_receipt,
     )
     try:
-        raw_payload = json.loads(publication_content)
+        raw_payload = json.loads(
+            publication_content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(raw_payload):
             raise ValueError("final publication contains forbidden durable fields")
         published_artifact = FinalAcceptancePublicationArtifact.model_validate(
             raw_payload
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, ValidationError, RecursionError):
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        ValidationError,
+        RecursionError,
+        ValueError,
+    ):
         raise ValueError("final publication artifact schema is invalid") from None
     if published_artifact != expected_artifact:
         raise ValueError("final publication artifact binding drift")
@@ -2046,9 +2155,10 @@ def _verify_and_bind_foundation_gate_report(
     ):
         raise ValueError("Foundation receipt requires a validated gate report")
     statuses = ("passed", "failed", "warning", "blocked")
+    canonical_criteria = tuple(default_criteria())
     criterion_ids = tuple(item.get("criterion_id") for item in results)
     expected_criterion_ids = tuple(
-        sorted(item.criterion_id for item in default_criteria())
+        sorted(item.criterion_id for item in canonical_criteria)
     )
     counts = {
         status: sum(item["status"] == status for item in results) for status in statuses
@@ -2078,6 +2188,9 @@ def _verify_and_bind_foundation_gate_report(
         not results
         or criterion_ids != expected_criterion_ids
         or len(criterion_ids) != len(set(criterion_ids))
+        or any(
+            item["status"] != "passed" or item.get("failures") != [] for item in results
+        )
         or report_payload["overall_status"] != "passed"
         or report_payload["overall_status"] != expected_status
         or report_payload["passed_count"] != counts["passed"]
@@ -2087,6 +2200,36 @@ def _verify_and_bind_foundation_gate_report(
         or report_payload["command_mode"] != "report-only"
     ):
         raise ValueError("Foundation receipt requires a passing report-only gate")
+    latency_gate = report_payload["latency_gate"]
+    release_lanes = report_payload["release_verification_lanes"]
+    if (
+        not isinstance(latency_gate, dict)
+        or any(
+            latency_gate.get(field) != "passed"
+            for field in (
+                "status",
+                "p50_p95_status",
+                "foundation_gate_status",
+                "release_latency_status",
+                "hot_path_profile_status",
+            )
+        )
+        or latency_gate.get("failures") != []
+        or latency_gate.get("accepted_failures") != []
+        or not isinstance(release_lanes, dict)
+        or release_lanes.get("overall_status") != "definition_pass"
+        or release_lanes.get("definition_status") != "pass"
+        or release_lanes.get("command_execution_status") != "not_executed"
+        or release_lanes.get("accepted_failures") != []
+        or release_lanes.get("validation_failures") != []
+        or not isinstance(release_lanes.get("lane_ids"), list)
+        or not release_lanes["lane_ids"]
+        or len(release_lanes["lane_ids"]) != len(set(release_lanes["lane_ids"]))
+        or release_lanes.get("lane_count") != len(release_lanes["lane_ids"])
+    ):
+        raise ValueError(
+            "Foundation receipt requires passing latency and release lane sub-gates"
+        )
     command_receipts = report_payload["command_receipts"]
     if (
         not isinstance(command_receipts, list)
@@ -2099,19 +2242,86 @@ def _verify_and_bind_foundation_gate_report(
         or "local read/probe code" not in command_receipts[0].get("safe_summary", "")
     ):
         raise ValueError("Foundation receipt requires report-only command provenance")
-    safety_payload = {
-        **report_payload,
-        "results": [
-            {key: value for key, value in item.items() if key != "criterion_id"}
-            for item in results
-        ],
-    }
+    secret_scanner = getattr(
+        reports_module,
+        "scan_public_gate_payload_for_secrets",
+        None,
+    )
+    if not callable(secret_scanner) or secret_scanner(report_payload):
+        raise ValueError("Foundation report contains unsafe durable evidence")
+    criteria_by_id = {item.criterion_id: item for item in canonical_criteria}
+    safety_results: list[dict[str, object]] = []
+    for item in results:
+        criterion_id = item["criterion_id"]
+        criterion = criteria_by_id[criterion_id]
+        evidence_refs = item.get("evidence_refs")
+        if not isinstance(evidence_refs, list) or any(
+            not _foundation_report_identifier_is_safe(value) for value in evidence_refs
+        ):
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safety_item = {
+            key: value
+            for key, value in item.items()
+            if key not in {"criterion_id", "evidence_refs"}
+        }
+        canonical_pass_message = _FOUNDATION_REPORT_PASS_MESSAGE_OVERRIDES.get(
+            criterion_id,
+            f"{criterion.name} passed.",
+        )
+        if (
+            item.get("safe_message") == canonical_pass_message
+            and len(canonical_pass_message) <= 512
+            and "\x00" not in canonical_pass_message
+            and "\n" not in canonical_pass_message
+            and "\r" not in canonical_pass_message
+            and not contains_absolute_local_path(canonical_pass_message)
+            and not secret_scanner(canonical_pass_message)
+        ):
+            safety_item.pop("safe_message", None)
+        safety_results.append(safety_item)
+    safety_payload = {**report_payload, "results": safety_results}
+    latency_gate = report_payload.get("latency_gate")
+    if latency_gate is not None:
+        if not isinstance(latency_gate, dict):
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_latency_gate = dict(latency_gate)
+        for field_name in ("path_results", "optional_prerequisites"):
+            path_results = latency_gate.get(field_name)
+            if not isinstance(path_results, list) or any(
+                not isinstance(item, dict)
+                or item.get("safe_label") not in _FOUNDATION_LATENCY_SAFE_LABELS
+                for item in path_results
+            ):
+                raise ValueError("Foundation report contains unsafe durable evidence")
+            safe_latency_gate[field_name] = [
+                {key: value for key, value in item.items() if key != "safe_label"}
+                for item in path_results
+            ]
+        environment_safe_summary = latency_gate.get("environment_safe_summary")
+        if environment_safe_summary != _FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY:
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_latency_gate["environment_safe_summary"] = {
+            key: value
+            for key, value in environment_safe_summary.items()
+            if not key.startswith("raw_")
+        }
+        safety_payload["latency_gate"] = safe_latency_gate
+    release_lanes = report_payload.get("release_verification_lanes")
+    if release_lanes is not None:
+        if (
+            not isinstance(release_lanes, dict)
+            or release_lanes.get("report_safety") != _FOUNDATION_RELEASE_REPORT_SAFETY
+        ):
+            raise ValueError("Foundation report contains unsafe durable evidence")
+        safe_release_lanes = dict(release_lanes)
+        safe_release_lanes["report_safety"] = {}
+        safety_payload["release_verification_lanes"] = safe_release_lanes
     if durable_payload_has_forbidden_fields(safety_payload):
         raise ValueError("Foundation report contains unsafe durable evidence")
     report_id = report_payload["report_id"]
     if not isinstance(report_id, str):
         raise ValueError("Foundation receipt requires a validated gate report")
-    return _bind_foundation_gate_receipt(
+    receipt = _bind_foundation_gate_receipt(
         stage=stage,
         revision_ref=revision_ref,
         report_digest_ref=canonical_digest(report_payload),
@@ -2121,6 +2331,9 @@ def _verify_and_bind_foundation_gate_report(
             evaluator_environment_receipt.receipt_digest_ref
         ),
     )
+    if durable_payload_has_forbidden_fields(receipt.model_dump(mode="json")):
+        raise ValueError("Foundation receipt contains unsafe durable evidence")
+    return receipt
 
 
 def verify_and_bind_founder_measurement_result(
@@ -2389,7 +2602,10 @@ def _parse_bounded_claim_reconciliation_markdown(
     ):
         return None
     try:
-        payload = json.loads(changed_parts[2])
+        payload = json.loads(
+            changed_parts[2],
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(payload):
             return None
         artifact = ClaimReconciliationArtifact.model_validate(payload)
@@ -2424,7 +2640,10 @@ def _parse_evidence_delta_artifact(
             candidate_content,
         )
     try:
-        payload = json.loads(content)
+        payload = json.loads(
+            content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
         if durable_payload_has_forbidden_fields(payload):
             return None
         if entry.artifact_kind is EvidenceOnlyArtifactKind.acceptance_report:
@@ -2471,6 +2690,11 @@ def verify_evidence_only_delta(
         revision_delta_path_refs
     ) != len(set(revision_delta_path_refs)):
         return ("failure-ref:taw08:revision-delta-path-census-invalid",)
+    if (
+        revision_delta_path_refs != TAW08_M2_PATH_REFS
+        or revision_delta_census.history_path_refs != TAW08_M2_PATH_REFS
+    ):
+        failures.add("failure-ref:taw08:evidence-delta-m2-protocol-drift")
     allowed_refs = set(candidate_lock.evidence_only_delta_path_refs)
     candidate_refs = {item.path_ref for item in candidate_lock.entries}
     actual_refs = set(changed_content_by_path_ref)

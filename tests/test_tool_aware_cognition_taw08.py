@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import importlib.metadata as importlib_metadata
@@ -7,6 +8,7 @@ import inspect
 import io
 import json
 import os
+import py_compile
 import subprocess
 import sys
 import zipfile
@@ -17,7 +19,10 @@ from types import SimpleNamespace
 
 import pytest
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from pydantic import ValidationError
 
 import ultimate_ai_agent.core.evals as evals_api
@@ -40,6 +45,7 @@ from ultimate_ai_agent.core.evals.tool_aware_acceptance import (
     TAW08_HARDWARE_FAMILY_REFS,
     TAW08_INFERENCE_PROFILE_REFS,
     TAW08_LOCAL_INFERENCE_PROFILE_REF,
+    TAW08_M2_PATH_REFS,
     TAW08_RECONCILIATION_END,
     TAW08_RECONCILIATION_JSON,
     TAW08_RECONCILIATION_NARRATIVES,
@@ -81,6 +87,9 @@ from ultimate_ai_agent.core.gate.enums import FoundationGateStatus
 from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.reports import (
     FoundationGateCommandReceipt,
+    FoundationGateLatencyPathResult,
+    FoundationGateLatencySummary,
+    FoundationGateReleaseLaneSummary,
     FoundationGateReport,
     FoundationGateResult,
     build_foundation_gate_report,
@@ -109,6 +118,34 @@ from ultimate_ai_agent.core.evals.tool_aware_baseline import (
 CANDIDATE_REVISION_REF = "git-sha:" + "1" * 40
 DELTA_REVISION_REF = "git-sha:" + "2" * 40
 _TEST_FOUNDER_DECISION_PRIVATE_KEY = Ed25519PrivateKey.generate()
+PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX = (
+    acceptance_module.TAW08_FOUNDER_DECISION_PUBLIC_KEY_HEX
+)
+
+
+def test_production_founder_decision_key_matches_known_signature_vector() -> None:
+    assert PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX == (
+        "9a1ed72c07a95aa395c72e8f3c92e4f5077aa2ab474d03c6b5655a267a7c469c"
+    )
+    message = founder_decision_signature_payload(
+        candidate_revision_ref="git-sha:" + "1" * 40,
+        candidate_manifest_digest_ref="sha256:" + "2" * 64,
+        measurement_receipt_digest_refs=tuple(
+            "sha256:" + str(index) * 64 for index in range(3, 8)
+        ),
+        exact_head_foundation_receipt_digest_ref="sha256:" + "8" * 64,
+        founder_decision_ref="decision-ref:taw08:production-key-vector:accepted",
+    )
+
+    Ed25519PublicKey.from_public_bytes(
+        bytes.fromhex(PRODUCTION_FOUNDER_DECISION_PUBLIC_KEY_HEX)
+    ).verify(
+        bytes.fromhex(
+            "5571cf9dd64f08078757976ce6208f4291594b819bb944cdae19baed9b4922948"
+            "67277f9123165a42c443b4e80b561bd1c8c419831a81b5555dd293a8383890d"
+        ),
+        message,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -139,12 +176,16 @@ def _revision_path_census(path_refs: set[str]) -> RevisionPathCensus:
     )
 
 
-def _revision_delta_census(path_refs: tuple[str, ...]) -> RevisionDeltaCensus:
+def _revision_delta_census(
+    path_refs: tuple[str, ...],
+    *,
+    history_path_refs: tuple[str, ...] | None = None,
+) -> RevisionDeltaCensus:
     return bind_revision_delta_census(
         candidate_revision_ref=CANDIDATE_REVISION_REF,
         delta_revision_ref=DELTA_REVISION_REF,
         path_refs=tuple(sorted(path_refs)),
-        history_path_refs=tuple(sorted(path_refs)),
+        history_path_refs=tuple(sorted(history_path_refs or path_refs)),
         commit_count=1,
         candidate_ancestor_verified=True,
         provenance_ref="provenance-ref:git-history-path-census",
@@ -322,7 +363,7 @@ def _candidate_verification(
 @lru_cache(maxsize=8)
 def _unbound_foundation_gate_report():
     checked_at = datetime(2026, 8, 30, tzinfo=timezone.utc)
-    return build_foundation_gate_report(
+    report = build_foundation_gate_report(
         version="0.104.0",
         results=[
             FoundationGateResult(
@@ -348,6 +389,38 @@ def _unbound_foundation_gate_report():
                 checked_at=checked_at,
             )
         ],
+    )
+    return report.model_copy(
+        update={
+            "latency_gate": FoundationGateLatencySummary(
+                schema_version="uaa_foundation_gate_latency_summary.v1",
+                task_ref="UAA-P1-043",
+                status="passed",
+                p50_p95_status="passed",
+                foundation_gate_status="passed",
+                foundation_gate_best_ms=1.0,
+                foundation_gate_mean_ms=1.0,
+                foundation_gate_best_budget_ms=30_000.0,
+                foundation_gate_mean_budget_ms=25_000.0,
+                release_latency_status="passed",
+                hot_path_profile_status="passed",
+                environment_safe_summary=dict(
+                    acceptance_module._FOUNDATION_LATENCY_ENVIRONMENT_SAFE_SUMMARY
+                ),
+            ),
+            "release_verification_lanes": FoundationGateReleaseLaneSummary(
+                schema_version="uaa_release_verification_lanes.v1",
+                task_ref="UAA-P1-013",
+                overall_status="definition_pass",
+                definition_status="pass",
+                command_execution_status="not_executed",
+                lane_count=1,
+                lane_ids=["performance"],
+                report_safety=dict(
+                    acceptance_module._FOUNDATION_RELEASE_REPORT_SAFETY
+                ),
+            ),
+        }
     )
 
 
@@ -556,6 +629,52 @@ def _founder_evidence(lock: CandidateLock):
         founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
         exact_head_foundation_receipt=foundation_receipt,
     )
+
+
+def _founder_evidence_for_live_profile_hardware_pairs(
+    lock: CandidateLock,
+    *,
+    live_profile_hardware_pairs: tuple[tuple[str, str], ...],
+):
+    evidence = _founder_evidence(lock)
+    requested_pairs = frozenset(live_profile_hardware_pairs)
+    live_receipts = tuple(
+        receipt
+        for receipt in evidence.live_model_hardware_receipts
+        if (
+            receipt.result.inference_profile_ref,
+            receipt.result.observed_hardware_family_ref,
+        )
+        in requested_pairs
+    )
+    assert len(requested_pairs) == len(live_profile_hardware_pairs)
+    assert len(live_receipts) == len(requested_pairs)
+    signature = _TEST_FOUNDER_DECISION_PRIVATE_KEY.sign(
+        founder_decision_signature_payload(
+            candidate_revision_ref=evidence.candidate_revision_ref,
+            candidate_manifest_digest_ref=evidence.candidate_manifest_digest_ref,
+            measurement_receipt_digest_refs=tuple(
+                item.receipt_digest_ref
+                for item in (
+                    evidence.stale_cache_recovery_receipt,
+                    evidence.routing_confidence_receipt,
+                    evidence.response_scoring_receipt,
+                    *live_receipts,
+                    evidence.end_to_end_journey_receipt,
+                )
+            ),
+            exact_head_foundation_receipt_digest_ref=(
+                evidence.exact_head_foundation_receipt.receipt_digest_ref
+            ),
+            founder_decision_ref=evidence.founder_decision_ref,
+        )
+    )
+    values = evidence.model_dump(mode="python", exclude={"evidence_digest_ref"})
+    values.update(
+        live_model_hardware_receipts=live_receipts,
+        founder_decision_signature_ref=f"ed25519-signature-ref:{signature.hex()}",
+    )
+    return bind_founder_private_acceptance_evidence(**values)
 
 
 def _pre_delta_report(lock: CandidateLock) -> TAW08AcceptanceReport:
@@ -875,6 +994,45 @@ def test_final_publication_requires_exact_durable_artifact_bytes() -> None:
         )
 
 
+def test_final_publication_rejects_duplicate_json_object_keys() -> None:
+    lock = _candidate_lock()
+    delta = _delta(lock)
+    verification = _delta_verification(lock, delta)
+    artifact = build_final_acceptance_publication_artifact(
+        candidate_revision_ref=lock.git_revision_ref,
+        candidate_manifest_digest_ref=lock.manifest_digest_ref,
+        founder_evidence_digest_ref=_founder_evidence(lock).evidence_digest_ref,
+        delta=delta,
+        delta_verification_receipt=verification,
+        postmerge_foundation_receipt=_postmerge_receipt(),
+    )
+    canonical = json.dumps(
+        artifact.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    duplicate = (
+        b'{"candidate_revision_ref":'
+        + json.dumps(lock.git_revision_ref).encode()
+        + b","
+        + canonical[1:]
+    )
+
+    with pytest.raises(ValueError, match="artifact schema is invalid"):
+        _verify_and_bind_final_acceptance_publication(
+            publication_revision_ref=PUBLICATION_REVISION_REF,
+            publication_path_ref=TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF,
+            publication_content=duplicate,
+            publication_history_census=_publication_history_census(),
+            candidate_revision_ref=lock.git_revision_ref,
+            candidate_manifest_digest_ref=lock.manifest_digest_ref,
+            founder_evidence_digest_ref=_founder_evidence(lock).evidence_digest_ref,
+            delta=delta,
+            delta_verification_receipt=verification,
+            postmerge_foundation_receipt=_postmerge_receipt(),
+        )
+
+
 def test_postmerge_receipt_must_bind_evidence_delta_revision() -> None:
     lock = _candidate_lock()
     delta = _delta(lock)
@@ -947,19 +1105,46 @@ def test_founder_evidence_rejects_duplicate_measurement_receipts() -> None:
 
 
 def test_founder_evidence_requires_every_inference_hardware_pair() -> None:
+    """Require every submitted inference/hardware pair to be configured."""
     lock = _candidate_lock()
     values = _founder_evidence(lock).model_dump(
         mode="json", exclude={"evidence_digest_ref"}
     )
-    values["live_model_hardware_receipts"] = tuple(
-        values["live_model_hardware_receipts"][:-1]
+    values["live_model_hardware_receipts"][0]["result"]["inference_profile_ref"] = (
+        "inference-profile-ref:taw00:unconfigured-model"
     )
 
-    with pytest.raises(
-        ValidationError,
-        match="live-model inference and hardware census drift",
-    ):
+    with pytest.raises(ValidationError, match="profile census drift"):
         bind_founder_private_acceptance_evidence(**values)
+
+
+def test_founder_evidence_accepts_one_configured_inference_hardware_run() -> None:
+    lock = _candidate_lock()
+    evidence = _founder_evidence_for_live_profile_hardware_pairs(
+        lock,
+        live_profile_hardware_pairs=(
+            (TAW08_LOCAL_INFERENCE_PROFILE_REF, "hardware-family-ref:mac"),
+        ),
+    )
+
+    assert len(evidence.live_model_hardware_receipts) == 1
+    assert (
+        evidence.live_model_hardware_receipts[0].result.inference_profile_ref
+        == TAW08_LOCAL_INFERENCE_PROFILE_REF
+    )
+    assert (
+        evidence.live_model_hardware_receipts[0].result.observed_hardware_family_ref
+        == "hardware-family-ref:mac"
+    )
+    report = evaluate_taw08_acceptance(
+        candidate_lock=lock,
+        candidate_verification_receipt=_candidate_verification(lock),
+        founder_evidence=evidence,
+    )
+    assert report.status == (
+        TAW08AcceptanceStatus.founder_private_accepted_postmerge_pending
+    )
+    assert report.founder_private_accepted is True
 
 
 def test_live_measurement_requires_bound_same_host_baseline() -> None:
@@ -1014,6 +1199,80 @@ def test_evidence_only_delta_verifies_exact_allowed_content() -> None:
     )
 
 
+def test_evidence_delta_rejects_duplicate_acceptance_report_keys() -> None:
+    lock = _candidate_lock()
+    canonical = _safe_delta_content(lock)
+    duplicate = (
+        b'{"candidate_revision_ref":'
+        + json.dumps(lock.git_revision_ref).encode()
+        + b","
+        + canonical[1:]
+    )
+    contents = _delta_contents(lock, duplicate)
+    delta = _delta(lock, duplicate)
+
+    assert "failure-ref:taw08:evidence-delta-artifact-schema-invalid" in (
+        verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            revision_delta_census=_revision_delta_census(tuple(sorted(contents))),
+            candidate_content_by_path_ref=_candidate_truth_contents(),
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: _pre_delta_report(lock)
+            },
+        )
+    )
+
+
+def test_evidence_delta_rejects_duplicate_reconciliation_keys() -> None:
+    canonical = _reconciliation_content(BOARD_PATH_REF, status="blocked")
+    duplicate = canonical.replace(
+        b'{"entries":',
+        b'{"raw_content_persisted":true,"entries":',
+        1,
+    )
+
+    assert (
+        acceptance_module._parse_bounded_claim_reconciliation_markdown(
+            BOARD_PATH_REF,
+            duplicate,
+            canonical,
+        )
+        is None
+    )
+
+
+def test_evidence_only_delta_requires_exact_m2_path_census() -> None:
+    lock = _candidate_lock()
+    contents = _delta_contents(lock)
+    delta = _delta(lock)
+    report = _pre_delta_report(lock)
+    extra_path_ref = TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF
+
+    assert tuple(sorted(contents)) == TAW08_M2_PATH_REFS
+    for census in (
+        _revision_delta_census(
+            tuple(sorted((*contents, extra_path_ref))),
+        ),
+        _revision_delta_census(
+            tuple(sorted(contents)),
+            history_path_refs=tuple(sorted((*contents, extra_path_ref))),
+        ),
+    ):
+        failures = verify_evidence_only_delta(
+            candidate_lock=lock,
+            delta=delta,
+            changed_content_by_path_ref=contents,
+            candidate_content_by_path_ref=_candidate_truth_contents(),
+            revision_delta_census=census,
+            validated_acceptance_reports_by_path_ref={
+                TAW08_ACCEPTANCE_REPORT_PATH_REF: report
+            },
+        )
+        assert "failure-ref:taw08:evidence-delta-m2-protocol-drift" in failures
+
+
 def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None:
     lock = _candidate_lock()
     delta = _delta(lock)
@@ -1030,6 +1289,7 @@ def test_evidence_only_delta_rejects_unapproved_or_substituted_content() -> None
     )
 
     assert failures == (
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:evidence-delta-path-census-drift",
         "failure-ref:taw08:evidence-delta-unapproved-path",
         "failure-ref:taw08:revision-history-unapproved-path",
@@ -1094,6 +1354,7 @@ def test_evidence_only_delta_cannot_overlap_candidate_artifact() -> None:
         "failure-ref:taw08:evidence-delta-acceptance-path-overlap",
         "failure-ref:taw08:evidence-delta-acceptance-report-missing",
         "failure-ref:taw08:evidence-delta-artifact-schema-invalid",
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:evidence-delta-unapproved-path",
         "failure-ref:taw08:revision-history-unapproved-path",
     )
@@ -1151,6 +1412,44 @@ def test_foundation_receipt_requires_validated_gate_output() -> None:
         )
 
 
+def test_foundation_receipt_requires_passing_latency_subgate() -> None:
+    report = _foundation_gate_report()
+    assert report.latency_gate is not None
+    failed_latency = report.latency_gate.model_copy(
+        update={"status": "failed", "failures": ["bounded latency failure"]}
+    )
+
+    with pytest.raises(ValueError, match="latency and release lane sub-gates"):
+        _verify_and_bind_foundation_gate_report(
+            report=report.model_copy(update={"latency_gate": failed_latency}),
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+def test_foundation_receipt_requires_validated_release_lane_definitions() -> None:
+    report = _foundation_gate_report()
+    assert report.release_verification_lanes is not None
+    failed_release_lanes = report.release_verification_lanes.model_copy(
+        update={
+            "overall_status": "definition_fail",
+            "definition_status": "fail",
+            "validation_failures": ["bounded definition failure"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="latency and release lane sub-gates"):
+        _verify_and_bind_foundation_gate_report(
+            report=report.model_copy(
+                update={"release_verification_lanes": failed_release_lanes}
+            ),
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
 def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
     first_environment = _evaluator_environment_receipt()
     second_environment = _evaluator_environment_receipt(
@@ -1178,6 +1477,220 @@ def test_foundation_receipt_binds_the_verified_evaluator_environment() -> None:
     assert first.receipt_digest_ref != second.receipt_digest_ref
 
 
+def test_foundation_receipt_allows_safe_transient_secret_hygiene_labels() -> None:
+    report = _unbound_foundation_gate_report()
+    criterion = next(
+        item
+        for item in default_foundation_gate_criteria()
+        if item.criterion_id == "secret_hygiene_clean"
+    )
+    result_index = next(
+        index
+        for index, item in enumerate(report.results)
+        if item.criterion_id == criterion.criterion_id
+    )
+    canonical_result = report.results[result_index].model_copy(
+        update={
+            "safe_message": f"{criterion.name} passed.",
+            "evidence_refs": [
+                "repo-path-ref:src/ultimate_ai_agent/core/secrets/hygiene.py",
+                "src/ultimate_ai_agent/core/secrets/hygiene.py",
+            ],
+        }
+    )
+    results = list(report.results)
+    results[result_index] = canonical_result
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        CANDIDATE_REVISION_REF,
+    )
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.report_digest_ref == canonical_digest(report.model_dump(mode="json"))
+    assert (
+        taw08_verifier.durable_payload_has_forbidden_fields(
+            receipt.model_dump(mode="json")
+        )
+        is False
+    )
+
+
+def _foundation_report_with_latency_label(safe_label: str) -> FoundationGateReport:
+    latency = FoundationGateLatencySummary(
+        schema_version="foundation-gate-latency.v1",
+        task_ref="task-ref:foundation-gate-latency",
+        status="passed",
+        p50_p95_status="passed",
+        foundation_gate_status="passed",
+        foundation_gate_best_budget_ms=1.0,
+        foundation_gate_mean_budget_ms=1.0,
+        release_latency_status="passed",
+        hot_path_profile_status="passed",
+        environment_safe_summary={
+            "measurement_mode": "local_foundation_gate_latency_summary",
+            "runner": "scripts.check_foundation_gate_latency",
+            "optional_prerequisite_policy": "skipped_or_blocked_with_reason_codes",
+            "machine_identity_recorded": False,
+            "environment_variables_recorded": False,
+            "raw_paths_recorded": False,
+            "raw_logs_recorded": False,
+        },
+        path_results=[
+            FoundationGateLatencyPathResult(
+                path_id="health",
+                safe_label=safe_label,
+                required=True,
+                status="passed",
+                samples=1,
+                budget_status="passed",
+            )
+        ],
+    )
+    return _bind_test_foundation_provenance(
+        _unbound_foundation_gate_report().model_copy(update={"latency_gate": latency}),
+        CANDIDATE_REVISION_REF,
+    )
+
+
+def test_foundation_receipt_treats_only_canonical_latency_routes_as_identifiers() -> (
+    None
+):
+    safe_report = _foundation_report_with_latency_label("GET /health")
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=safe_report,
+        stage="exact_head",
+        revision_ref=CANDIDATE_REVISION_REF,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.passed
+    unsafe_report = _foundation_report_with_latency_label(
+        "/" + "Users" + "/fixture/raw.log"
+    )
+    with pytest.raises(ValueError, match="unsafe durable evidence"):
+        _verify_and_bind_foundation_gate_report(
+            report=unsafe_report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+    assert safe_report.latency_gate is not None
+    unsafe_environment = dict(safe_report.latency_gate.environment_safe_summary)
+    unsafe_environment["raw_paths_recorded"] = True
+    unsafe_latency = safe_report.latency_gate.model_copy(
+        update={"environment_safe_summary": unsafe_environment}
+    )
+    unsafe_attestation_report = _bind_test_foundation_provenance(
+        safe_report.model_copy(update={"latency_gate": unsafe_latency}),
+        CANDIDATE_REVISION_REF,
+    )
+    with pytest.raises(ValueError, match="unsafe durable evidence"):
+        _verify_and_bind_foundation_gate_report(
+            report=unsafe_attestation_report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+@pytest.mark.parametrize(
+    "surface",
+    (
+        "safe_message_path",
+        "summary_path",
+        "summary_credential",
+        "evidence_ref_path",
+        "evidence_ref_nested_path",
+        "evidence_ref_credential",
+        "evidence_ref_assignment_credential",
+        "evidence_ref_traversal",
+        "command_safe_summary_path",
+    ),
+)
+def test_foundation_receipt_rejects_unsafe_report_content(surface: str) -> None:
+    report = _unbound_foundation_gate_report()
+    unsafe_path = "/" + "Users" + "/fixture/raw.log"
+    first_result = report.results[0]
+    if surface == "safe_message_path":
+        first_result = first_result.model_copy(update={"safe_message": unsafe_path})
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "summary_path":
+        report = report.model_copy(update={"summary": unsafe_path})
+    elif surface == "summary_credential":
+        report = report.model_copy(update={"summary": "api_" + "key=" + "A" * 24})
+    elif surface == "evidence_ref_path":
+        first_result = first_result.model_copy(update={"evidence_refs": [unsafe_path]})
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_nested_path":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": ["evidence-ref:file:/private/tmp/raw.log"]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_credential":
+        first_result = first_result.model_copy(
+            update={
+                "evidence_refs": [
+                    "evidence-ref:sk_" + "live_" + "abcdefghijklmnopqrstuvwxyz"
+                ]
+            }
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_assignment_credential":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": ["evidence-ref:api_key:ABCDEFGHIJKLMNOPQRSTUVWX"]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    elif surface == "evidence_ref_traversal":
+        first_result = first_result.model_copy(
+            update={"evidence_refs": ["src/ultimate_ai_agent/../private.txt"]}
+        )
+        report = report.model_copy(
+            update={"results": [first_result, *report.results[1:]]}
+        )
+    else:
+        command_receipt = report.command_receipts[0].model_copy(
+            update={
+                "safe_summary": (
+                    "Evaluated canonical criteria with local read/probe code. "
+                    + unsafe_path
+                )
+            }
+        )
+        report = report.model_copy(update={"command_receipts": [command_receipt]})
+    report = _bind_test_foundation_provenance(
+        report,
+        CANDIDATE_REVISION_REF,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Foundation report contains unsafe durable evidence",
+    ):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage="exact_head",
+            revision_ref=CANDIDATE_REVISION_REF,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
 def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1198,34 +1711,17 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     assert not hasattr(foundation_runner, "bind_foundation_gate_execution_report")
 
     observed_roots: list[Path] = []
-    observed_git_executables: list[str | Path] = []
 
-    def exact_revision(
+    def fresh_foundation(
         repository_root: Path,
-        *,
-        git_executable: str | Path = "git",
-    ) -> str:
+    ) -> tuple[str, FoundationGateReport]:
         observed_roots.append(repository_root)
-        observed_git_executables.append(git_executable)
-        return CANDIDATE_REVISION_REF
+        return CANDIDATE_REVISION_REF, _foundation_gate_report()
 
-    class FakeEvaluator:
-        def __init__(self, repository_root: Path) -> None:
-            assert repository_root == tmp_path
-
-        def evaluate(self):
-            return _unbound_foundation_gate_report()
-
-    monkeypatch.setattr(foundation_runner, "exact_repository_revision", exact_revision)
-    monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
     monkeypatch.setattr(
         taw08_verifier,
-        "_trusted_git_identity",
-        lambda: (
-            Path("/trusted/git"),
-            "sha256:" + "3" * 64,
-            "git-provenance-ref:test-trust-root",
-        ),
+        "_evaluate_foundation_gate_in_fresh_process",
+        fresh_foundation,
     )
     monkeypatch.setattr(
         taw08_verifier,
@@ -1254,8 +1750,7 @@ def test_foundation_provenance_and_receipt_issuance_are_runner_scoped(
     )
     assert receipt.revision_ref == CANDIDATE_REVISION_REF
     assert receipt.stage == "exact_head"
-    assert observed_roots == [tmp_path, tmp_path]
-    assert observed_git_executables == [Path("/trusted/git"), Path("/trusted/git")]
+    assert observed_roots == [tmp_path]
 
 
 def test_foundation_receipt_rejects_evaluator_from_another_revision(
@@ -1270,10 +1765,10 @@ def test_foundation_receipt_rejects_evaluator_from_another_revision(
     ).stdout.strip()
     monkeypatch.setattr(
         taw08_verifier,
-        "evaluate_foundation_gate_at_exact_repository_revision",
-        lambda _root, **_kwargs: (
+        "_evaluate_foundation_gate_in_fresh_process",
+        lambda _root: (
             f"git-sha:{prior_revision}",
-            _unbound_foundation_gate_report(),
+            _foundation_gate_report(f"git-sha:{prior_revision}"),
         ),
     )
 
@@ -1293,7 +1788,12 @@ def test_foundation_development_mode_preserves_dirty_tree_evaluation(
 ) -> None:
     report = _unbound_foundation_gate_report()
 
-    def dirty_revision(_root: Path):
+    def dirty_revision(
+        _root: Path,
+        *,
+        git_executable: str | Path,
+    ):
+        assert git_executable == "git"
         raise RuntimeError(
             "Foundation Gate revision provenance requires a clean worktree"
         )
@@ -1386,6 +1886,105 @@ def test_foundation_receipt_requires_complete_canonical_census() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_rejects_skipped_canonical_result(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={
+            "status": FoundationGateStatus.skipped,
+            "warnings": ["warning-ref:taw08:missing-evaluator"],
+        }
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(
+            update={
+                "results": results,
+                "passed_count": report.passed_count - 1,
+            }
+        ),
+        revision_ref,
+    )
+
+    with pytest.raises(ValueError, match="passing report-only gate"):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage=stage,
+            revision_ref=revision_ref,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_rejects_passed_result_with_failures(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={"failures": ["failure-ref:taw08:explicit-failure"]}
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        revision_ref,
+    )
+
+    with pytest.raises(ValueError, match="passing report-only gate"):
+        _verify_and_bind_foundation_gate_report(
+            report=report,
+            stage=stage,
+            revision_ref=revision_ref,
+            evaluator_environment_receipt=_evaluator_environment_receipt(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("stage", "revision_ref"),
+    (
+        ("exact_head", CANDIDATE_REVISION_REF),
+        ("postmerge", DELTA_REVISION_REF),
+    ),
+)
+def test_foundation_receipt_preserves_passed_result_advisory_warnings(
+    stage: str,
+    revision_ref: str,
+) -> None:
+    report = _unbound_foundation_gate_report()
+    results = list(report.results)
+    results[0] = results[0].model_copy(
+        update={"warnings": ["warning-ref:taw08:bounded-observation"]}
+    )
+    report = _bind_test_foundation_provenance(
+        report.model_copy(update={"results": results}),
+        revision_ref,
+    )
+
+    receipt = _verify_and_bind_foundation_gate_report(
+        report=report,
+        stage=stage,
+        revision_ref=revision_ref,
+        evaluator_environment_receipt=_evaluator_environment_receipt(),
+    )
+
+    assert receipt.passed is True
+
+
 def test_foundation_receipt_uses_canonical_report_criterion_order() -> None:
     report_ids = tuple(item.criterion_id for item in _foundation_gate_report().results)
     expected_ids = tuple(
@@ -1452,6 +2051,722 @@ def test_foundation_revision_provenance_requires_clean_worktree(
     with pytest.raises(RuntimeError, match="requires a clean worktree"):
         exact_repository_revision(repository)
 
+    tracked.unlink()
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+
+
+def test_foundation_development_mode_accepts_deleted_tracked_path_as_dirty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "foundation-deleted-path"
+    repository.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-q", "-m", "candidate")
+    tracked.unlink()
+    report = _unbound_foundation_gate_report()
+
+    class FakeEvaluator:
+        def __init__(self, repository_root: Path) -> None:
+            assert repository_root == repository
+
+        def evaluate(self) -> FoundationGateReport:
+            return report
+
+    monkeypatch.setattr(foundation_runner, "FoundationGateEvaluator", FakeEvaluator)
+
+    revision_ref, development_report = (
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            repository,
+            require_clean_revision=False,
+        )
+    )
+    assert revision_ref is None
+    assert development_report is report
+
+
+def test_filter_attribute_check_uses_git_239_compatible_cached_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "git-239-attributes"
+    repository.mkdir()
+
+    def git(*arguments: str) -> None:
+        subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / "tracked.py").write_text("SAFE = True\n", encoding="utf-8")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    observed: list[tuple[str, ...]] = []
+    original_git = taw08_verifier._git
+
+    def git_239(*args: str, **kwargs: object) -> bytes:
+        observed.append(args)
+        if any(argument.startswith("--source") for argument in args):
+            raise subprocess.CalledProcessError(129, args)
+        return original_git(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(taw08_verifier, "_git", git_239)
+
+    taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+    attribute_calls = tuple(call for call in observed if call[0] == "check-attr")
+    assert len(attribute_calls) == 2
+    assert any("--cached" in call for call in attribute_calls)
+    assert not any(
+        argument.startswith("--source") for call in attribute_calls for argument in call
+    )
+
+
+def test_foundation_preimport_posture_diverts_cache_and_rejects_legacy_bytecode(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-preimport"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("*.pyc\n", encoding="utf-8")
+    tracked = repository / "src/package/module.py"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("SAFE = True\n", encoding="utf-8")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    cache = repository / "src/package/__pycache__/module.cpython-test.pyc"
+    cache.parent.mkdir()
+    cache.write_bytes(b"ignored cache is diverted")
+    git_environment = foundation_runner._sanitized_git_environment()
+
+    original_prefix = sys.pycache_prefix
+    original_dont_write = sys.dont_write_bytecode
+    cache_handle, cache_root = foundation_runner._prepare_external_import_cache(
+        repository
+    )
+    try:
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=git_environment,
+        )
+        assert cache_root.is_dir()
+        assert not cache_root.is_relative_to(repository)
+        assert sys.pycache_prefix == str(cache_root)
+    finally:
+        sys.pycache_prefix = original_prefix
+        sys.dont_write_bytecode = original_dont_write
+        cache_handle.cleanup()
+
+    legacy = repository / "src/package/legacy.pyc"
+    legacy.write_bytes(b"ignored legacy bytecode")
+    with pytest.raises(RuntimeError, match="ignored executable import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=git_environment,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX temporary-root regression")
+def test_foundation_import_cache_rejects_writable_nonsticky_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    unsafe_root = tmp_path / "unsafe-temp"
+    unsafe_root.mkdir(mode=0o700)
+    unsafe_root.chmod(0o777)
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(unsafe_root))
+
+    try:
+        with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+            foundation_runner._prepare_external_import_cache(repository)
+    finally:
+        unsafe_root.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor-chain regression")
+def test_foundation_import_cache_rejects_unsafe_parent_ancestor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    unsafe_ancestor = tmp_path / "unsafe-ancestor"
+    unsafe_ancestor.mkdir(mode=0o700)
+    temporary_root = unsafe_ancestor / "private-temp"
+    temporary_root.mkdir(mode=0o700)
+    unsafe_ancestor.chmod(0o777)
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(temporary_root))
+
+    try:
+        with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+            foundation_runner._prepare_external_import_cache(repository)
+    finally:
+        unsafe_ancestor.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor ACL regression")
+def test_foundation_import_cache_rejects_extended_acl_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_descriptors: list[int] = []
+
+    def unsafe_acl(descriptor: int) -> tuple[int, ...]:
+        observed_descriptors.append(descriptor)
+        return (1,)
+
+    monkeypatch.setattr(
+        foundation_runner,
+        "_darwin_extended_acl_tags",
+        unsafe_acl,
+    )
+
+    with pytest.raises(RuntimeError, match="import cache root is unsafe"):
+        foundation_runner._validate_posix_temporary_ancestor_chain(tmp_path)
+
+    assert observed_descriptors
+
+
+def test_foundation_import_cache_validates_windows_parent_acl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    temporary_root = tmp_path / "windows-temp"
+    temporary_root.mkdir()
+    parent_checks: list[Path] = []
+    private_checks: list[Path] = []
+    posix_path = type(tmp_path)
+    monkeypatch.setattr(foundation_runner, "Path", posix_path)
+    monkeypatch.setattr(foundation_runner.os, "name", "nt")
+    monkeypatch.setattr(foundation_runner.tempfile, "tempdir", str(temporary_root))
+    monkeypatch.setattr(
+        foundation_runner,
+        "_apply_windows_private_directory_acl",
+        lambda _path: None,
+    )
+    monkeypatch.setattr(
+        foundation_runner,
+        "_validate_windows_private_parent_acl",
+        lambda path: parent_checks.append(path),
+    )
+    monkeypatch.setattr(
+        foundation_runner,
+        "_validate_windows_private_directory_acl",
+        lambda path: private_checks.append(path),
+    )
+
+    original_prefix = sys.pycache_prefix
+    original_dont_write = sys.dont_write_bytecode
+    handle, cache_root = foundation_runner._prepare_external_import_cache(repository)
+    try:
+        assert parent_checks == [temporary_root.resolve()]
+        assert private_checks == [cache_root]
+    finally:
+        sys.pycache_prefix = original_prefix
+        sys.dont_write_bytecode = original_dont_write
+        handle.cleanup()
+
+
+@pytest.mark.parametrize(
+    ("ace_type", "access_mask", "trustee_is_trusted", "expected"),
+    (
+        (0, 0x001200A9, False, False),
+        (0, 0x00000002, False, True),
+        (0, 0x00000040, False, True),
+        (0, 0x10000000, True, False),
+        (5, 0x40000000, False, True),
+        (1, 0x10000000, False, False),
+    ),
+)
+def test_foundation_windows_parent_acl_policy_rejects_only_untrusted_grants(
+    ace_type: int,
+    access_mask: int,
+    trustee_is_trusted: bool,
+    expected: bool,
+) -> None:
+    assert (
+        foundation_runner._windows_parent_acl_grant_is_unsafe(
+            ace_type=ace_type,
+            access_mask=access_mask,
+            trustee_is_trusted=trustee_is_trusted,
+        )
+        is expected
+    )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX executable-mode regression")
+def test_foundation_clean_worktree_rejects_other_only_executable_mode(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    tracked = repository / "tracked.sh"
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    tracked.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    tracked.chmod(0o700)
+    subprocess.run(("git", "add", "tracked.sh"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    tracked.chmod(0o001)
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        foundation_runner._require_raw_clean_worktree(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+def test_active_foundation_command_examples_use_isolated_python() -> None:
+    repository = Path(__file__).resolve().parents[1]
+    active_documents = [repository / "AGENTS.md"]
+    active_documents.extend(
+        path
+        for path in (repository / "docs").rglob("*.md")
+        if "archive" not in path.relative_to(repository / "docs").parts
+    )
+    forbidden = (
+        ".venv/bin/python scripts/run_foundation_gate.py",
+        "PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py",
+        "python scripts/run_foundation_gate.py",
+    )
+
+    offenders = [
+        str(path.relative_to(repository))
+        for path in active_documents
+        if any(fragment in path.read_text(encoding="utf-8") for fragment in forbidden)
+    ]
+    assert offenders == []
+
+
+def test_foundation_bootstrap_prevents_initial_sourceless_module_execution(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    runner = scripts / "run_foundation_gate.py"
+    runner.write_bytes(Path(foundation_runner.__file__).read_bytes())
+    sentinel = tmp_path / "ignored-bootstrap-ran"
+    malicious_source = scripts / "argparse.py"
+    malicious_source.write_text(
+        f"open({str(sentinel)!r}, 'w').write('executed')\n",
+        encoding="utf-8",
+    )
+    malicious_bytecode = scripts / "argparse.pyc"
+    py_compile.compile(
+        str(malicious_source),
+        cfile=str(malicious_bytecode),
+        doraise=True,
+    )
+    malicious_source.unlink()
+
+    completed = subprocess.run(
+        (sys.executable, str(runner), "--command-mode", "report-only"),
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert completed.returncode != 0
+    assert not sentinel.exists()
+
+
+def test_foundation_bootstrap_never_reexecutes_after_ambient_site_startup(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    runner = scripts / "run_foundation_gate.py"
+    runner.write_bytes(Path(foundation_runner.__file__).read_bytes())
+    startup = tmp_path / "startup"
+    startup.mkdir()
+    sentinel = tmp_path / "ambient-sitecustomize-ran"
+    (startup / "sitecustomize.py").write_text(
+        "import sys\n"
+        f"open({str(sentinel)!r}, 'w').write('ran')\n"
+        "sys.executable = 'attacker-selected-python'\n",
+        encoding="utf-8",
+    )
+    environment = {**os.environ, "PYTHONPATH": str(startup)}
+
+    completed = subprocess.run(
+        (sys.executable, str(runner), "--command-mode", "report-only"),
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert sentinel.is_file()
+    assert completed.returncode != 0
+    assert b"requires python -I -B -S" in completed.stderr
+    assert b"Foundation Gate Summary" not in completed.stdout
+
+
+def test_foundation_ignored_census_allows_only_nonimported_ci_bootstrap(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-ci-bootstrap"
+    repository.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    (repository / ".gitignore").write_text(".ci-bootstrap/\n", encoding="utf-8")
+    subprocess.run(("git", "add", ".gitignore"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    bootstrap_source = repository / ".ci-bootstrap/lib/bootstrap.py"
+    bootstrap_source.parent.mkdir(parents=True)
+    bootstrap_source.write_text("BOOTSTRAP = True\n", encoding="utf-8")
+
+    foundation_runner._require_no_ignored_repository_import_sources(
+        repository,
+        git_command=foundation_runner._trusted_preimport_git(),
+        git_environment=foundation_runner._sanitized_git_environment(),
+    )
+
+
+def test_foundation_preimport_posture_rejects_ignored_root_package(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-root-package"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("pydantic/\n", encoding="utf-8")
+    package = repository / "pydantic/__init__.py"
+    package.parent.mkdir()
+    package.write_text("MALICIOUS = True\n", encoding="utf-8")
+    git("add", ".gitignore")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="ignored executable import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_foundation_preimport_posture_rejects_ignored_package_symlink(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-ignored-symlink"
+    repository.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repository / ".gitignore").write_text("src/pydantic\n", encoding="utf-8")
+    (repository / "src").mkdir()
+    outside_package = tmp_path / "outside-pydantic"
+    outside_package.mkdir()
+    (outside_package / "__init__.py").write_text("MALICIOUS = True\n", encoding="utf-8")
+    (repository / "src/pydantic").symlink_to(
+        outside_package,
+        target_is_directory=True,
+    )
+    git("add", ".gitignore")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="ignored symlink import sources"):
+        foundation_runner._require_no_ignored_repository_import_sources(
+            repository,
+            git_command=foundation_runner._trusted_preimport_git(),
+            git_environment=foundation_runner._sanitized_git_environment(),
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_foundation_exact_revision_rejects_tracked_symlink(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-tracked-symlink"
+    repository.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("MALICIOUS = True\n", encoding="utf-8")
+    (repository / "dependency.py").symlink_to(outside)
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    git("add", "dependency.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+
+    with pytest.raises(RuntimeError, match="rejects tracked symlinks"):
+        exact_repository_revision(repository)
+
+
+def test_foundation_direct_caller_cannot_issue_root_exact_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = tmp_path / "foundation-direct-caller"
+    repository.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    (repository / "tracked.txt").write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    revision = git("rev-parse", "HEAD")
+    monkeypatch.setattr(foundation_runner, "ROOT", repository)
+    monkeypatch.setattr(foundation_runner, "_FOUNDATION_BOOTSTRAP_SAFE", False)
+    monkeypatch.setattr(
+        foundation_runner,
+        "_PREIMPORT_REPOSITORY_MODULE_PATHS",
+        (),
+    )
+    monkeypatch.setattr(
+        foundation_runner,
+        "_PREIMPORT_CLEAN_REVISION",
+        revision,
+    )
+
+    with pytest.raises(RuntimeError, match="isolated no-site process"):
+        exact_repository_revision(repository)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX fsmonitor regression")
+def test_foundation_revision_provenance_disables_repository_fsmonitor(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-fsmonitor"
+    repository.mkdir()
+    tracked = repository / "tracked.txt"
+    sentinel = tmp_path / "foundation-fsmonitor-ran"
+    hook = tmp_path / "lying-foundation-fsmonitor"
+    hook.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nprintf 'unchanged-token\\0'\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o755)
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init")
+    git("config", "user.name", "TAW-08 Test")
+    git("config", "user.email", "taw08@example.invalid")
+    tracked.write_text("same-size-a\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "candidate")
+    original = tracked.stat()
+    git("config", "core.fsmonitor", str(hook))
+    git("config", "core.trustctime", "false")
+    git("status", "--porcelain")
+    assert sentinel.exists()
+    sentinel.unlink()
+    tracked.write_text("same-size-b\n", encoding="utf-8")
+    os.utime(tracked, ns=(original.st_atime_ns, original.st_mtime_ns))
+    assert git("status", "--porcelain") == ""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX filter regression")
+def test_foundation_revision_provenance_uses_raw_bytes_not_clean_filter(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "foundation-filter"
+    repository.mkdir()
+
+    def git(*args: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ("git", *args),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.py"
+    tracked.write_bytes(b"SAFE")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    (repository / ".git/info/attributes").write_text(
+        "tracked.py filter=mask\n", encoding="utf-8"
+    )
+    sentinel = tmp_path / "foundation-filter-ran"
+    clean_filter = tmp_path / "foundation-clean-filter"
+    clean_filter.write_text(
+        f"#!/bin/sh\nprintf ran >> {str(sentinel)!r}\nprintf SAFE\n",
+        encoding="utf-8",
+    )
+    clean_filter.chmod(0o700)
+    git("config", "filter.mask.clean", str(clean_filter))
+    git("config", "filter.mask.required", "true")
+    tracked.write_bytes(b"EVIL")
+    assert git("status", "--porcelain").stdout == b""
+    assert sentinel.exists()
+    sentinel.unlink()
+
+    with pytest.raises(RuntimeError, match="requires a clean worktree"):
+        exact_repository_revision(repository)
+    assert not sentinel.exists()
+
 
 def test_foundation_exact_revision_mode_rejects_non_repository_root(
     tmp_path: Path,
@@ -1464,6 +2779,33 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    real_run = subprocess.run
+    real_run(("git", "init", "-q"), cwd=tmp_path, check=True)
+    tracked = tmp_path / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    real_run(("git", "add", "tracked.txt"), cwd=tmp_path, check=True)
+    real_run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=tmp_path,
+        check=True,
+    )
+    revision = real_run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     observed: list[list[str]] = []
     observed_environments: list[dict[str, str]] = []
     monkeypatch.setenv("GIT_DIR", "/untrusted/repository")
@@ -1472,26 +2814,51 @@ def test_foundation_exact_revision_uses_explicit_git_executable(
     def successful_run(command: list[str], **kwargs: object):
         observed.append(command)
         observed_environments.append(kwargs["env"])  # type: ignore[arg-type]
-        if "ls-files" in command:
-            return subprocess.CompletedProcess(command, 0, stdout=b"")
-        stdout = str(tmp_path) + "\n" if "--show-toplevel" in command else ""
-        if command[-2:] == ["rev-parse", "HEAD"]:
-            stdout = "a" * 40 + "\n"
-        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+        return real_run(
+            ["git", *command[1:]],
+            **kwargs,  # type: ignore[arg-type]
+        )
 
     monkeypatch.setattr(foundation_runner.subprocess, "run", successful_run)
 
-    assert exact_repository_revision(
-        tmp_path,
-        git_executable=Path("/trusted/git"),
-    ) == "git-sha:" + "a" * 40
-    assert len(observed) == 4
+    assert (
+        exact_repository_revision(
+            tmp_path,
+            git_executable=Path("/trusted/git"),
+        )
+        == f"git-sha:{revision}"
+    )
+    assert len(observed) >= 9
     assert all(command[0] == "/trusted/git" for command in observed)
-    assert all(command[1] == "--no-replace-objects" for command in observed)
+    assert all(
+        command[1:16]
+        == [
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.ignoreStat=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "-c",
+            f"core.attributesFile={os.devnull}",
+        ]
+        for command in observed
+    )
+    assert all(f"--work-tree={tmp_path.resolve()}" in command for command in observed)
     assert all("GIT_DIR" not in environment for environment in observed_environments)
     assert all(
         "GIT_REPLACE_REF_BASE" not in environment
         for environment in observed_environments
+    )
+    assert all(
+        environment["GIT_NO_LAZY_FETCH"] == "1" for environment in observed_environments
     )
 
 
@@ -1501,11 +2868,15 @@ def test_foundation_exact_revision_rejects_hidden_index_entries(
     monkeypatch: pytest.MonkeyPatch,
     index_tag: bytes,
 ) -> None:
+    monkeypatch.setattr(
+        foundation_runner,
+        "_require_raw_clean_worktree",
+        lambda *_args, **_kwargs: "a" * 40,
+    )
+
     def successful_run(command: list[str], **_kwargs: object):
         if "--show-toplevel" in command:
             return subprocess.CompletedProcess(command, 0, stdout=str(tmp_path) + "\n")
-        if "status" in command:
-            return subprocess.CompletedProcess(command, 0, stdout="")
         if "ls-files" in command:
             return subprocess.CompletedProcess(
                 command,
@@ -1954,6 +3325,71 @@ def test_locked_evaluator_environment_verifies_active_frozen_environment(
     )
 
 
+def test_locked_evaluator_environment_receipt_ignores_installer_path_variance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_locked_wheel_verification(monkeypatch)
+    locked_content = {
+        "repo-path-ref:pyproject.toml": (
+            taw08_verifier.ROOT / "pyproject.toml"
+        ).read_bytes(),
+        "repo-path-ref:uv.lock": (taw08_verifier.ROOT / "uv.lock").read_bytes(),
+    }
+    variance = {"digest": "a" * 64}
+    observed_identities: list[tuple[tuple[str, int, str], ...]] = []
+
+    def installed_identity(
+        *_args: object, **_kwargs: object
+    ) -> tuple[tuple[str, int, str], ...]:
+        return (("../../../bin/tool", 64, variance["digest"]),)
+
+    locked_digest = {"value": "4" * 64}
+
+    def locked_identity(
+        **kwargs: object,
+    ) -> tuple[str, tuple[tuple[str, int, str], ...]]:
+        observed_identities.append(kwargs["installed_identity"])  # type: ignore[arg-type]
+        return (
+            "sha256:" + locked_digest["value"],
+            (("package/module.py", 7, "5" * 64),),
+        )
+
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_installed_distribution_content_identity",
+        installed_identity,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_locked_wheel_distribution_identity",
+        locked_identity,
+    )
+
+    first = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+    variance["digest"] = "b" * 64
+    second = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+
+    assert observed_identities[0] != observed_identities[-1]
+    assert (
+        first.installed_distributions_digest_ref
+        == second.installed_distributions_digest_ref
+    )
+    assert first.receipt_digest_ref == second.receipt_digest_ref
+
+    locked_digest["value"] = "6" * 64
+    changed = taw08_verifier.verify_locked_evaluator_environment(
+        locked_content_by_path_ref=locked_content,
+    )
+    assert (
+        changed.installed_distributions_digest_ref
+        != first.installed_distributions_digest_ref
+    )
+
+
 def test_locked_evaluator_environment_rejects_installed_file_substitution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2243,6 +3679,224 @@ def test_locked_child_requires_isolated_no_site_mode() -> None:
     assert command[1:4] == ("-I", "-B", "-S")
 
 
+def test_founder_input_export_requires_isolated_locked_preflight() -> None:
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "UAA_TAW08_EXPORT_FOUNDER_INPUTS": "1",
+    }
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            str(taw08_verifier.ROOT / "scripts/verify_tool_aware_cognition_taw08.py"),
+        ),
+        cwd=taw08_verifier.ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "requires the isolated locked preflight" in completed.stderr
+
+
+def test_founder_input_export_rejects_caller_supplied_preflight_markers(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "candidate"
+    scripts = repository / "scripts"
+    scripts.mkdir(parents=True)
+    verifier_path = scripts / "verify_tool_aware_cognition_taw08.py"
+    foundation_path = scripts / "run_foundation_gate.py"
+    preflight_path = scripts / "verify_taw08_environment_preflight.py"
+    verifier_path.write_bytes(Path(taw08_verifier.__file__).read_bytes())
+    foundation_path.write_bytes(
+        taw08_verifier.ROOT.joinpath("scripts/run_foundation_gate.py").read_bytes()
+    )
+    preflight_path.write_text("# locked preflight\n", encoding="utf-8")
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "config", "user.name", "TAW-08 Test"),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "user.email", "taw08@example.invalid"),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(("git", "add", "."), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "commit", "-q", "-m", "locked candidate"),
+        cwd=repository,
+        check=True,
+    )
+    revision = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert (
+        taw08_verifier._authenticate_locked_child_before_imports(repository)
+        == revision
+    )
+
+    forged_bundle = repository / "forged-founder-bundle"
+    preflight_path.write_text(
+        "from pathlib import Path\n"
+        f"Path({str(forged_bundle)!r}).write_text('forged', encoding='utf-8')\n"
+        "print('{\"forged\":true}')\n"
+        "raise SystemExit(0)\n",
+        encoding="utf-8",
+    )
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "UAA_TAW08_EXPORT_FOUNDER_INPUTS": "1",
+        "UAA_TAW08_PREFLIGHT_COMPLETE": "1",
+        "UAA_TAW08_PREFLIGHT_DIGEST": (
+            "sha256:" + hashlib.sha256(preflight_path.read_bytes()).hexdigest()
+        ),
+        "UAA_TAW08_ENVIRONMENT_ROOT": "/caller/runtime",
+        "UAA_TAW08_LOCKED_WHEELHOUSE": "/caller/wheelhouse",
+        "UAA_TAW08_LOCKED_CHILD_REVISION": revision,
+    }
+    if "SystemRoot" in os.environ:
+        environment["SystemRoot"] = os.environ["SystemRoot"]
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            str(verifier_path),
+        ),
+        cwd=repository,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "locked candidate requires a clean exact revision" in completed.stderr
+    assert completed.stdout == ""
+    assert not forged_bundle.exists()
+
+
+def test_locked_child_failure_summary_is_redacted_and_bounded() -> None:
+    assert (
+        taw08_verifier._locked_child_failure_summary(
+            b"Traceback: /private/path\nRuntimeError: TAW-08 safe gate failed\n"
+        )
+        == "TAW-08 safe gate failed"
+    )
+    assert (
+        taw08_verifier._locked_child_failure_summary(b"RuntimeError: unsafe/path\n")
+        == "failure detail unavailable"
+    )
+    assert taw08_verifier._locked_child_failure_summary(b"x" * (64 * 1024 + 1)) == (
+        "failure detail unavailable"
+    )
+
+
+def test_taw08_git_inspection_pins_exact_worktree_root(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    alternate = tmp_path / "alternate"
+    repository.mkdir()
+    alternate.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    subprocess.run(
+        ("git", "config", "core.worktree", str(alternate)),
+        cwd=repository,
+        check=True,
+    )
+
+    top_level = (
+        taw08_verifier._git(
+            "rev-parse",
+            "--show-toplevel",
+            repository_root=repository,
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+    assert Path(top_level).resolve() == repository.resolve()
+
+
+def test_taw08_private_temporary_root_rejects_nonsticky_shared_parent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    unsafe_parent = tmp_path / "unsafe-temp"
+    unsafe_parent.mkdir(mode=0o777)
+    unsafe_parent.chmod(0o777)
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(unsafe_parent),
+    )
+
+    with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+        taw08_verifier._prepare_private_temporary_directory(
+            prefix="taw08-test-",
+            repository_root=taw08_verifier.ROOT,
+        )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor-chain regression")
+def test_taw08_private_temporary_root_rejects_unsafe_parent_ancestor(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    unsafe_ancestor = tmp_path / "unsafe-ancestor"
+    unsafe_ancestor.mkdir(mode=0o700)
+    temporary_parent = unsafe_ancestor / "private-temp"
+    temporary_parent.mkdir(mode=0o700)
+    unsafe_ancestor.chmod(0o777)
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(temporary_parent),
+    )
+
+    try:
+        with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+            taw08_verifier._prepare_private_temporary_directory(
+                prefix="taw08-test-",
+                repository_root=taw08_verifier.ROOT,
+            )
+    finally:
+        unsafe_ancestor.chmod(0o700)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX ancestor ACL regression")
+def test_taw08_private_temporary_root_rejects_extended_acl_grant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_descriptors: list[int] = []
+
+    def unsafe_acl(descriptor: int) -> tuple[int, ...]:
+        observed_descriptors.append(descriptor)
+        return (1,)
+
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_darwin_extended_acl_tags",
+        unsafe_acl,
+    )
+
+    with pytest.raises(RuntimeError, match="temporary directory root is unsafe"):
+        taw08_verifier._validate_posix_temporary_ancestor_chain(tmp_path)
+
+    assert observed_descriptors
+
+
 def test_locked_child_preserves_validated_windows_system_root(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -2257,10 +3911,304 @@ def test_locked_child_preserves_validated_windows_system_root(
         revision="a" * 40,
         environment_root=tmp_path / "environment",
         selected_wheelhouse=tmp_path / "wheelhouse",
+        runtime_temp=tmp_path / "runtime-temp",
         platform_name="nt",
     )
 
     assert environment["SystemRoot"] == "C:/Windows"
+    assert environment["TMPDIR"] == str(tmp_path / "runtime-temp")
+    assert environment["TEMP"] == str(tmp_path / "runtime-temp")
+    assert environment["TMP"] == str(tmp_path / "runtime-temp")
+
+
+def test_locked_child_uses_only_the_provisioned_runtime_temp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    runtime_temp = tmp_path / "runtime-temp"
+    runtime_temp.mkdir()
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "ambient-tmpdir"))
+    monkeypatch.setenv("TEMP", str(tmp_path / "ambient-temp"))
+    monkeypatch.setenv("TMP", str(tmp_path / "ambient-tmp"))
+    environment = taw08_verifier._locked_child_environment(
+        revision="a" * 40,
+        environment_root=tmp_path / "environment",
+        selected_wheelhouse=tmp_path / "wheelhouse",
+        runtime_temp=runtime_temp,
+    )
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            "-I",
+            "-B",
+            "-S",
+            "-c",
+            "import tempfile; print(tempfile.gettempdir())",
+        ),
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert Path(completed.stdout.strip()).resolve() == runtime_temp.resolve()
+
+
+def test_private_directory_uses_windows_acl_instead_of_posix_mode_bits(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "private"
+    directory.mkdir()
+    calls: list[tuple[str, Path]] = []
+    monkeypatch.setattr(taw08_verifier.os, "name", "nt")
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_apply_windows_private_directory_acl",
+        lambda path: calls.append(("apply", path)),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_directory_acl",
+        lambda path: calls.append(("validate", path)),
+    )
+
+    taw08_verifier._harden_private_directory(directory, require_empty=True)
+
+    assert calls == [("apply", directory), ("validate", directory)]
+
+
+@pytest.mark.parametrize(
+    ("ace_type", "access_mask", "trustee_is_trusted", "expected"),
+    (
+        (0, 0x001200A9, False, False),
+        (0, 0x00000002, False, True),
+        (0, 0x00000040, False, True),
+        (0, 0x10000000, True, False),
+        (9, 0x40000000, False, True),
+        (1, 0x10000000, False, False),
+    ),
+)
+def test_taw08_windows_parent_acl_policy_rejects_only_untrusted_grants(
+    ace_type: int,
+    access_mask: int,
+    trustee_is_trusted: bool,
+    expected: bool,
+) -> None:
+    assert (
+        taw08_verifier._windows_parent_acl_grant_is_unsafe(
+            ace_type=ace_type,
+            access_mask=access_mask,
+            trustee_is_trusted=trustee_is_trusted,
+        )
+        is expected
+    )
+
+
+def test_taw08_private_temporary_root_validates_windows_parent_acl(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    temporary_root = tmp_path / "windows-temp"
+    temporary_root.mkdir()
+    parent_checks: list[Path] = []
+    posix_path = type(tmp_path)
+    monkeypatch.setattr(taw08_verifier, "Path", posix_path)
+    monkeypatch.setattr(taw08_verifier.os, "name", "nt")
+    monkeypatch.setattr(
+        taw08_verifier.tempfile,
+        "gettempdir",
+        lambda: str(temporary_root),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_parent_acl",
+        lambda path: parent_checks.append(path),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_apply_windows_private_directory_acl",
+        lambda _path: None,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_validate_windows_private_directory_acl",
+        lambda _path: None,
+    )
+
+    handle, _root = taw08_verifier._prepare_private_temporary_directory(
+        prefix="taw08-windows-parent-",
+        repository_root=tmp_path / "repository",
+    )
+    try:
+        assert parent_checks == [temporary_root.resolve()]
+    finally:
+        handle.cleanup()
+
+
+def test_locked_child_forwards_founder_input_export_only_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    kwargs = {
+        "revision": "a" * 40,
+        "environment_root": tmp_path / "environment",
+        "selected_wheelhouse": tmp_path / "wheelhouse",
+        "runtime_temp": tmp_path / "runtime-temp",
+    }
+
+    assert "UAA_TAW08_EXPORT_FOUNDER_INPUTS" not in (
+        taw08_verifier._locked_child_environment(**kwargs)
+    )
+    monkeypatch.setenv("UAA_TAW08_EXPORT_FOUNDER_INPUTS", "1")
+
+    assert (
+        taw08_verifier._locked_child_environment(**kwargs)[
+            "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+        ]
+        == "1"
+    )
+
+
+def test_verify_exports_redacted_digest_bound_founder_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = _candidate_lock()
+    content_by_ref = {item.path_ref: b"" for item in lock.entries}
+    candidate_receipt = _candidate_verification(lock)
+    candidate_receipt_payload = candidate_receipt.model_dump(
+        mode="json", exclude={"receipt_digest_ref"}
+    )
+    candidate_receipt_payload["executing_source_path_refs"] = (
+        "repo-path-ref:src/ultimate_ai_agent/core/context_budget/token_accounting.py",
+        "repo-path-ref:src/ultimate_ai_agent/core/secrets/redaction.py",
+    )
+    candidate_receipt = type(candidate_receipt).model_validate(
+        {
+            **candidate_receipt_payload,
+            "receipt_digest_ref": canonical_digest(candidate_receipt_payload),
+        }
+    )
+    foundation_receipt = _foundation_receipt()
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_git",
+        lambda *_args, **_kwargs: ("1" * 40).encode("ascii"),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_candidate_lock",
+        lambda _revision: (lock, content_by_ref),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_candidate_lock",
+        lambda *_args, **_kwargs: (),
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_repository_candidate",
+        lambda _lock: candidate_receipt,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "verify_repository_foundation_gate",
+        lambda *, stage: foundation_receipt,
+    )
+
+    bundle = taw08_verifier.verify(export_founder_inputs=True)
+
+    assert bundle is not None
+    assert bundle["schema_version"] == "uaa-taw08-founder-run-inputs.v1"
+    assert bundle["raw_content_persisted"] is False
+    digest_payload = {
+        key: value for key, value in bundle.items() if key != "bundle_digest_ref"
+    }
+    assert bundle["bundle_digest_ref"] == canonical_digest(digest_payload)
+    assert taw08_verifier.durable_payload_has_forbidden_fields(bundle) is True
+    assert taw08_verifier._founder_input_export_has_forbidden_fields(bundle) is False
+    normalized = taw08_verifier._normalize_founder_input_export(
+        json.dumps(bundle).encode("utf-8")
+    )
+    assert json.loads(normalized) == bundle
+
+
+@pytest.mark.parametrize(
+    "unsafe_path_ref",
+    (
+        r"repo-path-ref:C:\Users\fixture\raw.log",
+        r"repo-path-ref:..\private\raw.log",
+        "repo-path-ref:docs/evidence/sk_"
+        + "live_"
+        + "abcdefghijklmnopqrstuvwxyz0123456789",
+        "repo-path-ref:docs/api_key:abcdefghijklmnopqrstuvwxyz",
+    ),
+)
+def test_founder_input_export_rejects_unsafe_executing_source_path_refs(
+    unsafe_path_ref: str,
+) -> None:
+    lock = _candidate_lock()
+    candidate_receipt = _candidate_verification(lock)
+    candidate_receipt_payload = candidate_receipt.model_dump(
+        mode="json", exclude={"receipt_digest_ref"}
+    )
+    candidate_receipt_payload["executing_source_path_refs"] = (unsafe_path_ref,)
+    candidate_receipt_payload["receipt_digest_ref"] = canonical_digest(
+        candidate_receipt_payload
+    )
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt_payload,
+        "exact_head_foundation_receipt": _foundation_receipt().model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    bundle = {**payload, "bundle_digest_ref": canonical_digest(payload)}
+
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(bundle).encode("utf-8")
+        )
+
+
+def test_founder_input_export_rejects_deep_or_schema_extended_child_json() -> None:
+    deeply_nested = b"[" * 2_000 + b"0" + b"]" * 2_000
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(deeply_nested)
+
+    extended = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": {},
+        "candidate_verification_receipt": {},
+        "exact_head_foundation_receipt": {},
+        "raw_content_persisted": False,
+        "bundle_digest_ref": "sha256:" + "0" * 64,
+        "unexpected": False,
+    }
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(extended).encode("utf-8")
+        )
+
+
+def test_founder_input_export_rejects_raw_candidate_receipt_field() -> None:
+    lock = _candidate_lock()
+    candidate_receipt = _candidate_verification(lock).model_dump(mode="json")
+    candidate_receipt["raw_payload"] = "secret-value"
+    payload = {
+        "schema_version": "uaa-taw08-founder-run-inputs.v1",
+        "candidate_lock": lock.model_dump(mode="json"),
+        "candidate_verification_receipt": candidate_receipt,
+        "exact_head_foundation_receipt": _foundation_receipt().model_dump(mode="json"),
+        "raw_content_persisted": False,
+    }
+    bundle = {**payload, "bundle_digest_ref": canonical_digest(payload)}
+
+    with pytest.raises(RuntimeError, match="founder input export is invalid"):
+        taw08_verifier._normalize_founder_input_export(
+            json.dumps(bundle).encode("utf-8")
+        )
 
 
 def test_venv_script_directory_supports_windows_and_posix() -> None:
@@ -2277,6 +4225,7 @@ def test_trusted_git_rejects_path_substitution(
     substituted_git.write_bytes(b"substituted git")
     substituted_git.chmod(0o777)
     taw08_verifier._trusted_git_identity.cache_clear()
+    monkeypatch.setattr(taw08_verifier.platform, "system", lambda: "Linux")
     monkeypatch.setattr(
         taw08_verifier.shutil,
         "which",
@@ -2287,6 +4236,147 @@ def test_trusted_git_rejects_path_substitution(
         taw08_verifier._trusted_git_identity()
 
     taw08_verifier._trusted_git_identity.cache_clear()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin provenance regression")
+def test_trusted_git_selects_apple_git_before_path_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taw08_verifier._trusted_git_identity.cache_clear()
+    monkeypatch.setattr(
+        taw08_verifier.shutil,
+        "which",
+        lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
+    )
+    monkeypatch.setattr(
+        taw08_verifier, "_validate_posix_admin_path", lambda _path: None
+    )
+    monkeypatch.setattr(
+        taw08_verifier.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, b"", b""),
+    )
+
+    executable, digest_ref, provenance_ref = taw08_verifier._trusted_git_identity()
+
+    assert executable == Path("/usr/bin/git")
+    assert digest_ref.startswith("sha256:")
+    assert provenance_ref == "git-provenance-ref:apple-platform-signed"
+    taw08_verifier._trusted_git_identity.cache_clear()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin provenance regression")
+def test_foundation_runner_selects_apple_git_before_path_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        foundation_runner.shutil,
+        "which",
+        lambda _name: (_ for _ in ()).throw(AssertionError("PATH lookup is unsafe")),
+    )
+    monkeypatch.setattr(
+        foundation_runner, "_validate_posix_admin_path", lambda _path: None
+    )
+    monkeypatch.setattr(
+        foundation_runner.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, b"", b""),
+    )
+
+    assert foundation_runner._trusted_preimport_git() == "/usr/bin/git"
+
+
+def test_foundation_state_evaluation_reuses_authenticated_git(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    observed: list[str | Path] = []
+
+    def exact_revision(
+        _repository_root: Path,
+        *,
+        git_executable: str | Path,
+    ) -> tuple[str, object]:
+        observed.append(git_executable)
+        raise RuntimeError("authenticated-git-probe")
+
+    monkeypatch.setattr(
+        foundation_runner,
+        "evaluate_foundation_gate_at_exact_repository_revision",
+        exact_revision,
+    )
+
+    with pytest.raises(RuntimeError, match="authenticated-git-probe"):
+        foundation_runner.evaluate_foundation_gate_for_repository_state(
+            tmp_path,
+            require_clean_revision=True,
+            git_executable="/trusted/preimport/git",
+        )
+
+    assert observed == ["/trusted/preimport/git"]
+    source = (Path(__file__).resolve().parents[1] / "scripts/run_foundation_gate.py").read_text(
+        encoding="utf-8"
+    )
+    trusted_git_calls = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_trusted_preimport_git"
+    ]
+    assert len(trusted_git_calls) == 1
+
+
+def test_windows_git_trust_requires_machine_anchor_and_admin_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[tuple[str, ...] | list[str]] = []
+
+    def successful_run(command: tuple[str, ...] | list[str], **_kwargs: object):
+        observed.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=("A" * 40 + " " + "B" * 40 + "\n").encode("ascii"),
+        )
+
+    monkeypatch.setattr(subprocess, "run", successful_run)
+
+    for module in (taw08_verifier, foundation_runner):
+        assert module._validated_windows_git_provenance(
+            Path("C:/Program Files/Git/cmd/git.exe"),
+            Path("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"),
+        ) == ("a" * 40, "b" * 40)
+
+    assert len(observed) == 2
+    for command in observed:
+        script = command[4]
+        assert "GetFolderPath([Environment+SpecialFolder]::ProgramFiles)" in script
+        assert "GetAccessRules" in script
+        assert "S-1-5-32-544" in script
+        assert "Cert:\\LocalMachine\\Root" in script
+        assert "CurrentUser" not in script
+
+
+def test_windows_git_trust_rejects_non_machine_or_user_writable_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(
+            command,
+            17,
+            stdout=("A" * 40 + " " + "B" * 40 + "\n").encode("ascii"),
+        ),
+    )
+
+    for module in (taw08_verifier, foundation_runner):
+        with pytest.raises(RuntimeError, match="trusted provenance|trusted Git"):
+            module._validated_windows_git_provenance(
+                Path("C:/Users/founder/git.exe"),
+                Path("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"),
+            )
 
 
 def test_posix_git_trust_rejects_writable_parent_directory(
@@ -2334,32 +4424,168 @@ def test_git_commands_use_the_trusted_absolute_executable(
     monkeypatch.setattr(taw08_verifier.subprocess, "run", successful_run)
 
     assert taw08_verifier._git("status", repository_root=tmp_path) == b"trusted output"
-    assert observed == [["/trusted/git", "--no-replace-objects", "status"]]
+    assert observed == [
+        [
+            "/trusted/git",
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.untrackedCache=false",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.ignoreStat=false",
+            "-c",
+            f"core.hooksPath={os.devnull}",
+            "-c",
+            f"core.attributesFile={os.devnull}",
+            "-c",
+            f"core.worktree={tmp_path.resolve()}",
+            f"--work-tree={tmp_path.resolve()}",
+            "status",
+        ]
+    ]
     assert "GIT_DIR" not in observed_environments[0]
     assert "GIT_OBJECT_DIRECTORY" not in observed_environments[0]
     assert observed_environments[0]["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert observed_environments[0]["GIT_NO_LAZY_FETCH"] == "1"
 
 
-def test_candidate_lock_cleanliness_uses_authenticated_git(
+@pytest.mark.skipif(os.name != "posix", reason="POSIX Git hook regression")
+def test_trusted_worktree_materialization_disables_post_checkout_hook(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+
+    def git(*arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.txt"
+    tracked.write_text("clean\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    revision = git("rev-parse", "HEAD").stdout.decode("ascii").strip()
+    configured_hooks = tmp_path / "configured-hooks"
+    configured_hooks.mkdir(mode=0o700)
+    sentinel = tmp_path / "post-checkout-ran"
+    hook = configured_hooks / "post-checkout"
+    hook.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\n",
+        encoding="utf-8",
+    )
+    hook.chmod(0o700)
+    git("config", "core.hooksPath", str(configured_hooks))
+
+    inert_hooks = tmp_path / "inert-hooks"
+    inert_hooks.mkdir(mode=0o700)
+    candidate = tmp_path / "candidate"
+    hooks_config = ("-c", f"core.hooksPath={inert_hooks}")
+    taw08_verifier._git(
+        "worktree",
+        "add",
+        "--detach",
+        str(candidate),
+        revision,
+        repository_root=repository,
+        extra_config=hooks_config,
+    )
+    try:
+        assert not sentinel.exists()
+        assert not tuple(inert_hooks.iterdir())
+    finally:
+        taw08_verifier._git(
+            "worktree",
+            "remove",
+            str(candidate),
+            repository_root=repository,
+            extra_config=hooks_config,
+        )
+    assert not sentinel.exists()
+
+
+def test_worktree_filter_configuration_and_attributes_fail_closed(
+    tmp_path: Path,
+) -> None:
+    repository = (tmp_path / "repository").resolve()
+    repository.mkdir()
+
+    def git(*arguments: str) -> None:
+        subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    tracked = repository / "tracked.py"
+    tracked.write_text("SAFE = True\n", encoding="utf-8")
+    git("add", "tracked.py")
+    git(
+        "-c",
+        "user.name=TAW08 Test",
+        "-c",
+        "user.email=taw08@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        "fixture",
+    )
+    git("config", "extensions.worktreeConfig", "true")
+    git("config", "--worktree", "filter.mask.clean", "/bin/cat")
+    with pytest.raises(RuntimeError, match="filters are not permitted"):
+        taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+    git("config", "--worktree", "--unset", "filter.mask.clean")
+    (repository / ".git/info/attributes").write_text(
+        "tracked.py filter=mask\n", encoding="utf-8"
+    )
+    with pytest.raises(RuntimeError, match="filters are not permitted"):
+        taw08_verifier._require_no_repository_git_filters(repository_root=repository)
+
+
+def test_candidate_lock_cleanliness_compares_worktree_bytes_to_revision(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     observed: list[tuple[str, ...]] = []
+    (tmp_path / "sample.py").write_bytes(b"dirty\n")
 
     def dirty_git(*args: str, **_kwargs: object) -> bytes:
         observed.append(args)
         if args[:2] == ("ls-tree", "-r"):
             return b""
-        if args[:2] == ("diff", "--quiet"):
-            raise subprocess.CalledProcessError(1, args)
+        if args[0] == "show":
+            return b"candidate\n"
         pytest.fail(f"unexpected Git command: {args}")
 
     monkeypatch.setattr(taw08_verifier, "_git", dirty_git)
     monkeypatch.setattr(taw08_verifier, "SLICE_CANDIDATE_PATHS", ("sample.py",))
 
     with pytest.raises(RuntimeError, match="contract path is dirty"):
-        taw08_verifier._candidate_lock("a" * 40)
+        taw08_verifier._candidate_lock("a" * 40, repository_root=tmp_path)
 
-    assert any(command[:2] == ("diff", "--quiet") for command in observed)
+    assert ("show", f"{'a' * 40}:sample.py") in observed
+    assert not any(command[0] == "diff" for command in observed)
 
 
 def test_python_runtime_identity_binds_executable_and_standard_library(
@@ -2566,6 +4792,7 @@ def test_delta_verifier_requires_revision_derived_path_census() -> None:
             TAW08_ACCEPTANCE_REPORT_PATH_REF: _pre_delta_report(lock)
         },
     ) == (
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
         "failure-ref:taw08:revision-delta-path-census-drift",
         "failure-ref:taw08:revision-history-unapproved-path",
     )
@@ -2596,6 +4823,32 @@ def test_delta_verification_receipt_binds_revision_path_census() -> None:
     assert report.failure_refs == (
         "failure-ref:taw08:delta-verification-binding-drift",
     )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    (
+        (
+            "history_path_refs",
+            tuple(
+                sorted((*TAW08_M2_PATH_REFS, TAW08_FINAL_ACCEPTANCE_REPORT_PATH_REF))
+            ),
+        ),
+        ("artifact_count", len(TAW08_M2_PATH_REFS) + 1),
+    ),
+)
+def test_delta_verification_receipt_requires_exact_m2_census(
+    field_name: str, field_value: object
+) -> None:
+    lock = _candidate_lock()
+    receipt = _delta_verification(lock, _delta(lock))
+    payload = receipt.model_dump(mode="json", exclude={"receipt_digest_ref"})
+    payload[field_name] = field_value
+
+    with pytest.raises(ValidationError, match="receipt M2 census drift"):
+        _EvidenceOnlyDeltaVerificationReceipt.model_validate(
+            {**payload, "receipt_digest_ref": canonical_digest(payload)}
+        )
 
 
 def test_receipt_binders_reject_unknown_fields_before_model_construct() -> None:
@@ -2696,7 +4949,10 @@ def test_repository_censuses_are_derived_from_named_git_revisions(
     )
     assert delta_census.commit_count == 2
     assert delta_census.candidate_ancestor_verified
-    assert any(command[:2] == ("merge-base", "--is-ancestor") for command in observed_git_commands)
+    assert any(
+        command[:2] == ("merge-base", "--is-ancestor")
+        for command in observed_git_commands
+    )
 
 
 def test_schema_valid_secret_like_evidence_is_rejected() -> None:
@@ -2705,7 +4961,7 @@ def test_schema_valid_secret_like_evidence_is_rejected() -> None:
         mode="json"
     )
     artifact["report_fingerprint_ref"] = (
-        "taw08-acceptance-report-ref:sk_live_abcdefghijklmnopqrstuv"
+        "taw08-acceptance-report-ref:sk_" + "live_" + "abcdefghijklmnopqrstuv"
     )
     content = json.dumps(artifact).encode()
     delta = _delta(lock, content)
@@ -2763,6 +5019,36 @@ def test_live_measurement_requires_exact_runtime_identity() -> None:
     ).result.model_dump(mode="json")
     payload["model_profile_ref"] = None
     with pytest.raises(ValidationError, match="identity census is incomplete"):
+        FounderMeasurementResult.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "unsupported_ref"),
+    (
+        (
+            "inference_profile_ref",
+            "inference-profile-ref:taw00:unconfigured-model",
+        ),
+        ("observed_hardware_family_ref", "hardware-family-ref:unsupported"),
+    ),
+)
+def test_live_measurement_requires_configured_inference_and_hardware_profiles(
+    field_name: str,
+    unsupported_ref: str,
+) -> None:
+    payload = _measurement_receipt(
+        _candidate_lock(),
+        FounderMeasurementKind.live_model_hardware,
+        f"unsupported-{field_name}",
+    ).result.model_dump(mode="json")
+    payload[field_name] = unsupported_ref
+    payload["same_host_baseline"][field_name] = unsupported_ref
+    baseline = payload["same_host_baseline"]
+    baseline["result_digest_ref"] = canonical_digest(
+        {key: value for key, value in baseline.items() if key != "result_digest_ref"}
+    )
+
+    with pytest.raises(ValidationError, match="profile census drift"):
         FounderMeasurementResult.model_validate(payload)
 
 
@@ -3074,6 +5360,7 @@ def test_evidence_delta_requires_canonical_acceptance_report() -> None:
     ) == (
         "failure-ref:taw08:active-truth-reconciliation-missing",
         "failure-ref:taw08:evidence-delta-acceptance-report-missing",
+        "failure-ref:taw08:evidence-delta-m2-protocol-drift",
     )
 
 
@@ -3280,6 +5567,11 @@ def test_repository_candidate_wrapper_derives_locked_bytes_from_git(
         taw08_verifier,
         "_verify_preflight_execution",
         lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        taw08_verifier,
+        "_fresh_exact_repository_revision",
+        lambda _repository_root: revision_ref,
     )
     with pytest.raises(RuntimeError, match="locked verifier child"):
         verify_repository_candidate(lock, repository_root=repository)
