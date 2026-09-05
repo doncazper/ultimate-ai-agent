@@ -19,7 +19,9 @@ from pydantic import ValidationError
 
 from scripts.dev import uaa_runtime
 import ultimate_ai_agent.core.runtime_gateway.command as runtime_command
+import ultimate_ai_agent.core.runtime_gateway.local_model as runtime_local_model
 import ultimate_ai_agent.core.runtime_gateway.storage as runtime_storage
+import ultimate_ai_agent.core.local_model_management.gateway as local_model_gateway
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     HermesChatRequest,
@@ -1402,6 +1404,66 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "raw_prompt" not in persisted
     assert "provider_payload" not in persisted
+
+
+def test_runtime_local_model_separates_raw_envelope_and_content_byte_limits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    content = "R" * 1_500
+    body = json.dumps(
+        local_model_gateway._openai_chat_response(
+            "uaa-local-runtime",
+            content,
+            1,
+        )
+    ).encode("utf-8")
+    assert len(body) > 1_024
+
+    class MemoryResponse:
+        def __init__(self) -> None:
+            self.read_limit: int | None = None
+
+        def __enter__(self) -> "MemoryResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, limit: int) -> bytes:
+            self.read_limit = limit
+            return body[:limit]
+
+    response = MemoryResponse()
+
+    class MemoryOpener:
+        def open(self, *_args: object, **_kwargs: object) -> MemoryResponse:
+            return response
+
+    monkeypatch.setattr(
+        local_model_gateway.request,
+        "build_opener",
+        lambda *_args: MemoryOpener(),
+    )
+    attempt = runtime_local_model.LocalModelRuntimeAdapter().invoke(
+        RuntimeLocalModelCallRequest(
+            base_url="http://127.0.0.1:8080",
+            model_ref="uaa-local-runtime",
+            messages=[
+                RuntimeLocalModelMessage(role="user", content=REDACTED_TEST_PROMPT)
+            ],
+            safe_summary="Run a bounded local model response envelope regression.",
+            allow_bounded_preview=True,
+            max_preview_chars=16,
+            max_response_bytes=1_024,
+        )
+    )
+
+    assert response.read_limit == local_model_gateway.M164_MAX_RESPONSE_BYTES + 1
+    assert attempt.error_category is None
+    assert attempt.response_received is True
+    assert attempt.response_truncated is True
+    assert attempt.response_byte_count == 1_024
+    assert attempt.response_preview == content[:16]
 
 
 def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
