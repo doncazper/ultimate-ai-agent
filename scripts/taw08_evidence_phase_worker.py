@@ -34,6 +34,7 @@ GIT_READ_CONFIG = (
 )
 REQUEST_ENV = "UAA_TAW08_PHASE_REQUEST"
 WORKER_DIGEST_ENV = "UAA_TAW08_PHASE_WORKER_DIGEST"
+LOCKED_CHILD_REVISION_ENV = "UAA_TAW08_LOCKED_CHILD_REVISION"
 DRIVER_PATH_REF = (
     "repo-path-ref:scripts/run_tool_aware_cognition_taw08_evidence_phases.py"
 )
@@ -777,7 +778,7 @@ def _load_repository_modules(candidate_root: Path) -> tuple[ModuleType, ModuleTy
     source_root = candidate_root / "src"
     if not source_root.is_dir():
         raise RuntimeError("TAW-08 candidate source root is unavailable")
-    expected_revision = os.environ.get("UAA_TAW08_LOCKED_CHILD_REVISION", "")
+    expected_revision = os.environ.get(LOCKED_CHILD_REVISION_ENV, "")
     _require_preimport_clean_exact_worktree(
         candidate_root,
         expected_revision=expected_revision,
@@ -796,7 +797,7 @@ def _verify_candidate_operational_sources(
     candidate_root: Path,
     request: dict[str, object],
 ) -> None:
-    revision = os.environ.get("UAA_TAW08_LOCKED_CHILD_REVISION")
+    revision = os.environ.get(LOCKED_CHILD_REVISION_ENV)
     if not revision:
         raise RuntimeError("TAW-08 locked candidate revision is unavailable")
     lock, _content = verifier._candidate_lock(
@@ -1270,8 +1271,14 @@ def _verify_delta(
     )
     stored_phase_receipt: dict[str, object] | None = None
     if existing_receipt_path is None:
-        postmerge_receipt = verifier.verify_repository_foundation_gate(
-            stage="postmerge", repository_root=delta_root
+        postmerge_receipt = _verify_repository_foundation_gate_at_revision(
+            verifier,
+            stage="postmerge",
+            repository_root=delta_root,
+            candidate_revision=candidate_lock.git_revision_ref.removeprefix(
+                "git-sha:"
+            ),
+            foundation_revision=delta_revision,
         )
     else:
         (
@@ -1297,10 +1304,14 @@ def _verify_delta(
             or stored_delta_receipt != delta_receipt
         ):
             raise ValueError("stored verified delta phase binding drift")
-        postmerge_receipt = _verify_current_postmerge_foundation_receipt(
+        postmerge_receipt = _verify_current_postmerge_foundation_receipt_at_revision(
             verifier,
             delta_root=delta_root,
             stored_receipt=stored_postmerge_receipt,
+            candidate_revision=candidate_lock.git_revision_ref.removeprefix(
+                "git-sha:"
+            ),
+            delta_revision=delta_revision,
         )
     if (
         postmerge_receipt.revision_ref != manifest.delta_revision_ref
@@ -1453,6 +1464,30 @@ def _load_verified_delta_receipt(
     return payload, manifest, delta_receipt, foundation_receipt
 
 
+def _verify_repository_foundation_gate_at_revision(
+    verifier: ModuleType,
+    *,
+    stage: str,
+    repository_root: Path,
+    candidate_revision: str,
+    foundation_revision: str,
+) -> Any:
+    if (
+        re.fullmatch(r"[0-9a-f]{40}", candidate_revision) is None
+        or re.fullmatch(r"[0-9a-f]{40}", foundation_revision) is None
+        or os.environ.get(LOCKED_CHILD_REVISION_ENV) != candidate_revision
+    ):
+        raise RuntimeError("TAW-08 Foundation revision binding drift")
+    os.environ[LOCKED_CHILD_REVISION_ENV] = foundation_revision
+    try:
+        return verifier.verify_repository_foundation_gate(
+            stage=stage,
+            repository_root=repository_root,
+        )
+    finally:
+        os.environ[LOCKED_CHILD_REVISION_ENV] = candidate_revision
+
+
 def _verify_current_postmerge_foundation_receipt(
     verifier: ModuleType,
     *,
@@ -1486,6 +1521,31 @@ def _verify_current_postmerge_foundation_receipt(
     ):
         raise ValueError("stored postmerge Foundation receipt differs from Git")
     return stored_receipt
+
+
+def _verify_current_postmerge_foundation_receipt_at_revision(
+    verifier: ModuleType,
+    *,
+    delta_root: Path,
+    stored_receipt: Any,
+    candidate_revision: str,
+    delta_revision: str,
+) -> Any:
+    if (
+        re.fullmatch(r"[0-9a-f]{40}", candidate_revision) is None
+        or re.fullmatch(r"[0-9a-f]{40}", delta_revision) is None
+        or os.environ.get(LOCKED_CHILD_REVISION_ENV) != candidate_revision
+    ):
+        raise RuntimeError("TAW-08 Foundation revision binding drift")
+    os.environ[LOCKED_CHILD_REVISION_ENV] = delta_revision
+    try:
+        return _verify_current_postmerge_foundation_receipt(
+            verifier,
+            delta_root=delta_root,
+            stored_receipt=stored_receipt,
+        )
+    finally:
+        os.environ[LOCKED_CHILD_REVISION_ENV] = candidate_revision
 
 
 def _verify_publication(
@@ -1565,10 +1625,12 @@ def _verify_publication(
     )
     if delta_receipt != stored_delta_receipt:
         raise ValueError("verified delta receipt differs from Git")
-    postmerge_receipt = _verify_current_postmerge_foundation_receipt(
+    postmerge_receipt = _verify_current_postmerge_foundation_receipt_at_revision(
         verifier,
         delta_root=delta_root,
         stored_receipt=postmerge_receipt,
+        candidate_revision=candidate_lock.git_revision_ref.removeprefix("git-sha:"),
+        delta_revision=delta_revision,
     )
     if (
         postmerge_receipt.stage != "postmerge"
