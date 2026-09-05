@@ -5710,6 +5710,23 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         flags=re.IGNORECASE,
     )
 
+    def markdown_heading(lines: list[str]) -> tuple[int, str] | None:
+        if not lines:
+            return None
+        atx = re.match(
+            r"^ {0,3}(#{1,6})(?:[ \t]+|$)(.*)$",
+            lines[0],
+        )
+        if atx is not None:
+            return len(atx.group(1)), atx.group(2)
+        if len(lines) >= 2:
+            setext = re.fullmatch(r" {0,3}(=+|-+)[ \t]*", lines[-1])
+            if setext is not None:
+                return (1 if setext.group(1).startswith("=") else 2), " ".join(
+                    lines[:-1]
+                )
+        return None
+
     def assert_non_owner_contract(document: str) -> None:
         assert document.count(non_owner_notice) == 1
         assert "Acceptance-state role: `owner-contract`." not in document
@@ -5718,16 +5735,16 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         for paragraph in re.split(r"\n\s*\n", non_owner_content):
             normalized = " ".join(paragraph.split()).casefold()
             lines = paragraph.splitlines()
-            heading = re.match(r"^(#{1,6})\s+(.+)$", lines[0]) if lines else None
+            heading = markdown_heading(lines)
             if heading is not None:
-                level = len(heading.group(1))
+                level, heading_text = heading
                 section_scope_by_level = {
                     prior_level: scoped
                     for prior_level, scoped in section_scope_by_level.items()
                     if prior_level < level
                 }
                 section_scope_by_level[level] = bool(
-                    founder_scope_terms.search(heading.group(2))
+                    founder_scope_terms.search(heading_text)
                 )
             direct_scope = founder_scope_terms.search(normalized) is not None
             if direct_scope:
@@ -5753,6 +5770,8 @@ def test_mutable_founder_acceptance_state_has_one_bounded_owner() -> None:
         "## Founder/private-dogfood\n\nAcceptance remains pending.",
         "## Dogfood\n\nStatus: blocked.",
         "## Founder Scope\n\nPending.",
+        "  ## Founder Scope\n\nPending.",
+        "Founder Scope\n---\n\nPending.",
     ):
         with pytest.raises(AssertionError):
             assert_non_owner_contract(f"{non_owner_notice}\n\n{stale_section}")
