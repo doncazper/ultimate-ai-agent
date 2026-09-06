@@ -707,11 +707,11 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
         assert required_path in docs_readme
     assert verifier.QUEUE_TRUTH_SENTENCE in _report()
     assert "Q31 final GoatCitadel comparison candidate" in index
-    assert "Q32 remains blocked until that receipt exists" in " ".join(
-        docs_readme.split()
+    assert "Q32 is now the active founder-private CRM functional-adoption item" in (
+        " ".join(docs_readme.split())
     )
     assert (
-        "Q32 CRM functional adoption — blocked until both Q15 and Q31 are completed"
+        "Q32 CRM functional adoption — implementation candidate ready for exact-head"
         in board
     )
     q31 = next(item for item in registry["items"] if item["item_id"] == "Q31")
