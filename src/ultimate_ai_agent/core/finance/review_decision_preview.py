@@ -31,9 +31,7 @@ def _decision_consequence_refs(
     """Return the fixed content-free consequences for one preview decision."""
 
     if decision == "confirm":
-        decision_ref = (
-            "consequence-ref:finance/FIN-003:confirmation-requires-separate-approved-apply"
-        )
+        decision_ref = "consequence-ref:finance/FIN-003:confirmation-requires-separate-approved-apply"
     elif decision == "reject":
         decision_ref = (
             "consequence-ref:finance/FIN-003:rejection-requires-separate-approved-apply"
@@ -122,9 +120,7 @@ class FinanceReviewDecisionPreview(_FinanceModel):
                 decision=self.decision,
             )
         except ValueError:
-            raise ValueError(
-                "FIN003_REVIEW_DECISION_REQUEST_BINDING_INVALID"
-            ) from None
+            raise ValueError("FIN003_REVIEW_DECISION_REQUEST_BINDING_INVALID") from None
         expected = stable_finance_ref(
             "review-decision-preview-ref:finance/FIN-003",
             self.model_dump(mode="json", exclude={"preview_ref"}),
@@ -148,7 +144,9 @@ def _find_review_item(
     review_item_ref: str,
 ) -> FinanceReviewItem:
     matches = tuple(
-        item for item in projection.review_items if item.review_item_ref == review_item_ref
+        item
+        for item in projection.review_items
+        if item.review_item_ref == review_item_ref
     )
     if len(matches) != 1:
         raise ValueError("FIN003_REVIEW_DECISION_ITEM_NOT_CURRENT")

@@ -238,7 +238,9 @@ def test_preview_rejects_stale_projection_and_snapshot_bindings() -> None:
         request,
         projection_ref="review-projection-ref:finance/FIN-003:stale",
     )
-    with pytest.raises(ValueError, match="FIN003_REVIEW_DECISION_PROJECTION_NOT_CURRENT"):
+    with pytest.raises(
+        ValueError, match="FIN003_REVIEW_DECISION_PROJECTION_NOT_CURRENT"
+    ):
         preview_finance_review_decision(snapshot, stale_projection)
 
     stale_snapshot = _request_with(
@@ -263,7 +265,9 @@ def test_preview_rejects_a_request_after_the_current_snapshot_changes() -> None:
         }
     )
 
-    with pytest.raises(ValueError, match="FIN003_REVIEW_DECISION_PROJECTION_NOT_CURRENT"):
+    with pytest.raises(
+        ValueError, match="FIN003_REVIEW_DECISION_PROJECTION_NOT_CURRENT"
+    ):
         preview_finance_review_decision(advanced, request)
 
 

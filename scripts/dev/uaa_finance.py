@@ -356,9 +356,7 @@ def parser() -> argparse.ArgumentParser:
         read = commands.add_parser(name, parents=[shared])
         read.add_argument("--request-ref", required=True)
         read.set_defaults(func=command_read)
-    decision_preview = commands.add_parser(
-        "review-decision-preview", parents=[shared]
-    )
+    decision_preview = commands.add_parser("review-decision-preview", parents=[shared])
     decision_preview.add_argument("--request-ref", required=True)
     decision_preview.add_argument("--review-item-ref", required=True)
     decision_preview.add_argument(

@@ -166,10 +166,7 @@ def verify() -> list[str]:
         if phrase not in cli_source:
             failures.append(f"FIN003 decision-preview CLI binding missing: {phrase}")
     doc_text = (
-        (
-            ROOT
-            / "docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md"
-        )
+        (ROOT / "docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md")
         .read_text(encoding="utf-8")
         .lower()
     )
