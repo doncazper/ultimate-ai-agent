@@ -27,7 +27,10 @@ calculated from
 `docs/benchmarks/q31_goat_maturity_input_20260906.json` with the
 repository-local `goat-comparison-maturity.v2` compatibility scorer whose exact
 file digest is bound in that ledger. All independent-validation gates remain
-zero; self-tests are not acceptance.
+zero; self-tests are not acceptance. Every GoatCitadel repository path used as
+score evidence is also bound to its exact file SHA-256 in
+`docs/benchmarks/q31_goat_evidence_manifest_20260906.json`, derived from the
+pinned GoatCitadel checkout.
 
 ## Executive profile
 

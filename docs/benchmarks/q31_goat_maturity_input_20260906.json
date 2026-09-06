@@ -1,7 +1,8 @@
 {
   "schema_version": "goat-comparison-maturity.v2",
   "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
-  "report_ref": "report-ref:q31:sha256:27c63e13fdb8fc9784ed1e725077b5af45474d28f50e76587f96d4ac14326fc9",
+  "report_ref": "report-ref:q31:sha256:28e7ecafc53eb44eca03117af008bd86d8bf67b7f9ee1501676b620aea3d222f",
+  "goat_evidence_manifest_ref": "repository-manifest-ref:q31:goat-evidence@sha256:73a90061767349414c6d5d76ec455ff8c689a8f69ecdd2a07208d4ea949fb2e9",
   "comparison_date": "2026-09-06",
   "authority_granted": {
     "provider_or_model_calls": false,
@@ -36,7 +37,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:829b1dac26e554e11e7a24a94115d00ae10b1d13f7dd0aab6c0358a50ff908e7",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:7e7fd80a9cd3aaf4ed4238286c93a388926f2c7b268931bbf928e004e4d6d236",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,
@@ -383,7 +384,7 @@
     {"direction": "goatcitadel_to_uaa", "pattern": "dense capability palette", "transfer_score": 5, "disposition": "study_only", "uaa_owner": "Q36", "exit_test": "Frequent founder actions remain fast without exposing unavailable capability noise."},
     {"direction": "uaa_to_goatcitadel", "pattern": "typed backend-truth binding before product-state claims", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "external_only", "exit_test": "The shell cannot present runtime readiness when the exact backend revision is unbound."},
     {"direction": "uaa_to_goatcitadel", "pattern": "content-free evidence receipts and exact request authority", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "external_only", "exit_test": "Receipts bind exact scope without retaining prompt, response, credential, or local-path content."},
-    {"direction": "uaa_to_goatcitadel", "pattern": "competitor branding or source implementation", "transfer_score": 0, "disposition": "do_not_borrow", "uaa_owner": "Q31", "exit_test": "No competitor code, branding, or unsafe default is copied into UAA."}
+    {"direction": "bidirectional", "pattern": "competitor branding or source implementation", "transfer_score": 0, "disposition": "do_not_borrow", "uaa_owner": "Q31", "exit_test": "No competitor code, branding, or unsafe default is copied in either direction."}
   ],
   "residual_gap_routes": [
     {"finding_ref": "finding-ref:q31:uaa:clean-start-chat-gated", "owner": "Q33", "dependency": "Q31", "priority": "P0"},

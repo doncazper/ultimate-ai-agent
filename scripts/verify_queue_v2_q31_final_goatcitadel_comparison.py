@@ -26,10 +26,18 @@ DEFAULT_ARTIFACT = (
 DEFAULT_REPORT = (
     ROOT / "docs" / "benchmarks" / "Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md"
 )
+DEFAULT_GOAT_MANIFEST = (
+    ROOT / "docs" / "benchmarks" / "q31_goat_evidence_manifest_20260906.json"
+)
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "27c63e13fdb8fc9784ed1e725077b5af45474d28f50e76587f96d4ac14326fc9"
+REPORT_SHA256 = "28e7ecafc53eb44eca03117af008bd86d8bf67b7f9ee1501676b620aea3d222f"
+GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
+GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
+GOAT_MANIFEST_SHA256 = (
+    "73a90061767349414c6d5d76ec455ff8c689a8f69ecdd2a07208d4ea949fb2e9"
+)
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
     f"repository-scorer-ref:{SCHEMA_VERSION}:"
@@ -130,14 +138,83 @@ PROHIBITED_DURABLE_KEYS = {
     "serialnumber",
     "username",
 }
-SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?:raw|prompt|response|result|page|message|body|content|payload|log|path|"
-    r"credential|secret|token|username|hostname|environment)"
+SENSITIVE_KEY_FAMILIES = (
+    "raw",
+    "prompt",
+    "response",
+    "result",
+    "page",
+    "message",
+    "body",
+    "content",
+    "payload",
+    "log",
+    "path",
+    "environment",
+    "username",
+    "hostname",
+    "apikey",
+    "authkey",
+    "authtoken",
+    "accesskey",
+    "accesstoken",
+    "refreshtoken",
+    "idtoken",
+    "privatekey",
+    "clientsecret",
+    "authorization",
+    "cookie",
+    "password",
+    "secret",
+    "credential",
+    "token",
 )
 ALLOWED_SENSITIVE_POSTURE_KEYS = {
-    "raw_model_intelligence_scored",
+    "rawmodelintelligencescored",
     "result",
+    "weightedtotalraw",
+}
+TOP_LEVEL_KEYS = {
+    "schema_version",
+    "comparison_ref",
+    "report_ref",
+    "goat_evidence_manifest_ref",
+    "comparison_date",
+    "authority_granted",
+    "baselines",
+    "method",
+    "expected_scores",
+    "common_evidence_refs",
+    "direct_observations",
+    "unexercised_observation_dimensions",
+    "systems",
+    "reciprocal_learning",
+    "residual_gap_routes",
+    "blocked_follow_up",
+}
+BASELINE_KEYS = {
+    "uaa": {
+        "commit_ref",
+        "branch",
+        "package_version",
+        "worktree_status",
+        "release_note",
+    },
+    "goatcitadel": {
+        "commit_ref",
+        "branch",
+        "package_version",
+        "mission_control_version",
+        "worktree_status",
+        "release_note",
+    },
+}
+EXPECTED_SCORES_KEYS = {"scorer_ref", "systems"}
+EXPECTED_SYSTEM_SCORE_KEYS = {
     "weighted_total_raw",
+    "weighted_total_reported",
+    "band",
+    "components",
 }
 AUTHORITY_KEYS = {
     "provider_or_model_calls",
@@ -217,6 +294,9 @@ CONTENT_ADDRESSED_REF = re.compile(r"^[-A-Za-z0-9_./:@]+:sha256:[0-9a-f]{64}$")
 EXPECTED_OBSERVATIONS_DIGEST = (
     "8e7d164adea51e72eebe78640e9b8fb2d1674cdf53d9060cbe8702a99e1024cc"
 )
+EXPECTED_BASELINES_DIGEST = (
+    "c2b3f8942b45bad49ce40b9507d0530e53e4552b3eaf96e92efe8f2ae60b3f1c"
+)
 EXPECTED_SYSTEMS_DIGEST = (
     "ab142d269bf2aadc15a26ad351fc945822ac0d5295a96afc6adc7a7f3ba4df8c"
 )
@@ -234,7 +314,7 @@ EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST = (
     "4f25f2fe17e2a1b5c82404d42073065be4da569f7027a04214179362753b742b"
 )
 EXPECTED_RECIPROCAL_LEARNING_DIGEST = (
-    "fb0bf31cbab394d52da2249280c83bd42c97d45ab10814e7d6299a961f25d48c"
+    "235aa4c5642cf2ff6e392cfc6bfbf61860aace2f394e7e659d4ba23a893cbe93"
 )
 QUEUE_TRUTH_SENTENCE = (
     "Queue truth: this is the final comparison candidate; Q31 remains pending "
@@ -270,7 +350,12 @@ def _baseline_sha(system_name: str) -> str:
     return BASELINES[system_name].removeprefix("git-sha:")
 
 
-def _validate_revision_bound_ref(ref: str, system_name: str) -> None:
+def _validate_revision_bound_ref(
+    ref: str,
+    system_name: str,
+    *,
+    goat_manifest_paths: set[str],
+) -> None:
     expected_sha = _baseline_sha(system_name)
     repo_match = UAA_REF.match(ref) if system_name == "uaa" else GOAT_REF.match(ref)
     expected_prefix = f"repo-ref:{system_name if system_name == 'uaa' else 'goat'}@"
@@ -304,6 +389,11 @@ def _validate_revision_bound_ref(ref: str, system_name: str) -> None:
             _require(
                 exists.returncode == 0, f"missing UAA evidence file at baseline: {path}"
             )
+        else:
+            _require(
+                path in goat_manifest_paths,
+                f"missing GoatCitadel evidence file in manifest: {path}",
+            )
         return
     if CONTENT_ADDRESSED_REF.fullmatch(ref) is not None:
         return
@@ -323,6 +413,54 @@ def _validate_revision_bound_ref(ref: str, system_name: str) -> None:
 def _canonical_digest(value: Any) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _validate_goat_manifest(manifest: Any) -> set[str]:
+    _require(
+        isinstance(manifest, dict)
+        and set(manifest) == {"schema_version", "baseline_commit_ref", "files"},
+        "GoatCitadel evidence manifest shape drift",
+    )
+    _require(
+        manifest["schema_version"] == GOAT_MANIFEST_SCHEMA_VERSION,
+        "GoatCitadel evidence manifest schema drift",
+    )
+    _require(
+        manifest["baseline_commit_ref"] == BASELINES["goatcitadel"],
+        "GoatCitadel evidence manifest baseline drift",
+    )
+    files = manifest["files"]
+    _require(
+        isinstance(files, list) and bool(files),
+        "GoatCitadel evidence manifest is empty",
+    )
+    paths: list[str] = []
+    for item in files:
+        _require(
+            isinstance(item, dict) and set(item) == {"path", "sha256"},
+            "GoatCitadel evidence manifest entry shape drift",
+        )
+        path = item["path"]
+        digest = item["sha256"]
+        _require(
+            isinstance(path, str)
+            and bool(path)
+            and not Path(path).is_absolute()
+            and ".." not in Path(path).parts,
+            "unsafe GoatCitadel evidence manifest path",
+        )
+        _require(
+            isinstance(digest, str)
+            and re.fullmatch(r"[0-9a-f]{64}", digest) is not None,
+            "invalid GoatCitadel evidence manifest digest",
+        )
+        paths.append(path)
+    _require(paths == sorted(set(paths)), "GoatCitadel evidence manifest path drift")
+    _require(
+        _canonical_digest(manifest) == GOAT_MANIFEST_SHA256,
+        "GoatCitadel evidence manifest digest drift",
+    )
+    return set(paths)
 
 
 def _validate_safe_ref(ref: str, field_name: str) -> None:
@@ -411,11 +549,13 @@ def _walk_for_unsafe_text(value: Any) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
             normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+            sensitive_family = any(
+                family in normalized for family in SENSITIVE_KEY_FAMILIES
+            )
             _require(
                 normalized not in PROHIBITED_DURABLE_KEYS
                 and (
-                    key in ALLOWED_SENSITIVE_POSTURE_KEYS
-                    or SENSITIVE_KEY_PATTERN.search(key.lower()) is None
+                    normalized in ALLOWED_SENSITIVE_POSTURE_KEYS or not sensitive_family
                 ),
                 f"unsafe durable field: {key}",
             )
@@ -501,19 +641,47 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
     )
 
 
-def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
+def verify_data(
+    data: dict[str, Any],
+    report: str,
+    goat_manifest: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _require(isinstance(data, dict), "top-level ledger must be an object")
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
     _require(data.get("comparison_ref") == COMPARISON_REF, "comparison ref drift")
     _require(data.get("comparison_date") == "2026-09-06", "comparison date drift")
     _walk_for_unsafe_text(data)
+    _require(set(data) == TOP_LEVEL_KEYS, "top-level ledger schema drift")
+    if goat_manifest is None:
+        goat_manifest = json.loads(DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
+    goat_manifest_paths = _validate_goat_manifest(goat_manifest)
     _require(
-        data.get("baselines", {}).get("uaa", {}).get("commit_ref") == BASELINES["uaa"],
+        data.get("goat_evidence_manifest_ref")
+        == f"{GOAT_MANIFEST_REF_PREFIX}{GOAT_MANIFEST_SHA256}",
+        "GoatCitadel evidence manifest ref drift",
+    )
+    baselines = data.get("baselines")
+    _require(
+        isinstance(baselines, dict) and set(baselines) == set(BASELINE_KEYS),
+        "baseline inventory drift",
+    )
+    for system_name, expected_keys in BASELINE_KEYS.items():
+        _require(
+            isinstance(baselines[system_name], dict)
+            and set(baselines[system_name]) == expected_keys,
+            f"{system_name}: baseline shape drift",
+        )
+    _require(
+        baselines["uaa"].get("commit_ref") == BASELINES["uaa"],
         "UAA baseline drift",
     )
     _require(
-        data.get("baselines", {}).get("goatcitadel", {}).get("commit_ref")
-        == BASELINES["goatcitadel"],
+        baselines["goatcitadel"].get("commit_ref") == BASELINES["goatcitadel"],
         "GoatCitadel baseline drift",
+    )
+    _require(
+        _canonical_digest(baselines) == EXPECTED_BASELINES_DIGEST,
+        "canonical baseline metadata drift",
     )
     authority = data.get("authority_granted")
     _require(
@@ -572,12 +740,21 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
         )
         _validate_safe_ref(ref, f"common_evidence_refs/{ref_name}")
         if ref_name.startswith("uaa_"):
-            _validate_revision_bound_ref(ref, "uaa")
+            _validate_revision_bound_ref(
+                ref, "uaa", goat_manifest_paths=goat_manifest_paths
+            )
         elif ref_name.startswith("goat_"):
-            _validate_revision_bound_ref(ref, "goatcitadel")
+            _validate_revision_bound_ref(
+                ref, "goatcitadel", goat_manifest_paths=goat_manifest_paths
+            )
         else:
             raise VerificationError(f"unowned common evidence ref: {ref_name}")
     expected_scores = data.get("expected_scores", {})
+    _require(
+        isinstance(expected_scores, dict)
+        and set(expected_scores) == EXPECTED_SCORES_KEYS,
+        "expected score schema drift",
+    )
     scorer_digest = hashlib.sha256(SCORER_PATH.read_bytes()).hexdigest()
     _require(
         expected_scores.get("scorer_ref") == f"{SCORER_REF_PREFIX}{scorer_digest}",
@@ -589,6 +766,16 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
         "expected score inventory drift",
     )
     for system_name, components in systems.items():
+        _require(
+            isinstance(expected[system_name], dict)
+            and set(expected[system_name]) == EXPECTED_SYSTEM_SCORE_KEYS,
+            f"{system_name}: expected score shape drift",
+        )
+        _require(
+            isinstance(expected[system_name]["components"], dict)
+            and set(expected[system_name]["components"]) == set(WEIGHTS),
+            f"{system_name}: expected component inventory drift",
+        )
         _require(
             isinstance(components, dict) and set(components) == set(WEIGHTS),
             f"{system_name}: component inventory drift",
@@ -667,7 +854,11 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
                 all_refs.extend(_safe_refs(component, field))
             for ref in all_refs:
                 _validate_safe_ref(ref, f"{system_name}/{component_name}/evidence_ref")
-                _validate_revision_bound_ref(ref, system_name)
+                _validate_revision_bound_ref(
+                    ref,
+                    system_name,
+                    goat_manifest_paths=goat_manifest_paths,
+                )
             score = _component_score(component)
             _require(
                 expected[system_name]["components"].get(component_name) == score,
@@ -710,7 +901,11 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
         refs = _safe_refs(item, "evidence_refs", required=True)
         for ref in refs:
             _validate_safe_ref(ref, "direct_observation/evidence_ref")
-            _validate_revision_bound_ref(ref, item["system"])
+            _validate_revision_bound_ref(
+                ref,
+                item["system"],
+                goat_manifest_paths=goat_manifest_paths,
+            )
     _require(observed == EXPECTED_OBSERVATIONS, "direct observation inventory drift")
     _require(
         _canonical_digest(observations) == EXPECTED_OBSERVATIONS_DIGEST,
@@ -817,9 +1012,18 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
             identity not in learning_identities, "duplicate reciprocal learning entry"
         )
         learning_identities.add(identity)
+    do_not_borrow = [
+        item for item in learning if item.get("disposition") == "do_not_borrow"
+    ]
+    _require(
+        len(do_not_borrow) == 1
+        and do_not_borrow[0].get("direction") == "bidirectional"
+        and do_not_borrow[0].get("transfer_score") == 0,
+        "bidirectional do-not-borrow rule drift",
+    )
     _require(
         {item.get("direction") for item in learning}
-        == {"goatcitadel_to_uaa", "uaa_to_goatcitadel"},
+        == {"goatcitadel_to_uaa", "uaa_to_goatcitadel", "bidirectional"},
         "reciprocal direction missing",
     )
     _require(
@@ -855,9 +1059,14 @@ def verify(
     )
     _require(artifact.stat().st_size <= 250_000, "comparison artifact is unbounded")
     _require(report_path.stat().st_size <= 150_000, "comparison report is unbounded")
+    _require(
+        DEFAULT_GOAT_MANIFEST.stat().st_size <= 100_000,
+        "GoatCitadel evidence manifest is unbounded",
+    )
     data = json.loads(artifact.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
-    return verify_data(data, report)
+    goat_manifest = json.loads(DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
+    return verify_data(data, report, goat_manifest)
 
 
 def main() -> int:

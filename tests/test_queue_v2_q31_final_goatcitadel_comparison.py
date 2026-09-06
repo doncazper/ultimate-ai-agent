@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from typing import Any
 
 import pytest
 
@@ -22,6 +23,10 @@ def _report() -> str:
     return verifier.DEFAULT_REPORT.read_text(encoding="utf-8")
 
 
+def _goat_manifest() -> dict[str, Any]:
+    return json.loads(verifier.DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
+
+
 def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     data = verifier.verify()
 
@@ -34,6 +39,7 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     assert data["method"]["product_experience"] == "single_evaluator_formative_only"
     assert data["systems"]["goatcitadel"]["action"]["status"] == "partial"
     assert data["systems"]["goatcitadel"]["action"]["contradiction_refs"]
+    assert data["reciprocal_learning"][-1]["direction"] == "bidirectional"
 
 
 def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
@@ -84,6 +90,32 @@ def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
     data = copy.deepcopy(_data())
     data["method"]["extra_policy"] = "unreviewed"
     with pytest.raises(verifier.VerificationError, match="method inventory drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["production_readiness"] = True
+    with pytest.raises(
+        verifier.VerificationError, match="top-level ledger schema drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["baselines"]["uaa"]["unreviewed"] = "value"
+    with pytest.raises(verifier.VerificationError, match="uaa: baseline shape drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["baselines"]["uaa"]["branch"] = "substituted"
+    with pytest.raises(
+        verifier.VerificationError, match="canonical baseline metadata drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["expected_scores"]["systems"]["uaa"]["unreviewed"] = "value"
+    with pytest.raises(
+        verifier.VerificationError, match="uaa: expected score shape drift"
+    ):
         verifier.verify_data(data, _report())
 
     data = copy.deepcopy(_data())
@@ -152,6 +184,23 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
     with pytest.raises(verifier.VerificationError, match="lacks provenance"):
         verifier.verify_data(data, _report())
 
+    data = copy.deepcopy(_data())
+    data["systems"]["goatcitadel"]["authority"]["evidence_refs"][0] = (
+        "repo-ref:goat@41d0f2e5:does/not/exist.ts"
+    )
+    with pytest.raises(
+        verifier.VerificationError,
+        match="missing GoatCitadel evidence file in manifest",
+    ):
+        verifier.verify_data(data, _report())
+
+    manifest = copy.deepcopy(_goat_manifest())
+    manifest["files"][0]["sha256"] = "0" * 64
+    with pytest.raises(
+        verifier.VerificationError, match="GoatCitadel evidence manifest digest drift"
+    ):
+        verifier.verify_data(_data(), _report(), manifest)
+
 
 def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
     data = copy.deepcopy(_data())
@@ -160,6 +209,9 @@ def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
         verifier.verify_data(data, _report())
 
     for field_name in (
+        "api_key",
+        "private_key",
+        "access_key",
         "prompt_text",
         "raw_prompt_text",
         "raw_provider_payload",
@@ -275,6 +327,13 @@ def test_q31_packet_requires_exact_direct_observations() -> None:
 
 def test_q31_packet_requires_exact_finite_reciprocal_learning() -> None:
     data = copy.deepcopy(_data())
+    data["reciprocal_learning"][-1]["direction"] = "uaa_to_goatcitadel"
+    with pytest.raises(
+        verifier.VerificationError, match="bidirectional do-not-borrow rule drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
     data["reciprocal_learning"].append(copy.deepcopy(data["reciprocal_learning"][0]))
     with pytest.raises(
         verifier.VerificationError, match="reciprocal learning ledger incomplete"
@@ -359,6 +418,7 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     for required_path in (
         "docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md",
         "docs/benchmarks/q31_goat_maturity_input_20260906.json",
+        "docs/benchmarks/q31_goat_evidence_manifest_20260906.json",
         "scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py",
     ):
         assert required_path in index

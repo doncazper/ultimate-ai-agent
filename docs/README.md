@@ -86,8 +86,11 @@ remaining issues may be classified as noncritical polish.
 Q31's final exact-revision comparison candidate is
 `docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md`, with its
 machine-readable score and authority ledger in
-`docs/benchmarks/q31_goat_maturity_input_20260906.json` and its repository-local
-verifier in `scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py`.
+`docs/benchmarks/q31_goat_maturity_input_20260906.json`, its exact-baseline
+GoatCitadel file-digest manifest in
+`docs/benchmarks/q31_goat_evidence_manifest_20260906.json`, and its
+repository-local verifier in
+`scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py`.
 It reports GoatCitadel 73 and UAA 70 under the bound maturity rubric, preserves
 independent and controlled task validation as unperformed, routes only the
 clean-start/chat gaps to Q33 and responsive polish to Q36, and grants no repair,
