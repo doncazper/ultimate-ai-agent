@@ -1341,7 +1341,7 @@
           "ui_status": "backend-owned local",
           "release_status": "partial",
           "owner": "crm-local-command-center-m2",
-          "backend_route_count": 7,
+          "backend_route_count": 13,
           "blocked_capability_count": 21,
           "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"
