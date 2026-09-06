@@ -33,7 +33,7 @@ zero; self-tests are not acceptance.
 
 The evidence-gated repository maturity score is **GoatCitadel 73, UAA 70**.
 Both are in the rubric's **Strong system** band. The three-point reported gap
-(3.628 raw) is a slight GoatCitadel lead, driven by its visible chat shell,
+(3.6290 raw) is a slight GoatCitadel lead, driven by its visible chat shell,
 code workflow, provider surface, and extension breadth. It is not a controlled
 task-performance, raw-intelligence, production-readiness, or general UX winner.
 
@@ -173,6 +173,24 @@ perform external writes.
 | Progress/actions | Messenger fixture disclosed that messages/actions were synthetic and blocked | Readiness, runtime, policy, context, thread, build, and activity areas visible |
 | Mobile | Responsive columns, but runtime card overlapped work content | Collapsed navigation and stacked cards; composer below initial fold |
 | Truthfulness | Strong exact-revision and evidence gating | Strong explicit no-provider route block |
+
+The following required interaction dimensions were not silently omitted. They
+remain explicit missing evidence for both systems because this comparison did
+not grant provider/model send or active-run authority:
+
+| Unexercised dimension | UAA | GoatCitadel | Reason |
+|---|---|---|---|
+| Streaming | not measured | not measured | No response stream existed. |
+| Cancel/retry | not measured | not measured | No active execution existed to cancel or retry. |
+| Interruption | not measured | not measured | No active execution existed to interrupt. |
+| Steering | not measured | not measured | No active execution existed to steer. |
+| Resumption | not measured | not measured | Draft recovery is not active-run resumption. |
+| Restart | not measured | not measured | Process restart was not performed. |
+| Accessibility | not measured | not measured | Keyboard navigation was observed, but no formal accessibility audit was performed. |
+| Steps/time to useful outcome | not measured | not measured | No provider or model outcome was authorized. |
+
+These missing states prevent the direct-surface observation from being read as
+a complete usability, recovery, accessibility, or task-success evaluation.
 
 Visual refs are content-free hashes:
 

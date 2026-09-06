@@ -29,7 +29,7 @@ DEFAULT_REPORT = (
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "4bf982979a6abb040c625eaffb715775659bdd1870ef913a6b1ce3a18617fff3"
+REPORT_SHA256 = "27c63e13fdb8fc9784ed1e725077b5af45474d28f50e76587f96d4ac14326fc9"
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
     f"repository-scorer-ref:{SCHEMA_VERSION}:"
@@ -216,6 +216,22 @@ REVISION_SUFFIX = re.compile(r"@(?:git-sha:)?([0-9a-f]{8}|[0-9a-f]{40})$")
 CONTENT_ADDRESSED_REF = re.compile(r"^[-A-Za-z0-9_./:@]+:sha256:[0-9a-f]{64}$")
 EXPECTED_OBSERVATIONS_DIGEST = (
     "8e7d164adea51e72eebe78640e9b8fb2d1674cdf53d9060cbe8702a99e1024cc"
+)
+EXPECTED_SYSTEMS_DIGEST = (
+    "ab142d269bf2aadc15a26ad351fc945822ac0d5295a96afc6adc7a7f3ba4df8c"
+)
+EXPECTED_UNEXERCISED_DIMENSIONS = {
+    "streaming",
+    "cancel_retry",
+    "interruption",
+    "steering",
+    "resumption",
+    "restart",
+    "accessibility",
+    "steps_and_time_to_useful_outcome",
+}
+EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST = (
+    "4f25f2fe17e2a1b5c82404d42073065be4da569f7027a04214179362753b742b"
 )
 EXPECTED_RECIPROCAL_LEARNING_DIGEST = (
     "fb0bf31cbab394d52da2249280c83bd42c97d45ab10814e7d6299a961f25d48c"
@@ -436,6 +452,14 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
         f"The evidence-gated repository maturity score is **GoatCitadel {goat_score}, UAA {uaa_score}**."
         in report,
         "report executive score drift",
+    )
+    raw_gap = (
+        scores["goatcitadel"]["weighted_total_raw"]
+        - scores["uaa"]["weighted_total_raw"]
+    )
+    _require(
+        report.count(f"({raw_gap:.4f} raw)") == 1,
+        "report raw score delta drift",
     )
     _require(
         f"GoatCitadel has a slight current repository-maturity lead, **{goat_score} to {uaa_score}**"
@@ -664,6 +688,10 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
             expected[system_name].get("band") == _band(reported),
             f"{system_name}: maturity band drift",
         )
+    _require(
+        _canonical_digest(systems) == EXPECTED_SYSTEMS_DIGEST,
+        "canonical component score inputs drift",
+    )
 
     observations = data.get("direct_observations")
     _require(isinstance(observations, list), "direct observation inventory incomplete")
@@ -687,6 +715,41 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     _require(
         _canonical_digest(observations) == EXPECTED_OBSERVATIONS_DIGEST,
         "direct observation evidence binding drift",
+    )
+    unexercised = data.get("unexercised_observation_dimensions")
+    _require(
+        isinstance(unexercised, list)
+        and len(unexercised) == len(EXPECTED_UNEXERCISED_DIMENSIONS),
+        "unexercised observation dimension inventory drift",
+    )
+    observed_dimensions: set[str] = set()
+    for item in unexercised:
+        _require(
+            isinstance(item, dict)
+            and set(item) == {"dimension", "uaa", "goatcitadel", "reason"},
+            "unexercised observation dimension shape drift",
+        )
+        dimension = item["dimension"]
+        _require(
+            isinstance(dimension, str) and dimension not in observed_dimensions,
+            "duplicate unexercised observation dimension",
+        )
+        observed_dimensions.add(dimension)
+        _require(
+            item["uaa"] == "not_measured" and item["goatcitadel"] == "not_measured",
+            "unexercised observation status drift",
+        )
+        _require(
+            isinstance(item["reason"], str) and bool(item["reason"].strip()),
+            "unexercised observation reason missing",
+        )
+    _require(
+        observed_dimensions == EXPECTED_UNEXERCISED_DIMENSIONS,
+        "unexercised observation dimension inventory drift",
+    )
+    _require(
+        _canonical_digest(unexercised) == EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST,
+        "unexercised observation evidence binding drift",
     )
 
     routes = data.get("residual_gap_routes")

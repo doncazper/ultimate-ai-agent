@@ -91,6 +91,18 @@ def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
     with pytest.raises(verifier.VerificationError, match="component shape drift"):
         verifier.verify_data(data, _report())
 
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["planning"]["gates"]["implementation"] = 0
+    recalculated = data["expected_scores"]["systems"]["uaa"]
+    recalculated["components"]["planning"] = 2
+    recalculated["weighted_total_raw"] = 65.9677
+    recalculated["weighted_total_reported"] = 66
+    recalculated["band"] = "Usable system"
+    with pytest.raises(
+        verifier.VerificationError, match="canonical component score inputs drift"
+    ):
+        verifier.verify_data(data, _report())
+
 
 def test_q31_packet_binds_revision_refs_and_scorer() -> None:
     data = copy.deepcopy(_data())
@@ -234,6 +246,23 @@ def test_q31_packet_requires_exact_direct_observations() -> None:
         verifier.verify_data(data, _report())
 
     data = copy.deepcopy(_data())
+    data["unexercised_observation_dimensions"] = data[
+        "unexercised_observation_dimensions"
+    ][:-1]
+    with pytest.raises(
+        verifier.VerificationError,
+        match="unexercised observation dimension inventory drift",
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["unexercised_observation_dimensions"][0]["uaa"] = "implemented"
+    with pytest.raises(
+        verifier.VerificationError, match="unexercised observation status drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
     data["direct_observations"][0]["evidence_refs"] = [
         "runtime-observation-ref:q31:uaa:invented"
         "@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
@@ -279,6 +308,12 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     )
     with pytest.raises(
         verifier.VerificationError, match="report executive score drift"
+    ):
+        verifier.verify_data(_data(), report)
+
+    report = _report().replace("(3.6290 raw)", "(3.628 raw)")
+    with pytest.raises(
+        verifier.VerificationError, match="report raw score delta drift"
     ):
         verifier.verify_data(_data(), report)
 

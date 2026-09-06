@@ -1,7 +1,7 @@
 {
   "schema_version": "goat-comparison-maturity.v2",
   "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
-  "report_ref": "report-ref:q31:sha256:4bf982979a6abb040c625eaffb715775659bdd1870ef913a6b1ce3a18617fff3",
+  "report_ref": "report-ref:q31:sha256:27c63e13fdb8fc9784ed1e725077b5af45474d28f50e76587f96d4ac14326fc9",
   "comparison_date": "2026-09-06",
   "authority_granted": {
     "provider_or_model_calls": false,
@@ -36,7 +36,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:d7f34d17f1f4b08e6af6cba36307f04d8ee208713e9f172069dc93383db4a7fe",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:829b1dac26e554e11e7a24a94115d00ae10b1d13f7dd0aab6c0358a50ff908e7",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,
@@ -122,6 +122,56 @@
       "evidence_refs": [
         "visual-evidence-ref:q31:goat-mobile:sha256:af5d307012e375cfbe205fecdbbcc2acb03eb89962ba88396051007f1634d381"
       ]
+    }
+  ],
+  "unexercised_observation_dimensions": [
+    {
+      "dimension": "streaming",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No provider or model send authority was granted, so no response stream existed."
+    },
+    {
+      "dimension": "cancel_retry",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to cancel or retry."
+    },
+    {
+      "dimension": "interruption",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to interrupt."
+    },
+    {
+      "dimension": "steering",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to steer."
+    },
+    {
+      "dimension": "resumption",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Draft recovery was observed, but active-run resumption was not exercised."
+    },
+    {
+      "dimension": "restart",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Process restart was not performed in the bounded observation."
+    },
+    {
+      "dimension": "accessibility",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Keyboard navigation was observed, but a formal accessibility audit was not performed."
+    },
+    {
+      "dimension": "steps_and_time_to_useful_outcome",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No provider or model outcome was authorized, so steps and time to a useful model outcome were not measured."
     }
   ],
   "systems": {
