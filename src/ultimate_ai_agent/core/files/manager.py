@@ -1,7 +1,7 @@
 import hashlib
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -986,8 +986,8 @@ class LocalFileManager:
 
     def _as_utc(self, value: datetime) -> datetime:
         if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value.astimezone(UTC)
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _blocked(
         self,

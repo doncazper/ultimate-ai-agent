@@ -23,7 +23,7 @@ local-first, review-gated, and disabled-by-default posture.
 .venv/bin/python scripts/release/check_version_truth.py
 PYTHONPATH=src .venv/bin/python scripts/verify_documentation_integrity.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_gate_evaluator_characterization.py tests/test_gate_architecture_guard.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py tests/test_openapi_contract.py
 make frontend-check

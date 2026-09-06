@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1003,
+  "timed_file_count": 1005,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -4036,6 +4036,11 @@
       "source": "operator-supplied-advisory"
     },
     {
+      "path": "tests/test_queue_v2_q31_final_goatcitadel_comparison.py",
+      "seconds": 19.18,
+      "source": "pytest-duration-summary"
+    },
+    {
       "path": "tests/test_recall_no_memory_writes.py",
       "seconds": 0.255682,
       "source": "shard-elapsed-fallback"
@@ -4537,6 +4542,11 @@
     },
     {
       "path": "tests/test_tool_aware_cognition_taw08.py",
+      "seconds": 0.99,
+      "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_tool_aware_cognition_taw08_evidence_phases.py",
       "seconds": 0.99,
       "source": "operator-supplied-advisory"
     },

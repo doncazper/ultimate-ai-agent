@@ -1,10 +1,16 @@
 # Tool-Aware Cognition TAW-07 Development Hardening
 
-Status: deterministic development contract implemented; TAW-07 qualification is
-`blocked_missing_acceptance_evidence`. The repository fixture proves structural
-contract behavior only, not accepted model, response, recovery, statistical, or
-hardware evidence.
+Status: deterministic development hardening contract implemented. Measured
+evidence evaluation belongs to TAW-08; the repository fixture proves structural
+contract behavior only, not model, response, recovery, statistical, or hardware
+evidence.
 Independent promotion and public quality claims remain blocked.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 TAW-07 adds a deterministic, content-free hardening contract around the accepted
 TAW-04 evidence-only chat decision. It does not activate routing, change model
@@ -13,14 +19,14 @@ a tool, access a connector, write externally, or open the independent holdout.
 
 ## Founder Scope
 
-The accepted founder profile remains English-first with Qwen 3.8 27B and a 128K
+The bounded founder profile remains English-first with Qwen 3.8 27B and a 128K
 local context identity. Configured ChatGPT/Codex API profiles remain configuration
 identities only; this slice makes no API call. Mac and Windows hardware evidence
 is still recorded per run rather than inferred from a repository fixture.
 
 The durable development corpus is
 `docs/evals/tool_aware_cognition_taw07_development_corpus_v1.json`. It contains 24
-synthetic cases. Its accepted corpus digest locks the complete case-to-category,
+synthetic cases. Its corpus digest locks the complete case-to-category,
 rubric, parameter, variant, and generated-content mapping rather than only a
 category census:
 
@@ -34,15 +40,15 @@ category census:
   field path.
 
 The development seed is intentionally available because this is the development
-corpus. No acceptance-holdout seed, parameter, generated input, case hash, label,
+corpus. No private-holdout seed, parameter, generated input, case hash, label,
 expected decision, or per-case result is present. A validated public
-`HoldoutCommitment` envelope may bind the accepted TAW-00 cycle, custodian,
+`HoldoutCommitment` envelope may bind the TAW-00 cycle, custodian,
 HMAC-SHA256 commitment, creation-order evidence, and custodian attestation before
 the report is preserved for later qualification. The report records whether the
 envelope is present but always records `holdout_evidence_verified=false`.
 Because TAW-07 cannot independently resolve those refs or open the HMAC
-commitment, a passing status is not representable in this contract. The private
-holdout material remains unrepresentable here.
+commitment, no positive qualification result can be represented in this contract.
+The private holdout material remains unrepresentable here.
 
 ## Exact Matrix
 
@@ -122,8 +128,8 @@ The repository verifier generates a deterministic identity-preserving no-effect
 fixture to prove the contract and all fail-closed calculations. Those fixture
 latencies and identity-equal response fingerprints are structural regression
 evidence, not claims about measured model or hardware performance. Actual
-founder-dogfood measurements must bind exact model artifacts, hardware, and
-candidate evidence before TAW-08 acceptance.
+Founder measurements must bind exact model artifacts, hardware, and candidate
+evidence before TAW-08 evaluation.
 
 ## Fail-Closed Behavior
 
@@ -161,10 +167,13 @@ PYTHONPATH=src .venv/bin/python scripts/verify_tool_aware_cognition_taw07.py
 ```
 
 TAW-07 does not complete Q22 and is not qualified by the repository fixture.
-TAW-08 must supply the missing stale-recovery, routing-confidence,
-response-scoring, live-model/hardware, and independently verified holdout evidence;
-lock the complete candidate manifest; and record
-founder-private dogfood acceptance with exact measured evidence, reconcile
-product claims, and preserve the independent promotion gate. External custody,
-blind scoring, independently accepted baseline evidence, public claims, runtime
-model/provider calls, and production authority remain blocked.
+
+TAW-08 is the only lane permitted to bind stale-recovery, routing-confidence,
+response-scoring, and live-model/hardware evidence for the founder profile; lock
+the exact candidate manifest; write the measured report; and reconcile product
+claims.
+
+Independent-promotion evidence remains outside TAW-08. It belongs to its
+separately governed future gate. External custody, blind scoring, independently
+accepted baseline evidence, public claims, runtime model/provider calls, and
+production authority remain blocked.

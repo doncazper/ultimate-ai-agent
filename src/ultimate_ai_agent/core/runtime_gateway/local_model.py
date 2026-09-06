@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_safe_execution_text,
 )
 from ultimate_ai_agent.core.local_model_management.gateway import (
+    M164_MAX_RESPONSE_BYTES,
     build_m164_gateway_model_from_env,
     M164ChatCompletionRequest,
     M164ChatMessage,
@@ -57,7 +58,7 @@ LOCAL_MODEL_RUNTIME_MAX_MESSAGES = 12
 LOCAL_MODEL_RUNTIME_MAX_MESSAGE_CHARS = 8_000
 LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS = 500
 LOCAL_MODEL_RUNTIME_MAX_RESPONSE_BYTES = 64_000
-LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS = 30.0
+LOCAL_MODEL_RUNTIME_MAX_TIMEOUT_SECONDS = 120.0
 RUNTIME_LOCAL_MODEL_ENABLED_ENV = "UAA_RUNTIME_LOCAL_MODEL_ENABLED"
 RUNTIME_LOCAL_MODEL_ENABLED_VALUES = {"1", "true", "yes", "on", "local-runtime"}
 
@@ -1181,9 +1182,11 @@ class RuntimeGateway:
 def _default_transport_factory(
     request: RuntimeLocalModelCallRequest,
 ) -> M164GatewayTransport:
+    # The transport bounds the complete OpenAI JSON envelope; the request bound
+    # is enforced separately against the extracted assistant content above.
     return StdlibM164LlamaCppGatewayTransport(
         timeout_seconds=request.timeout_seconds,
-        max_response_bytes=request.max_response_bytes,
+        max_response_bytes=M164_MAX_RESPONSE_BYTES,
     )
 
 

@@ -417,7 +417,15 @@ def release_lanes() -> tuple[ReleaseLane, ...]:
                 ),
                 LaneCommand(
                     command_ref="command:foundation-gate.report-only",
-                    argv=(py, "scripts/run_foundation_gate.py", "--command-mode", "report-only"),
+                    argv=(
+                        py,
+                        "-I",
+                        "-B",
+                        "-S",
+                        "scripts/run_foundation_gate.py",
+                        "--command-mode",
+                        "report-only",
+                    ),
                     purpose="Generate Foundation Gate report with latency gate summary.",
                     report_ref="reports/foundation_gate/latest_foundation_gate_report.json",
                 ),

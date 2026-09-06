@@ -75,7 +75,7 @@ Final verification must include:
 - focused API manifest and route classification tests;
 - `make frontend-check` and visual checks when frontend changed;
 - native Swift/macOS build and tests when the shell changed;
-- `.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`;
+- `.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only`;
 - `git diff --check`;
 - a real local end-to-end acceptance run proving capture through next-launch
   result display.

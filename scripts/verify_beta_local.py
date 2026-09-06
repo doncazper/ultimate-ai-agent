@@ -271,7 +271,11 @@ def build_beta_local_gate_commands() -> list[BetaGateCommand]:
         BetaGateCommand(
             lane_id="foundation_gate",
             command_ref="command:foundation-gate.report-only",
-            argv=python_cmd(
+            argv=(
+                PYTHON,
+                "-I",
+                "-B",
+                "-S",
                 "scripts/run_foundation_gate.py",
                 "--command-mode",
                 "report-only",

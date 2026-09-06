@@ -1,8 +1,14 @@
 # TAW-02 Familiarity And Uncertainty Assessment
 
-Status: bounded founder-private-dogfood implementation evidence. This document
+Status: bounded implementation evidence. This document
 does not grant routing, prompt, provider/model, proposal, approval, execution,
 or production authority.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 ## Purpose
 

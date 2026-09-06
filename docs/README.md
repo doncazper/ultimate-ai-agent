@@ -83,6 +83,26 @@ The post-comparison functional-use contract is
 private data, complete primary-surface lifecycles, recovery, cross-module
 continuity, direct chat UX learning from Q31, and finite founder dogfood before
 remaining issues may be classified as noncritical polish.
+Q31's final exact-revision comparison candidate is
+`docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md`, with its
+machine-readable score and authority ledger in
+`docs/benchmarks/q31_goat_maturity_input_20260906.json`, its exact-baseline
+GoatCitadel file-digest manifest in
+`docs/benchmarks/q31_goat_evidence_manifest_20260906.json`, its content-free
+runtime-observation manifest in
+`docs/benchmarks/q31_direct_observation_manifest_20260906.json`, its bounded
+content-addressed command/result receipts in
+`docs/benchmarks/q31_test_run_receipts_20260906.json`, and its
+repository-local verifier in
+`scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py`.
+It reports GoatCitadel 73 and UAA 70 under the bound maturity rubric, preserves
+independent and controlled task validation as unperformed, routes only the
+clean-start/chat gaps to Q33 and responsive polish to Q36, and grants no repair,
+runtime, provider, model, or production authority. Canonical queue truth remains
+pending until protected merge, post-merge qualification, exact observation or
+accepted Queue V2 scope-disposition resolution of every required unmeasured
+interaction dimension, and Q31's Queue V2 terminal receipt; Q32 remains blocked
+until that receipt exists.
 The subsequent exact-revision peer recheck is specified in
 `docs/evals/UAA_POST_ADOPTION_HERMES_OPENCLAW_PARITY_PLAN.md`; it requires
 equivalent functional workflows and direct chat/operator-surface interaction
@@ -782,7 +802,7 @@ make verify-dev-sharded
 .venv/bin/python scripts/verify_verifier_maintainability.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 `make verify` is the release-grade local gate. It runs the complete pytest

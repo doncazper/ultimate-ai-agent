@@ -316,4 +316,4 @@ recommended before the UAA-P1-011 loop contract is accepted.
 - Frontend safety verifier:
   `PYTHONPATH=src .venv/bin/python scripts/verify_control_center_frontend.py`
 - Foundation/UAA safety guard:
-  `PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`
+  `.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only`

@@ -1041,6 +1041,7 @@ def run_latency_gate_summary(
     precomputed_foundation_gate_ms: float | None = None,
     precomputed_foundation_gate_status: str | None = None,
     precomputed_foundation_gate_result_count: int | None = None,
+    precomputed_foundation_gate_warmup: int = 0,
 ) -> dict[str, object]:
     _ensure_repo_on_path()
     from scripts.benchmark_foundation_gate import _benchmark, _benchmark_release_latency_paths
@@ -1056,11 +1057,27 @@ def run_latency_gate_summary(
                 "precomputed Foundation Gate latency requires elapsed ms, status, "
                 "and result count"
             )
+        if (
+            isinstance(precomputed_foundation_gate_warmup, bool)
+            or not isinstance(precomputed_foundation_gate_warmup, int)
+            or precomputed_foundation_gate_warmup < 0
+        ):
+            raise ValueError(
+                "precomputed Foundation Gate warmup must be a non-negative integer"
+            )
         elapsed_ms = round(float(precomputed_foundation_gate_ms), 2)
         metrics = {
             "schema_version": "foundation_gate_benchmark.v2",
             "repeat": 1,
-            "warmup": 0,
+            "warmup": precomputed_foundation_gate_warmup,
+            "foundation_gate_warmup_statuses": [
+                str(precomputed_foundation_gate_status)
+            ]
+            * precomputed_foundation_gate_warmup,
+            "foundation_gate_warmup_result_counts": [
+                int(precomputed_foundation_gate_result_count)
+            ]
+            * precomputed_foundation_gate_warmup,
             "foundation_gate_runs_ms": [elapsed_ms],
             "foundation_gate_best_ms": elapsed_ms,
             "foundation_gate_mean_ms": elapsed_ms,

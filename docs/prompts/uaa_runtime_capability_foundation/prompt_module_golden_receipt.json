@@ -3,9 +3,9 @@
   "automatic_skill_loading": false,
   "bundle_id": "uaa-runtime-capability-foundation-modules",
   "bundle_version": "1.0.0",
-  "compiled_artifact_hash": "sha256:73365e3611652f012117484c9356de1065dbb1a52ec3ba96b41dcc2da98bc18f",
-  "compiled_bytes": 54223,
-  "declared_source_contract_hash": "sha256:609e541c152760c4359e371f4cec8cc9c7a293d6ea870d90987fc10b12ef58ef",
+  "compiled_artifact_hash": "sha256:eb19b3c6a1bee6683037634631d5717adeea132899d4e2ffdb8079d14b728d7c",
+  "compiled_bytes": 54232,
+  "declared_source_contract_hash": "sha256:4bf04da6e9d0bd956998cd71d8db5d6f567835454231ccbccb047f152bae11d5",
   "dependency_graph_hash": "sha256:23e99318f129990a9b473b067e82fc532f32c1770794154ff704fd58b01f05d7",
   "entry_module_ids": [
     "phase-09"
@@ -37,8 +37,8 @@
     },
     {
       "module_id": "orchestrator",
-      "source_bytes": 17252,
-      "source_hash": "sha256:c9614104a35d01ee9af0e0121aedc6d5a82aa66749bb080763513eac2777339a",
+      "source_bytes": 17261,
+      "source_hash": "sha256:471050d35471aab2627028bf5bd96cbcfe00ac63bdd803d8ad3a60b55e12fa78",
       "source_ref": "docs/prompts/uaa_runtime_capability_foundation/00_execute_uaa_runtime_capability_foundation_end_to_end.prompt.md"
     },
     {

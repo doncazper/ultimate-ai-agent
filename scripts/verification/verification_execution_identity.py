@@ -11,8 +11,15 @@ import stat
 import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
-from enum import StrEnum
+from datetime import datetime, timezone
+try:
+    from enum import StrEnum as _StringEnum
+except ImportError:  # pragma: no cover - exercised by the Python 3.10 verifier
+    from enum import Enum
+
+    class _StringEnum(str, Enum):
+        def __str__(self) -> str:
+            return self.value
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -64,7 +71,7 @@ class VerificationExecutionFenceCapacityError(VerificationExecutionFenceError):
     """The bounded execution fence cannot accept another exact identity."""
 
 
-class VerificationExecutionFenceDisposition(StrEnum):
+class VerificationExecutionFenceDisposition(_StringEnum):
     START_GRANTED = "start_granted"
     TERMINAL_PROOF_REUSED = "terminal_proof_reused"
     DETERMINISTIC_FAILURE_REJECTED = "deterministic_failure_rejected"
@@ -72,7 +79,7 @@ class VerificationExecutionFenceDisposition(StrEnum):
     EXCLUSIVE_RESOURCE_ATTEMPT_REJECTED = "exclusive_resource_attempt_rejected"
 
 
-class VerificationExecutionFailureCategory(StrEnum):
+class VerificationExecutionFailureCategory(_StringEnum):
     NOT_APPLICABLE = "not_applicable"
     DETERMINISTIC_CODE_FAILURE = "deterministic_code_failure"
     INFRASTRUCTURE_FAILURE = "infrastructure_failure"
@@ -132,7 +139,7 @@ def _validate_timestamp(value: object, *, label: str) -> datetime:
         raise VerificationExecutionIdentityError(
             f"{label} must be canonical UTC"
         ) from exc
-    if parsed.tzinfo != UTC:
+    if parsed.tzinfo != timezone.utc:
         raise VerificationExecutionIdentityError(f"{label} must be canonical UTC")
     return parsed
 
@@ -762,7 +769,7 @@ def _canonical_now(clock: Callable[[], datetime]) -> str:
     observed = clock()
     if not isinstance(observed, datetime) or observed.tzinfo is None:
         raise VerificationExecutionFenceError("verification fence clock is invalid")
-    return observed.astimezone(UTC).isoformat(timespec="microseconds").replace(
+    return observed.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
     )
 
@@ -919,7 +926,7 @@ class VerificationExecutionFence:
         *,
         max_entries: int = MAX_FENCE_ENTRIES,
         lock_timeout_seconds: float = 2.0,
-        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         token_factory: Callable[[], str] = lambda: secrets.token_hex(32),
     ) -> None:
         if (

@@ -13,12 +13,13 @@ class _GateCachedText(str):
 
     def __contains__(self, item: object) -> bool:
         if not isinstance(item, str):
-            return super().__contains__(item)
-        cached = self._contains_cache.get(item)
-        if cached is None:
-            cached = super().__contains__(item)
+            return str.__contains__(self, item)
+        try:
+            return self._contains_cache[item]
+        except KeyError:
+            cached = str.__contains__(self, item)
             self._contains_cache[item] = cached
-        return cached
+            return cached
 
     def lower(self) -> "_GateCachedText":
         if self._lower_cache is None:

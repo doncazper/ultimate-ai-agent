@@ -16,7 +16,7 @@
     "docs/prompts/uaa_runtime_capability_foundation/08_cockpit_cli_api_parity_and_operator_ux.prompt.md",
     "docs/prompts/uaa_runtime_capability_foundation/09_extensibility_ecosystem_and_final_hardening.prompt.md"
   ],
-  "bundle_hash": "sha256:f61008650695963fd02c3126dbf54a481aacb4344c9097c1b3ea9209657ccaa9",
+  "bundle_hash": "sha256:5a13499992feb5ce57cbd726adc94709ff98f97ace646121a5998dad188ba248",
   "stable_within_run": true,
   "created_at": "2026-07-05"
 }

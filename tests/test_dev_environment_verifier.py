@@ -121,9 +121,12 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     )
     assert "verify-local: verify-dev-sharded" in text
     assert "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py" in text
-    assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
     assert (
-        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest"
+        "$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only"
+        in text
+    )
+    assert (
+        "$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only --no-write-latest"
         in text
     )
     assert "$(PYTHON) -m ruff check ." in text
@@ -139,7 +142,7 @@ def test_make_verify_runs_full_sharded_release_gate_and_preserves_serial_diagnos
     assert verify_body == [
         "$(MAKE) ruff test-sharded verify-static",
         "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py",
-        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only",
+        "$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only",
     ]
     assert not any(
         "verify-dev-fast" in line or "-j$(VERIFY_DEV_FAST_JOBS)" in line
@@ -149,7 +152,7 @@ def test_make_verify_runs_full_sharded_release_gate_and_preserves_serial_diagnos
     verify_dev_fast_body = make_target_body(text, "verify-dev-fast")
     assert verify_dev_fast_body == [
         "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture",
-        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest",
+            "$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only --no-write-latest",
     ]
     assert not any(
         "verify " in line or "scripts/verify_all.py" in line

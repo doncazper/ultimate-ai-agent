@@ -191,7 +191,7 @@ PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 When docs/product truth change:
 ```bash
 .venv/bin/python scripts/verify_documentation_integrity.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 When Control Center changes:

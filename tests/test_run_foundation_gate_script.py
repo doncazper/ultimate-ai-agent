@@ -1,6 +1,8 @@
 from typing import Any
 from pathlib import Path
 import json
+import os
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
@@ -28,6 +30,12 @@ class _FastFoundationGateEvaluator:
 
 
 def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        run_foundation_gate,
+        "_PREIMPORT_TRUSTED_GIT_COMMAND",
+        "/trusted/test/git",
+    )
+
     def fast_latency_summary(
         *,
         foundation_gate_report_json: Any,
@@ -36,10 +44,12 @@ def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
         precomputed_foundation_gate_ms: Any | None = None,
         precomputed_foundation_gate_status: Any | None = None,
         precomputed_foundation_gate_result_count: Any | None = None,
+        precomputed_foundation_gate_warmup: int = 0,
     ) -> Any:
         assert precomputed_foundation_gate_ms is not None
         assert precomputed_foundation_gate_status == "passed"
         assert precomputed_foundation_gate_result_count == 1
+        assert precomputed_foundation_gate_warmup == 1
         return run_foundation_gate.FoundationGateLatencySummary(
             schema_version="uaa_foundation_gate_latency_summary.v1",
             task_ref="UAA-P1-043",
@@ -179,6 +189,55 @@ def test_run_foundation_gate_writes_requested_output(tmp_path: Path, monkeypatch
     assert payload["summary"] == f"{expected_count} passed, 0 failed, 0 warnings, 0 blocked."
 
 
+def test_exact_foundation_latency_excludes_repository_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    report = _FastFoundationGateEvaluator(tmp_path).evaluate()
+    revision_ref = "git-sha:" + "a" * 40
+    provenance_calls: list[Path] = []
+    clock = iter((100.0, 100.125))
+
+    def exact_revision(
+        repository_root: Path,
+        *,
+        git_executable: str | Path,
+    ) -> str:
+        assert git_executable == "/trusted/test/git"
+        provenance_calls.append(repository_root)
+        return revision_ref
+
+    evaluations = 0
+
+    class Evaluator:
+        def __init__(self, repository_root: Path) -> None:
+            assert repository_root == tmp_path
+
+        def evaluate(self) -> Any:
+            nonlocal evaluations
+            evaluations += 1
+            return report
+
+    monkeypatch.setattr(run_foundation_gate, "exact_repository_revision", exact_revision)
+    monkeypatch.setattr(run_foundation_gate, "FoundationGateEvaluator", Evaluator)
+    monkeypatch.setattr(run_foundation_gate.time, "perf_counter", lambda: next(clock))
+    elapsed_ms: list[float] = []
+
+    evaluated_revision, evaluated_report = (
+        run_foundation_gate.evaluate_foundation_gate_at_exact_repository_revision(
+            tmp_path,
+            git_executable="/trusted/test/git",
+            evaluation_elapsed_ms=elapsed_ms,
+        )
+    )
+
+    assert evaluated_revision == revision_ref
+    assert evaluated_report.evaluated_revision_ref == revision_ref
+    assert provenance_calls == [tmp_path, tmp_path]
+    assert elapsed_ms == [125.0]
+    assert evaluations == 2
+
+
 def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
     output_path = tmp_path / "gate_report.json"
@@ -250,6 +309,125 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     assert "exact-SHA, exact-plan" in payload["command_receipts"][0]["safe_summary"]
     assert payload["latency_gate"]["foundation_gate_report_json"] is None
     assert payload["latency_gate"]["report_refs"] == {}
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+def test_foundation_tree_census_rejects_promisor_without_lazy_fetch(
+    tmp_path: Path,
+) -> None:
+    seed = tmp_path / "seed"
+    source = tmp_path / "source.git"
+    partial = tmp_path / "partial"
+    seed.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=seed, check=True)
+    (seed / "tracked.txt").write_text("promised content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=seed, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=seed,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "clone", "--bare", "-q", str(seed), str(source)),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "uploadpack.allowFilter", "true"),
+        cwd=source,
+        check=True,
+    )
+    subprocess.run(
+        (
+            "git",
+            "clone",
+            "-q",
+            "--filter=blob:none",
+            "--no-checkout",
+            f"file://{source}",
+            str(partial),
+        ),
+        check=True,
+    )
+    sentinel = tmp_path / "promisor-helper-ran"
+    helper = tmp_path / "promisor-helper"
+    helper.write_text(
+        f"#!/bin/sh\nprintf ran > {str(sentinel)!r}\nexit 1\n",
+        encoding="utf-8",
+    )
+    helper.chmod(0o700)
+    subprocess.run(
+        ("git", "config", "remote.origin.url", f"ext::{helper}"),
+        cwd=partial,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "protocol.ext.allow", "always"),
+        cwd=partial,
+        check=True,
+    )
+
+    with pytest.raises(RuntimeError, match="Git tree census is invalid"):
+        run_foundation_gate._require_raw_clean_worktree(
+            partial,
+            git_command=run_foundation_gate._trusted_preimport_git(),
+            git_environment=run_foundation_gate._sanitized_git_environment(),
+        )
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX promisor regression")
+def test_foundation_tree_census_accepts_explicitly_disabled_promisor(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "complete"
+    repository.mkdir()
+    subprocess.run(("git", "init", "-q"), cwd=repository, check=True)
+    (repository / "tracked.txt").write_text("complete content\n", encoding="utf-8")
+    subprocess.run(("git", "add", "tracked.txt"), cwd=repository, check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=TAW08 Test",
+            "-c",
+            "user.email=taw08@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ),
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "remote.origin.promisor", "false"),
+        cwd=repository,
+        check=True,
+    )
+
+    revision = run_foundation_gate._require_raw_clean_worktree(
+        repository,
+        git_command=run_foundation_gate._trusted_preimport_git(),
+        git_environment=run_foundation_gate._sanitized_git_environment(),
+    )
+
+    assert revision == subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def test_parallel_ci_mode_rejects_missing_exact_receipt_evidence() -> None:

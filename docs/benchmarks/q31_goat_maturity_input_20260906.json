@@ -1,0 +1,473 @@
+{
+  "schema_version": "goat-comparison-maturity.v2",
+  "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
+  "report_ref": "report-ref:q31:sha256:514793903b9ef6640dcd3a9eb9cf64c994b6a290ad1ce103f52cbd21b2bb25b3",
+  "goat_evidence_manifest_ref": "repository-manifest-ref:q31:goat-evidence@sha256:6b97fef368d2de493c628ca3f3f9589f33695b729b8e8f210a03e28ef765a6d0",
+  "direct_observation_manifest_ref": "observation-manifest-ref:q31:sha256:19ae8938e2a25d4c82c67cfa2d690f63a38f92c2aac142a9fcdc231d777f49cf",
+  "comparison_date": "2026-09-06",
+  "authority_granted": {
+    "provider_or_model_calls": false,
+    "competitor_code_import": false,
+    "runtime_mutation": false,
+    "production_claim": false,
+    "automatic_gap_fix": false
+  },
+  "baselines": {
+    "uaa": {
+      "commit_ref": "git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "branch": "main",
+      "package_version": "0.104.0",
+      "worktree_status": "clean_isolated",
+      "release_note": "Package baseline remains 0.104.0; the historical v0.104.0 tag is not the compared commit."
+    },
+    "goatcitadel": {
+      "commit_ref": "git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "branch": "origin/main",
+      "package_version": "0.1.0-rc.1",
+      "mission_control_version": "1.0.0",
+      "worktree_status": "clean_isolated",
+      "release_note": "The v1.0.0 tag is an ancestor of the compared current main, not the compared commit."
+    }
+  },
+  "method": {
+    "prior_score_policy": "not_carried_forward_due_to_rubric_discontinuity",
+    "independent_validation": "not_performed",
+    "controlled_model_task_trials": "not_measured",
+    "product_experience": "single_evaluator_formative_only",
+    "winner_threshold_points": 3,
+    "raw_model_intelligence_scored": false
+  },
+  "expected_scores": {
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:6ed78ac0ceca47912465e3b9b0ea4ef9fb0bf53caac466f05f41d8200193e26f",
+    "systems": {
+      "uaa": {
+        "weighted_total_raw": 69.8387,
+        "weighted_total_reported": 70,
+        "band": "Strong system",
+        "components": {"reasoning": 6, "planning": 8, "learning": 6, "memory": 8, "communication": 6, "action": 8, "authority": 8, "code": 6, "research": 6, "providers": 6, "evidence": 8, "safety": 8, "ux": 6, "cli_api": 8, "extensibility": 6, "product_loop": 6}
+      },
+      "goatcitadel": {
+        "weighted_total_raw": 73.4677,
+        "weighted_total_reported": 73,
+        "band": "Strong system",
+        "components": {"reasoning": 6, "planning": 8, "learning": 6, "memory": 8, "communication": 8, "action": 6, "authority": 8, "code": 8, "research": 7, "providers": 7, "evidence": 8, "safety": 8, "ux": 8, "cli_api": 8, "extensibility": 8, "product_loop": 6}
+      }
+    }
+  },
+  "common_evidence_refs": {
+    "uaa_baseline_ci": "ci-ref:uaa:github-actions:34021920751@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+    "uaa_focused_tests": "test-run-receipt-ref:q31:uaa-focused:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "goat_ui_tests": "test-run-receipt-ref:q31:goat-ui:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "goat_gateway_tests": "test-run-receipt-ref:q31:goat-gateway:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "goat_policy_tests": "test-run-receipt-ref:q31:goat-policy:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "goat_memory_contract_tests": "test-run-receipt-ref:q31:goat-memory-contracts:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "goat_code_tests": "test-run-receipt-ref:q31:goat-code:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098",
+    "uaa_desktop_observation": "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png",
+    "uaa_mobile_observation": "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/mobile/start.png",
+    "goat_desktop_observation": "repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png",
+    "goat_mobile_observation": "repo-ref:goat@41d0f2e5:goatcitadel-od-mobile.png"
+  },
+  "direct_observations": [
+    {
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "status": "blocked",
+      "result": "The shell hid ordinary chat until backend-truth evidence was bound; after exact build binding, it remained evidence-incomplete and the setup route later degraded to unavailable.",
+      "evidence_refs": [
+        "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png",
+        "runtime-observation-ref:q31:uaa:backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
+      ]
+    },
+    {
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:surface-discovery",
+      "status": "partial",
+      "result": "Chat was absent from primary navigation but discoverable through the command palette; Messenger remained explicitly synthetic and external actions stayed blocked.",
+      "evidence_refs": [
+        "runtime-observation-ref:q31:uaa:command-palette-chat-route@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+        "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
+      ]
+    },
+    {
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:responsive-390x844",
+      "status": "partial",
+      "result": "Navigation responded, but a runtime-status card overlapped the work surface and the header remained dense.",
+      "evidence_refs": [
+        "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/mobile/start.png"
+      ]
+    },
+    {
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "status": "implemented",
+      "result": "Onboarding offered a safe local demo without credentials, then rendered a full chat shell with a truthful no-provider route block and disabled Send.",
+      "evidence_refs": [
+        "repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png",
+        "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"
+      ]
+    },
+    {
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:draft-thread-switch-refresh",
+      "status": "partial",
+      "result": "A content-free draft persisted per thread across switching and refresh, although refresh returned to onboarding and required reopening the demo.",
+      "evidence_refs": [
+        "runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+        "runtime-observation-ref:q31:goat:refresh-returned-onboarding@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"
+      ]
+    },
+    {
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:responsive-390x844",
+      "status": "implemented",
+      "result": "Navigation collapsed, readiness cards stacked, and the blocked route remained legible; the composer remained below the initial fold.",
+      "evidence_refs": [
+        "repo-ref:goat@41d0f2e5:goatcitadel-od-mobile.png"
+      ]
+    }
+  ],
+  "unexercised_observation_dimensions": [
+    {
+      "dimension": "streaming",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No provider or model send authority was granted, so no response stream existed."
+    },
+    {
+      "dimension": "cancel_retry",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to cancel or retry."
+    },
+    {
+      "dimension": "interruption",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to interrupt."
+    },
+    {
+      "dimension": "steering",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No active execution existed to steer."
+    },
+    {
+      "dimension": "resumption",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Draft recovery was observed, but active-run resumption was not exercised."
+    },
+    {
+      "dimension": "restart",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Process restart was not performed in the bounded observation."
+    },
+    {
+      "dimension": "accessibility",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Keyboard navigation was observed, but a formal accessibility audit was not performed."
+    },
+    {
+      "dimension": "steps_and_time_to_useful_outcome",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No provider or model outcome was authorized, so steps and time to a useful model outcome were not measured."
+    },
+    {
+      "dimension": "attachments_or_context_selection",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Attachment and context-selection controls were visible in places, but no equivalent selection workflow was exercised."
+    },
+    {
+      "dimension": "terminal_state_clarity",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Blocked readiness was visible, but no shared task ran to a comparable terminal outcome."
+    },
+    {
+      "dimension": "citations",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No research or model result was produced from which to inspect citations."
+    },
+    {
+      "dimension": "artifacts",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No equivalent task produced an artifact through either observed conversation."
+    },
+    {
+      "dimension": "approvals",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Approval surfaces were inspected as repository and UI evidence, but no approval was requested or granted."
+    },
+    {
+      "dimension": "errors",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Readiness blocks were observed, but no equivalent in-conversation execution error was induced."
+    },
+    {
+      "dimension": "uncertainty",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "No comparable model result existed from which to assess communicated uncertainty."
+    },
+    {
+      "dimension": "surface_transitions",
+      "uaa": "not_measured",
+      "goatcitadel": "not_measured",
+      "reason": "Limited route discovery was observed, but the full chat-plan-task-evidence-memory-settings transition sequence was not exercised."
+    }
+  ],
+  "observation_disposition_gate": {
+    "status": "pending_required_resolutions",
+    "terminal_rule": "record_observation_or_queue_scope_disposition_before_terminal_receipt",
+    "required_finding_refs": [
+      "finding-ref:q31:unmeasured-observation/streaming",
+      "finding-ref:q31:unmeasured-observation/cancel_retry",
+      "finding-ref:q31:unmeasured-observation/interruption",
+      "finding-ref:q31:unmeasured-observation/steering",
+      "finding-ref:q31:unmeasured-observation/resumption",
+      "finding-ref:q31:unmeasured-observation/restart",
+      "finding-ref:q31:unmeasured-observation/accessibility",
+      "finding-ref:q31:unmeasured-observation/steps_and_time_to_useful_outcome",
+      "finding-ref:q31:unmeasured-observation/attachments_or_context_selection",
+      "finding-ref:q31:unmeasured-observation/terminal_state_clarity",
+      "finding-ref:q31:unmeasured-observation/citations",
+      "finding-ref:q31:unmeasured-observation/artifacts",
+      "finding-ref:q31:unmeasured-observation/approvals",
+      "finding-ref:q31:unmeasured-observation/errors",
+      "finding-ref:q31:unmeasured-observation/uncertainty",
+      "finding-ref:q31:unmeasured-observation/surface_transitions"
+    ]
+  },
+  "systems": {
+    "uaa": {
+      "reasoning": {
+        "weight": 8,
+        "status": "partial",
+        "validation_posture": "automated_evidence_ready",
+        "operator_facing": true,
+        "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/intent/reasoning_truth.py", "repo-ref:uaa@817d84d8:tests/test_phase01_reasoning_truth.py", "test-run-receipt-ref:q31:uaa-focused:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "planning": {
+        "weight": 8, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/mission_orchestrator.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_orchestrator.py", "ci-ref:uaa:34021920751@817d84d8"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"], "repeatability_evidence_refs": ["test-ref:uaa:mission-orchestrator-recovery@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "learning": {
+        "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/memory/review_runtime.py", "repo-ref:uaa@817d84d8:tests/test_governed_memory_context_phase03.py", "test-run-receipt-ref:q31:uaa-focused:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:reviewed-learning-not-observed-in-direct-chat@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "memory": {
+        "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/memory/governed_context.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/memory/local_store.py", "test-run-receipt-ref:q31:uaa-focused:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:uaa@817d84d8:tests/test_governed_memory_context_phase03.py"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "communication": {
+        "weight": 7, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/chat/operator_surface.py", "repo-ref:uaa@817d84d8:tests/test_uaa_p1_074_chat_local_operator_surface.py", "runtime-observation-ref:q31:uaa:command-palette-chat-route@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c", "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "action": {
+        "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "authority": {
+        "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/contracts.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22/postmerge-foundation:sha256:657ade9156311e1cb0d8358aa308a4e8bd1fa3e46805ff42707bffe86ff16a7d"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "code": {
+        "weight": 6, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:code-workflow-not-observed-end-to-end@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "research": {
+        "weight": 5, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 0, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/web_access/hybrid_execution.py", "repo-ref:uaa@817d84d8:tests/test_web_research_aggregation.py", "test-run-receipt-ref:q31:uaa-focused:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-live-web-authority-granted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "providers": {
+        "weight": 6, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa@817d84d8:tests/test_capability_availability.py", "repo-ref:uaa@817d84d8:docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:provider-call-out-of-scope@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "evidence": {
+        "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/evals/capability_metrics.py", "repo-ref:uaa@817d84d8:tests/test_portable_mission_evidence.py", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22/postmerge-foundation:sha256:657ade9156311e1cb0d8358aa308a4e8bd1fa3e46805ff42707bffe86ff16a7d"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "safety": {
+        "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py", "runtime-observation-ref:q31:uaa:unbound-backend-fail-closed@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["security-scan-ref:f2fffd65-2c2d-4f4c-9757-1e30a9efd913@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "ux": {
+        "weight": 7, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/App.test.tsx", "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png", "repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/mobile/start.png"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": ["contradiction-ref:q31:uaa:mobile-runtime-card-overlap@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "cli_api": {
+        "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/api/manifest.py", "repo-ref:uaa@817d84d8:scripts/verify_uaa_runtime_cockpit_cli_api.py", "ci-ref:uaa:34021920751@817d84d8"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:uaa@817d84d8:tests/test_openapi_schema_redaction.py"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "extensibility": {
+        "weight": 6, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": false, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 0, "reference_scenario": 0, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/extension_catalog/contracts.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/extension_catalog/runtime.py", "repo-ref:uaa@817d84d8:tests/test_inspectable_extension_catalog.py", "ci-ref:uaa:34021920751@817d84d8"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-plugin-runtime-authority@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      },
+      "product_loop": {
+        "weight": 10, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/founder_loop_mission.py", "repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py", "runtime-observation-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
+      }
+    },
+    "goatcitadel": {
+      "reasoning": {
+        "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/surface-router-heuristics.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.ts", "test-run-receipt-ref:q31:goat-gateway:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-shared-model-task-trials@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "planning": {
+        "weight": 8, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/orchestration/src/engine.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts", "test-run-receipt-ref:q31:goat-gateway:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/DurableBackgroundTaskRail.test.tsx"], "repeatability_evidence_refs": ["test-ref:goat:durable-boot-recovery@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "learning": {
+        "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/improvement-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/agentic-improvement-bridge-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/engineering-learning-service.test.ts"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:reviewed-learning-not-observed-in-direct-chat@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "memory": {
+        "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/memory-core/src/context-composer.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/memory-lifecycle-service.ts", "test-run-receipt-ref:q31:goat-memory-contracts:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/memory-core/src/memory-core.coverage.test.ts"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/memory-core/src/candidate-selector.test.ts"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "communication": {
+        "weight": 7, "status": "implemented", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx", "repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png", "test-run-receipt-ref:q31:goat-ui:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "action": {
+        "weight": 9, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/tool-invocation-coordinator-service.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts", "test-run-receipt-ref:q31:goat-policy:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/contracts/src/tool-effect-truth.test.ts"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/chat.routes.test.ts"], "contradiction_refs": ["contradiction-ref:q31:goat:approved-presentation-replay-blocked-as-structured-secret@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:policy-engine-focused-test-failure@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 2
+      },
+      "authority": {
+        "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/autonomous-activation-grant-service.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/contracts/src/approvals.test.ts"], "repeatability_evidence_refs": ["test-run-receipt-ref:q31:goat-memory-contracts:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "code": {
+        "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backends.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backend-runner.ts", "repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backends.test.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backend-runner.test.ts", "repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backends.test.ts", "repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx"], "repeatability_evidence_refs": ["test-run-receipt-ref:q31:goat-code:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:code-recovery-not-run@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 3
+      },
+      "research": {
+        "weight": 5, "status": "implemented", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/research-service.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/browser-tools.ts", "repo-ref:goat@41d0f2e5:scripts/verification/research-artifact-reliability.test.mjs"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-live-research-call-granted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "providers": {
+        "weight": 6, "status": "implemented", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.test.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/llm-service.ts", "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-call-granted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "evidence": {
+        "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/evidence-receipt-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/evidence-receipt-signing-key.ts", "test-run-receipt-ref:q31:goat-gateway:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/evidence-receipt-service.test.ts"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "safety": {
+        "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/plugins/auth.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/tool-security.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/chat.attachments.mime-policy.security.test.ts"], "repeatability_evidence_refs": ["test-run-receipt-ref:q31:goat-policy:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+      },
+      "ux": {
+        "weight": 7, "status": "implemented", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png", "repo-ref:goat@41d0f2e5:goatcitadel-od-mobile.png", "test-run-receipt-ref:q31:goat-ui:sha256:e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:command-palette-progressive-demo@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "repeatability_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:composer-below-mobile-fold@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 2
+      },
+      "cli_api": {
+        "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/approvals.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/routes/docs.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/tui/tools-cli.test.ts"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:full-ui-cli-parity-not-revalidated@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "extensibility": {
+        "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": false, "evidence_kind": "code",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 0, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/extensions-sdk/src/integration-plugins.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/plugin-tool-override-service.ts", "repo-ref:goat@41d0f2e5:packages/extensions-sdk/src/effective-tools.test.ts"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:operator-surface-not-revalidated@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      },
+      "product_loop": {
+        "weight": 10, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
+        "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/smoke.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/smoke.test.ts", "repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png", "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-useful-outcome@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5", "blocker-ref:q31:goat:refresh-returned-onboarding@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
+      }
+    }
+  },
+  "reciprocal_learning": [
+    {"direction": "goatcitadel_to_uaa", "pattern": "safe demo onboarding with truthful route blocking", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "Q33", "exit_test": "A clean install reaches a useful chat explanation without credentials while Send remains disabled until exact readiness is proven."},
+    {"direction": "goatcitadel_to_uaa", "pattern": "per-thread draft persistence and readable thread rail", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "Q33", "exit_test": "A content-free draft survives thread switching and refresh with an explicit recovery state."},
+    {"direction": "goatcitadel_to_uaa", "pattern": "responsive collapsed navigation and stacked readiness cards", "transfer_score": 8, "disposition": "adapt", "uaa_owner": "Q36", "exit_test": "At 390x844 no status card overlaps the work surface and the primary action remains discoverable."},
+    {"direction": "goatcitadel_to_uaa", "pattern": "dense capability palette", "transfer_score": 5, "disposition": "study_only", "uaa_owner": "Q36", "exit_test": "Frequent founder actions remain fast without exposing unavailable capability noise."},
+    {"direction": "uaa_to_goatcitadel", "pattern": "typed backend-truth binding before product-state claims", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "external_only", "exit_test": "The shell cannot present runtime readiness when the exact backend revision is unbound."},
+    {"direction": "uaa_to_goatcitadel", "pattern": "content-free evidence receipts and exact request authority", "transfer_score": 9, "disposition": "adapt", "uaa_owner": "external_only", "exit_test": "Receipts bind exact scope without retaining prompt, response, credential, or local-path content."},
+    {"direction": "bidirectional", "pattern": "competitor branding or source implementation", "transfer_score": 0, "disposition": "do_not_borrow", "uaa_owner": "Q31", "exit_test": "No competitor code, branding, or unsafe default is copied in either direction."}
+  ],
+  "residual_gap_routes": [
+    {"finding_ref": "finding-ref:q31:uaa:clean-start-chat-gated", "owner": "Q33", "dependency": "Q31", "priority": "P0"},
+    {"finding_ref": "finding-ref:q31:uaa:setup-degrades-after-readable-api-responses", "owner": "Q33", "dependency": "Q31", "priority": "P0"},
+    {"finding_ref": "finding-ref:q31:uaa:mobile-runtime-card-overlap", "owner": "Q36", "dependency": "Q31", "priority": "P1"},
+    {"finding_ref": "finding-ref:q31:uaa:ordinary-chat-primary-nav-discoverability", "owner": "Q33", "dependency": "Q31", "priority": "P1"}
+  ],
+  "blocked_follow_up": {
+    "finding_ref": "finding-ref:q31:controlled-model-task-performance-not-measured",
+    "owner": null,
+    "disposition": "blocked_pending_separate_queue_admission",
+    "guardrail_ref": "guardrail-ref:q31:no-provider-or-model-call-authority"
+  }
+}

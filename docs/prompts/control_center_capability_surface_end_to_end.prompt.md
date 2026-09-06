@@ -224,7 +224,7 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py tests/test_
 ```
 
 Run `make frontend-check` if frontend code changed. Run
-`.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`
+`.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only`
 if Foundation Gate integration or release verification lanes changed.
 
 ## Git Finalization

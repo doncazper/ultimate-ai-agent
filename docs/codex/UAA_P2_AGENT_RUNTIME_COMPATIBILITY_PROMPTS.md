@@ -578,7 +578,7 @@ Run the broadest safe checks feasible:
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_capability_registry.py tests/test_capability_registry_coordinator.py -q
 .venv/bin/python scripts/verify_documentation_integrity.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 git diff --check
 
 Final response must include:

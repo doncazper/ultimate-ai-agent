@@ -511,12 +511,14 @@ def test_foundation_gate_latency_summary_reuses_precomputed_gate_timing(
         precomputed_foundation_gate_ms=12.34,
         precomputed_foundation_gate_status="passed",
         precomputed_foundation_gate_result_count=626,
+        precomputed_foundation_gate_warmup=1,
     )
 
     assert summary["status"] == "passed"
     assert summary["foundation_gate_best_ms"] == 12.34
     assert summary["foundation_gate_mean_ms"] == 12.34
     assert summary["foundation_gate_status"] == "passed"
+    assert summary["foundation_gate_best_ms"] == summary["foundation_gate_mean_ms"]
     assert summary["authority_invariants"]["foundation_gate_checks_preserved"] is True
 
 

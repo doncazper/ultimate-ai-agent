@@ -5597,6 +5597,51 @@ def test_parameter_identity_migration_approved_transition_is_exactly_bound(
     )
 
 
+def test_python310_dependency_identity_migration_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prior_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "a" * 64
+    current_ref = "tests/test_sample.py::test_case::parametrize-sha256:" + "b" * 64
+    prior_source = "def test_case(): pass\n"
+    current_source = "def test_case(): pass  # compatible\n"
+    monkeypatch.setattr(
+        guard,
+        "PYTHON310_DEPENDENCY_IDENTITY_MIGRATION_TRANSITIONS",
+        {
+            prior_ref: (
+                current_ref,
+                hashlib.sha256(prior_source.encode()).hexdigest(),
+                hashlib.sha256(current_source.encode()).hexdigest(),
+            )
+        },
+    )
+
+    assert guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source,
+        current_source,
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source + "# substituted\n",
+        current_source,
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {current_ref},
+        prior_source,
+        current_source + "# substituted\n",
+    )
+    assert not guard._python310_dependency_identity_migration_is_exact_transition(
+        prior_ref,
+        {"tests/test_sample.py::test_other"},
+        prior_source,
+        current_source,
+    )
+
+
 def test_removed_declarations_reuses_validated_python_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -7530,6 +7575,108 @@ def test_exact_performance_runner_evidence_alignment_is_pair_bound(
     )
 
 
+def test_exact_aggregate_platform_proof_alignment_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_path = guard.AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH
+    prior = "def aggregate():\n    return 'runner-host'\n"
+    current = "def aggregate():\n    return 'source-observations'\n"
+    monkeypatch.setattr(
+        guard,
+        "AGGREGATE_PLATFORM_PROOF_APPROVED_PRIOR_SHA256",
+        hashlib.sha256(prior.encode()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        guard,
+        "AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256",
+        hashlib.sha256(current.encode()).hexdigest(),
+    )
+
+    assert guard._safe_aggregate_platform_proof_alignment_paths(
+        current_by_path={runner_path: current},
+        prior_by_path={runner_path: prior},
+    ) == {runner_path}
+    assert not guard._safe_aggregate_platform_proof_alignment_paths(
+        current_by_path={runner_path: current + "PYTEST_ADDOPTS = '--deselect=x'\n"},
+        prior_by_path={runner_path: prior},
+    )
+    assert not guard._safe_aggregate_platform_proof_alignment_paths(
+        current_by_path={runner_path: current},
+        prior_by_path={runner_path: prior + "# different base\n"},
+    )
+    assert not guard._safe_aggregate_platform_proof_alignment_paths(
+        current_by_path={
+            runner_path: current,
+            ".github/workflows/ci.yml": "pytest: changed\n",
+        },
+        prior_by_path={
+            runner_path: prior,
+            ".github/workflows/ci.yml": "pytest: prior\n",
+        },
+    )
+
+
+def test_exact_foundation_isolation_runner_alignment_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_path = "scripts/verification/ci_command_manifest.py"
+    dependency_path = "scripts/verification/verification_contracts.py"
+    prior = {
+        runner_path: "foundation = ['python', 'scripts/run_foundation_gate.py']\n",
+        dependency_path: "FOUNDATION = ('python',)\n",
+    }
+    current = {
+        runner_path: (
+            "foundation = ['python', '-I', '-B', '-S', "
+            "'scripts/run_foundation_gate.py']\n"
+        ),
+        dependency_path: "FOUNDATION = ('python', '-I', '-B', '-S')\n",
+    }
+    monkeypatch.setattr(
+        guard,
+        "FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+    assert guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path=current,
+        prior_by_path=prior,
+    ) == {runner_path, dependency_path}
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path={
+            **current,
+            dependency_path: current[dependency_path]
+            + "PYTEST_ADDOPTS = '--deselect=x'\n",
+        },
+        prior_by_path=prior,
+    )
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path=current,
+        prior_by_path={
+            **prior,
+            dependency_path: prior[dependency_path] + "# different base\n",
+        },
+    )
+    assert not guard._safe_foundation_isolation_runner_alignment_paths(
+        current_by_path={runner_path: current[runner_path]},
+        prior_by_path={runner_path: prior[runner_path]},
+    )
+
+
+def test_foundation_isolation_alignment_current_fingerprints_are_exact() -> None:
+    root = Path(__file__).parents[1]
+    for path, (_, current_digest) in (
+        guard.FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH.items()
+    ):
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
+
+
 def test_changed_test_paths_accepts_exact_performance_runner_alignment(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -7571,12 +7718,67 @@ def test_changed_test_paths_accepts_exact_performance_runner_alignment(
     assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
 
 
+def test_changed_test_paths_accepts_exact_aggregate_platform_proof_alignment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner_path = guard.AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH
+    prior = "def aggregate():\n    return 'runner-host'\n"
+    current = "def aggregate():\n    return 'source-observations'\n"
+    target = tmp_path / runner_path
+    target.parent.mkdir(parents=True)
+    target.write_text(current, encoding="utf-8")
+    monkeypatch.setattr(
+        guard,
+        "AGGREGATE_PLATFORM_PROOF_APPROVED_PRIOR_SHA256",
+        hashlib.sha256(prior.encode()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        guard,
+        "AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256",
+        hashlib.sha256(current.encode()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        guard,
+        "_pytest_runner_dependency_paths",
+        lambda _repo: {runner_path},
+    )
+    outputs = iter(
+        (
+            f"{runner_path}\0".encode(),
+            b"",
+            b"",
+            b"",
+            str(len(prior.encode())).encode(),
+            prior.encode(),
+        )
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+
+    assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
+
+
 def test_approved_performance_runner_current_fingerprint_is_exact() -> None:
     runner_path = guard.PERFORMANCE_RUNNER_ALIGNMENT_PATH
     current = (Path(__file__).parents[1] / runner_path).read_bytes()
 
     assert hashlib.sha256(current).hexdigest() == (
         guard.PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256
+    )
+
+
+def test_approved_aggregate_platform_proof_current_fingerprint_is_exact() -> None:
+    runner_path = guard.AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH
+    current = (Path(__file__).parents[1] / runner_path).read_bytes()
+
+    assert hashlib.sha256(current).hexdigest() == (
+        guard.AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256
     )
 
 

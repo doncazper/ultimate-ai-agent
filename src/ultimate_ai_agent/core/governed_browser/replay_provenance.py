@@ -54,6 +54,12 @@ _KERNEL_AMBIGUITY_REASON_BY_EVIDENCE_SUFFIX = {
         "reason-ref:governed-external-action:dispatch-worker-start-failed"
     ),
 }
+
+
+class _WeakrefableSlots:
+    """Supply a Python 3.10-compatible weak-reference slot."""
+
+    __slots__ = ("__weakref__",)
 _POST_START_GUARD_REASON_REFS = (
     "reason-ref:governed-external-action:post-start-revalidation-denied",
     (
@@ -344,8 +350,8 @@ class _ReplayContextToken:
     __slots__ = ()
 
 
-@dataclass(frozen=True, slots=True, init=False, weakref_slot=True)
-class ExternalActionReplayValidationContext:
+@dataclass(frozen=True, slots=True, init=False)
+class ExternalActionReplayValidationContext(_WeakrefableSlots):
     """Opaque, in-process proof that one replay came from the exact terminal row."""
 
     envelope: ExternalActionReplayEvidenceEnvelope

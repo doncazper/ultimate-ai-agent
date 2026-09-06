@@ -23,7 +23,7 @@ under `reports/performance`.
 .venv/bin/python scripts/benchmark_foundation_gate.py
 .venv/bin/python scripts/check_foundation_gate_latency.py
 PYTHONPATH=src .venv/bin/python scripts/profile_hot_paths.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 `scripts/benchmark_foundation_gate.py` writes:

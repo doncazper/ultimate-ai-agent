@@ -24,7 +24,7 @@ disabled-by-default posture.
 .venv/bin/python scripts/verify_current_baseline.py
 PYTHONPATH=src .venv/bin/python scripts/verify_documentation_integrity.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
-PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 PYTHONPATH=src .venv/bin/python -m pytest
 ```
 

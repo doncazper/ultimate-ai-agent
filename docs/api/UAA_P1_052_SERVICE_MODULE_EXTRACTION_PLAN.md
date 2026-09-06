@@ -141,7 +141,7 @@ accepted route-contract milestone updates docs and tests in the same change:
 
 | Change type | Required checks |
 |---|---|
-| First system extraction | `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`; `PYTHONPATH=src .venv/bin/python -m pytest tests/test_route_module_ownership.py tests/test_api_manifest.py tests/test_control_center_api_routes.py`; `.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only`; `git diff --check`. |
+| First system extraction | `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`; `PYTHONPATH=src .venv/bin/python -m pytest tests/test_route_module_ownership.py tests/test_api_manifest.py tests/test_control_center_api_routes.py`; `.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only`; `git diff --check`. |
 | Control Center route extraction | First-system checks plus focused Control Center API/frontend tests and route-status manifest checks. |
 | Approval/policy route extraction | First-system checks plus `tests/test_approval_authority.py`, `tests/test_approval_authority_v2_contracts.py`, and `tests/test_approval_integration_kernel.py`. |
 | File/task/memory/model/integration extraction | First-system checks plus the focused suite for the moved group and Foundation Gate static safety checks. |

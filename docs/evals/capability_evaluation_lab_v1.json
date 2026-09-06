@@ -56,8 +56,8 @@
       "subject_ref": "subject-ref:openclaw",
       "claim_ref": "claim-ref:openclaw:parity-evidence-contract",
       "source_revision_binding": "pinned",
-      "source_revision_ref": "source-revision-ref:openclaw-parity-pack:sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
-      "source_evidence_digest_ref": "sha256:cd28b739f900078e4973153fcf2db95b9d43fc7f2e73f1769454fa4a820b6fa1",
+      "source_revision_ref": "source-revision-ref:openclaw-parity-pack:sha256:759cc912b47308c80a9e72538198e90dbbe96fcac898f240d64aa78aec5baf15",
+      "source_evidence_digest_ref": "sha256:802fc8ef13ab7907cc96644d250ded61e8601a6ea03e6488250bccecc5c214a0",
       "expected_status": "passed",
       "verifier_ref": "verifier-ref:capability-lab:openclaw-parity-pack",
       "evidence_refs": [

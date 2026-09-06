@@ -46,7 +46,7 @@ test-sharded-profile:
 verify:
 	$(MAKE) ruff test-sharded verify-static
 	PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py
-	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only
+	$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 
 verify-static:
 	$(PYTHON) scripts/verification/run_static_verification_lane.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON) --static-workers $(STATIC_SCAN_WORKERS) $(if $(VERIFY_CPU_BUDGET),--cpu-budget $(VERIFY_CPU_BUDGET),) --static-scan-timeout-seconds $(STATIC_SCAN_TIMEOUT_SECONDS)
@@ -68,7 +68,7 @@ verify-value-audit:
 
 verify-dev-fast:
 	$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture
-	$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+	$(PYTHON) -I -B -S scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
 
 verify-dev-sharded:
 	PYTHONPATH=src $(PYTHON) scripts/verification/run_dev_fast_gate.py \

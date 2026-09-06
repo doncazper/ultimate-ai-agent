@@ -112,7 +112,7 @@ SCENARIOS = (
         ),
         deterministic_seed_ref="seed-ref:capability-lab:openclaw:v1",
         pinned_evidence_path="docs/prompts/uaa_parity_gap_closure/prompt_bundle_manifest.json",
-        pinned_source_revision_ref="source-revision-ref:openclaw-parity-pack:sha256:89dfd29576c41411e44c393b71216026cc9ac89390ad896fcde24136dd729433",
+        pinned_source_revision_ref="source-revision-ref:openclaw-parity-pack:sha256:759cc912b47308c80a9e72538198e90dbbe96fcac898f240d64aa78aec5baf15",
     ),
     CapabilityLabScenario(
         case_ref="evaluation-case-ref:capability-lab:goat-comparison-contract:v1",

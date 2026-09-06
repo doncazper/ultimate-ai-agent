@@ -1,7 +1,12 @@
 # Tool-Aware Cognition TAW-01 Capability Evidence
 
-Status: implemented for founder-private dogfood; independent promotion remains
-blocked.
+Status: bounded implementation evidence; independent promotion remains blocked.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 Contract: `contract-ref:taw01:capability-awareness-envelope:v1`.
 

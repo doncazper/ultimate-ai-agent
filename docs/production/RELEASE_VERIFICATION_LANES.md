@@ -94,7 +94,7 @@ For a local release candidate, run:
 
 ```bash
 .venv/bin/python scripts/verify_all.py
-.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only
 ```
 
 For faster local pre-review feedback, run:

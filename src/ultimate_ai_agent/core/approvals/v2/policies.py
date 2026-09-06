@@ -1,5 +1,5 @@
 from typing import Any
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from ultimate_ai_agent.core.approvals.v2.contracts import (
     ActionIntent,
@@ -129,8 +129,8 @@ def _expiry_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _most_restrictive_expiry(*values: datetime | None) -> datetime | None:

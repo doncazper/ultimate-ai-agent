@@ -52,6 +52,12 @@ from .transport import (
 )
 
 
+class _WeakrefableSlots:
+    """Supply a Python 3.10-compatible weak-reference slot."""
+
+    __slots__ = ("__weakref__",)
+
+
 def _transport_result_mapper(result: object) -> MatrixSyncOperationResult:
     if not isinstance(result, MatrixSyncTransportResult):
         raise TypeError("MATRIX_SYNC_TRANSPORT_RESULT_REQUIRED")
@@ -63,10 +69,9 @@ def _transport_result_mapper(result: object) -> MatrixSyncOperationResult:
     repr=False,
     slots=True,
     init=False,
-    weakref_slot=True,
     eq=False,
 )
-class MatrixSyncTransportBoundExecutor:
+class MatrixSyncTransportBoundExecutor(_WeakrefableSlots):
     _transport: MatrixSyncTransport = field(repr=False, compare=False)
     _target: MatrixSyncTransientTarget = field(repr=False, compare=False)
     _pseudonymization_salt: bytes = field(repr=False, compare=False)

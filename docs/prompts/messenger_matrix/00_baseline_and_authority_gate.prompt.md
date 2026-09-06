@@ -55,7 +55,7 @@ Run focused documentation/board tests, then:
 .venv/bin/python scripts/verify_documentation_integrity.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
-PYTHONPATH=src .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
+.venv/bin/python -I -B -S scripts/run_foundation_gate.py --command-mode report-only --no-write-latest
 git diff --check
 ```
 
