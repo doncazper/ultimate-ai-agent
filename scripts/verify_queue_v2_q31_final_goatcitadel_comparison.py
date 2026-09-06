@@ -38,7 +38,7 @@ DEFAULT_TEST_RUN_RECEIPTS = (
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "ea03ef3383950866a60d5b2a7eb0f2449ad9a6ef7f06495eb6840b4ee5810d6e"
+REPORT_SHA256 = "514793903b9ef6640dcd3a9eb9cf64c994b6a290ad1ce103f52cbd21b2bb25b3"
 GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
 GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
 GOAT_MANIFEST_SHA256 = (
@@ -139,6 +139,10 @@ REQUIRED_SCORE_CITATIONS = (
     "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx#L85-L175",
     "apps/gateway/src/services/code-mode-execution-backends.test.ts#L9-L168",
     "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx#L110-L180",
+)
+POLICY_RECEIPT_SUMMARY = (
+    "The content-addressed Goat policy receipt records one exact two-file batch "
+    "with 235 passed and 9 failed."
 )
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
@@ -1165,6 +1169,13 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
     uaa_score = scores["uaa"]["weighted_total_reported"]
     goat_score = scores["goatcitadel"]["weighted_total_reported"]
     normalized_report = " ".join(report.split())
+    _require(
+        normalized_report.count(POLICY_RECEIPT_SUMMARY) == 1
+        and "124 pass / 1 fail" not in normalized_report
+        and "142 pass / 8 fail" not in normalized_report
+        and "266 passed" not in normalized_report,
+        "policy receipt summary drift",
+    )
     _require(
         "The required finite maturity vocabulary is `None`, `Claimed`, `Mocked`, "
         "`Partial`, `Usable`, `Strong`, and `Mature`." in normalized_report,

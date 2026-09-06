@@ -159,6 +159,13 @@ def test_q31_packet_binds_content_addressed_test_run_receipts() -> None:
             test_run_receipts=receipts,
         )
 
+    report = _report().replace("235 passed and 9 failed", "266 passed and 9 failed")
+    with pytest.raises(
+        verifier.VerificationError,
+        match="policy receipt summary drift",
+    ):
+        verifier.verify_data(_data(), report)
+
     receipts = copy.deepcopy(_test_run_receipts())
     receipts["runs"][0]["argv_batches"][0].append("tests/invented_test.py")
     with pytest.raises(

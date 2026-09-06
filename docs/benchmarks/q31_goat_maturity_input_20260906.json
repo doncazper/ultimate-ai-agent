@@ -1,7 +1,7 @@
 {
   "schema_version": "goat-comparison-maturity.v2",
   "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
-  "report_ref": "report-ref:q31:sha256:ea03ef3383950866a60d5b2a7eb0f2449ad9a6ef7f06495eb6840b4ee5810d6e",
+  "report_ref": "report-ref:q31:sha256:514793903b9ef6640dcd3a9eb9cf64c994b6a290ad1ce103f52cbd21b2bb25b3",
   "goat_evidence_manifest_ref": "repository-manifest-ref:q31:goat-evidence@sha256:6b97fef368d2de493c628ca3f3f9589f33695b729b8e8f210a03e28ef765a6d0",
   "direct_observation_manifest_ref": "observation-manifest-ref:q31:sha256:19ae8938e2a25d4c82c67cfa2d690f63a38f92c2aac142a9fcdc231d777f49cf",
   "comparison_date": "2026-09-06",
@@ -38,7 +38,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:8b1931559e66be85f633e57a5a00d2ce08474aeaf0afb201872bcce4315d15e3",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:6ed78ac0ceca47912465e3b9b0ea4ef9fb0bf53caac466f05f41d8200193e26f",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,

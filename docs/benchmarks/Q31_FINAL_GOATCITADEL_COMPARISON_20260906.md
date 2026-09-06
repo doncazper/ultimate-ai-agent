@@ -305,13 +305,11 @@ GoatCitadel for clean-start chat legibility.
 | UAA | authority, evidence, safety, planning, CLI/API | clean-start chat and Setup are not currently a readable first loop | repeated independent founder tasks through the rendered shell |
 | GoatCitadel | chat UX, surface breadth, code/provider/extension discoverability | secret guard falsely blocks legitimate approved/read actions; refresh returns demo to onboarding | independent controlled tasks and a green exact-head policy suite |
 
-The Goat regression is reproducible at exact current main: one engine slice
-reported 124 pass / 1 fail and a broader tool-executor slice reported 142 pass /
-8 fail. All nine failures share the `structured_secret` false-positive family.
-Content-addressed run receipts bind Chat UI (19 tests), gateway (73 tests), and
-memory/contracts (18 tests) as passed, and preserve the exact policy result of
-235 passed and 9 failed. UAA's bounded focused baseline run recorded 76 tests
-passed. Baseline
+The content-addressed Goat policy receipt records one exact two-file batch with
+235 passed and 9 failed. All nine failures share the `structured_secret`
+false-positive family. Other content-addressed run receipts bind Chat UI (19
+tests), gateway (73 tests), and memory/contracts (18 tests) as passed. UAA's
+bounded focused baseline run recorded 76 tests passed. Baseline
 qualification run `github-actions:34021920751` is bound to the compared UAA
 commit; PR qualification for this packet is a separate protected-merge gate and
 is intentionally not represented as baseline evidence.
