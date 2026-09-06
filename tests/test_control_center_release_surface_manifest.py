@@ -282,9 +282,15 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "/control-center/crm/timeline",
         "/control-center/crm/follow-ups",
         "/control-center/crm/pipelines",
-        "/control-center/crm/smart-lists",
-        "/control-center/crm/local-mutations",
-    }
+            "/control-center/crm/smart-lists",
+            "/control-center/crm/local-mutations",
+            "/control-center/crm/adoption",
+            "/control-center/crm/adoption/preview",
+            "/control-center/crm/adoption/commit",
+            "/control-center/crm/adoption/backup",
+            "/control-center/crm/adoption/restore-preview",
+            "/control-center/crm/adoption/restore",
+        }
     assert by_path["/crm"]["approval_required"] is True
     assert by_path["/crm"]["visual_proof_status"] == "blocked_no_baseline"
     assert by_path["/crm"]["visual_baseline_ref"] == (
