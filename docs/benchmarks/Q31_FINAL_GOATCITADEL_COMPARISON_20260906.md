@@ -16,12 +16,15 @@ systems.
 | UAA | `git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c` (`main`) | package `0.104.0`; the historical `v0.104.0` tag is not this commit | clean isolated worktree |
 | GoatCitadel | `git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5` (`origin/main`) | root `0.1.0-rc.1`, Mission Control `1.0.0`; `v1.0.0` is an older ancestor | clean isolated worktree |
 
+Report binding: UAA `git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c`; GoatCitadel `git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5`; scores `UAA=70` and `GoatCitadel=73`; independent validation `not_performed`; controlled model task trials `not_measured`; residual owners `Q33,Q36`; Q31 repair authority `denied`.
+
 The July comparison is a longitudinal reference only. Its decimal rubric and
 older commits are not carried forward as verified scores. Current values are
 calculated from
 `docs/benchmarks/q31_goat_maturity_input_20260906.json` with the
-`goat-comparison-maturity.v2` scoring tool. All independent-validation gates
-remain zero; self-tests are not acceptance.
+repository-local `goat-comparison-maturity.v2` compatibility scorer whose exact
+file digest is bound in that ledger. All independent-validation gates remain
+zero; self-tests are not acceptance.
 
 ## Executive profile
 
@@ -246,26 +249,30 @@ exact lanes exist.
 | 1 | Make the UAA clean-start chat/setup loop readable without weakening backend truth | high | medium | medium | Q33 | Reproduce the evidence-incomplete → unavailable transition as a deterministic fixture. |
 | 2 | Add original UAA per-thread content-free draft recovery | high | medium | low | Q33 | Define Python/API-owned persistence contract and UI-only presentation state. |
 | 3 | Remove the 390x844 status-card overlap and reduce header density | medium | small | low | Q36 | Add a visual viewport regression at 390x844. |
-| 4 | Run equal Qwen/API controlled tasks only under a separately admitted evaluation lane | high | medium | medium | Q32 | Freeze tasks, environment, model revisions, retries, and blinded scoring before calls. |
+| 4 | Keep equal Qwen/API controlled tasks blocked until a separate evaluation item is admitted | high | medium | medium | not admitted | Do not assign this work to Q32 or make calls under Q31. |
 | 5 | Keep Goat's current tool-policy regression visible; do not compensate UAA scores for it | medium | external | low | external only | Upstream should narrow the false-positive detector and re-run exact focused tests. |
 
 No Q31 finding authorizes its own repair. Q33 owns the clean-start loop, Setup
 degradation, chat discoverability, and draft recovery. Q36 owns responsive and
-interaction polish. Q32 owns any future controlled performance evaluation.
-Q34/Q35 receive no artificial work from this comparison; news and vertical
-modules should remain dependency-driven rather than parity-driven.
+interaction polish. Controlled performance evaluation has no queue owner and
+remains blocked pending a separately admitted exact milestone. Q32 remains CRM
+functional adoption only. Q34/Q35 receive no artificial work from this
+comparison; news and vertical modules remain dependency-driven.
 
 ## Bounded 30-day plan
 
-1. **Days 1–7, Q33:** reproduce and fix the clean-start backend-truth/Setup
-   transition with exact route, API, CLI, and redacted evidence parity.
-2. **Days 8–14, Q33:** add a first-loop chat entry plus content-free draft and
+1. **Days 1–7, Q32:** complete the accepted CRM adoption slice and its real
+   founder-private lifecycle/recovery proof. Do not add model evaluation work.
+2. **Days 8–14, Q33:** after Q32 is terminal, reproduce and repair the
+   clean-start backend-truth/Setup transition, then add content-free draft and
    thread recovery without provider calls or new authority.
-3. **Days 15–21, Q36:** resolve the 390x844 overlap, reduce dense header/palette
-   presentation, and run desktop/mobile visual and keyboard checks.
-4. **Days 22–30, Q32 if admitted:** freeze a controlled task protocol for Qwen
-   3.8 27B and API-backed runs. Otherwise, leave performance explicitly not
-   measured and continue the canonical queue.
+3. **Days 15–21, Q34:** after Q33 is terminal, complete the authorized-source
+   News adoption loop. Reconcile Q26 in parallel only through its accepted
+   queue contract so Q35 can become dependency-ready.
+4. **Days 22–30, Q35 then Q36:** complete Q35 only after Q26 and Q34, then begin
+   Q36 only after Q32 through Q35 are terminal. If those gates are not closed,
+   defer Q36 rather than violating dependency order. Controlled model trials
+   remain unmeasured pending a separately admitted evaluation item.
 
 Stop after these finite owners. Do not turn the comparison into an open-ended
 parity chase.

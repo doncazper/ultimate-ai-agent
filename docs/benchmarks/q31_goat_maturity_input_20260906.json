@@ -35,7 +35,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "skill-ref:goat-comparison/scripts/score_maturity.py@goat-comparison-maturity.v2",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:56b43a2f0eaaccfcf795d7047e6cea194fef00eebb0dd93d578a87ad1efa232b",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,
@@ -338,7 +338,12 @@
     {"finding_ref": "finding-ref:q31:uaa:clean-start-chat-gated", "owner": "Q33", "dependency": "Q31", "priority": "P0"},
     {"finding_ref": "finding-ref:q31:uaa:setup-degrades-after-readable-api-responses", "owner": "Q33", "dependency": "Q31", "priority": "P0"},
     {"finding_ref": "finding-ref:q31:uaa:mobile-runtime-card-overlap", "owner": "Q36", "dependency": "Q31", "priority": "P1"},
-    {"finding_ref": "finding-ref:q31:uaa:ordinary-chat-primary-nav-discoverability", "owner": "Q33", "dependency": "Q31", "priority": "P1"},
-    {"finding_ref": "finding-ref:q31:controlled-model-task-performance-not-measured", "owner": "Q32", "dependency": "Q31", "priority": "P1"}
-  ]
+    {"finding_ref": "finding-ref:q31:uaa:ordinary-chat-primary-nav-discoverability", "owner": "Q33", "dependency": "Q31", "priority": "P1"}
+  ],
+  "blocked_follow_up": {
+    "finding_ref": "finding-ref:q31:controlled-model-task-performance-not-measured",
+    "owner": null,
+    "disposition": "blocked_pending_separate_queue_admission",
+    "guardrail_ref": "guardrail-ref:q31:no-provider-or-model-call-authority"
+  }
 }

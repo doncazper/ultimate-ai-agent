@@ -44,7 +44,9 @@ def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
 
     data = copy.deepcopy(_data())
     data["expected_scores"]["systems"]["uaa"]["weighted_total_reported"] = 99
-    with pytest.raises(verifier.VerificationError, match="reported weighted total drift"):
+    with pytest.raises(
+        verifier.VerificationError, match="reported weighted total drift"
+    ):
         verifier.verify_data(data, _report())
 
     data = copy.deepcopy(_data())
@@ -52,7 +54,58 @@ def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
     component["validation_posture"] = "accepted"
     component["gates"]["independent_validation"] = 1
     component["acceptance_evidence_refs"] = ["acceptance-ref:substituted"]
-    with pytest.raises(verifier.VerificationError, match="independent validation not available"):
+    with pytest.raises(
+        verifier.VerificationError, match="independent validation not available"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["method"]["independent_validation"] = "performed"
+    with pytest.raises(
+        verifier.VerificationError, match="independent validation posture drift"
+    ):
+        verifier.verify_data(data, _report())
+
+
+def test_q31_packet_binds_revision_refs_and_scorer() -> None:
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["authority"]["evidence_refs"][0] = (
+        "repo-ref:uaa@deadbeef:src/ultimate_ai_agent/core/authority/contracts.py"
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="repository evidence baseline drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["authority"]["evidence_refs"][0] = (
+        "repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts"
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="repository evidence owner drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["authority"]["evidence_refs"][0] = (
+        "repo-ref:uaa@817d84d8:docs/benchmarks/"
+        "Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md"
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="missing UAA evidence file at baseline"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["common_evidence_refs"]["goat_policy_tests"] = (
+        "test-run-ref:q31:goat-policy:266-passed-9-failed@deadbeef"
+    )
+    with pytest.raises(verifier.VerificationError, match="evidence ref baseline drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["expected_scores"]["scorer_ref"] = "repository-scorer-ref:substituted"
+    with pytest.raises(verifier.VerificationError, match="scorer ref drift"):
         verifier.verify_data(data, _report())
 
 
@@ -62,17 +115,124 @@ def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
     with pytest.raises(verifier.VerificationError, match="unsafe durable text"):
         verifier.verify_data(data, _report())
 
+    for field_name in ("prompt_text", "username", "hostname"):
+        data = copy.deepcopy(_data())
+        data[field_name] = "private-value"
+        with pytest.raises(verifier.VerificationError, match="unsafe durable field"):
+            verifier.verify_data(data, _report())
+
     data = copy.deepcopy(_data())
-    data["residual_gap_routes"] = [
-        item for item in data["residual_gap_routes"] if item["owner"] != "Q33"
-    ]
-    with pytest.raises(verifier.VerificationError, match="required queue owner routing"):
+    data["direct_observations"][0]["result"] = "/home/alice/result"
+    with pytest.raises(verifier.VerificationError, match="unsafe durable text"):
         verifier.verify_data(data, _report())
+
+
+def test_q31_packet_requires_complete_denials_and_finite_routes() -> None:
+    data = copy.deepcopy(_data())
+    del data["authority_granted"]["automatic_gap_fix"]
+    with pytest.raises(
+        verifier.VerificationError, match="authority denial inventory drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["authority_granted"]["automatic_gap_fix"] = 0
+    with pytest.raises(
+        verifier.VerificationError, match="comparison cannot grant authority"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["residual_gap_routes"].append(
+        {
+            "finding_ref": "finding-ref:q31:unbounded",
+            "owner": "Q999",
+            "dependency": "Q31",
+            "priority": "P1",
+        }
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="residual gap route inventory drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["blocked_follow_up"]["owner"] = "Q32"
+    with pytest.raises(
+        verifier.VerificationError, match="blocked follow-up posture drift"
+    ):
+        verifier.verify_data(data, _report())
+
+
+def test_q31_packet_requires_exact_direct_observations() -> None:
+    data = copy.deepcopy(_data())
+    data["direct_observations"][1] = copy.deepcopy(data["direct_observations"][0])
+    with pytest.raises(
+        verifier.VerificationError, match="duplicate direct observation identity"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["direct_observations"][0]["status"] = "independently_accepted"
+    with pytest.raises(
+        verifier.VerificationError, match="direct observation inventory drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["direct_observations"][0]["evidence_refs"] = []
+    with pytest.raises(
+        verifier.VerificationError, match="evidence_refs cannot be empty"
+    ):
+        verifier.verify_data(data, _report())
+
+
+def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
+    report = _report().replace(
+        "The evidence-gated repository maturity score is **GoatCitadel 73, UAA 70**.",
+        "The evidence-gated repository maturity score is **GoatCitadel 70, UAA 73**.",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="report executive score drift"
+    ):
+        verifier.verify_data(_data(), report)
+
+    report = _report().replace(
+        "git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+        "git-sha:" + ("0" * 40),
+    )
+    with pytest.raises(verifier.VerificationError, match="report projection drift"):
+        verifier.verify_data(_data(), report)
+
+    report = _report().replace(
+        "No Q31 finding authorizes its own repair.",
+        "A Q31 finding authorizes its own repair.",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="report authority posture drift"
+    ):
+        verifier.verify_data(_data(), report)
+
+    index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
+    docs_readme = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    for required_path in (
+        "docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md",
+        "docs/benchmarks/q31_goat_maturity_input_20260906.json",
+        "scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py",
+    ):
+        assert required_path in index
+        assert required_path in docs_readme
 
 
 def test_q31_verifier_cli_is_content_free_and_successful() -> None:
     completed = subprocess.run(
-        [sys.executable, "-B", str(ROOT / "scripts" / "verify_queue_v2_q31_final_goatcitadel_comparison.py")],
+        [
+            sys.executable,
+            "-B",
+            str(
+                ROOT / "scripts" / "verify_queue_v2_q31_final_goatcitadel_comparison.py"
+            ),
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,

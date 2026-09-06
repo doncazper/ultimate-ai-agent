@@ -4,10 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 from typing import Any
+
+from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
+from ultimate_ai_agent.core.planning.validation import (
+    RAW_LOCAL_PATH_RE,
+    SAFE_REF_RE,
+)
+from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +27,11 @@ DEFAULT_REPORT = (
     ROOT / "docs" / "benchmarks" / "Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md"
 )
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
+SCORER_PATH = Path(__file__).resolve()
+SCORER_REF_PREFIX = (
+    f"repository-scorer-ref:{SCHEMA_VERSION}:"
+    "scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:"
+)
 BASELINES = {
     "uaa": "git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
     "goatcitadel": "git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
@@ -82,14 +96,87 @@ REQUIRED_REPORT_SECTIONS = (
 )
 PROHIBITED_TEXT = (
     "/Users/",
+    "/home/",
     "/private/tmp/",
     "file://",
     "sess_",
     "api_key=",
     "password=",
 )
-UAA_REF = re.compile(r"^repo-ref:uaa@[0-9a-f]{8}:([^#]+)$")
-GOAT_REF = re.compile(r"^repo-ref:goat@[0-9a-f]{8}:([^#]+)$")
+PROHIBITED_DURABLE_KEYS = {
+    "credentialmaterial",
+    "credentialpayload",
+    "credentialtext",
+    "credentialvalue",
+    "environmentdump",
+    "environmentvariables",
+    "hostname",
+    "localpath",
+    "logtext",
+    "promptbody",
+    "promptcontent",
+    "prompttext",
+    "providerexchange",
+    "providerpayload",
+    "rawlog",
+    "rawprompt",
+    "rawresponse",
+    "responsebody",
+    "responsecontent",
+    "responsetext",
+    "serialnumber",
+    "username",
+}
+AUTHORITY_KEYS = {
+    "provider_or_model_calls",
+    "competitor_code_import",
+    "runtime_mutation",
+    "production_claim",
+    "automatic_gap_fix",
+}
+EXPECTED_OBSERVATIONS = {
+    ("uaa", "scenario-ref:q31:clean-start-no-provider"): "blocked",
+    ("uaa", "scenario-ref:q31:surface-discovery"): "partial",
+    ("uaa", "scenario-ref:q31:responsive-390x844"): "partial",
+    ("goatcitadel", "scenario-ref:q31:clean-start-no-provider"): "implemented",
+    ("goatcitadel", "scenario-ref:q31:draft-thread-switch-refresh"): "partial",
+    ("goatcitadel", "scenario-ref:q31:responsive-390x844"): "implemented",
+}
+EXPECTED_GAP_ROUTES = {
+    (
+        "finding-ref:q31:uaa:clean-start-chat-gated",
+        "Q33",
+        "Q31",
+        "P0",
+    ),
+    (
+        "finding-ref:q31:uaa:setup-degrades-after-readable-api-responses",
+        "Q33",
+        "Q31",
+        "P0",
+    ),
+    (
+        "finding-ref:q31:uaa:mobile-runtime-card-overlap",
+        "Q36",
+        "Q31",
+        "P1",
+    ),
+    (
+        "finding-ref:q31:uaa:ordinary-chat-primary-nav-discoverability",
+        "Q33",
+        "Q31",
+        "P1",
+    ),
+}
+EXPECTED_BLOCKED_FOLLOW_UP = {
+    "finding_ref": "finding-ref:q31:controlled-model-task-performance-not-measured",
+    "owner": None,
+    "disposition": "blocked_pending_separate_queue_admission",
+    "guardrail_ref": "guardrail-ref:q31:no-provider-or-model-call-authority",
+}
+UAA_REF = re.compile(r"^repo-ref:uaa@([0-9a-f]{8}|[0-9a-f]{40}):([^#]+)$")
+GOAT_REF = re.compile(r"^repo-ref:goat@([0-9a-f]{8}|[0-9a-f]{40}):([^#]+)$")
+REVISION_SUFFIX = re.compile(r"@(?:git-sha:)?([0-9a-f]{8,40})$")
 
 
 class VerificationError(ValueError):
@@ -101,7 +188,9 @@ def _require(condition: bool, message: str) -> None:
         raise VerificationError(message)
 
 
-def _safe_refs(component: dict[str, Any], field: str, *, required: bool = False) -> list[str]:
+def _safe_refs(
+    component: dict[str, Any], field: str, *, required: bool = False
+) -> list[str]:
     value = component.get(field, [])
     _require(
         isinstance(value, list)
@@ -111,6 +200,69 @@ def _safe_refs(component: dict[str, Any], field: str, *, required: bool = False)
     if required:
         _require(bool(value), f"{field} cannot be empty")
     return value
+
+
+def _baseline_sha(system_name: str) -> str:
+    return BASELINES[system_name].removeprefix("git-sha:")
+
+
+def _validate_revision_bound_ref(ref: str, system_name: str) -> None:
+    expected_sha = _baseline_sha(system_name)
+    repo_match = UAA_REF.match(ref) if system_name == "uaa" else GOAT_REF.match(ref)
+    expected_prefix = f"repo-ref:{system_name if system_name == 'uaa' else 'goat'}@"
+    if ref.startswith("repo-ref:"):
+        _require(
+            ref.startswith(expected_prefix),
+            f"{system_name}: repository evidence owner drift",
+        )
+        _require(
+            repo_match is not None, f"{system_name}: invalid repository evidence ref"
+        )
+        assert repo_match is not None
+        claimed_sha = repo_match.group(1)
+        _require(
+            claimed_sha == expected_sha or claimed_sha == expected_sha[:8],
+            f"{system_name}: repository evidence baseline drift",
+        )
+        path = repo_match.group(2)
+        _require(
+            not Path(path).is_absolute() and ".." not in Path(path).parts,
+            "unsafe repository evidence path",
+        )
+        if system_name == "uaa":
+            exists = subprocess.run(
+                ["git", "cat-file", "-e", f"{expected_sha}:{path}"],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            _require(
+                exists.returncode == 0, f"missing UAA evidence file at baseline: {path}"
+            )
+        return
+    revision_match = REVISION_SUFFIX.search(ref)
+    if revision_match:
+        claimed_sha = revision_match.group(1)
+        _require(
+            claimed_sha == expected_sha or claimed_sha == expected_sha[:8],
+            f"{system_name}: evidence ref baseline drift",
+        )
+
+
+def _validate_safe_ref(ref: str, field_name: str) -> None:
+    _require(
+        SAFE_REF_RE.fullmatch(ref) is not None,
+        f"{field_name} must be a structured safe ref",
+    )
+    _require(
+        RAW_LOCAL_PATH_RE.search(ref) is None,
+        f"{field_name} contains an unsafe path",
+    )
+    _require(
+        not contains_secret_like(ref) and not contains_obvious_secret(ref),
+        f"{field_name} contains secret-like content",
+    )
 
 
 def _component_score(component: dict[str, Any]) -> int:
@@ -152,7 +304,10 @@ def _component_score(component: dict[str, Any]) -> int:
         or not component.get("repeatability_evidence_refs")
     ):
         ceilings.append(9)
-    if component.get("prior_verified_score") is not None and component["validation_posture"] != "accepted":
+    if (
+        component.get("prior_verified_score") is not None
+        and component["validation_posture"] != "accepted"
+    ):
         ceilings.append(component["prior_verified_score"])
     if component.get("contradiction_refs"):
         ceilings.append(6)
@@ -182,7 +337,7 @@ def _walk_for_unsafe_text(value: Any) -> None:
         for key, child in value.items():
             normalized = re.sub(r"[^a-z0-9]", "", key.lower())
             _require(
-                normalized not in {"rawprompt", "rawresponse", "providerpayload", "rawlog", "localpath"},
+                normalized not in PROHIBITED_DURABLE_KEYS,
                 f"unsafe durable field: {key}",
             )
             _walk_for_unsafe_text(child)
@@ -190,93 +345,310 @@ def _walk_for_unsafe_text(value: Any) -> None:
         for child in value:
             _walk_for_unsafe_text(child)
     elif isinstance(value, str):
-        _require(not any(fragment in value for fragment in PROHIBITED_TEXT), "unsafe durable text")
-        _require(re.search(r"\bsk-[A-Za-z0-9]{8,}", value) is None, "unsafe durable text")
+        _require(
+            not any(fragment in value for fragment in PROHIBITED_TEXT),
+            "unsafe durable text",
+        )
+        _require(RAW_LOCAL_PATH_RE.search(value) is None, "unsafe durable text")
+        _require(
+            re.search(r"\bsk-[A-Za-z0-9]{8,}", value) is None, "unsafe durable text"
+        )
+
+
+def _validate_report(data: dict[str, Any], report: str) -> None:
+    for section in REQUIRED_REPORT_SECTIONS:
+        _require(section in report, f"report section missing: {section}")
+    scores = data["expected_scores"]["systems"]
+    uaa_score = scores["uaa"]["weighted_total_reported"]
+    goat_score = scores["goatcitadel"]["weighted_total_reported"]
+    expected_projection = (
+        f"Report binding: UAA `{BASELINES['uaa']}`; GoatCitadel "
+        f"`{BASELINES['goatcitadel']}`; scores `UAA={uaa_score}` and "
+        f"`GoatCitadel={goat_score}`; independent validation `not_performed`; "
+        "controlled model task trials `not_measured`; residual owners `Q33,Q36`; "
+        "Q31 repair authority `denied`."
+    )
+    _require(report.count(expected_projection) == 1, "report projection drift")
+    _require(
+        f"The evidence-gated repository maturity score is **GoatCitadel {goat_score}, UAA {uaa_score}**."
+        in report,
+        "report executive score drift",
+    )
+    _require(
+        f"GoatCitadel has a slight current repository-maturity lead, **{goat_score} to {uaa_score}**"
+        in report,
+        "report final score drift",
+    )
+    _require(
+        report.count("No Q31 finding authorizes its own repair.") == 1,
+        "report authority posture drift",
+    )
+    _require(
+        report.lower().count("authorizes its own repair") == 1,
+        "report contains contradictory repair authority",
+    )
+    report_shas = set(re.findall(r"git-sha:[0-9a-f]{40}", report))
+    _require(report_shas == set(BASELINES.values()), "report baseline binding drift")
+    _require(
+        "not a controlled" in report.lower(),
+        "report must preserve non-empirical posture",
+    )
+    _require(
+        not any(fragment in report for fragment in PROHIBITED_TEXT),
+        "unsafe report text",
+    )
+    _require(RAW_LOCAL_PATH_RE.search(report) is None, "unsafe report text")
+    _require(
+        not contains_secret_like(report) and not contains_obvious_secret(report),
+        "unsafe report text",
+    )
 
 
 def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
     _require(data.get("comparison_date") == "2026-09-06", "comparison date drift")
-    _require(data.get("baselines", {}).get("uaa", {}).get("commit_ref") == BASELINES["uaa"], "UAA baseline drift")
     _require(
-        data.get("baselines", {}).get("goatcitadel", {}).get("commit_ref") == BASELINES["goatcitadel"],
+        data.get("baselines", {}).get("uaa", {}).get("commit_ref") == BASELINES["uaa"],
+        "UAA baseline drift",
+    )
+    _require(
+        data.get("baselines", {}).get("goatcitadel", {}).get("commit_ref")
+        == BASELINES["goatcitadel"],
         "GoatCitadel baseline drift",
     )
     authority = data.get("authority_granted")
-    _require(isinstance(authority, dict) and authority and not any(authority.values()), "comparison cannot grant authority")
+    _require(
+        isinstance(authority, dict) and set(authority) == AUTHORITY_KEYS,
+        "authority denial inventory drift",
+    )
+    _require(
+        all(type(value) is bool and value is False for value in authority.values()),
+        "comparison cannot grant authority",
+    )
     method = data.get("method", {})
-    _require(method.get("controlled_model_task_trials") == "not_measured", "controlled task posture drift")
-    _require(method.get("product_experience") == "single_evaluator_formative_only", "product experience posture drift")
-    _require(method.get("raw_model_intelligence_scored") is False, "raw model intelligence cannot be scored")
+    _require(
+        method.get("independent_validation") == "not_performed",
+        "independent validation posture drift",
+    )
+    _require(
+        method.get("controlled_model_task_trials") == "not_measured",
+        "controlled task posture drift",
+    )
+    _require(
+        method.get("product_experience") == "single_evaluator_formative_only",
+        "product experience posture drift",
+    )
+    _require(
+        method.get("raw_model_intelligence_scored") is False,
+        "raw model intelligence cannot be scored",
+    )
 
     systems = data.get("systems")
-    _require(isinstance(systems, dict) and set(systems) == set(BASELINES), "system inventory drift")
-    expected = data.get("expected_scores", {}).get("systems")
-    _require(isinstance(expected, dict) and set(expected) == set(BASELINES), "expected score inventory drift")
+    _require(
+        isinstance(systems, dict) and set(systems) == set(BASELINES),
+        "system inventory drift",
+    )
+    common_refs = data.get("common_evidence_refs")
+    _require(
+        isinstance(common_refs, dict) and common_refs, "common evidence refs missing"
+    )
+    for ref_name, ref in common_refs.items():
+        _require(
+            isinstance(ref_name, str) and isinstance(ref, str),
+            "common evidence ref shape drift",
+        )
+        _validate_safe_ref(ref, f"common_evidence_refs/{ref_name}")
+        if ref_name.startswith("uaa_"):
+            _validate_revision_bound_ref(ref, "uaa")
+        elif ref_name.startswith("goat_"):
+            _validate_revision_bound_ref(ref, "goatcitadel")
+        else:
+            raise VerificationError(f"unowned common evidence ref: {ref_name}")
+    expected_scores = data.get("expected_scores", {})
+    scorer_digest = hashlib.sha256(SCORER_PATH.read_bytes()).hexdigest()
+    _require(
+        expected_scores.get("scorer_ref") == f"{SCORER_REF_PREFIX}{scorer_digest}",
+        "scorer ref drift",
+    )
+    expected = expected_scores.get("systems")
+    _require(
+        isinstance(expected, dict) and set(expected) == set(BASELINES),
+        "expected score inventory drift",
+    )
     for system_name, components in systems.items():
-        _require(isinstance(components, dict) and set(components) == set(WEIGHTS), f"{system_name}: component inventory drift")
+        _require(
+            isinstance(components, dict) and set(components) == set(WEIGHTS),
+            f"{system_name}: component inventory drift",
+        )
         weighted_points = 0
         for component_name, component in components.items():
-            _require(isinstance(component, dict), f"{system_name}/{component_name}: invalid component")
-            _require(component.get("weight") == WEIGHTS[component_name], f"{system_name}/{component_name}: weight drift")
-            _require(component.get("status") in STATUSES, f"{system_name}/{component_name}: invalid status")
-            _require(component.get("validation_posture") in VALIDATION_POSTURES, f"{system_name}/{component_name}: invalid validation posture")
-            _require(isinstance(component.get("operator_facing"), bool), f"{system_name}/{component_name}: operator flag drift")
+            _require(
+                isinstance(component, dict),
+                f"{system_name}/{component_name}: invalid component",
+            )
+            _require(
+                component.get("weight") == WEIGHTS[component_name],
+                f"{system_name}/{component_name}: weight drift",
+            )
+            _require(
+                component.get("status") in STATUSES,
+                f"{system_name}/{component_name}: invalid status",
+            )
+            _require(
+                component.get("validation_posture") in VALIDATION_POSTURES,
+                f"{system_name}/{component_name}: invalid validation posture",
+            )
+            _require(
+                isinstance(component.get("operator_facing"), bool),
+                f"{system_name}/{component_name}: operator flag drift",
+            )
             gates = component.get("gates")
-            _require(isinstance(gates, dict) and set(gates) == set(GATE_MAXIMA), f"{system_name}/{component_name}: gate inventory drift")
+            _require(
+                isinstance(gates, dict) and set(gates) == set(GATE_MAXIMA),
+                f"{system_name}/{component_name}: gate inventory drift",
+            )
             for gate_name, maximum in GATE_MAXIMA.items():
                 gate = gates[gate_name]
-                _require(type(gate) is int and 0 <= gate <= maximum, f"{system_name}/{component_name}/{gate_name}: invalid gate")
-            _require(gates["independent_validation"] == 0, f"{system_name}/{component_name}: independent validation not available")
-            _require(component["validation_posture"] != "accepted", f"{system_name}/{component_name}: self-evidence cannot be accepted")
-            _require(not _safe_refs(component, "acceptance_evidence_refs"), f"{system_name}/{component_name}: acceptance refs not authorized")
+                _require(
+                    type(gate) is int and 0 <= gate <= maximum,
+                    f"{system_name}/{component_name}/{gate_name}: invalid gate",
+                )
+            _require(
+                gates["independent_validation"] == 0,
+                f"{system_name}/{component_name}: independent validation not available",
+            )
+            _require(
+                component["validation_posture"] != "accepted",
+                f"{system_name}/{component_name}: self-evidence cannot be accepted",
+            )
+            _require(
+                not _safe_refs(component, "acceptance_evidence_refs"),
+                f"{system_name}/{component_name}: acceptance refs not authorized",
+            )
             refs = _safe_refs(component, "evidence_refs", required=True)
-            for field in ("breadth_evidence_refs", "repeatability_evidence_refs", "contradiction_refs", "critical_failure_refs", "blocker_refs"):
+            for field in (
+                "breadth_evidence_refs",
+                "repeatability_evidence_refs",
+                "contradiction_refs",
+                "critical_failure_refs",
+                "blocker_refs",
+            ):
                 _safe_refs(component, field)
-            for ref in refs:
-                match = UAA_REF.match(ref)
-                if match:
-                    _require((ROOT / match.group(1)).is_file(), f"missing UAA evidence file: {match.group(1)}")
-                elif ref.startswith("repo-ref:goat@"):
-                    _require(GOAT_REF.match(ref) is not None, "invalid GoatCitadel repo ref")
+            all_refs = refs.copy()
+            for field in (
+                "breadth_evidence_refs",
+                "repeatability_evidence_refs",
+                "contradiction_refs",
+                "critical_failure_refs",
+                "blocker_refs",
+            ):
+                all_refs.extend(_safe_refs(component, field))
+            for ref in all_refs:
+                _validate_safe_ref(ref, f"{system_name}/{component_name}/evidence_ref")
+                _validate_revision_bound_ref(ref, system_name)
             score = _component_score(component)
-            _require(expected[system_name]["components"].get(component_name) == score, f"{system_name}/{component_name}: expected score drift")
+            _require(
+                expected[system_name]["components"].get(component_name) == score,
+                f"{system_name}/{component_name}: expected score drift",
+            )
             weighted_points += score * WEIGHTS[component_name]
         raw_total = round(weighted_points / sum(WEIGHTS.values()) * 10, 4)
         reported = int(raw_total + 0.5)
-        _require(expected[system_name].get("weighted_total_raw") == raw_total, f"{system_name}: raw weighted total drift")
-        _require(expected[system_name].get("weighted_total_reported") == reported, f"{system_name}: reported weighted total drift")
-        _require(expected[system_name].get("band") == _band(reported), f"{system_name}: maturity band drift")
+        _require(
+            expected[system_name].get("weighted_total_raw") == raw_total,
+            f"{system_name}: raw weighted total drift",
+        )
+        _require(
+            expected[system_name].get("weighted_total_reported") == reported,
+            f"{system_name}: reported weighted total drift",
+        )
+        _require(
+            expected[system_name].get("band") == _band(reported),
+            f"{system_name}: maturity band drift",
+        )
 
     observations = data.get("direct_observations")
-    _require(isinstance(observations, list) and len(observations) >= 6, "direct observation inventory incomplete")
-    _require({item.get("system") for item in observations} == set(BASELINES), "both systems require direct observation")
-    _require(any(item.get("scenario_ref") == "scenario-ref:q31:responsive-390x844" and item.get("system") == "uaa" for item in observations), "UAA mobile observation missing")
-    _require(any(item.get("scenario_ref") == "scenario-ref:q31:responsive-390x844" and item.get("system") == "goatcitadel" for item in observations), "GoatCitadel mobile observation missing")
+    _require(isinstance(observations, list), "direct observation inventory incomplete")
+    observed: dict[tuple[str, str], str] = {}
+    for item in observations:
+        _require(
+            isinstance(item, dict)
+            and set(item)
+            == {"system", "scenario_ref", "status", "result", "evidence_refs"},
+            "direct observation shape drift",
+        )
+        _require(item["system"] in BASELINES, "unknown direct observation system")
+        identity = (item["system"], item["scenario_ref"])
+        _require(identity not in observed, "duplicate direct observation identity")
+        observed[identity] = item["status"]
+        refs = _safe_refs(item, "evidence_refs", required=True)
+        for ref in refs:
+            _validate_safe_ref(ref, "direct_observation/evidence_ref")
+            _validate_revision_bound_ref(ref, item["system"])
+    _require(observed == EXPECTED_OBSERVATIONS, "direct observation inventory drift")
 
     routes = data.get("residual_gap_routes")
-    _require(isinstance(routes, list) and routes, "residual gap routes missing")
-    owners = {item.get("owner") for item in routes}
-    _require({"Q32", "Q33", "Q36"}.issubset(owners), "required queue owner routing missing")
+    _require(isinstance(routes, list), "residual gap routes missing")
+    route_inventory: set[tuple[str, str, str, str]] = set()
+    for item in routes:
+        _require(
+            isinstance(item, dict)
+            and set(item) == {"finding_ref", "owner", "dependency", "priority"},
+            "residual gap route shape drift",
+        )
+        route = (
+            item["finding_ref"],
+            item["owner"],
+            item["dependency"],
+            item["priority"],
+        )
+        _require(route not in route_inventory, "duplicate residual gap route")
+        route_inventory.add(route)
+    _require(
+        route_inventory == EXPECTED_GAP_ROUTES, "residual gap route inventory drift"
+    )
+    _require(
+        data.get("blocked_follow_up") == EXPECTED_BLOCKED_FOLLOW_UP,
+        "blocked follow-up posture drift",
+    )
     learning = data.get("reciprocal_learning")
-    _require(isinstance(learning, list) and len(learning) >= 6, "reciprocal learning ledger incomplete")
-    _require({item.get("direction") for item in learning} == {"goatcitadel_to_uaa", "uaa_to_goatcitadel"}, "reciprocal direction missing")
-    _require(all(item.get("disposition") in {"adapt", "study_only", "do_not_borrow"} for item in learning), "invalid transfer disposition")
+    _require(
+        isinstance(learning, list) and len(learning) >= 6,
+        "reciprocal learning ledger incomplete",
+    )
+    _require(
+        {item.get("direction") for item in learning}
+        == {"goatcitadel_to_uaa", "uaa_to_goatcitadel"},
+        "reciprocal direction missing",
+    )
+    _require(
+        all(
+            item.get("disposition") in {"adapt", "study_only", "do_not_borrow"}
+            for item in learning
+        ),
+        "invalid transfer disposition",
+    )
 
+    _require(
+        not contains_secret_like(data) and not contains_obvious_secret(data),
+        "unsafe durable text",
+    )
     _walk_for_unsafe_text(data)
-    for section in REQUIRED_REPORT_SECTIONS:
-        _require(section in report, f"report section missing: {section}")
-    _require("not a controlled" in report.lower(), "report must preserve non-empirical posture")
-    _require("73" in report and "70" in report, "report score binding missing")
-    _require("Q32" in report and "Q33" in report and "Q36" in report, "report owner routing missing")
-    _require(not any(fragment in report for fragment in PROHIBITED_TEXT), "unsafe report text")
-    _require(re.search(r"\bsk-[A-Za-z0-9]{8,}", report) is None, "unsafe report text")
+    _validate_report(data, report)
     return data
 
 
-def verify(artifact: Path = DEFAULT_ARTIFACT, report_path: Path = DEFAULT_REPORT) -> dict[str, Any]:
-    _require(artifact.resolve() == DEFAULT_ARTIFACT.resolve(), "artifact path is not canonical")
-    _require(report_path.resolve() == DEFAULT_REPORT.resolve(), "report path is not canonical")
+def verify(
+    artifact: Path = DEFAULT_ARTIFACT, report_path: Path = DEFAULT_REPORT
+) -> dict[str, Any]:
+    _require(
+        artifact.resolve() == DEFAULT_ARTIFACT.resolve(),
+        "artifact path is not canonical",
+    )
+    _require(
+        report_path.resolve() == DEFAULT_REPORT.resolve(),
+        "report path is not canonical",
+    )
     _require(artifact.stat().st_size <= 250_000, "comparison artifact is unbounded")
     _require(report_path.stat().st_size <= 150_000, "comparison report is unbounded")
     data = json.loads(artifact.read_text(encoding="utf-8"))
