@@ -47,6 +47,7 @@
     {"path": "packages/policy-engine/src/browser-tools.ts", "sha256": "29cd70c32f8997295b64f9de9b76e2c65856759c271ca5f2c9476ec764fccc54"},
     {"path": "packages/policy-engine/src/engine.test.ts", "sha256": "90028e5cacdc558316d664b594610916f6d527773993ba65cc9b407a30f39aae"},
     {"path": "packages/policy-engine/src/engine.ts", "sha256": "cbac1a2e675ebc926cc7cff59162879de6a880f3cf4039150c0073472bc8ed2b"},
+    {"path": "packages/policy-engine/src/tool-executor.test.ts", "sha256": "6c0ac81aa5b1375c3b64aa35a36d9fea9fcc8462839dfc2bff3da475fce9464c"},
     {"path": "packages/policy-engine/src/tool-executor.ts", "sha256": "2b87675f804881281763cc8b610c9ee4c2b8a23c181fca17be97adda0a7954e5"},
     {"path": "packages/policy-engine/src/tool-security.ts", "sha256": "7ca63f1950d9c7bc4413c688403385747617be28ae6d2352eed301fcf87d8764"},
     {"path": "packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx", "sha256": "9fdcc694e507ee11cbf888142fe3beb2d6155dd610fcc51134a536f986cdc655"},

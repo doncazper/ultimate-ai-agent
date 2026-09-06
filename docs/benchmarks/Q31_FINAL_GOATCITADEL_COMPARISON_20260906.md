@@ -142,7 +142,8 @@ score 0 is None, 1 is Claimed, 2 is Mocked, 3–4 is Partial, 5–6 is Usable,
    a citation-bearing context composer and approval-first lifecycle service
    (`packages/memory-core/src/context-composer.ts#L18-L46`,
    `apps/gateway/src/services/memory-lifecycle-service.ts#L271-L312`). Focused
-   UAA tests and 38 Goat memory/contract tests passed.
+   The content-addressed run receipts record 76 focused UAA tests and 18 Goat
+   memory/contract tests passed.
 5. **Communication.** UAA's chat contract explicitly blocks model output from
    minting tool, memory, web, connector, shell, action, approval, or production
    authority (`src/ultimate_ai_agent/core/chat/operator_surface.py#L23-L59`).
@@ -162,8 +163,16 @@ score 0 is None, 1 is Claimed, 2 is Mocked, 3–4 is Partial, 5–6 is Usable,
    (`packages/policy-engine/src/engine.ts#L702-L765`). Both are strong but not
    independently accepted by this packet.
 8. **Code assistance.** GoatCitadel includes visible Code mode/workbench and
-   backend execution abstractions. Its exact baseline passed 18 focused backend
-   and workbench tests. UAA has exact code-action contracts, but Q31 did not
+   backend execution abstractions
+   (`apps/gateway/src/services/code-mode-execution-backends.ts#L15-L100`,
+   `apps/gateway/src/services/code-mode-execution-backend-runner.ts#L47-L115`,
+   `apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx#L85-L175`).
+   Its exact baseline passed 18 focused backend and workbench tests
+   (`apps/gateway/src/services/code-mode-execution-backends.test.ts#L9-L168`,
+   `apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx#L110-L180`).
+   UAA exposes exact bounded code-action lanes and their authority posture
+   (`src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py#L36-L96`,
+   `tests/test_runtime_action_tool_code_lanes.py#L43-L135`), but Q31 did not
    exercise an end-to-end code outcome, so its status remains partial.
 9. **Research/web.** UAA's hybrid request is typed, two-attempt bounded, and
    exact-ref validated
@@ -299,8 +308,10 @@ GoatCitadel for clean-start chat legibility.
 The Goat regression is reproducible at exact current main: one engine slice
 reported 124 pass / 1 fail and a broader tool-executor slice reported 142 pass /
 8 fail. All nine failures share the `structured_secret` false-positive family.
-Chat UI (118 tests), gateway (75 tests), and memory/contracts (38 tests) passed.
-UAA's focused comparison foundation reported 136 tests passed. Baseline
+Content-addressed run receipts bind Chat UI (19 tests), gateway (73 tests), and
+memory/contracts (18 tests) as passed, and preserve the exact policy result of
+235 passed and 9 failed. UAA's bounded focused baseline run recorded 76 tests
+passed. Baseline
 qualification run `github-actions:34021920751` is bound to the compared UAA
 commit; PR qualification for this packet is a separate protected-merge gate and
 is intentionally not represented as baseline evidence.

@@ -30,25 +30,66 @@ DEFAULT_GOAT_MANIFEST = (
     ROOT / "docs" / "benchmarks" / "q31_goat_evidence_manifest_20260906.json"
 )
 DEFAULT_OBSERVATION_MANIFEST = (
-    ROOT
-    / "docs"
-    / "benchmarks"
-    / "q31_direct_observation_manifest_20260906.json"
+    ROOT / "docs" / "benchmarks" / "q31_direct_observation_manifest_20260906.json"
+)
+DEFAULT_TEST_RUN_RECEIPTS = (
+    ROOT / "docs" / "benchmarks" / "q31_test_run_receipts_20260906.json"
 )
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "2b3ca99e5cfbba163d9a6a033aa5829bfb03da667b174ef3605d5f412f5991fb"
+REPORT_SHA256 = "ea03ef3383950866a60d5b2a7eb0f2449ad9a6ef7f06495eb6840b4ee5810d6e"
 GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
 GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
 GOAT_MANIFEST_SHA256 = (
-    "6be97c2363dc9af98c5f2e6eade8be6276afd74a22f46445b322ca8f9a255cc0"
+    "6b97fef368d2de493c628ca3f3f9589f33695b729b8e8f210a03e28ef765a6d0"
 )
 OBSERVATION_MANIFEST_SCHEMA_VERSION = "q31-direct-observation-manifest.v1"
 OBSERVATION_MANIFEST_REF_PREFIX = "observation-manifest-ref:q31:sha256:"
 OBSERVATION_MANIFEST_SHA256 = (
     "19ae8938e2a25d4c82c67cfa2d690f63a38f92c2aac142a9fcdc231d777f49cf"
 )
+TEST_RUN_RECEIPT_SCHEMA_VERSION = "q31-test-run-receipts.v1"
+TEST_RUN_RECEIPT_REF_PREFIX = "test-run-receipt-ref:q31:"
+TEST_RUN_RECEIPT_MANIFEST_SHA256 = (
+    "e7a7ed95d3e31e2c7efd714bbbb1aa7fe89ff67356c5892e49d2c4a00a786098"
+)
+EXPECTED_TEST_RUN_RECEIPTS_DIGEST = (
+    "5356a8f142e2161c95895fe032305c67743f7cd6aa91c98544c34021b78c3ea2"
+)
+EXPECTED_TEST_RUN_RESULTS = {
+    "uaa-focused": ("uaa", "passed", 76, 0, 0),
+    "goat-ui": ("goatcitadel", "passed", 19, 0, 0),
+    "goat-gateway": ("goatcitadel", "passed", 73, 0, 0),
+    "goat-policy": ("goatcitadel", "known_failures_observed", 235, 9, 1),
+    "goat-memory-contracts": ("goatcitadel", "passed", 18, 0, 0),
+    "goat-code": ("goatcitadel", "passed", 18, 0, 0),
+}
+EXPECTED_TEST_RUN_WORKING_DIRECTORIES = {
+    "uaa-focused": "repo-ref:uaa@817d84d8:.",
+    "goat-ui": "repo-ref:goat@41d0f2e5:.",
+    "goat-gateway": "repo-ref:goat@41d0f2e5:apps/gateway",
+    "goat-policy": "repo-ref:goat@41d0f2e5:packages/policy-engine",
+    "goat-memory-contracts": "repo-ref:goat@41d0f2e5:.",
+    "goat-code": "repo-ref:goat@41d0f2e5:.",
+}
+TEST_RUN_RECEIPT_KEYS = {
+    "run_id",
+    "system",
+    "baseline_commit_ref",
+    "working_directory_ref",
+    "argv_batches",
+    "environment_refs",
+    "test_file_refs",
+    "status",
+    "passed",
+    "failed",
+    "exit_code",
+}
+RESOLVED_TEST_RUN_RECEIPT_REFS = {
+    f"{TEST_RUN_RECEIPT_REF_PREFIX}{run_id}:sha256:{TEST_RUN_RECEIPT_MANIFEST_SHA256}"
+    for run_id in EXPECTED_TEST_RUN_RESULTS
+}
 Q22_ACCEPTANCE_REPORT_RELATIVE_PATH = (
     "docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json"
 )
@@ -91,6 +132,13 @@ REQUIRED_SCORE_CITATIONS = (
     "src/ultimate_ai_agent/core/memory/local_store.py#L112-L139",
     "packages/memory-core/src/context-composer.ts#L18-L46",
     "apps/gateway/src/services/memory-lifecycle-service.ts#L271-L312",
+    "src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py#L36-L96",
+    "tests/test_runtime_action_tool_code_lanes.py#L43-L135",
+    "apps/gateway/src/services/code-mode-execution-backends.ts#L15-L100",
+    "apps/gateway/src/services/code-mode-execution-backend-runner.ts#L47-L115",
+    "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx#L85-L175",
+    "apps/gateway/src/services/code-mode-execution-backends.test.ts#L9-L168",
+    "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx#L110-L180",
 )
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
@@ -244,7 +292,9 @@ SENSITIVE_KEY_FAMILIES = (
     "token",
 )
 ALLOWED_SENSITIVE_POSTURE_KEYS = {
+    "environmentrefs",
     "rawmodelintelligencescored",
+    "rawoutputpersisted",
     "result",
     "weightedtotalraw",
 }
@@ -283,19 +333,19 @@ COMMON_EVIDENCE_KEYS = {
 }
 COMMON_EVIDENCE_PREFIXES = {
     "uaa_baseline_ci": "ci-ref:uaa:github-actions:",
-    "uaa_focused_tests": "test-run-ref:q31:uaa-focused:",
-    "goat_ui_tests": "test-run-ref:q31:goat-ui:",
-    "goat_gateway_tests": "test-run-ref:q31:goat-gateway:",
-    "goat_policy_tests": "test-run-ref:q31:goat-policy:",
-    "goat_memory_contract_tests": "test-run-ref:q31:goat-memory-contracts:",
-    "goat_code_tests": "test-run-ref:q31:goat-code:",
+    "uaa_focused_tests": "test-run-receipt-ref:q31:uaa-focused:",
+    "goat_ui_tests": "test-run-receipt-ref:q31:goat-ui:",
+    "goat_gateway_tests": "test-run-receipt-ref:q31:goat-gateway:",
+    "goat_policy_tests": "test-run-receipt-ref:q31:goat-policy:",
+    "goat_memory_contract_tests": "test-run-receipt-ref:q31:goat-memory-contracts:",
+    "goat_code_tests": "test-run-receipt-ref:q31:goat-code:",
     "uaa_desktop_observation": "repo-ref:uaa@",
     "uaa_mobile_observation": "repo-ref:uaa@",
     "goat_desktop_observation": "repo-ref:goat@",
     "goat_mobile_observation": "repo-ref:goat@",
 }
 EXPECTED_COMMON_EVIDENCE_DIGEST = (
-    "0b9d24f45977c123ee1ceca8a6374cd89e12ab72d5083a9b170d1c93246ed3bc"
+    "0535c61008a8c51609f1b50b84cd5c668c100a5af402f5136829975504211041"
 )
 REQUIRED_GOAT_REPORT_PATHS = {
     "packages/policy-engine/src/tool-executor.ts",
@@ -407,7 +457,7 @@ EXPECTED_BASELINES_DIGEST = (
     "c2b3f8942b45bad49ce40b9507d0530e53e4552b3eaf96e92efe8f2ae60b3f1c"
 )
 EXPECTED_SYSTEMS_DIGEST = (
-    "cdfa53f66030dd009ac928e8940a83ed3cfe0717d5d8c45d4f68a154b58e7140"
+    "bea341a31ce258e26c06082ede520032be2bb54c4e6e5d9014968b64bedacdb6"
 )
 EXPECTED_UNEXERCISED_DIMENSIONS = {
     "approvals",
@@ -506,6 +556,12 @@ def _validate_revision_bound_ref(
     goat_manifest_paths: set[str],
 ) -> None:
     expected_sha = _baseline_sha(system_name)
+    if ref.startswith(TEST_RUN_RECEIPT_REF_PREFIX):
+        _require(
+            ref in RESOLVED_TEST_RUN_RECEIPT_REFS,
+            "test run receipt ref does not resolve to the published manifest",
+        )
+        return
     repo_match = UAA_REF.match(ref) if system_name == "uaa" else GOAT_REF.match(ref)
     expected_prefix = f"repo-ref:{system_name if system_name == 'uaa' else 'goat'}@"
     if ref.startswith("repo-ref:"):
@@ -544,9 +600,7 @@ def _validate_revision_bound_ref(
                 f"missing GoatCitadel evidence file in manifest: {path}",
             )
         return
-    if ref.startswith(
-        ("evidence-ref:queue-v2/Q22/", "receipt-ref:queue-v2/Q22/")
-    ):
+    if ref.startswith(("evidence-ref:queue-v2/Q22/", "receipt-ref:queue-v2/Q22/")):
         _require(
             ref in RESOLVED_Q22_ACCEPTANCE_REFS,
             "Q22 acceptance ref does not resolve to the published artifact",
@@ -607,10 +661,8 @@ def _validate_q22_acceptance_artifact() -> None:
     artifact = _loads_strict_json(result.stdout)
     _require(
         isinstance(artifact, dict)
-        and artifact.get("schema_version")
-        == "uaa-taw08-final-acceptance-artifact.v1"
-        and artifact.get("final_status")
-        == "founder_private_accepted_promotion_blocked"
+        and artifact.get("schema_version") == "uaa-taw08-final-acceptance-artifact.v1"
+        and artifact.get("final_status") == "founder_private_accepted_promotion_blocked"
         and artifact.get("founder_evidence_digest_ref")
         == Q22_FOUNDER_EVIDENCE_DIGEST_REF
         and artifact.get("postmerge_foundation_receipt_digest_ref")
@@ -670,6 +722,145 @@ def _validate_goat_manifest(manifest: Any) -> set[str]:
         "GoatCitadel evidence manifest digest drift",
     )
     return set(paths)
+
+
+def _validate_test_run_receipts(
+    manifest: Any,
+    *,
+    goat_manifest_paths: set[str],
+) -> None:
+    _require(
+        isinstance(manifest, dict)
+        and set(manifest)
+        == {
+            "schema_version",
+            "comparison_ref",
+            "capture_posture",
+            "raw_output_persisted",
+            "runs",
+        },
+        "test run receipt manifest shape drift",
+    )
+    _require(
+        manifest["schema_version"] == TEST_RUN_RECEIPT_SCHEMA_VERSION,
+        "test run receipt schema drift",
+    )
+    _require(
+        manifest["comparison_ref"] == COMPARISON_REF,
+        "test run receipt comparison drift",
+    )
+    _require(
+        manifest["capture_posture"] == "bounded_command_and_result_summary_only",
+        "test run receipt capture posture drift",
+    )
+    _require(
+        manifest["raw_output_persisted"] is False,
+        "test run receipt raw output posture drift",
+    )
+    runs = manifest["runs"]
+    _require(
+        isinstance(runs, list) and len(runs) == len(EXPECTED_TEST_RUN_RESULTS),
+        "test run receipt inventory drift",
+    )
+    seen_run_ids: set[str] = set()
+    for run in runs:
+        _require(
+            isinstance(run, dict) and set(run) == TEST_RUN_RECEIPT_KEYS,
+            "test run receipt entry shape drift",
+        )
+        run_id = run["run_id"]
+        _require(
+            isinstance(run_id, str)
+            and run_id in EXPECTED_TEST_RUN_RESULTS
+            and run_id not in seen_run_ids,
+            "test run receipt identity drift",
+        )
+        seen_run_ids.add(run_id)
+        expected_system, status, passed, failed, exit_code = EXPECTED_TEST_RUN_RESULTS[
+            run_id
+        ]
+        _require(run["system"] == expected_system, "test run receipt system drift")
+        _require(
+            run["baseline_commit_ref"] == BASELINES[expected_system],
+            "test run receipt baseline drift",
+        )
+        working_directory_ref = run["working_directory_ref"]
+        _require(
+            working_directory_ref == EXPECTED_TEST_RUN_WORKING_DIRECTORIES[run_id],
+            "test run receipt working directory drift",
+        )
+        _validate_safe_ref(
+            working_directory_ref,
+            "test_run_receipts/working_directory_ref",
+        )
+        argv_batches = run["argv_batches"]
+        _require(
+            isinstance(argv_batches, list) and 1 <= len(argv_batches) <= 3,
+            "test run receipt command batch inventory drift",
+        )
+        argv_count = 0
+        for argv in argv_batches:
+            _require(
+                isinstance(argv, list)
+                and 1 <= len(argv) <= 32
+                and all(
+                    isinstance(argument, str)
+                    and bool(argument)
+                    and len(argument) <= 512
+                    and "\n" not in argument
+                    and "\r" not in argument
+                    and not any(fragment in argument for fragment in PROHIBITED_TEXT)
+                    for argument in argv
+                ),
+                "test run receipt command shape drift",
+            )
+            argv_count += len(argv)
+        _require(argv_count <= 64, "test run receipt command is unbounded")
+        environment_refs = run["environment_refs"]
+        _require(
+            isinstance(environment_refs, list)
+            and len(environment_refs) <= 4
+            and len(environment_refs) == len(set(environment_refs))
+            and all(
+                isinstance(ref, str)
+                and re.fullmatch(r"env-ref:q31:[A-Z][A-Z0-9_]*=[A-Za-z0-9._/-]+", ref)
+                is not None
+                for ref in environment_refs
+            ),
+            "test run receipt environment ref drift",
+        )
+        test_file_refs = run["test_file_refs"]
+        _require(
+            isinstance(test_file_refs, list)
+            and 1 <= len(test_file_refs) <= 16
+            and len(test_file_refs) == len(set(test_file_refs))
+            and all(isinstance(ref, str) for ref in test_file_refs),
+            "test run receipt test file inventory drift",
+        )
+        for ref in test_file_refs:
+            _validate_safe_ref(ref, "test_run_receipts/test_file_ref")
+            _validate_revision_bound_ref(
+                ref,
+                expected_system,
+                goat_manifest_paths=goat_manifest_paths,
+            )
+        _require(
+            (run["status"], run["passed"], run["failed"], run["exit_code"])
+            == (status, passed, failed, exit_code)
+            and type(run["passed"]) is int
+            and type(run["failed"]) is int
+            and type(run["exit_code"]) is int,
+            "test run receipt result drift",
+        )
+    _require(
+        seen_run_ids == set(EXPECTED_TEST_RUN_RESULTS),
+        "test run receipt inventory drift",
+    )
+    _walk_for_unsafe_text(manifest)
+    _require(
+        _canonical_digest(manifest) == EXPECTED_TEST_RUN_RECEIPTS_DIGEST,
+        "test run receipt manifest digest drift",
+    )
 
 
 def _validate_safe_ref(ref: str, field_name: str) -> None:
@@ -763,13 +954,17 @@ def _validate_observation_manifest(
             "duplicate direct observation manifest identity",
         )
         observation_refs.add(observation_ref)
-        _validate_safe_ref(observation_ref, "direct_observation_manifest/observation_ref")
+        _validate_safe_ref(
+            observation_ref, "direct_observation_manifest/observation_ref"
+        )
         _validate_revision_bound_ref(
             observation_ref,
             system_name,
             goat_manifest_paths=goat_manifest_paths,
         )
-        _validate_safe_ref(item["scenario_ref"], "direct_observation_manifest/scenario_ref")
+        _validate_safe_ref(
+            item["scenario_ref"], "direct_observation_manifest/scenario_ref"
+        )
         _require(
             item["viewport"] in {"desktop", "390x844"},
             "direct observation manifest viewport drift",
@@ -791,7 +986,9 @@ def _validate_observation_manifest(
             "direct observation manifest support drift",
         )
         for ref in support_refs:
-            _validate_safe_ref(ref, "direct_observation_manifest/supporting_evidence_ref")
+            _validate_safe_ref(
+                ref, "direct_observation_manifest/supporting_evidence_ref"
+            )
             _validate_revision_bound_ref(
                 ref,
                 system_name,
@@ -839,9 +1036,9 @@ def _collect_q22_acceptance_refs(value: Any) -> set[str]:
 
 
 def _is_test_evidence_ref(ref: str) -> bool:
-    return ref.startswith(("test-ref:", "test-run-ref:", "pytest-test-ref:")) or any(
-        marker in ref for marker in ("/tests/", ":tests/", ".test.", "test_")
-    )
+    return ref.startswith(
+        ("test-ref:", "test-run-ref:", "test-run-receipt-ref:", "pytest-test-ref:")
+    ) or any(marker in ref for marker in ("/tests/", ":tests/", ".test.", "test_"))
 
 
 def _component_score(component: dict[str, Any]) -> int:
@@ -976,9 +1173,7 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
     observed_maturity_states: set[str] = set()
     for component_name, label in COMPONENT_LABELS.items():
         uaa_maturity = _maturity(scores["uaa"]["components"][component_name])
-        goat_maturity = _maturity(
-            scores["goatcitadel"]["components"][component_name]
-        )
+        goat_maturity = _maturity(scores["goatcitadel"]["components"][component_name])
         observed_maturity_states.update({uaa_maturity, goat_maturity})
         _require(
             report.count(f"| {label} | {uaa_maturity} | {goat_maturity} |") == 1,
@@ -1058,6 +1253,7 @@ def verify_data(
     report: str,
     goat_manifest: dict[str, Any] | None = None,
     observation_manifest: dict[str, Any] | None = None,
+    test_run_receipts: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require(isinstance(data, dict), "top-level ledger must be an object")
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
@@ -1071,6 +1267,14 @@ def verify_data(
             DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8")
         )
     goat_manifest_paths = _validate_goat_manifest(goat_manifest)
+    if test_run_receipts is None:
+        test_run_receipts = _loads_strict_json(
+            DEFAULT_TEST_RUN_RECEIPTS.read_text(encoding="utf-8")
+        )
+    _validate_test_run_receipts(
+        test_run_receipts,
+        goat_manifest_paths=goat_manifest_paths,
+    )
     if observation_manifest is None:
         observation_manifest = _loads_strict_json(
             DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
@@ -1183,6 +1387,15 @@ def verify_data(
             )
         else:
             raise VerificationError(f"unowned common evidence ref: {ref_name}")
+    _require(
+        {
+            ref
+            for ref in common_refs.values()
+            if ref.startswith(TEST_RUN_RECEIPT_REF_PREFIX)
+        }
+        == RESOLVED_TEST_RUN_RECEIPT_REFS,
+        "test run receipt common evidence inventory drift",
+    )
     _require(
         _canonical_digest(common_refs) == EXPECTED_COMMON_EVIDENCE_DIGEST,
         "common evidence binding drift",
@@ -1523,6 +1736,15 @@ def verify(
         DEFAULT_OBSERVATION_MANIFEST.stat().st_size <= 100_000,
         "direct observation manifest is unbounded",
     )
+    _require(
+        DEFAULT_TEST_RUN_RECEIPTS.stat().st_size <= 100_000,
+        "test run receipt manifest is unbounded",
+    )
+    _require(
+        hashlib.sha256(DEFAULT_TEST_RUN_RECEIPTS.read_bytes()).hexdigest()
+        == TEST_RUN_RECEIPT_MANIFEST_SHA256,
+        "test run receipt file digest drift",
+    )
     data = _loads_strict_json(artifact.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
     goat_manifest = _loads_strict_json(
@@ -1531,7 +1753,16 @@ def verify(
     observation_manifest = _loads_strict_json(
         DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
     )
-    return verify_data(data, report, goat_manifest, observation_manifest)
+    test_run_receipts = _loads_strict_json(
+        DEFAULT_TEST_RUN_RECEIPTS.read_text(encoding="utf-8")
+    )
+    return verify_data(
+        data,
+        report,
+        goat_manifest,
+        observation_manifest,
+        test_run_receipts,
+    )
 
 
 def main() -> int:

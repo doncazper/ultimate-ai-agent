@@ -90,7 +90,9 @@ machine-readable score and authority ledger in
 GoatCitadel file-digest manifest in
 `docs/benchmarks/q31_goat_evidence_manifest_20260906.json`, its content-free
 runtime-observation manifest in
-`docs/benchmarks/q31_direct_observation_manifest_20260906.json`, and its
+`docs/benchmarks/q31_direct_observation_manifest_20260906.json`, its bounded
+content-addressed command/result receipts in
+`docs/benchmarks/q31_test_run_receipts_20260906.json`, and its
 repository-local verifier in
 `scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py`.
 It reports GoatCitadel 73 and UAA 70 under the bound maturity rubric, preserves

@@ -28,9 +28,11 @@ def _goat_manifest() -> dict[str, Any]:
 
 
 def _observation_manifest() -> dict[str, Any]:
-    return json.loads(
-        verifier.DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
-    )
+    return json.loads(verifier.DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8"))
+
+
+def _test_run_receipts() -> dict[str, Any]:
+    return json.loads(verifier.DEFAULT_TEST_RUN_RECEIPTS.read_text(encoding="utf-8"))
 
 
 def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
@@ -49,7 +51,7 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     assert "uaa_baseline_ci" in data["common_evidence_refs"]
     assert "uaa_exact_head_ci" not in data["common_evidence_refs"]
     assert data["common_evidence_refs"]["goat_code_tests"].startswith(
-        "test-run-ref:q31:goat-code:18-passed@"
+        "test-run-receipt-ref:q31:goat-code:sha256:"
     )
     assert "current exact-head hosted CI" not in _report()
 
@@ -85,16 +87,12 @@ def test_q31_packet_rejects_duplicate_json_keys_at_every_depth() -> None:
         verifier._loads_strict_json('{"outer": 1, "outer": 2}')
 
     with pytest.raises(verifier.VerificationError, match="duplicate JSON key: claim"):
-        verifier._loads_strict_json(
-            '{"authority": {"claim": true, "claim": false}}'
-        )
+        verifier._loads_strict_json('{"authority": {"claim": true, "claim": false}}')
 
 
 def test_q31_packet_binds_runtime_observation_manifest() -> None:
     manifest = _observation_manifest()
-    manifest_refs = {
-        item["observation_ref"] for item in manifest["observations"]
-    }
+    manifest_refs = {item["observation_ref"] for item in manifest["observations"]}
     assert verifier._collect_runtime_observation_refs(_data()) == manifest_refs
     command_palette = next(
         item
@@ -136,6 +134,54 @@ def test_q31_packet_binds_runtime_observation_manifest() -> None:
         match="command-palette observation source binding drift",
     ):
         verifier.verify_data(_data(), _report(), _goat_manifest(), tampered)
+
+
+def test_q31_packet_binds_content_addressed_test_run_receipts() -> None:
+    data = copy.deepcopy(_data())
+    data["common_evidence_refs"]["uaa_focused_tests"] = (
+        "test-run-receipt-ref:q31:uaa-focused:sha256:" + ("0" * 64)
+    )
+    with pytest.raises(
+        verifier.VerificationError,
+        match="test run receipt ref does not resolve",
+    ):
+        verifier.verify_data(data, _report())
+
+    receipts = copy.deepcopy(_test_run_receipts())
+    receipts["runs"][0]["passed"] = 77
+    with pytest.raises(
+        verifier.VerificationError,
+        match="test run receipt result drift",
+    ):
+        verifier.verify_data(
+            _data(),
+            _report(),
+            test_run_receipts=receipts,
+        )
+
+    receipts = copy.deepcopy(_test_run_receipts())
+    receipts["runs"][0]["argv_batches"][0].append("tests/invented_test.py")
+    with pytest.raises(
+        verifier.VerificationError,
+        match="test run receipt manifest digest drift",
+    ):
+        verifier.verify_data(
+            _data(),
+            _report(),
+            test_run_receipts=receipts,
+        )
+
+    receipts = copy.deepcopy(_test_run_receipts())
+    receipts["raw_output_persisted"] = True
+    with pytest.raises(
+        verifier.VerificationError,
+        match="test run receipt raw output posture drift",
+    ):
+        verifier.verify_data(
+            _data(),
+            _report(),
+            test_run_receipts=receipts,
+        )
 
 
 def test_q31_packet_requires_terminal_observation_dispositions() -> None:
@@ -281,9 +327,11 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
 
     data = copy.deepcopy(_data())
     data["common_evidence_refs"]["goat_policy_tests"] = (
-        "test-run-ref:q31:goat-policy:266-passed-9-failed@deadbeef"
+        "test-run-receipt-ref:q31:goat-policy:sha256:" + ("0" * 64)
     )
-    with pytest.raises(verifier.VerificationError, match="evidence ref baseline drift"):
+    with pytest.raises(
+        verifier.VerificationError, match="test run receipt ref does not resolve"
+    ):
         verifier.verify_data(data, _report())
 
     data = copy.deepcopy(_data())
@@ -340,18 +388,18 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
 
 def test_q31_packet_pins_common_evidence_and_test_gates() -> None:
     data = copy.deepcopy(_data())
-    data["common_evidence_refs"]["uaa_exact_head_ci"] = data[
-        "common_evidence_refs"
-    ]["uaa_baseline_ci"]
+    data["common_evidence_refs"]["uaa_exact_head_ci"] = data["common_evidence_refs"][
+        "uaa_baseline_ci"
+    ]
     with pytest.raises(
         verifier.VerificationError, match="common evidence inventory drift"
     ):
         verifier.verify_data(data, _report())
 
     data = copy.deepcopy(_data())
-    data["common_evidence_refs"]["goat_code_tests"] = data[
-        "common_evidence_refs"
-    ]["goat_gateway_tests"]
+    data["common_evidence_refs"]["goat_code_tests"] = data["common_evidence_refs"][
+        "goat_gateway_tests"
+    ]
     with pytest.raises(
         verifier.VerificationError, match="common evidence class drift: goat_code_tests"
     ):
@@ -645,6 +693,7 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
         "docs/benchmarks/q31_goat_maturity_input_20260906.json",
         "docs/benchmarks/q31_goat_evidence_manifest_20260906.json",
         "docs/benchmarks/q31_direct_observation_manifest_20260906.json",
+        "docs/benchmarks/q31_test_run_receipts_20260906.json",
         "scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py",
     ):
         assert required_path in index
