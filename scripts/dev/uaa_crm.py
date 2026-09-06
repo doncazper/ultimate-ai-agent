@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -12,7 +13,10 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.crm import (  # noqa: E402
+    CrmAdoptionStore,
     CrmLocalMutationRequest,
+    CrmPortableBackup,
+    CrmPortableRestoreRequest,
     CrmLocalStore,
     expected_crm_local_mutation_approval_ref,
 )
@@ -26,6 +30,48 @@ def _store(args: argparse.Namespace) -> CrmLocalStore:
 
 def _print(payload: Any, *, pretty: bool) -> None:
     print(json.dumps(payload, indent=2 if pretty else None, sort_keys=True))
+
+
+def _adoption_store(args: argparse.Namespace) -> CrmAdoptionStore:
+    if args.state_dir is None:
+        return CrmAdoptionStore.from_env()
+    return CrmAdoptionStore(Path(args.state_dir))
+
+
+def inspect_adoption(args: argparse.Namespace) -> int:
+    view = _adoption_store(args).read_view(
+        query=args.query,
+        record_kind=args.record_kind,
+        include_archived=args.include_archived,
+    )
+    payload = view.model_dump(mode="json")
+    if not args.show_private:
+        payload["records"] = [
+            {
+                "record_ref": item.record_ref,
+                "record_kind": item.record_kind,
+                "archived": item.archived,
+                "version": item.version,
+            }
+            for item in view.records
+        ]
+        payload["private_values_included"] = False
+    _print(payload, pretty=args.pretty)
+    return 0
+
+
+def verify_adoption_backup(args: argparse.Namespace) -> int:
+    passphrase = os.environ.get("UAA_CRM_BACKUP_PASSPHRASE", "")
+    if not passphrase:
+        raise ValueError("CRM_ADOPTION_BACKUP_PASSPHRASE_ENV_REQUIRED")
+    backup = CrmPortableBackup.model_validate_json(
+        Path(args.backup).read_text(encoding="utf-8")
+    )
+    preview = _adoption_store(args).preview_restore(
+        CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    )
+    _print(preview.model_dump(mode="json"), pretty=args.pretty)
+    return 0
 
 
 def inspect_summary(args: argparse.Namespace) -> int:
@@ -264,6 +310,43 @@ def build_parser() -> argparse.ArgumentParser:
         command = subparsers.add_parser(name, help=help_text)
         _add_common(command)
         command.set_defaults(func=handler)
+
+    adoption = subparsers.add_parser(
+        "inspect-adoption",
+        help="Inspect encrypted founder-private CRM lifecycle state.",
+    )
+    _add_common(adoption)
+    adoption.add_argument("--query", default="")
+    adoption.add_argument(
+        "--record-kind",
+        choices=[
+            "person",
+            "organization",
+            "property",
+            "relationship",
+            "opportunity",
+            "activity",
+            "follow_up",
+        ],
+    )
+    adoption.add_argument("--include-archived", action="store_true")
+    adoption.add_argument(
+        "--show-private",
+        action="store_true",
+        help="Explicitly include private values in terminal output.",
+    )
+    adoption.set_defaults(func=inspect_adoption)
+
+    backup = subparsers.add_parser(
+        "verify-adoption-backup",
+        help=(
+            "Verify an encrypted portable CRM backup without restoring it. "
+            "The passphrase is read only from UAA_CRM_BACKUP_PASSPHRASE."
+        ),
+    )
+    _add_common(backup)
+    backup.add_argument("--backup", required=True)
+    backup.set_defaults(func=verify_adoption_backup)
 
     clear = subparsers.add_parser("clear-demo", help="Clear local demo CRM state.")
     _add_common(clear)

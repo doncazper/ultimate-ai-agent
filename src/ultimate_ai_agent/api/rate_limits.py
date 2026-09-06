@@ -40,6 +40,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "communications_matrix_messaging": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_rooms_media": {"max_requests": 12, "window_seconds": 60},
     "communications_matrix_intelligence": {"max_requests": 12, "window_seconds": 60},
+    "crm_adoption": {"max_requests": 30, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -239,6 +240,13 @@ COMMUNICATIONS_MATRIX_INTELLIGENCE_PATHS = {
         )
     },
 }
+CRM_ADOPTION_POST_PATHS = {
+    "/control-center/crm/adoption/preview",
+    "/control-center/crm/adoption/commit",
+    "/control-center/crm/adoption/backup",
+    "/control-center/crm/adoption/restore-preview",
+    "/control-center/crm/adoption/restore",
+}
 
 
 @dataclass(frozen=True)
@@ -362,6 +370,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "communications_matrix_rooms_media"
     if normalized_method == "POST" and path in COMMUNICATIONS_MATRIX_INTELLIGENCE_PATHS:
         return "communications_matrix_intelligence"
+    if normalized_method == "POST" and path in CRM_ADOPTION_POST_PATHS:
+        return "crm_adoption"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

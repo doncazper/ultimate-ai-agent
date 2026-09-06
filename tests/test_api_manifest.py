@@ -210,6 +210,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "control_center_crm_smart_lists_read_model",
         "control_center_crm_pipeline_board_read_model",
         "control_center_crm_exact_local_mutation_receipts",
+        "control_center_crm_founder_private_adoption_workspace",
+        "control_center_crm_complete_local_record_lifecycle",
+        "control_center_crm_encrypted_portable_backup_recovery",
+        "control_center_crm_exact_local_approval_authority",
     ]:
         assert capability in manifest["capabilities_declared"]
     assert "control_center_today_summary" in manifest["capabilities_declared"]

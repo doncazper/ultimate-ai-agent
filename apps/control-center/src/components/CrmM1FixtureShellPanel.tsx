@@ -5,6 +5,7 @@ import type {
   CrmOpportunityReadModel,
   CrmRelationshipReadModel,
 } from "../api/types";
+import { CrmAdoptionWorkspace } from "./CrmAdoptionWorkspace";
 
 export function CrmM1FixtureShellPanel({
   crm,
@@ -52,10 +53,14 @@ export function CrmM1FixtureShellPanel({
     "proof-ref:crm-connector-read-readiness:v1";
 
   return (
-    <section
-      aria-labelledby="crm-local-heading"
-      className="page-section crm-command-center"
-    >
+    <>
+      <CrmAdoptionWorkspace />
+      <details className="crm-foundation-details">
+        <summary>Foundation status and blocked integrations</summary>
+        <section
+          aria-labelledby="crm-local-heading"
+          className="page-section crm-command-center"
+        >
       <div className="section-heading">
         <div>
           <p className="eyebrow">CRM Local Command Center</p>
@@ -342,7 +347,9 @@ export function CrmM1FixtureShellPanel({
           ))}
         </ul>
       </section>
-    </section>
+        </section>
+      </details>
+    </>
   );
 }
 

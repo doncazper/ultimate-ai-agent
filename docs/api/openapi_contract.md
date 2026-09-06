@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `356` OpenAPI paths and `358` manifest route operations.
+Current generated contract snapshot: `362` OpenAPI paths and `364` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -557,6 +557,17 @@ Contract rules:
   external CRM writes, account sync, sends, calendar writes, provider/model
   calls, live web, browser automation, background autonomy, public beta, public
   release, production readiness, or production authority.
+- Q32 adds six founder-private adoption routes under
+  `/control-center/crm/adoption*`. The protected read route returns private
+  values only to the authenticated loopback operator response. Preview and
+  backup/restore-preview are local-sensitive no-external-effect routes;
+  commit and restore are `mutating_requires_authority` and require an exact
+  idempotency ref, explicit operator confirmation, a preview-bound
+  `LocalApprovalAuthority` grant, and an exact operation-budget-one
+  `contacts/write` AuthorityLease. State and portable backups are encrypted,
+  imports are bounded and duplicate-aware, and receipts/audit remain
+  content-free. These routes grant no connector, send, external CRM write,
+  provider/model call, remote sync, public release, or production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

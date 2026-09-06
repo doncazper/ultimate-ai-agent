@@ -782,6 +782,12 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/crm/pipelines",
         "/control-center/crm/smart-lists",
         "/control-center/crm/local-mutations",
+        "/control-center/crm/adoption",
+        "/control-center/crm/adoption/preview",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
+        "/control-center/crm/adoption/restore-preview",
+        "/control-center/crm/adoption/restore",
         "/control-center/providers/runtime-control-plane",
         "/control-center/social-publishing/proposal",
     }

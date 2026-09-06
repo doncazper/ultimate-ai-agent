@@ -54,6 +54,14 @@ from ultimate_ai_agent.core.decision_router import (
     build_turn_router_preview,
 )
 from ultimate_ai_agent.core.crm import (
+    CrmAdoptionCommitRequest,
+    CrmAdoptionConflict,
+    CrmAdoptionError,
+    CrmAdoptionMutationRequest,
+    CrmAdoptionStore,
+    CrmPortableBackupRequest,
+    CrmPortableRestoreCommitRequest,
+    CrmPortableRestoreRequest,
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
     CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
@@ -329,6 +337,192 @@ def get_control_center_crm_summary() -> ResultEnvelope:
         trace_id=crm.contract_ref,
         data=crm.model_dump(mode="json"),
         evidence_ref="evidence-ref:crm-local-command-center:summary",
+    )
+
+
+@router.get(
+    "/crm/adoption",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_crm_adoption_workspace",
+    summary="Read the founder-private encrypted CRM workspace",
+)
+def get_control_center_crm_adoption(
+    query: str = Query(default="", max_length=512),
+    record_kind: str | None = Query(default=None),
+    include_archived: bool = Query(default=False),
+) -> ResultEnvelope:
+    if record_kind not in {
+        None,
+        "person",
+        "organization",
+        "property",
+        "relationship",
+        "opportunity",
+        "activity",
+        "follow_up",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "CRM_ADOPTION_RECORD_KIND_INVALID",
+                "safe_message": "Choose one supported private CRM record type.",
+            },
+        )
+    view = CrmAdoptionStore.from_env().read_view(
+        query=query,
+        record_kind=record_kind,  # type: ignore[arg-type]
+        include_archived=include_archived,
+    )
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption",
+        trace_id=f"crm-adoption-revision-ref:{view.revision}",
+        data=view.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:private-workspace-read",
+    )
+
+
+@router.post(
+    "/crm/adoption/preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_crm_adoption_mutation",
+    summary="Preview one exact local CRM lifecycle change",
+)
+def post_control_center_crm_adoption_preview(
+    request: CrmAdoptionMutationRequest,
+) -> ResultEnvelope:
+    try:
+        preview = CrmAdoptionStore.from_env().preview_mutation(request)
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-mutation-preview",
+    )
+
+
+@router.post(
+    "/crm/adoption/commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_crm_adoption_mutation",
+    summary="Commit one approved local CRM lifecycle change",
+)
+def post_control_center_crm_adoption_commit(
+    request: CrmAdoptionCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CrmAdoptionStore.from_env().commit_mutation(
+            request=request.mutation,
+            preview_ref=request.preview_ref,
+            approval_ref=request.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-mutation-receipt",
+    )
+
+
+@router.post(
+    "/crm/adoption/backup",
+    response_model=ResultEnvelope,
+    operation_id="create_control_center_crm_adoption_backup",
+    summary="Create a passphrase-encrypted portable CRM backup",
+)
+def post_control_center_crm_adoption_backup(
+    request: CrmPortableBackupRequest,
+) -> ResultEnvelope:
+    try:
+        backup = CrmAdoptionStore.from_env().create_portable_backup(request)
+    except CrmAdoptionError as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_backup",
+        trace_id=backup.ciphertext_fingerprint_ref,
+        data=backup.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:encrypted-portable-backup",
+    )
+
+
+@router.post(
+    "/crm/adoption/restore-preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_crm_adoption_restore",
+    summary="Verify and preview an encrypted CRM backup restore",
+)
+def post_control_center_crm_adoption_restore_preview(
+    request: CrmPortableRestoreRequest,
+) -> ResultEnvelope:
+    try:
+        preview = CrmAdoptionStore.from_env().preview_restore(request)
+    except CrmAdoptionError as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_restore_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:backup-restore-preview",
+    )
+
+
+@router.post(
+    "/crm/adoption/restore",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_crm_adoption_restore",
+    summary="Restore one approved encrypted CRM backup",
+)
+def post_control_center_crm_adoption_restore(
+    request: CrmPortableRestoreCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CrmAdoptionStore.from_env().commit_restore(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_restore",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:backup-restore-receipt",
     )
 
 
@@ -1014,6 +1208,57 @@ def _crm_result_envelope(
             "provider_payloads_omitted",
         ],
     )
+
+
+def _crm_private_result_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    data: object,
+    evidence_ref: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterCrmAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": "contract-ref:queue-v2-q32-crm-adoption:v1",
+            }
+        ],
+        redactions_applied=[
+            "private_values_confined_to_authenticated_local_response",
+            "private_values_omitted_from_receipts_and_audit",
+            "raw_paths_omitted",
+            "key_material_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _raise_crm_adoption_http_error(exc: CrmAdoptionError) -> None:
+    code = str(exc) or "CRM_ADOPTION_ERROR"
+    status_code = 409 if isinstance(exc, CrmAdoptionConflict) else 403
+    if code in {
+        "CRM_ADOPTION_STATE_UNREADABLE",
+        "CRM_ADOPTION_BACKUP_UNLOCK_FAILED",
+        "CRM_ADOPTION_BACKUP_FINGERPRINT_INVALID",
+        "CRM_ADOPTION_BACKUP_INVALID",
+    }:
+        status_code = 422
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "code": code,
+            "safe_message": (
+                "The private CRM request could not be completed safely. Refresh "
+                "the workspace or use the encrypted Recovery path."
+            ),
+        },
+    ) from exc
 
 
 def _crm_idempotency_ref(

@@ -49,6 +49,13 @@ import type {
   ControlCenterSettingsStatus,
   ControlCenterStatus,
   CrmLocalCommandCenterReadModel,
+  CrmAdoptionMutationPreview,
+  CrmAdoptionMutationReceipt,
+  CrmAdoptionMutationRequest,
+  CrmAdoptionRecordKind,
+  CrmAdoptionWorkspaceView,
+  CrmPortableBackup,
+  CrmPortableRestorePreview,
   TrustAuthorityMatrix,
   TurnHarnessBindingReadModel,
   TurnRouterPreviewReadModel,
@@ -505,6 +512,133 @@ export async function loadControlCenterBackendTruth(): Promise<ControlCenterBack
     API_ENDPOINTS.controlCenterBackendTruth,
   );
   return validateControlCenterBackendTruth(payload);
+}
+
+export async function loadCrmAdoptionWorkspace(
+  query = "",
+  recordKind: CrmAdoptionRecordKind | "" = "",
+  includeArchived = false,
+): Promise<CrmAdoptionWorkspaceView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const params = new URLSearchParams();
+  if (query.trim()) params.set("query", query.trim());
+  if (recordKind) params.set("record_kind", recordKind);
+  if (includeArchived) params.set("include_archived", "true");
+  const suffix = params.toString();
+  const value = await readEnvelope<CrmAdoptionWorkspaceView>(
+    `/control-center/crm/adoption${suffix ? `?${suffix}` : ""}`,
+  );
+  if (
+    value.schema_version !== "uaa-crm-adoption-workspace.v1" ||
+    value.private_values_confined_to_local_response !== true ||
+    value.fixture_primary_truth !== false ||
+    value.external_crm_write_enabled !== false ||
+    !Array.isArray(value.records)
+  ) {
+    throw new Error("CRM_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+async function postCrmAdoptionEnvelope<T>(
+  endpoint: string,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+): Promise<T> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-UAA-Idempotency-Key": idempotencyRef,
+      ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+    }),
+    body: JSON.stringify(body),
+  });
+  const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private CRM request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewCrmAdoptionMutation(
+  request: CrmAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<CrmAdoptionMutationPreview> {
+  return postCrmAdoptionEnvelope(
+    "/control-center/crm/adoption/preview",
+    request,
+    idempotencyRef,
+  );
+}
+
+export async function commitCrmAdoptionMutation(
+  request: CrmAdoptionMutationRequest,
+  preview: CrmAdoptionMutationPreview,
+  idempotencyRef: string,
+): Promise<CrmAdoptionMutationReceipt> {
+  return postCrmAdoptionEnvelope(
+    "/control-center/crm/adoption/commit",
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+  );
+}
+
+export async function createCrmPortableBackup(
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CrmPortableBackup> {
+  return postCrmAdoptionEnvelope(
+    "/control-center/crm/adoption/backup",
+    { passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function previewCrmPortableRestore(
+  backup: CrmPortableBackup,
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CrmPortableRestorePreview> {
+  return postCrmAdoptionEnvelope(
+    "/control-center/crm/adoption/restore-preview",
+    { backup, passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function commitCrmPortableRestore(
+  backup: CrmPortableBackup,
+  passphrase: string,
+  preview: CrmPortableRestorePreview,
+  idempotencyRef: string,
+): Promise<CrmAdoptionMutationReceipt> {
+  return postCrmAdoptionEnvelope(
+    "/control-center/crm/adoption/restore",
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+  );
 }
 
 export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {
