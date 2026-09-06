@@ -4037,7 +4037,7 @@
     },
     {
       "path": "tests/test_queue_v2_q31_final_goatcitadel_comparison.py",
-      "seconds": 10.68,
+      "seconds": 19.18,
       "source": "pytest-duration-summary"
     },
     {

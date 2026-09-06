@@ -32,11 +32,11 @@ DEFAULT_GOAT_MANIFEST = (
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "28e7ecafc53eb44eca03117af008bd86d8bf67b7f9ee1501676b620aea3d222f"
+REPORT_SHA256 = "42f101cf10998d0f63d386ee7958ff0ebb69853cbe94ce1e01bd43722fd9a47f"
 GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
 GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
 GOAT_MANIFEST_SHA256 = (
-    "73a90061767349414c6d5d76ec455ff8c689a8f69ecdd2a07208d4ea949fb2e9"
+    "11788e88b398f1664ab6897f10f0c0c1640e66dcfc20d3b8b0726ffc6e32acf0"
 )
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
@@ -292,26 +292,34 @@ GOAT_REF = re.compile(r"^repo-ref:goat@([0-9a-f]{8}|[0-9a-f]{40}):([^#]+)$")
 REVISION_SUFFIX = re.compile(r"@(?:git-sha:)?([0-9a-f]{8}|[0-9a-f]{40})$")
 CONTENT_ADDRESSED_REF = re.compile(r"^[-A-Za-z0-9_./:@]+:sha256:[0-9a-f]{64}$")
 EXPECTED_OBSERVATIONS_DIGEST = (
-    "8e7d164adea51e72eebe78640e9b8fb2d1674cdf53d9060cbe8702a99e1024cc"
+    "c590e82d9dfebf8d6e7ad340c11f5a1b5064ccceeec80bae2f611413b6fc6a57"
 )
 EXPECTED_BASELINES_DIGEST = (
     "c2b3f8942b45bad49ce40b9507d0530e53e4552b3eaf96e92efe8f2ae60b3f1c"
 )
 EXPECTED_SYSTEMS_DIGEST = (
-    "ab142d269bf2aadc15a26ad351fc945822ac0d5295a96afc6adc7a7f3ba4df8c"
+    "0ca47818f73357c229969bb767ff4190b6ca034ffcad64255340f2ff3b6e1e99"
 )
 EXPECTED_UNEXERCISED_DIMENSIONS = {
+    "approvals",
+    "artifacts",
+    "attachments_or_context_selection",
+    "citations",
+    "errors",
     "streaming",
     "cancel_retry",
     "interruption",
     "steering",
     "resumption",
     "restart",
+    "surface_transitions",
+    "terminal_state_clarity",
+    "uncertainty",
     "accessibility",
     "steps_and_time_to_useful_outcome",
 }
 EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST = (
-    "4f25f2fe17e2a1b5c82404d42073065be4da569f7027a04214179362753b742b"
+    "b60f90eb8ea2deb046ba1f65df14467a482aaed21bdb4b3aa6c93dd851643682"
 )
 EXPECTED_RECIPROCAL_LEARNING_DIGEST = (
     "235aa4c5642cf2ff6e392cfc6bfbf61860aace2f394e7e659d4ba23a893cbe93"
@@ -413,6 +421,18 @@ def _validate_revision_bound_ref(
 def _canonical_digest(value: Any) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _reject_duplicate_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        _require(key not in result, f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _loads_strict_json(text: str) -> Any:
+    return json.loads(text, object_pairs_hook=_reject_duplicate_object_pairs)
 
 
 def _validate_goat_manifest(manifest: Any) -> set[str]:
@@ -653,7 +673,9 @@ def verify_data(
     _walk_for_unsafe_text(data)
     _require(set(data) == TOP_LEVEL_KEYS, "top-level ledger schema drift")
     if goat_manifest is None:
-        goat_manifest = json.loads(DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
+        goat_manifest = _loads_strict_json(
+            DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8")
+        )
     goat_manifest_paths = _validate_goat_manifest(goat_manifest)
     _require(
         data.get("goat_evidence_manifest_ref")
@@ -1063,9 +1085,11 @@ def verify(
         DEFAULT_GOAT_MANIFEST.stat().st_size <= 100_000,
         "GoatCitadel evidence manifest is unbounded",
     )
-    data = json.loads(artifact.read_text(encoding="utf-8"))
+    data = _loads_strict_json(artifact.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
-    goat_manifest = json.loads(DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
+    goat_manifest = _loads_strict_json(
+        DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8")
+    )
     return verify_data(data, report, goat_manifest)
 
 

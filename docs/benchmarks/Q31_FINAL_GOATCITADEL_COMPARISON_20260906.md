@@ -107,7 +107,7 @@ blockers are machine-reproducible in the JSON ledger.
    Goat's threaded surface presents planning, tools, approvals, and code context
    inline (`apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx#L23-L57`).
    The latter was more legible in the clean-start observation.
-6. **Actions.** UAA's accepted Q22 evidence and current exact-head CI support
+6. **Actions.** UAA's accepted Q22 evidence and baseline-bound hosted CI support
    the score of 8. GoatCitadel's tool coordinator is substantial, but 9 current
    policy tests fail because legitimate filesystem/presentation arguments are
    rejected as `structured_secret`. The rejecting guard is
@@ -191,16 +191,25 @@ not grant provider/model send or active-run authority:
 | Restart | not measured | not measured | Process restart was not performed. |
 | Accessibility | not measured | not measured | Keyboard navigation was observed, but no formal accessibility audit was performed. |
 | Steps/time to useful outcome | not measured | not measured | No provider or model outcome was authorized. |
+| Attachments/context selection | not measured | not measured | Controls were visible in places, but no equivalent selection workflow was exercised. |
+| Terminal-state clarity | not measured | not measured | Readiness blocks were visible, but no shared task reached a comparable terminal outcome. |
+| Citations | not measured | not measured | No research or model result was produced. |
+| Artifacts | not measured | not measured | No equivalent conversation task produced an artifact. |
+| Approvals | not measured | not measured | Approval surfaces were inspected, but no approval was requested or granted. |
+| Errors | not measured | not measured | No equivalent in-conversation execution error was induced. |
+| Uncertainty | not measured | not measured | No comparable model result existed from which to assess communicated uncertainty. |
+| Surface transitions | not measured | not measured | The full chat-plan-task-evidence-memory-settings sequence was not exercised. |
 
 These missing states prevent the direct-surface observation from being read as
 a complete usability, recovery, accessibility, or task-success evaluation.
 
-Visual refs are content-free hashes:
+Visual evidence is resolvable at the exact repository baselines; the listed
+SHA-256 values were recomputed from those Git objects:
 
-- UAA desktop: `sha256:a1a9d01008d2ef9b6674f768bdf0df221f174ffb5a5583f89af69c3284a83a6a`
-- UAA mobile: `sha256:f065dc43b29dba59d76a117fe5fd725da53447b251d0848c34535c5849fd741e`
-- GoatCitadel desktop: `sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6`
-- GoatCitadel mobile: `sha256:af5d307012e375cfbe205fecdbbcc2acb03eb89962ba88396051007f1634d381`
+- UAA desktop: `apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png`, `sha256:f71e9093e881006c2e3dd81efd41283780ffb5a60ffeaae03903b1d03261519a`
+- UAA mobile: `apps/control-center/tests/visual/__snapshots__/mobile/start.png`, `sha256:9151893bfd133070fbd7665875587fb4b8586335c1613f79c7efe149a9bff267`
+- GoatCitadel desktop: `docs/screenshots/mission-control-next/chat.png`, `sha256:d67885c16b3449b66627dc732602054ab5e17e3d34669a8cf6b62ab990117797`
+- GoatCitadel mobile: `goatcitadel-od-mobile.png`, `sha256:68aba22cf3d198176bd533c6ea46da42117b457c6958cd8deabb3b566e55bb13`
 
 No empirical product-experience winner is declared: the required repeated
 identical tasks, multiple evaluators, accessibility measurements, and useful
@@ -233,7 +242,7 @@ GoatCitadel for clean-start chat legibility.
 | API/OpenAPI | typed manifest and classified routes | gateway routes/docs | source/test inspection |
 | Safety | exact authority, fail closed | policy/auth, fail closed | independent review absent |
 | Redaction | content-free evidence posture | structured secret redaction | Goat false positive present |
-| Verification | full exact-head hosted CI plus focused tests | focused local suites | Goat policy suite non-green |
+| Verification | baseline hosted CI plus focused tests | focused local suites | Goat policy suite non-green |
 
 ## Strengths, weaknesses, and missing capabilities
 
@@ -246,8 +255,10 @@ The Goat regression is reproducible at exact current main: one engine slice
 reported 124 pass / 1 fail and a broader tool-executor slice reported 142 pass /
 8 fail. All nine failures share the `structured_secret` false-positive family.
 Chat UI (118 tests), gateway (75 tests), and memory/contracts (38 tests) passed.
-UAA's focused comparison foundation reported 136 tests passed, and current
-exact-head hosted CI is `github-actions:34021920751`.
+UAA's focused comparison foundation reported 136 tests passed. Baseline
+qualification run `github-actions:34021920751` is bound to the compared UAA
+commit; PR qualification for this packet is a separate protected-merge gate and
+is intentionally not represented as baseline evidence.
 
 ## Reciprocal learning
 

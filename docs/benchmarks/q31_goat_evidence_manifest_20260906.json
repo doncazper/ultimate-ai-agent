@@ -29,6 +29,8 @@
     {"path": "apps/mission-control-next/src/features/threaded-surface/DurableBackgroundTaskRail.test.tsx", "sha256": "a1f267ec78a66a0264ffcc1d71c270c36f58a4225092d29f07d025ccb85ac331"},
     {"path": "apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx", "sha256": "0727ddc6a32ca4ac6d29f7054f94880ae59351a5ffe4f92ffeacf2fa252a3f94"},
     {"path": "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx", "sha256": "387fe7a6b3ef33e19b214f030d19bf36abb766c6cf03f80fa28fded20a4d5c5a"},
+    {"path": "docs/screenshots/mission-control-next/chat.png", "sha256": "d67885c16b3449b66627dc732602054ab5e17e3d34669a8cf6b62ab990117797"},
+    {"path": "goatcitadel-od-mobile.png", "sha256": "68aba22cf3d198176bd533c6ea46da42117b457c6958cd8deabb3b566e55bb13"},
     {"path": "packages/contracts/src/approvals.test.ts", "sha256": "996e88c1468952a67e7ab41b5b8f934ed5e210af1860c9b875e917956757f7a8"},
     {"path": "packages/contracts/src/tool-effect-truth.test.ts", "sha256": "c5458a7d403697fa20bbed121352d106ab57ad3abf9d6aa32b53d73499ced900"},
     {"path": "packages/extensions-sdk/src/effective-tools.test.ts", "sha256": "f521d69e24067b2b643183e57e1bb903fc1f04452f2b7295aced19940abfd9e0"},

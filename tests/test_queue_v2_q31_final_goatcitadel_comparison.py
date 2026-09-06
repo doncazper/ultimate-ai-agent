@@ -40,6 +40,41 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     assert data["systems"]["goatcitadel"]["action"]["status"] == "partial"
     assert data["systems"]["goatcitadel"]["action"]["contradiction_refs"]
     assert data["reciprocal_learning"][-1]["direction"] == "bidirectional"
+    assert "uaa_baseline_ci" in data["common_evidence_refs"]
+    assert "uaa_exact_head_ci" not in data["common_evidence_refs"]
+    assert "current exact-head hosted CI" not in _report()
+
+    missing_dimensions = {
+        item["dimension"] for item in data["unexercised_observation_dimensions"]
+    }
+    assert {
+        "attachments_or_context_selection",
+        "terminal_state_clarity",
+        "citations",
+        "artifacts",
+        "approvals",
+        "errors",
+        "uncertainty",
+        "surface_transitions",
+    } <= missing_dimensions
+
+    visual_refs = {
+        key: value
+        for key, value in data["common_evidence_refs"].items()
+        if key.endswith("_observation")
+    }
+    assert len(visual_refs) == 4
+    assert all(value.startswith("repo-ref:") for value in visual_refs.values())
+
+
+def test_q31_packet_rejects_duplicate_json_keys_at_every_depth() -> None:
+    with pytest.raises(verifier.VerificationError, match="duplicate JSON key: outer"):
+        verifier._loads_strict_json('{"outer": 1, "outer": 2}')
+
+    with pytest.raises(verifier.VerificationError, match="duplicate JSON key: claim"):
+        verifier._loads_strict_json(
+            '{"authority": {"claim": true, "claim": false}}'
+        )
 
 
 def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
@@ -200,6 +235,10 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
         verifier.VerificationError, match="GoatCitadel evidence manifest digest drift"
     ):
         verifier.verify_data(_data(), _report(), manifest)
+
+    manifest_paths = {item["path"] for item in _goat_manifest()["files"]}
+    assert "docs/screenshots/mission-control-next/chat.png" in manifest_paths
+    assert "goatcitadel-od-mobile.png" in manifest_paths
 
 
 def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
