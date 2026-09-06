@@ -1113,10 +1113,33 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group is None
                 and route.blocked_from_production
             )
+            is_crm_adoption_sensitive_state = (
+                path in CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS
+                and route.method in {"GET", "POST"}
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and (
+                    (
+                        route.method == "GET"
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "crm_adoption"
+                    )
+                )
+                and route.blocked_from_production
+            )
             is_crm_or_work_board_command_state = (
                 path
                 in (
                     CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS
+                    | CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
                     | CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES
                 )
                 and route.method == "POST"
@@ -1125,8 +1148,18 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.protected_route
                 and route.approval_posture == "required_before_mutation_authority"
                 and route.idempotency_required
-                and not route.rate_limit_targeted
-                and route.rate_limit_group is None
+                and (
+                    (
+                        path in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "crm_adoption"
+                    )
+                    or (
+                        path not in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                )
                 and route.blocked_from_production
             )
             if (
@@ -1156,6 +1189,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_matrix_rooms_media_command
                 and not is_matrix_intelligence_command
                 and not is_crm_read_model
+                and not is_crm_adoption_sensitive_state
                 and not is_crm_or_work_board_command_state
             ):
                 failures.append(
@@ -1423,6 +1457,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "prepareRuntimeGoalMutationApproval",
             "decideRuntimeGoalMutationApproval",
             "revokeRuntimeGoalMutationApproval",
+            "postCrmAdoptionEnvelope",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

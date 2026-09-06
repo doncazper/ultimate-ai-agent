@@ -1584,7 +1584,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS:
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Founder-private CRM exact commit or recovery route; current-state binding, explicit operator confirmation, exact LocalApprovalAuthority validation, one exact operation-budget-one contacts/write AuthorityLease, idempotency, encrypted local persistence, content-free audit receipts, and undo or restore recovery are required while external writes remain blocked.",
+            "Founder-private CRM exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact LocalApprovalAuthority validation, one exact operation-budget-one contacts/write AuthorityLease, idempotency, encrypted local persistence, content-free audit receipts, and undo or restore recovery are required while external writes remain blocked.",
         )
     if (
         normalized_method == "POST"

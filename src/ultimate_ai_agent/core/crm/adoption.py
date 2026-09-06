@@ -592,13 +592,7 @@ class CrmAdoptionStore:
         configured = os.environ.get("UAA_CRM_ADOPTION_STATE_DIR", "").strip()
         if configured:
             return cls(Path(configured).expanduser())
-        return cls(
-            Path.home()
-            / ".local"
-            / "state"
-            / "ultimate-ai-agent"
-            / "crm_adoption"
-        )
+        return cls(Path.cwd() / ".uaa" / "crm_adoption")
 
     def read_view(
         self,

@@ -528,7 +528,7 @@ export async function loadCrmAdoptionWorkspace(
   if (includeArchived) params.set("include_archived", "true");
   const suffix = params.toString();
   const value = await readEnvelope<CrmAdoptionWorkspaceView>(
-    `/control-center/crm/adoption${suffix ? `?${suffix}` : ""}`,
+    `${API_ENDPOINTS.crmAdoption}${suffix ? `?${suffix}` : ""}`,
   );
   if (
     value.schema_version !== "uaa-crm-adoption-workspace.v1" ||
@@ -543,7 +543,12 @@ export async function loadCrmAdoptionWorkspace(
 }
 
 async function postCrmAdoptionEnvelope<T>(
-  endpoint: string,
+  endpoint:
+    | typeof API_ENDPOINTS.crmAdoptionPreview
+    | typeof API_ENDPOINTS.crmAdoptionCommit
+    | typeof API_ENDPOINTS.crmAdoptionBackup
+    | typeof API_ENDPOINTS.crmAdoptionRestorePreview
+    | typeof API_ENDPOINTS.crmAdoptionRestore,
   body: unknown,
   idempotencyRef: string,
   operatorConfirmed = false,
@@ -576,7 +581,7 @@ export async function previewCrmAdoptionMutation(
   idempotencyRef: string,
 ): Promise<CrmAdoptionMutationPreview> {
   return postCrmAdoptionEnvelope(
-    "/control-center/crm/adoption/preview",
+    API_ENDPOINTS.crmAdoptionPreview,
     request,
     idempotencyRef,
   );
@@ -588,7 +593,7 @@ export async function commitCrmAdoptionMutation(
   idempotencyRef: string,
 ): Promise<CrmAdoptionMutationReceipt> {
   return postCrmAdoptionEnvelope(
-    "/control-center/crm/adoption/commit",
+    API_ENDPOINTS.crmAdoptionCommit,
     {
       mutation: request,
       preview_ref: preview.preview_ref,
@@ -604,7 +609,7 @@ export async function createCrmPortableBackup(
   idempotencyRef: string,
 ): Promise<CrmPortableBackup> {
   return postCrmAdoptionEnvelope(
-    "/control-center/crm/adoption/backup",
+    API_ENDPOINTS.crmAdoptionBackup,
     { passphrase },
     idempotencyRef,
   );
@@ -616,7 +621,7 @@ export async function previewCrmPortableRestore(
   idempotencyRef: string,
 ): Promise<CrmPortableRestorePreview> {
   return postCrmAdoptionEnvelope(
-    "/control-center/crm/adoption/restore-preview",
+    API_ENDPOINTS.crmAdoptionRestorePreview,
     { backup, passphrase },
     idempotencyRef,
   );
@@ -629,7 +634,7 @@ export async function commitCrmPortableRestore(
   idempotencyRef: string,
 ): Promise<CrmAdoptionMutationReceipt> {
   return postCrmAdoptionEnvelope(
-    "/control-center/crm/adoption/restore",
+    API_ENDPOINTS.crmAdoptionRestore,
     {
       backup,
       passphrase,
