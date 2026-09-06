@@ -123,14 +123,26 @@ score 0 is None, 1 is Claimed, 2 is Mocked, 3–4 is Partial, 5–6 is Usable,
    `apps/gateway/src/services/model-router-decision-service.ts#L60-L126`.
    Neither result proves reasoning quality without the shared model-task run.
 2. **Planning.** UAA's mission orchestrator binds budgets, approvals, and
-   recovery. GoatCitadel's orchestration engine and durable boot-recovery tests
-   cover long-running state. This is the strongest shared capability.
+   recovery (`src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L618-L669`,
+   `src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L1054-L1071`).
+   GoatCitadel's orchestration engine and durable boot-recovery tests cover
+   long-running state (`packages/orchestration/src/engine.ts#L65-L105`,
+   `apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts#L127-L159`).
+   This is the strongest shared capability.
 3. **Learning.** Both repositories have governed improvement/review machinery,
-   but neither direct no-provider observation reached a reviewed learning
-   outcome. Status remains partial.
-4. **Memory.** UAA separates recall from truth and retains review requirements.
-   GoatCitadel has a context composer and lifecycle service. Focused UAA tests
-   and 38 Goat memory/contract tests passed.
+   visible in UAA's exact decision projection
+   (`src/ultimate_ai_agent/core/memory/review_runtime.py#L808-L850`) and Goat's
+   reviewed activation lifecycle test
+   (`apps/gateway/src/services/engineering-learning-service.test.ts#L13-L56`),
+   but neither direct no-provider observation reached a reviewed learning outcome.
+   Status remains partial.
+4. **Memory.** UAA separates recall from truth and retains review requirements
+   (`src/ultimate_ai_agent/core/memory/governed_context.py#L286-L347`,
+   `src/ultimate_ai_agent/core/memory/local_store.py#L112-L139`). GoatCitadel has
+   a citation-bearing context composer and approval-first lifecycle service
+   (`packages/memory-core/src/context-composer.ts#L18-L46`,
+   `apps/gateway/src/services/memory-lifecycle-service.ts#L271-L312`). Focused
+   UAA tests and 38 Goat memory/contract tests passed.
 5. **Communication.** UAA's chat contract explicitly blocks model output from
    minting tool, memory, web, connector, shell, action, approval, or production
    authority (`src/ultimate_ai_agent/core/chat/operator_surface.py#L23-L59`).

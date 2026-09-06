@@ -96,6 +96,14 @@ def test_q31_packet_binds_runtime_observation_manifest() -> None:
         item["observation_ref"] for item in manifest["observations"]
     }
     assert verifier._collect_runtime_observation_refs(_data()) == manifest_refs
+    command_palette = next(
+        item
+        for item in manifest["observations"]
+        if item["observation_ref"] == verifier.UAA_COMMAND_PALETTE_OBSERVATION_REF
+    )
+    assert command_palette["supporting_evidence_refs"] == [
+        verifier.UAA_COMMAND_PALETTE_SUPPORT_REF
+    ]
 
     tampered = copy.deepcopy(manifest)
     tampered["observations"][0]["captured_steps"] = ["substituted_step"]
@@ -113,6 +121,21 @@ def test_q31_packet_binds_runtime_observation_manifest() -> None:
         verifier.VerificationError, match="runtime observation manifest binding drift"
     ):
         verifier.verify_data(data, _report())
+
+    tampered = copy.deepcopy(manifest)
+    command_palette = next(
+        item
+        for item in tampered["observations"]
+        if item["observation_ref"] == verifier.UAA_COMMAND_PALETTE_OBSERVATION_REF
+    )
+    command_palette["supporting_evidence_refs"] = [
+        "repo-ref:uaa@817d84d8:apps/control-center/src/App.tsx"
+    ]
+    with pytest.raises(
+        verifier.VerificationError,
+        match="command-palette observation source binding drift",
+    ):
+        verifier.verify_data(_data(), _report(), _goat_manifest(), tampered)
 
 
 def test_q31_packet_requires_terminal_observation_dispositions() -> None:
@@ -348,6 +371,38 @@ def test_q31_packet_pins_common_evidence_and_test_gates() -> None:
         verifier.verify_data(data, _report())
 
 
+def test_q31_packet_resolves_published_q22_acceptance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verifier._validate_q22_acceptance_artifact()
+    assert (
+        verifier._collect_q22_acceptance_refs(_data()["systems"])
+        == verifier.RESOLVED_Q22_ACCEPTANCE_REFS
+    )
+
+    with pytest.raises(
+        verifier.VerificationError,
+        match="Q22 acceptance ref does not resolve to the published artifact",
+    ):
+        verifier._validate_revision_bound_ref(
+            "evidence-ref:queue-v2/Q22/substituted:sha256:" + ("0" * 64),
+            "uaa",
+            goat_manifest_paths=set(),
+        )
+
+    def substituted_artifact(
+        *args: Any, **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args[0], 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(verifier.subprocess, "run", substituted_artifact)
+    with pytest.raises(
+        verifier.VerificationError,
+        match="published Q22 acceptance artifact digest drift",
+    ):
+        verifier._validate_q22_acceptance_artifact()
+
+
 def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
     data = copy.deepcopy(_data())
     data["direct_observations"][0]["result"] = "/private/tmp/raw-observation"
@@ -517,6 +572,17 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     )
     with pytest.raises(
         verifier.VerificationError, match="capability maturity row drift: code"
+    ):
+        verifier.verify_data(_data(), report)
+
+    for citation in verifier.REQUIRED_SCORE_CITATIONS:
+        assert f"`{citation}`" in _report()
+    report = _report().replace(
+        "`src/ultimate_ai_agent/core/memory/review_runtime.py#L808-L850`",
+        "`src/ultimate_ai_agent/core/memory/review_runtime.py`",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="required score citation drift"
     ):
         verifier.verify_data(_data(), report)
 

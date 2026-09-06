@@ -38,7 +38,7 @@ DEFAULT_OBSERVATION_MANIFEST = (
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "408d2ae266404f80bd7c54fbdb6bcd1ac0c0405cda2d8b5c24f7e6b2b9a4e3c8"
+REPORT_SHA256 = "2b3ca99e5cfbba163d9a6a033aa5829bfb03da667b174ef3605d5f412f5991fb"
 GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
 GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
 GOAT_MANIFEST_SHA256 = (
@@ -47,7 +47,50 @@ GOAT_MANIFEST_SHA256 = (
 OBSERVATION_MANIFEST_SCHEMA_VERSION = "q31-direct-observation-manifest.v1"
 OBSERVATION_MANIFEST_REF_PREFIX = "observation-manifest-ref:q31:sha256:"
 OBSERVATION_MANIFEST_SHA256 = (
-    "d9db5a81e9944ad0bab54197506015c5c9d940ec425fc548b1f750ac211e6b69"
+    "19ae8938e2a25d4c82c67cfa2d690f63a38f92c2aac142a9fcdc231d777f49cf"
+)
+Q22_ACCEPTANCE_REPORT_RELATIVE_PATH = (
+    "docs/evals/tool_aware_cognition_taw08_final_acceptance_report_v1.json"
+)
+Q22_ACCEPTANCE_REPORT_SHA256 = (
+    "c94900e103201e038a008aa44589a2c67ab0103e37315217b929643bd3f9e0c4"
+)
+Q22_FOUNDER_EVIDENCE_DIGEST_REF = (
+    "sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"
+)
+Q22_POSTMERGE_FOUNDATION_DIGEST_REF = (
+    "sha256:657ade9156311e1cb0d8358aa308a4e8bd1fa3e46805ff42707bffe86ff16a7d"
+)
+Q22_FOUNDER_EVIDENCE_REF = (
+    "evidence-ref:queue-v2/Q22/founder-private-acceptance:"
+    f"{Q22_FOUNDER_EVIDENCE_DIGEST_REF}"
+)
+Q22_POSTMERGE_FOUNDATION_REF = (
+    "receipt-ref:queue-v2/Q22/postmerge-foundation:"
+    f"{Q22_POSTMERGE_FOUNDATION_DIGEST_REF}"
+)
+RESOLVED_Q22_ACCEPTANCE_REFS = {
+    Q22_FOUNDER_EVIDENCE_REF,
+    Q22_POSTMERGE_FOUNDATION_REF,
+}
+UAA_COMMAND_PALETTE_OBSERVATION_REF = (
+    "runtime-observation-ref:q31:uaa:command-palette-chat-route@"
+    "git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
+)
+UAA_COMMAND_PALETTE_SUPPORT_REF = (
+    "repo-ref:uaa@817d84d8:apps/control-center/src/routes.tsx"
+)
+REQUIRED_SCORE_CITATIONS = (
+    "src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L618-L669",
+    "src/ultimate_ai_agent/core/execution/mission_orchestrator.py#L1054-L1071",
+    "packages/orchestration/src/engine.ts#L65-L105",
+    "apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts#L127-L159",
+    "src/ultimate_ai_agent/core/memory/review_runtime.py#L808-L850",
+    "apps/gateway/src/services/engineering-learning-service.test.ts#L13-L56",
+    "src/ultimate_ai_agent/core/memory/governed_context.py#L286-L347",
+    "src/ultimate_ai_agent/core/memory/local_store.py#L112-L139",
+    "packages/memory-core/src/context-composer.ts#L18-L46",
+    "apps/gateway/src/services/memory-lifecycle-service.ts#L271-L312",
 )
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
@@ -364,7 +407,7 @@ EXPECTED_BASELINES_DIGEST = (
     "c2b3f8942b45bad49ce40b9507d0530e53e4552b3eaf96e92efe8f2ae60b3f1c"
 )
 EXPECTED_SYSTEMS_DIGEST = (
-    "90aedcda2a8be5ff8f94ab46c04d406a074324543fad265e552a79da90429879"
+    "cdfa53f66030dd009ac928e8940a83ed3cfe0717d5d8c45d4f68a154b58e7140"
 )
 EXPECTED_UNEXERCISED_DIMENSIONS = {
     "approvals",
@@ -501,6 +544,14 @@ def _validate_revision_bound_ref(
                 f"missing GoatCitadel evidence file in manifest: {path}",
             )
         return
+    if ref.startswith(
+        ("evidence-ref:queue-v2/Q22/", "receipt-ref:queue-v2/Q22/")
+    ):
+        _require(
+            ref in RESOLVED_Q22_ACCEPTANCE_REFS,
+            "Q22 acceptance ref does not resolve to the published artifact",
+        )
+        return
     if CONTENT_ADDRESSED_REF.fullmatch(ref) is not None:
         return
     revision_match = REVISION_SUFFIX.search(ref)
@@ -531,6 +582,42 @@ def _reject_duplicate_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, An
 
 def _loads_strict_json(text: str) -> Any:
     return json.loads(text, object_pairs_hook=_reject_duplicate_object_pairs)
+
+
+def _validate_q22_acceptance_artifact() -> None:
+    baseline_sha = _baseline_sha("uaa")
+    result = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{baseline_sha}:{Q22_ACCEPTANCE_REPORT_RELATIVE_PATH}",
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    _require(result.returncode == 0, "published Q22 acceptance artifact is missing")
+    encoded = result.stdout.encode()
+    _require(len(encoded) <= 10_000, "published Q22 acceptance artifact is unbounded")
+    _require(
+        hashlib.sha256(encoded).hexdigest() == Q22_ACCEPTANCE_REPORT_SHA256,
+        "published Q22 acceptance artifact digest drift",
+    )
+    artifact = _loads_strict_json(result.stdout)
+    _require(
+        isinstance(artifact, dict)
+        and artifact.get("schema_version")
+        == "uaa-taw08-final-acceptance-artifact.v1"
+        and artifact.get("final_status")
+        == "founder_private_accepted_promotion_blocked"
+        and artifact.get("founder_evidence_digest_ref")
+        == Q22_FOUNDER_EVIDENCE_DIGEST_REF
+        and artifact.get("postmerge_foundation_receipt_digest_ref")
+        == Q22_POSTMERGE_FOUNDATION_DIGEST_REF
+        and artifact.get("raw_content_persisted") is False,
+        "published Q22 acceptance artifact contract drift",
+    )
 
 
 def _validate_goat_manifest(manifest: Any) -> set[str]:
@@ -710,6 +797,11 @@ def _validate_observation_manifest(
                 system_name,
                 goat_manifest_paths=goat_manifest_paths,
             )
+        if observation_ref == UAA_COMMAND_PALETTE_OBSERVATION_REF:
+            _require(
+                support_refs == [UAA_COMMAND_PALETTE_SUPPORT_REF],
+                "command-palette observation source binding drift",
+            )
     _walk_for_unsafe_text(manifest)
     _require(
         _canonical_digest(manifest) == OBSERVATION_MANIFEST_SHA256,
@@ -727,6 +819,21 @@ def _collect_runtime_observation_refs(value: Any) -> set[str]:
         for child in value:
             refs.update(_collect_runtime_observation_refs(child))
     elif isinstance(value, str) and value.startswith("runtime-observation-ref:q31:"):
+        refs.add(value)
+    return refs
+
+
+def _collect_q22_acceptance_refs(value: Any) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(value, dict):
+        for child in value.values():
+            refs.update(_collect_q22_acceptance_refs(child))
+    elif isinstance(value, list):
+        for child in value:
+            refs.update(_collect_q22_acceptance_refs(child))
+    elif isinstance(value, str) and value.startswith(
+        ("evidence-ref:queue-v2/Q22/", "receipt-ref:queue-v2/Q22/")
+    ):
         refs.add(value)
     return refs
 
@@ -852,6 +959,11 @@ def _walk_for_unsafe_text(value: Any) -> None:
 def _validate_report(data: dict[str, Any], report: str) -> None:
     for section in REQUIRED_REPORT_SECTIONS:
         _require(section in report, f"report section missing: {section}")
+    for citation in REQUIRED_SCORE_CITATIONS:
+        _require(
+            report.count(f"`{citation}`") == 1,
+            f"required score citation drift: {citation}",
+        )
     scores = data["expected_scores"]["systems"]
     uaa_score = scores["uaa"]["weighted_total_reported"]
     goat_score = scores["goatcitadel"]["weighted_total_reported"]
@@ -951,6 +1063,7 @@ def verify_data(
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
     _require(data.get("comparison_ref") == COMPARISON_REF, "comparison ref drift")
     _require(data.get("comparison_date") == "2026-09-06", "comparison date drift")
+    _validate_q22_acceptance_artifact()
     _walk_for_unsafe_text(data)
     _require(set(data) == TOP_LEVEL_KEYS, "top-level ledger schema drift")
     if goat_manifest is None:
@@ -1212,6 +1325,10 @@ def verify_data(
     _require(
         _canonical_digest(systems) == EXPECTED_SYSTEMS_DIGEST,
         "canonical component score inputs drift",
+    )
+    _require(
+        _collect_q22_acceptance_refs(systems) == RESOLVED_Q22_ACCEPTANCE_REFS,
+        "published Q22 acceptance ref inventory drift",
     )
 
     observations = data.get("direct_observations")

@@ -1,9 +1,9 @@
 {
   "schema_version": "goat-comparison-maturity.v2",
   "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
-  "report_ref": "report-ref:q31:sha256:408d2ae266404f80bd7c54fbdb6bcd1ac0c0405cda2d8b5c24f7e6b2b9a4e3c8",
+  "report_ref": "report-ref:q31:sha256:2b3ca99e5cfbba163d9a6a033aa5829bfb03da667b174ef3605d5f412f5991fb",
   "goat_evidence_manifest_ref": "repository-manifest-ref:q31:goat-evidence@sha256:6be97c2363dc9af98c5f2e6eade8be6276afd74a22f46445b322ca8f9a255cc0",
-  "direct_observation_manifest_ref": "observation-manifest-ref:q31:sha256:d9db5a81e9944ad0bab54197506015c5c9d940ec425fc548b1f750ac211e6b69",
+  "direct_observation_manifest_ref": "observation-manifest-ref:q31:sha256:19ae8938e2a25d4c82c67cfa2d690f63a38f92c2aac142a9fcdc231d777f49cf",
   "comparison_date": "2026-09-06",
   "authority_granted": {
     "provider_or_model_calls": false,
@@ -38,7 +38,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:1b664594ab3b311642c2aff2c3057309bd7557c7f7347e2b343039fb576d862a",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:6d6e5ce91f1501bc3a4838119316aa51b034cd44d111690ffe2f1e48267b1aa0",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,
@@ -263,7 +263,7 @@
         "weight": 8, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/mission_orchestrator.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_orchestrator.py", "ci-ref:uaa:34021920751@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["test-ref:uaa:mission-orchestrator-recovery@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"], "repeatability_evidence_refs": ["test-ref:uaa:mission-orchestrator-recovery@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "learning": {
         "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
@@ -286,14 +286,14 @@
       "action": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "authority": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/contracts.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22/postmerge-foundation:sha256:657ade9156311e1cb0d8358aa308a4e8bd1fa3e46805ff42707bffe86ff16a7d"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "code": {
         "weight": 6, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
@@ -310,14 +310,14 @@
       "providers": {
         "weight": 6, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa@817d84d8:tests/test_capability_availability.py", "evidence-ref:queue-v2/Q22/m1-qwen38-27b-216-calls-432-receipts@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa@817d84d8:tests/test_capability_availability.py", "repo-ref:uaa@817d84d8:docs/evals/tool_aware_cognition_q22_founder_dogfood_v1.json", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:provider-call-out-of-scope@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "evidence": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/evals/capability_metrics.py", "repo-ref:uaa@817d84d8:tests/test_portable_mission_evidence.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22:sha256:d3c44c60fba41ec50fe3d8d317283cbab88f4ba8f21f116c70b04dcf3bc38a53"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/evals/capability_metrics.py", "repo-ref:uaa@817d84d8:tests/test_portable_mission_evidence.py", "evidence-ref:queue-v2/Q22/founder-private-acceptance:sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22/postmerge-foundation:sha256:657ade9156311e1cb0d8358aa308a4e8bd1fa3e46805ff42707bffe86ff16a7d"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "safety": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",

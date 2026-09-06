@@ -25,7 +25,7 @@
       "viewport": "desktop",
       "captured_steps": ["open_command_palette", "inspect_chat_route", "close_command_palette"],
       "observed_state_refs": ["state-ref:q31:uaa:chat-route-discoverable-in-command-palette"],
-      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/App.tsx"]
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/routes.tsx"]
     },
     {
       "observation_ref": "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
