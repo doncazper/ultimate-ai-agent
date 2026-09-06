@@ -27,6 +27,9 @@ DEFAULT_REPORT = (
     ROOT / "docs" / "benchmarks" / "Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md"
 )
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
+COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
+REPORT_REF_PREFIX = "report-ref:q31:sha256:"
+REPORT_SHA256 = "4bf982979a6abb040c625eaffb715775659bdd1870ef913a6b1ce3a18617fff3"
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
     f"repository-scorer-ref:{SCHEMA_VERSION}:"
@@ -127,12 +130,45 @@ PROHIBITED_DURABLE_KEYS = {
     "serialnumber",
     "username",
 }
+SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?:raw|prompt|response|result|page|message|body|content|payload|log|path|"
+    r"credential|secret|token|username|hostname|environment)"
+)
+ALLOWED_SENSITIVE_POSTURE_KEYS = {
+    "raw_model_intelligence_scored",
+    "result",
+    "weighted_total_raw",
+}
 AUTHORITY_KEYS = {
     "provider_or_model_calls",
     "competitor_code_import",
     "runtime_mutation",
     "production_claim",
     "automatic_gap_fix",
+}
+METHOD_KEYS = {
+    "prior_score_policy",
+    "independent_validation",
+    "controlled_model_task_trials",
+    "product_experience",
+    "winner_threshold_points",
+    "raw_model_intelligence_scored",
+}
+COMPONENT_KEYS = {
+    "weight",
+    "status",
+    "validation_posture",
+    "operator_facing",
+    "evidence_kind",
+    "gates",
+    "evidence_refs",
+    "acceptance_evidence_refs",
+    "breadth_evidence_refs",
+    "repeatability_evidence_refs",
+    "contradiction_refs",
+    "critical_failure_refs",
+    "blocker_refs",
+    "representative_scope_count",
 }
 EXPECTED_OBSERVATIONS = {
     ("uaa", "scenario-ref:q31:clean-start-no-provider"): "blocked",
@@ -176,7 +212,19 @@ EXPECTED_BLOCKED_FOLLOW_UP = {
 }
 UAA_REF = re.compile(r"^repo-ref:uaa@([0-9a-f]{8}|[0-9a-f]{40}):([^#]+)$")
 GOAT_REF = re.compile(r"^repo-ref:goat@([0-9a-f]{8}|[0-9a-f]{40}):([^#]+)$")
-REVISION_SUFFIX = re.compile(r"@(?:git-sha:)?([0-9a-f]{8,40})$")
+REVISION_SUFFIX = re.compile(r"@(?:git-sha:)?([0-9a-f]{8}|[0-9a-f]{40})$")
+CONTENT_ADDRESSED_REF = re.compile(r"^[-A-Za-z0-9_./:@]+:sha256:[0-9a-f]{64}$")
+EXPECTED_OBSERVATIONS_DIGEST = (
+    "8e7d164adea51e72eebe78640e9b8fb2d1674cdf53d9060cbe8702a99e1024cc"
+)
+EXPECTED_RECIPROCAL_LEARNING_DIGEST = (
+    "fb0bf31cbab394d52da2249280c83bd42c97d45ab10814e7d6299a961f25d48c"
+)
+QUEUE_TRUTH_SENTENCE = (
+    "Queue truth: this is the final comparison candidate; Q31 remains pending "
+    "until protected merge, post-merge qualification, and the Queue V2 terminal "
+    "receipt complete. Q32 remains blocked until that terminal receipt exists."
+)
 
 
 class VerificationError(ValueError):
@@ -241,13 +289,24 @@ def _validate_revision_bound_ref(ref: str, system_name: str) -> None:
                 exists.returncode == 0, f"missing UAA evidence file at baseline: {path}"
             )
         return
+    if CONTENT_ADDRESSED_REF.fullmatch(ref) is not None:
+        return
     revision_match = REVISION_SUFFIX.search(ref)
-    if revision_match:
-        claimed_sha = revision_match.group(1)
-        _require(
-            claimed_sha == expected_sha or claimed_sha == expected_sha[:8],
-            f"{system_name}: evidence ref baseline drift",
-        )
+    _require(
+        revision_match is not None,
+        f"{system_name}: evidence ref lacks provenance",
+    )
+    assert revision_match is not None
+    claimed_sha = revision_match.group(1)
+    _require(
+        claimed_sha == expected_sha or claimed_sha == expected_sha[:8],
+        f"{system_name}: evidence ref baseline drift",
+    )
+
+
+def _canonical_digest(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _validate_safe_ref(ref: str, field_name: str) -> None:
@@ -337,7 +396,11 @@ def _walk_for_unsafe_text(value: Any) -> None:
         for key, child in value.items():
             normalized = re.sub(r"[^a-z0-9]", "", key.lower())
             _require(
-                normalized not in PROHIBITED_DURABLE_KEYS,
+                normalized not in PROHIBITED_DURABLE_KEYS
+                and (
+                    key in ALLOWED_SENSITIVE_POSTURE_KEYS
+                    or SENSITIVE_KEY_PATTERN.search(key.lower()) is None
+                ),
                 f"unsafe durable field: {key}",
             )
             _walk_for_unsafe_text(child)
@@ -402,11 +465,23 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
         not contains_secret_like(report) and not contains_obvious_secret(report),
         "unsafe report text",
     )
+    _require(
+        report.count(QUEUE_TRUTH_SENTENCE) == 1,
+        "report queue truth drift",
+    )
+    report_digest = hashlib.sha256(report.encode()).hexdigest()
+    _require(report_digest == REPORT_SHA256, "canonical report digest drift")
+    _require(
+        data.get("report_ref") == f"{REPORT_REF_PREFIX}{REPORT_SHA256}",
+        "report ref drift",
+    )
 
 
 def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
+    _require(data.get("comparison_ref") == COMPARISON_REF, "comparison ref drift")
     _require(data.get("comparison_date") == "2026-09-06", "comparison date drift")
+    _walk_for_unsafe_text(data)
     _require(
         data.get("baselines", {}).get("uaa", {}).get("commit_ref") == BASELINES["uaa"],
         "UAA baseline drift",
@@ -427,6 +502,15 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     )
     method = data.get("method", {})
     _require(
+        isinstance(method, dict) and set(method) == METHOD_KEYS,
+        "method inventory drift",
+    )
+    _require(
+        method.get("prior_score_policy")
+        == "not_carried_forward_due_to_rubric_discontinuity",
+        "prior score policy drift",
+    )
+    _require(
         method.get("independent_validation") == "not_performed",
         "independent validation posture drift",
     )
@@ -441,6 +525,11 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     _require(
         method.get("raw_model_intelligence_scored") is False,
         "raw model intelligence cannot be scored",
+    )
+    _require(
+        type(method.get("winner_threshold_points")) is int
+        and method["winner_threshold_points"] == 3,
+        "winner threshold drift",
     )
 
     systems = data.get("systems")
@@ -483,8 +572,8 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
         weighted_points = 0
         for component_name, component in components.items():
             _require(
-                isinstance(component, dict),
-                f"{system_name}/{component_name}: invalid component",
+                isinstance(component, dict) and set(component) == COMPONENT_KEYS,
+                f"{system_name}/{component_name}: component shape drift",
             )
             _require(
                 component.get("weight") == WEIGHTS[component_name],
@@ -501,6 +590,15 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
             _require(
                 isinstance(component.get("operator_facing"), bool),
                 f"{system_name}/{component_name}: operator flag drift",
+            )
+            _require(
+                component.get("evidence_kind") in {"code", "runtime"},
+                f"{system_name}/{component_name}: evidence kind drift",
+            )
+            _require(
+                type(component.get("representative_scope_count")) is int
+                and component["representative_scope_count"] >= 0,
+                f"{system_name}/{component_name}: representative scope drift",
             )
             gates = component.get("gates")
             _require(
@@ -586,6 +684,10 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
             _validate_safe_ref(ref, "direct_observation/evidence_ref")
             _validate_revision_bound_ref(ref, item["system"])
     _require(observed == EXPECTED_OBSERVATIONS, "direct observation inventory drift")
+    _require(
+        _canonical_digest(observations) == EXPECTED_OBSERVATIONS_DIGEST,
+        "direct observation evidence binding drift",
+    )
 
     routes = data.get("residual_gap_routes")
     _require(isinstance(routes, list), "residual gap routes missing")
@@ -613,9 +715,45 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
     )
     learning = data.get("reciprocal_learning")
     _require(
-        isinstance(learning, list) and len(learning) >= 6,
+        isinstance(learning, list) and len(learning) == 7,
         "reciprocal learning ledger incomplete",
     )
+    learning_identities: set[tuple[str, str]] = set()
+    for item in learning:
+        _require(
+            isinstance(item, dict)
+            and set(item)
+            == {
+                "direction",
+                "pattern",
+                "transfer_score",
+                "disposition",
+                "uaa_owner",
+                "exit_test",
+            },
+            "reciprocal learning entry shape drift",
+        )
+        _require(
+            isinstance(item["pattern"], str) and bool(item["pattern"].strip()),
+            "reciprocal learning pattern missing",
+        )
+        _require(
+            type(item["transfer_score"]) is int and 0 <= item["transfer_score"] <= 10,
+            "reciprocal learning score drift",
+        )
+        _require(
+            item["uaa_owner"] in {"Q31", "Q33", "Q36", "external_only"},
+            "reciprocal learning owner drift",
+        )
+        _require(
+            isinstance(item["exit_test"], str) and bool(item["exit_test"].strip()),
+            "reciprocal learning exit test missing",
+        )
+        identity = (item["direction"], item["pattern"])
+        _require(
+            identity not in learning_identities, "duplicate reciprocal learning entry"
+        )
+        learning_identities.add(identity)
     _require(
         {item.get("direction") for item in learning}
         == {"goatcitadel_to_uaa", "uaa_to_goatcitadel"},
@@ -628,12 +766,15 @@ def verify_data(data: dict[str, Any], report: str) -> dict[str, Any]:
         ),
         "invalid transfer disposition",
     )
+    _require(
+        _canonical_digest(learning) == EXPECTED_RECIPROCAL_LEARNING_DIGEST,
+        "reciprocal learning inventory drift",
+    )
 
     _require(
         not contains_secret_like(data) and not contains_obvious_secret(data),
         "unsafe durable text",
     )
-    _walk_for_unsafe_text(data)
     _validate_report(data, report)
     return data
 

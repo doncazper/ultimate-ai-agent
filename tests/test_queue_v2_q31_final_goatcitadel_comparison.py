@@ -38,6 +38,11 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
 
 def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
     data = copy.deepcopy(_data())
+    data["comparison_ref"] = "queue-v2-q99-substituted-comparison"
+    with pytest.raises(verifier.VerificationError, match="comparison ref drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
     data["baselines"]["uaa"]["commit_ref"] = "git-sha:" + ("0" * 40)
     with pytest.raises(verifier.VerificationError, match="UAA baseline drift"):
         verifier.verify_data(data, _report())
@@ -64,6 +69,26 @@ def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
     with pytest.raises(
         verifier.VerificationError, match="independent validation posture drift"
     ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["method"]["prior_score_policy"] = "carried_forward"
+    with pytest.raises(verifier.VerificationError, match="prior score policy drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["method"]["winner_threshold_points"] = -1
+    with pytest.raises(verifier.VerificationError, match="winner threshold drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["method"]["extra_policy"] = "unreviewed"
+    with pytest.raises(verifier.VerificationError, match="method inventory drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["reasoning"]["prior_verified_score"] = 10
+    with pytest.raises(verifier.VerificationError, match="component shape drift"):
         verifier.verify_data(data, _report())
 
 
@@ -108,6 +133,13 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
     with pytest.raises(verifier.VerificationError, match="scorer ref drift"):
         verifier.verify_data(data, _report())
 
+    data = copy.deepcopy(_data())
+    data["systems"]["uaa"]["authority"]["evidence_refs"][0] = (
+        "evidence-ref:q31:any-unrevisioned-claim"
+    )
+    with pytest.raises(verifier.VerificationError, match="lacks provenance"):
+        verifier.verify_data(data, _report())
+
 
 def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
     data = copy.deepcopy(_data())
@@ -115,7 +147,13 @@ def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
     with pytest.raises(verifier.VerificationError, match="unsafe durable text"):
         verifier.verify_data(data, _report())
 
-    for field_name in ("prompt_text", "username", "hostname"):
+    for field_name in (
+        "prompt_text",
+        "raw_prompt_text",
+        "raw_provider_payload",
+        "username",
+        "hostname",
+    ):
         data = copy.deepcopy(_data())
         data[field_name] = "private-value"
         with pytest.raises(verifier.VerificationError, match="unsafe durable field"):
@@ -186,6 +224,53 @@ def test_q31_packet_requires_exact_direct_observations() -> None:
     ):
         verifier.verify_data(data, _report())
 
+    data = copy.deepcopy(_data())
+    data["direct_observations"][0]["result"] = (
+        "A provider executed successfully despite the blocked status."
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="direct observation evidence binding drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["direct_observations"][0]["evidence_refs"] = [
+        "runtime-observation-ref:q31:uaa:invented"
+        "@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
+    ]
+    with pytest.raises(
+        verifier.VerificationError, match="direct observation evidence binding drift"
+    ):
+        verifier.verify_data(data, _report())
+
+
+def test_q31_packet_requires_exact_finite_reciprocal_learning() -> None:
+    data = copy.deepcopy(_data())
+    data["reciprocal_learning"].append(copy.deepcopy(data["reciprocal_learning"][0]))
+    with pytest.raises(
+        verifier.VerificationError, match="reciprocal learning ledger incomplete"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    del data["reciprocal_learning"][0]["exit_test"]
+    with pytest.raises(
+        verifier.VerificationError, match="reciprocal learning entry shape drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["reciprocal_learning"][0]["transfer_score"] = 11
+    with pytest.raises(verifier.VerificationError, match="learning score drift"):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["reciprocal_learning"][0]["pattern"] = "substituted pattern"
+    with pytest.raises(
+        verifier.VerificationError, match="reciprocal learning inventory drift"
+    ):
+        verifier.verify_data(data, _report())
+
 
 def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     report = _report().replace(
@@ -213,8 +298,29 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     ):
         verifier.verify_data(_data(), report)
 
+    report = _report().replace(
+        "| Reasoning (8) | 6 · Usable · partial · Medium |",
+        "| Reasoning (8) | 10 · Exceptional · implemented · High |",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="canonical report digest drift"
+    ):
+        verifier.verify_data(_data(), report)
+
+    report = _report() + "\nQ31 grants provider and model authority.\n"
+    with pytest.raises(
+        verifier.VerificationError, match="canonical report digest drift"
+    ):
+        verifier.verify_data(_data(), report)
+
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
     docs_readme = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    board = (ROOT / "docs" / "kanban" / "current_board.md").read_text(encoding="utf-8")
+    registry = json.loads(
+        (ROOT / "docs" / "roadmap" / "UAA_PRODUCT_VISION_REGISTRY.json").read_text(
+            encoding="utf-8"
+        )
+    )
     for required_path in (
         "docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md",
         "docs/benchmarks/q31_goat_maturity_input_20260906.json",
@@ -222,6 +328,16 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     ):
         assert required_path in index
         assert required_path in docs_readme
+    assert verifier.QUEUE_TRUTH_SENTENCE in _report()
+    assert "Q31 final GoatCitadel comparison candidate" in index
+    assert "Q32 remains blocked until that receipt exists" in docs_readme
+    assert (
+        "Q32 CRM functional adoption — blocked until both Q15 and Q31 are completed"
+        in board
+    )
+    q31 = next(item for item in registry["items"] if item["item_id"] == "Q31")
+    assert q31["whole_vision"]["status"] == "planned"
+    assert q31["whole_vision"]["completion_evidence_refs"] == []
 
 
 def test_q31_verifier_cli_is_content_free_and_successful() -> None:

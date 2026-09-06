@@ -1,6 +1,7 @@
 {
   "schema_version": "goat-comparison-maturity.v2",
   "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
+  "report_ref": "report-ref:q31:sha256:4bf982979a6abb040c625eaffb715775659bdd1870ef913a6b1ce3a18617fff3",
   "comparison_date": "2026-09-06",
   "authority_granted": {
     "provider_or_model_calls": false,
@@ -35,7 +36,7 @@
     "raw_model_intelligence_scored": false
   },
   "expected_scores": {
-    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:56b43a2f0eaaccfcf795d7047e6cea194fef00eebb0dd93d578a87ad1efa232b",
+    "scorer_ref": "repository-scorer-ref:goat-comparison-maturity.v2:scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py@sha256:d7f34d17f1f4b08e6af6cba36307f04d8ee208713e9f172069dc93383db4a7fe",
     "systems": {
       "uaa": {
         "weighted_total_raw": 69.8387,
@@ -71,7 +72,7 @@
       "result": "The shell hid ordinary chat until backend-truth evidence was bound; after exact build binding, it remained evidence-incomplete and the setup route later degraded to unavailable.",
       "evidence_refs": [
         "visual-evidence-ref:q31:uaa-desktop:sha256:a1a9d01008d2ef9b6674f768bdf0df221f174ffb5a5583f89af69c3284a83a6a",
-        "runtime-observation-ref:q31:uaa:backend-truth-evidence-incomplete"
+        "runtime-observation-ref:q31:uaa:backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
       ]
     },
     {
@@ -80,8 +81,8 @@
       "status": "partial",
       "result": "Chat was absent from primary navigation but discoverable through the command palette; Messenger remained explicitly synthetic and external actions stayed blocked.",
       "evidence_refs": [
-        "runtime-observation-ref:q31:uaa:command-palette-chat-route",
-        "runtime-observation-ref:q31:uaa:messenger-fixture-only"
+        "runtime-observation-ref:q31:uaa:command-palette-chat-route@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+        "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
       ]
     },
     {
@@ -100,7 +101,7 @@
       "result": "Onboarding offered a safe local demo without credentials, then rendered a full chat shell with a truthful no-provider route block and disabled Send.",
       "evidence_refs": [
         "visual-evidence-ref:q31:goat-desktop:sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6",
-        "runtime-observation-ref:q31:goat:route-blocked-no-provider"
+        "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"
       ]
     },
     {
@@ -109,8 +110,8 @@
       "status": "partial",
       "result": "A content-free draft persisted per thread across switching and refresh, although refresh returned to onboarding and required reopening the demo.",
       "evidence_refs": [
-        "runtime-observation-ref:q31:goat:content-free-draft-persisted",
-        "runtime-observation-ref:q31:goat:refresh-returned-onboarding"
+        "runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+        "runtime-observation-ref:q31:goat:refresh-returned-onboarding@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"
       ]
     },
     {
@@ -133,19 +134,19 @@
         "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/intent/reasoning_truth.py", "repo-ref:uaa@817d84d8:tests/test_phase01_reasoning_truth.py", "test-run-ref:q31:uaa-focused:136-passed@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "planning": {
         "weight": 8, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/mission_orchestrator.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_orchestrator.py", "ci-ref:uaa:34021920751@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted"], "repeatability_evidence_refs": ["test-ref:uaa:mission-orchestrator-recovery"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["test-ref:uaa:mission-orchestrator-recovery@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "learning": {
         "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/memory/review_runtime.py", "repo-ref:uaa@817d84d8:tests/test_governed_memory_context_phase03.py", "test-run-ref:q31:uaa-focused:136-passed@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:reviewed-learning-not-observed-in-direct-chat"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:reviewed-learning-not-observed-in-direct-chat@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "memory": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
@@ -156,56 +157,56 @@
       "communication": {
         "weight": 7, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/chat/operator_surface.py", "runtime-observation-ref:q31:uaa:command-palette-chat-route", "runtime-observation-ref:q31:uaa:messenger-fixture-only"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start"], "representative_scope_count": 1
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/chat/operator_surface.py", "runtime-observation-ref:q31:uaa:command-palette-chat-route@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c", "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "action": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted"],
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "authority": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/contracts.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "code": {
         "weight": 6, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py", "repo-ref:uaa@817d84d8:tests/test_runtime_action_tool_code_lanes.py"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:code-workflow-not-observed-end-to-end"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:code-workflow-not-observed-end-to-end@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "research": {
         "weight": 5, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 0, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/web_access/hybrid_execution.py", "repo-ref:uaa@817d84d8:tests/test_web_research_aggregation.py", "test-run-ref:q31:uaa-focused:136-passed@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-live-web-authority-granted"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-live-web-authority-granted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "providers": {
         "weight": 6, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa@817d84d8:tests/test_capability_availability.py", "evidence-ref:queue-v2/Q22/m1-qwen38-27b-216-calls-432-receipts"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:provider-call-out-of-scope"], "representative_scope_count": 1
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/capability_availability/read_model.py", "repo-ref:uaa@817d84d8:tests/test_capability_availability.py", "evidence-ref:queue-v2/Q22/m1-qwen38-27b-216-calls-432-receipts@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:provider-call-out-of-scope@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "evidence": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/evals/capability_metrics.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted"],
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/execution/portable_mission_evidence.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/evals/capability_metrics.py", "evidence-ref:queue-v2/Q22/pr463-817d84d8-founder-private-accepted@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": ["receipt-ref:queue-v2/Q22:sha256:d3c44c60fba41ec50fe3d8d317283cbab88f4ba8f21f116c70b04dcf3bc38a53"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "safety": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py", "runtime-observation-ref:q31:uaa:unbound-backend-fail-closed"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["security-scan-ref:f2fffd65-2c2d-4f4c-9757-1e30a9efd913"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/authority/dispatcher.py", "repo-ref:uaa@817d84d8:tests/test_authority_mission_controls.py", "runtime-observation-ref:q31:uaa:unbound-backend-fail-closed@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["security-scan-ref:f2fffd65-2c2d-4f4c-9757-1e30a9efd913@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "repeatability_evidence_refs": ["ci-ref:uaa:34021920751@817d84d8"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "ux": {
         "weight": 7, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/App.test.tsx", "visual-evidence-ref:q31:uaa-desktop:sha256:a1a9d01008d2ef9b6674f768bdf0df221f174ffb5a5583f89af69c3284a83a6a", "visual-evidence-ref:q31:uaa-mobile:sha256:f065dc43b29dba59d76a117fe5fd725da53447b251d0848c34535c5849fd741e"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": ["contradiction-ref:q31:uaa:mobile-runtime-card-overlap"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": ["contradiction-ref:q31:uaa:mobile-runtime-card-overlap@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "cli_api": {
         "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
@@ -217,13 +218,13 @@
         "weight": 6, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": false, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 0, "reference_scenario": 0, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/extension_catalog/contracts.py", "repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/extension_catalog/runtime.py", "ci-ref:uaa:34021920751@817d84d8"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-plugin-runtime-authority"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:no-plugin-runtime-authority@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       },
       "product_loop": {
         "weight": 10, "status": "partial", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/founder_loop_mission.py", "repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py", "runtime-observation-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start"], "representative_scope_count": 1
+        "evidence_refs": ["repo-ref:uaa@817d84d8:src/ultimate_ai_agent/core/control_center/founder_loop_mission.py", "repo-ref:uaa@817d84d8:tests/test_founder_loop_filesystem_mission.py", "runtime-observation-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:uaa:ordinary-chat-not-reachable-on-clean-start@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"], "representative_scope_count": 1
       }
     },
     "goatcitadel": {
@@ -231,19 +232,19 @@
         "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/surface-router-heuristics.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.ts", "test-run-ref:q31:goat-gateway:75-passed@41d0f2e5"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-shared-model-task-trials"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-shared-model-task-trials@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "planning": {
         "weight": 8, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/orchestration/src/engine.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/durable-run-service.boot-recovery.integration.test.ts", "test-run-ref:q31:goat-gateway:75-passed@41d0f2e5"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/DurableBackgroundTaskRail.test.tsx"], "repeatability_evidence_refs": ["test-ref:goat:durable-boot-recovery"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/DurableBackgroundTaskRail.test.tsx"], "repeatability_evidence_refs": ["test-ref:goat:durable-boot-recovery@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "learning": {
         "weight": 8, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/improvement-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/agentic-improvement-bridge-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/engineering-learning-service.test.ts"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:reviewed-learning-not-observed-in-direct-chat"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:reviewed-learning-not-observed-in-direct-chat@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "memory": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
@@ -255,37 +256,37 @@
         "weight": 7, "status": "implemented", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx", "visual-evidence-ref:q31:goat-desktop:sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6", "test-run-ref:q31:goat-ui:118-passed@41d0f2e5"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "action": {
         "weight": 9, "status": "partial", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/tool-invocation-coordinator-service.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts", "test-run-ref:q31:goat-policy:266-passed-9-failed@41d0f2e5"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/contracts/src/tool-effect-truth.test.ts"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/chat.routes.test.ts"], "contradiction_refs": ["contradiction-ref:q31:goat:approved-presentation-replay-blocked-as-structured-secret"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:policy-engine-focused-test-failure"], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/contracts/src/tool-effect-truth.test.ts"], "repeatability_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/chat.routes.test.ts"], "contradiction_refs": ["contradiction-ref:q31:goat:approved-presentation-replay-blocked-as-structured-secret@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:policy-engine-focused-test-failure@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 2
       },
       "authority": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/autonomous-activation-grant-service.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider"],
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/policy-engine/src/engine.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/autonomous-activation-grant-service.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/contracts/src/approvals.test.ts"], "repeatability_evidence_refs": ["test-run-ref:q31:goat-memory-contracts:38-passed@41d0f2e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "code": {
         "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backends.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/code-mode-execution-backend-runner.ts", "repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.tsx"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:code-recovery-not-run"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:code-recovery-not-run@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "research": {
         "weight": 5, "status": "implemented", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/research-service.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/browser-tools.ts", "repo-ref:goat@41d0f2e5:scripts/verification/research-artifact-reliability.test.mjs"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-live-research-call-granted"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-live-research-call-granted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "providers": {
         "weight": 6, "status": "implemented", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/llm-service.ts", "runtime-observation-ref:q31:goat:route-blocked-no-provider"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-call-granted"], "representative_scope_count": 1
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/services/model-router-decision-service.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/llm-service.ts", "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-call-granted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "evidence": {
         "weight": 9, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
@@ -296,32 +297,32 @@
       "safety": {
         "weight": 10, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/plugins/auth.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/tool-security.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider"],
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/plugins/auth.ts", "repo-ref:goat@41d0f2e5:packages/policy-engine/src/tool-security.ts", "runtime-observation-ref:q31:goat:send-disabled-without-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
         "acceptance_evidence_refs": [], "breadth_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/chat.attachments.mime-policy.security.test.ts"], "repeatability_evidence_refs": ["test-run-ref:q31:goat-policy:266-passed-9-failed@41d0f2e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": [], "representative_scope_count": 2
       },
       "ux": {
         "weight": 7, "status": "implemented", "validation_posture": "manual_validation_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["visual-evidence-ref:q31:goat-desktop:sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6", "visual-evidence-ref:q31:goat-mobile:sha256:af5d307012e375cfbe205fecdbbcc2acb03eb89962ba88396051007f1634d381", "test-run-ref:q31:goat-ui:118-passed@41d0f2e5"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:command-palette-progressive-demo"], "repeatability_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:composer-below-mobile-fold"], "representative_scope_count": 2
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": ["runtime-observation-ref:q31:goat:command-palette-progressive-demo@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "repeatability_evidence_refs": ["runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:composer-below-mobile-fold@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 2
       },
       "cli_api": {
         "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": true, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 0, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/routes/approvals.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/routes/docs.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/tui/tools-cli.test.ts"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:full-ui-cli-parity-not-revalidated"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:full-ui-cli-parity-not-revalidated@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "extensibility": {
         "weight": 6, "status": "implemented", "validation_posture": "automated_evidence_ready", "operator_facing": false, "evidence_kind": "code",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 2, "operator_surface": 0, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
         "evidence_refs": ["repo-ref:goat@41d0f2e5:packages/extensions-sdk/src/integration-plugins.ts", "repo-ref:goat@41d0f2e5:apps/gateway/src/services/plugin-tool-override-service.ts", "repo-ref:goat@41d0f2e5:packages/extensions-sdk/src/effective-tools.test.ts"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:operator-surface-not-revalidated"], "representative_scope_count": 1
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:operator-surface-not-revalidated@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       },
       "product_loop": {
         "weight": 10, "status": "partial", "validation_posture": "external_dependency_required", "operator_facing": true, "evidence_kind": "runtime",
         "gates": {"contract": 1, "implementation": 2, "tests": 1, "runtime_integration": 1, "operator_surface": 1, "reference_scenario": 1, "failure_recovery_audit": 1, "independent_validation": 0},
-        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/smoke.ts", "visual-evidence-ref:q31:goat-desktop:sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6", "runtime-observation-ref:q31:goat:route-blocked-no-provider"],
-        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-useful-outcome", "blocker-ref:q31:goat:refresh-returned-onboarding"], "representative_scope_count": 1
+        "evidence_refs": ["repo-ref:goat@41d0f2e5:apps/gateway/src/smoke.ts", "visual-evidence-ref:q31:goat-desktop:sha256:97fa42f14cd36287e23f590ab193f55d649ca864c889b812caaf78bd7e64cda6", "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"],
+        "acceptance_evidence_refs": [], "breadth_evidence_refs": [], "repeatability_evidence_refs": [], "contradiction_refs": [], "critical_failure_refs": [], "blocker_refs": ["blocker-ref:q31:goat:no-provider-useful-outcome@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5", "blocker-ref:q31:goat:refresh-returned-onboarding@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"], "representative_scope_count": 1
       }
     }
   },

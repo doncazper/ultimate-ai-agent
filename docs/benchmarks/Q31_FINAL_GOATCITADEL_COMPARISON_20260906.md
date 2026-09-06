@@ -1,8 +1,11 @@
 # Q31 Final UAA / GoatCitadel Comparison
 
-Status: final evidence packet for Queue V2 Q31. Comparison only; no repair,
-provider call, model call, competitor-code import, runtime mutation, production
-claim, or automatic authority grant is included.
+Status: final comparison candidate for Queue V2 Q31, pending protected merge,
+post-merge qualification, and the canonical Queue V2 terminal receipt.
+Comparison only; no repair, provider call, model call, competitor-code import,
+runtime mutation, production claim, or automatic authority grant is included.
+
+Queue truth: this is the final comparison candidate; Q31 remains pending until protected merge, post-merge qualification, and the Queue V2 terminal receipt complete. Q32 remains blocked until that terminal receipt exists.
 
 ## Scope and exact baselines
 
@@ -261,8 +264,10 @@ comparison; news and vertical modules remain dependency-driven.
 
 ## Bounded 30-day plan
 
-1. **Days 1–7, Q32:** complete the accepted CRM adoption slice and its real
-   founder-private lifecycle/recovery proof. Do not add model evaluation work.
+1. **Days 1–7, Q32:** only after Q31 has its protected merge, post-merge
+   qualification, and Queue V2 terminal receipt, complete the accepted CRM
+   adoption slice and its real founder-private lifecycle/recovery proof. Do not
+   add model evaluation work.
 2. **Days 8–14, Q33:** after Q32 is terminal, reproduce and repair the
    clean-start backend-truth/Setup transition, then add content-free draft and
    thread recovery without provider calls or new authority.
@@ -287,7 +292,9 @@ the user's local Qwen target. Neither system is proven production-ready by this
 packet, neither wins controlled task performance, and neither has independent
 Q31 acceptance evidence.
 
-Q31 can close once its verifier confirms the exact baselines, scorer output,
-redaction posture, direct-observation refs, residual owners, and finite-scope
-language. The next work belongs to the queue owners above—not to an unbounded
-comparison repair loop.
+Q31 can close only after its verifier confirms the exact baselines, scorer
+output, redaction posture, direct-observation refs, residual owners, and
+finite-scope language; the protected PR merges; post-merge qualification is
+green; and the canonical Queue V2 terminal receipt is recorded. The next work
+then belongs to the queue owners above—not to an unbounded comparison repair
+loop.
