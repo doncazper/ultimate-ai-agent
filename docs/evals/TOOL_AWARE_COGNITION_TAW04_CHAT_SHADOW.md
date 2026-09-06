@@ -1,10 +1,16 @@
 # TAW-04 Chat Shadow Integration
 
-Status: bounded founder-private-dogfood implementation evidence. This slice is
+Status: bounded implementation evidence. This slice is
 evidence-only shadow routing. It does not change the accepted chat route,
 assemble model context, invoke a model/provider, construct a proposal, request
 approval, execute a capability, fetch the web, activate a skill, or grant
 authority.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 ## Purpose
 

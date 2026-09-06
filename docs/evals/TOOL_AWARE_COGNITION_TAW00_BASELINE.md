@@ -1,6 +1,12 @@
 # TAW-00 Fail-Closed Evaluation Scaffold
 
-Status: founder private-dogfood implementation accepted; independent promotion evidence pending
+Status: bounded implementation evidence; independent promotion evidence pending
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 Baseline: v0.104.0 / 0.104.0
 
@@ -21,7 +27,7 @@ remains the deterministic capability-task contract. TAW-00 scaffolds separate
 contracts for paired ordinary-chat quality and future routing measurements; the
 two forms of evidence are not interchangeable.
 
-The founder-private-dogfood gate now accepts bounded English-first Q22
+The bounded implementation gate covers English-first Q22
 implementation for one explicitly selected local profile, Qwen 3.8 27B with a
 128K context window, plus separately identified ChatGPT and Codex OpenAI API
 profiles. Exact local artifact/tokenizer/runtime digests and exact OpenAI API
@@ -32,7 +38,8 @@ same host rather than pretending unlike computers form one latency class.
 The independent-promotion gate remains fail-closed. It still requires external
 custody, blind scoring, identity authority, and the complete acceptance bundle
 before public, multi-user, production, or independently validated quality
-claims. Founder acceptance is not represented as independent acceptance.
+claims. The bounded implementation gate does not represent independent
+acceptance.
 
 The checked-in independent-promotion protocol remains deliberately
 `pending_configuration_freeze`.
@@ -134,7 +141,7 @@ authorities exist. Candidate-generated attestations cannot open those gates.
 
 ## Founder Private-Dogfood Gate
 
-The founder profile is accepted for bounded implementation only. It fixes the
+The bounded implementation profile fixes the
 initial product scope to English, Qwen 3.8 27B / 128K locally, configured
 ChatGPT and Codex OpenAI API profiles, and observed Mac/Windows runs. It requires
 the zero-extra-model-call ordinary-chat path, same-host baseline comparisons,
@@ -175,7 +182,10 @@ Before independent or public promotion:
 6. lock and verify the complete candidate manifest before any one-time holdout
    release.
 
-Until those steps pass, independent promotion remains blocked. They do not
-block bounded founder-private-dogfood implementation under the checked-in
-founder profile. This rebaseline opens Q22 implementation but does not complete
-TAW-00 through TAW-08 and does not grant runtime model/provider authority.
+Until those steps pass, independent promotion remains blocked.
+
+Those steps do not narrow bounded founder-private-dogfood implementation under
+the checked-in founder profile.
+
+This rebaseline opens Q22 implementation but does not complete TAW-00 through
+TAW-08 and does not grant runtime model/provider authority.

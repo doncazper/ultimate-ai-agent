@@ -1,9 +1,15 @@
 # TAW-03 Progressive Capability Retrieval
 
-Status: bounded founder-private-dogfood implementation evidence. This contract
+Status: bounded implementation evidence. This contract
 does not change chat routing, assemble a prompt, invoke a model/provider,
 construct a proposal, request approval, execute a capability, or grant
 authority.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 ## Purpose
 

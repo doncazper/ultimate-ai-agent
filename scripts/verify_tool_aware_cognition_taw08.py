@@ -33,6 +33,10 @@ _LOCKED_WHEELHOUSE_ENV = "UAA_TAW08_LOCKED_WHEELHOUSE"
 _PREFLIGHT_COMPLETE_ENV = "UAA_TAW08_PREFLIGHT_COMPLETE"
 _PREFLIGHT_DIGEST_ENV = "UAA_TAW08_PREFLIGHT_DIGEST"
 _EXPORT_FOUNDER_INPUTS_ENV = "UAA_TAW08_EXPORT_FOUNDER_INPUTS"
+VERIFICATION_SUCCESS_MESSAGE = (
+    "Tool-aware cognition TAW-08 contract and closed-state fixtures verified; "
+    "this verifier does not assert current founder-private acceptance."
+)
 _GIT_READ_CONFIG = (
     "-c",
     "core.fsmonitor=false",
@@ -3129,10 +3133,7 @@ def main() -> int:
         if exported is not None:
             sys.stdout.buffer.write(exported)
             return 0
-    print(
-        "Tool-aware cognition TAW-08 acceptance contract verified; founder-private "
-        "acceptance remains blocked on exact measured evidence."
-    )
+    print(VERIFICATION_SUCCESS_MESSAGE)
     return 0
 
 

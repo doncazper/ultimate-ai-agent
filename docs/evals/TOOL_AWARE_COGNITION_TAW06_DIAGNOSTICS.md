@@ -1,10 +1,16 @@
 # TAW-06 Operator Diagnostics
 
-Status: bounded founder-private-dogfood implementation evidence. This slice adds
+Status: bounded implementation evidence. This slice adds
 one redacted Python Core read model plus CLI and protected API inspection. It
 does not change ordinary-chat routing, model context, capability proposal,
 approval, execution, provider/model behavior, connectors, external writes, or
 authority. No Control Center surface is included in this slice.
+
+Acceptance-state role: `non-owner`.
+Canonical mutable-state owner: `docs/evals/TOOL_AWARE_COGNITION_TAW08_ACCEPTANCE.md`.
+This document records implementation evidence only; it cannot assert or
+reconcile mutable founder-private status. Only that owner may perform bounded
+active-truth reconciliation. Independent promotion remains a separate gate.
 
 ## Shared Read Model
 
@@ -108,7 +114,7 @@ and zero-authority invariants.
 ## Next Slice
 
 TAW-07 now provides the bounded development-corpus quality, latency, fault,
-safe-disable, and adversarial hardening contract under the accepted founder
-profile without opening an independent holdout. TAW-06 does not complete Q22;
-TAW-08 founder-dogfood acceptance and later independent promotion remain
-required.
+safe-disable, and adversarial hardening contract under the bounded founder
+profile without opening an independent holdout.
+
+TAW-06 does not complete Q22.

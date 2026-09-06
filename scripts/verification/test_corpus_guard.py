@@ -89,6 +89,15 @@ PERFORMANCE_RUNNER_APPROVED_PRIOR_SHA256 = (
 PERFORMANCE_RUNNER_APPROVED_CURRENT_SHA256 = (
     "e08c7d57b1ce474a311f84685230e960e3c6d4cfab00c66f0fe8c0783b55e606"
 )
+AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH = (
+    "scripts/verification/verification_run_aggregator.py"
+)
+AGGREGATE_PLATFORM_PROOF_APPROVED_PRIOR_SHA256 = (
+    "c505796b1293f82b1362f57d0aca3cbda23501c02a8450d616a3c0bfce8dd7f7"
+)
+AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256 = (
+    "2e07bc8b6ff2b935610ea038cea904cf847761a156f0a24bcfa063dc84e33bde"
+)
 FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verification/ci_command_manifest.py": (
         "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
@@ -11939,6 +11948,28 @@ def _safe_performance_runner_evidence_alignment_paths(
     return expected_paths
 
 
+def _safe_aggregate_platform_proof_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the reviewed aggregate platform-proof transformation."""
+
+    expected_paths = {AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH}
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    current = current_by_path[AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH].encode("utf-8")
+    prior = prior_by_path[AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH].encode("utf-8")
+    if (
+        hashlib.sha256(prior).hexdigest()
+        != AGGREGATE_PLATFORM_PROOF_APPROVED_PRIOR_SHA256
+        or hashlib.sha256(current).hexdigest()
+        != AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256
+    ):
+        return set()
+    return expected_paths
+
+
 def _safe_foundation_isolation_runner_alignment_paths(
     *,
     current_by_path: dict[str, str],
@@ -12077,6 +12108,23 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             prior_by_path={
                 path: prior_runner_by_path[path]
                 for path in effective_changed_runner_paths
+            },
+        )
+    )
+    aggregate_alignment_paths = (all_changed & runner_dependencies) & {
+        AGGREGATE_PLATFORM_PROOF_ALIGNMENT_PATH
+    }
+    safe_runner_paths.update(
+        _safe_aggregate_platform_proof_alignment_paths(
+            current_by_path={
+                path: _read_worktree_text(repo, path)
+                if (repo / path).is_file()
+                else ""
+                for path in aggregate_alignment_paths
+            },
+            prior_by_path={
+                path: _base_text(repo, base_sha, path) or ""
+                for path in aggregate_alignment_paths
             },
         )
     )
