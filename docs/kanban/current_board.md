@@ -1019,16 +1019,21 @@ connector, filing, payment, professional, public-release, or production
 authority exists. FIN-003 now adds only a deterministic synthetic read-only
 Finance Review and Action Inbox projection over current import lineage. It
 surfaces safe refs and `needs_review` posture without amounts, decisions,
-rules, persistence, API/UI, real data, or new authority.
+rules, persistence, API/UI, real data, or new authority. A separately claimed
+second FIN-003 slice now adds only a content-free `confirm`, `reject`, or
+`defer` consequence preview over one exact current synthetic review item. It
+binds the projection, source snapshot, revision, and item refs while leaving
+review state and the book unchanged.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
 Next: retain the independent FIN-000 gate before real-data, arbitrary file
-import, or higher-authority promotion. Exercise FIN-002A/FIN-002B and the
-FIN-003 read-only projection through private dogfood, then separately scope
-review decisions or rule proposals. The merged FIN-001 kernel, FIN-002
-preview/commit loop, and FIN-003 projection remain synthetic-only.
+import, or higher-authority promotion. Exercise FIN-002A/FIN-002B, the FIN-003
+read-only projection, and its decision preview through private dogfood. Scope
+any decision persistence/apply or rule proposal separately. The merged FIN-001
+kernel, FIN-002 preview/commit loop, and FIN-003 projection/preview remain
+synthetic-only.
 Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.

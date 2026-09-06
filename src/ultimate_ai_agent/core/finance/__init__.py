@@ -39,6 +39,12 @@ from ultimate_ai_agent.core.finance.review_projection import (
     FinanceReviewProjection,
     build_finance_review_projection,
 )
+from ultimate_ai_agent.core.finance.review_decision_preview import (
+    FinanceReviewDecisionPreview,
+    FinanceReviewDecisionPreviewRequest,
+    build_finance_review_decision_preview_request,
+    preview_finance_review_decision,
+)
 
 __all__ = [
     "Book",
@@ -49,6 +55,8 @@ __all__ = [
     "FinanceImportCommitRecord",
     "FinanceImportPreviewError",
     "FinanceReviewBatch",
+    "FinanceReviewDecisionPreview",
+    "FinanceReviewDecisionPreviewRequest",
     "FinanceReviewItem",
     "FinanceReviewProjection",
     "FinanceSnapshot",
@@ -63,11 +71,13 @@ __all__ = [
     "SyntheticImportPreview",
     "TransactionCandidate",
     "build_finance_review_projection",
+    "build_finance_review_decision_preview_request",
     "build_import_commit_proof",
     "build_import_commit_record",
     "load_finance_fixture",
     "load_finance_fixture_manifest",
     "load_synthetic_import_fixture_manifest",
     "preview_synthetic_csv_fixture",
+    "preview_finance_review_decision",
     "synthetic_import_fixture_manifest_ref",
 ]

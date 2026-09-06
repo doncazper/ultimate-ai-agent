@@ -194,13 +194,22 @@ authority. See
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_PROJECTION.md` and
 `scripts/verify_fin003_synthetic_review_projection.py`.
 
+The second bounded FIN-003 slice adds only a deterministic content-free
+`confirm`, `reject`, or `defer` consequence preview over one exact current
+synthetic review item. It revalidates and reprojects the current snapshot,
+binds the exact projection, snapshot, revision, and item refs, and leaves both
+review state and the Finance book unchanged. It grants no persistence, apply,
+correction, split, allocation, rule, API, UI, or external authority. See
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md` and
+`scripts/verify_fin003_synthetic_review_decision_preview.py`.
+
 The remaining FIN-003 work below stays planned and separately gated:
 
 Deliver:
 
 - Finance review read model and Action Inbox projections;
-- confirm, correct, reject, defer, transfer-link, split, allocate, and request
-  context decisions;
+- persist or apply confirm, correct, reject, defer, transfer-link, split,
+  allocate, and request-context decisions;
 - deterministic rule engine with ordered conditions/actions, examples,
   exclusions, conflicts, versioning, preview, and rollback;
 - repeated-correction rule proposals;

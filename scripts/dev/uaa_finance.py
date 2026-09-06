@@ -43,6 +43,10 @@ from ultimate_ai_agent.core.finance.repository import FinanceRepository  # noqa:
 from ultimate_ai_agent.core.finance.review_projection import (  # noqa: E402
     build_finance_review_projection,
 )
+from ultimate_ai_agent.core.finance.review_decision_preview import (  # noqa: E402
+    build_finance_review_decision_preview_request,
+    preview_finance_review_decision,
+)
 from ultimate_ai_agent.core.finance.service import (  # noqa: E402
     FinanceKernelService,
     finance_repository_ref,
@@ -304,6 +308,16 @@ def command_read(args: argparse.Namespace) -> int:
     elif args.command == "review":
         snapshot = repository.load_snapshot_read_only(request_ref=args.request_ref)
         payload = build_finance_review_projection(snapshot).model_dump(mode="json")
+    elif args.command == "review-decision-preview":
+        snapshot = repository.load_snapshot_read_only(request_ref=args.request_ref)
+        request = build_finance_review_decision_preview_request(
+            snapshot,
+            review_item_ref=args.review_item_ref,
+            decision=args.decision,
+        )
+        payload = preview_finance_review_decision(snapshot, request).model_dump(
+            mode="json"
+        )
     else:
         payload = repository.export_redacted(request_ref=args.request_ref)
     _json(payload)
@@ -342,6 +356,13 @@ def parser() -> argparse.ArgumentParser:
         read = commands.add_parser(name, parents=[shared])
         read.add_argument("--request-ref", required=True)
         read.set_defaults(func=command_read)
+    decision_preview = commands.add_parser("review-decision-preview", parents=[shared])
+    decision_preview.add_argument("--request-ref", required=True)
+    decision_preview.add_argument("--review-item-ref", required=True)
+    decision_preview.add_argument(
+        "--decision", choices=("confirm", "reject", "defer"), required=True
+    )
+    decision_preview.set_defaults(func=command_read)
     return result
 
 

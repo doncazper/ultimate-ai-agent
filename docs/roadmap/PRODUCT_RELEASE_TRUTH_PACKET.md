@@ -693,10 +693,15 @@ OCR, connector, real-data, API, UI, professional, or production authority. Evide
 `scripts/verify_fin002_synthetic_import_commit.py`. FIN-003 adds only a
 deterministic synthetic read-only Finance Review and Action Inbox projection
 over current commit lineage. It exposes safe refs and `needs_review` posture,
-not amounts, observations, decisions, rules, persistence, API/UI, or new
-authority. Evidence:
+not amounts or observations. A separately scoped second FIN-003 slice previews
+only the content-free consequences of `confirm`, `reject`, or `defer`, bound to
+one exact current projection item and source snapshot. It persists or applies
+no decision, changes no review or ledger state, learns no rule, and adds no
+API/UI or new authority. Evidence:
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_PROJECTION.md` and
-`scripts/verify_fin003_synthetic_review_projection.py`.
+`scripts/verify_fin003_synthetic_review_projection.py` plus
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md` and
+`scripts/verify_fin003_synthetic_review_decision_preview.py`.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|
