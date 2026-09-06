@@ -27,6 +27,12 @@ def _goat_manifest() -> dict[str, Any]:
     return json.loads(verifier.DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8"))
 
 
+def _observation_manifest() -> dict[str, Any]:
+    return json.loads(
+        verifier.DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
+    )
+
+
 def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     data = verifier.verify()
 
@@ -42,6 +48,9 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     assert data["reciprocal_learning"][-1]["direction"] == "bidirectional"
     assert "uaa_baseline_ci" in data["common_evidence_refs"]
     assert "uaa_exact_head_ci" not in data["common_evidence_refs"]
+    assert data["common_evidence_refs"]["goat_code_tests"].startswith(
+        "test-run-ref:q31:goat-code:18-passed@"
+    )
     assert "current exact-head hosted CI" not in _report()
 
     missing_dimensions = {
@@ -65,6 +74,10 @@ def test_q31_packet_verifies_exact_scores_and_non_empirical_posture() -> None:
     }
     assert len(visual_refs) == 4
     assert all(value.startswith("repo-ref:") for value in visual_refs.values())
+    assert data["observation_disposition_gate"]["status"] == (
+        "pending_required_resolutions"
+    )
+    assert len(data["observation_disposition_gate"]["required_finding_refs"]) == 16
 
 
 def test_q31_packet_rejects_duplicate_json_keys_at_every_depth() -> None:
@@ -75,6 +88,49 @@ def test_q31_packet_rejects_duplicate_json_keys_at_every_depth() -> None:
         verifier._loads_strict_json(
             '{"authority": {"claim": true, "claim": false}}'
         )
+
+
+def test_q31_packet_binds_runtime_observation_manifest() -> None:
+    manifest = _observation_manifest()
+    manifest_refs = {
+        item["observation_ref"] for item in manifest["observations"]
+    }
+    assert verifier._collect_runtime_observation_refs(_data()) == manifest_refs
+
+    tampered = copy.deepcopy(manifest)
+    tampered["observations"][0]["captured_steps"] = ["substituted_step"]
+    with pytest.raises(
+        verifier.VerificationError, match="direct observation manifest digest drift"
+    ):
+        verifier.verify_data(_data(), _report(), _goat_manifest(), tampered)
+
+    data = copy.deepcopy(_data())
+    data["direct_observations"][0]["evidence_refs"] = [
+        "runtime-observation-ref:q31:uaa:invented"
+        "@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
+    ]
+    with pytest.raises(
+        verifier.VerificationError, match="runtime observation manifest binding drift"
+    ):
+        verifier.verify_data(data, _report())
+
+
+def test_q31_packet_requires_terminal_observation_dispositions() -> None:
+    data = copy.deepcopy(_data())
+    data["observation_disposition_gate"]["required_finding_refs"].pop()
+    with pytest.raises(
+        verifier.VerificationError, match="observation disposition gate drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    report = _report().replace(
+        verifier.OBSERVATION_GATE_SENTENCE,
+        "Observation closure gate removed.",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="report observation closure gate drift"
+    ):
+        verifier.verify_data(_data(), report)
 
 
 def test_q31_packet_rejects_baseline_score_and_acceptance_drift() -> None:
@@ -239,6 +295,57 @@ def test_q31_packet_binds_revision_refs_and_scorer() -> None:
     manifest_paths = {item["path"] for item in _goat_manifest()["files"]}
     assert "docs/screenshots/mission-control-next/chat.png" in manifest_paths
     assert "goatcitadel-od-mobile.png" in manifest_paths
+    assert verifier.REQUIRED_GOAT_REPORT_PATHS <= manifest_paths
+    assert {
+        "apps/gateway/src/services/code-mode-execution-backends.test.ts",
+        "apps/gateway/src/services/code-mode-execution-backend-runner.test.ts",
+        "apps/mission-control-next/src/features/threaded-surface/workflow/CodeWorkbenchPanel.test.tsx",
+    } <= manifest_paths
+
+    missing_report_evidence = copy.deepcopy(_goat_manifest())
+    missing_report_evidence["files"] = [
+        item
+        for item in missing_report_evidence["files"]
+        if item["path"] != "packages/policy-engine/src/tool-executor.ts"
+    ]
+    with pytest.raises(
+        verifier.VerificationError,
+        match="GoatCitadel report evidence missing from manifest",
+    ):
+        verifier.verify_data(_data(), _report(), missing_report_evidence)
+
+
+def test_q31_packet_pins_common_evidence_and_test_gates() -> None:
+    data = copy.deepcopy(_data())
+    data["common_evidence_refs"]["uaa_exact_head_ci"] = data[
+        "common_evidence_refs"
+    ]["uaa_baseline_ci"]
+    with pytest.raises(
+        verifier.VerificationError, match="common evidence inventory drift"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    data["common_evidence_refs"]["goat_code_tests"] = data[
+        "common_evidence_refs"
+    ]["goat_gateway_tests"]
+    with pytest.raises(
+        verifier.VerificationError, match="common evidence class drift: goat_code_tests"
+    ):
+        verifier.verify_data(data, _report())
+
+    data = copy.deepcopy(_data())
+    code = data["systems"]["goatcitadel"]["code"]
+    code["evidence_refs"] = [
+        ref for ref in code["evidence_refs"] if not verifier._is_test_evidence_ref(ref)
+    ]
+    code["breadth_evidence_refs"] = []
+    code["repeatability_evidence_refs"] = []
+    with pytest.raises(
+        verifier.VerificationError,
+        match="goatcitadel/code: test gate lacks test evidence",
+    ):
+        verifier.verify_data(data, _report())
 
 
 def test_q31_packet_rejects_unsafe_or_unowned_evidence() -> None:
@@ -359,7 +466,7 @@ def test_q31_packet_requires_exact_direct_observations() -> None:
         "@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c"
     ]
     with pytest.raises(
-        verifier.VerificationError, match="direct observation evidence binding drift"
+        verifier.VerificationError, match="runtime observation manifest binding drift"
     ):
         verifier.verify_data(data, _report())
 
@@ -400,6 +507,19 @@ def test_q31_packet_requires_exact_finite_reciprocal_learning() -> None:
 
 
 def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
+    report = _report().replace("## Capability maturity table", "## Removed table")
+    with pytest.raises(verifier.VerificationError, match="report section missing"):
+        verifier.verify_data(_data(), report)
+
+    report = _report().replace(
+        "| Code assistance | Usable | Strong |",
+        "| Code assistance | Usable | Exceptional |",
+    )
+    with pytest.raises(
+        verifier.VerificationError, match="capability maturity row drift: code"
+    ):
+        verifier.verify_data(_data(), report)
+
     report = _report().replace(
         "The evidence-gated repository maturity score is **GoatCitadel 73, UAA 70**.",
         "The evidence-gated repository maturity score is **GoatCitadel 70, UAA 73**.",
@@ -458,13 +578,16 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
         "docs/benchmarks/Q31_FINAL_GOATCITADEL_COMPARISON_20260906.md",
         "docs/benchmarks/q31_goat_maturity_input_20260906.json",
         "docs/benchmarks/q31_goat_evidence_manifest_20260906.json",
+        "docs/benchmarks/q31_direct_observation_manifest_20260906.json",
         "scripts/verify_queue_v2_q31_final_goatcitadel_comparison.py",
     ):
         assert required_path in index
         assert required_path in docs_readme
     assert verifier.QUEUE_TRUTH_SENTENCE in _report()
     assert "Q31 final GoatCitadel comparison candidate" in index
-    assert "Q32 remains blocked until that receipt exists" in docs_readme
+    assert "Q32 remains blocked until that receipt exists" in " ".join(
+        docs_readme.split()
+    )
     assert (
         "Q32 CRM functional adoption — blocked until both Q15 and Q31 are completed"
         in board

@@ -1,11 +1,12 @@
 # Q31 Final UAA / GoatCitadel Comparison
 
 Status: final comparison candidate for Queue V2 Q31, pending protected merge,
-post-merge qualification, and the canonical Queue V2 terminal receipt.
+post-merge qualification, resolution of every required unmeasured observation,
+and the canonical Queue V2 terminal receipt.
 Comparison only; no repair, provider call, model call, competitor-code import,
 runtime mutation, production claim, or automatic authority grant is included.
 
-Queue truth: this is the final comparison candidate; Q31 remains pending until protected merge, post-merge qualification, and the Queue V2 terminal receipt complete. Q32 remains blocked until that terminal receipt exists.
+Queue truth: this is the final comparison candidate; Q31 remains pending until protected merge, post-merge qualification, one accepted Queue V2 observation-or-scope-disposition resolution for every not-measured required interaction dimension, and completion of the Queue V2 terminal receipt. Q32 remains blocked until that terminal receipt exists.
 
 ## Scope and exact baselines
 
@@ -30,7 +31,10 @@ file digest is bound in that ledger. All independent-validation gates remain
 zero; self-tests are not acceptance. Every GoatCitadel repository path used as
 score evidence is also bound to its exact file SHA-256 in
 `docs/benchmarks/q31_goat_evidence_manifest_20260906.json`, derived from the
-pinned GoatCitadel checkout.
+pinned GoatCitadel checkout. Every runtime-observation identifier resolves to
+its baseline, scenario, bounded captured steps, observed state refs, and
+supporting exact-revision evidence in
+`docs/benchmarks/q31_direct_observation_manifest_20260906.json`.
 
 ## Executive profile
 
@@ -85,6 +89,32 @@ Weighted raw totals are 69.8387 for UAA and 73.4677 for GoatCitadel. Rounded
 reported totals are 70 and 73. The component gates, holds, evidence refs, and
 blockers are machine-reproducible in the JSON ledger.
 
+## Capability maturity table
+
+The required finite maturity vocabulary is `None`, `Claimed`, `Mocked`,
+`Partial`, `Usable`, `Strong`, and `Mature`. The compatibility mapping is exact:
+score 0 is None, 1 is Claimed, 2 is Mocked, 3–4 is Partial, 5–6 is Usable,
+7–8 is Strong, and 9–10 is Mature.
+
+| Capability | UAA maturity | GoatCitadel maturity |
+|---|---|---|
+| Reasoning | Usable | Usable |
+| Planning | Strong | Strong |
+| Learning | Usable | Usable |
+| Memory | Strong | Strong |
+| Communication | Usable | Strong |
+| Action/tool calling | Strong | Usable |
+| Authority | Strong | Strong |
+| Code assistance | Usable | Strong |
+| Research/web | Usable | Strong |
+| Model/providers | Usable | Strong |
+| Evidence/audit | Strong | Strong |
+| Safety/failure | Strong | Strong |
+| Cockpit UX | Usable | Strong |
+| CLI/API parity | Strong | Strong |
+| Extensibility | Usable | Strong |
+| Productized loop | Usable | Usable |
+
 ## Component analysis
 
 1. **Reasoning.** UAA separates facts, assumptions, unknowns, and questions in
@@ -120,8 +150,9 @@ blockers are machine-reproducible in the JSON ledger.
    (`packages/policy-engine/src/engine.ts#L702-L765`). Both are strong but not
    independently accepted by this packet.
 8. **Code assistance.** GoatCitadel includes visible Code mode/workbench and
-   backend execution abstractions. UAA has exact code-action contracts, but Q31
-   did not exercise an end-to-end code outcome, so its status remains partial.
+   backend execution abstractions. Its exact baseline passed 18 focused backend
+   and workbench tests. UAA has exact code-action contracts, but Q31 did not
+   exercise an end-to-end code outcome, so its status remains partial.
 9. **Research/web.** UAA's hybrid request is typed, two-attempt bounded, and
    exact-ref validated
    (`src/ultimate_ai_agent/core/web_access/hybrid_execution.py#L51-L80`).
@@ -202,6 +233,8 @@ not grant provider/model send or active-run authority:
 
 These missing states prevent the direct-surface observation from being read as
 a complete usability, recovery, accessibility, or task-success evaluation.
+
+Observation closure gate: each required unmeasured interaction dimension must gain exact captured evidence or an accepted Queue V2 scope disposition before the Q31 terminal receipt; merge and verifier success do not resolve this gate.
 
 Visual evidence is resolvable at the exact repository baselines; the listed
 SHA-256 values were recomputed from those Git objects:
@@ -327,6 +360,7 @@ Q31 acceptance evidence.
 Q31 can close only after its verifier confirms the exact baselines, scorer
 output, redaction posture, direct-observation refs, residual owners, and
 finite-scope language; the protected PR merges; post-merge qualification is
-green; and the canonical Queue V2 terminal receipt is recorded. The next work
-then belongs to the queue owners above—not to an unbounded comparison repair
-loop.
+green; every required unmeasured observation has exact captured evidence or an
+accepted Queue V2 scope disposition; and only then the canonical Queue V2
+terminal receipt is recorded. The next work then belongs to the queue owners
+above—not to an unbounded comparison repair loop.

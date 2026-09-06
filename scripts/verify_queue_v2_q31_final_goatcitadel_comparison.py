@@ -29,14 +29,25 @@ DEFAULT_REPORT = (
 DEFAULT_GOAT_MANIFEST = (
     ROOT / "docs" / "benchmarks" / "q31_goat_evidence_manifest_20260906.json"
 )
+DEFAULT_OBSERVATION_MANIFEST = (
+    ROOT
+    / "docs"
+    / "benchmarks"
+    / "q31_direct_observation_manifest_20260906.json"
+)
 SCHEMA_VERSION = "goat-comparison-maturity.v2"
 COMPARISON_REF = "queue-v2-q31-final-goatcitadel-comparison-20260906"
 REPORT_REF_PREFIX = "report-ref:q31:sha256:"
-REPORT_SHA256 = "42f101cf10998d0f63d386ee7958ff0ebb69853cbe94ce1e01bd43722fd9a47f"
+REPORT_SHA256 = "408d2ae266404f80bd7c54fbdb6bcd1ac0c0405cda2d8b5c24f7e6b2b9a4e3c8"
 GOAT_MANIFEST_SCHEMA_VERSION = "goat-evidence-manifest.v1"
 GOAT_MANIFEST_REF_PREFIX = "repository-manifest-ref:q31:goat-evidence@sha256:"
 GOAT_MANIFEST_SHA256 = (
-    "11788e88b398f1664ab6897f10f0c0c1640e66dcfc20d3b8b0726ffc6e32acf0"
+    "6be97c2363dc9af98c5f2e6eade8be6276afd74a22f46445b322ca8f9a255cc0"
+)
+OBSERVATION_MANIFEST_SCHEMA_VERSION = "q31-direct-observation-manifest.v1"
+OBSERVATION_MANIFEST_REF_PREFIX = "observation-manifest-ref:q31:sha256:"
+OBSERVATION_MANIFEST_SHA256 = (
+    "d9db5a81e9944ad0bab54197506015c5c9d940ec425fc548b1f750ac211e6b69"
 )
 SCORER_PATH = Path(__file__).resolve()
 SCORER_REF_PREFIX = (
@@ -65,6 +76,25 @@ WEIGHTS = {
     "extensibility": 6,
     "product_loop": 10,
 }
+COMPONENT_LABELS = {
+    "reasoning": "Reasoning",
+    "planning": "Planning",
+    "learning": "Learning",
+    "memory": "Memory",
+    "communication": "Communication",
+    "action": "Action/tool calling",
+    "authority": "Authority",
+    "code": "Code assistance",
+    "research": "Research/web",
+    "providers": "Model/providers",
+    "evidence": "Evidence/audit",
+    "safety": "Safety/failure",
+    "ux": "Cockpit UX",
+    "cli_api": "CLI/API parity",
+    "extensibility": "Extensibility",
+    "product_loop": "Productized loop",
+}
+MATURITY_STATES = {"None", "Claimed", "Mocked", "Partial", "Usable", "Strong", "Mature"}
 GATE_MAXIMA = {
     "contract": 1,
     "implementation": 2,
@@ -96,6 +126,7 @@ REQUIRED_REPORT_SECTIONS = (
     "## Scope and exact baselines",
     "## Executive profile",
     "## Gate scorecard",
+    "## Capability maturity table",
     "## Component analysis",
     "## Direct product observation",
     "## Feature parity matrix",
@@ -179,6 +210,7 @@ TOP_LEVEL_KEYS = {
     "comparison_ref",
     "report_ref",
     "goat_evidence_manifest_ref",
+    "direct_observation_manifest_ref",
     "comparison_date",
     "authority_granted",
     "baselines",
@@ -187,10 +219,44 @@ TOP_LEVEL_KEYS = {
     "common_evidence_refs",
     "direct_observations",
     "unexercised_observation_dimensions",
+    "observation_disposition_gate",
     "systems",
     "reciprocal_learning",
     "residual_gap_routes",
     "blocked_follow_up",
+}
+COMMON_EVIDENCE_KEYS = {
+    "uaa_baseline_ci",
+    "uaa_focused_tests",
+    "goat_ui_tests",
+    "goat_gateway_tests",
+    "goat_policy_tests",
+    "goat_memory_contract_tests",
+    "goat_code_tests",
+    "uaa_desktop_observation",
+    "uaa_mobile_observation",
+    "goat_desktop_observation",
+    "goat_mobile_observation",
+}
+COMMON_EVIDENCE_PREFIXES = {
+    "uaa_baseline_ci": "ci-ref:uaa:github-actions:",
+    "uaa_focused_tests": "test-run-ref:q31:uaa-focused:",
+    "goat_ui_tests": "test-run-ref:q31:goat-ui:",
+    "goat_gateway_tests": "test-run-ref:q31:goat-gateway:",
+    "goat_policy_tests": "test-run-ref:q31:goat-policy:",
+    "goat_memory_contract_tests": "test-run-ref:q31:goat-memory-contracts:",
+    "goat_code_tests": "test-run-ref:q31:goat-code:",
+    "uaa_desktop_observation": "repo-ref:uaa@",
+    "uaa_mobile_observation": "repo-ref:uaa@",
+    "goat_desktop_observation": "repo-ref:goat@",
+    "goat_mobile_observation": "repo-ref:goat@",
+}
+EXPECTED_COMMON_EVIDENCE_DIGEST = (
+    "0b9d24f45977c123ee1ceca8a6374cd89e12ab72d5083a9b170d1c93246ed3bc"
+)
+REQUIRED_GOAT_REPORT_PATHS = {
+    "packages/policy-engine/src/tool-executor.ts",
+    "packages/policy-engine/src/engine.test.ts",
 }
 BASELINE_KEYS = {
     "uaa": {
@@ -298,7 +364,7 @@ EXPECTED_BASELINES_DIGEST = (
     "c2b3f8942b45bad49ce40b9507d0530e53e4552b3eaf96e92efe8f2ae60b3f1c"
 )
 EXPECTED_SYSTEMS_DIGEST = (
-    "0ca47818f73357c229969bb767ff4190b6ca034ffcad64255340f2ff3b6e1e99"
+    "90aedcda2a8be5ff8f94ab46c04d406a074324543fad265e552a79da90429879"
 )
 EXPECTED_UNEXERCISED_DIMENSIONS = {
     "approvals",
@@ -321,13 +387,45 @@ EXPECTED_UNEXERCISED_DIMENSIONS = {
 EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST = (
     "b60f90eb8ea2deb046ba1f65df14467a482aaed21bdb4b3aa6c93dd851643682"
 )
+EXPECTED_OBSERVATION_DISPOSITION_GATE = {
+    "status": "pending_required_resolutions",
+    "terminal_rule": "record_observation_or_queue_scope_disposition_before_terminal_receipt",
+    "required_finding_refs": [
+        f"finding-ref:q31:unmeasured-observation/{dimension}"
+        for dimension in (
+            "streaming",
+            "cancel_retry",
+            "interruption",
+            "steering",
+            "resumption",
+            "restart",
+            "accessibility",
+            "steps_and_time_to_useful_outcome",
+            "attachments_or_context_selection",
+            "terminal_state_clarity",
+            "citations",
+            "artifacts",
+            "approvals",
+            "errors",
+            "uncertainty",
+            "surface_transitions",
+        )
+    ],
+}
 EXPECTED_RECIPROCAL_LEARNING_DIGEST = (
     "235aa4c5642cf2ff6e392cfc6bfbf61860aace2f394e7e659d4ba23a893cbe93"
 )
 QUEUE_TRUTH_SENTENCE = (
     "Queue truth: this is the final comparison candidate; Q31 remains pending "
-    "until protected merge, post-merge qualification, and the Queue V2 terminal "
-    "receipt complete. Q32 remains blocked until that terminal receipt exists."
+    "until protected merge, post-merge qualification, one accepted Queue V2 "
+    "observation-or-scope-disposition resolution for every not-measured required "
+    "interaction dimension, and completion of the Queue V2 terminal receipt. Q32 "
+    "remains blocked until that terminal receipt exists."
+)
+OBSERVATION_GATE_SENTENCE = (
+    "Observation closure gate: each required unmeasured interaction dimension must "
+    "gain exact captured evidence or an accepted Queue V2 scope disposition before "
+    "the Q31 terminal receipt; merge and verifier success do not resolve this gate."
 )
 
 
@@ -477,6 +575,10 @@ def _validate_goat_manifest(manifest: Any) -> set[str]:
         paths.append(path)
     _require(paths == sorted(set(paths)), "GoatCitadel evidence manifest path drift")
     _require(
+        REQUIRED_GOAT_REPORT_PATHS.issubset(paths),
+        "GoatCitadel report evidence missing from manifest",
+    )
+    _require(
         _canonical_digest(manifest) == GOAT_MANIFEST_SHA256,
         "GoatCitadel evidence manifest digest drift",
     )
@@ -495,6 +597,143 @@ def _validate_safe_ref(ref: str, field_name: str) -> None:
     _require(
         not contains_secret_like(ref) and not contains_obvious_secret(ref),
         f"{field_name} contains secret-like content",
+    )
+
+
+def _validate_observation_manifest(
+    manifest: Any,
+    *,
+    goat_manifest_paths: set[str],
+) -> set[str]:
+    _require(
+        isinstance(manifest, dict)
+        and set(manifest)
+        == {
+            "schema_version",
+            "comparison_ref",
+            "capture_posture",
+            "authority_exercised",
+            "operator_material_persisted",
+            "baselines",
+            "observations",
+        },
+        "direct observation manifest shape drift",
+    )
+    _require(
+        manifest["schema_version"] == OBSERVATION_MANIFEST_SCHEMA_VERSION,
+        "direct observation manifest schema drift",
+    )
+    _require(
+        manifest["comparison_ref"] == COMPARISON_REF,
+        "direct observation manifest comparison drift",
+    )
+    _require(
+        manifest["capture_posture"] == "content_free_single_evaluator",
+        "direct observation capture posture drift",
+    )
+    _require(
+        manifest["authority_exercised"] is False
+        and manifest["operator_material_persisted"] is False,
+        "direct observation manifest cannot grant authority or persist operator material",
+    )
+    _require(
+        manifest["baselines"] == BASELINES,
+        "direct observation manifest baseline drift",
+    )
+    observations = manifest["observations"]
+    _require(
+        isinstance(observations, list) and len(observations) == 10,
+        "direct observation manifest inventory drift",
+    )
+    observation_refs: set[str] = set()
+    for item in observations:
+        _require(
+            isinstance(item, dict)
+            and set(item)
+            == {
+                "observation_ref",
+                "system",
+                "scenario_ref",
+                "viewport",
+                "captured_steps",
+                "observed_state_refs",
+                "supporting_evidence_refs",
+            },
+            "direct observation manifest entry shape drift",
+        )
+        system_name = item["system"]
+        _require(system_name in BASELINES, "unknown observation manifest system")
+        observation_ref = item["observation_ref"]
+        _require(
+            isinstance(observation_ref, str)
+            and observation_ref.startswith(
+                f"runtime-observation-ref:q31:{'goat' if system_name == 'goatcitadel' else 'uaa'}:"
+            ),
+            "direct observation manifest identity drift",
+        )
+        _require(
+            observation_ref not in observation_refs,
+            "duplicate direct observation manifest identity",
+        )
+        observation_refs.add(observation_ref)
+        _validate_safe_ref(observation_ref, "direct_observation_manifest/observation_ref")
+        _validate_revision_bound_ref(
+            observation_ref,
+            system_name,
+            goat_manifest_paths=goat_manifest_paths,
+        )
+        _validate_safe_ref(item["scenario_ref"], "direct_observation_manifest/scenario_ref")
+        _require(
+            item["viewport"] in {"desktop", "390x844"},
+            "direct observation manifest viewport drift",
+        )
+        for field_name in ("captured_steps", "observed_state_refs"):
+            values = item[field_name]
+            _require(
+                isinstance(values, list)
+                and 1 <= len(values) <= 8
+                and len(values) == len(set(values))
+                and all(isinstance(value, str) and value.strip() for value in values),
+                f"direct observation manifest {field_name} drift",
+            )
+        support_refs = item["supporting_evidence_refs"]
+        _require(
+            isinstance(support_refs, list)
+            and bool(support_refs)
+            and len(support_refs) == len(set(support_refs)),
+            "direct observation manifest support drift",
+        )
+        for ref in support_refs:
+            _validate_safe_ref(ref, "direct_observation_manifest/supporting_evidence_ref")
+            _validate_revision_bound_ref(
+                ref,
+                system_name,
+                goat_manifest_paths=goat_manifest_paths,
+            )
+    _walk_for_unsafe_text(manifest)
+    _require(
+        _canonical_digest(manifest) == OBSERVATION_MANIFEST_SHA256,
+        "direct observation manifest digest drift",
+    )
+    return observation_refs
+
+
+def _collect_runtime_observation_refs(value: Any) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(value, dict):
+        for child in value.values():
+            refs.update(_collect_runtime_observation_refs(child))
+    elif isinstance(value, list):
+        for child in value:
+            refs.update(_collect_runtime_observation_refs(child))
+    elif isinstance(value, str) and value.startswith("runtime-observation-ref:q31:"):
+        refs.add(value)
+    return refs
+
+
+def _is_test_evidence_ref(ref: str) -> bool:
+    return ref.startswith(("test-ref:", "test-run-ref:", "pytest-test-ref:")) or any(
+        marker in ref for marker in ("/tests/", ":tests/", ".test.", "test_")
     )
 
 
@@ -565,6 +804,22 @@ def _band(score: int) -> str:
     return "Exceptional evidence"
 
 
+def _maturity(score: int) -> str:
+    if score == 0:
+        return "None"
+    if score == 1:
+        return "Claimed"
+    if score == 2:
+        return "Mocked"
+    if score <= 4:
+        return "Partial"
+    if score <= 6:
+        return "Usable"
+    if score <= 8:
+        return "Strong"
+    return "Mature"
+
+
 def _walk_for_unsafe_text(value: Any) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -600,6 +855,27 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
     scores = data["expected_scores"]["systems"]
     uaa_score = scores["uaa"]["weighted_total_reported"]
     goat_score = scores["goatcitadel"]["weighted_total_reported"]
+    normalized_report = " ".join(report.split())
+    _require(
+        "The required finite maturity vocabulary is `None`, `Claimed`, `Mocked`, "
+        "`Partial`, `Usable`, `Strong`, and `Mature`." in normalized_report,
+        "capability maturity vocabulary drift",
+    )
+    observed_maturity_states: set[str] = set()
+    for component_name, label in COMPONENT_LABELS.items():
+        uaa_maturity = _maturity(scores["uaa"]["components"][component_name])
+        goat_maturity = _maturity(
+            scores["goatcitadel"]["components"][component_name]
+        )
+        observed_maturity_states.update({uaa_maturity, goat_maturity})
+        _require(
+            report.count(f"| {label} | {uaa_maturity} | {goat_maturity} |") == 1,
+            f"capability maturity row drift: {component_name}",
+        )
+    _require(
+        observed_maturity_states.issubset(MATURITY_STATES),
+        "capability maturity state drift",
+    )
     expected_projection = (
         f"Report binding: UAA `{BASELINES['uaa']}`; GoatCitadel "
         f"`{BASELINES['goatcitadel']}`; scores `UAA={uaa_score}` and "
@@ -653,6 +929,10 @@ def _validate_report(data: dict[str, Any], report: str) -> None:
         report.count(QUEUE_TRUTH_SENTENCE) == 1,
         "report queue truth drift",
     )
+    _require(
+        report.count(OBSERVATION_GATE_SENTENCE) == 1,
+        "report observation closure gate drift",
+    )
     report_digest = hashlib.sha256(report.encode()).hexdigest()
     _require(report_digest == REPORT_SHA256, "canonical report digest drift")
     _require(
@@ -665,6 +945,7 @@ def verify_data(
     data: dict[str, Any],
     report: str,
     goat_manifest: dict[str, Any] | None = None,
+    observation_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require(isinstance(data, dict), "top-level ledger must be an object")
     _require(data.get("schema_version") == SCHEMA_VERSION, "schema version drift")
@@ -677,10 +958,23 @@ def verify_data(
             DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8")
         )
     goat_manifest_paths = _validate_goat_manifest(goat_manifest)
+    if observation_manifest is None:
+        observation_manifest = _loads_strict_json(
+            DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
+        )
+    observation_manifest_refs = _validate_observation_manifest(
+        observation_manifest,
+        goat_manifest_paths=goat_manifest_paths,
+    )
     _require(
         data.get("goat_evidence_manifest_ref")
         == f"{GOAT_MANIFEST_REF_PREFIX}{GOAT_MANIFEST_SHA256}",
         "GoatCitadel evidence manifest ref drift",
+    )
+    _require(
+        data.get("direct_observation_manifest_ref")
+        == f"{OBSERVATION_MANIFEST_REF_PREFIX}{OBSERVATION_MANIFEST_SHA256}",
+        "direct observation manifest ref drift",
     )
     baselines = data.get("baselines")
     _require(
@@ -753,12 +1047,17 @@ def verify_data(
     )
     common_refs = data.get("common_evidence_refs")
     _require(
-        isinstance(common_refs, dict) and common_refs, "common evidence refs missing"
+        isinstance(common_refs, dict) and set(common_refs) == COMMON_EVIDENCE_KEYS,
+        "common evidence inventory drift",
     )
     for ref_name, ref in common_refs.items():
         _require(
             isinstance(ref_name, str) and isinstance(ref, str),
             "common evidence ref shape drift",
+        )
+        _require(
+            ref.startswith(COMMON_EVIDENCE_PREFIXES[ref_name]),
+            f"common evidence class drift: {ref_name}",
         )
         _validate_safe_ref(ref, f"common_evidence_refs/{ref_name}")
         if ref_name.startswith("uaa_"):
@@ -771,6 +1070,10 @@ def verify_data(
             )
         else:
             raise VerificationError(f"unowned common evidence ref: {ref_name}")
+    _require(
+        _canonical_digest(common_refs) == EXPECTED_COMMON_EVIDENCE_DIGEST,
+        "common evidence binding drift",
+    )
     expected_scores = data.get("expected_scores", {})
     _require(
         isinstance(expected_scores, dict)
@@ -874,6 +1177,11 @@ def verify_data(
                 "blocker_refs",
             ):
                 all_refs.extend(_safe_refs(component, field))
+            if gates["tests"] > 0:
+                _require(
+                    any(_is_test_evidence_ref(ref) for ref in all_refs),
+                    f"{system_name}/{component_name}: test gate lacks test evidence",
+                )
             for ref in all_refs:
                 _validate_safe_ref(ref, f"{system_name}/{component_name}/evidence_ref")
                 _validate_revision_bound_ref(
@@ -928,6 +1236,10 @@ def verify_data(
                 item["system"],
                 goat_manifest_paths=goat_manifest_paths,
             )
+    _require(
+        _collect_runtime_observation_refs(data) == observation_manifest_refs,
+        "runtime observation manifest binding drift",
+    )
     _require(observed == EXPECTED_OBSERVATIONS, "direct observation inventory drift")
     _require(
         _canonical_digest(observations) == EXPECTED_OBSERVATIONS_DIGEST,
@@ -967,6 +1279,11 @@ def verify_data(
     _require(
         _canonical_digest(unexercised) == EXPECTED_UNEXERCISED_DIMENSIONS_DIGEST,
         "unexercised observation evidence binding drift",
+    )
+    _require(
+        data.get("observation_disposition_gate")
+        == EXPECTED_OBSERVATION_DISPOSITION_GATE,
+        "observation disposition gate drift",
     )
 
     routes = data.get("residual_gap_routes")
@@ -1085,12 +1402,19 @@ def verify(
         DEFAULT_GOAT_MANIFEST.stat().st_size <= 100_000,
         "GoatCitadel evidence manifest is unbounded",
     )
+    _require(
+        DEFAULT_OBSERVATION_MANIFEST.stat().st_size <= 100_000,
+        "direct observation manifest is unbounded",
+    )
     data = _loads_strict_json(artifact.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
     goat_manifest = _loads_strict_json(
         DEFAULT_GOAT_MANIFEST.read_text(encoding="utf-8")
     )
-    return verify_data(data, report, goat_manifest)
+    observation_manifest = _loads_strict_json(
+        DEFAULT_OBSERVATION_MANIFEST.read_text(encoding="utf-8")
+    )
+    return verify_data(data, report, goat_manifest, observation_manifest)
 
 
 def main() -> int:
