@@ -1,0 +1,103 @@
+{
+  "schema_version": "q31-direct-observation-manifest.v1",
+  "comparison_ref": "queue-v2-q31-final-goatcitadel-comparison-20260906",
+  "capture_posture": "content_free_single_evaluator",
+  "authority_exercised": false,
+  "operator_material_persisted": false,
+  "baselines": {
+    "uaa": "git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+    "goatcitadel": "git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5"
+  },
+  "observations": [
+    {
+      "observation_ref": "runtime-observation-ref:q31:uaa:backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "viewport": "desktop",
+      "captured_steps": ["open_control_center", "inspect_default_surface", "inspect_backend_truth_gate"],
+      "observed_state_refs": ["state-ref:q31:uaa:backend-truth-unavailable", "state-ref:q31:uaa:ordinary-work-surface-hidden"],
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:uaa:command-palette-chat-route@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:surface-discovery",
+      "viewport": "desktop",
+      "captured_steps": ["open_command_palette", "inspect_chat_route", "close_command_palette"],
+      "observed_state_refs": ["state-ref:q31:uaa:chat-route-discoverable-in-command-palette"],
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/routes.tsx"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:uaa:messenger-fixture-only@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:surface-discovery",
+      "viewport": "desktop",
+      "captured_steps": ["open_messenger", "inspect_fixture_disclosure", "inspect_external_action_posture"],
+      "observed_state_refs": ["state-ref:q31:uaa:messenger-synthetic", "state-ref:q31:uaa:external-actions-blocked"],
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/src/components/messenger/MessengerShell.tsx", "repo-ref:uaa@817d84d8:apps/control-center/src/messenger/fixtures.ts"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:uaa:unbound-backend-fail-closed@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "viewport": "desktop",
+      "captured_steps": ["open_control_center", "inspect_backend_binding", "inspect_authority_posture"],
+      "observed_state_refs": ["state-ref:q31:uaa:backend-unbound", "state-ref:q31:uaa:runtime-authority-not-granted"],
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:uaa:fresh-state-backend-truth-evidence-incomplete@git-sha:817d84d8f0e4660de5dfcff9cb215e5330d8714c",
+      "system": "uaa",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "viewport": "desktop",
+      "captured_steps": ["open_fresh_control_center", "inspect_product_loop_entry", "inspect_backend_truth_gate"],
+      "observed_state_refs": ["state-ref:q31:uaa:product-loop-entry-blocked-by-backend-truth"],
+      "supporting_evidence_refs": ["repo-ref:uaa@817d84d8:apps/control-center/tests/visual/__snapshots__/desktop/backend-truth-unavailable.png"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:goat:command-palette-progressive-demo@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:surface-discovery",
+      "viewport": "desktop",
+      "captured_steps": ["open_command_palette", "inspect_demo_entry", "open_demo_surface"],
+      "observed_state_refs": ["state-ref:q31:goat:progressive-demo-entry-visible"],
+      "supporting_evidence_refs": ["repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:goat:content-free-draft-persisted@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:draft-thread-switch-refresh",
+      "viewport": "desktop",
+      "captured_steps": ["enter_content_free_draft", "switch_thread", "return_to_thread", "refresh_surface", "reopen_demo"],
+      "observed_state_refs": ["state-ref:q31:goat:draft-restored-after-thread-switch", "state-ref:q31:goat:draft-restored-after-refresh"],
+      "supporting_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:goat:refresh-returned-onboarding@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:draft-thread-switch-refresh",
+      "viewport": "desktop",
+      "captured_steps": ["refresh_demo_surface", "inspect_post_refresh_route", "reopen_demo"],
+      "observed_state_refs": ["state-ref:q31:goat:post-refresh-onboarding", "state-ref:q31:goat:demo-reopen-required"],
+      "supporting_evidence_refs": ["repo-ref:goat@41d0f2e5:packages/threaded-surface-core/src/chat/useChatLocalPersistence.test.tsx"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:goat:route-blocked-no-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "viewport": "desktop",
+      "captured_steps": ["open_demo_surface", "inspect_route_readiness", "inspect_provider_posture"],
+      "observed_state_refs": ["state-ref:q31:goat:route-blocked", "state-ref:q31:goat:provider-not-configured"],
+      "supporting_evidence_refs": ["repo-ref:goat@41d0f2e5:docs/screenshots/mission-control-next/chat.png"]
+    },
+    {
+      "observation_ref": "runtime-observation-ref:q31:goat:send-disabled-without-provider@git-sha:41d0f2e52910c60c39fa0b788042638eddf302e5",
+      "system": "goatcitadel",
+      "scenario_ref": "scenario-ref:q31:clean-start-no-provider",
+      "viewport": "desktop",
+      "captured_steps": ["open_demo_surface", "inspect_composer", "inspect_send_control"],
+      "observed_state_refs": ["state-ref:q31:goat:send-blocked-without-provider"],
+      "supporting_evidence_refs": ["repo-ref:goat@41d0f2e5:apps/mission-control-next/src/features/threaded-surface/ThreadedModeControl.tsx"]
+    }
+  ]
+}
