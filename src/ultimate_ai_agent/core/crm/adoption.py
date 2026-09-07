@@ -1342,9 +1342,12 @@ class CrmAdoptionStore:
             return CrmAdoptionState(), False
 
     def _read_state(self) -> CrmAdoptionState:
+        if self.state_file.is_symlink():
+            raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
         if not self.state_file.exists():
+            self._validated_key_file_exists()
             return CrmAdoptionState()
-        if self.state_file.is_symlink() or not self.state_file.is_file():
+        if not self.state_file.is_file():
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
         if self.state_file.stat().st_size > CRM_ADOPTION_MAX_STATE_BYTES:
             raise CrmAdoptionError("CRM_ADOPTION_STATE_SIZE_LIMIT")
@@ -1388,9 +1391,7 @@ class CrmAdoptionStore:
             ) from exc
 
     def _read_key(self, *, create: bool = False) -> bytes:
-        if self.key_file.exists():
-            if self.key_file.is_symlink() or not self.key_file.is_file():
-                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+        if self._validated_key_file_exists():
             if self.key_file.stat().st_size != 32:
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
             # Keep the read bounded even if the file changes after the stat.
@@ -1444,10 +1445,8 @@ class CrmAdoptionStore:
     def _prepare_recovery_key(self) -> None:
         """Quarantine only a malformed regular key on the approved restore path."""
 
-        if not self.key_file.exists():
+        if not self._validated_key_file_exists():
             return
-        if self.key_file.is_symlink() or not self.key_file.is_file():
-            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
         if self.key_file.stat().st_size == 32:
             return
         quarantine = self.key_file.with_name(
@@ -1463,6 +1462,14 @@ class CrmAdoptionStore:
                 os.close(directory_fd)
         except OSError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_KEY_RECOVERY_FAILED") from exc
+
+    def _validated_key_file_exists(self) -> bool:
+        """Reject unsafe key objects even before encrypted state exists."""
+
+        exists = self.key_file.exists()
+        if self.key_file.is_symlink() or (exists and not self.key_file.is_file()):
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+        return exists
 
     def _quarantine_pending_audit_for_recovery(self) -> None:
         """Preserve an orphan journal before an approved unreadable-state restore."""
@@ -1754,9 +1761,11 @@ class CrmAdoptionStore:
         )
 
     def _current_state_ref(self) -> str:
+        if self.state_file.is_symlink():
+            return "state-ref:crm-adoption:unsafe"
         if not self.state_file.exists():
             return "state-ref:crm-adoption:empty"
-        if self.state_file.is_symlink() or not self.state_file.is_file():
+        if not self.state_file.is_file():
             return "state-ref:crm-adoption:unsafe"
         if self.state_file.stat().st_size > CRM_ADOPTION_MAX_STATE_BYTES:
             return "state-ref:crm-adoption:oversize"

@@ -940,6 +940,36 @@ def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
         )
 
 
+@pytest.mark.parametrize("unsafe_kind", ["symlink", "directory"])
+def test_unsafe_key_without_state_is_blocked_before_restore(
+    tmp_path: Path,
+    unsafe_kind: str,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix=f"unsafe-key-source-{unsafe_kind}")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store.state_dir.mkdir(parents=True)
+    if unsafe_kind == "symlink":
+        outside = tmp_path / "outside-key"
+        outside.write_bytes(b"0" * 32)
+        store.key_file.symlink_to(outside)
+    else:
+        store.key_file.mkdir()
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    assert "repair the unsafe local CRM storage" in view.next_safe_action
+    with pytest.raises(CrmAdoptionError, match="KEY_UNSAFE"):
+        store.preview_restore(
+            CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+        )
+
+
 def test_approval_capture_replays_durable_mutation_and_restore_receipts(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
