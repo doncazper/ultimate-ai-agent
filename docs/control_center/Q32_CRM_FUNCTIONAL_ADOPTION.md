@@ -82,7 +82,8 @@ payload under that ref is rejected.
   for exact two-decimal browser conversion, so a browser edit cannot silently
   round a requested cent.
 - State, record-version, request, preview, receipt, and backup revisions are
-  capped at JavaScript's exact safe-integer limit before browser projection.
+  capped at JavaScript's exact safe-integer limit before browser projection;
+  an exhausted revision fails during preview before approval or lease issuance.
 - Changing the primary relationship in the editor preserves every additional
   linked record, and an in-progress filtered edit keeps the exact original
   timestamp strings until the edit is saved or cancelled.

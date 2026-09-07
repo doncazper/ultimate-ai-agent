@@ -829,7 +829,7 @@ def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
         )
 
 
-def test_portable_backup_rejects_revision_outside_browser_exact_range(
+def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
     tmp_path: Path,
 ) -> None:
     source = CrmAdoptionStore(tmp_path / "source")
@@ -846,31 +846,60 @@ def test_portable_backup_rejects_revision_outside_browser_exact_range(
     key = source._derive_backup_key(passphrase, salt)
     plaintext = AESGCM(key).decrypt(nonce, ciphertext, adoption._BACKUP_AAD)
     payload = json.loads(plaintext)
-    payload["revision"] = adoption.CRM_ADOPTION_MAX_REVISION + 1
-    forged_nonce = os.urandom(12)
-    forged_ciphertext = AESGCM(key).encrypt(
-        forged_nonce,
-        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(),
-        adoption._BACKUP_AAD,
-    )
-    forged_backup = backup.model_copy(
-        update={
-            "nonce": adoption._b64(forged_nonce),
-            "ciphertext": adoption._b64(forged_ciphertext),
-            "ciphertext_fingerprint_ref": (
-                "ciphertext-fingerprint-ref:sha256:"
-                f"{hashlib.sha256(forged_ciphertext).hexdigest()}"
-            ),
-        }
-    )
+    def forge_revision(revision: int):
+        payload["revision"] = revision
+        forged_nonce = os.urandom(12)
+        forged_ciphertext = AESGCM(key).encrypt(
+            forged_nonce,
+            json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(),
+            adoption._BACKUP_AAD,
+        )
+        return backup.model_copy(
+            update={
+                "nonce": adoption._b64(forged_nonce),
+                "ciphertext": adoption._b64(forged_ciphertext),
+                "ciphertext_fingerprint_ref": (
+                    "ciphertext-fingerprint-ref:sha256:"
+                    f"{hashlib.sha256(forged_ciphertext).hexdigest()}"
+                ),
+            }
+        )
 
     with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_BACKUP_UNLOCK_FAILED"):
         CrmAdoptionStore(tmp_path / "target").preview_restore(
             CrmPortableRestoreRequest(
                 passphrase=passphrase,
-                backup=forged_backup,
+                backup=forge_revision(adoption.CRM_ADOPTION_MAX_REVISION + 1),
             )
         )
+
+    exhausted_target = CrmAdoptionStore(tmp_path / "exhausted-target")
+    with pytest.raises(CrmAdoptionConflict, match="CRM_ADOPTION_REVISION_EXHAUSTED"):
+        exhausted_target.preview_restore(
+            CrmPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=forge_revision(adoption.CRM_ADOPTION_MAX_REVISION),
+            )
+        )
+    assert not AuthorityLeaseStore(
+        exhausted_target.state_dir / "authority"
+    ).list_leases()
+
+
+def test_mutation_preview_rejects_exhausted_revision_before_approval(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    store._write_state(
+        adoption.CrmAdoptionState(revision=adoption.CRM_ADOPTION_MAX_REVISION)
+    )
+
+    with pytest.raises(CrmAdoptionConflict, match="CRM_ADOPTION_REVISION_EXHAUSTED"):
+        store.preview_mutation(
+            _create_request(revision=adoption.CRM_ADOPTION_MAX_REVISION)
+        )
+    assert not AuthorityLeaseStore(store.state_dir / "authority").list_leases()
 
 
 def test_encrypted_portable_backup_restores_on_another_store_and_recovers(

@@ -766,6 +766,8 @@ class CrmAdoptionStore:
         state = self._read_state()
         if request.expected_revision != state.revision:
             raise CrmAdoptionConflict("CRM_ADOPTION_STALE_REVISION")
+        if state.revision >= CRM_ADOPTION_MAX_REVISION:
+            raise CrmAdoptionConflict("CRM_ADOPTION_REVISION_EXHAUSTED")
         fingerprint = self._mutation_fingerprint(request)
         labels: list[str] = []
         affected_count = 1
@@ -994,6 +996,8 @@ class CrmAdoptionStore:
         current: CrmAdoptionState,
         current_readable: bool,
     ) -> CrmPortableRestorePreview:
+        if max(current.revision, restored.revision) >= CRM_ADOPTION_MAX_REVISION:
+            raise CrmAdoptionConflict("CRM_ADOPTION_REVISION_EXHAUSTED")
         current_state_ref = self._current_state_ref()
         impact_status = "exact" if current_readable else "unknown_current_state"
         preview_ref = _hash_ref(
