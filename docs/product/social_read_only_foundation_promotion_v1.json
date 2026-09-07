@@ -3,7 +3,7 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:88672a0c9dd27b21d5b82dc23e35b373f18bea39089208f97eb683e1e8a7da7b",
+  "acceptance_subject_digest": "sha256:4015a1cff0eb6c1d10c5b672c69f112940e2585c9c412582fddf53fdfe345641",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:cbc721f716b9f2e403efc6c31e62ac57da5e6eadff878903b8fdb3ad1c9dbbb0"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:99007b87a53c0ae7e98e717f8fe71ed184c86ee8e5ccd58f4a11b8a0ff9fc690"},
@@ -16,7 +16,7 @@
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/foundation-surfaces.real.spec.ts", "sha256": "sha256:008baeb2d777826d5bd13cb8a2764740dd73854f65c003086631ce92c5a06c35"},
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/desktop/crm.png", "sha256": "sha256:8ff2e08c7755a7e69ec9e5aff17d93f6981b742d03154eaa895cb367ff62f096"},
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/mobile/crm.png", "sha256": "sha256:bb499a0c9d67d72bd39c2157e78f962e82ffe92e7c2c358e59d9a41e24ddaa33"},
-    {"path_ref": "repo-path-ref:docs/control_center/visual_regression_manifest.json", "sha256": "sha256:d7b903f0002a4bf81cab467b0bdb439a4b67666ea6fd27b0daedcd5d525fb553"},
+    {"path_ref": "repo-path-ref:docs/control_center/visual_regression_manifest.json", "sha256": "sha256:5205cfa7b3245af437a8c5680e76c50f7e8fb68dcc99f8a395fbf84313452494"},
     {"path_ref": "repo-path-ref:docs/product/UAA_PRIVATE_DOGFOOD_DIRECTION_ACCEPTANCE.md", "sha256": "sha256:66b671b5e7fa36da62d26b9860d74d1097d861fa56a659b35c6d28a6f5085232"},
     {"path_ref": "repo-path-ref:docs/product/UAA_SOCIAL_READ_ONLY_FOUNDATION_PROFILE.md", "sha256": "sha256:5bd0647d677cc41c9676a65b332730fe57ef81023cbe8134010d53720ae67581"},
     {"path_ref": "repo-path-ref:docs/schemas/social_read_only_foundation_promotion_v1.schema.json", "sha256": "sha256:e1ebede628466ff0c80400c86ab83d2cd4fda9712c7c3d476d61ce8c20617eb8"},

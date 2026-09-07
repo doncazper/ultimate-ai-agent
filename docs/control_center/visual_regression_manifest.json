@@ -154,7 +154,7 @@
         "mobile": "visual-baseline-file:mobile:crm"
       },
       "baseline_hashes": {
-        "desktop": "sha256:95a9d0ad4df6959d2f7735be38c32ef89df6df8e60b6b9344cbf955283469ae2",
+        "desktop": "sha256:8ff2e08c7755a7e69ec9e5aff17d93f6981b742d03154eaa895cb367ff62f096",
         "mobile": "sha256:bb499a0c9d67d72bd39c2157e78f962e82ffe92e7c2c358e59d9a41e24ddaa33"
       },
       "raw_private_screenshot_included": false
