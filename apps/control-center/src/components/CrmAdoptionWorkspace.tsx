@@ -519,6 +519,15 @@ export function CrmAdoptionWorkspace() {
       setNotice(`Backup restored at CRM revision ${receipt.after_revision}.`);
       await refresh();
     } catch (reason) {
+      // A lost response can make restore success ambiguous. Invalidate all
+      // pre-restore editor state so it cannot be replayed against a refreshed
+      // restored revision; the operator can safely reopen the backup if the
+      // commit did not reach the backend.
+      setPendingRestore(null);
+      setPending(null);
+      setEditingRef(null);
+      setEditingOriginal(null);
+      setDraft({ ...EMPTY_DRAFT });
       setError(
         reason instanceof Error
           ? reason.message
@@ -744,7 +753,11 @@ export function CrmAdoptionWorkspace() {
             disabled={
               busy ||
               !workspace ||
-              !["ready", "blocked_audit_capacity"].includes(
+              ![
+                "ready",
+                "blocked_audit_capacity",
+                "blocked_revision_exhausted",
+              ].includes(
                 workspace.storage_state,
               )
             }
@@ -760,6 +773,7 @@ export function CrmAdoptionWorkspace() {
               disabled={
                 busy ||
                 workspace?.storage_state === "blocked_audit_capacity" ||
+                workspace?.storage_state === "blocked_revision_exhausted" ||
                 workspace?.storage_state === "blocked_unsafe"
               }
               onChange={(event) => {
@@ -789,7 +803,7 @@ export function CrmAdoptionWorkspace() {
         <ConfirmationPanel
           title="Review encrypted backup restore"
           summary={
-            pendingRestore.preview.impact_status === "exact"
+            pendingRestore.preview.rollback_available
               ? "Replace the active CRM view with the verified backup. The current state remains available to Undo."
               : "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo."
           }
@@ -858,7 +872,11 @@ function RecordInspector({
         {record.amount_minor !== null && record.amount_minor !== undefined ? (
           <Detail
             label="Amount"
-            value={`${record.currency ?? "USD"} ${(record.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            value={
+              record.currency
+                ? `${record.currency} ${(record.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                : `${(record.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} · currency unset`
+            }
           />
         ) : null}
       </dl>

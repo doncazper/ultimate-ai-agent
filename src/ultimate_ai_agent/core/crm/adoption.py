@@ -523,6 +523,7 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
         "locked",
         "recovery_required",
         "blocked_audit_capacity",
+        "blocked_revision_exhausted",
         "blocked_unsafe",
     ]
     revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
@@ -599,6 +600,7 @@ class CrmPortableRestorePreview(_PrivateModel):
         ..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2
     )
     impact_status: Literal["exact", "unknown_current_state"]
+    rollback_available: bool
     counts: dict[str, int]
     integrity_status: Literal["ok"] = "ok"
     private_values_included: Literal[False] = False
@@ -610,6 +612,8 @@ class CrmPortableRestorePreview(_PrivateModel):
             raise ValueError("CRM_ADOPTION_RESTORE_IMPACT_INVALID")
         if self.affected_count is not None and self.affected_count < 0:
             raise ValueError("CRM_ADOPTION_RESTORE_IMPACT_INVALID")
+        if self.rollback_available and self.impact_status != "exact":
+            raise ValueError("CRM_ADOPTION_RESTORE_ROLLBACK_INVALID")
         return self
 
 
@@ -747,6 +751,8 @@ class CrmAdoptionStore:
             storage_state=(
                 "blocked_audit_capacity"
                 if audit_capacity_exhausted
+                else "blocked_revision_exhausted"
+                if state.revision >= CRM_ADOPTION_MAX_REVISION
                 else "ready"
                 if self.state_file.exists()
                 else "empty"
@@ -754,6 +760,8 @@ class CrmAdoptionStore:
             next_safe_action=(
                 "Back up this workspace, then rotate the local CRM audit log before another change."
                 if audit_capacity_exhausted
+                else "Download an encrypted backup and move this exhausted revision lineage into a fresh CRM workspace before another change."
+                if state.revision >= CRM_ADOPTION_MAX_REVISION
                 else "Capture the next person, property, opportunity, activity, or follow-up."
                 if state.records
                 else "Create your first private CRM record."
@@ -1000,12 +1008,14 @@ class CrmAdoptionStore:
             raise CrmAdoptionConflict("CRM_ADOPTION_REVISION_EXHAUSTED")
         current_state_ref = self._current_state_ref()
         impact_status = "exact" if current_readable else "unknown_current_state"
+        rollback_available = current_readable and self.state_file.exists()
         preview_ref = _hash_ref(
             "restore-preview-ref:crm-adoption",
             {
                 "current_state_ref": current_state_ref,
                 "current_state_readable": current_readable,
                 "impact_status": impact_status,
+                "rollback_available": rollback_available,
                 "backup_fingerprint_ref": request.backup.ciphertext_fingerprint_ref,
                 "backup_revision": restored.revision,
             },
@@ -1025,6 +1035,7 @@ class CrmAdoptionStore:
                 else None
             ),
             impact_status=impact_status,
+            rollback_available=rollback_available,
             counts=self._counts(restored.records),
         )
 
@@ -2395,6 +2406,7 @@ class CrmAdoptionStore:
             "locked",
             "recovery_required",
             "blocked_audit_capacity",
+            "blocked_revision_exhausted",
             "blocked_unsafe",
         ],
         next_safe_action: str,

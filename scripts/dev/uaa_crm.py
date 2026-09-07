@@ -47,6 +47,7 @@ def inspect_adoption(args: argparse.Namespace) -> int:
     )
     payload = view.model_dump(mode="json")
     if not args.show_private:
+        payload["workspace_name"] = "Private workspace"
         payload["records"] = [
             {
                 "record_ref": item.record_ref,

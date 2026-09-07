@@ -151,6 +151,7 @@ const restorePreview = {
   record_count: 1,
   affected_count: 1,
   impact_status: "exact",
+  rollback_available: true,
   counts: workspace.counts,
   integrity_status: "ok",
   private_values_included: false,
@@ -583,6 +584,45 @@ describe("CrmAdoptionWorkspace", () => {
     expect(screen.getByLabelText("Open backup to restore")).toBeDisabled();
   });
 
+  it("reports an exhausted revision lineage instead of advertising writes", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      storage_state: "blocked_revision_exhausted",
+      revision: Number.MAX_SAFE_INTEGER,
+      next_safe_action:
+        "Download an encrypted backup and move this exhausted revision lineage into a fresh CRM workspace before another change.",
+    });
+    render(<CrmAdoptionWorkspace />);
+
+    expect(
+      await screen.findByText(
+        "Download an encrypted backup and move this exhausted revision lineage into a fresh CRM workspace before another change.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toBeDisabled();
+    expect(screen.getByLabelText("Open backup to restore")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Download encrypted backup" }),
+    ).toBeEnabled();
+  });
+
+  it("shows an unknown currency honestly instead of inventing USD", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      records: [
+        {
+          ...workspace.records[0],
+          amount_minor: 1234,
+          currency: null,
+        },
+      ],
+    });
+    render(<CrmAdoptionWorkspace />);
+
+    expect(await screen.findByText("12.34 · currency unset")).toBeVisible();
+    expect(screen.queryByText("USD 12.34")).not.toBeInTheDocument();
+  });
+
   it("discloses the exact current-record impact before restore", async () => {
     const file = {
       size: 256,
@@ -610,6 +650,7 @@ describe("CrmAdoptionWorkspace", () => {
       ...restorePreview,
       affected_count: null,
       impact_status: "unknown_current_state",
+      rollback_available: false,
     });
     const file = {
       size: 256,
@@ -633,6 +674,36 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       screen.getByText(
         /Impact on current records is unknown because the active workspace is unreadable/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not promise Undo for an exact first restore into an empty workspace", async () => {
+    apiMocks.previewCrmPortableRestore.mockResolvedValue({
+      ...restorePreview,
+      rollback_available: false,
+    });
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(
+        "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /1 current record will be added, removed, or changed/i,
       ),
     ).toBeInTheDocument();
   });
@@ -664,6 +735,45 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       await screen.findByText("Backup restored at CRM revision 5."),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Review new record" }),
+    ).toBeInTheDocument();
+  });
+
+  it("invalidates stale editor state when restore success is ambiguous", async () => {
+    apiMocks.commitCrmPortableRestore.mockRejectedValueOnce(
+      new Error("The restore result is uncertain."),
+    );
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
+    } as unknown as File;
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await screen.findAllByText("Example Contact");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Stale pre-restore edit" },
+    });
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+    await screen.findByRole("dialog", { name: "Review encrypted backup restore" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restore" }));
+
+    expect(
+      await screen.findByText("The restore result is uncertain."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Review encrypted backup restore" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Name or title")).toHaveValue("");
     expect(
       screen.getByRole("button", { name: "Review new record" }),

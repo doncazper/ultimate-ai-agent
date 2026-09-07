@@ -80,10 +80,13 @@ payload under that ref is rejected.
   the original byte-size bound is enforced.
 - Currency amounts are stored in minor units with enough safe-integer headroom
   for exact two-decimal browser conversion, so a browser edit cannot silently
-  round a requested cent.
+  round a requested cent. A missing currency is displayed as unset rather than
+  being relabeled as USD.
 - State, record-version, request, preview, receipt, and backup revisions are
   capped at JavaScript's exact safe-integer limit before browser projection;
-  an exhausted revision fails during preview before approval or lease issuance.
+  an exhausted revision fails during preview before approval or lease issuance
+  and the read model exposes an explicit blocked revision state instead of
+  advertising further writes.
 - Changing the primary relationship in the editor preserves every additional
   linked record, and an in-progress filtered edit keeps the exact original
   timestamp strings until the edit is saved or cancelled.
@@ -99,9 +102,11 @@ payload under that ref is rejected.
   the backup, receipt, or audit log.
 - Restore first verifies the ciphertext fingerprint, passphrase, authenticated
   decryption, and full state schema. Commit then requires a fresh exact preview,
-  approval, lease, idempotency ref, and operator confirmation. The preview also
-  binds whether the current state is readable, so a key change cannot silently
-  remove the pre-restore Undo posture after approval.
+  approval, lease, idempotency ref, and operator confirmation. The preview binds
+  both current-state readability and whether a real pre-restore snapshot exists,
+  so a key change or first restore cannot produce a false Undo promise. A failed
+  or lost commit response invalidates the pre-restore editor before another
+  write can be reviewed.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available as the next safe action.
 - A nearly full audit log exposes a distinct blocked state before another
@@ -127,7 +132,8 @@ Control Center routes:
 - `POST /control-center/crm/adoption/restore-preview`
 - `POST /control-center/crm/adoption/restore`
 
-The CLI keeps private values out of terminal output by default:
+The CLI keeps private values, including the workspace name, out of terminal
+output by default:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_crm.py inspect-adoption

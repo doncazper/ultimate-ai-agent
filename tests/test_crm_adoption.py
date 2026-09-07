@@ -799,6 +799,7 @@ def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
     restore_preview = target.preview_restore(restore_request)
     assert restore_preview.affected_count == 2
     assert restore_preview.impact_status == "exact"
+    assert restore_preview.rollback_available is True
     restore_commit = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=restore_preview.preview_ref,
@@ -885,6 +886,37 @@ def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
         exhausted_target.state_dir / "authority"
     ).list_leases()
 
+    near_exhaustion_target = CrmAdoptionStore(tmp_path / "near-exhaustion-target")
+    near_exhaustion_request = CrmPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=forge_revision(adoption.CRM_ADOPTION_MAX_REVISION - 1),
+    )
+    near_exhaustion_preview = near_exhaustion_target.preview_restore(
+        near_exhaustion_request
+    )
+    near_exhaustion_commit = CrmPortableRestoreCommitRequest(
+        **near_exhaustion_request.model_dump(mode="python"),
+        preview_ref=near_exhaustion_preview.preview_ref,
+        approval_ref=near_exhaustion_preview.approval_ref,
+    )
+    near_exhaustion_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:near-exhaustion-restore"
+    )
+    _capture_restore(
+        near_exhaustion_target,
+        near_exhaustion_commit,
+        idempotency_ref=near_exhaustion_idempotency_ref,
+    )
+    near_exhaustion_target.commit_restore(
+        request=near_exhaustion_commit,
+        idempotency_ref=near_exhaustion_idempotency_ref,
+        confirmed=True,
+    )
+    exhausted_view = near_exhaustion_target.read_view()
+    assert exhausted_view.revision == adoption.CRM_ADOPTION_MAX_REVISION
+    assert exhausted_view.storage_state == "blocked_revision_exhausted"
+    assert "fresh CRM workspace" in exhausted_view.next_safe_action
+
 
 def test_mutation_preview_rejects_exhausted_revision_before_approval(
     tmp_path: Path,
@@ -922,6 +954,7 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     assert preview.record_count == 1
     assert preview.affected_count == 1
     assert preview.impact_status == "exact"
+    assert preview.rollback_available is False
     duplicate_receipt_request = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=preview.preview_ref,
@@ -979,6 +1012,7 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     recovery_preview = target.preview_restore(restore_request)
     assert recovery_preview.affected_count is None
     assert recovery_preview.impact_status == "unknown_current_state"
+    assert recovery_preview.rollback_available is False
     recovery_request = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=recovery_preview.preview_ref,
@@ -1525,10 +1559,16 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
 
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(), suffix="cli")
+    private_workspace_name = "Founder Client Secret Workspace"
+    store._write_state(
+        store._read_state().model_copy(update={"workspace_name": private_workspace_name})
+    )
     assert crm_cli_main(["inspect-adoption", "--state-dir", str(store.state_dir)]) == 0
     safe_output = capsys.readouterr().out
     assert "Private Person" not in safe_output
     assert "private.person@example.test" not in safe_output
+    assert private_workspace_name not in safe_output
+    assert '"workspace_name": "Private workspace"' in safe_output
     assert '"private_values_included": false' in safe_output
 
     assert (
@@ -1545,6 +1585,7 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
     private_output = capsys.readouterr().out
     assert "Private Person" in private_output
     assert "private.person@example.test" in private_output
+    assert private_workspace_name in private_output
 
     monkeypatch.delenv("UAA_CRM_BACKUP_PASSPHRASE", raising=False)
     with pytest.raises(ValueError, match="BACKUP_PASSPHRASE_ENV_REQUIRED"):
