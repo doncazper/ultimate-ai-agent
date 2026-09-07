@@ -77,6 +77,7 @@ def test_verifier_value_audit_is_registry_bound_and_non_authoritative(
     )
     covered = {ref for value in first["verifiers"] for ref in value["coverage_refs"]}
     assert audit.required_coverage_refs().issubset(covered)
+    assert "test_collection_fingerprint" in audit.MEASUREMENT_BINDING_FIELDS
     assert "selector:command:ci.ruff" in covered
     assert "measurement-ref:synthetic-verifier-value" in covered
 

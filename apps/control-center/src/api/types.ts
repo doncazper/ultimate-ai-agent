@@ -3001,6 +3001,20 @@ export interface CrmAdoptionMutationReceipt {
   approval_authority_granted: true;
 }
 
+export interface CrmAdoptionApprovalReceipt {
+  schema_version: "uaa-crm-adoption-approval-receipt.v1";
+  contract_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  preview_ref: string;
+  idempotency_ref: string;
+  expires_at?: string | null;
+  exact_scope_granted: true;
+  mutation_performed: false;
+  external_write_performed: false;
+  raw_private_values_included: false;
+}
+
 export interface CrmPortableBackup {
   schema_version: "uaa-crm-adoption-portable-backup.v1";
   contract_ref: string;

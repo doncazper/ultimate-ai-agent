@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `362` OpenAPI paths and `364` manifest route operations.
+Current generated contract snapshot: `364` OpenAPI paths and `366` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -71,16 +71,17 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 31 |
-| `local_sensitive` | 208 |
-| `mutating_requires_authority` | 122 |
+| `local_sensitive` | 209 |
+| `mutating_requires_authority` | 123 |
 
-Q32's six `/control-center/crm/adoption*` routes preserve the protected local
-boundary. Workspace read, mutation preview, encrypted backup, and restore
-preview are local-sensitive. Mutation commit and restore commit are
-`mutating_requires_authority`, require exact idempotency and explicit local
-operator confirmation, and validate both a preview-bound
-`LocalApprovalAuthority` grant and an operation-budget-one Contacts/write
-AuthorityLease before the encrypted state changes. No Q32 route grants an
+Q32's eight `/control-center/crm/adoption*` routes preserve the protected local
+boundary. Workspace read, body-only private query, mutation preview, encrypted
+backup, and restore preview are local-sensitive. Exact approval capture,
+mutation commit, and restore commit are `mutating_requires_authority` and
+require exact idempotency and explicit local operator confirmation. Commit and
+restore validate both the pre-existing preview-bound `LocalApprovalAuthority`
+grant and an operation-budget-one Contacts/write AuthorityLease before the
+encrypted state changes. No Q32 route grants an
 external CRM write, connector, send, provider/model call, remote sync, public
 release, or production authority.
 

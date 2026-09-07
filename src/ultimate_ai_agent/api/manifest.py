@@ -816,11 +816,13 @@ CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS = {
 }
 CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS = {
     "/control-center/crm/adoption",
+    "/control-center/crm/adoption/query",
     "/control-center/crm/adoption/preview",
     "/control-center/crm/adoption/backup",
     "/control-center/crm/adoption/restore-preview",
 }
 CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS = {
+    "/control-center/crm/adoption/approval",
     "/control-center/crm/adoption/commit",
     "/control-center/crm/adoption/restore",
 }
@@ -1581,7 +1583,10 @@ def route_classification_for_path(
             ApiRouteClassification.local_sensitive,
             "Founder-private CRM read, exact preview, or encrypted backup preparation route; private values remain confined to the authenticated local response and no external write, connector, provider, model, or production authority is granted.",
         )
-    if normalized_method == "POST" and path in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS:
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+    ):
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Founder-private CRM exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact LocalApprovalAuthority validation, one exact operation-budget-one contacts/write AuthorityLease, idempotency, encrypted local persistence, content-free audit receipts, and undo or restore recovery are required while external writes remain blocked.",

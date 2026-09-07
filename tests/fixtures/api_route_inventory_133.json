@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 187,
-  "fingerprint": "api-contract-fingerprint:sha256:254022494ccafd0b80e1c89b178ac30a2b16f8f090dd3be9004cc90e299135d8",
+  "control_center_route_count": 189,
+  "fingerprint": "api-contract-fingerprint:sha256:7fd6bf8cd0a771078cd07915e2f5cd03064b080d46eb154a45f48e6e1c4e2b5e",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 122,
-  "openapi_path_count": 362,
+  "mutating_route_count": 123,
+  "openapi_path_count": 364,
   "projection_fields": [
     "path",
     "method",
@@ -24,17 +24,17 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 242,
-    "required_before_mutation_authority": 122
+    "not_required_for_route_classification": 243,
+    "required_before_mutation_authority": 123
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 361,
+    "protected_local_bearer_required": 363,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 31,
-    "local_sensitive": 208,
-    "mutating_requires_authority": 122,
+    "local_sensitive": 209,
+    "mutating_requires_authority": 123,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 364,
+  "route_count": 366,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 242,
-    "required_before_mutation_authority": 122
+    "not_required_for_route_classification": 243,
+    "required_before_mutation_authority": 123
   },
-  "route_operation_count": 364,
+  "route_operation_count": 366,
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 211,
-    "targeted_local_fixed_window": 153
+    "targeted_local_fixed_window": 155
   },
   "routes": [
     {
@@ -3855,6 +3855,26 @@
       ]
     },
     {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "capture_control_center_crm_adoption_approval",
+      "path": "/control-center/crm/adoption/approval",
+      "rate_limit_group": "crm_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Capture one exact local CRM approval grant",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
       "approval_posture": "not_required_for_route_classification",
       "auth_posture": "protected_local_bearer_required",
       "idempotency_policy_ref": null,
@@ -3910,6 +3930,26 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Preview one exact local CRM lifecycle change",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "query_control_center_crm_adoption_workspace",
+      "path": "/control-center/crm/adoption/query",
+      "rate_limit_group": "crm_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Search the founder-private CRM without URL disclosure",
       "tags": [
         "control-center"
       ]
@@ -7340,5 +7380,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 153
+  "targeted_rate_limit_route_count": 155
 }

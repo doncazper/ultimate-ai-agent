@@ -20,6 +20,8 @@ from ultimate_ai_agent.core.authority import AuthorityLeaseStore  # noqa: E402
 from ultimate_ai_agent.core.crm import (  # noqa: E402
     CRM_ADOPTION_CONTRACT_REF,
     CRM_ADOPTION_FOUNDATION_REF,
+    CrmAdoptionApprovalCaptureRequest,
+    CrmAdoptionCommitRequest,
     CrmAdoptionConflict,
     CrmAdoptionError,
     CrmAdoptionMutationRequest,
@@ -60,11 +62,24 @@ def _commit(
     suffix: str,
 ):
     preview = store.preview_mutation(request)
+    idempotency_ref = f"idempotency-ref:queue-v2-q32-verifier:{suffix}"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
     return store.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
-        idempotency_ref=f"idempotency-ref:queue-v2-q32-verifier:{suffix}",
+        idempotency_ref=idempotency_ref,
         confirmed=True,
     )
 
@@ -187,13 +202,23 @@ def verify() -> dict[str, object]:
         )
         target = CrmAdoptionStore(root / "target")
         restore_preview = target.preview_restore(restore_request)
-        restore_receipt = target.commit_restore(
-            request=CrmPortableRestoreCommitRequest(
-                **restore_request.model_dump(mode="python"),
-                preview_ref=restore_preview.preview_ref,
-                approval_ref=restore_preview.approval_ref,
+        restore_commit = CrmPortableRestoreCommitRequest(
+            **restore_request.model_dump(mode="python"),
+            preview_ref=restore_preview.preview_ref,
+            approval_ref=restore_preview.approval_ref,
+        )
+        restore_idempotency_ref = "idempotency-ref:queue-v2-q32-verifier:restore"
+        target.capture_approval(
+            request=CrmAdoptionApprovalCaptureRequest(
+                operation="restore",
+                restore=restore_commit,
             ),
-            idempotency_ref="idempotency-ref:queue-v2-q32-verifier:restore",
+            idempotency_ref=restore_idempotency_ref,
+            confirmed=True,
+        )
+        restore_receipt = target.commit_restore(
+            request=restore_commit,
+            idempotency_ref=restore_idempotency_ref,
             confirmed=True,
         )
         _require(
@@ -201,12 +226,8 @@ def verify() -> dict[str, object]:
             "Q32_RESTORE_FAILED",
         )
         restore_replay = target.commit_restore(
-            request=CrmPortableRestoreCommitRequest(
-                **restore_request.model_dump(mode="python"),
-                preview_ref=restore_preview.preview_ref,
-                approval_ref=restore_preview.approval_ref,
-            ),
-            idempotency_ref="idempotency-ref:queue-v2-q32-verifier:restore",
+            request=restore_commit,
+            idempotency_ref=restore_idempotency_ref,
             confirmed=True,
         )
         _require(
@@ -235,13 +256,23 @@ def verify() -> dict[str, object]:
             "Q32_CORRUPTION_STATE_FAILED",
         )
         recovery_preview = target.preview_restore(restore_request)
-        target.commit_restore(
-            request=CrmPortableRestoreCommitRequest(
-                **restore_request.model_dump(mode="python"),
-                preview_ref=recovery_preview.preview_ref,
-                approval_ref=recovery_preview.approval_ref,
+        recovery_commit = CrmPortableRestoreCommitRequest(
+            **restore_request.model_dump(mode="python"),
+            preview_ref=recovery_preview.preview_ref,
+            approval_ref=recovery_preview.approval_ref,
+        )
+        recovery_idempotency_ref = "idempotency-ref:queue-v2-q32-verifier:recovery"
+        target.capture_approval(
+            request=CrmAdoptionApprovalCaptureRequest(
+                operation="restore",
+                restore=recovery_commit,
             ),
-            idempotency_ref="idempotency-ref:queue-v2-q32-verifier:recovery",
+            idempotency_ref=recovery_idempotency_ref,
+            confirmed=True,
+        )
+        target.commit_restore(
+            request=recovery_commit,
+            idempotency_ref=recovery_idempotency_ref,
             confirmed=True,
         )
         _require(target.read_view().storage_state == "ready", "Q32_RECOVERY_FAILED")
@@ -249,7 +280,9 @@ def verify() -> dict[str, object]:
         state_bytes = restarted.state_file.read_bytes()
         audit_text = restarted.audit_file.read_text(encoding="utf-8")
         _require(
-            not any(marker.encode("utf-8") in state_bytes for marker in PRIVATE_MARKERS),
+            not any(
+                marker.encode("utf-8") in state_bytes for marker in PRIVATE_MARKERS
+            ),
             "Q32_STATE_PLAINTEXT_LEAK",
         )
         _require(
@@ -257,7 +290,9 @@ def verify() -> dict[str, object]:
             "Q32_AUDIT_PRIVATE_LEAK",
         )
         _require(restarted.state_dir.stat().st_mode & 0o077 == 0, "Q32_DIR_MODE_FAILED")
-        _require(restarted.state_file.stat().st_mode & 0o077 == 0, "Q32_STATE_MODE_FAILED")
+        _require(
+            restarted.state_file.stat().st_mode & 0o077 == 0, "Q32_STATE_MODE_FAILED"
+        )
         _require(restarted.key_file.stat().st_mode & 0o077 == 0, "Q32_KEY_MODE_FAILED")
         _require(restarted.key_file.stat().st_nlink == 1, "Q32_KEY_LINK_FAILED")
 
@@ -269,7 +304,9 @@ def verify() -> dict[str, object]:
             _require(receipt.approval_authority_granted, "Q32_APPROVAL_FAILED")
             _require(bool(receipt.authority_lease_ref), "Q32_LEASE_REF_FAILED")
             _require(bool(receipt.authority_decision_ref), "Q32_DECISION_REF_FAILED")
-            _require(not receipt.external_write_performed, "Q32_EXTERNAL_WRITE_OCCURRED")
+            _require(
+                not receipt.external_write_performed, "Q32_EXTERNAL_WRITE_OCCURRED"
+            )
 
         cli_output = io.StringIO()
         with contextlib.redirect_stdout(cli_output):

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ControlCenterData } from "../api/types";
+import { CrmAdoptionWorkspace } from "../components/CrmAdoptionWorkspace";
 import { Avatar, Badge, Button, Icon, MetaRow, Panel, SearchField, Tabs, Toolbar } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
@@ -293,6 +294,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
       : "CRM owned";
   return (
     <div className="ns-surface ns-crm">
+      <CrmAdoptionWorkspace />
       <Toolbar title="CRM v3" subtitle="Relationships, opportunities, and commitments">
         <SearchField onChange={(value) => { setQuery(value); setSelectedIndex(0); }} placeholder="Search safe relationship summaries" value={query} />
         <Button disabled title="Smart-list selection is not yet a local presentation control">Smart views: {crm.smart_lists.length}</Button><Button disabled icon="filter" title="Backend CRM filters are not connected">Filters</Button>

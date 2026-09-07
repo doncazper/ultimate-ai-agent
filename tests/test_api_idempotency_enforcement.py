@@ -23,11 +23,9 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
             "/api/runtime/goals/approval-requests/create",
             "/api/runtime/goals/{goal_ref}/approval-requests/edit",
             "/api/runtime/goals/{goal_ref}/approval-requests/transition",
-            (
-                "/api/runtime/goals/approval-requests/"
-                "{approval_request_ref}/decision"
-            ),
+            ("/api/runtime/goals/approval-requests/{approval_request_ref}/decision"),
             "/api/runtime/goals/approval-requests/revoke",
+            "/control-center/crm/adoption/approval",
             "/control-center/crm/adoption/commit",
             "/control-center/crm/adoption/restore",
         }
@@ -86,10 +84,7 @@ def test_goal_approval_mutations_report_the_hash_chained_ledger_owner() -> None:
         "/api/runtime/goals/approval-requests/create",
         "/api/runtime/goals/{goal_ref}/approval-requests/edit",
         "/api/runtime/goals/{goal_ref}/approval-requests/transition",
-        (
-            "/api/runtime/goals/approval-requests/"
-            "{approval_request_ref}/decision"
-        ),
+        ("/api/runtime/goals/approval-requests/{approval_request_ref}/decision"),
         "/api/runtime/goals/approval-requests/revoke",
     }
     routes = [
@@ -131,6 +126,21 @@ def test_crm_adoption_commits_report_encrypted_state_receipt_replay_owner() -> N
         route["durable_idempotency_owner_ref"]
         == "idempotency-owner:crm-adoption-encrypted-state-receipts:v1"
         for route in routes
+    )
+
+
+def test_crm_adoption_approval_reports_durable_authority_store_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    route = next(
+        route
+        for route in manifest["routes"]
+        if route["path"] == "/control-center/crm/adoption/approval"
+        and route["method"] == "POST"
+    )
+
+    assert route["idempotency_enforcement"] == "route_owned_durable_replay"
+    assert route["durable_idempotency_owner_ref"] == (
+        "idempotency-owner:crm-adoption-authority-approval-store:v1"
     )
 
 

@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 import {
+  captureCrmAdoptionMutationApproval,
+  captureCrmPortableRestoreApproval,
   commitCrmAdoptionMutation,
   commitCrmPortableRestore,
   createCrmPortableBackup,
@@ -84,8 +86,16 @@ function optional(value: string | null | undefined): string | null {
   return normalized || null;
 }
 
-function inputDate(value: string | null | undefined): string {
-  return value ? value.slice(0, 16) : "";
+export function crmLocalDateTimeInputValue(
+  value: string | null | undefined,
+): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const part = (number: number) => String(number).padStart(2, "0");
+  return `${parsed.getFullYear()}-${part(parsed.getMonth() + 1)}-${part(
+    parsed.getDate(),
+  )}T${part(parsed.getHours())}:${part(parsed.getMinutes())}`;
 }
 
 function isoDate(value: string | null | undefined): string | null {
@@ -263,6 +273,12 @@ export function CrmAdoptionWorkspace() {
     setBusy(true);
     setError("");
     try {
+      await captureCrmAdoptionMutationApproval(
+        pending.request,
+        pending.preview,
+        pending.idempotencyRef,
+        mutationBinding,
+      );
       const receipt = await commitCrmAdoptionMutation(
         pending.request,
         pending.preview,
@@ -300,8 +316,8 @@ export function CrmAdoptionWorkspace() {
       tags: record.tags,
       status: record.status ?? "",
       related_refs: record.related_refs,
-      due_at: inputDate(record.due_at),
-      occurred_at: inputDate(record.occurred_at),
+      due_at: crmLocalDateTimeInputValue(record.due_at),
+      occurred_at: crmLocalDateTimeInputValue(record.occurred_at),
       amount_minor: record.amount_minor ?? null,
       currency: record.currency ?? "USD",
       priority: record.priority ?? "medium",
@@ -442,6 +458,13 @@ export function CrmAdoptionWorkspace() {
     setBusy(true);
     setError("");
     try {
+      await captureCrmPortableRestoreApproval(
+        pendingRestore.backup,
+        pendingRestore.passphrase,
+        pendingRestore.preview,
+        pendingRestore.idempotencyRef,
+        mutationBinding,
+      );
       const receipt = await commitCrmPortableRestore(
         pendingRestore.backup,
         pendingRestore.passphrase,
@@ -870,11 +893,11 @@ function RecordEditor({
         </label>
         <label>
           <span>Due date</span>
-          <input type="datetime-local" value={inputDate(draft.due_at)} onChange={(event) => set("due_at", event.target.value || null)} />
+          <input type="datetime-local" value={crmLocalDateTimeInputValue(draft.due_at)} onChange={(event) => set("due_at", event.target.value || null)} />
         </label>
         <label>
           <span>Activity date</span>
-          <input type="datetime-local" value={inputDate(draft.occurred_at)} onChange={(event) => set("occurred_at", event.target.value || null)} />
+          <input type="datetime-local" value={crmLocalDateTimeInputValue(draft.occurred_at)} onChange={(event) => set("occurred_at", event.target.value || null)} />
         </label>
         <label>
           <span>Amount</span>

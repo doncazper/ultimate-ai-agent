@@ -241,7 +241,9 @@ COMMUNICATIONS_MATRIX_INTELLIGENCE_PATHS = {
     },
 }
 CRM_ADOPTION_POST_PATHS = {
+    "/control-center/crm/adoption/query",
     "/control-center/crm/adoption/preview",
+    "/control-center/crm/adoption/approval",
     "/control-center/crm/adoption/commit",
     "/control-center/crm/adoption/backup",
     "/control-center/crm/adoption/restore-preview",

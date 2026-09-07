@@ -56,7 +56,7 @@
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 153
+      "const": 155
     },
     "posture_field": {
       "const": "rate_limit_posture"

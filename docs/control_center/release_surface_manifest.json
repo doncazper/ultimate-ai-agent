@@ -1360,10 +1360,24 @@
         },
         {
           "method": "POST",
+          "path": "/control-center/crm/adoption/query",
+          "operation_id": "query_control_center_crm_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
           "path": "/control-center/crm/adoption/preview",
           "operation_id": "preview_control_center_crm_adoption_mutation",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/approval",
+          "operation_id": "capture_control_center_crm_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "POST",

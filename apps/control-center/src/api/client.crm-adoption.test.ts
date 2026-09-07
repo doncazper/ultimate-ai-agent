@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  captureCrmAdoptionMutationApproval,
+  captureCrmPortableRestoreApproval,
   commitCrmAdoptionMutation,
   commitCrmPortableRestore,
+  loadCrmAdoptionWorkspace,
   type BackendTruthReadBinding,
 } from "./client";
 import { API_ENDPOINTS } from "./endpoints";
@@ -43,7 +46,7 @@ describe("CRM adoption mutation provenance", () => {
     vi.unstubAllGlobals();
   });
 
-  it("binds local mutation and restore commits to exact backend truth", async () => {
+  it("binds approval capture and commits to exact backend truth", async () => {
     const fetchMock = vi.fn(
       async (_url: string | URL | Request, _init?: RequestInit) =>
         new Response(
@@ -56,10 +59,23 @@ describe("CRM adoption mutation provenance", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    await captureCrmAdoptionMutationApproval(
+      mutation,
+      mutationPreview,
+      "idempotency-ref:crm-adoption:test-mutation",
+      binding,
+    );
     await commitCrmAdoptionMutation(
       mutation,
       mutationPreview,
       "idempotency-ref:crm-adoption:test-mutation",
+      binding,
+    );
+    await captureCrmPortableRestoreApproval(
+      backup,
+      "correct horse battery staple",
+      restorePreview,
+      "idempotency-ref:crm-adoption:test-restore",
       binding,
     );
     await commitCrmPortableRestore(
@@ -70,9 +86,11 @@ describe("CRM adoption mutation provenance", () => {
       binding,
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      API_ENDPOINTS.crmAdoptionApproval,
       API_ENDPOINTS.crmAdoptionCommit,
+      API_ENDPOINTS.crmAdoptionApproval,
       API_ENDPOINTS.crmAdoptionRestore,
     ]);
     for (const [, init] of fetchMock.mock.calls) {
@@ -105,6 +123,44 @@ describe("CRM adoption mutation provenance", () => {
         null,
       ),
     ).rejects.toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
+    await expect(
+      captureCrmAdoptionMutationApproval(
+        mutation,
+        mutationPreview,
+        "idempotency-ref:crm-adoption:missing-approval-binding",
+        null,
+      ),
+    ).rejects.toThrow("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps private CRM searches in the request body", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            schema_version: "uaa-crm-adoption-workspace.v1",
+            private_values_confined_to_local_response: true,
+            fixture_primary_truth: false,
+            external_crm_write_enabled: false,
+            records: [],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await loadCrmAdoptionWorkspace("Private Name", "person", true);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(API_ENDPOINTS.crmAdoptionQuery);
+    expect(String(url)).not.toContain("Private Name");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      query: "Private Name",
+      record_kind: "person",
+      include_archived: true,
+    });
   });
 });

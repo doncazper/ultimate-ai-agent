@@ -28,7 +28,7 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 122,
+  "current_mutating_route_count": 123,
   "current_mutating_routes": [
     {
       "method": "POST",
@@ -1095,6 +1095,19 @@
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_group": "communications_matrix_session"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/crm/adoption/approval",
+      "operation_id": "capture_control_center_crm_adoption_approval",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "crm_adoption"
     },
     {
       "method": "POST",

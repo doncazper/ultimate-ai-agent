@@ -24,6 +24,12 @@ GOAL_APPROVAL_LEDGER_DURABLE_IDEMPOTENCY_OWNER_REF = (
 CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:crm-adoption-encrypted-state-receipts:v1"
 )
+CRM_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:crm-adoption-authority-approval-store:v1"
+)
+CRM_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS = frozenset(
+    {"/control-center/crm/adoption/approval"}
+)
 CRM_ADOPTION_DURABLE_REPLAY_PATHS = frozenset(
     {
         "/control-center/crm/adoption/commit",
@@ -42,10 +48,7 @@ GOAL_APPROVAL_LEDGER_DURABLE_REPLAY_PATHS = frozenset(
         "/api/runtime/goals/approval-requests/create",
         "/api/runtime/goals/{goal_ref}/approval-requests/edit",
         "/api/runtime/goals/{goal_ref}/approval-requests/transition",
-        (
-            "/api/runtime/goals/approval-requests/"
-            "{approval_request_ref}/decision"
-        ),
+        ("/api/runtime/goals/approval-requests/{approval_request_ref}/decision"),
         "/api/runtime/goals/approval-requests/revoke",
     }
 )
@@ -111,6 +114,11 @@ def route_idempotency_enforcement(
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             GOAL_APPROVAL_LEDGER_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in CRM_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CRM_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
     if method == "POST" and path in CRM_ADOPTION_DURABLE_REPLAY_PATHS:
         return (

@@ -54,10 +54,12 @@ from ultimate_ai_agent.core.decision_router import (
     build_turn_router_preview,
 )
 from ultimate_ai_agent.core.crm import (
+    CrmAdoptionApprovalCaptureRequest,
     CrmAdoptionCommitRequest,
     CrmAdoptionConflict,
     CrmAdoptionError,
     CrmAdoptionMutationRequest,
+    CrmAdoptionQueryRequest,
     CrmAdoptionStore,
     CrmPortableBackupRequest,
     CrmPortableRestoreCommitRequest,
@@ -347,7 +349,6 @@ def get_control_center_crm_summary() -> ResultEnvelope:
     summary="Read the founder-private encrypted CRM workspace",
 )
 def get_control_center_crm_adoption(
-    query: str = Query(default="", max_length=512),
     record_kind: str | None = Query(default=None),
     include_archived: bool = Query(default=False),
 ) -> ResultEnvelope:
@@ -369,7 +370,7 @@ def get_control_center_crm_adoption(
             },
         )
     view = CrmAdoptionStore.from_env().read_view(
-        query=query,
+        query="",
         record_kind=record_kind,  # type: ignore[arg-type]
         include_archived=include_archived,
     )
@@ -378,6 +379,28 @@ def get_control_center_crm_adoption(
         trace_id=f"crm-adoption-revision-ref:{view.revision}",
         data=view.model_dump(mode="json"),
         evidence_ref="evidence-ref:queue-v2-q32:private-workspace-read",
+    )
+
+
+@router.post(
+    "/crm/adoption/query",
+    response_model=ResultEnvelope,
+    operation_id="query_control_center_crm_adoption_workspace",
+    summary="Search the founder-private CRM without URL disclosure",
+)
+def post_control_center_crm_adoption_query(
+    request: CrmAdoptionQueryRequest,
+) -> ResultEnvelope:
+    view = CrmAdoptionStore.from_env().read_view(
+        query=request.query,
+        record_kind=request.record_kind,
+        include_archived=request.include_archived,
+    )
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_query",
+        trace_id=f"crm-adoption-revision-ref:{view.revision}",
+        data=view.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:private-workspace-query",
     )
 
 
@@ -403,6 +426,44 @@ def post_control_center_crm_adoption_preview(
 
 
 @router.post(
+    "/crm/adoption/approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_crm_adoption_approval",
+    summary="Capture one exact local CRM approval grant",
+)
+def post_control_center_crm_adoption_approval(
+    request: CrmAdoptionApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        receipt = CrmAdoptionStore.from_env().capture_approval(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-approval-receipt",
+    )
+
+
+@router.post(
     "/crm/adoption/commit",
     response_model=ResultEnvelope,
     operation_id="commit_control_center_crm_adoption_mutation",
@@ -423,9 +484,7 @@ def post_control_center_crm_adoption_commit(
         alias=_OPERATOR_CONFIRMATION_HEADER,
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _crm_idempotency_ref(
-        x_uaa_idempotency_key, x_uaa_idempotency_ref
-    )
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
         receipt = CrmAdoptionStore.from_env().commit_mutation(
             request=request.mutation,
@@ -507,9 +566,7 @@ def post_control_center_crm_adoption_restore(
         alias=_OPERATOR_CONFIRMATION_HEADER,
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _crm_idempotency_ref(
-        x_uaa_idempotency_key, x_uaa_idempotency_ref
-    )
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
         receipt = CrmAdoptionStore.from_env().commit_restore(
             request=request,

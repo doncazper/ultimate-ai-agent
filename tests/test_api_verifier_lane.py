@@ -23,6 +23,16 @@ def test_default_api_verifier_context_is_cached() -> None:
     assert first is second
     assert first.client is second.client
     assert first.manifest["route_count"] == EXPECTED_ROUTE_COUNT
+    assert {
+        ("GET", "/control-center/crm/adoption"),
+        ("POST", "/control-center/crm/adoption/query"),
+        ("POST", "/control-center/crm/adoption/preview"),
+        ("POST", "/control-center/crm/adoption/approval"),
+        ("POST", "/control-center/crm/adoption/commit"),
+        ("POST", "/control-center/crm/adoption/backup"),
+        ("POST", "/control-center/crm/adoption/restore-preview"),
+        ("POST", "/control-center/crm/adoption/restore"),
+    }.issubset(first.routes_by_key)
 
 
 def test_individual_api_verifiers_accept_shared_context(shared_context) -> None:

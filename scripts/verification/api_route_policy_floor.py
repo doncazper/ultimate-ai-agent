@@ -47,6 +47,7 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/chat/turns"),
         ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
         ("POST", "/control-center/crm/local-mutations"),
+        ("POST", "/control-center/crm/adoption/approval"),
         ("POST", "/control-center/crm/adoption/commit"),
         ("POST", "/control-center/crm/adoption/restore"),
         ("POST", "/control-center/communications/harness/fixture-seed"),
@@ -185,9 +186,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 153
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 155
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "0529072bd281e1d76f6792f198c993f1fea203a28b03742ddb963401f28925a1"
+    "3fad61774975296be65cea56946d4cae8306de1095e488a2a212b4a0d1bf1123"
 )
 
 

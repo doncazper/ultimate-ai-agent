@@ -7,9 +7,14 @@ import type {
   CrmAdoptionWorkspaceView,
 } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
-import { CrmAdoptionWorkspace } from "./CrmAdoptionWorkspace";
+import {
+  CrmAdoptionWorkspace,
+  crmLocalDateTimeInputValue,
+} from "./CrmAdoptionWorkspace";
 
 const apiMocks = vi.hoisted(() => ({
+  captureCrmAdoptionMutationApproval: vi.fn(),
+  captureCrmPortableRestoreApproval: vi.fn(),
   commitCrmAdoptionMutation: vi.fn(),
   commitCrmPortableRestore: vi.fn(),
   createCrmPortableBackup: vi.fn(),
@@ -130,6 +135,9 @@ describe("CrmAdoptionWorkspace", () => {
     vi.clearAllMocks();
     apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue(workspace);
     apiMocks.previewCrmAdoptionMutation.mockResolvedValue(preview);
+    apiMocks.captureCrmAdoptionMutationApproval.mockResolvedValue({
+      schema_version: "uaa-crm-adoption-approval-receipt.v1",
+    });
     apiMocks.commitCrmAdoptionMutation.mockResolvedValue(receipt);
   });
 
@@ -176,6 +184,14 @@ describe("CrmAdoptionWorkspace", () => {
       screen.getByRole("button", { name: "Confirm and save locally" }),
     );
     await waitFor(() =>
+      expect(apiMocks.captureCrmAdoptionMutationApproval).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "create" }),
+        preview,
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
+        mutationBinding,
+      ),
+    );
+    await waitFor(() =>
       expect(apiMocks.commitCrmAdoptionMutation).toHaveBeenCalledWith(
         expect.objectContaining({ action: "create" }),
         preview,
@@ -186,6 +202,21 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       await screen.findByText(/Saved locally at CRM revision 5/i),
     ).toBeInTheDocument();
+  });
+
+  it("converts stored UTC timestamps to local wall time before editing", () => {
+    const spies = [
+      vi.spyOn(Date.prototype, "getFullYear").mockReturnValue(2026),
+      vi.spyOn(Date.prototype, "getMonth").mockReturnValue(8),
+      vi.spyOn(Date.prototype, "getDate").mockReturnValue(6),
+      vi.spyOn(Date.prototype, "getHours").mockReturnValue(10),
+      vi.spyOn(Date.prototype, "getMinutes").mockReturnValue(0),
+    ];
+
+    expect(crmLocalDateTimeInputValue("2026-09-06T17:00:00Z")).toBe(
+      "2026-09-06T10:00",
+    );
+    spies.forEach((spy) => spy.mockRestore());
   });
 
   it("shows recovery-required state without pretending ordinary edits are safe", async () => {

@@ -11,6 +11,8 @@ from scripts.dev.uaa_crm import main as crm_cli_main
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.crm import (
+    CRM_ADOPTION_MAX_BACKUP_FILE_BYTES,
+    CrmAdoptionApprovalCaptureRequest,
     CrmAdoptionCommitRequest,
     CrmAdoptionConflict,
     CrmAdoptionError,
@@ -47,11 +49,40 @@ def _commit(
     suffix: str,
 ):
     preview = store.preview_mutation(request)
+    idempotency_ref = f"idempotency-ref:crm-adoption-test:{suffix}"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
     return store.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
-        idempotency_ref=f"idempotency-ref:crm-adoption-test:{suffix}",
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+
+def _capture_restore(
+    store: CrmAdoptionStore,
+    request: CrmPortableRestoreCommitRequest,
+    *,
+    idempotency_ref: str,
+) -> None:
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="restore",
+            restore=request,
+        ),
+        idempotency_ref=idempotency_ref,
         confirmed=True,
     )
 
@@ -82,6 +113,14 @@ def test_private_crm_lifecycle_is_encrypted_searchable_and_restart_safe(
             preview_ref=preview.preview_ref,
             approval_ref="approval-ref:crm-adoption:wrong",
             idempotency_ref="idempotency-ref:crm-adoption-test:wrong-approval",
+            confirmed=True,
+        )
+    with pytest.raises(CrmAdoptionError, match="EXACT_APPROVAL_REQUIRED"):
+        store.commit_mutation(
+            request=create,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref="idempotency-ref:crm-adoption-test:no-grant",
             confirmed=True,
         )
 
@@ -140,18 +179,31 @@ def test_stale_revision_replay_and_changed_replay_fail_closed(tmp_path: Path) ->
     store = CrmAdoptionStore(tmp_path / "crm")
     request = _create_request()
     preview = store.preview_mutation(request)
+    replay_idempotency_ref = "idempotency-ref:crm-adoption-test:replay"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=replay_idempotency_ref,
+        confirmed=True,
+    )
     receipt = store.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
-        idempotency_ref="idempotency-ref:crm-adoption-test:replay",
+        idempotency_ref=replay_idempotency_ref,
         confirmed=True,
     )
     replay = store.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
-        idempotency_ref="idempotency-ref:crm-adoption-test:replay",
+        idempotency_ref=replay_idempotency_ref,
         confirmed=True,
     )
     assert replay.receipt_ref == receipt.receipt_ref
@@ -162,7 +214,7 @@ def test_stale_revision_replay_and_changed_replay_fail_closed(tmp_path: Path) ->
             request=request,
             preview_ref=preview.preview_ref,
             approval_ref="approval-ref:crm-adoption:substituted",
-            idempotency_ref="idempotency-ref:crm-adoption-test:replay",
+            idempotency_ref=replay_idempotency_ref,
             confirmed=True,
         )
 
@@ -175,7 +227,7 @@ def test_stale_revision_replay_and_changed_replay_fail_closed(tmp_path: Path) ->
             request=changed,
             preview_ref=changed_preview.preview_ref,
             approval_ref=changed_preview.approval_ref,
-            idempotency_ref="idempotency-ref:crm-adoption-test:replay",
+            idempotency_ref=replay_idempotency_ref,
             confirmed=True,
         )
 
@@ -190,6 +242,19 @@ def test_state_write_failure_does_not_publish_audit(
     store = CrmAdoptionStore(tmp_path / "crm")
     request = _create_request()
     preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:state-write-failure"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
 
     def fail_state_write(_state: object) -> None:
         raise OSError("synthetic state write failure")
@@ -200,11 +265,12 @@ def test_state_write_failure_does_not_publish_audit(
             request=request,
             preview_ref=preview.preview_ref,
             approval_ref=preview.approval_ref,
-            idempotency_ref="idempotency-ref:crm-adoption-test:state-write-failure",
+            idempotency_ref=idempotency_ref,
             confirmed=True,
         )
 
     assert not store.audit_file.exists()
+    assert not store.pending_audit_file.exists()
     assert store.read_view().revision == 0
 
 
@@ -216,6 +282,18 @@ def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
     request = _create_request()
     preview = store.preview_mutation(request)
     idempotency_ref = "idempotency-ref:crm-adoption-test:audit-repair"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
     append_audit = store._append_audit
     attempts = 0
 
@@ -236,9 +314,15 @@ def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
             confirmed=True,
         )
 
-    assert store.read_view().revision == 1
+    assert store._read_state().revision == 1
     assert not store.audit_file.exists()
-    replay = store.commit_mutation(
+    assert store.pending_audit_file.exists()
+    monkeypatch.setattr(store, "_append_audit", append_audit)
+    restarted = CrmAdoptionStore(store.state_dir)
+    assert restarted.read_view().revision == 1
+    assert restarted.audit_file.exists()
+    assert not restarted.pending_audit_file.exists()
+    replay = restarted.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
@@ -247,8 +331,77 @@ def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
     )
     assert replay.replayed is True
     assert replay.after_revision == 1
-    assert store.audit_file.exists()
-    assert attempts == 2
+    assert attempts == 1
+
+
+def test_pending_audit_is_bound_to_the_authoritative_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:audit-binding"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    monkeypatch.setattr(
+        store,
+        "_append_audit",
+        lambda _receipt: (_ for _ in ()).throw(OSError("synthetic audit failure")),
+    )
+    with pytest.raises(CrmAdoptionError, match="AUDIT_FINALIZATION_REQUIRED"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    event = json.loads(store.pending_audit_file.read_text(encoding="utf-8"))
+    event["after_revision"] = 999
+    store.pending_audit_file.write_text(json.dumps(event), encoding="utf-8")
+    restarted = CrmAdoptionStore(store.state_dir)
+    view = restarted.read_view()
+    assert view.storage_state == "ready"
+    assert not restarted.pending_audit_file.exists()
+    audit_event = json.loads(restarted.audit_file.read_text(encoding="utf-8"))
+    assert audit_event["after_revision"] == 1
+
+
+def test_approval_capture_rejects_exact_ref_rebinding(tmp_path: Path) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    capture = CrmAdoptionApprovalCaptureRequest(
+        operation="mutation",
+        mutation=CrmAdoptionCommitRequest(
+            mutation=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+    )
+    store.capture_approval(
+        request=capture,
+        idempotency_ref="idempotency-ref:crm-adoption-test:approval-binding-one",
+        confirmed=True,
+    )
+    with pytest.raises(CrmAdoptionConflict, match="APPROVAL_CONFLICT"):
+        store.capture_approval(
+            request=capture,
+            idempotency_ref="idempotency-ref:crm-adoption-test:approval-binding-two",
+            confirmed=True,
+        )
 
 
 def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -> None:
@@ -263,11 +416,24 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     preview = store.preview_mutation(request)
     assert preview.affected_count == 1
     assert preview.duplicate_candidate_count == 1
+    import_idempotency_ref = "idempotency-ref:crm-adoption-test:import"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=import_idempotency_ref,
+        confirmed=True,
+    )
     receipt = store.commit_mutation(
         request=request,
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
-        idempotency_ref="idempotency-ref:crm-adoption-test:import",
+        idempotency_ref=import_idempotency_ref,
         confirmed=True,
     )
     assert receipt.after_revision == 2
@@ -284,6 +450,19 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     with pytest.raises(CrmAdoptionConflict, match="IMPORT_NO_NEW_RECORDS"):
         store.preview_mutation(all_duplicate)
 
+    digitless_phones = CrmAdoptionMutationRequest(
+        action="import_contacts",
+        expected_revision=2,
+        csv_text=(
+            "name,email,phone\n"
+            "Distinct Alpha,alpha@example.test,N/A\n"
+            "Distinct Beta,beta@example.test,unknown\n"
+        ),
+    )
+    digitless_preview = store.preview_mutation(digitless_phones)
+    assert digitless_preview.affected_count == 2
+    assert digitless_preview.duplicate_candidate_count == 0
+
 
 def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     tmp_path: Path,
@@ -299,9 +478,7 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     assert "example.test" not in serialized
 
     target = CrmAdoptionStore(tmp_path / "target")
-    restore_request = CrmPortableRestoreRequest(
-        passphrase=passphrase, backup=backup
-    )
+    restore_request = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
     preview = target.preview_restore(restore_request)
     assert preview.integrity_status == "ok"
     assert preview.record_count == 1
@@ -321,16 +498,22 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
         preview_ref=preview.preview_ref,
         approval_ref=preview.approval_ref,
     )
+    restore_idempotency_ref = "idempotency-ref:crm-adoption-test:restore"
+    _capture_restore(
+        target,
+        commit_request,
+        idempotency_ref=restore_idempotency_ref,
+    )
     receipt = target.commit_restore(
         request=commit_request,
-        idempotency_ref="idempotency-ref:crm-adoption-test:restore",
+        idempotency_ref=restore_idempotency_ref,
         confirmed=True,
     )
     assert receipt.after_revision == 2
     assert target.read_view().records[0].display_name == "Private Person"
     replay = target.commit_restore(
         request=commit_request,
-        idempotency_ref="idempotency-ref:crm-adoption-test:restore",
+        idempotency_ref=restore_idempotency_ref,
         confirmed=True,
     )
     assert replay.receipt_ref == receipt.receipt_ref
@@ -340,13 +523,15 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
             request=commit_request.model_copy(
                 update={"approval_ref": "approval-ref:crm-adoption:substituted"}
             ),
-            idempotency_ref="idempotency-ref:crm-adoption-test:restore",
+            idempotency_ref=restore_idempotency_ref,
             confirmed=True,
         )
 
     with pytest.raises(CrmAdoptionError, match="BACKUP_UNLOCK_FAILED"):
         target.preview_restore(
-            CrmPortableRestoreRequest(passphrase="wrong passphrase value", backup=backup)
+            CrmPortableRestoreRequest(
+                passphrase="wrong passphrase value", backup=backup
+            )
         )
 
     target.state_file.write_bytes(b"corrupt")
@@ -357,12 +542,47 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
         preview_ref=recovery_preview.preview_ref,
         approval_ref=recovery_preview.approval_ref,
     )
+    recovery_idempotency_ref = "idempotency-ref:crm-adoption-test:recovery"
+    _capture_restore(
+        target,
+        recovery_request,
+        idempotency_ref=recovery_idempotency_ref,
+    )
     target.commit_restore(
         request=recovery_request,
-        idempotency_ref="idempotency-ref:crm-adoption-test:recovery",
+        idempotency_ref=recovery_idempotency_ref,
         confirmed=True,
     )
     assert target.read_view().storage_state == "ready"
+
+    invalid_key_target = CrmAdoptionStore(tmp_path / "invalid-key-target")
+    invalid_key_target.state_dir.mkdir(parents=True)
+    invalid_key_target.state_file.write_bytes(b"corrupt-state")
+    invalid_key_target.key_file.write_bytes(b"truncated-key")
+    invalid_key_preview = invalid_key_target.preview_restore(restore_request)
+    invalid_key_request = CrmPortableRestoreCommitRequest(
+        **restore_request.model_dump(mode="python"),
+        preview_ref=invalid_key_preview.preview_ref,
+        approval_ref=invalid_key_preview.approval_ref,
+    )
+    invalid_key_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:invalid-key-recovery"
+    )
+    _capture_restore(
+        invalid_key_target,
+        invalid_key_request,
+        idempotency_ref=invalid_key_idempotency_ref,
+    )
+    invalid_key_target.commit_restore(
+        request=invalid_key_request,
+        idempotency_ref=invalid_key_idempotency_ref,
+        confirmed=True,
+    )
+    recovered_state = invalid_key_target._read_state()
+    assert recovered_state.records[0].display_name == "Private Person"
+    assert len(recovered_state.undo_stack) == len(source._read_state().undo_stack)
+    assert invalid_key_target.key_file.stat().st_size == 32
+    assert len(list(invalid_key_target.state_dir.glob("*.invalid-*"))) == 1
 
 
 def test_restore_audit_failure_is_repaired_by_exact_replay(
@@ -384,6 +604,7 @@ def test_restore_audit_failure_is_repaired_by_exact_replay(
         approval_ref=preview.approval_ref,
     )
     idempotency_ref = "idempotency-ref:crm-adoption-test:restore-audit-repair"
+    _capture_restore(target, request, idempotency_ref=idempotency_ref)
     append_audit = target._append_audit
     attempts = 0
 
@@ -402,16 +623,22 @@ def test_restore_audit_failure_is_repaired_by_exact_replay(
             confirmed=True,
         )
 
-    assert target.read_view().records[0].display_name == "Private Person"
+    assert target._read_state().records[0].display_name == "Private Person"
     assert not target.audit_file.exists()
-    replay = target.commit_restore(
+    assert target.pending_audit_file.exists()
+    monkeypatch.setattr(target, "_append_audit", append_audit)
+    restarted = CrmAdoptionStore(target.state_dir)
+    assert restarted.read_view().records[0].display_name == "Private Person"
+    assert restarted.audit_file.exists()
+    assert not restarted.pending_audit_file.exists()
+    replay = restarted.commit_restore(
         request=request,
         idempotency_ref=idempotency_ref,
         confirmed=True,
     )
     assert replay.replayed is True
     assert target.audit_file.exists()
-    assert attempts == 2
+    assert attempts == 1
 
 
 def test_all_supported_record_kinds_are_durable_and_searchable(tmp_path: Path) -> None:
@@ -471,22 +698,23 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
 
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(), suffix="cli")
-    assert crm_cli_main(
-        ["inspect-adoption", "--state-dir", str(store.state_dir)]
-    ) == 0
+    assert crm_cli_main(["inspect-adoption", "--state-dir", str(store.state_dir)]) == 0
     safe_output = capsys.readouterr().out
     assert "Private Person" not in safe_output
     assert "private.person@example.test" not in safe_output
     assert '"private_values_included": false' in safe_output
 
-    assert crm_cli_main(
-        [
-            "inspect-adoption",
-            "--state-dir",
-            str(store.state_dir),
-            "--show-private",
-        ]
-    ) == 0
+    assert (
+        crm_cli_main(
+            [
+                "inspect-adoption",
+                "--state-dir",
+                str(store.state_dir),
+                "--show-private",
+            ]
+        )
+        == 0
+    )
     private_output = capsys.readouterr().out
     assert "Private Person" in private_output
     assert "private.person@example.test" in private_output
@@ -500,6 +728,22 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
                 str(store.state_dir),
                 "--backup",
                 str(tmp_path / "not-read.json"),
+            ]
+        )
+
+    oversized_backup = tmp_path / "oversized-backup.json"
+    with oversized_backup.open("wb") as handle:
+        handle.seek(CRM_ADOPTION_MAX_BACKUP_FILE_BYTES)
+        handle.write(b"x")
+    monkeypatch.setenv("UAA_CRM_BACKUP_PASSPHRASE", "correct horse battery staple")
+    with pytest.raises(ValueError, match="BACKUP_FILE_SIZE_LIMIT"):
+        crm_cli_main(
+            [
+                "verify-adoption-backup",
+                "--state-dir",
+                str(store.state_dir),
+                "--backup",
+                str(oversized_backup),
             ]
         )
 
@@ -536,6 +780,30 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
     )
     assert missing_confirmation.status_code == 403
 
+    missing_grant = client.post(
+        "/control-center/crm/adoption/commit",
+        json=commit_body,
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:crm-api:no-grant",
+            "X-UAA-Operator-Confirmed": "true",
+        },
+    )
+    assert missing_grant.status_code == 403
+    assert missing_grant.json()["detail"]["code"] == (
+        "CRM_ADOPTION_EXACT_APPROVAL_REQUIRED"
+    )
+
+    approval = client.post(
+        "/control-center/crm/adoption/approval",
+        json={"operation": "mutation", "mutation": commit_body, "restore": None},
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:crm-api:test",
+            "X-UAA-Operator-Confirmed": "true",
+        },
+    )
+    assert approval.status_code == 200
+    assert approval.json()["data"]["mutation_performed"] is False
+
     committed = client.post(
         "/control-center/crm/adoption/commit",
         json=commit_body,
@@ -547,8 +815,13 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
     assert committed.status_code == 200
     assert committed.json()["data"]["external_write_performed"] is False
     assert committed.json()["data"]["approval_authority_granted"] is True
-    populated = client.get(
-        "/control-center/crm/adoption", params={"query": "example.test"}
+    populated = client.post(
+        "/control-center/crm/adoption/query",
+        json={
+            "query": "example.test",
+            "record_kind": None,
+            "include_archived": False,
+        },
     ).json()["data"]
     assert populated["records"][0]["display_name"] == "Private Person"
 

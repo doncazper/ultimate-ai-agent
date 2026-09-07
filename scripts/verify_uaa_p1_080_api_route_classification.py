@@ -38,7 +38,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 89,
     "none": 18,
-    "local_dev_workspace_only": 202,
+    "local_dev_workspace_only": 204,
     "governed_network_read_only": 6,
     "authenticated_connector_mutation": 25,
     "destructive_local_sensitive": 4,
@@ -126,6 +126,10 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/api/runtime/local-model/call"): "mutating_requires_authority",
     ("POST", "/api/runtime/safe-disable"): "mutating_requires_authority",
     ("POST", "/control-center/crm/local-mutations"): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/crm/adoption/approval",
+    ): "mutating_requires_authority",
     (
         "POST",
         "/control-center/crm/adoption/commit",

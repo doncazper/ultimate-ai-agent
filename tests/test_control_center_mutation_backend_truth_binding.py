@@ -240,15 +240,13 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/memory/review/candidate-ref/accept",
         "/control-center/memory/review/candidate-ref/forget-request",
         "/control-center/memory/context-packs/context-pack-ref/action-proposal",
+        "/control-center/crm/adoption/approval",
         "/control-center/crm/adoption/commit",
         "/control-center/crm/adoption/restore",
         "/api/runtime/goals",
         "/api/runtime/goals/approval-requests/create",
         "/api/runtime/goals/approval-requests/revoke",
-        (
-            "/api/runtime/goals/approval-requests/"
-            "approval-request-ref:browser/decision"
-        ),
+        ("/api/runtime/goals/approval-requests/approval-request-ref:browser/decision"),
         "/api/runtime/goals/goal-ref/approval-requests/edit",
         "/api/runtime/goals/goal-ref/approval-requests/transition",
         "/api/runtime/goals/goal-ref/edit",

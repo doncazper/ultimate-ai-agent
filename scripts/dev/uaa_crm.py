@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.crm import (  # noqa: E402
+    CRM_ADOPTION_MAX_BACKUP_FILE_BYTES,
     CrmAdoptionStore,
     CrmLocalMutationRequest,
     CrmPortableBackup,
@@ -64,8 +65,13 @@ def verify_adoption_backup(args: argparse.Namespace) -> int:
     passphrase = os.environ.get("UAA_CRM_BACKUP_PASSPHRASE", "")
     if not passphrase:
         raise ValueError("CRM_ADOPTION_BACKUP_PASSPHRASE_ENV_REQUIRED")
+    backup_path = Path(args.backup)
+    if backup_path.is_symlink() or not backup_path.is_file():
+        raise ValueError("CRM_ADOPTION_BACKUP_FILE_INVALID")
+    if backup_path.stat().st_size > CRM_ADOPTION_MAX_BACKUP_FILE_BYTES:
+        raise ValueError("CRM_ADOPTION_BACKUP_FILE_SIZE_LIMIT")
     backup = CrmPortableBackup.model_validate_json(
-        Path(args.backup).read_text(encoding="utf-8")
+        backup_path.read_text(encoding="utf-8")
     )
     preview = _adoption_store(args).preview_restore(
         CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
