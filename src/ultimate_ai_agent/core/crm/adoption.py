@@ -24,7 +24,7 @@ from typing import Any, Literal
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
@@ -345,6 +345,16 @@ class CrmAdoptionMutationRequest(_PrivateModel):
     record: CrmAdoptionRecordDraft | None = None
     patch: CrmAdoptionRecordPatch | None = None
     csv_text: str | None = Field(default=None, max_length=2_000_000, repr=False)
+
+    @field_validator("csv_text", mode="before")
+    @classmethod
+    def validate_csv_text_utf8(cls, value: object) -> object:
+        if isinstance(value, str):
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise ValueError("CRM_ADOPTION_IMPORT_UTF8_REQUIRED") from exc
+        return value
 
     @model_validator(mode="after")
     def validate_action(self) -> "CrmAdoptionMutationRequest":
@@ -718,6 +728,7 @@ class CrmAdoptionStore:
             }:
                 try:
                     self._preflight_audit_capacity()
+                    self._preflight_pending_audit_recovery()
                 except CrmAdoptionError as audit_exc:
                     audit_blocker = str(audit_exc)
             if audit_blocker == "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED":
@@ -1438,6 +1449,7 @@ class CrmAdoptionStore:
             }:
                 raise
             self._preflight_audit_capacity()
+            self._preflight_pending_audit_recovery()
             return CrmAdoptionState(), False
 
     def _read_state(self) -> CrmAdoptionState:
@@ -1596,13 +1608,8 @@ class CrmAdoptionStore:
     def _quarantine_pending_audit_for_recovery(self) -> None:
         """Preserve an orphan journal before an approved unreadable-state restore."""
 
-        if not self.pending_audit_file.exists():
+        if not self._preflight_pending_audit_recovery():
             return
-        if (
-            self.pending_audit_file.is_symlink()
-            or not self.pending_audit_file.is_file()
-        ):
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
         quarantine = self.pending_audit_file.with_name(
             f"{self.pending_audit_file.name}.orphan-{secrets.token_hex(8)}"
         )
@@ -1616,6 +1623,17 @@ class CrmAdoptionStore:
                 os.close(directory_fd)
         except OSError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_RECOVERY_FAILED") from exc
+
+    def _preflight_pending_audit_recovery(self) -> bool:
+        """Reject unsafe pending-journal objects before offering recovery."""
+
+        try:
+            metadata = self.pending_audit_file.lstat()
+        except FileNotFoundError:
+            return False
+        if not stat.S_ISREG(metadata.st_mode):
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
+        return True
 
     def _finalize_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
         try:

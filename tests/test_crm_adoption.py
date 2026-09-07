@@ -766,6 +766,15 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     assert bom_preview.private_preview_labels == ["BOM Person"]
 
 
+def test_csv_import_rejects_non_utf8_text_at_request_boundary() -> None:
+    with pytest.raises(ValueError, match="CRM_ADOPTION_IMPORT_UTF8_REQUIRED"):
+        CrmAdoptionMutationRequest(
+            action="import_contacts",
+            expected_revision=0,
+            csv_text="name,email\nInvalid,\ud800\n",
+        )
+
+
 def test_csv_import_treats_archived_contacts_as_duplicate_history(
     tmp_path: Path,
 ) -> None:
@@ -1504,6 +1513,31 @@ def test_corrupt_state_recovery_preserves_and_replaces_orphan_pending_audit(
     quarantined = list(target.state_dir.glob("*.orphan-*"))
     assert len(quarantined) == 1
     assert quarantined[0].read_bytes() == orphan_payload
+
+
+def test_corrupt_state_recovery_blocks_unsafe_pending_audit_before_preview(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix="unsafe-pending-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    target._secure_state_dir()
+    target.state_file.write_bytes(b"corrupt-state")
+    unsafe_target = tmp_path / "unsafe-pending-target"
+    unsafe_target.write_text("not a journal", encoding="utf-8")
+    target.pending_audit_file.symlink_to(unsafe_target)
+
+    view = target.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert "unsafe local CRM audit storage" in view.next_safe_action
+    with pytest.raises(CrmAdoptionError, match="AUDIT_PENDING_UNSAFE"):
+        target.preview_restore(
+            CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+        )
 
 
 def test_all_supported_record_kinds_are_durable_and_searchable(tmp_path: Path) -> None:

@@ -65,6 +65,7 @@ type PendingMutation = {
   request: CrmAdoptionMutationRequest;
   preview: CrmAdoptionMutationPreview;
   idempotencyRef: string;
+  commitAttempted: boolean;
 };
 
 type PendingRestore = {
@@ -85,6 +86,31 @@ function newIdempotencyRef(action: string): string {
 function optional(value: string | null | undefined): string | null {
   const normalized = value?.trim() ?? "";
   return normalized || null;
+}
+
+function crmRecordContentToken(record: CrmAdoptionRecord): string {
+  return JSON.stringify([
+    record.record_ref,
+    record.record_kind,
+    record.display_name,
+    record.subtitle,
+    record.email,
+    record.phone,
+    record.website,
+    record.notes,
+    record.tags,
+    record.status,
+    record.related_refs,
+    record.due_at,
+    record.occurred_at,
+    record.amount_minor,
+    record.currency,
+    record.priority,
+    record.archived,
+    record.version,
+    record.created_at,
+    record.updated_at,
+  ]);
 }
 
 export function crmLocalDateTimeInputValue(
@@ -192,7 +218,8 @@ export function CrmAdoptionWorkspace() {
     );
     if (
       !refreshedRecord ||
-      refreshedRecord.version !== editingOriginal.version
+      crmRecordContentToken(refreshedRecord) !==
+        crmRecordContentToken(editingOriginal)
     ) {
       setEditingRef(null);
       setEditingOriginal(null);
@@ -224,7 +251,7 @@ export function CrmAdoptionWorkspace() {
           request,
           idempotencyRef,
         );
-        setPending({ request, preview, idempotencyRef });
+        setPending({ request, preview, idempotencyRef, commitAttempted: false });
       } catch (reason) {
         setError(
           reason instanceof Error
@@ -334,6 +361,11 @@ export function CrmAdoptionWorkspace() {
         pending.preview,
         pending.idempotencyRef,
         mutationBinding,
+      );
+      setPending((current) =>
+        current?.idempotencyRef === pending.idempotencyRef
+          ? { ...current, commitAttempted: true }
+          : current,
       );
       const receipt = await commitCrmAdoptionMutation(
         pending.request,
@@ -814,7 +846,19 @@ export function CrmAdoptionWorkspace() {
           labels={pending.preview.private_preview_labels}
           busy={busy}
           confirmLabel="Confirm and save locally"
-          onCancel={() => setPending(null)}
+          cancelLabel={
+            pending.commitAttempted && pending.request.action === "create"
+              ? "Stop and clear draft"
+              : "Cancel"
+          }
+          onCancel={() => {
+            if (pending.commitAttempted && pending.request.action === "create") {
+              setEditingRef(null);
+              setEditingOriginal(null);
+              setDraft({ ...EMPTY_DRAFT });
+            }
+            setPending(null);
+          }}
           onConfirm={() => void confirmMutation()}
         />
       ) : null}
@@ -1082,6 +1126,7 @@ function ConfirmationPanel({
   labels,
   busy,
   confirmLabel,
+  cancelLabel = "Cancel",
   onCancel,
   onConfirm,
 }: {
@@ -1091,6 +1136,7 @@ function ConfirmationPanel({
   labels: string[];
   busy: boolean;
   confirmLabel: string;
+  cancelLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -1117,7 +1163,7 @@ function ConfirmationPanel({
         ) : null}
         <div className="crm-adoption-actions">
           <button type="button" disabled={busy} onClick={onConfirm}>{busy ? "Saving…" : confirmLabel}</button>
-          <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>
+          <button type="button" disabled={busy} onClick={onCancel}>{cancelLabel}</button>
         </div>
       </section>
     </div>

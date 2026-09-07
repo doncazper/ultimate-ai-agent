@@ -290,6 +290,47 @@ describe("CrmAdoptionWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("reuses the exact create idempotency ref after an ambiguous commit", async () => {
+    apiMocks.commitCrmAdoptionMutation.mockRejectedValue(
+      new Error("The create result is uncertain."),
+    );
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Ambiguous Example" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review new record" }));
+    await screen.findByRole("dialog", { name: "Review this local CRM change" });
+    const idempotencyRef = apiMocks.previewCrmAdoptionMutation.mock.calls[0][1];
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm and save locally" }),
+    );
+    expect(
+      await screen.findByText("The create result is uncertain."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm and save locally" }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.commitCrmAdoptionMutation).toHaveBeenCalledTimes(2),
+    );
+    expect(apiMocks.commitCrmAdoptionMutation.mock.calls[0][2]).toBe(
+      idempotencyRef,
+    );
+    expect(apiMocks.commitCrmAdoptionMutation.mock.calls[1][2]).toBe(
+      idempotencyRef,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop and clear draft" }));
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves cents at the supported maximum amount", async () => {
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
@@ -830,6 +871,36 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       screen.getByRole("button", { name: "Review new record" }),
     ).toBeInTheDocument();
+  });
+
+  it("clears an edited draft when restore changes content at the same version", async () => {
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce({
+        ...workspace,
+        revision: 5,
+        records: [
+          {
+            ...workspace.records[0],
+            display_name: "Restored divergent content",
+          },
+        ],
+      });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Obsolete pre-restore draft" },
+    });
+    fireEvent.click(screen.getByLabelText("Show archived"));
+
+    expect(
+      await screen.findByText(
+        "This record changed or is no longer visible, so the stale draft was cleared.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
   });
 
   it("rejects oversized CSV before reading it", async () => {
