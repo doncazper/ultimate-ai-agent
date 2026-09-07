@@ -1169,7 +1169,7 @@ def test_approval_capture_scopes_internal_grants_to_idempotency_ref(
 def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -> None:
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(name="Existing Person"), suffix="existing")
-    csv_text = "name,email,phone,tags\nExisting Person,other@example.test,555-1000,old\nNew Person,new@example.test,555-2000,new\n"
+    csv_text = "name,email,phone,tags\nExisting Person,private.person@example.test,555-1000,old\nNew Person,new@example.test,555-2000,new\n"
     request = CrmAdoptionMutationRequest(
         action="import_contacts",
         expected_revision=1,
@@ -1233,6 +1233,36 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     bom_preview = store.preview_mutation(bom_prefixed)
     assert bom_preview.affected_count == 1
     assert bom_preview.private_preview_labels == ["BOM Person"]
+
+
+def test_csv_import_does_not_merge_distinct_people_by_name_alone(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(name="Alex Smith"), suffix="common-name-existing")
+    request = CrmAdoptionMutationRequest(
+        action="import_contacts",
+        expected_revision=1,
+        csv_text=(
+            "name,email,phone\n"
+            "Alex Smith,distinct.alex@example.test,+1 555 0200\n"
+        ),
+    )
+
+    preview = store.preview_mutation(request)
+    assert preview.affected_count == 1
+    assert preview.duplicate_candidate_count == 0
+    receipt = _commit(store, request, suffix="common-name-import")
+    assert receipt.after_revision == 2
+    alex_records = [
+        item
+        for item in store.read_view(record_kind="person").records
+        if item.display_name == "Alex Smith"
+    ]
+    assert {item.email for item in alex_records} == {
+        "private.person@example.test",
+        "distinct.alex@example.test",
+    }
 
 
 def test_csv_import_rejects_non_utf8_text_at_request_boundary() -> None:
@@ -1767,6 +1797,35 @@ def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
         store.preview_restore(
             CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
         )
+
+
+def test_missing_initialized_state_requires_encrypted_recovery(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(), suffix="missing-initialized-state")
+    backup_request = CrmPortableBackupRequest(
+        passphrase="correct horse battery staple"
+    )
+    backup = store.create_portable_backup(backup_request)
+    audit_before = store.audit_file.read_bytes()
+    store.state_file.unlink()
+
+    view = store.read_view()
+    assert view.storage_state == "recovery_required"
+    assert view.records == []
+    assert "Restore an encrypted CRM backup" in view.next_safe_action
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_STATE_UNREADABLE"):
+        store.preview_mutation(_create_request())
+    restore_preview = store.preview_restore(
+        CrmPortableRestoreRequest(
+            passphrase=backup_request.passphrase,
+            backup=backup,
+        )
+    )
+    assert restore_preview.impact_status == "unknown_current_state"
+    assert restore_preview.rollback_available is False
+    assert store.audit_file.read_bytes() == audit_before
 
 
 def test_state_read_io_failure_is_bounded_and_restore_identity_is_stable(

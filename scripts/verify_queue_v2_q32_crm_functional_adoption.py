@@ -176,7 +176,7 @@ def verify() -> dict[str, object]:
             expected_revision=undone.after_revision,
             csv_text=(
                 "name,email,phone,tags\n"
-                "Q32 Synthetic Private person,duplicate@example.test,555-0000,duplicate\n"
+                "Q32 Synthetic Private person,q32-private@example.test,555-0000,duplicate\n"
                 "Q32 Synthetic Private import,q32-import@example.test,555-0199,imported\n"
             ),
         )

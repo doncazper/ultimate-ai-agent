@@ -88,7 +88,9 @@ write as chained diagnostic context.
   the original byte-size bound is enforced. Duplicate headers, including names
   that collide after case and whitespace normalization, are rejected before
   row materialization. Rows wider than the reviewed header are also rejected
-  rather than silently dropping overflow values.
+  rather than silently dropping overflow values. Email or normalized phone is
+  used ahead of display name for duplicate identity, so unrelated people with a
+  common name and distinct stronger identifiers are not silently skipped.
 - Currency amounts are stored in minor units with enough safe-integer headroom
   for exact two-decimal browser conversion, so a browser edit cannot silently
   round a requested cent. Inputs with fractional cents are rejected in the
@@ -137,7 +139,9 @@ write as chained diagnostic context.
   revision one. A non-empty or already initialized target remains blocked.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available only while the audit sink is
-  healthy.
+  healthy. If an initialized state file disappears while durable audit history
+  remains, the workspace reports recovery required instead of silently starting
+  a divergent revision-zero state.
 - A nearly full or malformed audit log exposes a distinct blocked state before
   another change, restore, or approval is offered. Every retained audit event is
   schema-checked, not merely JSON-decoded. The durable and pending audit files

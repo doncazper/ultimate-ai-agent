@@ -1606,6 +1606,9 @@ class CrmAdoptionStore:
         except FileNotFoundError:
             if self._validated_key_file_exists():
                 self._read_key()
+            audit_metadata = self._audit_file_metadata()
+            if audit_metadata is not None and audit_metadata.st_size > 0:
+                raise CrmAdoptionError("CRM_ADOPTION_STATE_UNREADABLE")
             return CrmAdoptionState()
         except OSError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNREADABLE") from exc
@@ -2921,13 +2924,15 @@ class CrmAdoptionStore:
 
     @staticmethod
     def _draft_identity_keys(draft: CrmAdoptionRecordDraft) -> set[str]:
-        keys = {f"name:{draft.display_name.casefold()}"}
+        keys: set[str] = set()
         if draft.email:
             keys.add(f"email:{draft.email.casefold()}")
         if draft.phone:
             normalized_phone = "".join(ch for ch in draft.phone if ch.isdigit())
             if normalized_phone:
                 keys.add(f"phone:{normalized_phone}")
+        if not keys:
+            keys.add(f"name:{draft.display_name.casefold()}")
         return keys
 
     @classmethod
