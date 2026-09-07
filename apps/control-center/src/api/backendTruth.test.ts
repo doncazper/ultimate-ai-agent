@@ -149,7 +149,7 @@ describe("backend truth validation", () => {
     ],
     [
       "partial surface set",
-      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 14) }),
+      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 13) }),
       "BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE",
     ],
     [
