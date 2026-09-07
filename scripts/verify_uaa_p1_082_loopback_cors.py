@@ -46,6 +46,7 @@ REQUIRED_DOC_SNIPPETS = {
         "Authorization",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Operator-Confirmed",
         "X-UAA-Control-Center-Mutation-Binding",
         "X-UAA-Expected-Backend-Revision-Ref",
         "X-UAA-Expected-Backend-Instance-Ref",
@@ -108,7 +109,7 @@ def _preflight(client: Any, origin: str, method: str = "POST"):
             "Access-Control-Request-Method": method,
             "Access-Control-Request-Headers": (
                 "content-type, authorization, x-uaa-idempotency-key, "
-                "x-uaa-idempotency-ref, "
+                "x-uaa-idempotency-ref, x-uaa-operator-confirmed, "
                 "x-uaa-control-center-mutation-binding, "
                 "x-uaa-expected-backend-revision-ref, "
                 "x-uaa-expected-backend-instance-ref, "
@@ -162,6 +163,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     if "X-UAA-Idempotency-Ref" not in preflight.headers.get("Access-Control-Allow-Headers", ""):
         failures.append("allowed preflight missing X-UAA-Idempotency-Ref header")
     for header_name in [
+        "X-UAA-Operator-Confirmed",
         "X-UAA-Control-Center-Mutation-Binding",
         "X-UAA-Expected-Backend-Revision-Ref",
         "X-UAA-Expected-Backend-Instance-Ref",

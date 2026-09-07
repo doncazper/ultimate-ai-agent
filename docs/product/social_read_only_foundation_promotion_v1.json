@@ -3,11 +3,11 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:1c9e94d523f8fd53120af850f6780db2f5e034a7ca21d2dec7a9a0720a135e3e",
+  "acceptance_subject_digest": "sha256:99135ceffb687c1c0bf7c7169f04b4a8631b0e56835a06a229ebd6d41dca04ea",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:02cc6cb96bea8acc221e0bb8ea9fdb7cb47217eb7faf7e5cac14683df7f5aeaa"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:99007b87a53c0ae7e98e717f8fe71ed184c86ee8e5ccd58f4a11b8a0ff9fc690"},
-    {"path_ref": "repo-path-ref:apps/control-center/src/api/client.ts", "sha256": "sha256:db1313ac90c15aaf6d4d016ba2f8a076788d2213b0db33f29515dc380a04e0ae"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/api/client.ts", "sha256": "sha256:648e379c7e225cc411e337c5c9e82bf076236f6bc7a378867cf300315ff86c50"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/types.ts", "sha256": "sha256:e4b47ca5d8b009778fdb5fcecaf35a61b62be008240d1e762efc0c3a9bc6b851"},
     {"path_ref": "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts", "sha256": "sha256:d35145a50b81a5a3652b0dde503936d4292f38a498c5cbcdb5cd45a3a42c8619"},
     {"path_ref": "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx", "sha256": "sha256:969c6684521c96989572caf0090022697012a0090d262ae97fa61e0c69d040a4"},
