@@ -567,9 +567,7 @@ def test_authority_lease_state_failure_is_a_bounded_crm_error(
         adoption, "issue_authority_lease_from_backend_state", fail_lease_issue
     )
 
-    with pytest.raises(
-        CrmAdoptionError, match="CRM_ADOPTION_AUTHORITY_STATE_INVALID"
-    ):
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_AUTHORITY_STATE_INVALID"):
         store.commit_mutation(
             request=request,
             preview_ref=preview.preview_ref,
@@ -577,6 +575,88 @@ def test_authority_lease_state_failure_is_a_bounded_crm_error(
             idempotency_ref=idempotency_ref,
             confirmed=True,
         )
+    assert store.read_view().revision == 0
+
+
+@pytest.mark.parametrize("state_file", ["leases", "receipts"])
+def test_malformed_authority_state_is_bounded_before_approval(
+    tmp_path: Path,
+    state_file: str,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    authority_store = AuthorityLeaseStore(store.state_dir / "authority")
+    authority_store.state_dir.mkdir(parents=True)
+    path = (
+        authority_store.leases_path
+        if state_file == "leases"
+        else authority_store.receipts_path
+    )
+    path.write_text("{", encoding="utf-8")
+
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_AUTHORITY_STATE_INVALID"):
+        store.capture_approval(
+            request=CrmAdoptionApprovalCaptureRequest(
+                operation="mutation",
+                mutation=CrmAdoptionCommitRequest(
+                    mutation=request,
+                    preview_ref=preview.preview_ref,
+                    approval_ref=preview.approval_ref,
+                ),
+            ),
+            idempotency_ref=(
+                f"idempotency-ref:crm-adoption-test:malformed-authority-{state_file}"
+            ),
+            confirmed=True,
+        )
+    assert store.read_view().revision == 0
+
+
+def test_failed_write_and_failed_lease_revocation_remain_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:revoke-failure"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    def fail_state_write(_state: object) -> None:
+        raise OSError("synthetic state write failure")
+
+    def fail_revocation(*_args: object, **_kwargs: object) -> None:
+        raise OSError("synthetic revoke failure")
+
+    monkeypatch.setattr(store, "_write_state", fail_state_write)
+    monkeypatch.setattr(AuthorityLeaseStore, "revoke_lease", fail_revocation)
+
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_EXACT_LEASE_REVOCATION_FAILED"
+    ) as caught:
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+    assert isinstance(caught.value.__cause__, OSError)
+    assert str(caught.value.__cause__) == "synthetic revoke failure"
+    assert isinstance(caught.value.__cause__.__context__, OSError)
+    assert str(caught.value.__cause__.__context__) == "synthetic state write failure"
     assert store.read_view().revision == 0
 
 
@@ -827,6 +907,73 @@ def test_malformed_audit_blocks_reads_and_preview_before_approval(
         )
 
 
+@pytest.mark.parametrize(
+    ("blocker", "storage_state"),
+    [
+        ("capacity", "blocked_audit_capacity"),
+        ("unreadable", "blocked_audit_unreadable"),
+    ],
+)
+def test_pending_audit_recovery_preserves_specific_blocker_and_backup_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    blocker: str,
+    storage_state: str,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = f"idempotency-ref:crm-adoption-test:pending-{blocker}"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    append_audit = store._append_audit
+    monkeypatch.setattr(
+        store,
+        "_append_audit",
+        lambda _receipt: (_ for _ in ()).throw(OSError("synthetic audit failure")),
+    )
+    with pytest.raises(CrmAdoptionError, match="AUDIT_FINALIZATION_REQUIRED"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+    monkeypatch.setattr(store, "_append_audit", append_audit)
+    if blocker == "capacity":
+        monkeypatch.setattr(adoption, "CRM_ADOPTION_MAX_AUDIT_BYTES", 1)
+    else:
+        store.audit_file.write_bytes(b'{"event_ref":')
+        store.audit_file.chmod(0o600)
+
+    restarted = CrmAdoptionStore(store.state_dir)
+    view = restarted.read_view()
+    assert view.storage_state == storage_state
+    assert [item.display_name for item in view.records] == ["Private Person"]
+    assert (
+        "back up" in view.next_safe_action.casefold()
+        or "backup" in view.next_safe_action.casefold()
+    )
+    backup = restarted.create_portable_backup(
+        CrmPortableBackupRequest(passphrase="correct horse battery staple")
+    )
+    assert backup.ciphertext_fingerprint_ref.startswith(
+        "ciphertext-fingerprint-ref:sha256:"
+    )
+    assert restarted.pending_audit_file.exists()
+
+
 def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1037,6 +1184,28 @@ def test_csv_import_rejects_non_utf8_text_at_request_boundary() -> None:
             expected_revision=0,
             csv_text="name,email\nInvalid,\ud800\n",
         )
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        "name,email,email",
+        "name,Email Address,email_address",
+    ],
+)
+def test_csv_import_rejects_colliding_normalized_headers(
+    tmp_path: Path,
+    headers: str,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = CrmAdoptionMutationRequest(
+        action="import_contacts",
+        expected_revision=0,
+        csv_text=f"{headers}\nImported Person,first@example.test,second@example.test\n",
+    )
+
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_IMPORT_HEADER_COLLISION"):
+        store.preview_mutation(request)
 
 
 def test_backup_passphrase_rejects_non_utf8_text_at_request_boundary() -> None:

@@ -1086,7 +1086,14 @@ class CrmAdoptionStore:
         self._secure_state_dir()
         with self._state_lock():
             state = self._read_state()
-            self._recover_pending_audit(state)
+            try:
+                self._recover_pending_audit(state)
+            except CrmAdoptionError as exc:
+                if str(exc) not in {
+                    "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED",
+                    "CRM_ADOPTION_AUDIT_UNREADABLE",
+                }:
+                    raise
             if not self.state_file.exists():
                 raise CrmAdoptionError("CRM_ADOPTION_BACKUP_EMPTY")
             salt = secrets.token_bytes(16)
@@ -1835,6 +1842,13 @@ class CrmAdoptionStore:
         try:
             self._append_audit(receipt)
             self._clear_pending_audit(receipt)
+        except CrmAdoptionError as exc:
+            if str(exc) in {
+                "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED",
+                "CRM_ADOPTION_AUDIT_UNREADABLE",
+            }:
+                raise
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_FINALIZATION_REQUIRED") from exc
         except Exception as exc:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_FINALIZATION_REQUIRED") from exc
 
@@ -2561,8 +2575,11 @@ class CrmAdoptionStore:
         payload_fingerprint_ref: str,
         idempotency_ref: str,
     ) -> str:
-        leases = lease_store.list_leases()
-        receipts = lease_store.list_receipts(limit=1_000_000)
+        try:
+            leases = lease_store.list_leases()
+            receipts = lease_store.list_receipts(limit=1_000_000)
+        except (OSError, UnicodeDecodeError, ValueError, TypeError) as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUTHORITY_STATE_INVALID") from exc
         candidate = _hash_ref(
             "idempotency-ref:crm-adoption-lease",
             {
@@ -2616,22 +2633,27 @@ class CrmAdoptionStore:
     ) -> None:
         if lease.status == "revoked":
             return
-        _revoked, receipt = lease_store.revoke_lease(
-            AuthorityLeaseRevokeRequest(
-                lease_ref=lease.lease_ref,
-                decision_reason_ref=(
-                    "decision-reason-ref:crm-adoption:pre-commit-failure"
+        try:
+            _revoked, receipt = lease_store.revoke_lease(
+                AuthorityLeaseRevokeRequest(
+                    lease_ref=lease.lease_ref,
+                    decision_reason_ref=(
+                        "decision-reason-ref:crm-adoption:pre-commit-failure"
+                    ),
+                    safe_summary=(
+                        "Revoke the exact CRM lease after the local write failed "
+                        "before durable state commit."
+                    ),
                 ),
-                safe_summary=(
-                    "Revoke the exact CRM lease after the local write failed "
-                    "before durable state commit."
+                idempotency_ref=_hash_ref(
+                    "idempotency-ref:crm-adoption-lease-revoke",
+                    {"lease_ref": lease.lease_ref},
                 ),
-            ),
-            idempotency_ref=_hash_ref(
-                "idempotency-ref:crm-adoption-lease-revoke",
-                {"lease_ref": lease.lease_ref},
-            ),
-        )
+            )
+        except Exception as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_EXACT_LEASE_REVOCATION_FAILED"
+            ) from exc
         if receipt.status not in {"revoked", "replayed"}:
             raise CrmAdoptionError("CRM_ADOPTION_EXACT_LEASE_REVOCATION_FAILED")
 
@@ -2754,6 +2776,13 @@ class CrmAdoptionStore:
             reader = csv.DictReader(io.StringIO(normalized_csv_text))
             if reader.fieldnames is None:
                 raise CrmAdoptionError("CRM_ADOPTION_IMPORT_HEADER_REQUIRED")
+            normalized_fieldnames = [
+                name.strip().casefold().replace(" ", "_")
+                for name in reader.fieldnames
+                if name is not None
+            ]
+            if len(normalized_fieldnames) != len(set(normalized_fieldnames)):
+                raise CrmAdoptionError("CRM_ADOPTION_IMPORT_HEADER_COLLISION")
             normalized = {
                 name.strip().casefold().replace(" ", "_"): name
                 for name in reader.fieldnames

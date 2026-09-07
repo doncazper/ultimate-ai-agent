@@ -73,7 +73,9 @@ The lease is revoked if the durable write fails after issuance. Replaying the
 same request and idempotency ref returns the existing receipt; changing the
 payload under that ref is rejected. Authority lease-state persistence failures
 are translated into a bounded CRM blocker instead of escaping the route as an
-unhandled error.
+unhandled error. If both a local write and the compensating lease revocation
+fail, the route returns a bounded revocation blocker while retaining the failed
+write as chained diagnostic context.
 
 ## Import, backup, and recovery
 
@@ -81,7 +83,9 @@ unhandled error.
   every operator-visible candidate label in the scrollable confirmation and
   the exact duplicate count; duplicates are skipped, never silently merged or
   overwritten. A UTF-8 byte-order mark in the first header is accepted after
-  the original byte-size bound is enforced.
+  the original byte-size bound is enforced. Duplicate headers, including names
+  that collide after case and whitespace normalization, are rejected before
+  row materialization.
 - Currency amounts are stored in minor units with enough safe-integer headroom
   for exact two-decimal browser conversion, so a browser edit cannot silently
   round a requested cent. Inputs with fractional cents are rejected in the
@@ -131,7 +135,8 @@ unhandled error.
   must remain owner-owned, owner-only regular files with one hard link. Orphan
   journal cleanup failures become an explicit bounded blocker. Existing
   readable records and an encrypted backup remain available while the operator
-  repairs or rotates that log.
+  repairs or rotates that log, including when restart recovery finds both an
+  authoritative receipt and a pending audit journal.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.
