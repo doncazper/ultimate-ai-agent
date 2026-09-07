@@ -195,15 +195,38 @@ test("foundation visual baselines stay backend-owned", async ({
         await expect(
           page.getByRole("heading", { name: "Your CRM", exact: true }),
         ).toBeVisible({ timeout: 30_000 });
-        const socialContextHeading = page.getByText(
-          "Social relationship context",
+        await expect(
+          page.getByText("Founder-private workspace", { exact: true }),
+        ).toBeVisible();
+        const legacyCompatibility = page.getByText(
+          "Legacy CRM v3 compatibility cockpit",
           { exact: true },
         );
-        await expect(socialContextHeading).toBeVisible();
-        const crmOwnedBadge = page.getByText("CRM owned · read only", {
-          exact: true,
-        });
-        await expect(crmOwnedBadge).toBeVisible({ timeout: 30_000 });
+        await expect(legacyCompatibility).toBeVisible();
+        await expect(
+          page.locator("details.ns-crm-compatibility"),
+        ).not.toHaveAttribute("open", "");
+        await expect(
+          page.getByText("CRM owned · read only", { exact: true }),
+        ).not.toBeVisible();
+        const adoptionBounds = await page
+          .locator(".crm-adoption")
+          .evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              left: rect.left,
+              right: rect.right,
+              viewportWidth: window.innerWidth,
+              documentScrollWidth: document.documentElement.scrollWidth,
+            };
+          });
+        expect(adoptionBounds.left).toBeGreaterThanOrEqual(0);
+        expect(adoptionBounds.right).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
+        expect(adoptionBounds.documentScrollWidth).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
       }
       expect(prioritizedReadCount).toBeGreaterThanOrEqual(
         prioritizedEndpoints.length,

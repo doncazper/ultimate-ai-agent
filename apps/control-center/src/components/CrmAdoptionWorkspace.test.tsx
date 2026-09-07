@@ -165,6 +165,14 @@ const mutationBinding: BackendTruthReadBinding = {
     "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
 
+function utf8File(text: string, size = 256): File {
+  const bytes = new TextEncoder().encode(text);
+  return {
+    size,
+    arrayBuffer: vi.fn().mockResolvedValue(bytes.buffer),
+  } as unknown as File;
+}
+
 describe("CrmAdoptionWorkspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -189,6 +197,12 @@ describe("CrmAdoptionWorkspace", () => {
     expect(heading).toBeVisible();
     expect(heading.closest(".ns-crm")).toHaveClass("ns-scroll-surface");
     expect(screen.getByText("Founder-private workspace")).toBeVisible();
+    expect(
+      screen
+        .getByText("Legacy CRM v3 compatibility cockpit")
+        .closest("details"),
+    ).not.toHaveAttribute("open");
+    expect(screen.getByText("CRM v3")).not.toBeVisible();
     await waitFor(() =>
       expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(1),
     );
@@ -229,12 +243,17 @@ describe("CrmAdoptionWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() =>
-      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(1),
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(2),
     );
     expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledWith(
       "Private Person",
       "",
       false,
+    );
+    expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledWith(
+      "",
+      "",
+      true,
     );
   });
 
@@ -405,7 +424,8 @@ describe("CrmAdoptionWorkspace", () => {
     };
     apiMocks.loadCrmAdoptionWorkspace
       .mockResolvedValueOnce(originalWorkspace)
-      .mockResolvedValueOnce({ ...originalWorkspace, records: [] });
+      .mockResolvedValueOnce({ ...originalWorkspace, records: [] })
+      .mockResolvedValueOnce(originalWorkspace);
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
 
@@ -414,7 +434,7 @@ describe("CrmAdoptionWorkspace", () => {
       target: { value: "organization" },
     });
     await waitFor(() =>
-      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenLastCalledWith(
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledWith(
         "",
         "organization",
         false,
@@ -430,6 +450,45 @@ describe("CrmAdoptionWorkspace", () => {
       screen.getByRole("button", { name: "Review new record" }),
     ).toBeInTheDocument();
     expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
+  });
+
+  it("resolves linked records and editor options outside the active filter", async () => {
+    const organization = {
+      ...workspace.records[0],
+      record_ref: "crm-record-ref:organization:linked",
+      record_kind: "organization" as const,
+      display_name: "Linked Organization",
+    };
+    const filteredPerson = {
+      ...workspace.records[0],
+      related_refs: [organization.record_ref],
+    };
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce({ ...workspace, records: [filteredPerson] })
+      .mockResolvedValueOnce({
+        ...workspace,
+        records: [filteredPerson, organization],
+      });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.change(screen.getByLabelText("Record type"), {
+      target: { value: "person" },
+    });
+
+    expect(await screen.findByText("Linked Organization")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("option", {
+        name: "Linked Organization · organization",
+      }),
+    ).toBeInTheDocument();
+    expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledWith(
+      "",
+      "",
+      true,
+    );
   });
 
   it("changes only the primary relationship and retains additional links", async () => {
@@ -532,14 +591,11 @@ describe("CrmAdoptionWorkspace", () => {
       affected_count: labels.length,
       private_preview_labels: labels,
     });
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(
-        `name,email\n${labels
-          .map((label, index) => `${label},candidate-${index + 1}@example.test`)
-          .join("\n")}`,
-      ),
-    } as unknown as File;
+    const file = utf8File(
+      `name,email\n${labels
+        .map((label, index) => `${label},candidate-${index + 1}@example.test`)
+        .join("\n")}`,
+    );
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
 
@@ -660,10 +716,7 @@ describe("CrmAdoptionWorkspace", () => {
   });
 
   it("discloses the exact current-record impact before restore", async () => {
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
-    } as unknown as File;
+    const file = utf8File(JSON.stringify(portableBackup));
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {
@@ -688,10 +741,7 @@ describe("CrmAdoptionWorkspace", () => {
       impact_status: "unknown_current_state",
       rollback_available: false,
     });
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
-    } as unknown as File;
+    const file = utf8File(JSON.stringify(portableBackup));
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {
@@ -719,10 +769,7 @@ describe("CrmAdoptionWorkspace", () => {
       ...restorePreview,
       rollback_available: false,
     });
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
-    } as unknown as File;
+    const file = utf8File(JSON.stringify(portableBackup));
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {
@@ -745,10 +792,7 @@ describe("CrmAdoptionWorkspace", () => {
   });
 
   it("clears a stale editor after a successful backup restore", async () => {
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
-    } as unknown as File;
+    const file = utf8File(JSON.stringify(portableBackup));
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <CrmAdoptionWorkspace />
@@ -781,10 +825,7 @@ describe("CrmAdoptionWorkspace", () => {
     apiMocks.commitCrmPortableRestore.mockRejectedValueOnce(
       new Error("The restore result is uncertain."),
     );
-    const file = {
-      size: 256,
-      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
-    } as unknown as File;
+    const file = utf8File(JSON.stringify(portableBackup));
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <CrmAdoptionWorkspace />
@@ -904,8 +945,8 @@ describe("CrmAdoptionWorkspace", () => {
   });
 
   it("rejects oversized CSV before reading it", async () => {
-    const text = vi.fn();
-    const file = { size: 2_000_001, text } as unknown as File;
+    const arrayBuffer = vi.fn();
+    const file = { size: 2_000_001, arrayBuffer } as unknown as File;
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
 
@@ -916,13 +957,35 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       await screen.findByText("Choose a contacts CSV no larger than 2 MB."),
     ).toBeInTheDocument();
-    expect(text).not.toHaveBeenCalled();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed UTF-8 CSV bytes before preview", async () => {
+    const bytes = Uint8Array.from([0x6e, 0x61, 0x6d, 0x65, 0x0a, 0xc3, 0x28]);
+    const file = {
+      size: bytes.byteLength,
+      arrayBuffer: vi.fn().mockResolvedValue(bytes.buffer),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.change(screen.getByLabelText("Preview contacts CSV"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText("Choose a contacts CSV saved as valid UTF-8 text."),
+    ).toBeInTheDocument();
     expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
   });
 
   it("rejects oversized backup before reading it", async () => {
-    const text = vi.fn();
-    const file = { size: 48 * 1024 * 1024 + 1, text } as unknown as File;
+    const arrayBuffer = vi.fn();
+    const file = {
+      size: 48 * 1024 * 1024 + 1,
+      arrayBuffer,
+    } as unknown as File;
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {
@@ -938,16 +1001,13 @@ describe("CrmAdoptionWorkspace", () => {
         "Choose an encrypted CRM backup no larger than 48 MB.",
       ),
     ).toBeInTheDocument();
-    expect(text).not.toHaveBeenCalled();
+    expect(arrayBuffer).not.toHaveBeenCalled();
     expect(apiMocks.previewCrmPortableRestore).not.toHaveBeenCalled();
   });
 
   it("does not expose malformed backup fragments in parser errors", async () => {
     const privateMarker = "PRIVATE_BACKUP_FRAGMENT";
-    const file = {
-      size: 64,
-      text: vi.fn().mockResolvedValue(`${privateMarker}{`),
-    } as unknown as File;
+    const file = utf8File(`${privateMarker}{`, 64);
     render(<CrmAdoptionWorkspace />);
     await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {

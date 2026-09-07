@@ -1267,6 +1267,32 @@ def test_state_read_io_failure_is_bounded_and_restore_identity_is_stable(
     )
 
 
+def test_state_directory_io_failure_is_a_bounded_blocked_view(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "unavailable")
+    chmod = os.chmod
+
+    def deny_state_directory_chmod(path: str | bytes | Path, mode: int) -> None:
+        if Path(path) == store.state_dir:
+            raise PermissionError("synthetic state directory denial")
+        chmod(path, mode)
+
+    monkeypatch.setattr(os, "chmod", deny_state_directory_chmod)
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    assert "Restore access to the local CRM storage directory" in (
+        view.next_safe_action
+    )
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+    ):
+        store.preview_mutation(_create_request())
+
+
 @pytest.mark.parametrize(
     "unsafe_kind", ["symlink", "directory", "permissive", "hardlink"]
 )

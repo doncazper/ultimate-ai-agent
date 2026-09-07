@@ -31,6 +31,12 @@ function cloneData() {
   return structuredClone(mockControlCenterData);
 }
 
+function openLegacyCrmCompatibility() {
+  fireEvent.click(
+    screen.getByText("Legacy CRM v3 compatibility cockpit"),
+  );
+}
+
 function markLiveBackend(data: ReturnType<typeof cloneData>, ...routes: string[]) {
   data.connection.state = "online";
   data.connection.usingMockData = false;
@@ -791,6 +797,7 @@ describe("North Star backend wiring", () => {
     Object.assign(data.crmLocalCommandCenter.social_relationship_projection, { backend_owned: true });
     for (const item of data.crmLocalCommandCenter.social_relationship_projection.items) item.backend_owned = true;
     const { rerender } = render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+    openLegacyCrmCompatibility();
     expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
     expect(screen.getByText("Social relationship context")).toBeVisible();
@@ -812,6 +819,7 @@ describe("North Star backend wiring", () => {
     const data = cloneData();
 
     render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+    openLegacyCrmCompatibility();
 
     expect(screen.getByText("Social links").closest("div")).toHaveTextContent(
       "fallback",
@@ -838,6 +846,7 @@ describe("North Star backend wiring", () => {
     }
 
     render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+    openLegacyCrmCompatibility();
 
     expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
     expect(screen.getByText(/CRM owned · read only/)).toBeVisible();
@@ -855,6 +864,7 @@ describe("North Star backend wiring", () => {
     const view = render(
       <NorthStarControlCenter activePath="/workspace/crm" data={data} />,
     );
+    openLegacyCrmCompatibility();
 
     expect(
       screen.getByText(/projection page is truncated/i),
@@ -877,6 +887,7 @@ describe("North Star backend wiring", () => {
     Object.assign(data.crmLocalCommandCenter, { backend_owned: true, read_only: true, safe_refs_only: true });
     Object.assign(data.codingSession, { backend_owned: true, safe_refs_only: true });
     const view = render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
+    openLegacyCrmCompatibility();
     expect(screen.getByText(/Non-authoritative CRM fallback/)).toBeVisible();
 
     view.rerender(<NorthStarControlCenter activePath="/workspace/studio" data={data} />);

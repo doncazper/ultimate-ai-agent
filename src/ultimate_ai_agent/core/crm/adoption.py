@@ -767,6 +767,12 @@ class CrmAdoptionStore:
                 next_safe_action = (
                     "Restore an encrypted CRM backup from the Recovery panel."
                 )
+            elif code == "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE":
+                storage_state = "blocked_unsafe"
+                next_safe_action = (
+                    "Restore access to the local CRM storage directory before "
+                    "opening or changing this workspace."
+                )
             else:
                 storage_state = "blocked_unsafe"
                 next_safe_action = (
@@ -832,6 +838,7 @@ class CrmAdoptionStore:
     def preview_mutation(
         self, request: CrmAdoptionMutationRequest
     ) -> CrmAdoptionMutationPreview:
+        self._secure_state_dir()
         state_ref_before = self._current_state_ref()
         state = self._read_state()
         current_state_ref = self._current_state_ref()
@@ -1915,12 +1922,29 @@ class CrmAdoptionStore:
             self.state_dir.anchor
         ):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_PATH_UNSAFE")
-        if self.state_dir.exists() and (
-            self.state_dir.is_symlink() or not self.state_dir.is_dir()
-        ):
+        try:
+            metadata = self.state_dir.lstat()
+        except FileNotFoundError:
+            try:
+                self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+                os.chmod(self.state_dir, 0o700)
+            except OSError as exc:
+                raise CrmAdoptionError(
+                    "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+                ) from exc
+            return
+        except OSError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+            ) from exc
+        if not stat.S_ISDIR(metadata.st_mode):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_PATH_UNSAFE")
-        self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(self.state_dir, 0o700)
+        try:
+            os.chmod(self.state_dir, 0o700)
+        except OSError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+            ) from exc
 
     def _atomic_write(self, path: Path, payload: bytes) -> None:
         if not path.parent.is_absolute() or path.parent == Path(path.anchor):

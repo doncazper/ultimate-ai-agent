@@ -32,6 +32,8 @@ const CRM_ADOPTION_MAX_AMOUNT_MINOR = 90_071_992_547_409;
 const CRM_ADOPTION_MAX_AMOUNT_MAJOR = CRM_ADOPTION_MAX_AMOUNT_MINOR / 100;
 const CRM_ADOPTION_BACKUP_OPEN_ERROR =
   "The encrypted backup could not be opened safely.";
+const CRM_ADOPTION_IMPORT_UTF8_ERROR =
+  "Choose a contacts CSV saved as valid UTF-8 text.";
 
 const RECORD_KINDS: Array<{ value: CrmAdoptionRecordKind; label: string }> = [
   { value: "person", label: "Person" },
@@ -86,6 +88,16 @@ function newIdempotencyRef(action: string): string {
 function optional(value: string | null | undefined): string | null {
   const normalized = value?.trim() ?? "";
   return normalized || null;
+}
+
+async function readUtf8File(file: File, safeError: string): Promise<string> {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(
+      await file.arrayBuffer(),
+    );
+  } catch {
+    throw new Error(safeError);
+  }
 }
 
 function crmRecordContentToken(record: CrmAdoptionRecord): string {
@@ -145,6 +157,9 @@ export function CrmAdoptionWorkspace() {
   const [workspace, setWorkspace] = useState<CrmAdoptionWorkspaceView | null>(
     null,
   );
+  const [recordDirectory, setRecordDirectory] = useState<CrmAdoptionRecord[]>(
+    [],
+  );
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<CrmAdoptionRecordKind | "">("");
@@ -165,33 +180,55 @@ export function CrmAdoptionWorkspace() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setError("");
+  const loadWorkspaceSnapshot = useCallback(async () => {
     const next = await loadCrmAdoptionWorkspace(
       submittedQuery,
       kindFilter,
       includeArchived,
     );
-    setWorkspace(next);
-    setSelectedRef((current) =>
-      next.records.some((item) => item.record_ref === current)
-        ? current
-        : (next.records[0]?.record_ref ?? ""),
+    const visibleRefs = new Set(next.records.map((item) => item.record_ref));
+    const hasHiddenRelatedRecord = next.records.some((item) =>
+      item.related_refs.some((ref) => !visibleRefs.has(ref)),
     );
+    const directoryView =
+      submittedQuery || kindFilter || hasHiddenRelatedRecord
+        ? await loadCrmAdoptionWorkspace("", "", true)
+        : next;
+    return {
+      next,
+      directory:
+        directoryView.revision === next.revision
+          ? directoryView.records
+          : next.records,
+    };
   }, [includeArchived, kindFilter, submittedQuery]);
+
+  const acceptWorkspaceSnapshot = useCallback(
+    (next: CrmAdoptionWorkspaceView, directory: CrmAdoptionRecord[]) => {
+      setWorkspace(next);
+      setRecordDirectory(directory);
+      setSelectedRef((current) =>
+        next.records.some((item) => item.record_ref === current)
+          ? current
+          : (next.records[0]?.record_ref ?? ""),
+      );
+    },
+    [],
+  );
+
+  const refresh = useCallback(async () => {
+    setError("");
+    const { next, directory } = await loadWorkspaceSnapshot();
+    acceptWorkspaceSnapshot(next, directory);
+  }, [acceptWorkspaceSnapshot, loadWorkspaceSnapshot]);
 
   useEffect(() => {
     let cancelled = false;
     setError("");
-    loadCrmAdoptionWorkspace(submittedQuery, kindFilter, includeArchived)
-      .then((next) => {
+    loadWorkspaceSnapshot()
+      .then(({ next, directory }) => {
         if (cancelled) return;
-        setWorkspace(next);
-        setSelectedRef((current) =>
-          next.records.some((item) => item.record_ref === current)
-            ? current
-            : (next.records[0]?.record_ref ?? ""),
-        );
+        acceptWorkspaceSnapshot(next, directory);
       })
       .catch((reason: unknown) => {
         if (!cancelled) {
@@ -205,7 +242,7 @@ export function CrmAdoptionWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [includeArchived, kindFilter, submittedQuery]);
+  }, [acceptWorkspaceSnapshot, loadWorkspaceSnapshot]);
 
   const selected = useMemo(
     () => workspace?.records.find((item) => item.record_ref === selectedRef),
@@ -232,10 +269,10 @@ export function CrmAdoptionWorkspace() {
   }, [editingOriginal, editingRef, workspace]);
   const relatedOptions = useMemo(
     () =>
-      (workspace?.records ?? []).filter(
+      recordDirectory.filter(
         (item) => item.record_ref !== editingRef && !item.archived,
       ),
-    [editingRef, workspace?.records],
+    [editingRef, recordDirectory],
   );
   const workspaceWritable =
     workspace?.storage_state === "empty" || workspace?.storage_state === "ready";
@@ -444,7 +481,10 @@ export function CrmAdoptionWorkspace() {
         if (file.size > CRM_ADOPTION_MAX_IMPORT_FILE_BYTES) {
           throw new Error("Choose a contacts CSV no larger than 2 MB.");
         }
-        const csvText = await file.text();
+        const csvText = await readUtf8File(
+          file,
+          CRM_ADOPTION_IMPORT_UTF8_ERROR,
+        );
         await runPreview(
           {
             action: "import_contacts",
@@ -511,7 +551,10 @@ export function CrmAdoptionWorkspace() {
         if (file.size > CRM_ADOPTION_MAX_BACKUP_FILE_BYTES) {
           throw new Error("Choose an encrypted CRM backup no larger than 48 MB.");
         }
-        const backupText = await file.text();
+        const backupText = await readUtf8File(
+          file,
+          CRM_ADOPTION_BACKUP_OPEN_ERROR,
+        );
         let backup: CrmPortableBackup;
         try {
           backup = JSON.parse(backupText) as CrmPortableBackup;
@@ -731,7 +774,7 @@ export function CrmAdoptionWorkspace() {
 
         <RecordInspector
           record={selected}
-          records={workspace?.records ?? []}
+          records={recordDirectory}
           onEdit={startEdit}
           onArchive={() => previewLifecycle("archive")}
           onRestore={() => previewLifecycle("restore")}
