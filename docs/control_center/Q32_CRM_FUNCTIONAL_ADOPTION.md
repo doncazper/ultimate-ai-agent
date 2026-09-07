@@ -65,7 +65,9 @@ Every state-changing operation uses the same bounded sequence:
 6. Validate the complete prospective state, durably stage a content-free audit
    event, atomically replace the encrypted state, then publish and clear the
    staged audit event. Restart recovery publishes only a staged event whose
-   receipt is present in the authoritative encrypted state.
+   receipt is present in the authoritative encrypted state. A mismatched but
+   receipt-bound recovery marker is itself replaced atomically, so correction
+   never starts by deleting the only durable recovery marker.
 7. Return safe approval, lease, decision, rollback, and receipt refs. No raw
    private values are copied to the audit log or receipt.
 
@@ -85,12 +87,14 @@ write as chained diagnostic context.
   overwritten. A UTF-8 byte-order mark in the first header is accepted after
   the original byte-size bound is enforced. Duplicate headers, including names
   that collide after case and whitespace normalization, are rejected before
-  row materialization.
+  row materialization. Rows wider than the reviewed header are also rejected
+  rather than silently dropping overflow values.
 - Currency amounts are stored in minor units with enough safe-integer headroom
   for exact two-decimal browser conversion, so a browser edit cannot silently
   round a requested cent. Inputs with fractional cents are rejected in the
-  editor before the draft or preview changes. A missing currency is displayed
-  as unset rather than being relabeled as USD.
+  editor before the draft or preview changes. Currency is visible and editable;
+  a new record starts unset, and a missing currency is displayed as unset
+  rather than being relabeled as USD.
 - State, record-version, request, preview, receipt, and backup revisions are
   capped at JavaScript's exact safe-integer limit before browser projection;
   an exhausted workspace revision fails during preview before approval or lease
@@ -114,7 +118,8 @@ write as chained diagnostic context.
   storage errors; failures after inode replacement remain explicitly uncertain.
 - Portable backups use a new random salt and nonce plus scrypt-derived
   AES-256-GCM encryption. The passphrase and local state key are not stored in
-  the backup, receipt, or audit log.
+  the backup, receipt, or audit log. Temporary-key creation failures are
+  translated into the bounded local key-write blocker.
 - Restore first verifies the ciphertext fingerprint, passphrase, authenticated
   decryption, and full state schema. Commit then requires a fresh exact preview,
   approval, lease, idempotency ref, and operator confirmation. The preview binds
@@ -126,6 +131,10 @@ write as chained diagnostic context.
   successful-restore message remain visible; it is never relabeled as a failed
   restore. Target-local idempotency receipts remain ahead of bounded imported
   backup lineage so a lost pre-restore response can still be replayed safely.
+  A revision-exhausted backup can be restored only into a genuinely fresh,
+  empty workspace; the confirmation explicitly discloses that record versions
+  and prior mutation receipts are reset while the new local lineage starts at
+  revision one. A non-empty or already initialized target remains blocked.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available only while the audit sink is
   healthy.
@@ -136,7 +145,9 @@ write as chained diagnostic context.
   journal cleanup failures become an explicit bounded blocker. Existing
   readable records and an encrypted backup remain available while the operator
   repairs or rotates that log, including when restart recovery finds both an
-  authoritative receipt and a pending audit journal.
+  authoritative receipt and a pending audit journal. Ordinary mutation preview
+  also validates the complete pending journal before advertising an
+  approval-ready operation.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.

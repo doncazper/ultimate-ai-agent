@@ -59,7 +59,7 @@ const EMPTY_DRAFT: CrmAdoptionRecordDraft = {
   due_at: null,
   occurred_at: null,
   amount_minor: null,
-  currency: "USD",
+  currency: null,
   priority: "medium",
 };
 
@@ -989,7 +989,9 @@ export function CrmAdoptionWorkspace() {
               : "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo."
           }
           details={
-            pendingRestore.preview.impact_status === "exact"
+            pendingRestore.preview.fresh_lineage_migration
+              ? `This exhausted backup will start a fresh local revision lineage at revision 1. Record versions and prior mutation receipts will be reset; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
+              : pendingRestore.preview.impact_status === "exact"
               ? `${pendingRestore.preview.affected_count ?? 0} current record${pendingRestore.preview.affected_count === 1 ? "" : "s"} will be added, removed, or changed; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
               : `Impact on current records is unknown because the active workspace is unreadable; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
           }
@@ -1195,6 +1197,15 @@ function RecordEditor({
           {amountInputError ? (
             <small id="crm-amount-error" role="alert">{amountInputError}</small>
           ) : null}
+        </label>
+        <label>
+          <span>Currency</span>
+          <input
+            value={draft.currency ?? ""}
+            maxLength={32}
+            placeholder="USD, EUR, GBP, or leave unset"
+            onChange={(event) => set("currency", event.target.value)}
+          />
         </label>
         <label>
           <span>Priority</span>

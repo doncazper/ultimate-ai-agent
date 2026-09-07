@@ -300,8 +300,24 @@ def test_orphan_pending_audit_cleanup_failure_is_bounded(
 ) -> None:
     store = CrmAdoptionStore(tmp_path / "crm")
     store._secure_state_dir()
+    receipt_ref = "receipt-ref:crm-adoption:orphan"
     store.pending_audit_file.write_text(
-        json.dumps({"receipt_ref": "receipt-ref:crm-adoption:orphan"}),
+        json.dumps(
+            {
+                "event_ref": adoption._hash_ref(
+                    "event-ref:crm-adoption", {"receipt_ref": receipt_ref}
+                ),
+                "receipt_ref": receipt_ref,
+                "action_ref": "action-ref:crm-adoption:create",
+                "approval_validation_ref": "approval-validation-ref:orphan",
+                "authority_lease_ref": "authority-lease-ref:orphan",
+                "authority_decision_ref": "authority-decision-ref:orphan",
+                "after_revision": 1,
+                "occurred_at": "2026-09-07T00:00:00+00:00",
+                "private_values_included": False,
+                "external_write_performed": False,
+            }
+        ),
         encoding="utf-8",
     )
     store.pending_audit_file.chmod(0o600)
@@ -974,6 +990,20 @@ def test_pending_audit_recovery_preserves_specific_blocker_and_backup_path(
     assert restarted.pending_audit_file.exists()
 
 
+def test_mutation_preview_rejects_a_malformed_pending_audit(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    store.pending_audit_file.write_bytes(b'{"receipt_ref":')
+    store.pending_audit_file.chmod(0o600)
+
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_AUDIT_PENDING_UNREADABLE"
+    ):
+        store.preview_mutation(_create_request())
+
+
 def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1077,6 +1107,34 @@ def test_pending_audit_is_bound_to_the_authoritative_receipt(
     assert not restarted.pending_audit_file.exists()
     audit_event = json.loads(restarted.audit_file.read_text(encoding="utf-8"))
     assert audit_event["after_revision"] == 1
+
+
+def test_mismatched_pending_audit_is_replaced_without_an_unjournaled_gap(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    receipt = _commit(store, _create_request(), suffix="atomic-journal-repair")
+    forged_event = store._audit_event(receipt)
+    forged_event["after_revision"] = receipt.after_revision + 1
+    store._atomic_write(store.pending_audit_file, adoption._canonical_json(forged_event))
+    original_marker = store.pending_audit_file.read_bytes()
+    atomic_write = store._atomic_write
+
+    def fail_replacement(path: Path, payload: bytes) -> None:
+        if path == store.pending_audit_file:
+            raise CrmAdoptionError("CRM_ADOPTION_STORAGE_WRITE_FAILED")
+        atomic_write(path, payload)
+
+    monkeypatch.setattr(store, "_atomic_write", fail_replacement)
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_STORAGE_WRITE_FAILED"):
+        store._recover_pending_audit(store._read_state())
+    assert store.pending_audit_file.read_bytes() == original_marker
+
+    monkeypatch.setattr(store, "_atomic_write", atomic_write)
+    restarted = CrmAdoptionStore(store.state_dir)
+    assert restarted.read_view().storage_state == "ready"
+    assert not restarted.pending_audit_file.exists()
 
 
 def test_approval_capture_scopes_internal_grants_to_idempotency_ref(
@@ -1208,6 +1266,22 @@ def test_csv_import_rejects_colliding_normalized_headers(
         store.preview_mutation(request)
 
 
+def test_csv_import_rejects_rows_wider_than_the_reviewed_header(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = CrmAdoptionMutationRequest(
+        action="import_contacts",
+        expected_revision=0,
+        csv_text="name,email\nImported Person,first@example.test,discarded-value\n",
+    )
+
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_IMPORT_ROW_WIDTH_INVALID"
+    ):
+        store.preview_mutation(request)
+
+
 def test_backup_passphrase_rejects_non_utf8_text_at_request_boundary() -> None:
     with pytest.raises(ValueError, match="CRM_ADOPTION_PASSPHRASE_UTF8_REQUIRED"):
         CrmPortableBackupRequest(passphrase="abcdefghijk\ud800")
@@ -1296,7 +1370,7 @@ def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
         )
 
 
-def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
+def test_portable_backup_rejects_out_of_range_and_migrates_exhausted_revision(
     tmp_path: Path,
 ) -> None:
     source = CrmAdoptionStore(tmp_path / "source")
@@ -1339,17 +1413,43 @@ def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
             )
         )
 
+    exhausted_backup = forge_revision(adoption.CRM_ADOPTION_MAX_REVISION)
     exhausted_target = CrmAdoptionStore(tmp_path / "exhausted-target")
+    exhausted_request = CrmPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=exhausted_backup,
+    )
+    exhausted_preview = exhausted_target.preview_restore(exhausted_request)
+    assert exhausted_preview.fresh_lineage_migration is True
+    exhausted_commit = CrmPortableRestoreCommitRequest(
+        **exhausted_request.model_dump(mode="python"),
+        preview_ref=exhausted_preview.preview_ref,
+        approval_ref=exhausted_preview.approval_ref,
+    )
+    exhausted_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:exhausted-migration"
+    )
+    _capture_restore(
+        exhausted_target,
+        exhausted_commit,
+        idempotency_ref=exhausted_idempotency_ref,
+    )
+    exhausted_receipt = exhausted_target.commit_restore(
+        request=exhausted_commit,
+        idempotency_ref=exhausted_idempotency_ref,
+        confirmed=True,
+    )
+    assert exhausted_receipt.after_revision == 1
+    assert "fresh local revision lineage" in exhausted_receipt.safe_summary
+    migrated_state = exhausted_target._read_state()
+    assert migrated_state.revision == 1
+    assert [item.version for item in migrated_state.records] == [1]
+    assert [item.action for item in migrated_state.receipts] == ["restore_backup"]
+
+    nonempty_target = CrmAdoptionStore(tmp_path / "nonempty-target")
+    _commit(nonempty_target, _create_request(), suffix="nonempty-target")
     with pytest.raises(CrmAdoptionConflict, match="CRM_ADOPTION_REVISION_EXHAUSTED"):
-        exhausted_target.preview_restore(
-            CrmPortableRestoreRequest(
-                passphrase=passphrase,
-                backup=forge_revision(adoption.CRM_ADOPTION_MAX_REVISION),
-            )
-        )
-    assert not AuthorityLeaseStore(
-        exhausted_target.state_dir / "authority"
-    ).list_leases()
+        nonempty_target.preview_restore(exhausted_request)
 
     near_exhaustion_target = CrmAdoptionStore(tmp_path / "near-exhaustion-target")
     near_exhaustion_request = CrmPortableRestoreRequest(
@@ -1359,6 +1459,7 @@ def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
     near_exhaustion_preview = near_exhaustion_target.preview_restore(
         near_exhaustion_request
     )
+    assert near_exhaustion_preview.fresh_lineage_migration is False
     near_exhaustion_commit = CrmPortableRestoreCommitRequest(
         **near_exhaustion_request.model_dump(mode="python"),
         preview_ref=near_exhaustion_preview.preview_ref,
@@ -2670,6 +2771,22 @@ def test_key_publication_removes_temporary_link_before_directory_fsync(
 
     assert observed_link_counts == [1]
     assert store.key_file.stat().st_nlink == 1
+
+
+def test_key_temporary_file_creation_failure_is_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+
+    def fail_mkstemp(*_args: object, **_kwargs: object) -> tuple[int, str]:
+        raise OSError("synthetic key temporary-file failure")
+
+    monkeypatch.setattr(adoption.tempfile, "mkstemp", fail_mkstemp)
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_KEY_WRITE_FAILED"):
+        store._create_key()
+    assert not store.key_file.exists()
 
 
 def test_recovery_state_identity_invalidates_pre_recovery_mutation_approval(

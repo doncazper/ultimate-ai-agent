@@ -153,6 +153,7 @@ const restorePreview = {
   affected_count: 1,
   impact_status: "exact",
   rollback_available: true,
+  fresh_lineage_migration: false,
   counts: workspace.counts,
   integrity_status: "ok",
   private_values_included: false,
@@ -367,6 +368,34 @@ describe("CrmAdoptionWorkspace", () => {
       expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
         expect.objectContaining({
           record: expect.objectContaining({ amount_minor: 90_071_992_547_409 }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
+      ),
+    );
+  });
+
+  it("keeps new-record currency visible, editable, and unset by default", async () => {
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    expect(screen.getByLabelText("Currency")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "European opportunity" },
+    });
+    fireEvent.change(screen.getByLabelText("Amount"), {
+      target: { value: "12.34" },
+    });
+    fireEvent.change(screen.getByLabelText("Currency"), {
+      target: { value: "EUR" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review new record" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          record: expect.objectContaining({
+            amount_minor: 1234,
+            currency: "EUR",
+          }),
         }),
         expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
       ),
@@ -894,6 +923,32 @@ describe("CrmAdoptionWorkspace", () => {
       screen.getByText(
         /1 current record will be added, removed, or changed/i,
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("discloses exhausted-backup migration into a fresh revision lineage", async () => {
+    apiMocks.previewCrmPortableRestore.mockResolvedValue({
+      ...restorePreview,
+      backup_revision: Number.MAX_SAFE_INTEGER,
+      rollback_available: false,
+      fresh_lineage_migration: true,
+    });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [utf8File(JSON.stringify(portableBackup))] },
+    });
+
+    expect(
+      await screen.findByText(
+        /This exhausted backup will start a fresh local revision lineage at revision 1/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Record versions and prior mutation receipts will be reset/i),
     ).toBeInTheDocument();
   });
 

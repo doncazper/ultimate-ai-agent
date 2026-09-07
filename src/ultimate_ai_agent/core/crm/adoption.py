@@ -646,6 +646,7 @@ class CrmPortableRestorePreview(_PrivateModel):
     affected_count: int | None = Field(..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2)
     impact_status: Literal["exact", "unknown_current_state"]
     rollback_available: bool
+    fresh_lineage_migration: bool
     counts: dict[str, int]
     integrity_status: Literal["ok"] = "ok"
     private_values_included: Literal[False] = False
@@ -855,6 +856,7 @@ class CrmAdoptionStore:
         current_state_ref = self._current_state_ref()
         if current_state_ref != state_ref_before:
             raise CrmAdoptionConflict("CRM_ADOPTION_STATE_CHANGED_DURING_READ")
+        self._read_pending_audit()
         self._preflight_audit_capacity()
         if request.expected_revision != state.revision:
             raise CrmAdoptionConflict("CRM_ADOPTION_STALE_REVISION")
@@ -1137,8 +1139,13 @@ class CrmAdoptionStore:
         current: CrmAdoptionState,
         current_readable: bool,
     ) -> CrmPortableRestorePreview:
-        if max(current.revision, restored.revision) >= CRM_ADOPTION_MAX_REVISION:
-            raise CrmAdoptionConflict("CRM_ADOPTION_REVISION_EXHAUSTED")
+        restored_for_lineage, after_revision, fresh_lineage_migration = (
+            self._restore_lineage_plan(
+                current=current,
+                restored=restored,
+                current_readable=current_readable,
+            )
+        )
         current_state_ref = self._current_state_ref()
         impact_status = "exact" if current_readable else "unknown_current_state"
         rollback_available = current_readable and self.state_file.exists()
@@ -1151,6 +1158,7 @@ class CrmAdoptionStore:
                 "rollback_available": rollback_available,
                 "backup_fingerprint_ref": request.backup.ciphertext_fingerprint_ref,
                 "backup_revision": restored.revision,
+                "fresh_lineage_migration": fresh_lineage_migration,
             },
         )
         approval_ref = _hash_ref(
@@ -1164,7 +1172,6 @@ class CrmAdoptionStore:
             ),
             seed=preview_ref,
         )
-        after_revision = max(current.revision, restored.revision) + 1
         probe_receipt = self._prospective_receipt(
             action="restore_backup",
             target_ref=None,
@@ -1184,7 +1191,7 @@ class CrmAdoptionStore:
         try:
             prospective = CrmAdoptionState.model_validate(
                 {
-                    **restored.model_dump(mode="python"),
+                    **restored_for_lineage.model_dump(mode="python"),
                     "revision": after_revision,
                     "undo_stack": (
                         [current.snapshot()]
@@ -1193,7 +1200,7 @@ class CrmAdoptionStore:
                     ),
                     "receipts": self._merged_restore_receipts(
                         current=current,
-                        restored=restored,
+                        restored=restored_for_lineage,
                         receipt=probe_receipt,
                     ),
                 }
@@ -1210,13 +1217,14 @@ class CrmAdoptionStore:
             backup_revision=restored.revision,
             record_count=len(restored.records),
             affected_count=(
-                self._snapshot_affected_count(current, restored)
+                self._snapshot_affected_count(current, restored_for_lineage)
                 if current_readable
                 else None
             ),
             impact_status=impact_status,
             rollback_available=rollback_available,
-            counts=self._counts(restored.records),
+            fresh_lineage_migration=fresh_lineage_migration,
+            counts=self._counts(restored_for_lineage.records),
         )
 
     def capture_approval(
@@ -1368,7 +1376,13 @@ class CrmAdoptionStore:
                 expected_revision=current.revision,
                 idempotency_ref=idempotency_ref,
             )
-            after_revision = max(current.revision, restored.revision) + 1
+            restored_for_lineage, after_revision, fresh_lineage_migration = (
+                self._restore_lineage_plan(
+                    current=current,
+                    restored=restored,
+                    current_readable=current_readable,
+                )
+            )
             # A portable backup can come from another workspace lineage. Keep
             # only the exact pre-restore snapshot as a local rollback point so
             # repeated Undo cannot traverse foreign history from the backup.
@@ -1396,17 +1410,22 @@ class CrmAdoptionStore:
                     "rollback-ref:crm-adoption",
                     {"after_revision": after_revision, "action": "undo"},
                 ),
-                safe_summary="One encrypted CRM backup was restored locally after exact confirmation.",
+                safe_summary=(
+                    "One exhausted encrypted CRM backup was migrated into a fresh "
+                    "local revision lineage after exact confirmation."
+                    if fresh_lineage_migration
+                    else "One encrypted CRM backup was restored locally after exact confirmation."
+                ),
             )
             try:
                 next_state = CrmAdoptionState.model_validate(
                     {
-                        **restored.model_dump(mode="python"),
+                        **restored_for_lineage.model_dump(mode="python"),
                         "revision": after_revision,
                         "undo_stack": undo_stack,
                         "receipts": self._merged_restore_receipts(
                             current=current,
-                            restored=restored,
+                            restored=restored_for_lineage,
                             receipt=receipt,
                         ),
                     }
@@ -1728,11 +1747,13 @@ class CrmAdoptionStore:
     def _create_key(self) -> bytes:
         """Create the state key without ever replacing an existing key inode."""
         key = AESGCM.generate_key(bit_length=256)
-        descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{self.key_file.name}.", suffix=".tmp", dir=self.state_dir
-        )
-        temporary = Path(temporary_name)
+        descriptor = -1
+        temporary: Path | None = None
         try:
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{self.key_file.name}.", suffix=".tmp", dir=self.state_dir
+            )
+            temporary = Path(temporary_name)
             os.fchmod(descriptor, 0o600)
             view = memoryview(key)
             while view:
@@ -1760,9 +1781,16 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_KEY_WRITE_FAILED") from exc
         finally:
             if descriptor >= 0:
-                os.close(descriptor)
-            if temporary.exists() and not temporary.is_symlink():
-                temporary.unlink()
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+            if temporary is not None:
+                try:
+                    if temporary.exists() and not temporary.is_symlink():
+                        temporary.unlink()
+                except OSError:
+                    pass
 
     def _prepare_recovery_key(self) -> None:
         """Quarantine only a malformed regular key on the approved restore path."""
@@ -1921,7 +1949,7 @@ class CrmAdoptionStore:
             raise
         except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNREADABLE") from exc
-        if not isinstance(event, dict) or not isinstance(event.get("receipt_ref"), str):
+        if not isinstance(event, dict) or not self._audit_event_is_valid(event):
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNREADABLE")
         return event
 
@@ -1976,9 +2004,21 @@ class CrmAdoptionStore:
             self._remove_pending_audit()
             return
         if not self._audit_event_matches_receipt(event, receipt):
-            self._remove_pending_audit()
-            self._stage_audit(receipt)
+            self._replace_pending_audit(receipt)
         self._finalize_audit(receipt)
+
+    def _replace_pending_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
+        """Atomically correct a journal without first removing its recovery marker."""
+
+        event = self._audit_event(receipt)
+        self._audit_append_payload(receipt, event)
+        payload = _canonical_json(event)
+        if (
+            len(payload) > CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES
+            or len(payload) > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
+        self._atomic_write(self.pending_audit_file, payload)
 
     def _append_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
         staged_event = self._read_pending_audit()
@@ -2296,6 +2336,41 @@ class CrmAdoptionStore:
             "state-ref:crm-adoption:sha256:"
             f"{hashlib.sha256(payload).hexdigest()}"
         )
+
+    def _restore_lineage_plan(
+        self,
+        *,
+        current: CrmAdoptionState,
+        restored: CrmAdoptionState,
+        current_readable: bool,
+    ) -> tuple[CrmAdoptionState, int, bool]:
+        fresh_lineage_migration = (
+            restored.revision == CRM_ADOPTION_MAX_REVISION
+            and current_readable
+            and current.revision == 0
+            and not current.records
+            and not current.receipts
+            and not current.undo_stack
+            and not self.state_file.exists()
+        )
+        if (
+            max(current.revision, restored.revision) >= CRM_ADOPTION_MAX_REVISION
+            and not fresh_lineage_migration
+        ):
+            raise CrmAdoptionConflict("CRM_ADOPTION_REVISION_EXHAUSTED")
+        if not fresh_lineage_migration:
+            return restored, max(current.revision, restored.revision) + 1, False
+        migrated = CrmAdoptionState(
+            workspace_name=restored.workspace_name,
+            workspace_preset=restored.workspace_preset,
+            records=[
+                item.model_copy(update={"version": 1}) for item in restored.records
+            ],
+            revision=0,
+            undo_stack=[],
+            receipts=[],
+        )
+        return migrated, 1, True
 
     @staticmethod
     def _merged_restore_receipts(
@@ -2802,6 +2877,8 @@ class CrmAdoptionStore:
             for index, row in enumerate(reader):
                 if index >= CRM_ADOPTION_MAX_IMPORT_ROWS:
                     raise CrmAdoptionError("CRM_ADOPTION_IMPORT_ROW_LIMIT")
+                if None in row:
+                    raise CrmAdoptionError("CRM_ADOPTION_IMPORT_ROW_WIDTH_INVALID")
                 display_name = str(row.get(name_field) or "").strip()
                 if not display_name:
                     raise CrmAdoptionError("CRM_ADOPTION_IMPORT_NAME_REQUIRED")

@@ -3048,6 +3048,7 @@ export interface CrmPortableRestorePreview {
   affected_count: number | null;
   impact_status: "exact" | "unknown_current_state";
   rollback_available: boolean;
+  fresh_lineage_migration: boolean;
   counts: Record<string, number>;
   integrity_status: "ok";
   private_values_included: false;
