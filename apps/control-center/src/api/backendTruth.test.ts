@@ -28,7 +28,6 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
     ["settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
-    ["crm", "CRM", ["/workspace/crm"], ["GET /control-center/crm/summary", "GET /control-center/crm/adoption"]],
   ] as const;
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
@@ -78,6 +77,24 @@ function fixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const crmSurface = {
+  surface_ref: "critical-surface:crm",
+  label: "CRM",
+  frontend_paths: ["/workspace/crm"],
+  backend_route_refs: [
+    "GET /control-center/crm/summary",
+    "GET /control-center/crm/adoption",
+  ],
+  contract_status: "backend_contract_declared",
+} as const;
+
+function withCrmSurface(value: ReturnType<typeof fixture>) {
+  return {
+    ...value,
+    critical_surfaces: [...value.critical_surfaces, crmSurface],
+  };
+}
+
 const options = {
   now: new Date("2026-07-22T18:00:10Z"),
   sha256: async () => HASH,
@@ -95,7 +112,7 @@ describe("backend truth validation", () => {
   });
 
   it("accepts the exact current backend-owned envelope", async () => {
-    const value = fixture();
+    const value = withCrmSurface(fixture());
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
@@ -104,14 +121,14 @@ describe("backend truth validation", () => {
   });
 
   it("accepts invalid durable evidence only with bounded issue and receipt refs", async () => {
-    const base = fixture();
-    const value = fixture({
+    const base = withCrmSurface(fixture());
+    const value = withCrmSurface(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "invalid_evidence",
         receipt_refs: ["receipt-ref:corrupt-durable-proof"],
       },
-    });
+    }));
 
     const validated = await validateControlCenterBackendTruth(value, options);
 
@@ -119,14 +136,14 @@ describe("backend truth validation", () => {
   });
 
   it("accepts storage-unavailable evidence only without receipt claims", async () => {
-    const base = fixture();
-    const value = fixture({
+    const base = withCrmSurface(fixture());
+    const value = withCrmSurface(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "storage_unavailable",
         issue_refs: ["issue-ref:backend-truth-storage-unavailable"],
       },
-    });
+    }));
 
     const validated = await validateControlCenterBackendTruth(value, options);
 
@@ -214,9 +231,20 @@ describe("backend truth validation", () => {
     ],
   ];
 
-  it.each(invalidCases)("rejects %s", async (_label, value, code, nowOverride) => {
+  it.each(invalidCases)("rejects %s", async (label, value, code, nowOverride) => {
+    const candidate =
+      label !== "partial surface set" &&
+      value !== null &&
+      typeof value === "object" &&
+      "critical_surfaces" in value &&
+      Array.isArray(value.critical_surfaces)
+        ? {
+            ...value,
+            critical_surfaces: [...value.critical_surfaces, crmSurface],
+          }
+        : value;
     await expect(
-      validateControlCenterBackendTruth(value, {
+      validateControlCenterBackendTruth(candidate, {
         ...options,
         now: (nowOverride as Date | undefined) ?? options.now,
       }),
