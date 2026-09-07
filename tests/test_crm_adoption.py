@@ -2832,6 +2832,24 @@ def test_key_publication_removes_temporary_link_before_directory_fsync(
     assert store.key_file.stat().st_nlink == 1
 
 
+def test_interrupted_key_link_creation_recovers_recognized_temporary_link(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    key = adoption.AESGCM.generate_key(bit_length=256)
+    temporary = store.state_dir / f".{store.key_file.name}.interrupted.tmp"
+    temporary.write_bytes(key)
+    temporary.chmod(0o600)
+    os.link(temporary, store.key_file)
+
+    assert store.key_file.stat().st_nlink == 2
+    assert store.read_view().storage_state == "empty"
+    assert store._read_key() == key
+    assert store.key_file.stat().st_nlink == 1
+    assert not temporary.exists()
+
+
 def test_key_temporary_file_creation_failure_is_bounded(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -35,7 +35,11 @@ Private record material is serialized into one versioned CRM state and
 encrypted with AES-256-GCM before the atomic local write. The random local key,
 encrypted state, and content-free audit log use owner-only filesystem modes.
 The key must remain an owner-owned, owner-only regular file with one hard link,
-and is created without replacing an existing key inode. Invalid keys,
+and is created without replacing an existing key inode. If a process stops in
+the narrow interval after key-link publication but before removal of its
+recognized same-inode temporary link, the next read removes only that exact
+temporary link and durably restores the one-link invariant. Unknown or external
+hard links remain unsafe. Invalid keys,
 unsafe files, corrupt ciphertext, stale revisions, mismatched previews,
 approval substitution, replay substitution, unknown links, and invalid
 prospective state all fail closed.
@@ -96,7 +100,9 @@ write as chained diagnostic context.
   round a requested cent. Inputs with fractional cents are rejected in the
   editor before the draft or preview changes. Currency is visible and editable;
   a new record starts unset, and a missing currency is displayed as unset
-  rather than being relabeled as USD.
+  rather than being relabeled as USD. Stored minor units are formatted from the
+  integer quotient and remainder, so large exact amounts cannot lose a cent
+  through floating-point display division.
 - State, record-version, request, preview, receipt, and backup revisions are
   capped at JavaScript's exact safe-integer limit before browser projection;
   an exhausted workspace revision fails during preview before approval or lease
@@ -107,7 +113,9 @@ write as chained diagnostic context.
   linked record, and an in-progress edit keeps the exact original timestamp
   strings until it is saved or cancelled. A refresh or filter result that hides
   the edited record clears the draft; a newer visible record version does the
-  same before stale values can be rebound to current state.
+  same before stale values can be rebound to current state. New local wall-time
+  values must round-trip exactly; nonexistent daylight-saving times are rejected
+  and repeated-hour values require an explicit timezone offset.
 - Every CRM JSON-input route is bounded before framework JSON decoding, with a
   maximum nesting depth and a structured no-store `413` response. The larger
   request bound accommodates the documented encrypted portable-backup limit;
@@ -126,8 +134,9 @@ write as chained diagnostic context.
   decryption, and full state schema. Commit then requires a fresh exact preview,
   approval, lease, idempotency ref, and operator confirmation. The preview binds
   both current-state readability and whether a real pre-restore snapshot exists,
-  so a key change or first restore cannot produce a false Undo promise. A failed
-  or lost commit response invalidates the pre-restore editor before another
+  shows the bounded per-record-kind backup composition before confirmation, and
+  prevents a key change or first restore from producing a false Undo promise. A
+  failed or lost commit response invalidates the pre-restore editor before another
   write can be reviewed. Once a restore receipt is returned, a later workspace
   refresh failure is reported separately while the confirmed receipt and
   successful-restore message remain visible; it is never relabeled as a failed
@@ -158,6 +167,11 @@ write as chained diagnostic context.
 - Portable backup is deliberate file handoff, not background synchronization.
   Concurrent edits on multiple computers are not merged; the operator chooses
   which verified backup to restore.
+
+Once an ordinary mutation receipt is returned, a later workspace refresh
+failure is likewise reported as a refresh problem while the successful local
+save and its receipt remain authoritative; the UI does not invite a duplicate
+commit.
 
 ## Operator and inspection surfaces
 

@@ -143,11 +143,79 @@ export function crmLocalDateTimeInputValue(
   )}${fraction}`;
 }
 
-function isoDate(value: string | null | undefined): string | null {
+type LocalDateTimeParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+function localDateTimeParts(value: string): LocalDateTimeParts | null {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/.exec(
+    value,
+  );
+  if (!matched) return null;
+  return {
+    year: Number(matched[1]),
+    month: Number(matched[2]),
+    day: Number(matched[3]),
+    hour: Number(matched[4]),
+    minute: Number(matched[5]),
+    second: Number(matched[6] ?? "0"),
+    millisecond: Number((matched[7] ?? "").padEnd(3, "0") || "0"),
+  };
+}
+
+function matchesLocalDateTime(date: Date, parts: LocalDateTimeParts): boolean {
+  return (
+    date.getFullYear() === parts.year &&
+    date.getMonth() + 1 === parts.month &&
+    date.getDate() === parts.day &&
+    date.getHours() === parts.hour &&
+    date.getMinutes() === parts.minute &&
+    date.getSeconds() === parts.second &&
+    date.getMilliseconds() === parts.millisecond
+  );
+}
+
+function localDateTimeIsAmbiguous(date: Date, parts: LocalDateTimeParts): boolean {
+  for (let deltaMinutes = 1; deltaMinutes <= 180; deltaMinutes += 1) {
+    for (const direction of [-1, 1]) {
+      const alternative = new Date(
+        date.getTime() + direction * deltaMinutes * 60_000,
+      );
+      if (
+        alternative.getTimezoneOffset() !== date.getTimezoneOffset() &&
+        matchesLocalDateTime(alternative, parts)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function crmIsoDate(value: string | null | undefined): string | null {
   if (!value) return null;
+  if (/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(value)) {
+    const offsetDate = new Date(value);
+    if (Number.isNaN(offsetDate.getTime())) {
+      throw new Error("Use a valid date and time before reviewing this record.");
+    }
+    return offsetDate.toISOString();
+  }
+  const parts = localDateTimeParts(value);
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
+  if (!parts || Number.isNaN(parsed.getTime()) || !matchesLocalDateTime(parsed, parts)) {
     throw new Error("Use a valid date and time before reviewing this record.");
+  }
+  if (localDateTimeIsAmbiguous(parsed, parts)) {
+    throw new Error(
+      "This local time occurs twice. Use a timestamp with an explicit timezone offset.",
+    );
   }
   return parsed.toISOString();
 }
@@ -173,6 +241,22 @@ export function crmAmountMinorFromInput(value: string): number | null {
 function crmAmountInputValue(amountMinor: number | null | undefined): string {
   if (amountMinor === null || amountMinor === undefined) return "";
   return `${Math.floor(amountMinor / 100)}.${String(amountMinor % 100).padStart(2, "0")}`;
+}
+
+export function crmAmountDisplayValue(amountMinor: number): string {
+  const minor = amountMinor % 100;
+  const major = (amountMinor - minor) / 100;
+  return `${major.toLocaleString(undefined, { maximumFractionDigits: 0 })}.${String(minor).padStart(2, "0")}`;
+}
+
+function crmRestoreCompositionLabels(counts: Record<string, number>): string[] {
+  const labels = RECORD_KINDS.flatMap((kind) => {
+    const count = counts[kind.value];
+    return Number.isSafeInteger(count) && count > 0
+      ? [`${kind.label}: ${count.toLocaleString()}`]
+      : [];
+  });
+  return labels.length ? labels : ["No records in backup"];
 }
 
 export function CrmAdoptionWorkspace() {
@@ -354,7 +438,7 @@ export function CrmAdoptionWorkspace() {
     ) =>
       original && value === crmLocalDateTimeInputValue(original)
         ? original
-        : isoDate(value);
+        : crmIsoDate(value);
     let normalized: CrmAdoptionRecordDraft;
     try {
       normalized = {
@@ -452,7 +536,15 @@ export function CrmAdoptionWorkspace() {
       setNotice(
         `Saved locally at CRM revision ${receipt.after_revision}. No external write occurred.`,
       );
-      await refresh();
+      try {
+        await refresh();
+      } catch (reason) {
+        setError(
+          reason instanceof Error
+            ? `Saved locally, but the workspace refresh failed: ${reason.message}`
+            : "Saved locally, but the workspace refresh failed. Refresh the CRM to load the confirmed state.",
+        );
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -995,7 +1087,7 @@ export function CrmAdoptionWorkspace() {
               ? `${pendingRestore.preview.affected_count ?? 0} current record${pendingRestore.preview.affected_count === 1 ? "" : "s"} will be added, removed, or changed; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
               : `Impact on current records is unknown because the active workspace is unreadable; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
           }
-          labels={[]}
+          labels={crmRestoreCompositionLabels(pendingRestore.preview.counts)}
           busy={busy}
           confirmLabel="Confirm restore"
           onCancel={() => {
@@ -1060,8 +1152,8 @@ function RecordInspector({
             label="Amount"
             value={
               record.currency
-                ? `${record.currency} ${(record.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                : `${(record.amount_minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} · currency unset`
+                ? `${record.currency} ${crmAmountDisplayValue(record.amount_minor)}`
+                : `${crmAmountDisplayValue(record.amount_minor)} · currency unset`
             }
           />
         ) : null}

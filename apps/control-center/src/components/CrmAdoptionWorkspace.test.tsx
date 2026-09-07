@@ -13,6 +13,8 @@ import { mockControlCenterData } from "../mocks/controlCenterData";
 import { CrmSurface } from "../northstar/PrimarySurfaces";
 import {
   CrmAdoptionWorkspace,
+  crmAmountDisplayValue,
+  crmIsoDate,
   crmLocalDateTimeInputValue,
 } from "./CrmAdoptionWorkspace";
 import { CrmM1FixtureShellPanel } from "./CrmM1FixtureShellPanel";
@@ -312,6 +314,41 @@ describe("CrmAdoptionWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps a confirmed mutation distinct from a failed post-receipt refresh", async () => {
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockRejectedValueOnce(new Error("Transient CRM refresh failure."));
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Confirmed Example" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review new record" }));
+    await screen.findByRole("dialog", { name: "Review this local CRM change" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm and save locally" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Saved locally at CRM revision 5. No external write occurred.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Saved locally, but the workspace refresh failed: Transient CRM refresh failure.",
+      ),
+    ).toBeInTheDocument();
+    expect(apiMocks.commitCrmAdoptionMutation).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("dialog", { name: "Review this local CRM change" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("reuses the exact create idempotency ref after an ambiguous commit", async () => {
     apiMocks.commitCrmAdoptionMutation.mockRejectedValue(
       new Error("The create result is uncertain."),
@@ -372,6 +409,12 @@ describe("CrmAdoptionWorkspace", () => {
         expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
       ),
     );
+  });
+
+  it("formats large safe-integer minor amounts without losing cents", () => {
+    const formatted = crmAmountDisplayValue(9_007_199_254_740_901);
+    expect(formatted.endsWith(".01")).toBe(true);
+    expect(formatted.endsWith(".02")).toBe(false);
   });
 
   it("keeps new-record currency visible, editable, and unset by default", async () => {
@@ -447,6 +490,33 @@ describe("CrmAdoptionWorkspace", () => {
       "2026-09-06T10:00:45.123",
     );
     spies.forEach((spy) => spy.mockRestore());
+  });
+
+  it("rejects nonexistent and ambiguous local DST timestamps", () => {
+    const environment = (
+      globalThis as typeof globalThis & {
+        process: { env: Record<string, string | undefined> };
+      }
+    ).process.env;
+    const originalTimeZone = environment.TZ;
+    environment.TZ = "America/New_York";
+    try {
+      expect(() => crmIsoDate("2026-03-08T02:30")).toThrow(
+        "Use a valid date and time before reviewing this record.",
+      );
+      expect(() => crmIsoDate("2026-11-01T01:30")).toThrow(
+        "This local time occurs twice. Use a timestamp with an explicit timezone offset.",
+      );
+      expect(crmIsoDate("2026-11-01T01:30:00-04:00")).toBe(
+        "2026-11-01T05:30:00.000Z",
+      );
+    } finally {
+      if (originalTimeZone === undefined) {
+        delete environment.TZ;
+      } else {
+        environment.TZ = originalTimeZone;
+      }
+    }
   });
 
   it("preserves exact timestamp precision during an unrelated edit", async () => {
@@ -839,6 +909,33 @@ describe("CrmAdoptionWorkspace", () => {
         /1 current record will be added, removed, or changed; the backup contains 1 record at revision 4/i,
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Person: 1")).toBeVisible();
+  });
+
+  it("shows the verified backup composition before restore", async () => {
+    apiMocks.previewCrmPortableRestore.mockResolvedValue({
+      ...restorePreview,
+      record_count: 2,
+      counts: {
+        ...restorePreview.counts,
+        person: 0,
+        property: 1,
+        opportunity: 1,
+      },
+    });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [utf8File(JSON.stringify(portableBackup))] },
+    });
+
+    await screen.findByRole("dialog", { name: "Review encrypted backup restore" });
+    expect(screen.getByText("Property: 1")).toBeVisible();
+    expect(screen.getByText("Opportunity: 1")).toBeVisible();
+    expect(screen.queryByText("Person: 1")).not.toBeInTheDocument();
   });
 
   it("clears the backup passphrase after download and restore handoff", async () => {

@@ -1733,7 +1733,18 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
         try:
             metadata = os.fstat(descriptor)
+            if metadata.st_nlink != 1:
+                metadata = self._recover_key_links(descriptor, metadata)
+            try:
+                linked_metadata = os.lstat(self.key_file)
+            except OSError as exc:
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
             self._validate_key_metadata(metadata)
+            if (metadata.st_dev, metadata.st_ino) != (
+                linked_metadata.st_dev,
+                linked_metadata.st_ino,
+            ):
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
             if metadata.st_size != 32:
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
             # Keep the read bounded even if the file changes after the fstat.
@@ -1819,12 +1830,91 @@ class CrmAdoptionStore:
     def _validated_key_file_exists(self) -> bool:
         """Reject unsafe key objects even before encrypted state exists."""
 
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
-            metadata = self.key_file.lstat()
+            descriptor = os.open(self.key_file, flags)
         except FileNotFoundError:
             return False
-        self._validate_key_metadata(metadata)
-        return True
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if metadata.st_nlink != 1:
+                metadata = self._recover_key_links(descriptor, metadata)
+            linked_metadata = os.lstat(self.key_file)
+            self._validate_key_metadata(metadata)
+            if (metadata.st_dev, metadata.st_ino) != (
+                linked_metadata.st_dev,
+                linked_metadata.st_ino,
+            ):
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+            return True
+        except CrmAdoptionError:
+            raise
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
+        finally:
+            os.close(descriptor)
+
+    def _recover_key_links(
+        self,
+        descriptor: int,
+        metadata: os.stat_result,
+    ) -> os.stat_result:
+        """Remove only recognized crash-left temporary links to the key inode."""
+
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink <= 1
+            or metadata.st_size != 32
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+            or (hasattr(os, "getuid") and metadata.st_uid != os.getuid())
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+        try:
+            linked_metadata = os.lstat(self.key_file)
+            if (
+                not stat.S_ISREG(linked_metadata.st_mode)
+                or (linked_metadata.st_dev, linked_metadata.st_ino)
+                != (metadata.st_dev, metadata.st_ino)
+            ):
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+            prefix = f".{self.key_file.name}."
+            matching_temporary_paths: list[Path] = []
+            for entry in os.scandir(self.state_dir):
+                if not (
+                    entry.name.startswith(prefix) and entry.name.endswith(".tmp")
+                ):
+                    continue
+                entry_metadata = entry.stat(follow_symlinks=False)
+                if (
+                    stat.S_ISREG(entry_metadata.st_mode)
+                    and (entry_metadata.st_dev, entry_metadata.st_ino)
+                    == (metadata.st_dev, metadata.st_ino)
+                ):
+                    matching_temporary_paths.append(Path(entry.path))
+            if len(matching_temporary_paths) != metadata.st_nlink - 1:
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+            for temporary_path in matching_temporary_paths:
+                temporary_path.unlink()
+            directory_fd = os.open(self.state_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            recovered = os.fstat(descriptor)
+            linked_metadata = os.lstat(self.key_file)
+            self._validate_key_metadata(recovered)
+            if (recovered.st_dev, recovered.st_ino) != (
+                linked_metadata.st_dev,
+                linked_metadata.st_ino,
+            ):
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
+            return recovered
+        except CrmAdoptionError:
+            raise
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
 
     @staticmethod
     def _validate_key_metadata(metadata: os.stat_result) -> None:
