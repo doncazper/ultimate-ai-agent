@@ -243,6 +243,56 @@ def test_stale_revision_replay_and_changed_replay_fail_closed(tmp_path: Path) ->
         store.preview_mutation(_create_request())
 
 
+def test_archived_record_rejects_update_until_explicit_restore(tmp_path: Path) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    created = _commit(store, _create_request(), suffix="archived-update-create")
+    target_ref = str(created.target_ref)
+    _commit(
+        store,
+        CrmAdoptionMutationRequest(
+            action="archive",
+            expected_revision=1,
+            target_ref=target_ref,
+        ),
+        suffix="archived-update-archive",
+    )
+
+    with pytest.raises(CrmAdoptionConflict, match="CRM_ADOPTION_RECORD_ARCHIVED"):
+        store.preview_mutation(
+            CrmAdoptionMutationRequest(
+                action="update",
+                expected_revision=2,
+                target_ref=target_ref,
+                patch=CrmAdoptionRecordPatch(display_name="Bypassed lifecycle"),
+            )
+        )
+
+
+def test_pending_audit_read_io_failure_is_a_bounded_blocked_view(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store.state_dir.mkdir(parents=True)
+    store.pending_audit_file.write_text("{}", encoding="utf-8")
+    read_bytes = Path.read_bytes
+
+    def deny_pending_audit_read(path: Path) -> bytes:
+        if path == store.pending_audit_file:
+            raise OSError("synthetic pending audit read failure")
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", deny_pending_audit_read)
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_AUDIT_PENDING_UNREADABLE"
+    ):
+        store._read_pending_audit()
+
+
 def test_state_write_failure_does_not_publish_audit(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

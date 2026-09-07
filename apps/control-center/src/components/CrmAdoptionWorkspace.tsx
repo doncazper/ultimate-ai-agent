@@ -1139,9 +1139,9 @@ function RecordEditor({
             value={draft.related_refs?.[0] ?? ""}
             onChange={(event) => {
               const primaryRef = event.target.value;
-              const retainedRefs = (draft.related_refs ?? [])
-                .slice(1)
-                .filter((ref) => ref !== primaryRef);
+              const retainedRefs = primaryRef
+                ? (draft.related_refs ?? []).filter((ref) => ref !== primaryRef)
+                : (draft.related_refs ?? []).slice(1);
               set(
                 "related_refs",
                 primaryRef ? [primaryRef, ...retainedRefs] : retainedRefs,

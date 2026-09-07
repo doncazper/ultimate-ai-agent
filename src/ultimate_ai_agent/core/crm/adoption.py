@@ -875,6 +875,8 @@ class CrmAdoptionStore:
             if target.version >= CRM_ADOPTION_MAX_REVISION:
                 raise CrmAdoptionConflict("CRM_ADOPTION_RECORD_VERSION_EXHAUSTED")
             labels = [target.display_name]
+            if request.action == "update" and target.archived:
+                raise CrmAdoptionConflict("CRM_ADOPTION_RECORD_ARCHIVED")
             if request.action == "archive" and target.archived:
                 raise CrmAdoptionConflict("CRM_ADOPTION_RECORD_ALREADY_ARCHIVED")
             if request.action == "restore" and not target.archived:
@@ -1743,22 +1745,21 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
 
     def _read_pending_audit(self) -> dict[str, object] | None:
-        if not self.pending_audit_file.exists():
-            return None
-        if (
-            self.pending_audit_file.is_symlink()
-            or not self.pending_audit_file.is_file()
-        ):
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
-        if (
-            self.pending_audit_file.stat().st_size <= 0
-            or self.pending_audit_file.stat().st_size
-            > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES
-        ):
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
         try:
+            if not self.pending_audit_file.exists():
+                return None
+            if (
+                self.pending_audit_file.is_symlink()
+                or not self.pending_audit_file.is_file()
+            ):
+                raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
+            pending_size = self.pending_audit_file.stat().st_size
+            if pending_size <= 0 or pending_size > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES:
+                raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
             event = json.loads(self.pending_audit_file.read_bytes())
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        except CrmAdoptionError:
+            raise
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNREADABLE") from exc
         if not isinstance(event, dict) or not isinstance(event.get("receipt_ref"), str):
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNREADABLE")

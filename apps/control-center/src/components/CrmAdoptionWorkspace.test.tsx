@@ -587,6 +587,7 @@ describe("CrmAdoptionWorkspace", () => {
           patch: expect.objectContaining({
             related_refs: [
               relatedRecords[2].record_ref,
+              relatedRecords[0].record_ref,
               relatedRecords[1].record_ref,
             ],
           }),
