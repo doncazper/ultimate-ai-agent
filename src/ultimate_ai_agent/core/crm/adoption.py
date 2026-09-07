@@ -17,9 +17,10 @@ import os
 import secrets
 import stat
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Iterator, Literal
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -555,6 +556,7 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
         "blocked_unsafe",
     ]
     revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
+    current_state_ref: str = Field(..., max_length=128)
     workspace_name: str
     workspace_preset: str
     records: list[CrmAdoptionRecord]
@@ -570,6 +572,13 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
     send_enabled: Literal[False] = False
     provider_model_call_enabled: Literal[False] = False
     production_authority_enabled: Literal[False] = False
+
+    @field_validator("current_state_ref")
+    @classmethod
+    def validate_current_state_ref(cls, value: str) -> str:
+        if not value.startswith("state-ref:crm-adoption"):
+            raise ValueError("CRM_ADOPTION_STATE_REF_INVALID")
+        return value
 
 
 class CrmAdoptionQueryRequest(_PrivateModel):
@@ -733,7 +742,7 @@ class CrmAdoptionStore:
         include_archived: bool = False,
     ) -> CrmAdoptionWorkspaceView:
         try:
-            state, audit_blocker = self._read_state_for_view()
+            state, audit_blocker, current_state_ref = self._read_state_for_view()
         except CrmAdoptionError as exc:
             code = str(exc)
             audit_blocker: str | None = None
@@ -781,6 +790,7 @@ class CrmAdoptionStore:
             return self._view(
                 CrmAdoptionState(),
                 records=[],
+                current_state_ref=self._current_state_ref(),
                 storage_state=storage_state,
                 next_safe_action=next_safe_action,
             )
@@ -811,6 +821,7 @@ class CrmAdoptionStore:
         return self._view(
             state,
             records=records,
+            current_state_ref=current_state_ref,
             storage_state=(
                 "blocked_audit_capacity"
                 if audit_blocker == "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED"
@@ -933,7 +944,7 @@ class CrmAdoptionStore:
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
             state = self._read_state()
             self._recover_pending_audit(state)
             fingerprint = self._mutation_fingerprint(request)
@@ -1037,7 +1048,7 @@ class CrmAdoptionStore:
         self, request: CrmPortableBackupRequest
     ) -> CrmPortableBackup:
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
             state = self._read_state()
             self._recover_pending_audit(state)
             if not self.state_file.exists():
@@ -1065,7 +1076,7 @@ class CrmAdoptionStore:
         self, request: CrmPortableRestoreRequest
     ) -> CrmPortableRestorePreview:
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
             current, current_readable = self._read_current_for_restore()
             restored = self._open_portable_backup(request)
             return self._build_restore_preview(
@@ -1129,7 +1140,7 @@ class CrmAdoptionStore:
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
             if request.operation == "mutation":
                 assert request.mutation is not None
                 commit = request.mutation
@@ -1218,7 +1229,7 @@ class CrmAdoptionStore:
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
             current, current_readable = self._read_current_for_restore()
             restored = self._open_portable_backup(request)
             fingerprint = self._restore_fingerprint(request)
@@ -1442,10 +1453,16 @@ class CrmAdoptionStore:
         )
         return next_state, target_ref
 
-    def _read_state_for_view(self) -> tuple[CrmAdoptionState, str | None]:
+    def _read_state_for_view(
+        self,
+    ) -> tuple[CrmAdoptionState, str | None, str]:
         self._secure_state_dir()
-        with self.lock.acquire(_LOCK_KEY):
+        with self._state_lock():
+            state_ref_before = self._current_state_ref()
             state = self._read_state()
+            current_state_ref = self._current_state_ref()
+            if current_state_ref != state_ref_before:
+                raise CrmAdoptionConflict("CRM_ADOPTION_STATE_CHANGED_DURING_READ")
             try:
                 self._recover_pending_audit(state)
                 self._preflight_audit_capacity()
@@ -1455,8 +1472,8 @@ class CrmAdoptionStore:
                     "CRM_ADOPTION_AUDIT_UNREADABLE",
                 }:
                     raise
-                return state, str(exc)
-            return state, None
+                return state, str(exc), current_state_ref
+            return state, None, current_state_ref
 
     def _read_current_for_restore(self) -> tuple[CrmAdoptionState, bool]:
         try:
@@ -1545,7 +1562,10 @@ class CrmAdoptionStore:
             if metadata.st_size != 32:
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
             # Keep the read bounded even if the file changes after the fstat.
-            key = os.read(descriptor, 33)
+            try:
+                key = os.read(descriptor, 33)
+            except OSError as exc:
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE") from exc
         finally:
             os.close(descriptor)
         if len(key) != 32:
@@ -1945,6 +1965,28 @@ class CrmAdoptionStore:
             raise CrmAdoptionError(
                 "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
             ) from exc
+
+    @contextmanager
+    def _state_lock(self) -> Iterator[str]:
+        lock_context = self.lock.acquire(_LOCK_KEY)
+        try:
+            lease_ref = lock_context.__enter__()
+        except OSError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+            ) from exc
+        try:
+            yield lease_ref
+        except BaseException as exc:
+            if not lock_context.__exit__(type(exc), exc, exc.__traceback__):
+                raise
+        else:
+            try:
+                lock_context.__exit__(None, None, None)
+            except OSError as exc:
+                raise CrmAdoptionError(
+                    "CRM_ADOPTION_STATE_DIRECTORY_UNAVAILABLE"
+                ) from exc
 
     def _atomic_write(self, path: Path, payload: bytes) -> None:
         if not path.parent.is_absolute() or path.parent == Path(path.anchor):
@@ -2646,6 +2688,7 @@ class CrmAdoptionStore:
         state: CrmAdoptionState,
         *,
         records: list[CrmAdoptionRecord],
+        current_state_ref: str,
         storage_state: Literal[
             "empty",
             "ready",
@@ -2661,6 +2704,7 @@ class CrmAdoptionStore:
         return CrmAdoptionWorkspaceView(
             storage_state=storage_state,
             revision=state.revision,
+            current_state_ref=current_state_ref,
             workspace_name=state.workspace_name,
             workspace_preset=state.workspace_preset,
             records=records,

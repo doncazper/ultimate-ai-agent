@@ -142,6 +142,7 @@ describe("CRM adoption mutation provenance", () => {
             success: true,
             data: {
               schema_version: "uaa-crm-adoption-workspace.v1",
+              current_state_ref: "state-ref:crm-adoption:empty",
               private_values_confined_to_local_response: true,
               fixture_primary_truth: false,
               external_crm_write_enabled: false,

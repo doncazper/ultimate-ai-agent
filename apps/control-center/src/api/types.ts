@@ -2919,6 +2919,7 @@ export interface CrmAdoptionWorkspaceView {
     | "blocked_revision_exhausted"
     | "blocked_unsafe";
   revision: number;
+  current_state_ref: string;
   workspace_name: string;
   workspace_preset: string;
   records: CrmAdoptionRecord[];

@@ -39,6 +39,7 @@ const workspace: CrmAdoptionWorkspaceView = {
   foundation_contract_ref: "uaa-eco-005-crm-private-portfolio.v1",
   storage_state: "ready",
   revision: 4,
+  current_state_ref: "state-ref:crm-adoption:sha256:test-current",
   workspace_name: "Founder private CRM",
   workspace_preset: "founder_private",
   records: [
@@ -188,6 +189,7 @@ describe("CrmAdoptionWorkspace", () => {
       ...receipt,
       after_revision: 5,
     });
+    apiMocks.createCrmPortableBackup.mockResolvedValue(portableBackup);
   });
 
   it("mounts founder-private CRM adoption on the primary CRM surface", async () => {
@@ -491,6 +493,51 @@ describe("CrmAdoptionWorkspace", () => {
     );
   });
 
+  it("does not combine record views from different state identities", async () => {
+    const organization = {
+      ...workspace.records[0],
+      record_ref: "crm-record-ref:organization:stale-link",
+      record_kind: "organization" as const,
+      display_name: "Stale Linked Organization",
+    };
+    const filteredPerson = {
+      ...workspace.records[0],
+      related_refs: [organization.record_ref],
+    };
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce({
+        ...workspace,
+        records: [filteredPerson],
+        current_state_ref: "state-ref:crm-adoption:sha256:before-recovery",
+      })
+      .mockResolvedValueOnce({
+        ...workspace,
+        records: [
+          { ...filteredPerson, display_name: "Recovered divergent person" },
+          organization,
+        ],
+        current_state_ref: "state-ref:crm-adoption:sha256:after-recovery",
+      });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.change(screen.getByLabelText("Record type"), {
+      target: { value: "person" },
+    });
+
+    await waitFor(() =>
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(3),
+    );
+    expect(screen.queryByText("Stale Linked Organization")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      screen.queryByRole("option", {
+        name: "Stale Linked Organization · organization",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("changes only the primary relationship and retains additional links", async () => {
     const relatedRecords = [
       {
@@ -732,6 +779,34 @@ describe("CrmAdoptionWorkspace", () => {
         /1 current record will be added, removed, or changed; the backup contains 1 record at revision 4/i,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("clears the backup passphrase after download and restore handoff", async () => {
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    const input = screen.getByLabelText("Backup passphrase");
+    fireEvent.change(input, {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Download encrypted backup" }),
+    );
+    await screen.findByText("Encrypted portable CRM backup downloaded.");
+    expect(input).toHaveValue("");
+
+    fireEvent.change(input, {
+      target: { value: "another correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [utf8File(JSON.stringify(portableBackup))] },
+    });
+    await screen.findByRole("dialog", { name: "Review encrypted backup restore" });
+    expect(input).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Review encrypted backup restore" }),
+    ).not.toBeInTheDocument();
+    expect(input).toHaveValue("");
   });
 
   it("uses the restore preview rather than stale workspace state for Undo", async () => {

@@ -197,7 +197,8 @@ export function CrmAdoptionWorkspace() {
     return {
       next,
       directory:
-        directoryView.revision === next.revision
+        directoryView.revision === next.revision &&
+        directoryView.current_state_ref === next.current_state_ref
           ? directoryView.records
           : next.records,
     };
@@ -535,6 +536,7 @@ export function CrmAdoptionWorkspace() {
           : "The encrypted backup could not be created.",
       );
     } finally {
+      setBackupPassphrase("");
       setBusy(false);
     }
   }, [backupPassphrase]);
@@ -580,6 +582,7 @@ export function CrmAdoptionWorkspace() {
             : CRM_ADOPTION_BACKUP_OPEN_ERROR,
         );
       } finally {
+        setBackupPassphrase("");
         setBusy(false);
       }
     },
@@ -922,7 +925,10 @@ export function CrmAdoptionWorkspace() {
           labels={[]}
           busy={busy}
           confirmLabel="Confirm restore"
-          onCancel={() => setPendingRestore(null)}
+          onCancel={() => {
+            setPendingRestore(null);
+            setBackupPassphrase("");
+          }}
           onConfirm={() => void confirmRestore()}
         />
       ) : null}

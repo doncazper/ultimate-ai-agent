@@ -1267,6 +1267,51 @@ def test_state_read_io_failure_is_bounded_and_restore_identity_is_stable(
     )
 
 
+def test_workspace_view_binds_records_to_the_exact_state_identity(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    empty = store.read_view()
+    assert empty.current_state_ref == "state-ref:crm-adoption:empty"
+
+    _commit(store, _create_request(), suffix="view-state-identity")
+    ready = store.read_view()
+    assert ready.current_state_ref == store._current_state_ref()
+    assert ready.current_state_ref.startswith("state-ref:crm-adoption:sha256:")
+
+
+def test_lock_directory_failure_is_a_bounded_blocked_view(tmp_path: Path) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store.state_dir.mkdir(parents=True)
+    store.lock.lock_dir.write_text("not a lock directory", encoding="utf-8")
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    assert "Restore access to the local CRM storage directory" in (
+        view.next_safe_action
+    )
+
+
+def test_key_read_io_failure_is_a_bounded_locked_view(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(), suffix="key-read-io")
+
+    def deny_key_read(_descriptor: int, _size: int) -> bytes:
+        raise OSError("synthetic key read failure")
+
+    monkeypatch.setattr(adoption.os, "read", deny_key_read)
+
+    view = store.read_view()
+    assert view.storage_state == "locked"
+    assert view.records == []
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_KEY_UNAVAILABLE"):
+        store._read_key()
+
+
 def test_state_directory_io_failure_is_a_bounded_blocked_view(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

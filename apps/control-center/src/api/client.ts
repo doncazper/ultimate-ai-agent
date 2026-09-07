@@ -543,6 +543,8 @@ export async function loadCrmAdoptionWorkspace(
       );
   if (
     value.schema_version !== "uaa-crm-adoption-workspace.v1" ||
+    typeof value.current_state_ref !== "string" ||
+    !value.current_state_ref.startsWith("state-ref:crm-adoption") ||
     value.private_values_confined_to_local_response !== true ||
     value.fixture_primary_truth !== false ||
     value.external_crm_write_enabled !== false ||
