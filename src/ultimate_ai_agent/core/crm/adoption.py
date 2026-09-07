@@ -17,7 +17,7 @@ import os
 import secrets
 import stat
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -52,6 +52,7 @@ from ultimate_ai_agent.core.authority.approval_validation import (
     issue_authority_lease_from_backend_state,
 )
 from ultimate_ai_agent.core.crm.private_repository import ECO_CRM_SCHEMA_VERSION
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 
 
@@ -73,6 +74,7 @@ CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES = 2 * 1024
 CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES = 32 * 1024
 CRM_ADOPTION_MAX_AMOUNT_MINOR = 90_071_992_547_409
 CRM_ADOPTION_MAX_REVISION = 9_007_199_254_740_991
+CRM_ADOPTION_APPROVAL_TTL_MINUTES = 5
 CRM_ADOPTION_MAX_BACKUP_B64_CHARS = ((CRM_ADOPTION_MAX_BACKUP_BYTES + 2) // 3) * 4
 _STATE_MAGIC = b"UAACRMQ32\x00"
 _STATE_AAD = b"uaa:crm-adoption:state:v1"
@@ -134,6 +136,16 @@ def _private_ref(value: str) -> None:
         or any(not (character.isalnum() or character in "_.:-") for character in value)
     ):
         raise ValueError("CRM_ADOPTION_SAFE_REF_REQUIRED")
+
+
+def _authority_safe_ref(value: str) -> None:
+    """Reject caller-controlled refs that cannot enter authority state safely."""
+
+    try:
+        _private_ref(value)
+        validate_task_ref(value, "crm_adoption_authority_ref")
+    except ValueError as exc:
+        raise CrmAdoptionError("CRM_ADOPTION_SAFE_REF_REQUIRED") from exc
 
 
 def _utc_now() -> datetime:
@@ -699,7 +711,27 @@ class CrmAdoptionStore:
             state, audit_blocker = self._read_state_for_view()
         except CrmAdoptionError as exc:
             code = str(exc)
-            if code == "CRM_ADOPTION_KEY_UNAVAILABLE":
+            audit_blocker: str | None = None
+            if code in {
+                "CRM_ADOPTION_KEY_UNAVAILABLE",
+                "CRM_ADOPTION_STATE_UNREADABLE",
+            }:
+                try:
+                    self._preflight_audit_capacity()
+                except CrmAdoptionError as audit_exc:
+                    audit_blocker = str(audit_exc)
+            if audit_blocker == "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED":
+                storage_state = "blocked_audit_capacity"
+                next_safe_action = (
+                    "Repair or rotate the full local CRM audit log before restoring."
+                )
+            elif audit_blocker == "CRM_ADOPTION_AUDIT_UNREADABLE":
+                storage_state = "blocked_audit_unreadable"
+                next_safe_action = "Repair or rotate the unreadable local CRM audit log before restoring."
+            elif audit_blocker is not None:
+                storage_state = "blocked_unsafe"
+                next_safe_action = "Inspect and repair the unsafe local CRM audit storage before restore."
+            elif code == "CRM_ADOPTION_KEY_UNAVAILABLE":
                 storage_state = "locked"
                 next_safe_action = (
                     "Restore an encrypted CRM backup from the Recovery panel."
@@ -774,7 +806,11 @@ class CrmAdoptionStore:
     def preview_mutation(
         self, request: CrmAdoptionMutationRequest
     ) -> CrmAdoptionMutationPreview:
+        state_ref_before = self._current_state_ref()
         state = self._read_state()
+        current_state_ref = self._current_state_ref()
+        if current_state_ref != state_ref_before:
+            raise CrmAdoptionConflict("CRM_ADOPTION_STATE_CHANGED_DURING_READ")
         self._preflight_audit_capacity()
         if request.expected_revision != state.revision:
             raise CrmAdoptionConflict("CRM_ADOPTION_STALE_REVISION")
@@ -792,6 +828,8 @@ class CrmAdoptionStore:
             self._validate_related_refs(state, request.record.related_refs)
         elif request.action in {"update", "archive", "restore"}:
             target = self._find_record(state, str(request.target_ref))
+            if target.version >= CRM_ADOPTION_MAX_REVISION:
+                raise CrmAdoptionConflict("CRM_ADOPTION_RECORD_VERSION_EXHAUSTED")
             labels = [target.display_name]
             if request.action == "archive" and target.archived:
                 raise CrmAdoptionConflict("CRM_ADOPTION_RECORD_ALREADY_ARCHIVED")
@@ -819,7 +857,11 @@ class CrmAdoptionStore:
                 raise CrmAdoptionError("CRM_ADOPTION_RECORD_CAPACITY_EXHAUSTED")
         preview_ref = _hash_ref(
             "preview-ref:crm-adoption",
-            {"revision": state.revision, "fingerprint": fingerprint},
+            {
+                "revision": state.revision,
+                "current_state_ref": current_state_ref,
+                "fingerprint": fingerprint,
+            },
         )
         approval_ref = _hash_ref(
             "approval-ref:crm-adoption",
@@ -854,7 +896,7 @@ class CrmAdoptionStore:
         confirmed: bool,
     ) -> CrmAdoptionMutationReceipt:
         for value in (preview_ref, approval_ref, idempotency_ref):
-            _private_ref(value)
+            _authority_safe_ref(value)
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
@@ -1050,7 +1092,7 @@ class CrmAdoptionStore:
         idempotency_ref: str,
         confirmed: bool,
     ) -> CrmAdoptionApprovalReceipt:
-        _private_ref(idempotency_ref)
+        _authority_safe_ref(idempotency_ref)
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
@@ -1139,7 +1181,7 @@ class CrmAdoptionStore:
         idempotency_ref: str,
         confirmed: bool,
     ) -> CrmAdoptionMutationReceipt:
-        _private_ref(idempotency_ref)
+        _authority_safe_ref(idempotency_ref)
         if not confirmed:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
@@ -1228,10 +1270,11 @@ class CrmAdoptionStore:
                         **restored.model_dump(mode="python"),
                         "revision": after_revision,
                         "undo_stack": undo_stack,
-                        "receipts": [
-                            *restored.receipts[-(CRM_ADOPTION_MAX_RECEIPTS - 1) :],
-                            receipt,
-                        ],
+                        "receipts": self._merged_restore_receipts(
+                            current=current,
+                            restored=restored,
+                            receipt=receipt,
+                        ),
                     }
                 )
                 if not current_readable:
@@ -1386,6 +1429,7 @@ class CrmAdoptionStore:
         try:
             current = self._read_state()
             self._recover_pending_audit(current)
+            self._preflight_audit_capacity()
             return current, True
         except CrmAdoptionError as exc:
             if str(exc) not in {
@@ -1393,6 +1437,7 @@ class CrmAdoptionStore:
                 "CRM_ADOPTION_STATE_UNREADABLE",
             }:
                 raise
+            self._preflight_audit_capacity()
             return CrmAdoptionState(), False
 
     def _read_state(self) -> CrmAdoptionState:
@@ -1490,6 +1535,7 @@ class CrmAdoptionStore:
                 os.link(temporary, self.key_file, follow_symlinks=False)
             except FileExistsError:
                 return self._read_key(create=False)
+            temporary.unlink()
             directory_fd = os.open(self.state_dir, os.O_RDONLY)
             try:
                 os.fsync(directory_fd)
@@ -1626,7 +1672,7 @@ class CrmAdoptionStore:
             existing = self.audit_file.read_bytes()
             for line in existing.splitlines():
                 event = json.loads(line)
-                if not isinstance(event, dict):
+                if not isinstance(event, dict) or not self._audit_event_is_valid(event):
                     raise ValueError
         except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
@@ -1725,7 +1771,9 @@ class CrmAdoptionStore:
         for line in existing.splitlines():
             try:
                 existing_event = json.loads(line)
-                if not isinstance(existing_event, dict):
+                if not isinstance(
+                    existing_event, dict
+                ) or not self._audit_event_is_valid(existing_event):
                     raise AttributeError
                 if existing_event.get("event_ref") == event_ref:
                     if not self._audit_event_matches_receipt(existing_event, receipt):
@@ -1745,6 +1793,63 @@ class CrmAdoptionStore:
         return payload
 
     @staticmethod
+    def _audit_event_is_valid(event: dict[str, object]) -> bool:
+        required_keys = {
+            "event_ref",
+            "receipt_ref",
+            "action_ref",
+            "approval_validation_ref",
+            "authority_lease_ref",
+            "authority_decision_ref",
+            "after_revision",
+            "occurred_at",
+            "private_values_included",
+            "external_write_performed",
+        }
+        if set(event) != required_keys:
+            return False
+        ref_fields = (
+            "event_ref",
+            "receipt_ref",
+            "action_ref",
+            "approval_validation_ref",
+            "authority_lease_ref",
+            "authority_decision_ref",
+        )
+        try:
+            for field in ref_fields:
+                value = event.get(field)
+                if not isinstance(value, str):
+                    return False
+                _private_ref(value)
+        except ValueError:
+            return False
+        receipt_ref = str(event["receipt_ref"])
+        if event["event_ref"] != _hash_ref(
+            "event-ref:crm-adoption", {"receipt_ref": receipt_ref}
+        ):
+            return False
+        if not str(event["action_ref"]).startswith("action-ref:crm-adoption:"):
+            return False
+        after_revision = event.get("after_revision")
+        if (
+            not isinstance(after_revision, int)
+            or isinstance(after_revision, bool)
+            or not 1 <= after_revision <= CRM_ADOPTION_MAX_REVISION
+            or event.get("private_values_included") is not False
+            or event.get("external_write_performed") is not False
+        ):
+            return False
+        occurred_at = event.get("occurred_at")
+        if not isinstance(occurred_at, str):
+            return False
+        try:
+            parsed = datetime.fromisoformat(occurred_at)
+        except ValueError:
+            return False
+        return parsed.tzinfo is not None and parsed.utcoffset() is not None
+
+    @staticmethod
     def _audit_event_matches_receipt(
         event: dict[str, object], receipt: CrmAdoptionMutationReceipt
     ) -> bool:
@@ -1761,18 +1866,11 @@ class CrmAdoptionStore:
             "private_values_included": False,
             "external_write_performed": False,
         }
-        if set(event) != {*expected, "occurred_at"} or any(
+        if not CrmAdoptionStore._audit_event_is_valid(event) or any(
             event.get(key) != value for key, value in expected.items()
         ):
             return False
-        occurred_at = event.get("occurred_at")
-        if not isinstance(occurred_at, str):
-            return False
-        try:
-            parsed = datetime.fromisoformat(occurred_at)
-        except ValueError:
-            return False
-        return parsed.tzinfo is not None
+        return True
 
     def _secure_state_dir(self) -> None:
         if not self.state_dir.is_absolute() or self.state_dir == Path(
@@ -1871,6 +1969,42 @@ class CrmAdoptionStore:
             "state-ref:crm-adoption:sha256:"
             f"{hashlib.sha256(self.state_file.read_bytes()).hexdigest()}"
         )
+
+    @staticmethod
+    def _merged_restore_receipts(
+        *,
+        current: CrmAdoptionState,
+        restored: CrmAdoptionState,
+        receipt: CrmAdoptionMutationReceipt,
+    ) -> list[CrmAdoptionMutationReceipt]:
+        """Keep target-local replay receipts while admitting bounded backup lineage."""
+
+        current_by_idempotency = {
+            item.idempotency_ref: item for item in current.receipts
+        }
+        if receipt.idempotency_ref in current_by_idempotency:
+            raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+        restored_unique: list[CrmAdoptionMutationReceipt] = []
+        restored_seen: set[str] = set()
+        for item in restored.receipts:
+            local = current_by_idempotency.get(item.idempotency_ref)
+            if local is not None:
+                if local != item:
+                    raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+                continue
+            if item.idempotency_ref == receipt.idempotency_ref:
+                raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+            if item.idempotency_ref not in restored_seen:
+                restored_unique.append(item)
+                restored_seen.add(item.idempotency_ref)
+
+        capacity_before_new_receipt = CRM_ADOPTION_MAX_RECEIPTS - 1
+        retained_current = current.receipts[-capacity_before_new_receipt:]
+        backup_capacity = capacity_before_new_receipt - len(retained_current)
+        retained_restored = (
+            restored_unique[-backup_capacity:] if backup_capacity > 0 else []
+        )
+        return [*retained_restored, *retained_current, receipt]
 
     @staticmethod
     def _mutation_fingerprint(request: CrmAdoptionMutationRequest) -> str:
@@ -2047,10 +2181,10 @@ class CrmAdoptionStore:
         approved_request = lease_request.model_copy(
             update={"approval_ref": lease_approval_ref}
         )
+        approval_store = AuthorityLeaseApprovalStore(lease_store.state_dir)
         try:
-            approval_decision = AuthorityLeaseApprovalStore(
-                lease_store.state_dir
-            ).validate(approved_request, requirement)
+            self._require_fresh_crm_approval(approval_store, lease_approval_ref)
+            approval_decision = approval_store.validate(approved_request, requirement)
         except AuthorityLeaseApprovalStateError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_STATE_INVALID") from exc
         if approval_decision is None or not approval_decision.allowed:
@@ -2221,6 +2355,7 @@ class CrmAdoptionStore:
                 idempotency_ref=lease_idempotency_ref,
                 approved_by_actor_id="operator-ref:local-user",
                 approval_ref=lease_approval_ref,
+                approval_ttl_minutes=CRM_ADOPTION_APPROVAL_TTL_MINUTES,
             )
         except AuthorityLeaseApprovalConflictError as exc:
             raise CrmAdoptionConflict("CRM_ADOPTION_APPROVAL_CONFLICT") from exc
@@ -2233,11 +2368,10 @@ class CrmAdoptionStore:
         approved_request = lease_request.model_copy(
             update={"approval_ref": lease_approval_ref}
         )
+        approval_store = AuthorityLeaseApprovalStore(lease_store.state_dir)
         try:
-            decision = AuthorityLeaseApprovalStore(lease_store.state_dir).validate(
-                approved_request,
-                requirement,
-            )
+            self._require_fresh_crm_approval(approval_store, lease_approval_ref)
+            decision = approval_store.validate(approved_request, requirement)
         except AuthorityLeaseApprovalStateError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_STATE_INVALID") from exc
         if decision is None or not decision.allowed:
@@ -2249,6 +2383,25 @@ class CrmAdoptionStore:
             idempotency_ref=idempotency_ref,
             expires_at=grant.expires_at,
         )
+
+    @staticmethod
+    def _require_fresh_crm_approval(
+        approval_store: AuthorityLeaseApprovalStore,
+        lease_approval_ref: str,
+    ) -> None:
+        record = approval_store.resolve(lease_approval_ref)
+        if record is None:
+            raise CrmAdoptionError("CRM_ADOPTION_EXACT_APPROVAL_REQUIRED")
+        grant = record.grant
+        maximum_expiry = grant.created_at + timedelta(
+            minutes=CRM_ADOPTION_APPROVAL_TTL_MINUTES
+        )
+        if (
+            grant.expires_at is None
+            or grant.expires_at > maximum_expiry
+            or grant.expires_at <= _utc_now()
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_EXPIRED")
 
     @staticmethod
     def _find_record(state: CrmAdoptionState, target_ref: str) -> CrmAdoptionRecord:

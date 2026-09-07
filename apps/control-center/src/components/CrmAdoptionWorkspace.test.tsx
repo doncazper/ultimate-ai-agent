@@ -357,11 +357,10 @@ describe("CrmAdoptionWorkspace", () => {
     );
   });
 
-  it("preserves exact timestamp precision when a filter hides the edited record", async () => {
-    const exactTimestamp = "2026-09-06T17:00:45.123456+00:00";
+  it("clears the editor when a refreshed filter no longer returns the record", async () => {
     const originalWorkspace = {
       ...workspace,
-      records: [{ ...workspace.records[0], due_at: exactTimestamp }],
+      records: [{ ...workspace.records[0] }],
     };
     apiMocks.loadCrmAdoptionWorkspace
       .mockResolvedValueOnce(originalWorkspace)
@@ -380,20 +379,16 @@ describe("CrmAdoptionWorkspace", () => {
         false,
       ),
     );
-    fireEvent.change(screen.getByLabelText("Name or title"), {
-      target: { value: "Corrected Contact" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
-
-    await waitFor(() =>
-      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "update",
-          patch: expect.objectContaining({ due_at: exactTimestamp }),
-        }),
-        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
+    expect(
+      await screen.findByText(
+        "This record changed or is no longer visible, so the stale draft was cleared.",
       ),
-    );
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Review new record" }),
+    ).toBeInTheDocument();
+    expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
   });
 
   it("changes only the primary relationship and retains additional links", async () => {
@@ -828,7 +823,7 @@ describe("CrmAdoptionWorkspace", () => {
 
     expect(
       await screen.findByText(
-        "This record changed in another session, so the stale draft was cleared.",
+        "This record changed or is no longer visible, so the stale draft was cleared.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Name or title")).toHaveValue("");

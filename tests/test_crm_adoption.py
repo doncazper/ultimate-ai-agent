@@ -1890,3 +1890,265 @@ def test_crm_body_limit_is_published_for_every_json_input_route() -> None:
         response = paths[route]["post"]["responses"]["413"]
         schema = response["content"]["application/json"]["schema"]
         assert schema["$ref"].endswith("/CrmAdoptionBodyLimitResponse")
+
+
+def test_structurally_incomplete_audit_event_blocks_reads_and_preview(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(name="Protected Person"), suffix="audit-shape")
+    store.audit_file.write_text("{}\n", encoding="utf-8")
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_audit_unreadable"
+    assert [item.display_name for item in view.records] == ["Protected Person"]
+    with pytest.raises(CrmAdoptionError, match="AUDIT_UNREADABLE"):
+        store.preview_mutation(_create_request(revision=1, name="Blocked Person"))
+
+
+def test_restore_preserves_target_local_idempotency_receipts(tmp_path: Path) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Backup Person"), suffix="receipt-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target = CrmAdoptionStore(tmp_path / "target")
+    local_request = _create_request(name="Local Person")
+    local_preview = target.preview_mutation(local_request)
+    local_idempotency_ref = "idempotency-ref:crm-adoption-test:local-before-restore"
+    target.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=local_request,
+                preview_ref=local_preview.preview_ref,
+                approval_ref=local_preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=local_idempotency_ref,
+        confirmed=True,
+    )
+    local_receipt = target.commit_mutation(
+        request=local_request,
+        preview_ref=local_preview.preview_ref,
+        approval_ref=local_preview.approval_ref,
+        idempotency_ref=local_idempotency_ref,
+        confirmed=True,
+    )
+
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    preview = target.preview_restore(restore)
+    commit = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    restore_idempotency_ref = "idempotency-ref:crm-adoption-test:receipt-restore"
+    _capture_restore(target, commit, idempotency_ref=restore_idempotency_ref)
+    target.commit_restore(
+        request=commit,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+
+    replay = target.commit_mutation(
+        request=local_request,
+        preview_ref=local_preview.preview_ref,
+        approval_ref=local_preview.approval_ref,
+        idempotency_ref=local_idempotency_ref,
+        confirmed=True,
+    )
+    assert replay.replayed is True
+    assert replay.receipt_ref == local_receipt.receipt_ref
+
+
+def test_unreadable_recovery_surfaces_audit_blocker_before_restore(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Backup Person"), suffix="blocked-restore")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    target.state_dir.mkdir(parents=True)
+    target.state_file.write_bytes(b"corrupt-state")
+    target.audit_file.write_text("{}\n", encoding="utf-8")
+
+    view = target.read_view()
+    assert view.storage_state == "blocked_audit_unreadable"
+    assert "before restoring" in view.next_safe_action
+    with pytest.raises(CrmAdoptionError, match="AUDIT_UNREADABLE"):
+        target.preview_restore(
+            CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+        )
+
+
+def test_record_version_exhaustion_is_rejected_during_preview(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    receipt = _commit(store, _create_request(), suffix="record-version")
+    state = store._read_state()
+    record = state.records[0].model_copy(
+        update={"version": adoption.CRM_ADOPTION_MAX_REVISION}
+    )
+    store._write_state(state.model_copy(update={"records": [record]}))
+    request = CrmAdoptionMutationRequest(
+        action="update",
+        expected_revision=1,
+        target_ref=receipt.target_ref,
+        patch=CrmAdoptionRecordPatch(display_name="Cannot increment"),
+    )
+
+    with pytest.raises(CrmAdoptionConflict, match="RECORD_VERSION_EXHAUSTED"):
+        store.preview_mutation(request)
+
+
+def test_authority_unsafe_idempotency_ref_is_rejected_before_approval(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+
+    with pytest.raises(CrmAdoptionError, match="SAFE_REF_REQUIRED"):
+        store.capture_approval(
+            request=CrmAdoptionApprovalCaptureRequest(
+                operation="mutation",
+                mutation=CrmAdoptionCommitRequest(
+                    mutation=request,
+                    preview_ref=preview.preview_ref,
+                    approval_ref=preview.approval_ref,
+                ),
+            ),
+            idempotency_ref="idempotency-ref:crm-client:secret-operation",
+            confirmed=True,
+        )
+    assert not (store.state_dir / "authority").exists()
+
+
+def test_crm_approval_grant_expires_after_five_minutes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:five-minute-approval"
+    approval = store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert approval.expires_at is not None
+    captured_at = adoption._utc_now()
+    assert approval.expires_at <= captured_at + timedelta(minutes=5)
+
+    monkeypatch.setattr(
+        adoption,
+        "_utc_now",
+        lambda: captured_at + timedelta(minutes=6),
+    )
+    with pytest.raises(CrmAdoptionError, match="APPROVAL_EXPIRED"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+
+def test_key_publication_removes_temporary_link_before_directory_fsync(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    fsync = adoption.os.fsync
+    observed_link_counts: list[int] = []
+
+    def observe_directory_fsync(descriptor: int) -> None:
+        if adoption.stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            observed_link_counts.append(store.key_file.stat().st_nlink)
+            assert not list(store.state_dir.glob(f".{store.key_file.name}.*.tmp"))
+        fsync(descriptor)
+
+    monkeypatch.setattr(adoption.os, "fsync", observe_directory_fsync)
+    store._create_key()
+
+    assert observed_link_counts == [1]
+    assert store.key_file.stat().st_nlink == 1
+
+
+def test_recovery_state_identity_invalidates_pre_recovery_mutation_approval(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    first = _commit(store, _create_request(name="First Person"), suffix="epoch-one")
+    passphrase = "correct horse battery staple"
+    backup = store.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    _commit(
+        store,
+        _create_request(revision=1, name="Second Person"),
+        suffix="epoch-two",
+    )
+    old_request = CrmAdoptionMutationRequest(
+        action="update",
+        expected_revision=2,
+        target_ref=first.target_ref,
+        patch=CrmAdoptionRecordPatch(display_name="Old approved change"),
+    )
+    old_preview = store.preview_mutation(old_request)
+    old_idempotency_ref = "idempotency-ref:crm-adoption-test:old-epoch-approval"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=old_request,
+                preview_ref=old_preview.preview_ref,
+                approval_ref=old_preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=old_idempotency_ref,
+        confirmed=True,
+    )
+
+    store.state_file.write_bytes(b"corrupt-state")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    restore_preview = store.preview_restore(restore)
+    restore_commit = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=restore_preview.preview_ref,
+        approval_ref=restore_preview.approval_ref,
+    )
+    restore_idempotency_ref = "idempotency-ref:crm-adoption-test:new-epoch-restore"
+    _capture_restore(store, restore_commit, idempotency_ref=restore_idempotency_ref)
+    store.commit_restore(
+        request=restore_commit,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+    assert store.read_view().revision == 2
+
+    with pytest.raises(CrmAdoptionError, match="EXACT_APPROVAL_REQUIRED"):
+        store.commit_mutation(
+            request=old_request,
+            preview_ref=old_preview.preview_ref,
+            approval_ref=old_preview.approval_ref,
+            idempotency_ref=old_idempotency_ref,
+            confirmed=True,
+        )

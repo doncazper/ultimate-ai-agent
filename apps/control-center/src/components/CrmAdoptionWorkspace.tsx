@@ -191,7 +191,7 @@ export function CrmAdoptionWorkspace() {
       (item) => item.record_ref === editingRef,
     );
     if (
-      refreshedRecord &&
+      !refreshedRecord ||
       refreshedRecord.version !== editingOriginal.version
     ) {
       setEditingRef(null);
@@ -199,7 +199,7 @@ export function CrmAdoptionWorkspace() {
       setDraft({ ...EMPTY_DRAFT });
       setPending(null);
       setNotice(
-        "This record changed in another session, so the stale draft was cleared.",
+        "This record changed or is no longer visible, so the stale draft was cleared.",
       );
     }
   }, [editingOriginal, editingRef, workspace]);

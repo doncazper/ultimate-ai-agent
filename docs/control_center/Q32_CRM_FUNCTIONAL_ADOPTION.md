@@ -51,8 +51,10 @@ distribution remain out of scope.
 
 Every state-changing operation uses the same bounded sequence:
 
-1. Read the current encrypted state and bind the expected revision.
-2. Build a deterministic preview and approval ref over the exact payload.
+1. Read the current encrypted state and bind both its encrypted-state identity
+   and expected revision.
+2. Build a deterministic preview and approval ref over that exact state and
+   payload.
 3. Require a new idempotency ref and explicit operator confirmation.
 4. Capture and durably authenticate an exact five-minute
    `LocalApprovalAuthority` grant before the commit request is accepted.
@@ -84,14 +86,15 @@ payload under that ref is rejected.
   being relabeled as USD.
 - State, record-version, request, preview, receipt, and backup revisions are
   capped at JavaScript's exact safe-integer limit before browser projection;
-  an exhausted revision fails during preview before approval or lease issuance
-  and the read model exposes an explicit blocked revision state instead of
-  advertising further writes.
+  an exhausted workspace revision fails during preview before approval or lease
+  issuance and the read model exposes an explicit blocked revision state instead
+  of advertising further writes. Update, archive, and restore previews also
+  reject a target record whose own version can no longer be incremented.
 - Changing the primary relationship in the editor preserves every additional
-  linked record, and an in-progress filtered edit keeps the exact original
-  timestamp strings until the edit is saved or cancelled. Refreshing after the
-  same record changes in another session clears the stale draft before it can
-  be rebound to the newer workspace revision.
+  linked record, and an in-progress edit keeps the exact original timestamp
+  strings until it is saved or cancelled. A refresh or filter result that hides
+  the edited record clears the draft; a newer visible record version does the
+  same before stale values can be rebound to current state.
 - Every CRM JSON-input route is bounded before framework JSON decoding, with a
   maximum nesting depth and a structured no-store `413` response. The larger
   request bound accommodates the documented encrypted portable-backup limit;
@@ -108,13 +111,17 @@ payload under that ref is rejected.
   both current-state readability and whether a real pre-restore snapshot exists,
   so a key change or first restore cannot produce a false Undo promise. A failed
   or lost commit response invalidates the pre-restore editor before another
-  write can be reviewed.
+  write can be reviewed. Target-local idempotency receipts remain ahead of
+  bounded imported backup lineage so a lost pre-restore response can still be
+  replayed safely.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
-  verified encrypted-restore path available as the next safe action.
+  verified encrypted-restore path available only while the audit sink is
+  healthy.
 - A nearly full or malformed audit log exposes a distinct blocked state before
-  another change or approval is offered. Existing records remain readable and
-  an encrypted backup remains available while the operator repairs or rotates
-  that log.
+  another change, restore, or approval is offered. Every retained audit event is
+  schema-checked, not merely JSON-decoded. Existing readable records and an
+  encrypted backup remain available while the operator repairs or rotates that
+  log.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.
