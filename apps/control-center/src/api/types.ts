@@ -2915,6 +2915,7 @@ export interface CrmAdoptionWorkspaceView {
     | "locked"
     | "recovery_required"
     | "blocked_audit_capacity"
+    | "blocked_audit_unreadable"
     | "blocked_revision_exhausted"
     | "blocked_unsafe";
   revision: number;

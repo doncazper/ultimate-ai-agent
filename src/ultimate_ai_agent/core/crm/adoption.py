@@ -308,7 +308,7 @@ class CrmAdoptionRecordPatch(_PrivateModel):
             (self.currency, 32),
         ):
             _private_text(value, maximum=maximum)
-        if self.display_name is not None and not self.display_name:
+        if "display_name" in self.model_fields_set and not self.display_name:
             raise ValueError("CRM_ADOPTION_DISPLAY_NAME_REQUIRED")
         if self.tags is not None:
             for tag in self.tags:
@@ -523,6 +523,7 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
         "locked",
         "recovery_required",
         "blocked_audit_capacity",
+        "blocked_audit_unreadable",
         "blocked_revision_exhausted",
         "blocked_unsafe",
     ]
@@ -596,9 +597,7 @@ class CrmPortableRestorePreview(_PrivateModel):
     current_state_ref: str
     backup_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     record_count: int
-    affected_count: int | None = Field(
-        ..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2
-    )
+    affected_count: int | None = Field(..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2)
     impact_status: Literal["exact", "unknown_current_state"]
     rollback_available: bool
     counts: dict[str, int]
@@ -697,7 +696,7 @@ class CrmAdoptionStore:
         include_archived: bool = False,
     ) -> CrmAdoptionWorkspaceView:
         try:
-            state, audit_capacity_exhausted = self._read_state_for_view()
+            state, audit_blocker = self._read_state_for_view()
         except CrmAdoptionError as exc:
             code = str(exc)
             if code == "CRM_ADOPTION_KEY_UNAVAILABLE":
@@ -750,7 +749,9 @@ class CrmAdoptionStore:
             records=records,
             storage_state=(
                 "blocked_audit_capacity"
-                if audit_capacity_exhausted
+                if audit_blocker == "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED"
+                else "blocked_audit_unreadable"
+                if audit_blocker == "CRM_ADOPTION_AUDIT_UNREADABLE"
                 else "blocked_revision_exhausted"
                 if state.revision >= CRM_ADOPTION_MAX_REVISION
                 else "ready"
@@ -759,7 +760,9 @@ class CrmAdoptionStore:
             ),
             next_safe_action=(
                 "Back up this workspace, then rotate the local CRM audit log before another change."
-                if audit_capacity_exhausted
+                if audit_blocker == "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED"
+                else "Download an encrypted backup, then repair or rotate the unreadable local CRM audit log before another change."
+                if audit_blocker == "CRM_ADOPTION_AUDIT_UNREADABLE"
                 else "Download an encrypted backup and move this exhausted revision lineage into a fresh CRM workspace before another change."
                 if state.revision >= CRM_ADOPTION_MAX_REVISION
                 else "Capture the next person, property, opportunity, activity, or follow-up."
@@ -772,6 +775,7 @@ class CrmAdoptionStore:
         self, request: CrmAdoptionMutationRequest
     ) -> CrmAdoptionMutationPreview:
         state = self._read_state()
+        self._preflight_audit_capacity()
         if request.expected_revision != state.revision:
             raise CrmAdoptionConflict("CRM_ADOPTION_STALE_REVISION")
         if state.revision >= CRM_ADOPTION_MAX_REVISION:
@@ -1362,18 +1366,21 @@ class CrmAdoptionStore:
         )
         return next_state, target_ref
 
-    def _read_state_for_view(self) -> tuple[CrmAdoptionState, bool]:
+    def _read_state_for_view(self) -> tuple[CrmAdoptionState, str | None]:
         self._secure_state_dir()
         with self.lock.acquire(_LOCK_KEY):
             state = self._read_state()
-            self._recover_pending_audit(state)
             try:
+                self._recover_pending_audit(state)
                 self._preflight_audit_capacity()
             except CrmAdoptionError as exc:
-                if str(exc) != "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED":
+                if str(exc) not in {
+                    "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED",
+                    "CRM_ADOPTION_AUDIT_UNREADABLE",
+                }:
                     raise
-                return state, True
-            return state, False
+                return state, str(exc)
+            return state, None
 
     def _read_current_for_restore(self) -> tuple[CrmAdoptionState, bool]:
         try:
@@ -1615,6 +1622,14 @@ class CrmAdoptionStore:
             > CRM_ADOPTION_MAX_AUDIT_BYTES - CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES
         ):
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
+        try:
+            existing = self.audit_file.read_bytes()
+            for line in existing.splitlines():
+                event = json.loads(line)
+                if not isinstance(event, dict):
+                    raise ValueError
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
 
     def _read_pending_audit(self) -> dict[str, object] | None:
         if not self.pending_audit_file.exists():
@@ -1716,7 +1731,7 @@ class CrmAdoptionStore:
                     if not self._audit_event_matches_receipt(existing_event, receipt):
                         raise CrmAdoptionError("CRM_ADOPTION_AUDIT_EVENT_CONFLICT")
                     return None
-            except (AttributeError, json.JSONDecodeError) as exc:
+            except (AttributeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
         event = _canonical_json(event_payload)
         payload = (
@@ -2406,6 +2421,7 @@ class CrmAdoptionStore:
             "locked",
             "recovery_required",
             "blocked_audit_capacity",
+            "blocked_audit_unreadable",
             "blocked_revision_exhausted",
             "blocked_unsafe",
         ],

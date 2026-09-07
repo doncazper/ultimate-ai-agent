@@ -544,6 +544,25 @@ def test_audit_capacity_is_rejected_before_state_publication(
     assert "rotate the local CRM audit log" in view.next_safe_action
 
 
+def test_malformed_audit_blocks_reads_and_preview_before_approval(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(name="Protected Person"), suffix="audit-valid")
+    store.audit_file.write_bytes(b'{"event_ref":')
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_audit_unreadable"
+    assert [item.display_name for item in view.records] == ["Protected Person"]
+    assert "repair or rotate the unreadable local CRM audit log" in (
+        view.next_safe_action
+    )
+    with pytest.raises(CrmAdoptionError, match="AUDIT_UNREADABLE"):
+        store.preview_mutation(
+            _create_request(revision=1, name="Blocked Before Approval")
+        )
+
+
 def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -841,12 +860,11 @@ def test_portable_backup_rejects_out_of_range_or_exhausted_revision(
     )
     salt = adoption._decode_b64(backup.salt, code="TEST_BACKUP_INVALID")
     nonce = adoption._decode_b64(backup.nonce, code="TEST_BACKUP_INVALID")
-    ciphertext = adoption._decode_b64(
-        backup.ciphertext, code="TEST_BACKUP_INVALID"
-    )
+    ciphertext = adoption._decode_b64(backup.ciphertext, code="TEST_BACKUP_INVALID")
     key = source._derive_backup_key(passphrase, salt)
     plaintext = AESGCM(key).decrypt(nonce, ciphertext, adoption._BACKUP_AAD)
     payload = json.loads(plaintext)
+
     def forge_revision(revision: int):
         payload["revision"] = revision
         forged_nonce = os.urandom(12)
@@ -1160,9 +1178,7 @@ def test_unreadable_restore_approval_can_use_a_new_idempotency_scope(
         idempotency_ref="idempotency-ref:crm-adoption-test:restore-rescope-one",
         confirmed=True,
     )
-    second_idempotency_ref = (
-        "idempotency-ref:crm-adoption-test:restore-rescope-two"
-    )
+    second_idempotency_ref = "idempotency-ref:crm-adoption-test:restore-rescope-two"
     second = target.capture_approval(
         request=capture,
         idempotency_ref=second_idempotency_ref,
@@ -1282,13 +1298,16 @@ def test_approval_capture_replays_durable_mutation_and_restore_receipts(
         replayed_mutation_approval.approval_validation_ref
         == mutation_receipt.approval_validation_ref
     )
-    assert mutation_store.commit_mutation(
-        request=mutation,
-        preview_ref=mutation_preview.preview_ref,
-        approval_ref=mutation_preview.approval_ref,
-        idempotency_ref=mutation_idempotency_ref,
-        confirmed=True,
-    ).replayed is True
+    assert (
+        mutation_store.commit_mutation(
+            request=mutation,
+            preview_ref=mutation_preview.preview_ref,
+            approval_ref=mutation_preview.approval_ref,
+            idempotency_ref=mutation_idempotency_ref,
+            confirmed=True,
+        ).replayed
+        is True
+    )
 
     source = CrmAdoptionStore(tmp_path / "source")
     _commit(source, _create_request(name="Restore Person"), suffix="approval-source")
@@ -1340,11 +1359,14 @@ def test_approval_capture_replays_durable_mutation_and_restore_receipts(
         replayed_restore_approval.approval_validation_ref
         == restore_receipt.approval_validation_ref
     )
-    assert restore_store.commit_restore(
-        request=restore_commit,
-        idempotency_ref=restore_idempotency_ref,
-        confirmed=True,
-    ).replayed is True
+    assert (
+        restore_store.commit_restore(
+            request=restore_commit,
+            idempotency_ref=restore_idempotency_ref,
+            confirmed=True,
+        ).replayed
+        is True
+    )
 
 
 def test_key_read_rejects_wrong_size_before_materializing_file(tmp_path: Path) -> None:
@@ -1465,9 +1487,7 @@ def test_corrupt_state_recovery_preserves_and_replaces_orphan_pending_audit(
         preview_ref=restore_preview.preview_ref,
         approval_ref=restore_preview.approval_ref,
     )
-    restore_idempotency_ref = (
-        "idempotency-ref:crm-adoption-test:orphan-audit-recovery"
-    )
+    restore_idempotency_ref = "idempotency-ref:crm-adoption-test:orphan-audit-recovery"
     _capture_restore(
         target,
         restore_request,
@@ -1540,6 +1560,8 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
         )
     with pytest.raises(ValueError, match="CRM_ADOPTION_PATCH_CLEAR_CONFLICT"):
         CrmAdoptionRecordPatch(email="new@example.test", clear_fields=["email"])
+    with pytest.raises(ValueError, match="CRM_ADOPTION_DISPLAY_NAME_REQUIRED"):
+        CrmAdoptionRecordPatch(display_name=None)
     with pytest.raises(ValueError):
         CrmAdoptionRecordDraft(
             record_kind="opportunity",
@@ -1561,7 +1583,9 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
     _commit(store, _create_request(), suffix="cli")
     private_workspace_name = "Founder Client Secret Workspace"
     store._write_state(
-        store._read_state().model_copy(update={"workspace_name": private_workspace_name})
+        store._read_state().model_copy(
+            update={"workspace_name": private_workspace_name}
+        )
     )
     assert crm_cli_main(["inspect-adoption", "--state-dir", str(store.state_dir)]) == 0
     safe_output = capsys.readouterr().out
@@ -1841,17 +1865,15 @@ def test_crm_body_guard_rejects_oversize_and_deep_json_with_cors() -> None:
             content=deeply_nested,
             headers={
                 "content-type": "application/json",
-                "X-UAA-Idempotency-Key": (
-                    "idempotency-ref:crm-api:body-guard"
-                ),
+                "X-UAA-Idempotency-Key": ("idempotency-ref:crm-api:body-guard"),
                 "X-UAA-Operator-Confirmed": "true",
             },
         )
         assert nested.status_code == 413, route
         assert nested.headers["Cache-Control"] == "no-store", route
-        assert nested.json()["code"] == (
-            "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"
-        ), route
+        assert nested.json()["code"] == ("CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"), (
+            route
+        )
 
 
 def test_crm_body_limit_is_published_for_every_json_input_route() -> None:

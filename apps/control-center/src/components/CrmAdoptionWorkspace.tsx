@@ -185,6 +185,24 @@ export function CrmAdoptionWorkspace() {
     () => workspace?.records.find((item) => item.record_ref === selectedRef),
     [selectedRef, workspace?.records],
   );
+  useEffect(() => {
+    if (!workspace || !editingRef || !editingOriginal) return;
+    const refreshedRecord = workspace.records.find(
+      (item) => item.record_ref === editingRef,
+    );
+    if (
+      refreshedRecord &&
+      refreshedRecord.version !== editingOriginal.version
+    ) {
+      setEditingRef(null);
+      setEditingOriginal(null);
+      setDraft({ ...EMPTY_DRAFT });
+      setPending(null);
+      setNotice(
+        "This record changed in another session, so the stale draft was cleared.",
+      );
+    }
+  }, [editingOriginal, editingRef, workspace]);
   const relatedOptions = useMemo(
     () =>
       (workspace?.records ?? []).filter(
@@ -756,6 +774,7 @@ export function CrmAdoptionWorkspace() {
               ![
                 "ready",
                 "blocked_audit_capacity",
+                "blocked_audit_unreadable",
                 "blocked_revision_exhausted",
               ].includes(
                 workspace.storage_state,
@@ -773,6 +792,7 @@ export function CrmAdoptionWorkspace() {
               disabled={
                 busy ||
                 workspace?.storage_state === "blocked_audit_capacity" ||
+                workspace?.storage_state === "blocked_audit_unreadable" ||
                 workspace?.storage_state === "blocked_revision_exhausted" ||
                 workspace?.storage_state === "blocked_unsafe"
               }

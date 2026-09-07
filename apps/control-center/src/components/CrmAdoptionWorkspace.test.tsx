@@ -798,6 +798,45 @@ describe("CrmAdoptionWorkspace", () => {
     expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(2);
   });
 
+  it("clears an edited draft when refresh observes a newer record version", async () => {
+    apiMocks.previewCrmAdoptionMutation.mockRejectedValueOnce(
+      new Error("CRM_ADOPTION_STALE_REVISION"),
+    );
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Obsolete local draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+    expect(
+      await screen.findByText("CRM_ADOPTION_STALE_REVISION"),
+    ).toBeInTheDocument();
+
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValueOnce({
+      ...workspace,
+      revision: 5,
+      records: [
+        {
+          ...workspace.records[0],
+          display_name: "Updated elsewhere",
+          version: 2,
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(
+      await screen.findByText(
+        "This record changed in another session, so the stale draft was cleared.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Review new record" }),
+    ).toBeInTheDocument();
+  });
+
   it("rejects oversized CSV before reading it", async () => {
     const text = vi.fn();
     const file = { size: 2_000_001, text } as unknown as File;

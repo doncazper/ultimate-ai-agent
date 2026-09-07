@@ -89,7 +89,9 @@ payload under that ref is rejected.
   advertising further writes.
 - Changing the primary relationship in the editor preserves every additional
   linked record, and an in-progress filtered edit keeps the exact original
-  timestamp strings until the edit is saved or cancelled.
+  timestamp strings until the edit is saved or cancelled. Refreshing after the
+  same record changes in another session clears the stale draft before it can
+  be rebound to the newer workspace revision.
 - Every CRM JSON-input route is bounded before framework JSON decoding, with a
   maximum nesting depth and a structured no-store `413` response. The larger
   request bound accommodates the documented encrypted portable-backup limit;
@@ -109,9 +111,10 @@ payload under that ref is rejected.
   write can be reviewed.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available as the next safe action.
-- A nearly full audit log exposes a distinct blocked state before another
-  change is offered. Existing records remain readable and an encrypted backup
-  remains available while the operator rotates that log.
+- A nearly full or malformed audit log exposes a distinct blocked state before
+  another change or approval is offered. Existing records remain readable and
+  an encrypted backup remains available while the operator repairs or rotates
+  that log.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.
