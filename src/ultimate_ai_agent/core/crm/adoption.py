@@ -84,6 +84,14 @@ class CrmAdoptionConflict(CrmAdoptionError):
     """An exact revision, idempotency, or preview binding did not match."""
 
 
+class CrmAdoptionStatePublicationUncertain(CrmAdoptionError):
+    """The state inode was replaced but directory durability is uncertain."""
+
+
+class _AtomicWritePublicationUncertain(OSError):
+    """An atomic replacement happened before a durability operation failed."""
+
+
 class _PrivateModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -868,6 +876,10 @@ class CrmAdoptionStore:
                 )
                 self._stage_audit(receipt)
                 self._write_state(updated)
+            except CrmAdoptionStatePublicationUncertain:
+                # The new state may already be authoritative. Preserve the pending
+                # audit journal and lease so restart recovery can reconcile it.
+                raise
             except ValueError as exc:
                 self._discard_staged_audit(receipt)
                 self._revoke_authority_lease(lease_store, lease)
@@ -1108,6 +1120,10 @@ class CrmAdoptionStore:
                 if not current_readable:
                     self._prepare_recovery_key()
                 self._write_state(next_state)
+            except CrmAdoptionStatePublicationUncertain:
+                # The restored state may already be authoritative. Preserve the
+                # pending journal and lease for deterministic restart recovery.
+                raise
             except ValueError as exc:
                 self._discard_staged_audit(receipt)
                 self._revoke_authority_lease(lease_store, lease)
@@ -1277,7 +1293,12 @@ class CrmAdoptionStore:
         ):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_SIZE_LIMIT")
         ciphertext = AESGCM(key).encrypt(nonce, plaintext, _STATE_AAD)
-        self._atomic_write(self.state_file, _STATE_MAGIC + nonce + ciphertext)
+        try:
+            self._atomic_write(self.state_file, _STATE_MAGIC + nonce + ciphertext)
+        except _AtomicWritePublicationUncertain as exc:
+            raise CrmAdoptionStatePublicationUncertain(
+                "CRM_ADOPTION_STATE_PUBLICATION_UNCERTAIN"
+            ) from exc
 
     def _read_key(self, *, create: bool = False) -> bytes:
         if self.key_file.exists():
@@ -1381,8 +1402,11 @@ class CrmAdoptionStore:
         if event is not None:
             if not self._audit_event_matches_receipt(event, receipt):
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_CONFLICT")
+            self._audit_append_payload(receipt, event)
             return
-        payload = _canonical_json(self._audit_event(receipt))
+        event = self._audit_event(receipt)
+        self._audit_append_payload(receipt, event)
+        payload = _canonical_json(event)
         if len(payload) > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
         self._atomic_write(self.pending_audit_file, payload)
@@ -1454,6 +1478,22 @@ class CrmAdoptionStore:
         self._finalize_audit(receipt)
 
     def _append_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
+        staged_event = self._read_pending_audit()
+        if staged_event is not None and not self._audit_event_matches_receipt(
+            staged_event, receipt
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_CONFLICT")
+        payload = self._audit_append_payload(
+            receipt, staged_event or self._audit_event(receipt)
+        )
+        if payload is not None:
+            self._atomic_write(self.audit_file, payload)
+
+    def _audit_append_payload(
+        self,
+        receipt: CrmAdoptionMutationReceipt,
+        event_payload: dict[str, object],
+    ) -> bytes | None:
         existing = b""
         if self.audit_file.exists():
             if self.audit_file.is_symlink() or not self.audit_file.is_file():
@@ -1461,12 +1501,6 @@ class CrmAdoptionStore:
             if self.audit_file.stat().st_size > CRM_ADOPTION_MAX_AUDIT_BYTES:
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
             existing = self.audit_file.read_bytes()
-        staged_event = self._read_pending_audit()
-        if staged_event is not None and not self._audit_event_matches_receipt(
-            staged_event, receipt
-        ):
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_CONFLICT")
-        event_payload = staged_event or self._audit_event(receipt)
         event_ref = str(event_payload["event_ref"])
         for line in existing.splitlines():
             try:
@@ -1476,19 +1510,19 @@ class CrmAdoptionStore:
                 if existing_event.get("event_ref") == event_ref:
                     if not self._audit_event_matches_receipt(existing_event, receipt):
                         raise CrmAdoptionError("CRM_ADOPTION_AUDIT_EVENT_CONFLICT")
-                    return
+                    return None
             except (AttributeError, json.JSONDecodeError) as exc:
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
         event = _canonical_json(event_payload)
-        if len(existing) + len(event) + 1 > CRM_ADOPTION_MAX_AUDIT_BYTES:
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
-        self._atomic_write(
-            self.audit_file,
+        payload = (
             existing
             + (b"" if not existing or existing.endswith(b"\n") else b"\n")
             + event
-            + b"\n",
+            + b"\n"
         )
+        if len(payload) > CRM_ADOPTION_MAX_AUDIT_BYTES:
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
+        return payload
 
     @staticmethod
     def _audit_event_matches_receipt(
@@ -1542,6 +1576,7 @@ class CrmAdoptionStore:
             prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
         )
         temporary = Path(temporary_name)
+        published = False
         try:
             os.fchmod(descriptor, 0o600)
             view = memoryview(payload)
@@ -1554,12 +1589,18 @@ class CrmAdoptionStore:
             os.close(descriptor)
             descriptor = -1
             os.replace(temporary, path)
-            os.chmod(path, 0o600)
+            published = True
             directory_fd = os.open(path.parent, os.O_RDONLY)
             try:
                 os.fsync(directory_fd)
             finally:
                 os.close(directory_fd)
+        except OSError as exc:
+            if published:
+                raise _AtomicWritePublicationUncertain(
+                    "CRM_ADOPTION_ATOMIC_PUBLICATION_UNCERTAIN"
+                ) from exc
+            raise
         finally:
             if descriptor >= 0:
                 os.close(descriptor)
@@ -1755,8 +1796,12 @@ class CrmAdoptionStore:
             lease_request,
             idempotency_ref=lease_idempotency_ref,
         )
+        lease_approval_ref = self._lease_approval_ref(
+            approval_ref=approval_ref,
+            lease_idempotency_ref=lease_idempotency_ref,
+        )
         approved_request = lease_request.model_copy(
-            update={"approval_ref": approval_ref}
+            update={"approval_ref": lease_approval_ref}
         )
         try:
             approval_decision = AuthorityLeaseApprovalStore(
@@ -1860,6 +1905,20 @@ class CrmAdoptionStore:
         raise CrmAdoptionError("CRM_ADOPTION_EXACT_LEASE_RETRY_EXHAUSTED")
 
     @staticmethod
+    def _lease_approval_ref(*, approval_ref: str, lease_idempotency_ref: str) -> str:
+        if lease_idempotency_ref.startswith(
+            "idempotency-ref:crm-adoption-lease:sha256:"
+        ):
+            return approval_ref
+        return _hash_ref(
+            "approval-ref:crm-adoption-lease-retry",
+            {
+                "approval_ref": approval_ref,
+                "lease_idempotency_ref": lease_idempotency_ref,
+            },
+        )
+
+    @staticmethod
     def _revoke_authority_lease(
         lease_store: AuthorityLeaseStore,
         lease: AuthorityLease,
@@ -1910,13 +1969,17 @@ class CrmAdoptionStore:
             expected_revision=expected_revision,
             idempotency_ref=idempotency_ref,
         )
+        lease_approval_ref = self._lease_approval_ref(
+            approval_ref=approval_ref,
+            lease_idempotency_ref=lease_idempotency_ref,
+        )
         try:
             requirement, grant = capture_authority_lease_backend_approval(
                 lease_store,
                 lease_request,
                 idempotency_ref=lease_idempotency_ref,
                 approved_by_actor_id="operator-ref:local-user",
-                approval_ref=approval_ref,
+                approval_ref=lease_approval_ref,
             )
         except AuthorityLeaseApprovalConflictError as exc:
             raise CrmAdoptionConflict("CRM_ADOPTION_APPROVAL_CONFLICT") from exc
@@ -1924,10 +1987,10 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_CAPACITY_EXHAUSTED") from exc
         except AuthorityLeaseApprovalStateError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_STATE_INVALID") from exc
-        if grant is None or grant.approval_ref != approval_ref:
+        if grant is None or grant.approval_ref != lease_approval_ref:
             raise CrmAdoptionError("CRM_ADOPTION_EXACT_APPROVAL_REQUIRED")
         approved_request = lease_request.model_copy(
-            update={"approval_ref": approval_ref}
+            update={"approval_ref": lease_approval_ref}
         )
         try:
             decision = AuthorityLeaseApprovalStore(lease_store.state_dir).validate(

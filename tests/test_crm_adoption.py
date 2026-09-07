@@ -7,8 +7,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import ultimate_ai_agent.core.crm.adoption as adoption
 from scripts.dev.uaa_crm import main as crm_cli_main
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.control_center import (
+    CRM_ADOPTION_MAX_REQUEST_BODY_BYTES,
+    CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
+)
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.crm import (
     CRM_ADOPTION_MAX_BACKUP_FILE_BYTES,
@@ -256,6 +261,8 @@ def test_state_write_failure_does_not_publish_audit(
         confirmed=True,
     )
 
+    write_state = store._write_state
+
     def fail_state_write(_state: object) -> None:
         raise OSError("synthetic state write failure")
 
@@ -272,6 +279,154 @@ def test_state_write_failure_does_not_publish_audit(
     assert not store.audit_file.exists()
     assert not store.pending_audit_file.exists()
     assert store.read_view().revision == 0
+
+    monkeypatch.setattr(store, "_write_state", write_state)
+    retry_approval = store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    retried = store.commit_mutation(
+        request=request,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert retry_approval.approval_ref == preview.approval_ref
+    assert retried.after_revision == 1
+
+
+def test_ambiguous_state_publication_preserves_journal_for_restart_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:ambiguous-publication"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    write_state = store._write_state
+
+    def publish_then_report_uncertain(state: object) -> None:
+        write_state(state)  # type: ignore[arg-type]
+        raise adoption.CrmAdoptionStatePublicationUncertain(
+            "CRM_ADOPTION_STATE_PUBLICATION_UNCERTAIN"
+        )
+
+    monkeypatch.setattr(store, "_write_state", publish_then_report_uncertain)
+    with pytest.raises(
+        adoption.CrmAdoptionStatePublicationUncertain,
+        match="STATE_PUBLICATION_UNCERTAIN",
+    ):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert store._read_state().revision == 1
+    assert store.pending_audit_file.exists()
+    restarted = CrmAdoptionStore(store.state_dir)
+    assert restarted.read_view().revision == 1
+    assert restarted.audit_file.exists()
+    assert not restarted.pending_audit_file.exists()
+    replay = restarted.commit_mutation(
+        request=request,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert replay.replayed is True
+
+
+def test_atomic_write_marks_post_replace_fsync_failure_as_uncertain(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    destination = store.state_dir / "atomic-publication-test"
+    fsync = adoption.os.fsync
+    calls = 0
+
+    def fail_directory_fsync(descriptor: int) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("synthetic directory fsync failure")
+        fsync(descriptor)
+
+    monkeypatch.setattr(adoption.os, "fsync", fail_directory_fsync)
+    with pytest.raises(
+        adoption._AtomicWritePublicationUncertain,
+        match="ATOMIC_PUBLICATION_UNCERTAIN",
+    ):
+        store._atomic_write(destination, b"published payload")
+
+    assert destination.read_bytes() == b"published payload"
+    assert destination.stat().st_mode & 0o077 == 0
+
+
+def test_audit_capacity_is_rejected_before_state_publication(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(name="First Person"), suffix="audit-capacity-one")
+    request = _create_request(revision=1, name="Second Person")
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:audit-capacity-two"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    monkeypatch.setattr(
+        adoption,
+        "CRM_ADOPTION_MAX_AUDIT_BYTES",
+        store.audit_file.stat().st_size,
+    )
+
+    with pytest.raises(CrmAdoptionError, match="AUDIT_CAPACITY_EXHAUSTED"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert store._read_state().revision == 1
+    assert not store.pending_audit_file.exists()
 
 
 def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
@@ -834,3 +989,50 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
     backup = backup_response.json()["data"]
     assert "Private Person" not in json.dumps(backup)
     assert backup["private_values_encrypted"] is True
+
+
+def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> None:
+    client = TestClient(app)
+    origin = "http://127.0.0.1:5173"
+    oversized = client.post(
+        "/control-center/crm/adoption/restore-preview",
+        content=b"{" + b"x" * CRM_ADOPTION_MAX_REQUEST_BODY_BYTES,
+        headers={
+            "content-type": "application/json",
+            "content-length": "1",
+            "Origin": origin,
+        },
+    )
+
+    assert oversized.status_code == 413
+    assert oversized.headers["Access-Control-Allow-Origin"] == origin
+    assert oversized.json() == {
+        "detail": "The private CRM request body exceeds the permitted local bound.",
+        "code": "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED",
+        "contract_ref": "contract-ref:queue-v2-q32-crm-adoption:v1",
+        "maximum_body_bytes": CRM_ADOPTION_MAX_REQUEST_BODY_BYTES,
+        "maximum_json_nesting_depth": CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
+    }
+
+    deeply_nested = b"[" * (CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH + 1)
+    deeply_nested += b"]" * (CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH + 1)
+    nested = client.post(
+        "/control-center/crm/adoption/restore-preview",
+        content=deeply_nested,
+        headers={"content-type": "application/json", "Origin": origin},
+    )
+    assert nested.status_code == 413
+    assert nested.headers["Access-Control-Allow-Origin"] == origin
+    assert nested.json()["code"] == "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"
+
+
+def test_crm_restore_body_limit_is_published_for_every_backup_bearing_route() -> None:
+    paths = app.openapi()["paths"]
+    for route in (
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/restore-preview",
+        "/control-center/crm/adoption/restore",
+    ):
+        response = paths[route]["post"]["responses"]["413"]
+        schema = response["content"]["application/json"]["schema"]
+        assert schema["$ref"].endswith("/CrmAdoptionBodyLimitResponse")

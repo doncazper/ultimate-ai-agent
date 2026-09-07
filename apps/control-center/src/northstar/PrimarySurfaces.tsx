@@ -293,7 +293,7 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
       ? `${crm.social_relationship_projection.returned_item_count} of ${crm.social_relationship_projection.total_item_count} shown`
       : "CRM owned";
   return (
-    <div className="ns-surface ns-crm">
+    <div className="ns-surface ns-crm ns-scroll-surface">
       <CrmAdoptionWorkspace />
       <Toolbar title="CRM v3" subtitle="Relationships, opportunities, and commitments">
         <SearchField onChange={(value) => { setQuery(value); setSelectedIndex(0); }} placeholder="Search safe relationship summaries" value={query} />

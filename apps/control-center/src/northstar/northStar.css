@@ -312,6 +312,8 @@
 .ns-setting-posture small { color: #607591; font-size: 9px; line-height: 1.4; }
 
 .ns-surface { display: flex; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; background: #fff; }
+.ns-scroll-surface { overflow-y: auto; overscroll-behavior: contain; }
+.ns-scroll-surface > .crm-adoption { flex: none; }
 .ns-today-grid { display: grid; min-height: 0; flex: 1; grid-template-columns: .9fr 1.16fr 1.2fr; grid-template-rows: minmax(240px, 1.25fr) minmax(180px, .75fr); gap: 10px; padding: 0 16px; }
 .ns-today-grid > .ns-panel { display: flex; min-height: 0; flex-direction: column; }
 .ns-today-grid > .ns-panel > .ns-list { min-height: 0; flex: 1; }

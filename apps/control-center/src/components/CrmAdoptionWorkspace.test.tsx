@@ -146,7 +146,9 @@ describe("CrmAdoptionWorkspace", () => {
   it("mounts founder-private CRM adoption on the primary CRM surface", async () => {
     render(<CrmSurface data={structuredClone(mockControlCenterData)} />);
 
-    expect(screen.getByRole("heading", { name: "Your CRM" })).toBeVisible();
+    const heading = screen.getByRole("heading", { name: "Your CRM" });
+    expect(heading).toBeVisible();
+    expect(heading.closest(".ns-crm")).toHaveClass("ns-scroll-surface");
     expect(screen.getByText("Founder-private workspace")).toBeVisible();
     await waitFor(() =>
       expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(1),
