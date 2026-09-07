@@ -78,8 +78,11 @@ payload under that ref is rejected.
   the exact duplicate count; duplicates are skipped, never silently merged or
   overwritten. A UTF-8 byte-order mark in the first header is accepted after
   the original byte-size bound is enforced.
-- Currency amounts are stored in minor units and capped at JavaScript's exact
-  safe-integer limit so a browser edit cannot silently round a stored value.
+- Currency amounts are stored in minor units with enough safe-integer headroom
+  for exact two-decimal browser conversion, so a browser edit cannot silently
+  round a requested cent.
+- State, record-version, request, preview, receipt, and backup revisions are
+  capped at JavaScript's exact safe-integer limit before browser projection.
 - Changing the primary relationship in the editor preserves every additional
   linked record, and an in-progress filtered edit keeps the exact original
   timestamp strings until the edit is saved or cancelled.

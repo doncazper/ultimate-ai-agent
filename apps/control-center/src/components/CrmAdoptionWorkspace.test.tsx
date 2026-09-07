@@ -174,6 +174,11 @@ describe("CrmAdoptionWorkspace", () => {
     });
     apiMocks.commitCrmAdoptionMutation.mockResolvedValue(receipt);
     apiMocks.previewCrmPortableRestore.mockResolvedValue(restorePreview);
+    apiMocks.captureCrmPortableRestoreApproval.mockResolvedValue({});
+    apiMocks.commitCrmPortableRestore.mockResolvedValue({
+      ...receipt,
+      after_revision: 5,
+    });
   });
 
   it("mounts founder-private CRM adoption on the primary CRM surface", async () => {
@@ -282,6 +287,27 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       await screen.findByText(/Saved locally at CRM revision 5/i),
     ).toBeInTheDocument();
+  });
+
+  it("preserves cents at the supported maximum amount", async () => {
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Largest exact-cent opportunity" },
+    });
+    const amount = screen.getByLabelText("Amount");
+    expect(amount).toHaveAttribute("max", "900719925474.09");
+    fireEvent.change(amount, { target: { value: "900719925474.09" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review new record" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          record: expect.objectContaining({ amount_minor: 90_071_992_547_409 }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
+      ),
+    );
   });
 
   it("converts stored UTC timestamps to local wall time before editing", () => {
@@ -579,13 +605,7 @@ describe("CrmAdoptionWorkspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not promise Undo when restoring an unreadable workspace", async () => {
-    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
-      ...workspace,
-      storage_state: "recovery_required",
-      records: [],
-      can_undo: false,
-    });
+  it("uses the restore preview rather than stale workspace state for Undo", async () => {
     apiMocks.previewCrmPortableRestore.mockResolvedValue({
       ...restorePreview,
       affected_count: null,
@@ -596,7 +616,7 @@ describe("CrmAdoptionWorkspace", () => {
       text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
     } as unknown as File;
     render(<CrmAdoptionWorkspace />);
-    await screen.findByText("recovery_required");
+    await screen.findAllByText("Example Contact");
     fireEvent.change(screen.getByLabelText("Backup passphrase"), {
       target: { value: "correct horse battery staple" },
     });
@@ -614,6 +634,39 @@ describe("CrmAdoptionWorkspace", () => {
       screen.getByText(
         /Impact on current records is unknown because the active workspace is unreadable/i,
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("clears a stale editor after a successful backup restore", async () => {
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
+    } as unknown as File;
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await screen.findAllByText("Example Contact");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Stale pre-restore edit" },
+    });
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+    await screen.findByRole("dialog", { name: "Review encrypted backup restore" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restore" }));
+
+    expect(
+      await screen.findByText("Backup restored at CRM revision 5."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Name or title")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "Review new record" }),
     ).toBeInTheDocument();
   });
 

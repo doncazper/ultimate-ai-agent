@@ -71,7 +71,8 @@ CRM_ADOPTION_MAX_STATE_BYTES = 32 * 1024 * 1024
 CRM_ADOPTION_MAX_AUDIT_BYTES = 16 * 1024 * 1024
 CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES = 2 * 1024
 CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES = 32 * 1024
-CRM_ADOPTION_MAX_AMOUNT_MINOR = 9_007_199_254_740_991
+CRM_ADOPTION_MAX_AMOUNT_MINOR = 90_071_992_547_409
+CRM_ADOPTION_MAX_REVISION = 9_007_199_254_740_991
 CRM_ADOPTION_MAX_BACKUP_B64_CHARS = ((CRM_ADOPTION_MAX_BACKUP_BYTES + 2) // 3) * 4
 _STATE_MAGIC = b"UAACRMQ32\x00"
 _STATE_AAD = b"uaa:crm-adoption:state:v1"
@@ -187,7 +188,7 @@ class CrmAdoptionRecord(_PrivateModel):
     currency: str | None = None
     priority: Literal["high", "medium", "low"] | None = None
     archived: bool = False
-    version: int = Field(default=1, ge=1)
+    version: int = Field(default=1, ge=1, le=CRM_ADOPTION_MAX_REVISION)
     created_at: datetime
     updated_at: datetime
 
@@ -327,7 +328,7 @@ class CrmAdoptionRecordPatch(_PrivateModel):
 
 class CrmAdoptionMutationRequest(_PrivateModel):
     action: Literal["create", "update", "archive", "restore", "undo", "import_contacts"]
-    expected_revision: int = Field(..., ge=0)
+    expected_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     target_ref: str | None = None
     record: CrmAdoptionRecordDraft | None = None
     patch: CrmAdoptionRecordPatch | None = None
@@ -381,7 +382,7 @@ class CrmAdoptionMutationPreview(_PrivateModel):
         CRM_ADOPTION_CONTRACT_REF
     )
     action: str
-    expected_revision: int
+    expected_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     payload_fingerprint_ref: str
     preview_ref: str
     approval_ref: str
@@ -423,8 +424,8 @@ class CrmAdoptionMutationReceipt(_PrivateModel):
     approval_validation_ref: str
     authority_lease_ref: str
     authority_decision_ref: str
-    before_revision: int
-    after_revision: int
+    before_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
+    after_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     rollback_ref: str
     safe_summary: str
     replayed: bool = False
@@ -485,7 +486,7 @@ class CrmAdoptionSnapshot(_PrivateModel):
 
 class CrmAdoptionState(CrmAdoptionSnapshot):
     schema_version: Literal["uaa-crm-adoption-state.v1"] = "uaa-crm-adoption-state.v1"
-    revision: int = Field(default=0, ge=0)
+    revision: int = Field(default=0, ge=0, le=CRM_ADOPTION_MAX_REVISION)
     undo_stack: list[CrmAdoptionSnapshot] = Field(
         default_factory=list, max_length=CRM_ADOPTION_MAX_UNDO, repr=False
     )
@@ -524,7 +525,7 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
         "blocked_audit_capacity",
         "blocked_unsafe",
     ]
-    revision: int
+    revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     workspace_name: str
     workspace_preset: str
     records: list[CrmAdoptionRecord]
@@ -592,7 +593,7 @@ class CrmPortableRestorePreview(_PrivateModel):
     preview_ref: str
     approval_ref: str
     current_state_ref: str
-    backup_revision: int
+    backup_revision: int = Field(..., ge=0, le=CRM_ADOPTION_MAX_REVISION)
     record_count: int
     affected_count: int | None = Field(
         ..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2

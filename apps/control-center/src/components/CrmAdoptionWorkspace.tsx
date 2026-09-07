@@ -28,7 +28,8 @@ import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 
 const CRM_ADOPTION_MAX_IMPORT_FILE_BYTES = 2_000_000;
 const CRM_ADOPTION_MAX_BACKUP_FILE_BYTES = 48 * 1024 * 1024;
-const CRM_ADOPTION_MAX_AMOUNT_MAJOR = Number.MAX_SAFE_INTEGER / 100;
+const CRM_ADOPTION_MAX_AMOUNT_MINOR = 90_071_992_547_409;
+const CRM_ADOPTION_MAX_AMOUNT_MAJOR = CRM_ADOPTION_MAX_AMOUNT_MINOR / 100;
 const CRM_ADOPTION_BACKUP_OPEN_ERROR =
   "The encrypted backup could not be opened safely.";
 
@@ -221,6 +222,16 @@ export function CrmAdoptionWorkspace() {
 
   const submitDraft = useCallback(async () => {
     if (!workspace || !workspaceWritable || !draft.display_name.trim()) return;
+    if (
+      draft.amount_minor !== null &&
+      draft.amount_minor !== undefined &&
+      (!Number.isSafeInteger(draft.amount_minor) ||
+        draft.amount_minor < 0 ||
+        draft.amount_minor > CRM_ADOPTION_MAX_AMOUNT_MINOR)
+    ) {
+      setError("Use an amount within the supported exact-cent range.");
+      return;
+    }
     const editingRecord =
       editingOriginal?.record_ref === editingRef ? editingOriginal : undefined;
     const preserveTimestamp = (
@@ -502,6 +513,9 @@ export function CrmAdoptionWorkspace() {
         mutationBinding,
       );
       setPendingRestore(null);
+      setEditingRef(null);
+      setEditingOriginal(null);
+      setDraft({ ...EMPTY_DRAFT });
       setNotice(`Backup restored at CRM revision ${receipt.after_revision}.`);
       await refresh();
     } catch (reason) {
@@ -775,7 +789,7 @@ export function CrmAdoptionWorkspace() {
         <ConfirmationPanel
           title="Review encrypted backup restore"
           summary={
-            workspace?.storage_state === "ready"
+            pendingRestore.preview.impact_status === "exact"
               ? "Replace the active CRM view with the verified backup. The current state remains available to Undo."
               : "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo."
           }

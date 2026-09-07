@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.core.crm.adoption as adoption
@@ -827,6 +829,50 @@ def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
         )
 
 
+def test_portable_backup_rejects_revision_outside_browser_exact_range(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix="source-create")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    salt = adoption._decode_b64(backup.salt, code="TEST_BACKUP_INVALID")
+    nonce = adoption._decode_b64(backup.nonce, code="TEST_BACKUP_INVALID")
+    ciphertext = adoption._decode_b64(
+        backup.ciphertext, code="TEST_BACKUP_INVALID"
+    )
+    key = source._derive_backup_key(passphrase, salt)
+    plaintext = AESGCM(key).decrypt(nonce, ciphertext, adoption._BACKUP_AAD)
+    payload = json.loads(plaintext)
+    payload["revision"] = adoption.CRM_ADOPTION_MAX_REVISION + 1
+    forged_nonce = os.urandom(12)
+    forged_ciphertext = AESGCM(key).encrypt(
+        forged_nonce,
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode(),
+        adoption._BACKUP_AAD,
+    )
+    forged_backup = backup.model_copy(
+        update={
+            "nonce": adoption._b64(forged_nonce),
+            "ciphertext": adoption._b64(forged_ciphertext),
+            "ciphertext_fingerprint_ref": (
+                "ciphertext-fingerprint-ref:sha256:"
+                f"{hashlib.sha256(forged_ciphertext).hexdigest()}"
+            ),
+        }
+    )
+
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_BACKUP_UNLOCK_FAILED"):
+        CrmAdoptionStore(tmp_path / "target").preview_restore(
+            CrmPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=forged_backup,
+            )
+        )
+
+
 def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     tmp_path: Path,
 ) -> None:
@@ -1439,6 +1485,14 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
         )
     with pytest.raises(ValueError):
         CrmAdoptionRecordPatch(amount_minor=adoption.CRM_ADOPTION_MAX_AMOUNT_MINOR + 1)
+    assert (
+        CrmAdoptionRecordDraft(
+            record_kind="opportunity",
+            display_name="Largest exact-cent amount",
+            amount_minor=adoption.CRM_ADOPTION_MAX_AMOUNT_MINOR,
+        ).amount_minor
+        == 90_071_992_547_409
+    )
 
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(), suffix="cli")
