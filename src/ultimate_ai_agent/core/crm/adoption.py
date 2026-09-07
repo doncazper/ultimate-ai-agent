@@ -15,6 +15,7 @@ import io
 import json
 import os
 import secrets
+import stat
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,7 +69,9 @@ CRM_ADOPTION_MAX_BACKUP_BYTES = 32 * 1024 * 1024
 CRM_ADOPTION_MAX_BACKUP_FILE_BYTES = 48 * 1024 * 1024
 CRM_ADOPTION_MAX_STATE_BYTES = 32 * 1024 * 1024
 CRM_ADOPTION_MAX_AUDIT_BYTES = 16 * 1024 * 1024
+CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES = 2 * 1024
 CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES = 32 * 1024
+CRM_ADOPTION_MAX_AMOUNT_MINOR = 9_007_199_254_740_991
 CRM_ADOPTION_MAX_BACKUP_B64_CHARS = ((CRM_ADOPTION_MAX_BACKUP_BYTES + 2) // 3) * 4
 _STATE_MAGIC = b"UAACRMQ32\x00"
 _STATE_AAD = b"uaa:crm-adoption:state:v1"
@@ -178,7 +181,9 @@ class CrmAdoptionRecord(_PrivateModel):
     related_refs: list[str] = Field(default_factory=list, max_length=64)
     due_at: datetime | None = None
     occurred_at: datetime | None = None
-    amount_minor: int | None = Field(default=None, ge=0)
+    amount_minor: int | None = Field(
+        default=None, ge=0, le=CRM_ADOPTION_MAX_AMOUNT_MINOR
+    )
     currency: str | None = None
     priority: Literal["high", "medium", "low"] | None = None
     archived: bool = False
@@ -232,7 +237,9 @@ class CrmAdoptionRecordDraft(_PrivateModel):
     related_refs: list[str] = Field(default_factory=list, max_length=64)
     due_at: datetime | None = None
     occurred_at: datetime | None = None
-    amount_minor: int | None = Field(default=None, ge=0)
+    amount_minor: int | None = Field(
+        default=None, ge=0, le=CRM_ADOPTION_MAX_AMOUNT_MINOR
+    )
     currency: str | None = None
     priority: Literal["high", "medium", "low"] | None = None
 
@@ -260,7 +267,9 @@ class CrmAdoptionRecordPatch(_PrivateModel):
     related_refs: list[str] | None = Field(default=None, max_length=64)
     due_at: datetime | None = None
     occurred_at: datetime | None = None
-    amount_minor: int | None = Field(default=None, ge=0)
+    amount_minor: int | None = Field(
+        default=None, ge=0, le=CRM_ADOPTION_MAX_AMOUNT_MINOR
+    )
     currency: str | None = None
     priority: Literal["high", "medium", "low"] | None = None
     clear_fields: list[
@@ -508,7 +517,12 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
     )
     foundation_contract_ref: str = CRM_ADOPTION_FOUNDATION_REF
     storage_state: Literal[
-        "empty", "ready", "locked", "recovery_required", "blocked_unsafe"
+        "empty",
+        "ready",
+        "locked",
+        "recovery_required",
+        "blocked_audit_capacity",
+        "blocked_unsafe",
     ]
     revision: int
     workspace_name: str
@@ -678,7 +692,7 @@ class CrmAdoptionStore:
         include_archived: bool = False,
     ) -> CrmAdoptionWorkspaceView:
         try:
-            state = self._read_state_for_view()
+            state, audit_capacity_exhausted = self._read_state_for_view()
         except CrmAdoptionError as exc:
             code = str(exc)
             if code == "CRM_ADOPTION_KEY_UNAVAILABLE":
@@ -729,9 +743,17 @@ class CrmAdoptionStore:
         return self._view(
             state,
             records=records,
-            storage_state="ready" if self.state_file.exists() else "empty",
+            storage_state=(
+                "blocked_audit_capacity"
+                if audit_capacity_exhausted
+                else "ready"
+                if self.state_file.exists()
+                else "empty"
+            ),
             next_safe_action=(
-                "Capture the next person, property, opportunity, activity, or follow-up."
+                "Back up this workspace, then rotate the local CRM audit log before another change."
+                if audit_capacity_exhausted
+                else "Capture the next person, property, opportunity, activity, or follow-up."
                 if state.records
                 else "Create your first private CRM record."
             ),
@@ -1324,12 +1346,18 @@ class CrmAdoptionStore:
         )
         return next_state, target_ref
 
-    def _read_state_for_view(self) -> CrmAdoptionState:
+    def _read_state_for_view(self) -> tuple[CrmAdoptionState, bool]:
         self._secure_state_dir()
         with self.lock.acquire(_LOCK_KEY):
             state = self._read_state()
             self._recover_pending_audit(state)
-            return state
+            try:
+                self._preflight_audit_capacity()
+            except CrmAdoptionError as exc:
+                if str(exc) != "CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED":
+                    raise
+                return state, True
+            return state, False
 
     def _read_current_for_restore(self) -> tuple[CrmAdoptionState, bool]:
         try:
@@ -1395,18 +1423,27 @@ class CrmAdoptionStore:
             ) from exc
 
     def _read_key(self, *, create: bool = False) -> bytes:
-        if self._validated_key_file_exists():
-            if self.key_file.stat().st_size != 32:
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(self.key_file, flags)
+        except FileNotFoundError:
+            if create:
+                return self._create_key()
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE") from None
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            self._validate_key_metadata(metadata)
+            if metadata.st_size != 32:
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
-            # Keep the read bounded even if the file changes after the stat.
-            with self.key_file.open("rb") as handle:
-                key = handle.read(33)
-            if len(key) != 32:
-                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
-            return key
-        if not create:
+            # Keep the read bounded even if the file changes after the fstat.
+            key = os.read(descriptor, 33)
+        finally:
+            os.close(descriptor)
+        if len(key) != 32:
             raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
-        return self._create_key()
+        return key
 
     def _create_key(self) -> bytes:
         """Create the state key without ever replacing an existing key inode."""
@@ -1470,10 +1507,22 @@ class CrmAdoptionStore:
     def _validated_key_file_exists(self) -> bool:
         """Reject unsafe key objects even before encrypted state exists."""
 
-        exists = self.key_file.exists()
-        if self.key_file.is_symlink() or (exists and not self.key_file.is_file()):
+        try:
+            metadata = self.key_file.lstat()
+        except FileNotFoundError:
+            return False
+        self._validate_key_metadata(metadata)
+        return True
+
+    @staticmethod
+    def _validate_key_metadata(metadata: os.stat_result) -> None:
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+            or (hasattr(os, "getuid") and metadata.st_uid != os.getuid())
+        ):
             raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
-        return exists
 
     def _quarantine_pending_audit_for_recovery(self) -> None:
         """Preserve an orphan journal before an approved unreadable-state restore."""
@@ -1533,9 +1582,23 @@ class CrmAdoptionStore:
         event = self._audit_event(receipt)
         self._audit_append_payload(receipt, event)
         payload = _canonical_json(event)
-        if len(payload) > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES:
+        if (
+            len(payload) > CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES
+            or len(payload) > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES
+        ):
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
         self._atomic_write(self.pending_audit_file, payload)
+
+    def _preflight_audit_capacity(self) -> None:
+        if not self.audit_file.exists():
+            return
+        if self.audit_file.is_symlink() or not self.audit_file.is_file():
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNSAFE")
+        if (
+            self.audit_file.stat().st_size
+            > CRM_ADOPTION_MAX_AUDIT_BYTES - CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
 
     def _read_pending_audit(self) -> dict[str, object] | None:
         if not self.pending_audit_file.exists():
@@ -2049,6 +2112,7 @@ class CrmAdoptionStore:
                 "idempotency-ref:crm-adoption-lease-retry",
                 {
                     "payload_fingerprint_ref": payload_fingerprint_ref,
+                    "idempotency_ref": idempotency_ref,
                     "retry_index": retry_index,
                 },
             )
@@ -2184,7 +2248,10 @@ class CrmAdoptionStore:
         if len(csv_text.encode("utf-8")) > 2_000_000:
             raise CrmAdoptionError("CRM_ADOPTION_IMPORT_SIZE_LIMIT")
         try:
-            reader = csv.DictReader(io.StringIO(csv_text))
+            normalized_csv_text = (
+                csv_text[1:] if csv_text.startswith("\ufeff") else csv_text
+            )
+            reader = csv.DictReader(io.StringIO(normalized_csv_text))
             if reader.fieldnames is None:
                 raise CrmAdoptionError("CRM_ADOPTION_IMPORT_HEADER_REQUIRED")
             normalized = {
@@ -2318,7 +2385,12 @@ class CrmAdoptionStore:
         *,
         records: list[CrmAdoptionRecord],
         storage_state: Literal[
-            "empty", "ready", "locked", "recovery_required", "blocked_unsafe"
+            "empty",
+            "ready",
+            "locked",
+            "recovery_required",
+            "blocked_audit_capacity",
+            "blocked_unsafe",
         ],
         next_safe_action: str,
     ) -> CrmAdoptionWorkspaceView:

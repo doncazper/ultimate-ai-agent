@@ -34,7 +34,8 @@ migration in this slice.
 Private record material is serialized into one versioned CRM state and
 encrypted with AES-256-GCM before the atomic local write. The random local key,
 encrypted state, and content-free audit log use owner-only filesystem modes.
-The key is created without replacing an existing key inode. Invalid keys,
+The key must remain an owner-owned, owner-only regular file with one hard link,
+and is created without replacing an existing key inode. Invalid keys,
 unsafe files, corrupt ciphertext, stale revisions, mismatched previews,
 approval substitution, replay substitution, unknown links, and invalid
 prospective state all fail closed.
@@ -75,7 +76,13 @@ payload under that ref is rejected.
 - Contact CSV input is capped at 500 rows and two megabytes. The preview shows
   every operator-visible candidate label in the scrollable confirmation and
   the exact duplicate count; duplicates are skipped, never silently merged or
-  overwritten.
+  overwritten. A UTF-8 byte-order mark in the first header is accepted after
+  the original byte-size bound is enforced.
+- Currency amounts are stored in minor units and capped at JavaScript's exact
+  safe-integer limit so a browser edit cannot silently round a stored value.
+- Changing the primary relationship in the editor preserves every additional
+  linked record, and an in-progress filtered edit keeps the exact original
+  timestamp strings until the edit is saved or cancelled.
 - Every CRM JSON-input route is bounded before framework JSON decoding, with a
   maximum nesting depth and a structured no-store `413` response. The larger
   request bound accommodates the documented encrypted portable-backup limit;
@@ -93,6 +100,9 @@ payload under that ref is rejected.
   remove the pre-restore Undo posture after approval.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available as the next safe action.
+- A nearly full audit log exposes a distinct blocked state before another
+  change is offered. Existing records remain readable and an encrypted backup
+  remains available while the operator rotates that log.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.

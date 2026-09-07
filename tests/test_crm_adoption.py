@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -360,6 +361,57 @@ def test_expired_lease_uses_a_fresh_retry_scope_without_a_failed_commit(
     assert len(AuthorityLeaseStore(store.state_dir / "authority").list_leases()) == 2
 
 
+def test_expired_lease_retry_scope_remains_bound_to_client_idempotency() -> None:
+    payload_fingerprint_ref = "payload-fingerprint-ref:crm-adoption:test"
+    first_idempotency_ref = "idempotency-ref:crm-adoption-test:first"
+    second_idempotency_ref = "idempotency-ref:crm-adoption-test:second"
+
+    class InactiveLease:
+        def __init__(self, idempotency_ref: str) -> None:
+            self.constraints = {"idempotency_ref": idempotency_ref}
+
+        @staticmethod
+        def is_active() -> bool:
+            return False
+
+    class LeaseStore:
+        @staticmethod
+        def list_receipts(*, limit: int) -> list[object]:
+            assert limit == 1_000_000
+            return []
+
+        @staticmethod
+        def list_leases() -> list[InactiveLease]:
+            return [
+                InactiveLease(
+                    adoption._hash_ref(
+                        "idempotency-ref:crm-adoption-lease",
+                        {
+                            "payload_fingerprint_ref": payload_fingerprint_ref,
+                            "idempotency_ref": idempotency_ref,
+                        },
+                    )
+                )
+                for idempotency_ref in (
+                    first_idempotency_ref,
+                    second_idempotency_ref,
+                )
+            ]
+
+    first_retry = CrmAdoptionStore._lease_idempotency_ref(
+        LeaseStore(),  # type: ignore[arg-type]
+        payload_fingerprint_ref=payload_fingerprint_ref,
+        idempotency_ref=first_idempotency_ref,
+    )
+    second_retry = CrmAdoptionStore._lease_idempotency_ref(
+        LeaseStore(),  # type: ignore[arg-type]
+        payload_fingerprint_ref=payload_fingerprint_ref,
+        idempotency_ref=second_idempotency_ref,
+    )
+
+    assert first_retry != second_retry
+
+
 def test_ambiguous_state_publication_preserves_journal_for_restart_recovery(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -483,6 +535,11 @@ def test_audit_capacity_is_rejected_before_state_publication(
 
     assert store._read_state().revision == 1
     assert not store.pending_audit_file.exists()
+    view = store.read_view()
+    assert view.storage_state == "blocked_audit_capacity"
+    assert [item.display_name for item in view.records] == ["First Person"]
+    assert "Back up this workspace" in view.next_safe_action
+    assert "rotate the local CRM audit log" in view.next_safe_action
 
 
 def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
@@ -678,6 +735,15 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     assert digitless_preview.affected_count == 2
     assert digitless_preview.duplicate_candidate_count == 0
 
+    bom_prefixed = CrmAdoptionMutationRequest(
+        action="import_contacts",
+        expected_revision=2,
+        csv_text="\ufeffname,email\nBOM Person,bom@example.test\n",
+    )
+    bom_preview = store.preview_mutation(bom_prefixed)
+    assert bom_preview.affected_count == 1
+    assert bom_preview.private_preview_labels == ["BOM Person"]
+
 
 def test_csv_import_treats_archived_contacts_as_duplicate_history(
     tmp_path: Path,
@@ -860,6 +926,7 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     invalid_key_target.state_dir.mkdir(parents=True)
     invalid_key_target.state_file.write_bytes(b"corrupt-state")
     invalid_key_target.key_file.write_bytes(b"truncated-key")
+    invalid_key_target.key_file.chmod(0o600)
     invalid_key_preview = invalid_key_target.preview_restore(restore_request)
     invalid_key_request = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
@@ -899,6 +966,7 @@ def test_restore_repairs_malformed_key_when_workspace_has_no_state(
     target = CrmAdoptionStore(tmp_path / "target")
     target.state_dir.mkdir(parents=True)
     target.key_file.write_bytes(b"malformed-key")
+    target.key_file.chmod(0o600)
     assert target.read_view().storage_state == "locked"
     restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
     preview = target.preview_restore(restore)
@@ -1028,7 +1096,9 @@ def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
         )
 
 
-@pytest.mark.parametrize("unsafe_kind", ["symlink", "directory"])
+@pytest.mark.parametrize(
+    "unsafe_kind", ["symlink", "directory", "permissive", "hardlink"]
+)
 def test_unsafe_key_without_state_is_blocked_before_restore(
     tmp_path: Path,
     unsafe_kind: str,
@@ -1045,8 +1115,13 @@ def test_unsafe_key_without_state_is_blocked_before_restore(
         outside = tmp_path / "outside-key"
         outside.write_bytes(b"0" * 32)
         store.key_file.symlink_to(outside)
-    else:
+    elif unsafe_kind == "directory":
         store.key_file.mkdir()
+    else:
+        store.key_file.write_bytes(b"0" * 32)
+        store.key_file.chmod(0o600 if unsafe_kind == "hardlink" else 0o644)
+        if unsafe_kind == "hardlink":
+            os.link(store.key_file, tmp_path / "outside-key-hardlink")
 
     view = store.read_view()
     assert view.storage_state == "blocked_unsafe"
@@ -1167,6 +1242,7 @@ def test_key_read_rejects_wrong_size_before_materializing_file(tmp_path: Path) -
     store = CrmAdoptionStore(tmp_path / "crm")
     store.state_dir.mkdir(parents=True)
     store.key_file.write_bytes(b"x" * 1_000_000)
+    store.key_file.chmod(0o600)
 
     with pytest.raises(CrmAdoptionError, match="KEY_UNAVAILABLE"):
         store._read_key()
@@ -1355,6 +1431,14 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
         )
     with pytest.raises(ValueError, match="CRM_ADOPTION_PATCH_CLEAR_CONFLICT"):
         CrmAdoptionRecordPatch(email="new@example.test", clear_fields=["email"])
+    with pytest.raises(ValueError):
+        CrmAdoptionRecordDraft(
+            record_kind="opportunity",
+            display_name="Unsafe rounded amount",
+            amount_minor=adoption.CRM_ADOPTION_MAX_AMOUNT_MINOR + 1,
+        )
+    with pytest.raises(ValueError):
+        CrmAdoptionRecordPatch(amount_minor=adoption.CRM_ADOPTION_MAX_AMOUNT_MINOR + 1)
 
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(), suffix="cli")

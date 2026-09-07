@@ -330,6 +330,104 @@ describe("CrmAdoptionWorkspace", () => {
     );
   });
 
+  it("preserves exact timestamp precision when a filter hides the edited record", async () => {
+    const exactTimestamp = "2026-09-06T17:00:45.123456+00:00";
+    const originalWorkspace = {
+      ...workspace,
+      records: [{ ...workspace.records[0], due_at: exactTimestamp }],
+    };
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(originalWorkspace)
+      .mockResolvedValueOnce({ ...originalWorkspace, records: [] });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Record type"), {
+      target: { value: "organization" },
+    });
+    await waitFor(() =>
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenLastCalledWith(
+        "",
+        "organization",
+        false,
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Corrected Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update",
+          patch: expect.objectContaining({ due_at: exactTimestamp }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
+      ),
+    );
+  });
+
+  it("changes only the primary relationship and retains additional links", async () => {
+    const relatedRecords = [
+      {
+        ...workspace.records[0],
+        record_ref: "crm-record-ref:organization:primary",
+        record_kind: "organization" as const,
+        display_name: "Primary Organization",
+      },
+      {
+        ...workspace.records[0],
+        record_ref: "crm-record-ref:person:retained",
+        display_name: "Retained Person",
+      },
+      {
+        ...workspace.records[0],
+        record_ref: "crm-record-ref:property:replacement",
+        record_kind: "property" as const,
+        display_name: "Replacement Property",
+      },
+    ];
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      records: [
+        {
+          ...workspace.records[0],
+          related_refs: [
+            relatedRecords[0].record_ref,
+            relatedRecords[1].record_ref,
+          ],
+        },
+        ...relatedRecords,
+      ],
+    });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText(/Primary related record/), {
+      target: { value: relatedRecords[2].record_ref },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update",
+          patch: expect.objectContaining({
+            related_refs: [
+              relatedRecords[2].record_ref,
+              relatedRecords[1].record_ref,
+            ],
+          }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
+      ),
+    );
+    expect(screen.getByText("Other linked records are retained.")).toBeVisible();
+  });
+
   it("preserves imported nullable fields when editing another value", async () => {
     apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
       ...workspace,
@@ -432,6 +530,30 @@ describe("CrmAdoptionWorkspace", () => {
         "Inspect and repair the unsafe local CRM storage before restore.",
       ),
     ).toHaveLength(2);
+    expect(screen.getByLabelText("Open backup to restore")).toBeDisabled();
+  });
+
+  it("blocks changes and restore when the local audit log needs rotation", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      storage_state: "blocked_audit_capacity",
+      records: workspace.records,
+      can_undo: false,
+      next_safe_action:
+        "Back up this workspace, then rotate the local CRM audit log before another change.",
+    });
+    render(<CrmAdoptionWorkspace />);
+
+    expect(
+      await screen.findAllByText(
+        "Back up this workspace, then rotate the local CRM audit log before another change.",
+      ),
+    ).toHaveLength(1);
+    expect(screen.getAllByText("Example Contact")).toHaveLength(2);
+    expect(screen.getByLabelText("Name or title")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Download encrypted backup" }),
+    ).toBeEnabled();
     expect(screen.getByLabelText("Open backup to restore")).toBeDisabled();
   });
 

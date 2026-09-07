@@ -28,6 +28,7 @@ import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 
 const CRM_ADOPTION_MAX_IMPORT_FILE_BYTES = 2_000_000;
 const CRM_ADOPTION_MAX_BACKUP_FILE_BYTES = 48 * 1024 * 1024;
+const CRM_ADOPTION_MAX_AMOUNT_MAJOR = Number.MAX_SAFE_INTEGER / 100;
 const CRM_ADOPTION_BACKUP_OPEN_ERROR =
   "The encrypted backup could not be opened safely.";
 
@@ -126,6 +127,8 @@ export function CrmAdoptionWorkspace() {
     ...EMPTY_DRAFT,
   }));
   const [editingRef, setEditingRef] = useState<string | null>(null);
+  const [editingOriginal, setEditingOriginal] =
+    useState<CrmAdoptionRecord | null>(null);
   const [pending, setPending] = useState<PendingMutation | null>(null);
   const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(
     null,
@@ -218,9 +221,8 @@ export function CrmAdoptionWorkspace() {
 
   const submitDraft = useCallback(async () => {
     if (!workspace || !workspaceWritable || !draft.display_name.trim()) return;
-    const editingRecord = editingRef
-      ? workspace.records.find((record) => record.record_ref === editingRef)
-      : undefined;
+    const editingRecord =
+      editingOriginal?.record_ref === editingRef ? editingOriginal : undefined;
     const preserveTimestamp = (
       value: string | null | undefined,
       original: string | null | undefined,
@@ -284,7 +286,14 @@ export function CrmAdoptionWorkspace() {
           record: normalized,
         };
     await runPreview(request, editingRef ? "update" : "create");
-  }, [draft, editingRef, runPreview, workspace, workspaceWritable]);
+  }, [
+    draft,
+    editingOriginal,
+    editingRef,
+    runPreview,
+    workspace,
+    workspaceWritable,
+  ]);
 
   const confirmMutation = useCallback(async () => {
     if (!pending) return;
@@ -305,6 +314,7 @@ export function CrmAdoptionWorkspace() {
       );
       setPending(null);
       setEditingRef(null);
+      setEditingOriginal(null);
       setDraft({ ...EMPTY_DRAFT });
       setNotice(
         `Saved locally at CRM revision ${receipt.after_revision}. No external write occurred.`,
@@ -323,6 +333,7 @@ export function CrmAdoptionWorkspace() {
 
   const startEdit = useCallback((record: CrmAdoptionRecord) => {
     setEditingRef(record.record_ref);
+    setEditingOriginal(record);
     setDraft({
       record_kind: record.record_kind,
       display_name: record.display_name,
@@ -671,6 +682,7 @@ export function CrmAdoptionWorkspace() {
         onChange={setDraft}
         onCancel={() => {
           setEditingRef(null);
+          setEditingOriginal(null);
           setDraft({ ...EMPTY_DRAFT });
         }}
         onSubmit={() => void submitDraft()}
@@ -715,7 +727,13 @@ export function CrmAdoptionWorkspace() {
           </label>
           <button
             type="button"
-            disabled={busy || workspace?.storage_state !== "ready"}
+            disabled={
+              busy ||
+              !workspace ||
+              !["ready", "blocked_audit_capacity"].includes(
+                workspace.storage_state,
+              )
+            }
             onClick={() => void downloadBackup()}
           >
             Download encrypted backup
@@ -725,7 +743,11 @@ export function CrmAdoptionWorkspace() {
             <input
               type="file"
               accept=".json,application/json"
-              disabled={busy || workspace?.storage_state === "blocked_unsafe"}
+              disabled={
+                busy ||
+                workspace?.storage_state === "blocked_audit_capacity" ||
+                workspace?.storage_state === "blocked_unsafe"
+              }
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) void prepareRestore(file);
@@ -941,6 +963,7 @@ function RecordEditor({
           <input
             type="number"
             min="0"
+            max={CRM_ADOPTION_MAX_AMOUNT_MAJOR}
             step="0.01"
             value={draft.amount_minor === null || draft.amount_minor === undefined ? "" : draft.amount_minor / 100}
             onChange={(event) => set("amount_minor", event.target.value ? Math.round(Number(event.target.value) * 100) : null)}
@@ -966,14 +989,24 @@ function RecordEditor({
           </select>
         </label>
         <label className="crm-adoption-span-2">
-          <span>Link to another record</span>
+          <span>Primary related record</span>
           <select
             value={draft.related_refs?.[0] ?? ""}
-            onChange={(event) => set("related_refs", event.target.value ? [event.target.value] : [])}
+            onChange={(event) => {
+              const primaryRef = event.target.value;
+              const retainedRefs = (draft.related_refs ?? [])
+                .slice(1)
+                .filter((ref) => ref !== primaryRef);
+              set(
+                "related_refs",
+                primaryRef ? [primaryRef, ...retainedRefs] : retainedRefs,
+              );
+            }}
           >
             <option value="">No linked record</option>
             {relatedOptions.map((item) => <option key={item.record_ref} value={item.record_ref}>{item.display_name} · {item.record_kind.replace("_", " ")}</option>)}
           </select>
+          <small>Other linked records are retained.</small>
         </label>
         <label className="crm-adoption-span-2">
           <span>Private notes</span>
