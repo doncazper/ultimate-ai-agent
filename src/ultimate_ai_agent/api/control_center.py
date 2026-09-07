@@ -12,6 +12,7 @@ from ultimate_ai_agent.api.cors import apply_loopback_cors_response_headers
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
+    idempotency_value_valid,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
@@ -1523,8 +1524,12 @@ def _crm_idempotency_ref(
     idempotency_key: str | None,
     idempotency_ref: str | None,
 ) -> str:
-    value = (idempotency_key or idempotency_ref or "").strip()
-    if not value:
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
         raise HTTPException(
             status_code=428,
             detail={
@@ -1534,7 +1539,23 @@ def _crm_idempotency_ref(
                 ),
             },
         )
-    return value
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _task_decomposition_service() -> TaskDecompositionService:

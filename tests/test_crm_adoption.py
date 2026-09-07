@@ -959,6 +959,48 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
         )
 
 
+def test_control_center_private_crm_routes_reject_ambiguous_idempotency_headers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_CRM_ADOPTION_STATE_DIR", str(tmp_path / "crm"))
+    client = TestClient(app)
+    mutation = _create_request().model_dump(mode="json")
+    approval_body = {
+        "operation": "mutation",
+        "mutation": {
+            "mutation": mutation,
+            "preview_ref": "preview-ref:crm-api:header-validation",
+            "approval_ref": "approval-ref:crm-api:header-validation",
+        },
+        "restore": None,
+    }
+
+    conflict = client.post(
+        "/control-center/crm/adoption/approval",
+        json=approval_body,
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:crm-api:first",
+            "X-UAA-Idempotency-Ref": "idempotency-ref:crm-api:second",
+            "X-UAA-Operator-Confirmed": "true",
+        },
+    )
+    assert conflict.status_code == 400
+    assert conflict.json()["detail"]["code"] == "API_IDEMPOTENCY_CONFLICT"
+
+    invalid = client.post(
+        "/control-center/crm/adoption/approval",
+        json=approval_body,
+        headers={
+            "X-UAA-Idempotency-Key": "short",
+            "X-UAA-Idempotency-Ref": "idempotency-ref:crm-api:valid",
+            "X-UAA-Operator-Confirmed": "true",
+        },
+    )
+    assert invalid.status_code == 400
+    assert invalid.json()["detail"]["code"] == "API_IDEMPOTENCY_INVALID"
+
+
 def test_control_center_private_crm_routes_complete_exact_local_loop(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
