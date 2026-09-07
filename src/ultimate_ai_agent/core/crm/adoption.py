@@ -507,7 +507,9 @@ class CrmAdoptionWorkspaceView(_PrivateModel):
         CRM_ADOPTION_CONTRACT_REF
     )
     foundation_contract_ref: str = CRM_ADOPTION_FOUNDATION_REF
-    storage_state: Literal["empty", "ready", "locked", "recovery_required"]
+    storage_state: Literal[
+        "empty", "ready", "locked", "recovery_required", "blocked_unsafe"
+    ]
     revision: int
     workspace_name: str
     workspace_preset: str
@@ -578,10 +580,22 @@ class CrmPortableRestorePreview(_PrivateModel):
     current_state_ref: str
     backup_revision: int
     record_count: int
+    affected_count: int | None = Field(
+        ..., ge=0, le=CRM_ADOPTION_MAX_RECORDS * 2
+    )
+    impact_status: Literal["exact", "unknown_current_state"]
     counts: dict[str, int]
     integrity_status: Literal["ok"] = "ok"
     private_values_included: Literal[False] = False
     restore_performed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_impact(self) -> "CrmPortableRestorePreview":
+        if (self.impact_status == "exact") != (self.affected_count is not None):
+            raise ValueError("CRM_ADOPTION_RESTORE_IMPACT_INVALID")
+        if self.affected_count is not None and self.affected_count < 0:
+            raise ValueError("CRM_ADOPTION_RESTORE_IMPACT_INVALID")
+        return self
 
 
 class CrmPortableRestoreCommitRequest(CrmPortableRestoreRequest):
@@ -666,18 +680,27 @@ class CrmAdoptionStore:
         try:
             state = self._read_state_for_view()
         except CrmAdoptionError as exc:
-            storage_state = (
-                "locked"
-                if str(exc) == "CRM_ADOPTION_KEY_UNAVAILABLE"
-                else "recovery_required"
-            )
+            code = str(exc)
+            if code == "CRM_ADOPTION_KEY_UNAVAILABLE":
+                storage_state = "locked"
+                next_safe_action = (
+                    "Restore an encrypted CRM backup from the Recovery panel."
+                )
+            elif code == "CRM_ADOPTION_STATE_UNREADABLE":
+                storage_state = "recovery_required"
+                next_safe_action = (
+                    "Restore an encrypted CRM backup from the Recovery panel."
+                )
+            else:
+                storage_state = "blocked_unsafe"
+                next_safe_action = (
+                    "Inspect and repair the unsafe local CRM storage before restore."
+                )
             return self._view(
                 CrmAdoptionState(),
                 records=[],
                 storage_state=storage_state,
-                next_safe_action=(
-                    "Restore an encrypted CRM backup from the Recovery panel."
-                ),
+                next_safe_action=next_safe_action,
             )
         normalized_query = query.strip().casefold()
         records = [
@@ -929,7 +952,25 @@ class CrmAdoptionStore:
     def preview_restore(
         self, request: CrmPortableRestoreRequest
     ) -> CrmPortableRestorePreview:
-        restored = self._open_portable_backup(request)
+        self._secure_state_dir()
+        with self.lock.acquire(_LOCK_KEY):
+            current, current_readable = self._read_current_for_restore()
+            restored = self._open_portable_backup(request)
+            return self._build_restore_preview(
+                request,
+                restored=restored,
+                current=current,
+                current_readable=current_readable,
+            )
+
+    def _build_restore_preview(
+        self,
+        request: CrmPortableRestoreRequest,
+        *,
+        restored: CrmAdoptionState,
+        current: CrmAdoptionState,
+        current_readable: bool,
+    ) -> CrmPortableRestorePreview:
         current_state_ref = self._current_state_ref()
         preview_ref = _hash_ref(
             "restore-preview-ref:crm-adoption",
@@ -948,6 +989,12 @@ class CrmAdoptionStore:
             current_state_ref=current_state_ref,
             backup_revision=restored.revision,
             record_count=len(restored.records),
+            affected_count=(
+                self._snapshot_affected_count(current, restored)
+                if current_readable
+                else None
+            ),
+            impact_status="exact" if current_readable else "unknown_current_state",
             counts=self._counts(restored.records),
         )
 
@@ -969,6 +1016,22 @@ class CrmAdoptionStore:
                 state = self._read_state()
                 self._recover_pending_audit(state)
                 fingerprint = self._mutation_fingerprint(commit.mutation)
+                prior = next(
+                    (
+                        item
+                        for item in state.receipts
+                        if item.idempotency_ref == idempotency_ref
+                    ),
+                    None,
+                )
+                if prior is not None:
+                    return self._replay_captured_approval(
+                        prior,
+                        payload_fingerprint_ref=fingerprint,
+                        preview_ref=commit.preview_ref,
+                        approval_ref=commit.approval_ref,
+                        idempotency_ref=idempotency_ref,
+                    )
                 preview = self.preview_mutation(commit.mutation)
                 if (
                     preview.preview_ref != commit.preview_ref
@@ -985,24 +1048,36 @@ class CrmAdoptionStore:
                 )
             assert request.restore is not None
             commit = request.restore
-            self._open_portable_backup(commit)
-            try:
-                current = self._read_state()
-                self._recover_pending_audit(current)
-            except CrmAdoptionError as exc:
-                if str(exc) not in {
-                    "CRM_ADOPTION_KEY_UNAVAILABLE",
-                    "CRM_ADOPTION_STATE_UNREADABLE",
-                }:
-                    raise
-                current = CrmAdoptionState()
-            preview = self.preview_restore(commit)
+            current, current_readable = self._read_current_for_restore()
+            fingerprint = self._restore_fingerprint(commit)
+            prior = next(
+                (
+                    item
+                    for item in current.receipts
+                    if item.idempotency_ref == idempotency_ref
+                ),
+                None,
+            )
+            if prior is not None:
+                return self._replay_captured_approval(
+                    prior,
+                    payload_fingerprint_ref=fingerprint,
+                    preview_ref=commit.preview_ref,
+                    approval_ref=commit.approval_ref,
+                    idempotency_ref=idempotency_ref,
+                )
+            restored = self._open_portable_backup(commit)
+            preview = self._build_restore_preview(
+                commit,
+                restored=restored,
+                current=current,
+                current_readable=current_readable,
+            )
             if (
                 preview.preview_ref != commit.preview_ref
                 or preview.approval_ref != commit.approval_ref
             ):
                 raise CrmAdoptionError("CRM_ADOPTION_EXACT_APPROVAL_REQUIRED")
-            fingerprint = self._restore_fingerprint(commit)
             return self._capture_exact_approval(
                 action="restore_backup",
                 preview_ref=commit.preview_ref,
@@ -1024,19 +1099,8 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED")
         self._secure_state_dir()
         with self.lock.acquire(_LOCK_KEY):
+            current, current_readable = self._read_current_for_restore()
             restored = self._open_portable_backup(request)
-            current_readable = True
-            try:
-                current = self._read_state()
-                self._recover_pending_audit(current)
-            except CrmAdoptionError as exc:
-                if str(exc) not in {
-                    "CRM_ADOPTION_KEY_UNAVAILABLE",
-                    "CRM_ADOPTION_STATE_UNREADABLE",
-                }:
-                    raise
-                current = CrmAdoptionState()
-                current_readable = False
             fingerprint = self._restore_fingerprint(request)
             prior = next(
                 (
@@ -1055,7 +1119,12 @@ class CrmAdoptionStore:
                     raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
                 self._finalize_audit(prior)
                 return prior.model_copy(update={"replayed": True})
-            preview = self.preview_restore(request)
+            preview = self._build_restore_preview(
+                request,
+                restored=restored,
+                current=current,
+                current_readable=current_readable,
+            )
             if (
                 request.preview_ref != preview.preview_ref
                 or request.approval_ref != preview.approval_ref
@@ -1123,8 +1192,7 @@ class CrmAdoptionStore:
                 if not current_readable:
                     self._quarantine_pending_audit_for_recovery()
                 self._stage_audit(receipt)
-                if not current_readable:
-                    self._prepare_recovery_key()
+                self._prepare_recovery_key()
                 self._write_state(next_state)
             except CrmAdoptionStatePublicationUncertain:
                 # The restored state may already be authoritative. Preserve the
@@ -1259,6 +1327,19 @@ class CrmAdoptionStore:
             state = self._read_state()
             self._recover_pending_audit(state)
             return state
+
+    def _read_current_for_restore(self) -> tuple[CrmAdoptionState, bool]:
+        try:
+            current = self._read_state()
+            self._recover_pending_audit(current)
+            return current, True
+        except CrmAdoptionError as exc:
+            if str(exc) not in {
+                "CRM_ADOPTION_KEY_UNAVAILABLE",
+                "CRM_ADOPTION_STATE_UNREADABLE",
+            }:
+                raise
+            return CrmAdoptionState(), False
 
     def _read_state(self) -> CrmAdoptionState:
         if not self.state_file.exists():
@@ -1699,6 +1780,28 @@ class CrmAdoptionStore:
                 "backup": request.backup.ciphertext_fingerprint_ref,
                 "preview_ref": request.preview_ref,
             },
+        )
+
+    @staticmethod
+    def _replay_captured_approval(
+        prior: CrmAdoptionMutationReceipt,
+        *,
+        payload_fingerprint_ref: str,
+        preview_ref: str,
+        approval_ref: str,
+        idempotency_ref: str,
+    ) -> CrmAdoptionApprovalReceipt:
+        if (
+            prior.payload_fingerprint_ref != payload_fingerprint_ref
+            or prior.preview_ref != preview_ref
+            or prior.approval_ref != approval_ref
+        ):
+            raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+        return CrmAdoptionApprovalReceipt(
+            approval_ref=prior.approval_ref,
+            approval_validation_ref=prior.approval_validation_ref,
+            preview_ref=prior.preview_ref,
+            idempotency_ref=idempotency_ref,
         )
 
     def _exact_lease_context(
@@ -2149,7 +2252,7 @@ class CrmAdoptionStore:
     def _identity_keys(cls, records: list[CrmAdoptionRecord]) -> set[str]:
         keys: set[str] = set()
         for item in records:
-            if item.record_kind != "person" or item.archived:
+            if item.record_kind != "person":
                 continue
             keys.update(
                 cls._draft_identity_keys(
@@ -2179,8 +2282,8 @@ class CrmAdoptionStore:
 
     @staticmethod
     def _snapshot_affected_count(
-        current: CrmAdoptionSnapshot,
-        target: CrmAdoptionSnapshot,
+        current: CrmAdoptionSnapshot | CrmAdoptionState,
+        target: CrmAdoptionSnapshot | CrmAdoptionState,
     ) -> int:
         current_records = {item.record_ref: item for item in current.records}
         target_records = {item.record_ref: item for item in target.records}
@@ -2205,7 +2308,9 @@ class CrmAdoptionStore:
         state: CrmAdoptionState,
         *,
         records: list[CrmAdoptionRecord],
-        storage_state: Literal["empty", "ready", "locked", "recovery_required"],
+        storage_state: Literal[
+            "empty", "ready", "locked", "recovery_required", "blocked_unsafe"
+        ],
         next_safe_action: str,
     ) -> CrmAdoptionWorkspaceView:
         return CrmAdoptionWorkspaceView(

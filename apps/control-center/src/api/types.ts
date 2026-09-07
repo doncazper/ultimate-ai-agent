@@ -2909,7 +2909,12 @@ export interface CrmAdoptionWorkspaceView {
   schema_version: "uaa-crm-adoption-workspace.v1";
   contract_ref: string;
   foundation_contract_ref: string;
-  storage_state: "empty" | "ready" | "locked" | "recovery_required";
+  storage_state:
+    | "empty"
+    | "ready"
+    | "locked"
+    | "recovery_required"
+    | "blocked_unsafe";
   revision: number;
   workspace_name: string;
   workspace_preset: string;
@@ -3036,6 +3041,8 @@ export interface CrmPortableRestorePreview {
   current_state_ref: string;
   backup_revision: number;
   record_count: number;
+  affected_count: number | null;
+  impact_status: "exact" | "unknown_current_state";
   counts: Record<string, number>;
   integrity_status: "ok";
   private_values_included: false;

@@ -675,6 +675,39 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     assert digitless_preview.duplicate_candidate_count == 0
 
 
+def test_csv_import_treats_archived_contacts_as_duplicate_history(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    created = _commit(
+        store,
+        _create_request(name="Archived Person"),
+        suffix="archived-duplicate-source",
+    )
+    assert created.target_ref is not None
+    _commit(
+        store,
+        CrmAdoptionMutationRequest(
+            action="archive",
+            expected_revision=1,
+            target_ref=created.target_ref,
+        ),
+        suffix="archived-duplicate-archive",
+    )
+
+    with pytest.raises(CrmAdoptionConflict, match="IMPORT_NO_NEW_RECORDS"):
+        store.preview_mutation(
+            CrmAdoptionMutationRequest(
+                action="import_contacts",
+                expected_revision=2,
+                csv_text=(
+                    "name,email,phone\n"
+                    "Archived Person,private.person@example.test,555-0100\n"
+                ),
+            )
+        )
+
+
 def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
     tmp_path: Path,
 ) -> None:
@@ -692,6 +725,8 @@ def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
         backup=backup,
     )
     restore_preview = target.preview_restore(restore_request)
+    assert restore_preview.affected_count == 2
+    assert restore_preview.impact_status == "exact"
     restore_commit = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=restore_preview.preview_ref,
@@ -740,6 +775,8 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     preview = target.preview_restore(restore_request)
     assert preview.integrity_status == "ok"
     assert preview.record_count == 1
+    assert preview.affected_count == 1
+    assert preview.impact_status == "exact"
     duplicate_receipt_request = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=preview.preview_ref,
@@ -795,6 +832,8 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     target.state_file.write_bytes(b"corrupt")
     assert target.read_view().storage_state == "recovery_required"
     recovery_preview = target.preview_restore(restore_request)
+    assert recovery_preview.affected_count is None
+    assert recovery_preview.impact_status == "unknown_current_state"
     recovery_request = CrmPortableRestoreCommitRequest(
         **restore_request.model_dump(mode="python"),
         preview_ref=recovery_preview.preview_ref,
@@ -841,6 +880,169 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     assert recovered_state.undo_stack == []
     assert invalid_key_target.key_file.stat().st_size == 32
     assert len(list(invalid_key_target.state_dir.glob("*.invalid-*"))) == 1
+
+
+def test_restore_repairs_malformed_key_when_workspace_has_no_state(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Recovered Person"), suffix="empty-key-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target = CrmAdoptionStore(tmp_path / "target")
+    target.state_dir.mkdir(parents=True)
+    target.key_file.write_bytes(b"malformed-key")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    preview = target.preview_restore(restore)
+    request = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    idempotency_ref = "idempotency-ref:crm-adoption-test:empty-key-recovery"
+    _capture_restore(target, request, idempotency_ref=idempotency_ref)
+    target.commit_restore(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert target.read_view().records[0].display_name == "Recovered Person"
+    assert target.key_file.stat().st_size == 32
+    assert len(list(target.state_dir.glob("*.invalid-*"))) == 1
+
+
+def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix="unsafe-state-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store.state_dir.mkdir(parents=True)
+    outside = tmp_path / "outside-state"
+    outside.write_bytes(b"not CRM state")
+    store.state_file.symlink_to(outside)
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    assert "repair the unsafe local CRM storage" in view.next_safe_action
+    with pytest.raises(CrmAdoptionError, match="STATE_UNSAFE"):
+        store.preview_restore(
+            CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+        )
+
+
+def test_approval_capture_replays_durable_mutation_and_restore_receipts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    mutation_store = CrmAdoptionStore(tmp_path / "mutation")
+    mutation = _create_request()
+    mutation_preview = mutation_store.preview_mutation(mutation)
+    mutation_commit = CrmAdoptionCommitRequest(
+        mutation=mutation,
+        preview_ref=mutation_preview.preview_ref,
+        approval_ref=mutation_preview.approval_ref,
+    )
+    mutation_capture = CrmAdoptionApprovalCaptureRequest(
+        operation="mutation",
+        mutation=mutation_commit,
+    )
+    mutation_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:approval-lost-response"
+    )
+    mutation_store.capture_approval(
+        request=mutation_capture,
+        idempotency_ref=mutation_idempotency_ref,
+        confirmed=True,
+    )
+    mutation_receipt = mutation_store.commit_mutation(
+        request=mutation,
+        preview_ref=mutation_preview.preview_ref,
+        approval_ref=mutation_preview.approval_ref,
+        idempotency_ref=mutation_idempotency_ref,
+        confirmed=True,
+    )
+    replayed_mutation_approval = mutation_store.capture_approval(
+        request=mutation_capture,
+        idempotency_ref=mutation_idempotency_ref,
+        confirmed=True,
+    )
+    assert (
+        replayed_mutation_approval.approval_validation_ref
+        == mutation_receipt.approval_validation_ref
+    )
+    assert mutation_store.commit_mutation(
+        request=mutation,
+        preview_ref=mutation_preview.preview_ref,
+        approval_ref=mutation_preview.approval_ref,
+        idempotency_ref=mutation_idempotency_ref,
+        confirmed=True,
+    ).replayed is True
+
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Restore Person"), suffix="approval-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    restore_store = CrmAdoptionStore(tmp_path / "restore")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    restore_preview = restore_store.preview_restore(restore)
+    restore_commit = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=restore_preview.preview_ref,
+        approval_ref=restore_preview.approval_ref,
+    )
+    restore_capture = CrmAdoptionApprovalCaptureRequest(
+        operation="restore",
+        restore=restore_commit,
+    )
+    restore_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:restore-approval-lost-response"
+    )
+    restore_store.capture_approval(
+        request=restore_capture,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+    opened = 0
+    open_portable_backup = restore_store._open_portable_backup
+
+    def count_open(request: CrmPortableRestoreRequest):
+        nonlocal opened
+        opened += 1
+        return open_portable_backup(request)
+
+    monkeypatch.setattr(restore_store, "_open_portable_backup", count_open)
+    restore_receipt = restore_store.commit_restore(
+        request=restore_commit,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+    replayed_restore_approval = restore_store.capture_approval(
+        request=restore_capture,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+    assert opened == 1
+    assert (
+        replayed_restore_approval.approval_validation_ref
+        == restore_receipt.approval_validation_ref
+    )
+    assert restore_store.commit_restore(
+        request=restore_commit,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    ).replayed is True
 
 
 def test_key_read_rejects_wrong_size_before_materializing_file(tmp_path: Path) -> None:

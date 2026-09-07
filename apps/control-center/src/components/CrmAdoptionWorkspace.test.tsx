@@ -148,6 +148,8 @@ const restorePreview = {
   current_state_ref: "state-ref:crm:test",
   backup_revision: 4,
   record_count: 1,
+  affected_count: 1,
+  impact_status: "exact",
   counts: workspace.counts,
   integrity_status: "ok",
   private_values_included: false,
@@ -340,12 +342,58 @@ describe("CrmAdoptionWorkspace", () => {
     expect(screen.getByLabelText("Open backup to restore")).toBeEnabled();
   });
 
+  it("blocks restore when local storage is explicitly unsafe", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      storage_state: "blocked_unsafe",
+      records: [],
+      can_undo: false,
+      next_safe_action:
+        "Inspect and repair the unsafe local CRM storage before restore.",
+    });
+    render(<CrmAdoptionWorkspace />);
+
+    expect(
+      await screen.findAllByText(
+        "Inspect and repair the unsafe local CRM storage before restore.",
+      ),
+    ).toHaveLength(2);
+    expect(screen.getByLabelText("Open backup to restore")).toBeDisabled();
+  });
+
+  it("discloses the exact current-record impact before restore", async () => {
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(
+        /1 current record will be added, removed, or changed; the backup contains 1 record at revision 4/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("does not promise Undo when restoring an unreadable workspace", async () => {
     apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
       ...workspace,
       storage_state: "recovery_required",
       records: [],
       can_undo: false,
+    });
+    apiMocks.previewCrmPortableRestore.mockResolvedValue({
+      ...restorePreview,
+      affected_count: null,
+      impact_status: "unknown_current_state",
     });
     const file = {
       size: 256,
@@ -364,6 +412,11 @@ describe("CrmAdoptionWorkspace", () => {
     expect(
       await screen.findByText(
         "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Impact on current records is unknown because the active workspace is unreadable/i,
       ),
     ).toBeInTheDocument();
   });

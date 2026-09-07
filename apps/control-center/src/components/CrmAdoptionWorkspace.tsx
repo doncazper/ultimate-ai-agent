@@ -706,7 +706,7 @@ export function CrmAdoptionWorkspace() {
             <input
               type="file"
               accept=".json,application/json"
-              disabled={busy}
+              disabled={busy || workspace?.storage_state === "blocked_unsafe"}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) void prepareRestore(file);
@@ -738,7 +738,11 @@ export function CrmAdoptionWorkspace() {
               ? "Replace the active CRM view with the verified backup. The current state remains available to Undo."
               : "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo."
           }
-          details={`${pendingRestore.preview.record_count} records; backup revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`}
+          details={
+            pendingRestore.preview.impact_status === "exact"
+              ? `${pendingRestore.preview.affected_count ?? 0} current record${pendingRestore.preview.affected_count === 1 ? "" : "s"} will be added, removed, or changed; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
+              : `Impact on current records is unknown because the active workspace is unreadable; the backup contains ${pendingRestore.preview.record_count} record${pendingRestore.preview.record_count === 1 ? "" : "s"} at revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`
+          }
           labels={[]}
           busy={busy}
           confirmLabel="Confirm restore"
