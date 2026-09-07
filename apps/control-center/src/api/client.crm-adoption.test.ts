@@ -135,20 +135,21 @@ describe("CRM adoption mutation provenance", () => {
   });
 
   it("keeps private CRM searches in the request body", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          success: true,
-          data: {
-            schema_version: "uaa-crm-adoption-workspace.v1",
-            private_values_confined_to_local_response: true,
-            fixture_primary_truth: false,
-            external_crm_write_enabled: false,
-            records: [],
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
+    const fetchMock = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              schema_version: "uaa-crm-adoption-workspace.v1",
+              private_values_confined_to_local_response: true,
+              fixture_primary_truth: false,
+              external_crm_write_enabled: false,
+              records: [],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
