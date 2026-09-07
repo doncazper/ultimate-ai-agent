@@ -275,6 +275,7 @@ def test_pending_audit_read_io_failure_is_a_bounded_blocked_view(
     store = CrmAdoptionStore(tmp_path / "crm")
     store.state_dir.mkdir(parents=True)
     store.pending_audit_file.write_text("{}", encoding="utf-8")
+    store.pending_audit_file.chmod(0o600)
     read_bytes = Path.read_bytes
 
     def deny_pending_audit_read(path: Path) -> bytes:
@@ -291,6 +292,34 @@ def test_pending_audit_read_io_failure_is_a_bounded_blocked_view(
         CrmAdoptionError, match="CRM_ADOPTION_AUDIT_PENDING_UNREADABLE"
     ):
         store._read_pending_audit()
+
+
+def test_orphan_pending_audit_cleanup_failure_is_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    store.pending_audit_file.write_text(
+        json.dumps({"receipt_ref": "receipt-ref:crm-adoption:orphan"}),
+        encoding="utf-8",
+    )
+    store.pending_audit_file.chmod(0o600)
+    unlink = Path.unlink
+
+    def deny_pending_audit_unlink(path: Path, *args: object, **kwargs: object) -> None:
+        if path == store.pending_audit_file:
+            raise OSError("synthetic pending audit cleanup failure")
+        unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", deny_pending_audit_unlink)
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_AUDIT_PENDING_CLEANUP_FAILED"
+    ):
+        store._read_state_for_view()
 
 
 def test_state_write_failure_does_not_publish_audit(
@@ -508,6 +537,49 @@ def test_expired_lease_uses_a_fresh_retry_scope_without_a_failed_commit(
     assert len(AuthorityLeaseStore(store.state_dir / "authority").list_leases()) == 2
 
 
+def test_authority_lease_state_failure_is_a_bounded_crm_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:lease-state-failure"
+    store.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    def fail_lease_issue(*_args: object, **_kwargs: object) -> None:
+        raise adoption.AuthorityLeaseApprovalStateError(
+            "synthetic authority state failure"
+        )
+
+    monkeypatch.setattr(
+        adoption, "issue_authority_lease_from_backend_state", fail_lease_issue
+    )
+
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_AUTHORITY_STATE_INVALID"
+    ):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+    assert store.read_view().revision == 0
+
+
 def test_expired_lease_retry_scope_remains_bound_to_client_idempotency() -> None:
     payload_fingerprint_ref = "payload-fingerprint-ref:crm-adoption:test"
     first_idempotency_ref = "idempotency-ref:crm-adoption-test:first"
@@ -713,6 +785,27 @@ def test_audit_capacity_is_rejected_before_state_publication(
     assert [item.display_name for item in view.records] == ["First Person"]
     assert "Back up this workspace" in view.next_safe_action
     assert "rotate the local CRM audit log" in view.next_safe_action
+
+
+@pytest.mark.parametrize("unsafe_kind", ["permissions", "hardlink"])
+def test_audit_metadata_must_remain_owner_only_and_single_link(
+    tmp_path: Path,
+    unsafe_kind: str,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    _commit(store, _create_request(name="Protected Person"), suffix="audit-mode")
+    if unsafe_kind == "permissions":
+        store.audit_file.chmod(0o640)
+    else:
+        os.link(store.audit_file, store.state_dir / "audit-second-link.jsonl")
+
+    view = store.read_view()
+    assert view.storage_state == "blocked_unsafe"
+    assert view.records == []
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_AUDIT_UNSAFE"):
+        store.preview_mutation(
+            _create_request(revision=1, name="Blocked Before Approval")
+        )
 
 
 def test_malformed_audit_blocks_reads_and_preview_before_approval(
@@ -2294,6 +2387,7 @@ def test_unreadable_recovery_surfaces_audit_blocker_before_restore(
     target.state_dir.mkdir(parents=True)
     target.state_file.write_bytes(b"corrupt-state")
     target.audit_file.write_text("{}\n", encoding="utf-8")
+    target.audit_file.chmod(0o600)
 
     view = target.read_view()
     assert view.storage_state == "blocked_audit_unreadable"

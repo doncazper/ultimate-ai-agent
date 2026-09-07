@@ -651,7 +651,15 @@ export function CrmAdoptionWorkspace() {
       setAmountInput("");
       setAmountInputError("");
       setNotice(`Backup restored at CRM revision ${receipt.after_revision}.`);
-      await refresh();
+      try {
+        await refresh();
+      } catch (reason) {
+        setError(
+          reason instanceof Error
+            ? `Backup restored, but the workspace refresh failed: ${reason.message}`
+            : "Backup restored, but the workspace refresh failed. Refresh the CRM to load the confirmed state.",
+        );
+      }
     } catch (reason) {
       // A lost response can make restore success ambiguous. Invalidate all
       // pre-restore editor state so it cannot be replayed against a refreshed

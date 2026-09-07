@@ -71,7 +71,9 @@ Every state-changing operation uses the same bounded sequence:
 
 The lease is revoked if the durable write fails after issuance. Replaying the
 same request and idempotency ref returns the existing receipt; changing the
-payload under that ref is rejected.
+payload under that ref is rejected. Authority lease-state persistence failures
+are translated into a bounded CRM blocker instead of escaping the route as an
+unhandled error.
 
 ## Import, backup, and recovery
 
@@ -115,17 +117,21 @@ payload under that ref is rejected.
   both current-state readability and whether a real pre-restore snapshot exists,
   so a key change or first restore cannot produce a false Undo promise. A failed
   or lost commit response invalidates the pre-restore editor before another
-  write can be reviewed. Target-local idempotency receipts remain ahead of
-  bounded imported backup lineage so a lost pre-restore response can still be
-  replayed safely.
+  write can be reviewed. Once a restore receipt is returned, a later workspace
+  refresh failure is reported separately while the confirmed receipt and
+  successful-restore message remain visible; it is never relabeled as a failed
+  restore. Target-local idempotency receipts remain ahead of bounded imported
+  backup lineage so a lost pre-restore response can still be replayed safely.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available only while the audit sink is
   healthy.
 - A nearly full or malformed audit log exposes a distinct blocked state before
   another change, restore, or approval is offered. Every retained audit event is
-  schema-checked, not merely JSON-decoded. Existing readable records and an
-  encrypted backup remain available while the operator repairs or rotates that
-  log.
+  schema-checked, not merely JSON-decoded. The durable and pending audit files
+  must remain owner-owned, owner-only regular files with one hard link. Orphan
+  journal cleanup failures become an explicit bounded blocker. Existing
+  readable records and an encrypted backup remain available while the operator
+  repairs or rotates that log.
 - An approved recovery quarantines a malformed regular local key before
   creating the replacement key; unsafe key file types remain rejected. An
   unreadable pre-restore state is never advertised as an undo target.

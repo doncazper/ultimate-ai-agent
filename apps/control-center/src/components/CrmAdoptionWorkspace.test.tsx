@@ -927,6 +927,40 @@ describe("CrmAdoptionWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps a confirmed restore distinct from a failed post-receipt refresh", async () => {
+    apiMocks.loadCrmAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockRejectedValueOnce(new Error("Transient CRM refresh failure."));
+    const file = utf8File(JSON.stringify(portableBackup));
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+    await screen.findByRole("dialog", { name: "Review encrypted backup restore" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm restore" }));
+
+    expect(
+      await screen.findByText("Backup restored at CRM revision 5."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Backup restored, but the workspace refresh failed: Transient CRM refresh failure.",
+      ),
+    ).toBeInTheDocument();
+    expect(apiMocks.commitCrmPortableRestore).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("dialog", { name: "Review encrypted backup restore" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("invalidates stale editor state when restore success is ambiguous", async () => {
     apiMocks.commitCrmPortableRestore.mockRejectedValueOnce(
       new Error("The restore result is uncertain."),

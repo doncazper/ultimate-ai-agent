@@ -1824,8 +1824,11 @@ class CrmAdoptionStore:
             metadata = self.pending_audit_file.lstat()
         except FileNotFoundError:
             return False
-        if not stat.S_ISREG(metadata.st_mode):
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNREADABLE") from exc
+        self._validate_audit_metadata(
+            metadata, unsafe_code="CRM_ADOPTION_AUDIT_PENDING_UNSAFE"
+        )
         return True
 
     def _finalize_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
@@ -1870,12 +1873,11 @@ class CrmAdoptionStore:
         self._atomic_write(self.pending_audit_file, payload)
 
     def _preflight_audit_capacity(self) -> None:
-        if not self.audit_file.exists():
+        metadata = self._audit_file_metadata()
+        if metadata is None:
             return
-        if self.audit_file.is_symlink() or not self.audit_file.is_file():
-            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNSAFE")
         if (
-            self.audit_file.stat().st_size
+            metadata.st_size
             > CRM_ADOPTION_MAX_AUDIT_BYTES - CRM_ADOPTION_MAX_AUDIT_EVENT_BYTES
         ):
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
@@ -1890,14 +1892,14 @@ class CrmAdoptionStore:
 
     def _read_pending_audit(self) -> dict[str, object] | None:
         try:
-            if not self.pending_audit_file.exists():
+            try:
+                metadata = self.pending_audit_file.lstat()
+            except FileNotFoundError:
                 return None
-            if (
-                self.pending_audit_file.is_symlink()
-                or not self.pending_audit_file.is_file()
-            ):
-                raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
-            pending_size = self.pending_audit_file.stat().st_size
+            self._validate_audit_metadata(
+                metadata, unsafe_code="CRM_ADOPTION_AUDIT_PENDING_UNSAFE"
+            )
+            pending_size = metadata.st_size
             if pending_size <= 0 or pending_size > CRM_ADOPTION_MAX_PENDING_AUDIT_BYTES:
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_SIZE_LIMIT")
             event = json.loads(self.pending_audit_file.read_bytes())
@@ -1918,12 +1920,23 @@ class CrmAdoptionStore:
         self._remove_pending_audit()
 
     def _remove_pending_audit(self) -> None:
-        self.pending_audit_file.unlink()
-        directory_fd = os.open(self.state_dir, os.O_RDONLY)
+        directory_fd = -1
         try:
+            self.pending_audit_file.unlink()
+            directory_fd = os.open(self.state_dir, os.O_RDONLY)
             os.fsync(directory_fd)
-        finally:
             os.close(directory_fd)
+            directory_fd = -1
+        except OSError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_AUDIT_PENDING_CLEANUP_FAILED"
+            ) from exc
+        finally:
+            if directory_fd >= 0:
+                try:
+                    os.close(directory_fd)
+                except OSError:
+                    pass
 
     def _discard_staged_audit(self, receipt: CrmAdoptionMutationReceipt | None) -> None:
         if receipt is None:
@@ -1971,12 +1984,14 @@ class CrmAdoptionStore:
         event_payload: dict[str, object],
     ) -> bytes | None:
         existing = b""
-        if self.audit_file.exists():
-            if self.audit_file.is_symlink() or not self.audit_file.is_file():
-                raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNSAFE")
-            if self.audit_file.stat().st_size > CRM_ADOPTION_MAX_AUDIT_BYTES:
+        metadata = self._audit_file_metadata()
+        if metadata is not None:
+            if metadata.st_size > CRM_ADOPTION_MAX_AUDIT_BYTES:
                 raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
-            existing = self.audit_file.read_bytes()
+            try:
+                existing = self.audit_file.read_bytes()
+            except OSError as exc:
+                raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
         event_ref = str(event_payload["event_ref"])
         for line in existing.splitlines():
             try:
@@ -2001,6 +2016,30 @@ class CrmAdoptionStore:
         if len(payload) > CRM_ADOPTION_MAX_AUDIT_BYTES:
             raise CrmAdoptionError("CRM_ADOPTION_AUDIT_CAPACITY_EXHAUSTED")
         return payload
+
+    def _audit_file_metadata(self) -> os.stat_result | None:
+        try:
+            metadata = self.audit_file.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_UNREADABLE") from exc
+        self._validate_audit_metadata(
+            metadata, unsafe_code="CRM_ADOPTION_AUDIT_UNSAFE"
+        )
+        return metadata
+
+    @staticmethod
+    def _validate_audit_metadata(
+        metadata: os.stat_result, *, unsafe_code: str
+    ) -> None:
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+            or (hasattr(os, "getuid") and metadata.st_uid != os.getuid())
+        ):
+            raise CrmAdoptionError(unsafe_code)
 
     @staticmethod
     def _audit_event_is_valid(event: dict[str, object]) -> bool:
@@ -2463,11 +2502,14 @@ class CrmAdoptionStore:
             raise CrmAdoptionError("CRM_ADOPTION_APPROVAL_STATE_INVALID") from exc
         if approval_decision is None or not approval_decision.allowed:
             raise CrmAdoptionError("CRM_ADOPTION_EXACT_APPROVAL_REQUIRED")
-        lease, receipt = issue_authority_lease_from_backend_state(
-            lease_store,
-            approved_request,
-            idempotency_ref=lease_idempotency_ref,
-        )
+        try:
+            lease, receipt = issue_authority_lease_from_backend_state(
+                lease_store,
+                approved_request,
+                idempotency_ref=lease_idempotency_ref,
+            )
+        except AuthorityLeaseApprovalStateError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUTHORITY_STATE_INVALID") from exc
         if (
             lease is None
             or lease.status == "revoked"
