@@ -485,7 +485,7 @@ and exact `contacts/write`-gated local mutation receipts are documented in
 `GET /control-center/crm/pipelines`, `GET /control-center/crm/smart-lists`,
 and `POST /control-center/crm/local-mutations`, and inspected through
 `scripts/dev/uaa_crm.py`. It adds no connector runtime, no connector writes,
-no external CRM writes, no account sync, no contact import commit, no sends,
+no external CRM writes, no account sync, no external contact import commit, no sends,
 no calendar writes, no provider/model calls, no live web fetching, no browser
 runtime, no hidden context injection, no public beta, no public release, no
 production readiness claims, and no production authority.

@@ -552,18 +552,22 @@ async function postCrmAdoptionEnvelope<T>(
   body: unknown,
   idempotencyRef: string,
   operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
 ): Promise<T> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
     method: "POST",
-    headers: withLocalApiAuthHeaders({
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-UAA-Idempotency-Key": idempotencyRef,
-      ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
-    }),
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
     body: JSON.stringify(body),
   });
   const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
@@ -591,6 +595,7 @@ export async function commitCrmAdoptionMutation(
   request: CrmAdoptionMutationRequest,
   preview: CrmAdoptionMutationPreview,
   idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CrmAdoptionMutationReceipt> {
   return postCrmAdoptionEnvelope(
     API_ENDPOINTS.crmAdoptionCommit,
@@ -601,6 +606,7 @@ export async function commitCrmAdoptionMutation(
     },
     idempotencyRef,
     true,
+    mutationBinding,
   );
 }
 
@@ -632,6 +638,7 @@ export async function commitCrmPortableRestore(
   passphrase: string,
   preview: CrmPortableRestorePreview,
   idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CrmAdoptionMutationReceipt> {
   return postCrmAdoptionEnvelope(
     API_ENDPOINTS.crmAdoptionRestore,
@@ -643,6 +650,7 @@ export async function commitCrmPortableRestore(
     },
     idempotencyRef,
     true,
+    mutationBinding,
   );
 }
 

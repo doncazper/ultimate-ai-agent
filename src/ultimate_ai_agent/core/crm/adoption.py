@@ -748,6 +748,7 @@ class CrmAdoptionStore:
                     or prior.approval_ref != approval_ref
                 ):
                     raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+                self._finalize_audit(prior)
                 return prior.model_copy(update={"replayed": True})
             preview = self.preview_mutation(request)
             if preview.preview_ref != preview_ref or preview.approval_ref != approval_ref:
@@ -809,9 +810,7 @@ class CrmAdoptionStore:
                         ]
                     }
                 )
-                self._append_audit(receipt)
                 self._write_state(updated)
-                return receipt
             except ValueError as exc:
                 self._revoke_authority_lease(lease_store, lease)
                 raise CrmAdoptionError(
@@ -820,6 +819,8 @@ class CrmAdoptionStore:
             except Exception:
                 self._revoke_authority_lease(lease_store, lease)
                 raise
+            self._finalize_audit(receipt)
+            return receipt
 
     def create_portable_backup(
         self, request: CrmPortableBackupRequest
@@ -912,6 +913,7 @@ class CrmAdoptionStore:
                     or prior.approval_ref != request.approval_ref
                 ):
                     raise CrmAdoptionConflict("CRM_ADOPTION_IDEMPOTENCY_CONFLICT")
+                self._finalize_audit(prior)
                 return prior.model_copy(update={"replayed": True})
             preview = self.preview_restore(request)
             if (
@@ -977,9 +979,7 @@ class CrmAdoptionStore:
                         ],
                     }
                 )
-                self._append_audit(receipt)
                 self._write_state(next_state)
-                return receipt
             except ValueError as exc:
                 self._revoke_authority_lease(lease_store, lease)
                 raise CrmAdoptionError(
@@ -988,6 +988,8 @@ class CrmAdoptionStore:
             except Exception:
                 self._revoke_authority_lease(lease_store, lease)
                 raise
+            self._finalize_audit(receipt)
+            return receipt
 
     def _apply_mutation(
         self,
@@ -1179,6 +1181,14 @@ class CrmAdoptionStore:
                 os.close(descriptor)
             if temporary.exists() and not temporary.is_symlink():
                 temporary.unlink()
+
+    def _finalize_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
+        try:
+            self._append_audit(receipt)
+        except Exception as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_AUDIT_FINALIZATION_REQUIRED"
+            ) from exc
 
     def _append_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
         existing = b""

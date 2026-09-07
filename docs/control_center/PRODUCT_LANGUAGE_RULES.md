@@ -272,8 +272,8 @@ connector/source runtime and external writes. It may describe exact local CRM
 mutation receipts only when `Ask before changes` or stronger with
 `contacts/write`, idempotency, exact `LocalApprovalAuthority` scope, redacted
 receipt/audit refs, and rollback/safe-disable posture are present. It must not
-imply connector runtime, connector writes, account auth, contact sync, contact
-import commit, sends, calendar writes, silent merges, silent contact creation,
+imply connector runtime, connector writes, account auth, contact sync, external
+contact import commit, sends, calendar writes, silent merges, silent contact creation,
 model/provider calls, live web, browser runtime, public beta, public release,
 production readiness, or production authority until an accepted milestone adds
 the exact capability.

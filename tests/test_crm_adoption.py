@@ -183,6 +183,74 @@ def test_stale_revision_replay_and_changed_replay_fail_closed(tmp_path: Path) ->
         store.preview_mutation(_create_request())
 
 
+def test_state_write_failure_does_not_publish_audit(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+
+    def fail_state_write(_state: object) -> None:
+        raise OSError("synthetic state write failure")
+
+    monkeypatch.setattr(store, "_write_state", fail_state_write)
+    with pytest.raises(OSError, match="synthetic state write failure"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref="idempotency-ref:crm-adoption-test:state-write-failure",
+            confirmed=True,
+        )
+
+    assert not store.audit_file.exists()
+    assert store.read_view().revision == 0
+
+
+def test_audit_failure_keeps_authoritative_state_and_replay_repairs_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:audit-repair"
+    append_audit = store._append_audit
+    attempts = 0
+
+    def fail_once(receipt: object) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("synthetic audit write failure")
+        append_audit(receipt)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(store, "_append_audit", fail_once)
+    with pytest.raises(CrmAdoptionError, match="AUDIT_FINALIZATION_REQUIRED"):
+        store.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert store.read_view().revision == 1
+    assert not store.audit_file.exists()
+    replay = store.commit_mutation(
+        request=request,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert replay.replayed is True
+    assert replay.after_revision == 1
+    assert store.audit_file.exists()
+    assert attempts == 2
+
+
 def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -> None:
     store = CrmAdoptionStore(tmp_path / "crm")
     _commit(store, _create_request(name="Existing Person"), suffix="existing")
@@ -295,6 +363,55 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
         confirmed=True,
     )
     assert target.read_view().storage_state == "ready"
+
+
+def test_restore_audit_failure_is_repaired_by_exact_replay(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix="restore-audit-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    preview = target.preview_restore(restore)
+    request = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    idempotency_ref = "idempotency-ref:crm-adoption-test:restore-audit-repair"
+    append_audit = target._append_audit
+    attempts = 0
+
+    def fail_once(receipt: object) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("synthetic restore audit write failure")
+        append_audit(receipt)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(target, "_append_audit", fail_once)
+    with pytest.raises(CrmAdoptionError, match="AUDIT_FINALIZATION_REQUIRED"):
+        target.commit_restore(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+
+    assert target.read_view().records[0].display_name == "Private Person"
+    assert not target.audit_file.exists()
+    replay = target.commit_restore(
+        request=request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    assert replay.replayed is True
+    assert target.audit_file.exists()
+    assert attempts == 2
 
 
 def test_all_supported_record_kinds_are_durable_and_searchable(tmp_path: Path) -> None:

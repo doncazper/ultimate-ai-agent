@@ -21,6 +21,15 @@ GOAL_JOURNAL_DURABLE_IDEMPOTENCY_OWNER_REF = "idempotency-owner:goal-journal:v1"
 GOAL_APPROVAL_LEDGER_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:goal-mutation-approval-ledger:v1"
 )
+CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:crm-adoption-encrypted-state-receipts:v1"
+)
+CRM_ADOPTION_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/restore",
+    }
+)
 GOAL_JOURNAL_DURABLE_REPLAY_PATHS = frozenset(
     {
         "/api/runtime/goals",
@@ -102,6 +111,11 @@ def route_idempotency_enforcement(
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             GOAL_APPROVAL_LEDGER_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in CRM_ADOPTION_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
     if route_classification_requires_idempotency(route_classification):
         return ApiRouteIdempotencyEnforcement.header_shape_gate_only, None

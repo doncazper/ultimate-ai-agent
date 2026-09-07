@@ -23,6 +23,12 @@ import type {
   CrmPortableBackup,
   CrmPortableRestorePreview,
 } from "../api/types";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
+
+const CRM_ADOPTION_MAX_IMPORT_FILE_BYTES = 2_000_000;
+const CRM_ADOPTION_MAX_BACKUP_FILE_BYTES = 48 * 1024 * 1024;
+const CRM_ADOPTION_BACKUP_OPEN_ERROR =
+  "The encrypted backup could not be opened safely.";
 
 const RECORD_KINDS: Array<{ value: CrmAdoptionRecordKind; label: string }> = [
   { value: "person", label: "Person" },
@@ -92,6 +98,7 @@ function isoDate(value: string | null | undefined): string | null {
 }
 
 export function CrmAdoptionWorkspace() {
+  const mutationBinding = useBackendTruthMutationBinding();
   const [workspace, setWorkspace] = useState<CrmAdoptionWorkspaceView | null>(
     null,
   );
@@ -260,6 +267,7 @@ export function CrmAdoptionWorkspace() {
         pending.request,
         pending.preview,
         pending.idempotencyRef,
+        mutationBinding,
       );
       setPending(null);
       setEditingRef(null);
@@ -277,7 +285,7 @@ export function CrmAdoptionWorkspace() {
     } finally {
       setBusy(false);
     }
-  }, [pending, refresh]);
+  }, [mutationBinding, pending, refresh]);
 
   const startEdit = useCallback((record: CrmAdoptionRecord) => {
     setEditingRef(record.record_ref);
@@ -327,6 +335,9 @@ export function CrmAdoptionWorkspace() {
     async (file: File) => {
       if (!workspace) return;
       try {
+        if (file.size > CRM_ADOPTION_MAX_IMPORT_FILE_BYTES) {
+          throw new Error("Choose a contacts CSV no larger than 2 MB.");
+        }
         const csvText = await file.text();
         await runPreview(
           {
@@ -391,7 +402,16 @@ export function CrmAdoptionWorkspace() {
       setBusy(true);
       setError("");
       try {
-        const backup = JSON.parse(await file.text()) as CrmPortableBackup;
+        if (file.size > CRM_ADOPTION_MAX_BACKUP_FILE_BYTES) {
+          throw new Error("Choose an encrypted CRM backup no larger than 48 MB.");
+        }
+        const backupText = await file.text();
+        let backup: CrmPortableBackup;
+        try {
+          backup = JSON.parse(backupText) as CrmPortableBackup;
+        } catch {
+          throw new Error(CRM_ADOPTION_BACKUP_OPEN_ERROR);
+        }
         const idempotencyRef = newIdempotencyRef("restore");
         const preview = await previewCrmPortableRestore(
           backup,
@@ -408,7 +428,7 @@ export function CrmAdoptionWorkspace() {
         setError(
           reason instanceof Error
             ? reason.message
-            : "The encrypted backup could not be opened safely.",
+            : CRM_ADOPTION_BACKUP_OPEN_ERROR,
         );
       } finally {
         setBusy(false);
@@ -427,6 +447,7 @@ export function CrmAdoptionWorkspace() {
         pendingRestore.passphrase,
         pendingRestore.preview,
         pendingRestore.idempotencyRef,
+        mutationBinding,
       );
       setPendingRestore(null);
       setNotice(`Backup restored at CRM revision ${receipt.after_revision}.`);
@@ -440,7 +461,7 @@ export function CrmAdoptionWorkspace() {
     } finally {
       setBusy(false);
     }
-  }, [pendingRestore, refresh]);
+  }, [mutationBinding, pendingRestore, refresh]);
 
   return (
     <section className="page-section crm-adoption" aria-labelledby="crm-adoption-title">

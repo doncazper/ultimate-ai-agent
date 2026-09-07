@@ -93,7 +93,7 @@ relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
 refs, report refs, local storage posture, redacted import/export preview
 posture, deterministic proposal refs, `contacts/write`-gated exact local
 mutation receipt posture, and blocked authority refs. It does not add connector
-runtime, external CRM writes, account sync, contact import commit, sends,
+runtime, external CRM writes, account sync, external contact import commit, sends,
 calendar writes, provider/model calls, live web, browser automation, public
 beta, public release, production readiness, or production authority.
 `/start`, `/proof`, and `/trust` are backend-owned Founder Loop support

@@ -28,6 +28,8 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
                 "{approval_request_ref}/decision"
             ),
             "/api/runtime/goals/approval-requests/revoke",
+            "/control-center/crm/adoption/commit",
+            "/control-center/crm/adoption/restore",
         }
     ]
     assert all(
@@ -104,6 +106,30 @@ def test_goal_approval_mutations_report_the_hash_chained_ledger_owner() -> None:
     assert all(
         route["durable_idempotency_owner_ref"]
         == "idempotency-owner:goal-mutation-approval-ledger:v1"
+        for route in routes
+    )
+
+
+def test_crm_adoption_commits_report_encrypted_state_receipt_replay_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    expected_paths = {
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/restore",
+    }
+    routes = [
+        route
+        for route in manifest["routes"]
+        if route["path"] in expected_paths and route["method"] == "POST"
+    ]
+
+    assert {route["path"] for route in routes} == expected_paths
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes
+    )
+    assert all(
+        route["durable_idempotency_owner_ref"]
+        == "idempotency-owner:crm-adoption-encrypted-state-receipts:v1"
         for route in routes
     )
 

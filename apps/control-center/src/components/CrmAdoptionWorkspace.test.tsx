@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BackendTruthReadBinding } from "../api/client";
 import type {
   CrmAdoptionMutationPreview,
   CrmAdoptionMutationReceipt,
   CrmAdoptionWorkspaceView,
 } from "../api/types";
+import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { CrmAdoptionWorkspace } from "./CrmAdoptionWorkspace";
 
 const apiMocks = vi.hoisted(() => ({
@@ -116,6 +118,13 @@ const receipt: CrmAdoptionMutationReceipt = {
   approval_authority_granted: true,
 };
 
+const mutationBinding: BackendTruthReadBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:22222222222222222222222222222222",
+};
+
 describe("CrmAdoptionWorkspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -136,7 +145,11 @@ describe("CrmAdoptionWorkspace", () => {
   });
 
   it("previews and explicitly confirms a new local record", async () => {
-    render(<CrmAdoptionWorkspace />);
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <CrmAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
     await screen.findAllByText("Example Contact");
 
     fireEvent.change(screen.getByLabelText("Name or title"), {
@@ -167,6 +180,7 @@ describe("CrmAdoptionWorkspace", () => {
         expect.objectContaining({ action: "create" }),
         preview,
         expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
+        mutationBinding,
       ),
     );
     expect(
@@ -215,5 +229,69 @@ describe("CrmAdoptionWorkspace", () => {
       await screen.findByText("Retry CRM read failed safely."),
     ).toBeInTheDocument();
     expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects oversized CSV before reading it", async () => {
+    const text = vi.fn();
+    const file = { size: 2_000_001, text } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.change(screen.getByLabelText("Preview contacts CSV"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText("Choose a contacts CSV no larger than 2 MB."),
+    ).toBeInTheDocument();
+    expect(text).not.toHaveBeenCalled();
+    expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized backup before reading it", async () => {
+    const text = vi.fn();
+    const file = { size: 48 * 1024 * 1024 + 1, text } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(
+        "Choose an encrypted CRM backup no larger than 48 MB.",
+      ),
+    ).toBeInTheDocument();
+    expect(text).not.toHaveBeenCalled();
+    expect(apiMocks.previewCrmPortableRestore).not.toHaveBeenCalled();
+  });
+
+  it("does not expose malformed backup fragments in parser errors", async () => {
+    const privateMarker = "PRIVATE_BACKUP_FRAGMENT";
+    const file = {
+      size: 64,
+      text: vi.fn().mockResolvedValue(`${privateMarker}{`),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(
+        "The encrypted backup could not be opened safely.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(privateMarker))).not.toBeInTheDocument();
+    expect(apiMocks.previewCrmPortableRestore).not.toHaveBeenCalled();
   });
 });
