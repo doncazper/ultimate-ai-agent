@@ -322,6 +322,11 @@ class CrmAdoptionRecordPatch(_PrivateModel):
             _private_text(value, maximum=maximum)
         if "display_name" in self.model_fields_set and not self.display_name:
             raise ValueError("CRM_ADOPTION_DISPLAY_NAME_REQUIRED")
+        if any(
+            field in self.model_fields_set and getattr(self, field) is None
+            for field in ("tags", "related_refs")
+        ):
+            raise ValueError("CRM_ADOPTION_COLLECTION_REQUIRED")
         if self.tags is not None:
             for tag in self.tags:
                 _private_text(tag, maximum=256, required=True)
@@ -575,6 +580,16 @@ class CrmAdoptionQueryRequest(_PrivateModel):
 
 class CrmPortableBackupRequest(_PrivateModel):
     passphrase: str = Field(..., min_length=12, max_length=1_024, repr=False)
+
+    @field_validator("passphrase", mode="before")
+    @classmethod
+    def validate_passphrase_utf8(cls, value: object) -> object:
+        if isinstance(value, str):
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise ValueError("CRM_ADOPTION_PASSPHRASE_UTF8_REQUIRED") from exc
+        return value
 
 
 class CrmPortableBackup(_PrivateModel):
@@ -1453,17 +1468,22 @@ class CrmAdoptionStore:
             return CrmAdoptionState(), False
 
     def _read_state(self) -> CrmAdoptionState:
-        if self.state_file.is_symlink():
-            raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
-        if not self.state_file.exists():
+        try:
+            metadata = self.state_file.lstat()
+        except FileNotFoundError:
             if self._validated_key_file_exists():
                 self._read_key()
             return CrmAdoptionState()
-        if not self.state_file.is_file():
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_STATE_UNREADABLE") from exc
+        if not stat.S_ISREG(metadata.st_mode):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
-        if self.state_file.stat().st_size > CRM_ADOPTION_MAX_STATE_BYTES:
+        if metadata.st_size > CRM_ADOPTION_MAX_STATE_BYTES:
             raise CrmAdoptionError("CRM_ADOPTION_STATE_SIZE_LIMIT")
-        payload = self.state_file.read_bytes()
+        try:
+            payload = self.state_file.read_bytes()
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_STATE_UNREADABLE") from exc
         if len(payload) <= len(_STATE_MAGIC) + 28 or not payload.startswith(
             _STATE_MAGIC
         ):
@@ -1975,17 +1995,33 @@ class CrmAdoptionStore:
         )
 
     def _current_state_ref(self) -> str:
-        if self.state_file.is_symlink():
-            return "state-ref:crm-adoption:unsafe"
-        if not self.state_file.exists():
+        try:
+            metadata = self.state_file.lstat()
+        except FileNotFoundError:
             return "state-ref:crm-adoption:empty"
-        if not self.state_file.is_file():
+        except OSError:
+            return "state-ref:crm-adoption:unreadable"
+        if not stat.S_ISREG(metadata.st_mode):
             return "state-ref:crm-adoption:unsafe"
-        if self.state_file.stat().st_size > CRM_ADOPTION_MAX_STATE_BYTES:
+        if metadata.st_size > CRM_ADOPTION_MAX_STATE_BYTES:
             return "state-ref:crm-adoption:oversize"
+        try:
+            payload = self.state_file.read_bytes()
+        except OSError:
+            return _hash_ref(
+                "state-ref:crm-adoption-unreadable",
+                {
+                    "device": metadata.st_dev,
+                    "inode": metadata.st_ino,
+                    "mode": metadata.st_mode,
+                    "size": metadata.st_size,
+                    "modified_ns": metadata.st_mtime_ns,
+                    "changed_ns": metadata.st_ctime_ns,
+                },
+            )
         return (
             "state-ref:crm-adoption:sha256:"
-            f"{hashlib.sha256(self.state_file.read_bytes()).hexdigest()}"
+            f"{hashlib.sha256(payload).hexdigest()}"
         )
 
     @staticmethod

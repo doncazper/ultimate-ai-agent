@@ -775,6 +775,11 @@ def test_csv_import_rejects_non_utf8_text_at_request_boundary() -> None:
         )
 
 
+def test_backup_passphrase_rejects_non_utf8_text_at_request_boundary() -> None:
+    with pytest.raises(ValueError, match="CRM_ADOPTION_PASSPHRASE_UTF8_REQUIRED"):
+        CrmPortableBackupRequest(passphrase="abcdefghijk\ud800")
+
+
 def test_csv_import_treats_archived_contacts_as_duplicate_history(
     tmp_path: Path,
 ) -> None:
@@ -1230,6 +1235,38 @@ def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
         )
 
 
+def test_state_read_io_failure_is_bounded_and_restore_identity_is_stable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(), suffix="io-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    _commit(target, _create_request(name="Unreadable Person"), suffix="io-target")
+    read_bytes = Path.read_bytes
+
+    def deny_state_read(path: Path) -> bytes:
+        if path == target.state_file:
+            raise PermissionError("synthetic state read denial")
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", deny_state_read)
+
+    view = target.read_view()
+    assert view.storage_state == "recovery_required"
+    preview = target.preview_restore(
+        CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    )
+    assert preview.impact_status == "unknown_current_state"
+    assert preview.current_state_ref.startswith(
+        "state-ref:crm-adoption-unreadable:sha256:"
+    )
+
+
 @pytest.mark.parametrize(
     "unsafe_kind", ["symlink", "directory", "permissive", "hardlink"]
 )
@@ -1596,6 +1633,10 @@ def test_record_validation_and_cli_private_output_are_fail_closed(
         CrmAdoptionRecordPatch(email="new@example.test", clear_fields=["email"])
     with pytest.raises(ValueError, match="CRM_ADOPTION_DISPLAY_NAME_REQUIRED"):
         CrmAdoptionRecordPatch(display_name=None)
+    for field in ("tags", "related_refs"):
+        with pytest.raises(ValueError, match="CRM_ADOPTION_COLLECTION_REQUIRED"):
+            CrmAdoptionRecordPatch.model_validate({field: None})
+        assert CrmAdoptionRecordPatch.model_validate({field: []}) is not None
     with pytest.raises(ValueError):
         CrmAdoptionRecordDraft(
             record_kind="opportunity",
