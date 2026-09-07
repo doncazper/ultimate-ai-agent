@@ -373,6 +373,36 @@ describe("CrmAdoptionWorkspace", () => {
     );
   });
 
+  it("rejects fractional-cent amounts before preview", async () => {
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Exact-cent opportunity" },
+    });
+    const amount = screen.getByLabelText("Amount");
+    fireEvent.change(amount, { target: { value: "1.005" } });
+
+    expect(amount).toHaveValue(1.005);
+    expect(
+      screen.getByText("Use whole cents with no more than two decimal places."),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Review new record" }),
+    ).toBeDisabled();
+    expect(apiMocks.previewCrmAdoptionMutation).not.toHaveBeenCalled();
+
+    fireEvent.change(amount, { target: { value: "1.01" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review new record" }));
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          record: expect.objectContaining({ amount_minor: 101 }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:create:/),
+      ),
+    );
+  });
+
   it("converts stored UTC timestamps to local wall time before editing", () => {
     const spies = [
       vi.spyOn(Date.prototype, "getFullYear").mockReturnValue(2026),

@@ -913,6 +913,40 @@ class CrmAdoptionStore:
             "approval-ref:crm-adoption",
             {"preview_ref": preview_ref, "action": request.action},
         )
+        probe_idempotency_ref = self._prospective_idempotency_ref(
+            (item.idempotency_ref for item in state.receipts),
+            seed=preview_ref,
+        )
+        try:
+            prospective, target_ref = self._apply_mutation(
+                state,
+                request,
+                idempotency_ref=probe_idempotency_ref,
+            )
+            probe_receipt = self._prospective_receipt(
+                action=request.action,
+                target_ref=target_ref,
+                idempotency_ref=probe_idempotency_ref,
+                payload_fingerprint_ref=fingerprint,
+                preview_ref=preview_ref,
+                approval_ref=approval_ref,
+                before_revision=state.revision,
+                after_revision=prospective.revision,
+            )
+            prospective = CrmAdoptionState.model_validate(
+                {
+                    **prospective.model_dump(mode="python"),
+                    "receipts": [
+                        *prospective.receipts[-(CRM_ADOPTION_MAX_RECEIPTS - 1) :],
+                        probe_receipt,
+                    ],
+                }
+            )
+        except ValueError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_PROSPECTIVE_STATE_INVALID"
+            ) from exc
+        self._state_plaintext(prospective)
         return CrmAdoptionMutationPreview(
             action=request.action,
             expected_revision=state.revision,
@@ -1115,6 +1149,53 @@ class CrmAdoptionStore:
         approval_ref = _hash_ref(
             "approval-ref:crm-adoption-restore", {"preview_ref": preview_ref}
         )
+        probe_idempotency_ref = self._prospective_idempotency_ref(
+            (
+                item.idempotency_ref
+                for state in (current, restored)
+                for item in state.receipts
+            ),
+            seed=preview_ref,
+        )
+        after_revision = max(current.revision, restored.revision) + 1
+        probe_receipt = self._prospective_receipt(
+            action="restore_backup",
+            target_ref=None,
+            idempotency_ref=probe_idempotency_ref,
+            payload_fingerprint_ref=_hash_ref(
+                "payload-fingerprint-ref:crm-adoption-restore",
+                {
+                    "backup": request.backup.ciphertext_fingerprint_ref,
+                    "preview_ref": preview_ref,
+                },
+            ),
+            preview_ref=preview_ref,
+            approval_ref=approval_ref,
+            before_revision=current.revision,
+            after_revision=after_revision,
+        )
+        try:
+            prospective = CrmAdoptionState.model_validate(
+                {
+                    **restored.model_dump(mode="python"),
+                    "revision": after_revision,
+                    "undo_stack": (
+                        [current.snapshot()]
+                        if current_readable and self.state_file.exists()
+                        else []
+                    ),
+                    "receipts": self._merged_restore_receipts(
+                        current=current,
+                        restored=restored,
+                        receipt=probe_receipt,
+                    ),
+                }
+            )
+        except ValueError as exc:
+            raise CrmAdoptionError(
+                "CRM_ADOPTION_PROSPECTIVE_STATE_INVALID"
+            ) from exc
+        self._state_plaintext(prospective)
         return CrmPortableRestorePreview(
             preview_ref=preview_ref,
             approval_ref=approval_ref,
@@ -1530,9 +1611,66 @@ class CrmAdoptionStore:
         ) as exc:
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNREADABLE") from exc
 
-    def _write_state(self, state: CrmAdoptionState) -> None:
-        key = self._read_key(create=True)
-        nonce = secrets.token_bytes(12)
+    @staticmethod
+    def _maximum_safe_ref(label: str, *, seed: str) -> str:
+        prefix = f"{label}-ref:crm-adoption-prospective:"
+        digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+        return (prefix + (digest * 4))[:220]
+
+    @classmethod
+    def _prospective_idempotency_ref(
+        cls,
+        existing_refs: Iterator[str],
+        *,
+        seed: str,
+    ) -> str:
+        existing = set(existing_refs)
+        counter = 0
+        while True:
+            candidate = cls._maximum_safe_ref(
+                "idempotency", seed=f"{seed}:{counter}"
+            )
+            if candidate not in existing:
+                return candidate
+            counter += 1
+
+    @classmethod
+    def _prospective_receipt(
+        cls,
+        *,
+        action: str,
+        target_ref: str | None,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+        preview_ref: str,
+        approval_ref: str,
+        before_revision: int,
+        after_revision: int,
+    ) -> CrmAdoptionMutationReceipt:
+        def bounded_ref(label: str) -> str:
+            return cls._maximum_safe_ref(label, seed=f"{preview_ref}:{label}")
+
+        return CrmAdoptionMutationReceipt(
+            receipt_ref=bounded_ref("receipt"),
+            action=action,
+            target_ref=target_ref,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            preview_ref=preview_ref,
+            approval_ref=approval_ref,
+            approval_validation_ref=bounded_ref("approval-validation"),
+            authority_lease_ref=bounded_ref("authority-lease"),
+            authority_decision_ref=bounded_ref("authority-decision"),
+            before_revision=before_revision,
+            after_revision=after_revision,
+            rollback_ref=bounded_ref("rollback"),
+            safe_summary=(
+                "One exact operator-confirmed private CRM change was committed locally."
+            ),
+        )
+
+    @staticmethod
+    def _state_plaintext(state: CrmAdoptionState) -> bytes:
         plaintext = _canonical_json(state.model_dump(mode="json"))
         if (
             len(plaintext) + 16 > CRM_ADOPTION_MAX_BACKUP_BYTES
@@ -1540,6 +1678,12 @@ class CrmAdoptionStore:
             > CRM_ADOPTION_MAX_STATE_BYTES
         ):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_SIZE_LIMIT")
+        return plaintext
+
+    def _write_state(self, state: CrmAdoptionState) -> None:
+        plaintext = self._state_plaintext(state)
+        key = self._read_key(create=True)
+        nonce = secrets.token_bytes(12)
         ciphertext = AESGCM(key).encrypt(nonce, plaintext, _STATE_AAD)
         try:
             self._atomic_write(self.state_file, _STATE_MAGIC + nonce + ciphertext)
@@ -1992,15 +2136,17 @@ class CrmAdoptionStore:
     def _atomic_write(self, path: Path, payload: bytes) -> None:
         if not path.parent.is_absolute() or path.parent == Path(path.anchor):
             raise CrmAdoptionError("CRM_ADOPTION_STATE_PATH_UNSAFE")
-        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if path.parent.is_symlink() or (path.exists() and path.is_symlink()):
-            raise CrmAdoptionError("CRM_ADOPTION_STATE_PATH_UNSAFE")
-        descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-        )
-        temporary = Path(temporary_name)
+        descriptor = -1
+        temporary: Path | None = None
         published = False
         try:
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if path.parent.is_symlink() or (path.exists() and path.is_symlink()):
+                raise CrmAdoptionError("CRM_ADOPTION_STATE_PATH_UNSAFE")
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+            )
+            temporary = Path(temporary_name)
             os.fchmod(descriptor, 0o600)
             view = memoryview(payload)
             while view:
@@ -2023,12 +2169,19 @@ class CrmAdoptionStore:
                 raise _AtomicWritePublicationUncertain(
                     "CRM_ADOPTION_ATOMIC_PUBLICATION_UNCERTAIN"
                 ) from exc
-            raise
+            raise CrmAdoptionError("CRM_ADOPTION_STORAGE_WRITE_FAILED") from exc
         finally:
             if descriptor >= 0:
-                os.close(descriptor)
-            if temporary.exists() and not temporary.is_symlink():
-                temporary.unlink()
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+            if temporary is not None:
+                try:
+                    if temporary.exists() and not temporary.is_symlink():
+                        temporary.unlink()
+                except OSError:
+                    pass
 
     def _open_portable_backup(
         self, request: CrmPortableRestoreRequest

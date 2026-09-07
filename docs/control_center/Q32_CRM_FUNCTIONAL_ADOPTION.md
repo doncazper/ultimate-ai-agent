@@ -82,8 +82,9 @@ payload under that ref is rejected.
   the original byte-size bound is enforced.
 - Currency amounts are stored in minor units with enough safe-integer headroom
   for exact two-decimal browser conversion, so a browser edit cannot silently
-  round a requested cent. A missing currency is displayed as unset rather than
-  being relabeled as USD.
+  round a requested cent. Inputs with fractional cents are rejected in the
+  editor before the draft or preview changes. A missing currency is displayed
+  as unset rather than being relabeled as USD.
 - State, record-version, request, preview, receipt, and backup revisions are
   capped at JavaScript's exact safe-integer limit before browser projection;
   an exhausted workspace revision fails during preview before approval or lease
@@ -100,8 +101,11 @@ payload under that ref is rejected.
   request bound accommodates the documented encrypted portable-backup limit;
   field- and row-level limits remain narrower where applicable.
 - Aggregate encrypted state and portable backup ciphertext are capped at 32
-  MiB. A prospective write that would make the state unbackable is rejected
-  before replacing the durable file.
+  MiB. Ordinary mutation and restore previews serialize a conservative
+  prospective state, including rollback snapshot and receipt headroom, so a
+  write that would make the state unbackable is rejected before approval or
+  lease issuance. Pre-publication filesystem failures are returned as bounded
+  storage errors; failures after inode replacement remain explicitly uncertain.
 - Portable backups use a new random salt and nonce plus scrypt-derived
   AES-256-GCM encryption. The passphrase and local state key are not stored in
   the backup, receipt, or audit log.

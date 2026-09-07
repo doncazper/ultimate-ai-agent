@@ -357,6 +357,101 @@ def test_state_write_failure_does_not_publish_audit(
     assert retried.after_revision == 1
 
 
+def test_preview_rejects_prospective_state_size_before_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    now = datetime.now(timezone.utc)
+    record = adoption.CrmAdoptionRecord(
+        record_ref="person-ref:crm-private:large-preview-record",
+        record_kind="person",
+        display_name="Large local record",
+        notes="x" * 100_000,
+        created_at=now,
+        updated_at=now,
+    )
+    store._secure_state_dir()
+    store._write_state(adoption.CrmAdoptionState(revision=1, records=[record]))
+    current_size = store.state_file.stat().st_size
+    monkeypatch.setattr(
+        adoption,
+        "CRM_ADOPTION_MAX_STATE_BYTES",
+        current_size + 10_000,
+    )
+
+    assert store.read_view().storage_state == "ready"
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_STATE_SIZE_LIMIT"):
+        store.preview_mutation(
+            CrmAdoptionMutationRequest(
+                action="update",
+                expected_revision=1,
+                target_ref=record.record_ref,
+                patch=CrmAdoptionRecordPatch(display_name="Updated large record"),
+            )
+        )
+    assert not (store.state_dir / "authority").exists()
+
+
+def test_restore_preview_rejects_prospective_state_size_before_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    now = datetime.now(timezone.utc)
+    source = CrmAdoptionStore(tmp_path / "source")
+    source._secure_state_dir()
+    source._write_state(
+        adoption.CrmAdoptionState(
+            revision=1,
+            records=[
+                adoption.CrmAdoptionRecord(
+                    record_ref="person-ref:crm-private:large-restore-source",
+                    record_kind="person",
+                    display_name="Large restore source",
+                    notes="s" * 100_000,
+                    created_at=now,
+                    updated_at=now,
+                )
+            ],
+        )
+    )
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target = CrmAdoptionStore(tmp_path / "target")
+    target._secure_state_dir()
+    target._write_state(
+        adoption.CrmAdoptionState(
+            revision=1,
+            records=[
+                adoption.CrmAdoptionRecord(
+                    record_ref="person-ref:crm-private:large-restore-target",
+                    record_kind="person",
+                    display_name="Large restore target",
+                    notes="t" * 100_000,
+                    created_at=now,
+                    updated_at=now,
+                )
+            ],
+        )
+    )
+    current_size = target.state_file.stat().st_size
+    monkeypatch.setattr(
+        adoption,
+        "CRM_ADOPTION_MAX_STATE_BYTES",
+        current_size + 10_000,
+    )
+
+    assert target.read_view().storage_state == "ready"
+    with pytest.raises(CrmAdoptionError, match="CRM_ADOPTION_STATE_SIZE_LIMIT"):
+        target.preview_restore(
+            CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+        )
+    assert not (target.state_dir / "authority").exists()
+
+
 def test_expired_lease_uses_a_fresh_retry_scope_without_a_failed_commit(
     tmp_path: Path,
 ) -> None:
@@ -547,6 +642,32 @@ def test_atomic_write_marks_post_replace_fsync_failure_as_uncertain(
 
     assert destination.read_bytes() == b"published payload"
     assert destination.stat().st_mode & 0o077 == 0
+
+
+@pytest.mark.parametrize("failure_point", ["mkstemp", "write", "fsync", "replace"])
+def test_atomic_write_maps_prepublication_io_failures_to_bounded_storage_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_point: str,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store._secure_state_dir()
+    destination = store.state_dir / "prepublication-failure-test"
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise OSError(f"synthetic {failure_point} failure")
+
+    if failure_point == "mkstemp":
+        monkeypatch.setattr(adoption.tempfile, "mkstemp", fail)
+    else:
+        monkeypatch.setattr(adoption.os, failure_point, fail)
+
+    with pytest.raises(
+        CrmAdoptionError, match="CRM_ADOPTION_STORAGE_WRITE_FAILED"
+    ):
+        store._atomic_write(destination, b"unpublished payload")
+
+    assert not destination.exists()
 
 
 def test_audit_capacity_is_rejected_before_state_publication(

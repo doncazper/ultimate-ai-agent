@@ -152,6 +152,29 @@ function isoDate(value: string | null | undefined): string | null {
   return parsed.toISOString();
 }
 
+export function crmAmountMinorFromInput(value: string): number | null {
+  if (!value) return null;
+  if (!/^\d+(?:\.\d{0,2})?$/.test(value)) {
+    throw new Error("Use whole cents with no more than two decimal places.");
+  }
+  const [major, fraction = ""] = value.split(".");
+  const amountMinor =
+    Number(major) * 100 + Number(fraction.padEnd(2, "0") || "0");
+  if (
+    !Number.isSafeInteger(amountMinor) ||
+    amountMinor < 0 ||
+    amountMinor > CRM_ADOPTION_MAX_AMOUNT_MINOR
+  ) {
+    throw new Error("Use an amount within the supported exact-cent range.");
+  }
+  return amountMinor;
+}
+
+function crmAmountInputValue(amountMinor: number | null | undefined): string {
+  if (amountMinor === null || amountMinor === undefined) return "";
+  return `${Math.floor(amountMinor / 100)}.${String(amountMinor % 100).padStart(2, "0")}`;
+}
+
 export function CrmAdoptionWorkspace() {
   const mutationBinding = useBackendTruthMutationBinding();
   const [workspace, setWorkspace] = useState<CrmAdoptionWorkspaceView | null>(
@@ -168,6 +191,8 @@ export function CrmAdoptionWorkspace() {
   const [draft, setDraft] = useState<CrmAdoptionRecordDraft>(() => ({
     ...EMPTY_DRAFT,
   }));
+  const [amountInput, setAmountInput] = useState("");
+  const [amountInputError, setAmountInputError] = useState("");
   const [editingRef, setEditingRef] = useState<string | null>(null);
   const [editingOriginal, setEditingOriginal] =
     useState<CrmAdoptionRecord | null>(null);
@@ -262,6 +287,8 @@ export function CrmAdoptionWorkspace() {
       setEditingRef(null);
       setEditingOriginal(null);
       setDraft({ ...EMPTY_DRAFT });
+      setAmountInput("");
+      setAmountInputError("");
       setPending(null);
       setNotice(
         "This record changed or is no longer visible, so the stale draft was cleared.",
@@ -305,6 +332,10 @@ export function CrmAdoptionWorkspace() {
 
   const submitDraft = useCallback(async () => {
     if (!workspace || !workspaceWritable || !draft.display_name.trim()) return;
+    if (amountInputError) {
+      setError(amountInputError);
+      return;
+    }
     if (
       draft.amount_minor !== null &&
       draft.amount_minor !== undefined &&
@@ -382,6 +413,7 @@ export function CrmAdoptionWorkspace() {
     await runPreview(request, editingRef ? "update" : "create");
   }, [
     draft,
+    amountInputError,
     editingOriginal,
     editingRef,
     runPreview,
@@ -415,6 +447,8 @@ export function CrmAdoptionWorkspace() {
       setEditingRef(null);
       setEditingOriginal(null);
       setDraft({ ...EMPTY_DRAFT });
+      setAmountInput("");
+      setAmountInputError("");
       setNotice(
         `Saved locally at CRM revision ${receipt.after_revision}. No external write occurred.`,
       );
@@ -450,6 +484,8 @@ export function CrmAdoptionWorkspace() {
       currency: record.currency,
       priority: record.priority,
     });
+    setAmountInput(crmAmountInputValue(record.amount_minor));
+    setAmountInputError("");
   }, []);
 
   const previewLifecycle = useCallback(
@@ -612,6 +648,8 @@ export function CrmAdoptionWorkspace() {
       setEditingRef(null);
       setEditingOriginal(null);
       setDraft({ ...EMPTY_DRAFT });
+      setAmountInput("");
+      setAmountInputError("");
       setNotice(`Backup restored at CRM revision ${receipt.after_revision}.`);
       await refresh();
     } catch (reason) {
@@ -624,6 +662,8 @@ export function CrmAdoptionWorkspace() {
       setEditingRef(null);
       setEditingOriginal(null);
       setDraft({ ...EMPTY_DRAFT });
+      setAmountInput("");
+      setAmountInputError("");
       setError(
         reason instanceof Error
           ? reason.message
@@ -794,15 +834,36 @@ export function CrmAdoptionWorkspace() {
 
       <RecordEditor
         draft={draft}
+        amountInput={amountInput}
+        amountInputError={amountInputError}
         editing={editingRef !== null}
         relatedOptions={relatedOptions}
         busy={busy}
         writable={workspaceWritable}
         onChange={setDraft}
+        onAmountInputChange={(value) => {
+          setAmountInput(value);
+          try {
+            const amountMinor = crmAmountMinorFromInput(value);
+            setDraft((current) => ({
+              ...current,
+              amount_minor: amountMinor,
+            }));
+            setAmountInputError("");
+          } catch (reason) {
+            setAmountInputError(
+              reason instanceof Error
+                ? reason.message
+                : "Use a valid exact-cent amount.",
+            );
+          }
+        }}
         onCancel={() => {
           setEditingRef(null);
           setEditingOriginal(null);
           setDraft({ ...EMPTY_DRAFT });
+          setAmountInput("");
+          setAmountInputError("");
         }}
         onSubmit={() => void submitDraft()}
       />
@@ -902,6 +963,8 @@ export function CrmAdoptionWorkspace() {
               setEditingRef(null);
               setEditingOriginal(null);
               setDraft({ ...EMPTY_DRAFT });
+              setAmountInput("");
+              setAmountInputError("");
             }
             setPending(null);
           }}
@@ -1023,20 +1086,26 @@ function RecordInspector({
 
 function RecordEditor({
   draft,
+  amountInput,
+  amountInputError,
   editing,
   relatedOptions,
   busy,
   writable,
   onChange,
+  onAmountInputChange,
   onCancel,
   onSubmit,
 }: {
   draft: CrmAdoptionRecordDraft;
+  amountInput: string;
+  amountInputError: string;
   editing: boolean;
   relatedOptions: CrmAdoptionRecord[];
   busy: boolean;
   writable: boolean;
   onChange: (draft: CrmAdoptionRecordDraft) => void;
+  onAmountInputChange: (value: string) => void;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
@@ -1110,9 +1179,14 @@ function RecordEditor({
             min="0"
             max={CRM_ADOPTION_MAX_AMOUNT_MAJOR}
             step="0.01"
-            value={draft.amount_minor === null || draft.amount_minor === undefined ? "" : draft.amount_minor / 100}
-            onChange={(event) => set("amount_minor", event.target.value ? Math.round(Number(event.target.value) * 100) : null)}
+            value={amountInput}
+            aria-invalid={Boolean(amountInputError)}
+            aria-describedby={amountInputError ? "crm-amount-error" : undefined}
+            onChange={(event) => onAmountInputChange(event.target.value)}
           />
+          {amountInputError ? (
+            <small id="crm-amount-error" role="alert">{amountInputError}</small>
+          ) : null}
         </label>
         <label>
           <span>Priority</span>
@@ -1159,7 +1233,7 @@ function RecordEditor({
         </label>
       </fieldset>
       <div className="crm-adoption-actions">
-        <button type="button" disabled={busy || !writable || !draft.display_name.trim()} onClick={onSubmit}>
+        <button type="button" disabled={busy || !writable || Boolean(amountInputError) || !draft.display_name.trim()} onClick={onSubmit}>
           {editing ? "Review update" : "Review new record"}
         </button>
         {editing ? <button type="button" disabled={busy} onClick={onCancel}>Cancel edit</button> : null}
