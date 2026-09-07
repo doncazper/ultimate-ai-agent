@@ -5,7 +5,6 @@ import type {
   CrmOpportunityReadModel,
   CrmRelationshipReadModel,
 } from "../api/types";
-import { CrmAdoptionWorkspace } from "./CrmAdoptionWorkspace";
 
 export function CrmM1FixtureShellPanel({
   crm,
@@ -54,7 +53,6 @@ export function CrmM1FixtureShellPanel({
 
   return (
     <>
-      <CrmAdoptionWorkspace />
       <details className="crm-foundation-details">
         <summary>Foundation status and blocked integrations</summary>
         <section

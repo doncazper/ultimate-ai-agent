@@ -15,6 +15,7 @@ import {
   CrmAdoptionWorkspace,
   crmLocalDateTimeInputValue,
 } from "./CrmAdoptionWorkspace";
+import { CrmM1FixtureShellPanel } from "./CrmM1FixtureShellPanel";
 
 const apiMocks = vi.hoisted(() => ({
   captureCrmAdoptionMutationApproval: vi.fn(),
@@ -187,6 +188,17 @@ describe("CrmAdoptionWorkspace", () => {
     );
   });
 
+  it("keeps the mutating adoption workspace off the legacy CRM route", () => {
+    render(
+      <CrmM1FixtureShellPanel
+        crm={structuredClone(mockControlCenterData.crmLocalCommandCenter)}
+      />,
+    );
+
+    expect(screen.queryByText("Founder-private workspace")).not.toBeInTheDocument();
+    expect(apiMocks.loadCrmAdoptionWorkspace).not.toHaveBeenCalled();
+  });
+
   it("renders real private records while keeping external authority off", async () => {
     render(<CrmAdoptionWorkspace />);
 
@@ -279,12 +291,43 @@ describe("CrmAdoptionWorkspace", () => {
       vi.spyOn(Date.prototype, "getDate").mockReturnValue(6),
       vi.spyOn(Date.prototype, "getHours").mockReturnValue(10),
       vi.spyOn(Date.prototype, "getMinutes").mockReturnValue(0),
+      vi.spyOn(Date.prototype, "getSeconds").mockReturnValue(45),
+      vi.spyOn(Date.prototype, "getMilliseconds").mockReturnValue(123),
     ];
 
-    expect(crmLocalDateTimeInputValue("2026-09-06T17:00:00Z")).toBe(
-      "2026-09-06T10:00",
+    expect(crmLocalDateTimeInputValue("2026-09-06T17:00:45.123Z")).toBe(
+      "2026-09-06T10:00:45.123",
     );
     spies.forEach((spy) => spy.mockRestore());
+  });
+
+  it("preserves exact timestamp precision during an unrelated edit", async () => {
+    const exactTimestamp = "2026-09-06T17:00:45.123456+00:00";
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      records: [{ ...workspace.records[0], due_at: exactTimestamp }],
+    });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Corrected Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update",
+          patch: expect.objectContaining({
+            display_name: "Corrected Contact",
+            due_at: exactTimestamp,
+          }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
+      ),
+    );
   });
 
   it("preserves imported nullable fields when editing another value", async () => {
@@ -315,6 +358,37 @@ describe("CrmAdoptionWorkspace", () => {
         expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
       ),
     );
+  });
+
+  it("shows every reviewed bulk-import label before approval", async () => {
+    const labels = Array.from(
+      { length: 25 },
+      (_, index) => `Candidate ${index + 1}`,
+    );
+    apiMocks.previewCrmAdoptionMutation.mockResolvedValueOnce({
+      ...preview,
+      action: "import_contacts",
+      affected_count: labels.length,
+      private_preview_labels: labels,
+    });
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(
+        `name,email\n${labels
+          .map((label, index) => `${label},candidate-${index + 1}@example.test`)
+          .join("\n")}`,
+      ),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.change(screen.getByLabelText("Preview contacts CSV"), {
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByText("All 25 reviewed items are shown below.")).toBeVisible();
+    expect(screen.getByText("Candidate 1")).toBeVisible();
+    expect(screen.getByText("Candidate 25")).toBeVisible();
   });
 
   it("shows recovery-required state without pretending ordinary edits are safe", async () => {

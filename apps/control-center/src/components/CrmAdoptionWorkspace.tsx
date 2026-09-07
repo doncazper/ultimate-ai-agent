@@ -92,9 +92,15 @@ export function crmLocalDateTimeInputValue(
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
   const part = (number: number) => String(number).padStart(2, "0");
+  const milliseconds = parsed.getMilliseconds();
+  const fraction = milliseconds
+    ? `.${String(milliseconds).padStart(3, "0")}`
+    : "";
   return `${parsed.getFullYear()}-${part(parsed.getMonth() + 1)}-${part(
     parsed.getDate(),
-  )}T${part(parsed.getHours())}:${part(parsed.getMinutes())}`;
+  )}T${part(parsed.getHours())}:${part(parsed.getMinutes())}:${part(
+    parsed.getSeconds(),
+  )}${fraction}`;
 }
 
 function isoDate(value: string | null | undefined): string | null {
@@ -212,6 +218,16 @@ export function CrmAdoptionWorkspace() {
 
   const submitDraft = useCallback(async () => {
     if (!workspace || !workspaceWritable || !draft.display_name.trim()) return;
+    const editingRecord = editingRef
+      ? workspace.records.find((record) => record.record_ref === editingRef)
+      : undefined;
+    const preserveTimestamp = (
+      value: string | null | undefined,
+      original: string | null | undefined,
+    ) =>
+      original && value === crmLocalDateTimeInputValue(original)
+        ? original
+        : isoDate(value);
     let normalized: CrmAdoptionRecordDraft;
     try {
       normalized = {
@@ -225,8 +241,11 @@ export function CrmAdoptionWorkspace() {
         status: optional(draft.status),
         tags: draft.tags ?? [],
         related_refs: draft.related_refs ?? [],
-        due_at: isoDate(draft.due_at),
-        occurred_at: isoDate(draft.occurred_at),
+        due_at: preserveTimestamp(draft.due_at, editingRecord?.due_at),
+        occurred_at: preserveTimestamp(
+          draft.occurred_at,
+          editingRecord?.occurred_at,
+        ),
         currency: optional(draft.currency),
       };
     } catch (reason) {
@@ -911,11 +930,11 @@ function RecordEditor({
         </label>
         <label>
           <span>Due date</span>
-          <input type="datetime-local" value={crmLocalDateTimeInputValue(draft.due_at)} onChange={(event) => set("due_at", event.target.value || null)} />
+          <input type="datetime-local" step="0.001" value={crmLocalDateTimeInputValue(draft.due_at)} onChange={(event) => set("due_at", event.target.value || null)} />
         </label>
         <label>
           <span>Activity date</span>
-          <input type="datetime-local" value={crmLocalDateTimeInputValue(draft.occurred_at)} onChange={(event) => set("occurred_at", event.target.value || null)} />
+          <input type="datetime-local" step="0.001" value={crmLocalDateTimeInputValue(draft.occurred_at)} onChange={(event) => set("occurred_at", event.target.value || null)} />
         </label>
         <label>
           <span>Amount</span>
@@ -997,7 +1016,20 @@ function ConfirmationPanel({
         <h3 id="crm-confirm-title">{title}</h3>
         <p>{summary}</p>
         <p className="section-copy">{details}</p>
-        {labels.length ? <ul>{labels.slice(0, 12).map((label) => <li key={label}>{label}</li>)}</ul> : null}
+        {labels.length ? (
+          <>
+            {labels.length > 12 ? (
+              <p className="section-copy">
+                All {labels.length} reviewed items are shown below.
+              </p>
+            ) : null}
+            <ul aria-label="Reviewed CRM items">
+              {labels.map((label, index) => (
+                <li key={`${index}:${label}`}>{label}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
         <div className="crm-adoption-actions">
           <button type="button" disabled={busy} onClick={onConfirm}>{busy ? "Saving…" : confirmLabel}</button>
           <button type="button" disabled={busy} onClick={onCancel}>Cancel</button>

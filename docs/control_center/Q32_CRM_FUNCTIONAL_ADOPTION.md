@@ -73,8 +73,13 @@ payload under that ref is rejected.
 ## Import, backup, and recovery
 
 - Contact CSV input is capped at 500 rows and two megabytes. The preview shows
-  operator-visible labels and the exact duplicate count; duplicates are
-  skipped, never silently merged or overwritten.
+  every operator-visible candidate label in the scrollable confirmation and
+  the exact duplicate count; duplicates are skipped, never silently merged or
+  overwritten.
+- Every CRM JSON-input route is bounded before framework JSON decoding, with a
+  maximum nesting depth and a structured no-store `413` response. The larger
+  request bound accommodates the documented encrypted portable-backup limit;
+  field- and row-level limits remain narrower where applicable.
 - Aggregate encrypted state and portable backup ciphertext are capped at 32
   MiB. A prospective write that would make the state unbackable is rejected
   before replacing the durable file.
@@ -83,7 +88,9 @@ payload under that ref is rejected.
   the backup, receipt, or audit log.
 - Restore first verifies the ciphertext fingerprint, passphrase, authenticated
   decryption, and full state schema. Commit then requires a fresh exact preview,
-  approval, lease, idempotency ref, and operator confirmation.
+  approval, lease, idempotency ref, and operator confirmation. The preview also
+  binds whether the current state is readable, so a key change cannot silently
+  remove the pre-restore Undo posture after approval.
 - A corrupt or unreadable active state disables ordinary edits and keeps the
   verified encrypted-restore path available as the next safe action.
 - An approved recovery quarantines a malformed regular local key before
@@ -120,7 +127,9 @@ argument.
 Private search terms are sent only in the authenticated loopback POST body;
 they are not placed in access-log-visible request URLs. The ordinary North Star
 `/workspace/crm` navigation mounts this adopted workspace as its primary local
-editing entry point.
+editing entry point. The separately addressable legacy `/crm` route retains
+only its collapsed compatibility diagnostics and does not expose a mutating
+editor without the primary route's backend-truth binding.
 
 ## Authority and product limits
 

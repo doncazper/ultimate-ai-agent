@@ -97,7 +97,11 @@ CRM_ADOPTION_MAX_REQUEST_BODY_BYTES = 48 * 1024 * 1024
 CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
 _CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
     {
+        "/control-center/crm/adoption/query",
+        "/control-center/crm/adoption/preview",
         "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
         "/control-center/crm/adoption/restore-preview",
         "/control-center/crm/adoption/restore",
     }
@@ -571,6 +575,12 @@ def get_control_center_crm_adoption(
     response_model=ResultEnvelope,
     operation_id="query_control_center_crm_adoption_workspace",
     summary="Search the founder-private CRM without URL disclosure",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
 )
 def post_control_center_crm_adoption_query(
     request: CrmAdoptionQueryRequest,
@@ -593,6 +603,12 @@ def post_control_center_crm_adoption_query(
     response_model=ResultEnvelope,
     operation_id="preview_control_center_crm_adoption_mutation",
     summary="Preview one exact local CRM lifecycle change",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
 )
 def post_control_center_crm_adoption_preview(
     request: CrmAdoptionMutationRequest,
@@ -658,6 +674,12 @@ def post_control_center_crm_adoption_approval(
     response_model=ResultEnvelope,
     operation_id="commit_control_center_crm_adoption_mutation",
     summary="Commit one approved local CRM lifecycle change",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
 )
 def post_control_center_crm_adoption_commit(
     request: CrmAdoptionCommitRequest,
@@ -698,6 +720,12 @@ def post_control_center_crm_adoption_commit(
     response_model=ResultEnvelope,
     operation_id="create_control_center_crm_adoption_backup",
     summary="Create a passphrase-encrypted portable CRM backup",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
 )
 def post_control_center_crm_adoption_backup(
     request: CrmPortableBackupRequest,

@@ -972,10 +972,13 @@ class CrmAdoptionStore:
         current_readable: bool,
     ) -> CrmPortableRestorePreview:
         current_state_ref = self._current_state_ref()
+        impact_status = "exact" if current_readable else "unknown_current_state"
         preview_ref = _hash_ref(
             "restore-preview-ref:crm-adoption",
             {
                 "current_state_ref": current_state_ref,
+                "current_state_readable": current_readable,
+                "impact_status": impact_status,
                 "backup_fingerprint_ref": request.backup.ciphertext_fingerprint_ref,
                 "backup_revision": restored.revision,
             },
@@ -994,7 +997,7 @@ class CrmAdoptionStore:
                 if current_readable
                 else None
             ),
-            impact_status="exact" if current_readable else "unknown_current_state",
+            impact_status=impact_status,
             counts=self._counts(restored.records),
         )
 
@@ -1345,7 +1348,8 @@ class CrmAdoptionStore:
         if self.state_file.is_symlink():
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
         if not self.state_file.exists():
-            self._validated_key_file_exists()
+            if self._validated_key_file_exists():
+                self._read_key()
             return CrmAdoptionState()
         if not self.state_file.is_file():
             raise CrmAdoptionError("CRM_ADOPTION_STATE_UNSAFE")
@@ -2052,12 +2056,8 @@ class CrmAdoptionStore:
 
     @staticmethod
     def _lease_approval_ref(*, approval_ref: str, lease_idempotency_ref: str) -> str:
-        if lease_idempotency_ref.startswith(
-            "idempotency-ref:crm-adoption-lease:sha256:"
-        ):
-            return approval_ref
         return _hash_ref(
-            "approval-ref:crm-adoption-lease-retry",
+            "approval-ref:crm-adoption-lease-scope",
             {
                 "approval_ref": approval_ref,
                 "lease_idempotency_ref": lease_idempotency_ref,

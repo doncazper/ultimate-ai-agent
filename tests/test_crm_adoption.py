@@ -590,7 +590,9 @@ def test_pending_audit_is_bound_to_the_authoritative_receipt(
     assert audit_event["after_revision"] == 1
 
 
-def test_approval_capture_rejects_exact_ref_rebinding(tmp_path: Path) -> None:
+def test_approval_capture_scopes_internal_grants_to_idempotency_ref(
+    tmp_path: Path,
+) -> None:
     store = CrmAdoptionStore(tmp_path / "crm")
     request = _create_request()
     preview = store.preview_mutation(request)
@@ -602,17 +604,19 @@ def test_approval_capture_rejects_exact_ref_rebinding(tmp_path: Path) -> None:
             approval_ref=preview.approval_ref,
         ),
     )
-    store.capture_approval(
+    first = store.capture_approval(
         request=capture,
         idempotency_ref="idempotency-ref:crm-adoption-test:approval-binding-one",
         confirmed=True,
     )
-    with pytest.raises(CrmAdoptionConflict, match="APPROVAL_CONFLICT"):
-        store.capture_approval(
-            request=capture,
-            idempotency_ref="idempotency-ref:crm-adoption-test:approval-binding-two",
-            confirmed=True,
-        )
+    second = store.capture_approval(
+        request=capture,
+        idempotency_ref="idempotency-ref:crm-adoption-test:approval-binding-two",
+        confirmed=True,
+    )
+
+    assert first.approval_ref == second.approval_ref == preview.approval_ref
+    assert first.approval_validation_ref != second.approval_validation_ref
 
 
 def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -> None:
@@ -895,6 +899,7 @@ def test_restore_repairs_malformed_key_when_workspace_has_no_state(
     target = CrmAdoptionStore(tmp_path / "target")
     target.state_dir.mkdir(parents=True)
     target.key_file.write_bytes(b"malformed-key")
+    assert target.read_view().storage_state == "locked"
     restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
     preview = target.preview_restore(restore)
     request = CrmPortableRestoreCommitRequest(
@@ -913,6 +918,89 @@ def test_restore_repairs_malformed_key_when_workspace_has_no_state(
     assert target.read_view().records[0].display_name == "Recovered Person"
     assert target.key_file.stat().st_size == 32
     assert len(list(target.state_dir.glob("*.invalid-*"))) == 1
+
+
+def test_restore_preview_is_invalidated_when_key_readability_changes(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Backup Person"), suffix="key-bound-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    _commit(target, _create_request(name="Current Person"), suffix="key-bound-target")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    preview = target.preview_restore(restore)
+    target.key_file.unlink()
+    request = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+
+    assert target.read_view().storage_state == "locked"
+    with pytest.raises(CrmAdoptionError, match="EXACT_APPROVAL_REQUIRED"):
+        target.capture_approval(
+            request=CrmAdoptionApprovalCaptureRequest(
+                operation="restore",
+                restore=request,
+            ),
+            idempotency_ref=(
+                "idempotency-ref:crm-adoption-test:key-readability-change"
+            ),
+            confirmed=True,
+        )
+
+
+def test_unreadable_restore_approval_can_use_a_new_idempotency_scope(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Backup Person"), suffix="rescope-source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CrmAdoptionStore(tmp_path / "target")
+    target.state_dir.mkdir(parents=True)
+    target.state_file.write_bytes(b"corrupt-state")
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    preview = target.preview_restore(restore)
+    request = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    capture = CrmAdoptionApprovalCaptureRequest(
+        operation="restore",
+        restore=request,
+    )
+
+    first = target.capture_approval(
+        request=capture,
+        idempotency_ref="idempotency-ref:crm-adoption-test:restore-rescope-one",
+        confirmed=True,
+    )
+    second_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:restore-rescope-two"
+    )
+    second = target.capture_approval(
+        request=capture,
+        idempotency_ref=second_idempotency_ref,
+        confirmed=True,
+    )
+    receipt = target.commit_restore(
+        request=request,
+        idempotency_ref=second_idempotency_ref,
+        confirmed=True,
+    )
+
+    assert first.approval_ref == second.approval_ref == preview.approval_ref
+    assert first.approval_validation_ref != second.approval_validation_ref
+    assert receipt.after_revision == 2
+    assert target.read_view().records[0].display_name == "Backup Person"
 
 
 def test_unsafe_state_is_blocked_instead_of_presented_as_recoverable(
@@ -1505,7 +1593,7 @@ def test_private_crm_routes_are_never_cached(method: str, path: str) -> None:
     assert response.headers["Cache-Control"] == "no-store"
 
 
-def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> None:
+def test_crm_body_guard_rejects_oversize_and_deep_json_with_cors() -> None:
     client = TestClient(app)
     origin = "http://127.0.0.1:5173"
     oversized = client.post(
@@ -1531,21 +1619,41 @@ def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> No
 
     deeply_nested = b"[" * (CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH + 1)
     deeply_nested += b"]" * (CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH + 1)
-    nested = client.post(
+    for route in (
+        "/control-center/crm/adoption/query",
+        "/control-center/crm/adoption/preview",
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
         "/control-center/crm/adoption/restore-preview",
-        content=deeply_nested,
-        headers={"content-type": "application/json", "Origin": origin},
-    )
-    assert nested.status_code == 413
-    assert nested.headers["Cache-Control"] == "no-store"
-    assert nested.headers["Access-Control-Allow-Origin"] == origin
-    assert nested.json()["code"] == "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"
+        "/control-center/crm/adoption/restore",
+    ):
+        nested = client.post(
+            route,
+            content=deeply_nested,
+            headers={
+                "content-type": "application/json",
+                "X-UAA-Idempotency-Key": (
+                    "idempotency-ref:crm-api:body-guard"
+                ),
+                "X-UAA-Operator-Confirmed": "true",
+            },
+        )
+        assert nested.status_code == 413, route
+        assert nested.headers["Cache-Control"] == "no-store", route
+        assert nested.json()["code"] == (
+            "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"
+        ), route
 
 
-def test_crm_restore_body_limit_is_published_for_every_backup_bearing_route() -> None:
+def test_crm_body_limit_is_published_for_every_json_input_route() -> None:
     paths = app.openapi()["paths"]
     for route in (
+        "/control-center/crm/adoption/query",
+        "/control-center/crm/adoption/preview",
         "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
         "/control-center/crm/adoption/restore-preview",
         "/control-center/crm/adoption/restore",
     ):
