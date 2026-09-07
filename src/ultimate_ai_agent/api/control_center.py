@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from ultimate_ai_agent.api.cors import apply_loopback_cors_response_headers
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
+    idempotency_value_valid,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
@@ -54,6 +60,17 @@ from ultimate_ai_agent.core.decision_router import (
     build_turn_router_preview,
 )
 from ultimate_ai_agent.core.crm import (
+    CRM_ADOPTION_CONTRACT_REF,
+    CrmAdoptionApprovalCaptureRequest,
+    CrmAdoptionCommitRequest,
+    CrmAdoptionConflict,
+    CrmAdoptionError,
+    CrmAdoptionMutationRequest,
+    CrmAdoptionQueryRequest,
+    CrmAdoptionStore,
+    CrmPortableBackupRequest,
+    CrmPortableRestoreCommitRequest,
+    CrmPortableRestoreRequest,
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
     CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
@@ -76,8 +93,186 @@ from ultimate_ai_agent.core.task_decomposition.runtime import TaskDecompositionS
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_control_center_routes_registered"
 _OPERATOR_CONFIRMATION_HEADER = "X-UAA-Operator-Confirmed"
+CRM_ADOPTION_MAX_REQUEST_BODY_BYTES = 48 * 1024 * 1024
+CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
+_CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
+    {
+        "/control-center/crm/adoption/query",
+        "/control-center/crm/adoption/preview",
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
+        "/control-center/crm/adoption/restore-preview",
+        "/control-center/crm/adoption/restore",
+    }
+)
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
 _task_decomposition_service_getter: _TaskDecompositionServiceGetter | None = None
+
+
+class CrmAdoptionBodyLimitResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    detail: Literal["The private CRM request body exceeds the permitted local bound."]
+    code: Literal["CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
+    contract_ref: Literal["contract-ref:queue-v2-q32-crm-adoption:v1"]
+    maximum_body_bytes: Literal[50331648]
+    maximum_json_nesting_depth: Literal[64]
+
+
+def _crm_request_origin(scope: Scope) -> str | None:
+    for name, value in scope.get("headers", ()):
+        if name.lower() == b"origin":
+            try:
+                return value.decode("ascii")
+            except UnicodeDecodeError:
+                return None
+    return None
+
+
+def _crm_json_nesting_exceeds_limit(body: bytes) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    for value in body:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif value == ord("\\"):
+                escaped = True
+            elif value == ord('"'):
+                in_string = False
+            continue
+        if value == ord('"'):
+            in_string = True
+        elif value in (ord("["), ord("{")):
+            depth += 1
+            if depth > CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH:
+                return True
+        elif value in (ord("]"), ord("}")) and depth > 0:
+            depth -= 1
+    return False
+
+
+def _crm_no_store_send(send: Send) -> Send:
+    async def no_store_send(message: Message) -> None:
+        if message["type"] == "http.response.start":
+            headers = [
+                (name, value)
+                for name, value in message.get("headers", [])
+                if name.lower() != b"cache-control"
+            ]
+            headers.append((b"cache-control", b"no-store"))
+            message = {**message, "headers": headers}
+        await send(message)
+
+    return no_store_send
+
+
+class CrmAdoptionBodyLimitMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        maximum_body_bytes: int = CRM_ADOPTION_MAX_REQUEST_BODY_BYTES,
+    ) -> None:
+        self.app = app
+        self.maximum_body_bytes = maximum_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() != "POST"
+            or scope.get("path") not in _CRM_ADOPTION_BOUNDED_BODY_ROUTES
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        send = _crm_no_store_send(send)
+
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            try:
+                content_length = int(value)
+            except ValueError:
+                break
+            if content_length > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        buffered_body = bytearray()
+        disconnected = False
+        received_bytes = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            received_bytes += len(chunk)
+            if received_bytes > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+            buffered_body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = bytes(buffered_body)
+        if _crm_json_nesting_exceeds_limit(body):
+            await self._reject(scope, receive, send)
+            return
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                if disconnected:
+                    return {"type": "http.disconnect"}
+                return {
+                    "type": "http.request",
+                    "body": body,
+                    "more_body": False,
+                }
+            return {"type": "http.disconnect"}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    "The private CRM request body exceeds the permitted local bound."
+                ),
+                "code": "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED",
+                "contract_ref": CRM_ADOPTION_CONTRACT_REF,
+                "maximum_body_bytes": self.maximum_body_bytes,
+                "maximum_json_nesting_depth": CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
+            },
+        )
+        apply_loopback_cors_response_headers(response, _crm_request_origin(scope))
+        await response(scope, receive, send)
+
+
+class CrmAdoptionPrivateResponseMiddleware:
+    """Prevent authenticated founder-private CRM responses from being cached."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope.get("path", "").startswith(
+            "/control-center/crm/adoption"
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        await self.app(scope, receive, _crm_no_store_send(send))
 
 
 def register_control_center_routes(
@@ -87,6 +282,9 @@ def register_control_center_routes(
 ) -> None:
     global _task_decomposition_service_getter
     _task_decomposition_service_getter = task_decomposition_service_getter
+    if not getattr(app.state, _REGISTERED_ATTR, False):
+        app.add_middleware(CrmAdoptionBodyLimitMiddleware)
+        app.add_middleware(CrmAdoptionPrivateResponseMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
 
@@ -329,6 +527,289 @@ def get_control_center_crm_summary() -> ResultEnvelope:
         trace_id=crm.contract_ref,
         data=crm.model_dump(mode="json"),
         evidence_ref="evidence-ref:crm-local-command-center:summary",
+    )
+
+
+@router.get(
+    "/crm/adoption",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_crm_adoption_workspace",
+    summary="Read the founder-private encrypted CRM workspace",
+)
+def get_control_center_crm_adoption(
+    record_kind: str | None = Query(default=None),
+    include_archived: bool = Query(default=False),
+) -> ResultEnvelope:
+    if record_kind not in {
+        None,
+        "person",
+        "organization",
+        "property",
+        "relationship",
+        "opportunity",
+        "activity",
+        "follow_up",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "CRM_ADOPTION_RECORD_KIND_INVALID",
+                "safe_message": "Choose one supported private CRM record type.",
+            },
+        )
+    view = CrmAdoptionStore.from_env().read_view(
+        query="",
+        record_kind=record_kind,  # type: ignore[arg-type]
+        include_archived=include_archived,
+    )
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption",
+        trace_id=f"crm-adoption-revision-ref:{view.revision}",
+        data=view.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:private-workspace-read",
+    )
+
+
+@router.post(
+    "/crm/adoption/query",
+    response_model=ResultEnvelope,
+    operation_id="query_control_center_crm_adoption_workspace",
+    summary="Search the founder-private CRM without URL disclosure",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_query(
+    request: CrmAdoptionQueryRequest,
+) -> ResultEnvelope:
+    view = CrmAdoptionStore.from_env().read_view(
+        query=request.query,
+        record_kind=request.record_kind,
+        include_archived=request.include_archived,
+    )
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_query",
+        trace_id=f"crm-adoption-revision-ref:{view.revision}",
+        data=view.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:private-workspace-query",
+    )
+
+
+@router.post(
+    "/crm/adoption/preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_crm_adoption_mutation",
+    summary="Preview one exact local CRM lifecycle change",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_preview(
+    request: CrmAdoptionMutationRequest,
+) -> ResultEnvelope:
+    try:
+        preview = CrmAdoptionStore.from_env().preview_mutation(request)
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-mutation-preview",
+    )
+
+
+@router.post(
+    "/crm/adoption/approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_crm_adoption_approval",
+    summary="Capture one exact local CRM approval grant",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_approval(
+    request: CrmAdoptionApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        receipt = CrmAdoptionStore.from_env().capture_approval(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-approval-receipt",
+    )
+
+
+@router.post(
+    "/crm/adoption/commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_crm_adoption_mutation",
+    summary="Commit one approved local CRM lifecycle change",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_commit(
+    request: CrmAdoptionCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        receipt = CrmAdoptionStore.from_env().commit_mutation(
+            request=request.mutation,
+            preview_ref=request.preview_ref,
+            approval_ref=request.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:exact-mutation-receipt",
+    )
+
+
+@router.post(
+    "/crm/adoption/backup",
+    response_model=ResultEnvelope,
+    operation_id="create_control_center_crm_adoption_backup",
+    summary="Create a passphrase-encrypted portable CRM backup",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_backup(
+    request: CrmPortableBackupRequest,
+) -> ResultEnvelope:
+    try:
+        backup = CrmAdoptionStore.from_env().create_portable_backup(request)
+    except CrmAdoptionError as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_backup",
+        trace_id=backup.ciphertext_fingerprint_ref,
+        data=backup.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:encrypted-portable-backup",
+    )
+
+
+@router.post(
+    "/crm/adoption/restore-preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_crm_adoption_restore",
+    summary="Verify and preview an encrypted CRM backup restore",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_restore_preview(
+    request: CrmPortableRestoreRequest,
+) -> ResultEnvelope:
+    try:
+        preview = CrmAdoptionStore.from_env().preview_restore(request)
+    except CrmAdoptionError as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_restore_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:backup-restore-preview",
+    )
+
+
+@router.post(
+    "/crm/adoption/restore",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_crm_adoption_restore",
+    summary="Restore one approved encrypted CRM backup",
+    responses={
+        413: {
+            "model": CrmAdoptionBodyLimitResponse,
+            "description": "Private CRM request body exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_crm_adoption_restore(
+    request: CrmPortableRestoreCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        receipt = CrmAdoptionStore.from_env().commit_restore(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            confirmed=x_uaa_operator_confirmed,
+        )
+    except (CrmAdoptionConflict, CrmAdoptionError) as exc:
+        _raise_crm_adoption_http_error(exc)
+    return _crm_private_result_envelope(
+        operation="control_center_crm_adoption_restore",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q32:backup-restore-receipt",
     )
 
 
@@ -1016,12 +1497,67 @@ def _crm_result_envelope(
     )
 
 
+def _crm_private_result_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    data: object,
+    evidence_ref: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterCrmAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": "contract-ref:queue-v2-q32-crm-adoption:v1",
+            }
+        ],
+        redactions_applied=[
+            "private_values_confined_to_authenticated_local_response",
+            "private_values_omitted_from_receipts_and_audit",
+            "raw_paths_omitted",
+            "key_material_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _raise_crm_adoption_http_error(exc: CrmAdoptionError) -> None:
+    code = str(exc) or "CRM_ADOPTION_ERROR"
+    status_code = 409 if isinstance(exc, CrmAdoptionConflict) else 403
+    if code in {
+        "CRM_ADOPTION_STATE_UNREADABLE",
+        "CRM_ADOPTION_BACKUP_UNLOCK_FAILED",
+        "CRM_ADOPTION_BACKUP_FINGERPRINT_INVALID",
+        "CRM_ADOPTION_BACKUP_INVALID",
+    }:
+        status_code = 422
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "code": code,
+            "safe_message": (
+                "The private CRM request could not be completed safely. Refresh "
+                "the workspace or use the encrypted Recovery path."
+            ),
+        },
+    ) from exc
+
+
 def _crm_idempotency_ref(
     idempotency_key: str | None,
     idempotency_ref: str | None,
 ) -> str:
-    value = (idempotency_key or idempotency_ref or "").strip()
-    if not value:
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
         raise HTTPException(
             status_code=428,
             detail={
@@ -1031,7 +1567,23 @@ def _crm_idempotency_ref(
                 ),
             },
         )
-    return value
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _task_decomposition_service() -> TaskDecompositionService:

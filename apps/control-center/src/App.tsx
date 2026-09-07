@@ -822,9 +822,10 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
     ...NORTH_STAR_SHELL_ROUTE_KEYS,
   ],
   "/workspace/onboarding": ["/setup", "/inbox"],
+  "/workspace/crm": ["/crm", "/settings"],
 };
 
-function criticalRouteDataIsBackendOwned(
+export function criticalRouteDataIsBackendOwned(
   activePath: string,
   data: ControlCenterData,
 ): boolean {

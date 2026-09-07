@@ -98,11 +98,9 @@ repository-local verifier in
 It reports GoatCitadel 73 and UAA 70 under the bound maturity rubric, preserves
 independent and controlled task validation as unperformed, routes only the
 clean-start/chat gaps to Q33 and responsive polish to Q36, and grants no repair,
-runtime, provider, model, or production authority. Canonical queue truth remains
-pending until protected merge, post-merge qualification, exact observation or
-accepted Queue V2 scope-disposition resolution of every required unmeasured
-interaction dimension, and Q31's Queue V2 terminal receipt; Q32 remains blocked
-until that receipt exists.
+runtime, provider, model, or production authority. Q31 completed through
+protected merge `b9b1f800087748c5b70c298d78ec1a34f9a8b0f1`; Q32 is now the active
+founder-private CRM functional-adoption item.
 The subsequent exact-revision peer recheck is specified in
 `docs/evals/UAA_POST_ADOPTION_HERMES_OPENCLAW_PARITY_PLAN.md`; it requires
 equivalent functional workflows and direct chat/operator-surface interaction

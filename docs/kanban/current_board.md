@@ -56,13 +56,14 @@ TAW-08 founder-private acceptance evidence is verified at the refs below. The fo
 {"entries":[{"claim_ref":"claim-ref:queue-v2/Q22/taw08-current-board","evidence_refs":["sha256:0d2ca722914763f9ef9b232aa4089bbd1671c841330eba6629ca016b1c4d787b","taw08-acceptance-report-ref:sha256:1b1e71c3bad333101d3257094b99cd65af95d26d7ae4e5243bf8582122a709dd"],"status":"implemented"}],"raw_content_persisted":false,"schema_version":"uaa-taw08-claim-reconciliation.v1"}
 [//]: # (TAW08-RECONCILIATION:END)
 
-Queue V2 Wave 6 is the planned founder functional-adoption sequence after the
-final GoatCitadel comparison. Q31 must directly exercise and inspect comparable
-chat and operator-surface behavior, then route evidence-ranked UAA-native
-adaptations without copying competitor code or branding. The active Wave 6
-order is:
+Queue V2 Wave 6 is the active founder functional-adoption sequence after the
+completed final GoatCitadel comparison. Q31 directly exercised comparable chat
+and operator-surface behavior and routed evidence-ranked UAA-native adaptations
+without copying competitor code or branding. The active Wave 6 order is:
 
-1. Q32 CRM functional adoption — blocked until both Q15 and Q31 are completed.
+1. Q32 CRM functional adoption — implementation candidate ready for exact-head
+   verification, protected merge, post-merge qualification, and terminal queue
+   disposition.
 2. Q33 founder operating loop and chat usability adoption — blocked by Q32.
 3. Q34 News and source intelligence functional adoption — blocked by Q33.
 4. Q35 vertical modules functional adoption — blocked by Q26 and Q34.

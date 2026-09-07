@@ -44,6 +44,7 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "Content-Type",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Operator-Confirmed",
         "X-UAA-Control-Center-Mutation-Binding",
         "X-UAA-Expected-Backend-Revision-Ref",
         "X-UAA-Expected-Backend-Instance-Ref",
@@ -155,6 +156,9 @@ def test_allowed_loopback_preflight_is_scoped_and_security_hardened() -> None:
     assert "Content-Type" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Key" in response.headers["Access-Control-Allow-Headers"]
     assert "X-UAA-Idempotency-Ref" in response.headers["Access-Control-Allow-Headers"]
+    assert "X-UAA-Operator-Confirmed" in response.headers[
+        "Access-Control-Allow-Headers"
+    ]
     assert (
         "X-UAA-Control-Center-Mutation-Binding"
         in response.headers["Access-Control-Allow-Headers"]

@@ -15,8 +15,16 @@ const backendSourceCommit = resolveBackendSourceCommit();
 let backend: ChildProcess | null = null;
 
 const foundationVisualSurfaces = [
-  ["work-board", "/work-board", "/control-center/work-board"],
-  ["crm", "/workspace/crm", "/control-center/crm/summary"],
+  ["work-board", "/work-board", ["/control-center/work-board"]],
+  [
+    "crm",
+    "/workspace/crm",
+    [
+      "/control-center/crm/summary",
+      "/control-center/crm/adoption",
+      "/control-center/settings/status",
+    ],
+  ],
 ] as const;
 
 function resolveBackendSourceCommit(): string {
@@ -112,18 +120,24 @@ test("foundation visual baselines stay backend-owned", async ({
   const truthBody = await truthResponse.body();
   const fixedNow = new Date(truth.data.generated_at).getTime() + 1_000;
 
-  for (const [name, route, prioritizedEndpoint] of foundationVisualSurfaces) {
+  for (const [name, route, prioritizedEndpoints] of foundationVisualSurfaces) {
     await test.step(`capture backend-owned ${name}`, async () => {
       const page = await context.newPage();
       let prioritizedReadCount = 0;
-      const prioritizedResponse = await request.get(
-        `${backendBaseUrl}${prioritizedEndpoint}`,
+      const prioritizedResponses = await Promise.all(
+        prioritizedEndpoints.map((endpoint) =>
+          request.get(`${backendBaseUrl}${endpoint}`),
+        ),
       );
-      expect(prioritizedResponse.ok()).toBe(true);
-      expect(prioritizedResponse.headers()["x-uaa-backend-revision-ref"]).toBe(
-        `commit-ref:git:${backendSourceCommit}`,
+      for (const prioritizedResponse of prioritizedResponses) {
+        expect(prioritizedResponse.ok()).toBe(true);
+        expect(
+          prioritizedResponse.headers()["x-uaa-backend-revision-ref"],
+        ).toBe(`commit-ref:git:${backendSourceCommit}`);
+      }
+      const prioritizedBodies = await Promise.all(
+        prioritizedResponses.map((response) => response.body()),
       );
-      const prioritizedBody = await prioritizedResponse.body();
       await page.route("**/*", async (backendRoute) => {
         const requestUrl = new URL(backendRoute.request().url());
         if (requestUrl.pathname === "/control-center/backend-truth") {
@@ -134,12 +148,15 @@ test("foundation visual baselines stay backend-owned", async ({
           });
           return;
         }
-        if (requestUrl.pathname === prioritizedEndpoint) {
+        const prioritizedIndex = prioritizedEndpoints.findIndex(
+          (endpoint) => endpoint === requestUrl.pathname,
+        );
+        if (prioritizedIndex >= 0) {
           prioritizedReadCount += 1;
           await backendRoute.fulfill({
-            body: prioritizedBody,
-            headers: prioritizedResponse.headers(),
-            status: prioritizedResponse.status(),
+            body: prioritizedBodies[prioritizedIndex],
+            headers: prioritizedResponses[prioritizedIndex].headers(),
+            status: prioritizedResponses[prioritizedIndex].status(),
           });
           return;
         }
@@ -175,22 +192,53 @@ test("foundation visual baselines stay backend-owned", async ({
         });
         await expect(page.getByText("Backend-owned Work Board")).toBeVisible();
       } else {
-        await expect(page.getByRole("heading", { name: "CRM v3" })).toBeVisible(
-          { timeout: 30_000 },
-        );
-        const socialContextHeading = page.getByText(
-          "Social relationship context",
+        await expect(
+          page.getByRole("heading", { name: "Your CRM", exact: true }),
+        ).toBeVisible({ timeout: 30_000 });
+        await expect(
+          page.getByText("Founder-private workspace", { exact: true }),
+        ).toBeVisible();
+        const legacyCompatibility = page.getByText(
+          "Legacy CRM v3 compatibility cockpit",
           { exact: true },
         );
-        await socialContextHeading.scrollIntoViewIfNeeded();
-        await expect(socialContextHeading).toBeVisible();
-        const crmOwnedBadge = page.getByText("CRM owned · read only", {
-          exact: true,
-        });
-        await expect(crmOwnedBadge).toBeVisible({ timeout: 30_000 });
-        await crmOwnedBadge.scrollIntoViewIfNeeded();
+        await expect(legacyCompatibility).toBeVisible();
+        await expect(
+          page.locator("details.ns-crm-compatibility"),
+        ).not.toHaveAttribute("open", "");
+        await expect(
+          page.getByText("CRM owned · read only", { exact: true }),
+        ).not.toBeVisible();
+        const adoptionBounds = await page
+          .locator(".crm-adoption")
+          .evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              left: rect.left,
+              right: rect.right,
+              viewportWidth: window.innerWidth,
+              documentScrollWidth: document.documentElement.scrollWidth,
+            };
+          });
+        expect(adoptionBounds.left).toBeGreaterThanOrEqual(0);
+        expect(adoptionBounds.right).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
+        expect(adoptionBounds.documentScrollWidth).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
       }
-      expect(prioritizedReadCount).toBeGreaterThan(0);
+      expect(prioritizedReadCount).toBeGreaterThanOrEqual(
+        prioritizedEndpoints.length,
+      );
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+        for (const element of document.querySelectorAll<HTMLElement>("*")) {
+          if (element.scrollTop !== 0 || element.scrollLeft !== 0) {
+            element.scrollTo(0, 0);
+          }
+        }
+      });
       await expect(page).toHaveScreenshot(`${name}.png`, {
         animations: "disabled",
         fullPage: true,

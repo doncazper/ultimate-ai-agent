@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1006,
+  "timed_file_count": 1008,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -741,6 +741,11 @@
       "source": "pytest-duration-summary"
     },
     {
+      "path": "tests/test_crm_adoption.py",
+      "seconds": 1.0,
+      "source": "operator-supplied-advisory"
+    },
+    {
       "path": "tests/test_crm_local_command_center.py",
       "seconds": 0.73,
       "source": "pytest-duration-summary"
@@ -754,6 +759,11 @@
       "path": "tests/test_crm_m1_fixture_only_vertical_shell.py",
       "seconds": 0.5,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_queue_v2_q32_crm_functional_adoption.py",
+      "seconds": 1.0,
+      "source": "operator-supplied-advisory"
     },
     {
       "path": "tests/test_cua_contract_lane_verifier.py",

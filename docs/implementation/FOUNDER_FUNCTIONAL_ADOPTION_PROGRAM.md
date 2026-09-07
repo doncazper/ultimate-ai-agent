@@ -1,8 +1,10 @@
 # Founder Functional Adoption Program
 
-Status: planned Queue V2 Wave 6 program. It begins only after Q31, the final
-GoatCitadel comparison, is completed. It grants no new runtime, provider,
-browser, connector-write, shell, public-distribution, or production authority.
+Status: active Queue V2 Wave 6 program. Q31 is complete and Q32 has an
+implemented founder-private candidate pending protected merge, post-merge
+qualification, and its Queue V2 terminal receipt. The program grants no new
+provider, model, browser, connector-write, shell, public-distribution, or
+production authority beyond each separately accepted exact local lane.
 
 ## Outcome
 
@@ -85,6 +87,8 @@ Use the first-class private CRM with real founder-owned records. Prove the
 contact, organization, property, opportunity, activity, follow-up, priority,
 search, archive/correction, import/export, backup/recovery, and private
 multi-computer paths needed for daily work. External CRM writes remain blocked.
+The bounded implementation and operating limits are documented in
+`docs/control_center/Q32_CRM_FUNCTIONAL_ADOPTION.md`.
 
 ### Q33 — Founder Operating Loop Functional Adoption
 

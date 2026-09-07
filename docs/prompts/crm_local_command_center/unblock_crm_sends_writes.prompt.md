@@ -19,7 +19,7 @@ Requirements:
 - Store safe refs, bounded summaries, decision metadata, and redacted receipts
   only.
 - Do not add broad connector write authority, background campaigns, account
-  sync, contact import commit, silent merge, provider/model calls, browser
+  sync, external contact import commit, silent merge, provider/model calls, browser
   automation, production targets, public beta, public release, production
   readiness, or production authority.
 

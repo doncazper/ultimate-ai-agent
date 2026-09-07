@@ -10,6 +10,8 @@ from ultimate_ai_agent.api.manifest import (
     CONTROL_CENTER_MATRIX_INTELLIGENCE_SIDE_EFFECTS,
     CONTROL_CENTER_MATRIX_MESSAGING_SIDE_EFFECTS,
     CONTROL_CENTER_MATRIX_ROOMS_MEDIA_SIDE_EFFECTS,
+    CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS,
+    CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS,
     CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS,
     CONTROL_CENTER_WORK_BOARD_CARD_CREATE_PATHS,
     CONTROL_CENTER_WORK_BOARD_REORDER_PATHS,
@@ -2729,6 +2731,8 @@ def post_milestone_safe_route_paths() -> set[str]:
     paths: set[str] = set()
     for route_family in POST_MILESTONE_SAFE_ROUTE_FAMILIES.values():
         paths.update(route_family)
+    paths.update(CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS)
+    paths.update(CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS)
     return paths
 
 
@@ -2753,6 +2757,8 @@ def _historical_control_center_path_set(paths: Iterable[str]) -> set[str]:
     path_set.difference_update(CONTROL_CENTER_NEWS_SIGNALS_ROUTES)
     path_set.difference_update(CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES)
     path_set.difference_update(CONTROL_CENTER_AUTOCORRECT_ROUTES)
+    path_set.difference_update(CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS)
+    path_set.difference_update(CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS)
     return path_set
 
 

@@ -29,6 +29,6 @@ external systems.
 ## Still Denied
 
 Broad connector write authority, unattended sends, background campaigns,
-account sync, contact import commit, silent merge, browser automation,
+account sync, external contact import commit, silent merge, browser automation,
 provider/model authority, production targets, public beta, public release,
 production readiness, and production authority remain denied.

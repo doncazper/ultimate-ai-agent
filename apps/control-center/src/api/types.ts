@@ -2873,6 +2873,188 @@ export interface CrmLocalCommandCenterReadModel {
   production_authority_enabled: boolean;
 }
 
+export type CrmAdoptionRecordKind =
+  | "person"
+  | "organization"
+  | "property"
+  | "relationship"
+  | "opportunity"
+  | "activity"
+  | "follow_up";
+
+export interface CrmAdoptionRecord {
+  record_ref: string;
+  record_kind: CrmAdoptionRecordKind;
+  display_name: string;
+  subtitle?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  notes?: string | null;
+  tags: string[];
+  status?: string | null;
+  related_refs: string[];
+  due_at?: string | null;
+  occurred_at?: string | null;
+  amount_minor?: number | null;
+  currency?: string | null;
+  priority?: "high" | "medium" | "low" | null;
+  archived: boolean;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrmAdoptionWorkspaceView {
+  schema_version: "uaa-crm-adoption-workspace.v1";
+  contract_ref: string;
+  foundation_contract_ref: string;
+  storage_state:
+    | "empty"
+    | "ready"
+    | "locked"
+    | "recovery_required"
+    | "blocked_audit_capacity"
+    | "blocked_audit_unreadable"
+    | "blocked_revision_exhausted"
+    | "blocked_unsafe";
+  revision: number;
+  current_state_ref: string;
+  workspace_name: string;
+  workspace_preset: string;
+  records: CrmAdoptionRecord[];
+  counts: Record<string, number>;
+  can_undo: boolean;
+  next_safe_action: string;
+  private_values_included: true;
+  private_values_confined_to_local_response: true;
+  raw_paths_included: false;
+  fixture_primary_truth: false;
+  connector_runtime_enabled: false;
+  external_crm_write_enabled: false;
+  send_enabled: false;
+  provider_model_call_enabled: false;
+  production_authority_enabled: false;
+}
+
+export interface CrmAdoptionRecordDraft {
+  record_kind: CrmAdoptionRecordKind;
+  display_name: string;
+  subtitle?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  notes?: string | null;
+  tags?: string[];
+  status?: string | null;
+  related_refs?: string[];
+  due_at?: string | null;
+  occurred_at?: string | null;
+  amount_minor?: number | null;
+  currency?: string | null;
+  priority?: "high" | "medium" | "low" | null;
+}
+
+export interface CrmAdoptionRecordPatch
+  extends Omit<Partial<CrmAdoptionRecordDraft>, "record_kind"> {
+  clear_fields?: string[];
+}
+
+export interface CrmAdoptionMutationRequest {
+  action: "create" | "update" | "archive" | "restore" | "undo" | "import_contacts";
+  expected_revision: number;
+  target_ref?: string | null;
+  record?: CrmAdoptionRecordDraft | null;
+  patch?: CrmAdoptionRecordPatch | null;
+  csv_text?: string | null;
+}
+
+export interface CrmAdoptionMutationPreview {
+  schema_version: "uaa-crm-adoption-mutation-preview.v1";
+  contract_ref: string;
+  action: string;
+  expected_revision: number;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  affected_count: number;
+  duplicate_candidate_count: number;
+  safe_summary: string;
+  private_preview_labels: string[];
+  local_only: true;
+  external_write_enabled: false;
+  provider_model_call_enabled: false;
+}
+
+export interface CrmAdoptionMutationReceipt {
+  schema_version: "uaa-crm-adoption-mutation-receipt.v1";
+  contract_ref: string;
+  receipt_ref: string;
+  action: string;
+  target_ref?: string | null;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  authority_lease_ref: string;
+  authority_decision_ref: string;
+  before_revision: number;
+  after_revision: number;
+  rollback_ref: string;
+  safe_summary: string;
+  replayed: boolean;
+  local_write_performed: true;
+  external_write_performed: false;
+  raw_private_values_included: false;
+  approval_authority_granted: true;
+}
+
+export interface CrmAdoptionApprovalReceipt {
+  schema_version: "uaa-crm-adoption-approval-receipt.v1";
+  contract_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  preview_ref: string;
+  idempotency_ref: string;
+  expires_at?: string | null;
+  exact_scope_granted: true;
+  mutation_performed: false;
+  external_write_performed: false;
+  raw_private_values_included: false;
+}
+
+export interface CrmPortableBackup {
+  schema_version: "uaa-crm-adoption-portable-backup.v1";
+  contract_ref: string;
+  salt: string;
+  nonce: string;
+  ciphertext: string;
+  ciphertext_fingerprint_ref: string;
+  created_at: string;
+  private_values_encrypted: true;
+  key_material_included: false;
+  raw_paths_included: false;
+}
+
+export interface CrmPortableRestorePreview {
+  schema_version: "uaa-crm-adoption-restore-preview.v1";
+  contract_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  current_state_ref: string;
+  backup_revision: number;
+  record_count: number;
+  affected_count: number | null;
+  impact_status: "exact" | "unknown_current_state";
+  rollback_available: boolean;
+  fresh_lineage_migration: boolean;
+  counts: Record<string, number>;
+  integrity_status: "ok";
+  private_values_included: false;
+  restore_performed: false;
+}
+
 export interface FounderLoopTaskDecompositionStep {
   step_ref: string;
   title: string;

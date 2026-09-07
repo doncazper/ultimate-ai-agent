@@ -1041,6 +1041,307 @@ main {
   color: #52606d;
 }
 
+.crm-adoption {
+  display: grid;
+  gap: 18px;
+}
+
+.crm-adoption-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.crm-adoption-toolbar,
+.crm-adoption-recovery-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(160px, 0.65fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.crm-adoption-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.crm-adoption label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #334e68;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.crm-adoption input,
+.crm-adoption select,
+.crm-adoption textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #bcccdc;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #102a43;
+}
+
+.crm-adoption textarea {
+  resize: vertical;
+}
+
+.crm-adoption input:focus-visible,
+.crm-adoption select:focus-visible,
+.crm-adoption textarea:focus-visible,
+.crm-adoption button:focus-visible,
+.crm-foundation-details summary:focus-visible {
+  outline: 3px solid rgba(47, 128, 237, 0.25);
+  outline-offset: 2px;
+}
+
+.crm-adoption button,
+.crm-adoption-file-button {
+  min-height: 40px;
+}
+
+.crm-adoption button {
+  padding: 9px 12px;
+  border: 1px solid #9fb3c8;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #243b53;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.crm-adoption button:hover:not(:disabled) {
+  border-color: #2f80ed;
+  background: #eef5ff;
+}
+
+.crm-adoption button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.crm-adoption-check {
+  display: flex !important;
+  align-items: center;
+  align-self: center;
+  gap: 8px !important;
+  padding: 8px 0;
+}
+
+.crm-adoption-check input {
+  width: auto;
+}
+
+.crm-adoption-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.82fr) minmax(320px, 1.18fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.crm-adoption-list,
+.crm-adoption-inspector {
+  min-height: 270px;
+}
+
+.crm-adoption-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.crm-adoption-row > span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.crm-adoption-row strong,
+.crm-adoption-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-adoption-row small {
+  color: #627d98;
+  font-weight: 500;
+}
+
+.crm-adoption-row.active {
+  border-color: #2f80ed;
+  background: #eef5ff;
+  box-shadow: inset 3px 0 0 #2f80ed;
+}
+
+.crm-adoption-empty {
+  display: grid;
+  gap: 6px;
+  place-items: center;
+  min-height: 180px;
+  padding: 20px;
+  text-align: center;
+}
+
+.crm-adoption-details {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.crm-adoption-details > div {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.3fr) minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e6edf3;
+}
+
+.crm-adoption-details dt {
+  color: #627d98;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.crm-adoption-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.crm-adoption-subtitle,
+.crm-adoption-notes {
+  white-space: pre-wrap;
+}
+
+.crm-adoption-tags,
+.crm-adoption-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.crm-adoption-tags span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e6f6ff;
+  color: #0b69a3;
+  font-size: 0.8rem;
+}
+
+.crm-adoption-related {
+  margin-top: 16px;
+}
+
+.crm-adoption-related ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.crm-adoption-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-inline-size: 0;
+  padding: 0;
+  margin-top: 16px;
+  border: 0;
+}
+
+.crm-adoption-span-2 {
+  grid-column: 1 / -1;
+}
+
+.crm-adoption-recovery-grid {
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  margin-top: 16px;
+}
+
+.crm-adoption-file-button {
+  position: relative;
+  place-content: center;
+  padding: 9px 12px;
+  overflow: hidden;
+  border: 1px dashed #829ab1;
+  border-radius: 7px;
+  background: #ffffff;
+  text-align: center;
+  cursor: pointer;
+}
+
+.crm-adoption-file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.crm-adoption-confirm-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(16, 42, 67, 0.58);
+}
+
+.crm-adoption-confirm {
+  width: min(540px, 100%);
+  max-height: min(720px, calc(100vh - 40px));
+  padding: 22px;
+  overflow: auto;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(16, 42, 67, 0.25);
+}
+
+.crm-adoption-confirm h3 {
+  margin: 0;
+}
+
+.crm-adoption-confirm ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+}
+
+.crm-foundation-details {
+  margin-top: 18px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.crm-foundation-details > summary {
+  padding: 14px 18px;
+  color: #52606d;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.crm-foundation-details[open] > summary {
+  border-bottom: 1px solid #e6edf3;
+}
+
+.crm-foundation-details .crm-command-center {
+  margin-top: 0;
+}
+
 .safe-ref,
 .safe-ref-list {
   overflow-wrap: anywhere;
@@ -6132,8 +6433,15 @@ th {
   .coding-bottom-drawer,
   .coding-boundary-strip,
   .crm-command-layout,
-  .crm-pipeline {
+  .crm-pipeline,
+  .crm-adoption-layout,
+  .crm-adoption-toolbar,
+  .crm-adoption-recovery-grid {
     grid-template-columns: 1fr;
+  }
+
+  .crm-adoption-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .proof-path-summary {
@@ -6227,6 +6535,24 @@ th {
 }
 
 @media (max-width: 520px) {
+  .crm-adoption-form-grid,
+  .crm-adoption-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-adoption-span-2 {
+    grid-column: auto;
+  }
+
+  .crm-adoption-confirm-backdrop {
+    padding: 10px;
+  }
+
+  .crm-adoption-confirm {
+    max-height: calc(100vh - 20px);
+    padding: 18px;
+  }
+
   .loop-spine > *,
   .loop-spine-header,
   .loop-spine-grid,

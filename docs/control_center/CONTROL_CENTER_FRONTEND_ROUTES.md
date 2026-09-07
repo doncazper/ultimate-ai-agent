@@ -93,7 +93,7 @@ relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
 refs, report refs, local storage posture, redacted import/export preview
 posture, deterministic proposal refs, `contacts/write`-gated exact local
 mutation receipt posture, and blocked authority refs. It does not add connector
-runtime, external CRM writes, account sync, contact import commit, sends,
+runtime, external CRM writes, account sync, external contact import commit, sends,
 calendar writes, provider/model calls, live web, browser automation, public
 beta, public release, production readiness, or production authority.
 `/start`, `/proof`, and `/trust` are backend-owned Founder Loop support
@@ -277,8 +277,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `356`
-with `358` manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `364`
+with `366` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

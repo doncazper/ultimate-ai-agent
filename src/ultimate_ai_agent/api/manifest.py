@@ -66,6 +66,10 @@ CAPABILITIES_DECLARED = [
     "control_center_crm_exact_local_mutation_receipts",
     "control_center_crm_redacted_local_import_export_preview",
     "control_center_crm_deterministic_proposal_layer",
+    "control_center_crm_founder_private_adoption_workspace",
+    "control_center_crm_complete_local_record_lifecycle",
+    "control_center_crm_encrypted_portable_backup_recovery",
+    "control_center_crm_exact_local_approval_authority",
     "control_center_run_observability_read_model",
     "governed_runtime_gateway_contracts",
     "governed_runtime_profiles_manifest",
@@ -809,6 +813,18 @@ CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
 }
 CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS = {
     "/control-center/crm/local-mutations",
+}
+CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS = {
+    "/control-center/crm/adoption",
+    "/control-center/crm/adoption/query",
+    "/control-center/crm/adoption/preview",
+    "/control-center/crm/adoption/backup",
+    "/control-center/crm/adoption/restore-preview",
+}
+CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS = {
+    "/control-center/crm/adoption/approval",
+    "/control-center/crm/adoption/commit",
+    "/control-center/crm/adoption/restore",
 }
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -1561,6 +1577,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "CRM local mutation authority route; contacts/write AuthorityLease, exact local-only approval, idempotency, receipt, rollback-readiness, evidence refs, and blocked external connector/send/write posture required",
+        )
+    if path in CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Founder-private CRM read, exact preview, or encrypted backup preparation route; private values remain confined to the authenticated local response and no external write, connector, provider, model, or production authority is granted.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Founder-private CRM exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact LocalApprovalAuthority validation, one exact operation-budget-one contacts/write AuthorityLease, idempotency, encrypted local persistence, content-free audit receipts, and undo or restore recovery are required while external writes remain blocked.",
         )
     if (
         normalized_method == "POST"

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ControlCenterData } from "../api/types";
+import { CrmAdoptionWorkspace } from "../components/CrmAdoptionWorkspace";
 import { Avatar, Badge, Button, Icon, MetaRow, Panel, SearchField, Tabs, Toolbar } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
@@ -292,7 +293,11 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
       ? `${crm.social_relationship_projection.returned_item_count} of ${crm.social_relationship_projection.total_item_count} shown`
       : "CRM owned";
   return (
-    <div className="ns-surface ns-crm">
+    <div className="ns-surface ns-crm ns-scroll-surface">
+      <CrmAdoptionWorkspace />
+      <details className="crm-foundation-details ns-crm-compatibility">
+        <summary>Legacy CRM v3 compatibility cockpit</summary>
+        <div className="ns-crm-compatibility-content">
       <Toolbar title="CRM v3" subtitle="Relationships, opportunities, and commitments">
         <SearchField onChange={(value) => { setQuery(value); setSelectedIndex(0); }} placeholder="Search safe relationship summaries" value={query} />
         <Button disabled title="Smart-list selection is not yet a local presentation control">Smart views: {crm.smart_lists.length}</Button><Button disabled icon="filter" title="Backend CRM filters are not connected">Filters</Button>
@@ -341,6 +346,8 @@ export function CrmSurface({ data }: { data: ControlCenterData }) {
         </aside>
       </div>
       <div className="ns-receipt-band"><Icon name="shield-check" size={18} tone={backendOwned ? "success" : "warning"} /> {backendOwned ? "Backend-owned CRM read model" : "Non-authoritative CRM fallback"} · Sends, calendar writes, connector writes, and external CRM writes remain blocked</div>
+        </div>
+      </details>
     </div>
   );
 }

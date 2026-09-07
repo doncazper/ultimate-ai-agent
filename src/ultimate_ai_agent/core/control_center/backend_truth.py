@@ -211,7 +211,7 @@ class ControlCenterBackendTruth(BaseModel):
     backend_revision_ref: str
     backend_instance_ref: str
     source_revision_bound: bool
-    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=14)
+    critical_surfaces: list[CriticalSurfaceBinding] = Field(min_length=15)
     evidence_binding: BackendTruthEvidenceBinding
     authority_posture: BackendTruthAuthorityPosture = Field(
         default_factory=BackendTruthAuthorityPosture
@@ -348,6 +348,15 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         label="Settings",
         frontend_paths=["/settings", "/workspace/settings"],
         backend_route_refs=["GET /control-center/settings/status"],
+    ),
+    CriticalSurfaceBinding(
+        surface_ref="critical-surface:crm",
+        label="CRM",
+        frontend_paths=["/workspace/crm"],
+        backend_route_refs=[
+            "GET /control-center/crm/summary",
+            "GET /control-center/crm/adoption",
+        ],
     ),
 )
 

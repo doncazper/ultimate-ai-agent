@@ -340,7 +340,7 @@ def test_backend_truth_route_is_revision_bound_read_only_and_redacted() -> None:
     assert payload["operation"] == "control_center_backend_truth"
     truth = payload["data"]
     assert truth["schema_version"] == "uaa-control-center-backend-truth.v1"
-    assert len(truth["critical_surfaces"]) == 14
+    assert len(truth["critical_surfaces"]) == 15
     assert truth["safe_refs_only"] is True
     assert truth["raw_content_included"] is False
     assert truth["raw_paths_included"] is False
@@ -782,6 +782,14 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/crm/pipelines",
         "/control-center/crm/smart-lists",
         "/control-center/crm/local-mutations",
+        "/control-center/crm/adoption",
+        "/control-center/crm/adoption/query",
+        "/control-center/crm/adoption/preview",
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/backup",
+        "/control-center/crm/adoption/restore-preview",
+        "/control-center/crm/adoption/restore",
         "/control-center/providers/runtime-control-plane",
         "/control-center/social-publishing/proposal",
     }

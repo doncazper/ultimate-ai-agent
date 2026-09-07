@@ -21,6 +21,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
   ["critical-surface:active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
   ["critical-surface:settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
+  ["critical-surface:crm", "CRM", ["/workspace/crm"], ["GET /control-center/crm/summary", "GET /control-center/crm/adoption"]],
 ] as const;
 
 const CRITICAL_FRONTEND_PATHS = new Set([
@@ -49,6 +50,7 @@ const CRITICAL_FRONTEND_PATHS = new Set([
   "/workspace/knowledge",
   "/workspace/activity-trust",
   "/workspace/onboarding",
+  "/workspace/crm",
 ]);
 
 export class BackendTruthValidationError extends Error {
@@ -111,7 +113,10 @@ export async function validateControlCenterBackendTruth(
   if (generatedAt > now + 5_000) fail("BACKEND_TRUTH_FROM_FUTURE");
   if (validUntil <= now) fail("BACKEND_TRUTH_STALE");
 
-  if (!Array.isArray(value.critical_surfaces) || value.critical_surfaces.length !== 14) {
+  if (
+    !Array.isArray(value.critical_surfaces) ||
+    value.critical_surfaces.length !== EXPECTED_SURFACES.length
+  ) {
     fail("BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE");
   }
   value.critical_surfaces.forEach((surface, index) => {

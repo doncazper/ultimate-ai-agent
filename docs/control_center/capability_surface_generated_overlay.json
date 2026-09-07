@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 358,
+    "api_manifest_route_count": 366,
     "release_surface_route_count": 44,
     "visible_action_count": 47,
     "human_capability_count": 32,
@@ -1341,7 +1341,7 @@
           "ui_status": "backend-owned local",
           "release_status": "partial",
           "owner": "crm-local-command-center-m2",
-          "backend_route_count": 7,
+          "backend_route_count": 15,
           "blocked_capability_count": 21,
           "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"
@@ -1356,7 +1356,7 @@
           "release_status": "partial_backend_not_product_ready",
           "side_effect_class": "local_dev_workspace_only",
           "risk_class": "medium",
-          "backend_route_count": 7,
+          "backend_route_count": 15,
           "missing_backend_route_count": 5,
           "source_truth_status": "current"
         },

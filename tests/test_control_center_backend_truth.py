@@ -100,6 +100,11 @@ def test_backend_truth_declares_root_as_overview_not_today() -> None:
         "GET /control-center/settings/status",
     ]
     assert "/" not in by_ref["critical-surface:today"].frontend_paths
+    assert by_ref["critical-surface:crm"].frontend_paths == ["/workspace/crm"]
+    assert by_ref["critical-surface:crm"].backend_route_refs == [
+        "GET /control-center/crm/summary",
+        "GET /control-center/crm/adoption",
+    ]
 
 
 def test_backend_truth_uses_bounded_durable_receipt_candidate_window(

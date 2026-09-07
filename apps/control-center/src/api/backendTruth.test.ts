@@ -77,6 +77,24 @@ function fixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const crmSurface = {
+  surface_ref: "critical-surface:crm",
+  label: "CRM",
+  frontend_paths: ["/workspace/crm"],
+  backend_route_refs: [
+    "GET /control-center/crm/summary",
+    "GET /control-center/crm/adoption",
+  ],
+  contract_status: "backend_contract_declared",
+} as const;
+
+function withCrmSurface(value: ReturnType<typeof fixture>) {
+  return {
+    ...value,
+    critical_surfaces: [...value.critical_surfaces, crmSurface],
+  };
+}
+
 const options = {
   now: new Date("2026-07-22T18:00:10Z"),
   sha256: async () => HASH,
@@ -94,23 +112,23 @@ describe("backend truth validation", () => {
   });
 
   it("accepts the exact current backend-owned envelope", async () => {
-    const value = fixture();
+    const value = withCrmSurface(fixture());
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(14);
+    expect(validated.critical_surfaces).toHaveLength(15);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
   it("accepts invalid durable evidence only with bounded issue and receipt refs", async () => {
-    const base = fixture();
-    const value = fixture({
+    const base = withCrmSurface(fixture());
+    const value = withCrmSurface(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "invalid_evidence",
         receipt_refs: ["receipt-ref:corrupt-durable-proof"],
       },
-    });
+    }));
 
     const validated = await validateControlCenterBackendTruth(value, options);
 
@@ -118,14 +136,14 @@ describe("backend truth validation", () => {
   });
 
   it("accepts storage-unavailable evidence only without receipt claims", async () => {
-    const base = fixture();
-    const value = fixture({
+    const base = withCrmSurface(fixture());
+    const value = withCrmSurface(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "storage_unavailable",
         issue_refs: ["issue-ref:backend-truth-storage-unavailable"],
       },
-    });
+    }));
 
     const validated = await validateControlCenterBackendTruth(value, options);
 
@@ -213,9 +231,20 @@ describe("backend truth validation", () => {
     ],
   ];
 
-  it.each(invalidCases)("rejects %s", async (_label, value, code, nowOverride) => {
+  it.each(invalidCases)("rejects %s", async (label, value, code, nowOverride) => {
+    const candidate =
+      label !== "partial surface set" &&
+      value !== null &&
+      typeof value === "object" &&
+      "critical_surfaces" in value &&
+      Array.isArray(value.critical_surfaces)
+        ? {
+            ...value,
+            critical_surfaces: [...value.critical_surfaces, crmSurface],
+          }
+        : value;
     await expect(
-      validateControlCenterBackendTruth(value, {
+      validateControlCenterBackendTruth(candidate, {
         ...options,
         now: (nowOverride as Date | undefined) ?? options.now,
       }),
@@ -233,7 +262,7 @@ describe("backend truth validation", () => {
     expect(isCriticalControlCenterPath("/workspace/activity-trust")).toBe(true);
     expect(isCriticalControlCenterPath("/runtime")).toBe(true);
     expect(isCriticalControlCenterPath("/settings")).toBe(true);
-    expect(isCriticalControlCenterPath("/workspace/crm")).toBe(false);
+    expect(isCriticalControlCenterPath("/workspace/crm")).toBe(true);
     expect(isCriticalControlCenterPath("/news")).toBe(false);
   });
 });

@@ -49,6 +49,14 @@ import type {
   ControlCenterSettingsStatus,
   ControlCenterStatus,
   CrmLocalCommandCenterReadModel,
+  CrmAdoptionApprovalReceipt,
+  CrmAdoptionMutationPreview,
+  CrmAdoptionMutationReceipt,
+  CrmAdoptionMutationRequest,
+  CrmAdoptionRecordKind,
+  CrmAdoptionWorkspaceView,
+  CrmPortableBackup,
+  CrmPortableRestorePreview,
   TrustAuthorityMatrix,
   TurnHarnessBindingReadModel,
   TurnRouterPreviewReadModel,
@@ -505,6 +513,208 @@ export async function loadControlCenterBackendTruth(): Promise<ControlCenterBack
     API_ENDPOINTS.controlCenterBackendTruth,
   );
   return validateControlCenterBackendTruth(payload);
+}
+
+export async function loadCrmAdoptionWorkspace(
+  query = "",
+  recordKind: CrmAdoptionRecordKind | "" = "",
+  includeArchived = false,
+): Promise<CrmAdoptionWorkspaceView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const params = new URLSearchParams();
+  if (recordKind) params.set("record_kind", recordKind);
+  if (includeArchived) params.set("include_archived", "true");
+  const suffix = params.toString();
+  const normalizedQuery = query.trim();
+  const value = normalizedQuery
+    ? await postCrmAdoptionEnvelope<CrmAdoptionWorkspaceView>(
+        API_ENDPOINTS.crmAdoptionQuery,
+        {
+          query: normalizedQuery,
+          record_kind: recordKind || null,
+          include_archived: includeArchived,
+        },
+        "idempotency-ref:crm-adoption-query:local-read",
+      )
+    : await readEnvelope<CrmAdoptionWorkspaceView>(
+        `${API_ENDPOINTS.crmAdoption}${suffix ? `?${suffix}` : ""}`,
+      );
+  if (
+    value.schema_version !== "uaa-crm-adoption-workspace.v1" ||
+    typeof value.current_state_ref !== "string" ||
+    !value.current_state_ref.startsWith("state-ref:crm-adoption") ||
+    value.private_values_confined_to_local_response !== true ||
+    value.fixture_primary_truth !== false ||
+    value.external_crm_write_enabled !== false ||
+    !Array.isArray(value.records)
+  ) {
+    throw new Error("CRM_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+async function postCrmAdoptionEnvelope<T>(
+  endpoint:
+    | typeof API_ENDPOINTS.crmAdoptionQuery
+    | typeof API_ENDPOINTS.crmAdoptionPreview
+    | typeof API_ENDPOINTS.crmAdoptionApproval
+    | typeof API_ENDPOINTS.crmAdoptionCommit
+    | typeof API_ENDPOINTS.crmAdoptionBackup
+    | typeof API_ENDPOINTS.crmAdoptionRestorePreview
+    | typeof API_ENDPOINTS.crmAdoptionRestore,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
+): Promise<T> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
+    body: JSON.stringify(body),
+  });
+  const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private CRM request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewCrmAdoptionMutation(
+  request: CrmAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<CrmAdoptionMutationPreview> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionPreview,
+    request,
+    idempotencyRef,
+  );
+}
+
+export async function captureCrmAdoptionMutationApproval(
+  request: CrmAdoptionMutationRequest,
+  preview: CrmAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CrmAdoptionApprovalReceipt> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionApproval,
+    {
+      operation: "mutation",
+      mutation: {
+        mutation: request,
+        preview_ref: preview.preview_ref,
+        approval_ref: preview.approval_ref,
+      },
+      restore: null,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitCrmAdoptionMutation(
+  request: CrmAdoptionMutationRequest,
+  preview: CrmAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CrmAdoptionMutationReceipt> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionCommit,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function createCrmPortableBackup(
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CrmPortableBackup> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionBackup,
+    { passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function previewCrmPortableRestore(
+  backup: CrmPortableBackup,
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CrmPortableRestorePreview> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionRestorePreview,
+    { backup, passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function captureCrmPortableRestoreApproval(
+  backup: CrmPortableBackup,
+  passphrase: string,
+  preview: CrmPortableRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CrmAdoptionApprovalReceipt> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionApproval,
+    {
+      operation: "restore",
+      mutation: null,
+      restore: {
+        backup,
+        passphrase,
+        preview_ref: preview.preview_ref,
+        approval_ref: preview.approval_ref,
+      },
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitCrmPortableRestore(
+  backup: CrmPortableBackup,
+  passphrase: string,
+  preview: CrmPortableRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CrmAdoptionMutationReceipt> {
+  return postCrmAdoptionEnvelope(
+    API_ENDPOINTS.crmAdoptionRestore,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
 }
 
 export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {

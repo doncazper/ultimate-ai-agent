@@ -22,13 +22,16 @@ origins:
 
 Allowed browser methods are `GET` and `POST`. Allowed request headers are
 `Authorization`, `Content-Type`, `X-UAA-Idempotency-Key`,
-`X-UAA-Idempotency-Ref`, `X-UAA-Control-Center-Mutation-Binding`,
+`X-UAA-Idempotency-Ref`, `X-UAA-Operator-Confirmed`,
+`X-UAA-Control-Center-Mutation-Binding`,
 `X-UAA-Expected-Backend-Revision-Ref`,
 `X-UAA-Expected-Backend-Instance-Ref`,
 `X-UAA-Expected-Backend-Truth-Ref`, and `X-Requested-With`. `Authorization` is
 allowed only so the UAA-P1-083 local bearer can cross the exact loopback browser
 boundary; the idempotency headers are allowed only for the UAA-P1-084 mutating
-route gate. The backend-truth headers carry the exact admitted local backend
+route gate. The operator-confirmation header carries an explicit local UI
+confirmation signal to exact approval-bound routes and grants no authority by
+itself. The backend-truth headers carry the exact admitted local backend
 revision/process binding for critical Control Center mutations and grant no
 authority themselves. CORS credentials are disabled. Wildcard CORS remains
 denied.

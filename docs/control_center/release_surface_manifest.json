@@ -1350,6 +1350,62 @@
           "operation_id": "post_control_center_crm_local_mutations",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/adoption",
+          "operation_id": "get_control_center_crm_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/query",
+          "operation_id": "query_control_center_crm_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/preview",
+          "operation_id": "preview_control_center_crm_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/approval",
+          "operation_id": "capture_control_center_crm_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/commit",
+          "operation_id": "commit_control_center_crm_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/backup",
+          "operation_id": "create_control_center_crm_adoption_backup",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/restore-preview",
+          "operation_id": "preview_control_center_crm_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/adoption/restore",
+          "operation_id": "commit_control_center_crm_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",
@@ -1359,11 +1415,13 @@
         "scripts/verify_control_center_release_surface.py",
         "scripts/verify_control_center_visual_regression.py",
         "scripts/verify_crm_local_command_center.py",
+        "scripts/verify_queue_v2_q32_crm_functional_adoption.py",
         "scripts/verify_crm_m1_fixture_only_vertical_shell.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_crm_local_command_center.py",
         "tests/test_crm_local_command_center_api_routes.py",
         "tests/test_crm_m1_fixture_only_vertical_shell.py",
+        "tests/test_queue_v2_q32_crm_functional_adoption.py",
         "apps/control-center/src/App.test.tsx",
         "apps/control-center/tests/visual/foundation-surfaces.real.spec.ts"
       ],
@@ -1371,13 +1429,13 @@
         "crm_visual_baseline_proof",
         "crm_connector_read_lane_authority",
         "crm_send_write_authority_lane",
-        "crm_contact_import_commit_authority",
+        "external_crm_contact_import_commit_authority",
         "crm_account_sync_authority",
         "connector_runtime",
         "connector_writes",
         "external_crm_write",
         "account_sync",
-        "contact_import_commit",
+        "external_contact_import_commit",
         "send",
         "calendar_write",
         "provider_model_calls",
@@ -1393,10 +1451,13 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "apps/control-center/src/components/CrmM1FixtureShellPanel.tsx",
+        "apps/control-center/src/components/CrmAdoptionWorkspace.tsx",
+        "src/ultimate_ai_agent/core/crm/adoption.py",
         "src/ultimate_ai_agent/core/crm/local_command_center.py",
         "scripts/dev/uaa_crm.py",
         "scripts/verify_crm_local_command_center.py",
         "docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md",
+        "docs/control_center/Q32_CRM_FUNCTIONAL_ADOPTION.md",
         "docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md",
         "docs/control_center/visual_regression_manifest.json",
         "docs/control_center/route_status_manifest.json",
@@ -1412,7 +1473,7 @@
         "Keep CRM local mutation persistence bound to active contacts/write AuthorityLease scope, exact approval, idempotency, receipts, rollback/safe-disable posture, and tests.",
         "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted.",
         "Add accepted exact-scoped connector read-lane authority before claiming source sync or external CRM reads.",
-        "Add accepted exact-scoped send/write authority, rollback posture, and redacted receipts before any external CRM write, send, calendar write, contact import commit, or account sync claim."
+        "Add accepted exact-scoped send/write authority, rollback posture, and redacted receipts before any external CRM write, send, calendar write, external contact import commit, or account sync claim."
       ],
       "product_language_caveats": [
         "Release status is partial because /crm is a local backend-owned command center, not a public beta, public release, production readiness, or production authority claim.",

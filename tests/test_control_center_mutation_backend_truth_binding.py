@@ -267,3 +267,29 @@ def test_browser_product_and_runtime_mutations_require_truth_binding(
 
     assert response.status_code == 409
     assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/restore",
+    ],
+)
+def test_browser_crm_adoption_mutations_require_truth_binding(
+    monkeypatch,
+    path: str,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        path,
+        headers={"Origin": ORIGIN},
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )

@@ -19,6 +19,7 @@ The runtime gate applies to selected route groups:
 - `memory_review_decision`
 - `memory_context_pack_action_proposal`
 - `memory_feedback`
+- `crm_adoption`
 - `provider_credential_validation`
 - `provider_exact_approved_lane`
 - `provider_router_dry_run`

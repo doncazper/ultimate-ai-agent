@@ -66,6 +66,6 @@ safe-disable posture, proof/evidence refs, and the promotion path. It does not
 read from external sources.
 
 CRM does not have connector runtime, external CRM writeback, account sync,
-contact import commit, sends, calendar writes, provider/model calls, live web,
+external contact import commit, sends, calendar writes, provider/model calls, live web,
 no live web fetching, browser automation, background autonomy, public beta,
 public release, production readiness, or production authority.

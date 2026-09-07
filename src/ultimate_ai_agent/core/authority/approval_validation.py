@@ -299,6 +299,7 @@ class AuthorityLeaseApprovalStore:
         idempotency_ref: str,
         approval_ref: str,
         approved_by_actor_id: str,
+        approval_ttl_minutes: int | None = None,
     ) -> ApprovalGrant:
         validate_task_ref(idempotency_ref, "authority_lease_approval_idempotency_ref")
         validate_task_ref(approval_ref, "authority_lease_approval_ref")
@@ -306,6 +307,8 @@ class AuthorityLeaseApprovalStore:
             approved_by_actor_id,
             "authority_lease_approval_actor_ref",
         )
+        if approval_ttl_minutes is not None and not 1 <= approval_ttl_minutes <= 480:
+            raise ValueError("AUTHORITY_LEASE_APPROVAL_TTL_INVALID")
         with self.lock_manager.acquire(AUTHORITY_STATE_LOCK_KEY):
             generation, records = self._read_state_unlocked()
             existing_match = next(
@@ -326,14 +329,24 @@ class AuthorityLeaseApprovalStore:
                     raise AuthorityLeaseApprovalConflictError(
                         "AUTHORITY_LEASE_APPROVAL_REF_CONFLICT"
                     )
-                if _approval_record_is_current(existing, now=utc_now()):
+                ttl_matches = approval_ttl_minutes is None or (
+                    existing.grant.expires_at is not None
+                    and existing.grant.expires_at - existing.grant.created_at
+                    <= timedelta(minutes=approval_ttl_minutes)
+                )
+                if _approval_record_is_current(
+                    existing, now=utc_now()
+                ) and ttl_matches:
                     return existing.grant.model_copy(deep=True)
             else:
                 existing_index = None
             signing_key = self._read_signing_key_unlocked(create=True)
             authority = LocalApprovalAuthority()
             approval_request = authority.create_request(
-                build_authority_lease_approval_request(requirement)
+                build_authority_lease_approval_request(
+                    requirement,
+                    approval_ttl_minutes=approval_ttl_minutes,
+                )
             )
             grant = authority.grant(
                 approval_request.approval_request_id,
@@ -862,7 +875,11 @@ def _approval_state_denial(
 
 def build_authority_lease_approval_request(
     requirement: AuthorityLeaseApprovalRequirement,
+    *,
+    approval_ttl_minutes: int | None = None,
 ) -> ApprovalRequest:
+    if approval_ttl_minutes is not None and not 1 <= approval_ttl_minutes <= 480:
+        raise ValueError("AUTHORITY_LEASE_APPROVAL_TTL_INVALID")
     return ApprovalRequest(
         approval_request_id=requirement.approval_request_ref,
         run_id=requirement.run_ref,
@@ -884,7 +901,12 @@ def build_authority_lease_approval_request(
         resource_refs=list(requirement.resource_refs),
         event_ref=requirement.approval_scope_ref,
         trace_id=requirement.approval_scope_ref,
-        expires_at=utc_now() + timedelta(hours=1),
+        expires_at=utc_now()
+        + (
+            timedelta(minutes=approval_ttl_minutes)
+            if approval_ttl_minutes is not None
+            else timedelta(hours=1)
+        ),
         metadata={
             "approval_scope_ref": requirement.approval_scope_ref,
             "authority_lease_approval_required": requirement.approval_required,
@@ -946,6 +968,7 @@ def capture_authority_lease_backend_approval(
     idempotency_ref: str,
     approved_by_actor_id: str,
     approval_ref: str | None = None,
+    approval_ttl_minutes: int | None = None,
 ) -> tuple[AuthorityLeaseApprovalRequirement, ApprovalGrant | None]:
     requirement = build_authority_lease_approval_requirement_for_request(
         request,
@@ -964,6 +987,7 @@ def capture_authority_lease_backend_approval(
         idempotency_ref=idempotency_ref,
         approval_ref=resolved_ref,
         approved_by_actor_id=approved_by_actor_id,
+        approval_ttl_minutes=approval_ttl_minutes,
     )
     return requirement, grant
 
