@@ -85,12 +85,22 @@ test("workspace preview renders while every backend read is pending", async ({ p
   await page.route("**/api/runtime/**", keepPending);
   await page.route("**/runtime/**", keepPending);
 
-  await page.goto("/workspace/crm", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "CRM v3" })).toBeVisible({
+  await page.goto("/workspace/communications", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Communications" })).toBeVisible({
     timeout: 2_500,
   });
-  await expect(page.getByText("Preview data", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Call$/i })).toBeDisabled();
+  await expect(page.getByText("Fixture-only surface", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Filters" })).toBeDisabled();
+});
+
+test("CRM workspace fails closed without complete backend truth", async ({ page }) => {
+  await page.goto("/workspace/crm");
+  await expect(
+    page.getByRole("heading", {
+      name: /is not showing unverified product state$/,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("Mock fallback active")).toHaveCount(0);
 });
 
 for (const [route, visibleText] of legacyRenderSurfaces) {
@@ -179,7 +189,7 @@ test("icon library contains its desktop catalog inside the viewport", async ({ p
 });
 
 test("UAA sidecar reference state renders", async ({ page }) => {
-  await page.goto("/workspace/crm?sidecar=open");
+  await page.goto("/workspace/communications?sidecar=open");
   await expect(page.locator(".ns-sidecar")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "UAA sidecar" })).toBeVisible();
 });
@@ -201,7 +211,7 @@ test("Studio Create, Chat, and Code modes render", async ({ page }) => {
 
 test("compact desktop shell stays within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
-  await page.goto("/workspace/crm");
+  await page.goto("/workspace/communications");
   await expect(page.locator(".ns-sidebar")).toBeVisible();
   const horizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

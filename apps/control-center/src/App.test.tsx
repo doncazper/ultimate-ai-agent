@@ -17069,16 +17069,15 @@ describe("Web Control Center shell", () => {
       "fetch",
       vi.fn(() => new Promise(() => undefined)),
     );
-    window.history.pushState({}, "", "/workspace/crm");
+    window.history.pushState({}, "", "/workspace/communications");
     const view = render(<App />);
 
     try {
       expect(
-        await screen.findByRole("heading", { name: "CRM v3" }),
+        await screen.findByRole("heading", { name: "Communications" }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Preview data")).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /^Call$/i }),
+        screen.getByRole("button", { name: /^Filters$/i }),
       ).toBeDisabled();
       expect(
         screen.queryByText(/CRM is loading local route state/i),
@@ -17092,12 +17091,7 @@ describe("Web Control Center shell", () => {
 
   it("requires backend-owned CRM route state before admitting CRM mutations", () => {
     const backendOwned = structuredClone(mockControlCenterData);
-    for (const route of [
-      "/crm",
-      "/critical/dashboard-read-model",
-      "/chat",
-      "/settings",
-    ]) {
+    for (const route of ["/crm", "/settings"]) {
       backendOwned.routeStates[route] = {
         ...mockControlCenterData.routeStates["/crm"],
         route,
@@ -17117,6 +17111,18 @@ describe("Web Control Center shell", () => {
           ...backendOwned.routeStates,
           "/crm": {
             ...backendOwned.routeStates["/crm"],
+            state: "mock_fallback",
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/crm", {
+        ...backendOwned,
+        routeStates: {
+          ...backendOwned.routeStates,
+          "/settings": {
+            ...backendOwned.routeStates["/settings"],
             state: "mock_fallback",
           },
         },

@@ -154,8 +154,8 @@
         "mobile": "visual-baseline-file:mobile:crm"
       },
       "baseline_hashes": {
-        "desktop": "sha256:0feb248b9a5b43f0cdd95d1503b3d8c8e75604f2df53de2d404964c03ccc4d93",
-        "mobile": "sha256:f45a3000ea658c9c2cde378e4ecdeeb50a9cbc0877a11508c0fdd1632c1b0ee6"
+        "desktop": "sha256:95a9d0ad4df6959d2f7735be38c32ef89df6df8e60b6b9344cbf955283469ae2",
+        "mobile": "sha256:99c6662e32ff19fb2ec91c95d81d166e3a4b7d805547a7ba33eed559d301f9d1"
       },
       "raw_private_screenshot_included": false
     },
