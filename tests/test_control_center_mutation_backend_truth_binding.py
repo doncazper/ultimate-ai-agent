@@ -240,13 +240,13 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/memory/review/candidate-ref/accept",
         "/control-center/memory/review/candidate-ref/forget-request",
         "/control-center/memory/context-packs/context-pack-ref/action-proposal",
-        "/control-center/crm/adoption/approval",
-        "/control-center/crm/adoption/commit",
-        "/control-center/crm/adoption/restore",
         "/api/runtime/goals",
         "/api/runtime/goals/approval-requests/create",
         "/api/runtime/goals/approval-requests/revoke",
-        ("/api/runtime/goals/approval-requests/approval-request-ref:browser/decision"),
+        (
+            "/api/runtime/goals/approval-requests/"
+            "approval-request-ref:browser/decision"
+        ),
         "/api/runtime/goals/goal-ref/approval-requests/edit",
         "/api/runtime/goals/goal-ref/approval-requests/transition",
         "/api/runtime/goals/goal-ref/edit",
@@ -267,3 +267,29 @@ def test_browser_product_and_runtime_mutations_require_truth_binding(
 
     assert response.status_code == 409
     assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/control-center/crm/adoption/approval",
+        "/control-center/crm/adoption/commit",
+        "/control-center/crm/adoption/restore",
+    ],
+)
+def test_browser_crm_adoption_mutations_require_truth_binding(
+    monkeypatch,
+    path: str,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        path,
+        headers={"Origin": ORIGIN},
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )
