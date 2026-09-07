@@ -744,6 +744,10 @@ class CrmAdoptionStore:
         elif request.action == "undo":
             if not state.undo_stack:
                 raise CrmAdoptionConflict("CRM_ADOPTION_UNDO_EMPTY")
+            affected_count = self._snapshot_affected_count(
+                state,
+                state.undo_stack[-1],
+            )
         else:
             rows = self._parse_import(str(request.csv_text))
             labels = [item.display_name for item in rows]
@@ -1075,14 +1079,14 @@ class CrmAdoptionStore:
                 idempotency_ref=idempotency_ref,
             )
             after_revision = max(current.revision, restored.revision) + 1
-            undo_stack = [
-                *restored.undo_stack,
-                *(
-                    [current.snapshot()]
-                    if current_readable and self.state_file.exists()
-                    else []
-                ),
-            ][-CRM_ADOPTION_MAX_UNDO:]
+            # A portable backup can come from another workspace lineage. Keep
+            # only the exact pre-restore snapshot as a local rollback point so
+            # repeated Undo cannot traverse foreign history from the backup.
+            undo_stack = (
+                [current.snapshot()]
+                if current_readable and self.state_file.exists()
+                else []
+            )
             receipt = CrmAdoptionMutationReceipt(
                 receipt_ref=_hash_ref(
                     "receipt-ref:crm-adoption-restore",
@@ -1304,7 +1308,11 @@ class CrmAdoptionStore:
         if self.key_file.exists():
             if self.key_file.is_symlink() or not self.key_file.is_file():
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNSAFE")
-            key = self.key_file.read_bytes()
+            if self.key_file.stat().st_size != 32:
+                raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
+            # Keep the read bounded even if the file changes after the stat.
+            with self.key_file.open("rb") as handle:
+                key = handle.read(33)
             if len(key) != 32:
                 raise CrmAdoptionError("CRM_ADOPTION_KEY_UNAVAILABLE")
             return key
@@ -2142,6 +2150,18 @@ class CrmAdoptionStore:
             else:
                 known.update(keys)
         return duplicates
+
+    @staticmethod
+    def _snapshot_affected_count(
+        current: CrmAdoptionSnapshot,
+        target: CrmAdoptionSnapshot,
+    ) -> int:
+        current_records = {item.record_ref: item for item in current.records}
+        target_records = {item.record_ref: item for item in target.records}
+        return sum(
+            current_records.get(record_ref) != target_records.get(record_ref)
+            for record_ref in current_records.keys() | target_records.keys()
+        )
 
     @staticmethod
     def _counts(records: list[CrmAdoptionRecord]) -> dict[str, int]:

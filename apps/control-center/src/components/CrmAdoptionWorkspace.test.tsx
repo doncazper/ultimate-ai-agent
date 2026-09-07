@@ -166,6 +166,28 @@ describe("CrmAdoptionWorkspace", () => {
     expect(screen.getByRole("button", { name: "Undo last change" })).toBeEnabled();
   });
 
+  it("submits one deliberate private search instead of querying per keystroke", async () => {
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+    apiMocks.loadCrmAdoptionWorkspace.mockClear();
+
+    const search = screen.getByLabelText("Search private CRM");
+    fireEvent.change(search, { target: { value: "P" } });
+    fireEvent.change(search, { target: { value: "Private" } });
+    fireEvent.change(search, { target: { value: "Private Person" } });
+    expect(apiMocks.loadCrmAdoptionWorkspace).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() =>
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(1),
+    );
+    expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledWith(
+      "Private Person",
+      "",
+      false,
+    );
+  });
+
   it("previews and explicitly confirms a new local record", async () => {
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>

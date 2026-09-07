@@ -619,6 +619,53 @@ def test_csv_import_requires_preview_and_never_silently_merges(tmp_path: Path) -
     assert digitless_preview.duplicate_candidate_count == 0
 
 
+def test_restore_undo_reports_exact_record_impact_and_stops_at_local_lineage(
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Backup Person"), suffix="source-create")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target = CrmAdoptionStore(tmp_path / "target")
+    _commit(target, _create_request(name="Current Person"), suffix="target-create")
+    restore_request = CrmPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=backup,
+    )
+    restore_preview = target.preview_restore(restore_request)
+    restore_commit = CrmPortableRestoreCommitRequest(
+        **restore_request.model_dump(mode="python"),
+        preview_ref=restore_preview.preview_ref,
+        approval_ref=restore_preview.approval_ref,
+    )
+    restore_idempotency_ref = "idempotency-ref:crm-adoption-test:lineage-restore"
+    _capture_restore(
+        target,
+        restore_commit,
+        idempotency_ref=restore_idempotency_ref,
+    )
+    target.commit_restore(
+        request=restore_commit,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+
+    undo_request = CrmAdoptionMutationRequest(action="undo", expected_revision=2)
+    undo_preview = target.preview_mutation(undo_request)
+    assert undo_preview.affected_count == 2
+    _commit(target, undo_request, suffix="lineage-undo")
+    assert [item.display_name for item in target.read_view().records] == [
+        "Current Person"
+    ]
+    with pytest.raises(CrmAdoptionConflict, match="UNDO_EMPTY"):
+        target.preview_mutation(
+            CrmAdoptionMutationRequest(action="undo", expected_revision=3)
+        )
+
+
 def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     tmp_path: Path,
 ) -> None:
@@ -735,9 +782,18 @@ def test_encrypted_portable_backup_restores_on_another_store_and_recovers(
     )
     recovered_state = invalid_key_target._read_state()
     assert recovered_state.records[0].display_name == "Private Person"
-    assert len(recovered_state.undo_stack) == len(source._read_state().undo_stack)
+    assert recovered_state.undo_stack == []
     assert invalid_key_target.key_file.stat().st_size == 32
     assert len(list(invalid_key_target.state_dir.glob("*.invalid-*"))) == 1
+
+
+def test_key_read_rejects_wrong_size_before_materializing_file(tmp_path: Path) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    store.state_dir.mkdir(parents=True)
+    store.key_file.write_bytes(b"x" * 1_000_000)
+
+    with pytest.raises(CrmAdoptionError, match="KEY_UNAVAILABLE"):
+        store._read_key()
 
 
 def test_restore_audit_failure_is_repaired_by_exact_replay(
@@ -957,6 +1013,7 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
         },
     )
     assert approval.status_code == 200
+    assert approval.headers["Cache-Control"] == "no-store"
     assert approval.json()["data"]["mutation_performed"] is False
 
     committed = client.post(
@@ -968,6 +1025,7 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
         },
     )
     assert committed.status_code == 200
+    assert committed.headers["Cache-Control"] == "no-store"
     assert committed.json()["data"]["external_write_performed"] is False
     assert committed.json()["data"]["approval_authority_granted"] is True
     populated = client.post(
@@ -986,9 +1044,62 @@ def test_control_center_private_crm_routes_complete_exact_local_loop(
         headers={"X-UAA-Idempotency-Key": "idempotency-ref:crm-api:backup"},
     )
     assert backup_response.status_code == 200
+    assert backup_response.headers["Cache-Control"] == "no-store"
     backup = backup_response.json()["data"]
     assert "Private Person" not in json.dumps(backup)
     assert backup["private_values_encrypted"] is True
+
+    restore_preview_response = client.post(
+        "/control-center/crm/adoption/restore-preview",
+        json={
+            "passphrase": "correct horse battery staple",
+            "backup": backup,
+        },
+    )
+    assert restore_preview_response.status_code == 200
+    assert restore_preview_response.headers["Cache-Control"] == "no-store"
+    restore_preview = restore_preview_response.json()["data"]
+    restore_body = {
+        "passphrase": "correct horse battery staple",
+        "backup": backup,
+        "preview_ref": restore_preview["preview_ref"],
+        "approval_ref": restore_preview["approval_ref"],
+    }
+    restore_headers = {
+        "X-UAA-Idempotency-Key": "idempotency-ref:crm-api:restore",
+        "X-UAA-Operator-Confirmed": "true",
+    }
+    restore_approval = client.post(
+        "/control-center/crm/adoption/approval",
+        json={"operation": "restore", "mutation": None, "restore": restore_body},
+        headers=restore_headers,
+    )
+    assert restore_approval.status_code == 200
+    assert restore_approval.headers["Cache-Control"] == "no-store"
+    restored = client.post(
+        "/control-center/crm/adoption/restore",
+        json=restore_body,
+        headers=restore_headers,
+    )
+    assert restored.status_code == 200
+    assert restored.headers["Cache-Control"] == "no-store"
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/control-center/crm/adoption"),
+        ("post", "/control-center/crm/adoption/query"),
+        ("post", "/control-center/crm/adoption/preview"),
+        ("post", "/control-center/crm/adoption/backup"),
+        ("post", "/control-center/crm/adoption/restore-preview"),
+    ],
+)
+def test_private_crm_routes_are_never_cached(method: str, path: str) -> None:
+    client = TestClient(app)
+    response = client.request(method, path, json={} if method == "post" else None)
+
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> None:
@@ -1005,6 +1116,7 @@ def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> No
     )
 
     assert oversized.status_code == 413
+    assert oversized.headers["Cache-Control"] == "no-store"
     assert oversized.headers["Access-Control-Allow-Origin"] == origin
     assert oversized.json() == {
         "detail": "The private CRM request body exceeds the permitted local bound.",
@@ -1022,6 +1134,7 @@ def test_crm_restore_body_guard_rejects_oversize_and_deep_json_with_cors() -> No
         headers={"content-type": "application/json", "Origin": origin},
     )
     assert nested.status_code == 413
+    assert nested.headers["Cache-Control"] == "no-store"
     assert nested.headers["Access-Control-Allow-Origin"] == origin
     assert nested.json()["code"] == "CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"
 

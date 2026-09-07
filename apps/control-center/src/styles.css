@@ -1064,6 +1064,14 @@ main {
   background: #f8fafc;
 }
 
+.crm-adoption-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
 .crm-adoption label {
   display: grid;
   gap: 6px;

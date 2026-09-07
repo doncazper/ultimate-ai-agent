@@ -28,6 +28,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
     ["settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
+    ["crm", "CRM", ["/workspace/crm"], ["GET /control-center/crm/summary", "GET /control-center/crm/adoption"]],
   ] as const;
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
@@ -98,7 +99,7 @@ describe("backend truth validation", () => {
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(14);
+    expect(validated.critical_surfaces).toHaveLength(15);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
@@ -148,7 +149,7 @@ describe("backend truth validation", () => {
     ],
     [
       "partial surface set",
-      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 13) }),
+      fixture({ critical_surfaces: fixture().critical_surfaces.slice(0, 14) }),
       "BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE",
     ],
     [
@@ -233,7 +234,7 @@ describe("backend truth validation", () => {
     expect(isCriticalControlCenterPath("/workspace/activity-trust")).toBe(true);
     expect(isCriticalControlCenterPath("/runtime")).toBe(true);
     expect(isCriticalControlCenterPath("/settings")).toBe(true);
-    expect(isCriticalControlCenterPath("/workspace/crm")).toBe(false);
+    expect(isCriticalControlCenterPath("/workspace/crm")).toBe(true);
     expect(isCriticalControlCenterPath("/news")).toBe(false);
   });
 });

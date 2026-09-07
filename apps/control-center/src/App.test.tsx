@@ -35,7 +35,7 @@ vi.mock("./api/backendTruth", async (importOriginal) => {
     isCriticalControlCenterPath: () => false,
   };
 });
-import { App, NorthStarRoute } from "./App";
+import { App, criticalRouteDataIsBackendOwned, NorthStarRoute } from "./App";
 import { BackendTruthMutationBindingProvider } from "./backendTruthMutationBinding";
 import {
   API_ENDPOINTS,
@@ -17088,6 +17088,40 @@ describe("Web Control Center shell", () => {
       cleanup();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("requires backend-owned CRM route state before admitting CRM mutations", () => {
+    const backendOwned = structuredClone(mockControlCenterData);
+    for (const route of [
+      "/crm",
+      "/critical/dashboard-read-model",
+      "/chat",
+      "/settings",
+    ]) {
+      backendOwned.routeStates[route] = {
+        ...mockControlCenterData.routeStates["/crm"],
+        route,
+        state: "backend_owned",
+      };
+    }
+    expect(
+      criticalRouteDataIsBackendOwned(
+        "/workspace/crm",
+        backendOwned,
+      ),
+    ).toBe(true);
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/crm", {
+        ...backendOwned,
+        routeStates: {
+          ...backendOwned.routeStates,
+          "/crm": {
+            ...backendOwned.routeStates["/crm"],
+            state: "mock_fallback",
+          },
+        },
+      }),
+    ).toBe(false);
   });
 
   it("fails closed without backend reads when the workspace module cannot load", async () => {

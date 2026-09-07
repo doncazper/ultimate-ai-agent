@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -113,7 +112,7 @@ export function CrmAdoptionWorkspace() {
     null,
   );
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query);
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<CrmAdoptionRecordKind | "">("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [selectedRef, setSelectedRef] = useState("");
@@ -133,7 +132,7 @@ export function CrmAdoptionWorkspace() {
   const refresh = useCallback(async () => {
     setError("");
     const next = await loadCrmAdoptionWorkspace(
-      deferredQuery,
+      submittedQuery,
       kindFilter,
       includeArchived,
     );
@@ -143,12 +142,12 @@ export function CrmAdoptionWorkspace() {
         ? current
         : (next.records[0]?.record_ref ?? ""),
     );
-  }, [deferredQuery, includeArchived, kindFilter]);
+  }, [includeArchived, kindFilter, submittedQuery]);
 
   useEffect(() => {
     let cancelled = false;
     setError("");
-    loadCrmAdoptionWorkspace(deferredQuery, kindFilter, includeArchived)
+    loadCrmAdoptionWorkspace(submittedQuery, kindFilter, includeArchived)
       .then((next) => {
         if (cancelled) return;
         setWorkspace(next);
@@ -170,7 +169,7 @@ export function CrmAdoptionWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [deferredQuery, includeArchived, kindFilter]);
+  }, [includeArchived, kindFilter, submittedQuery]);
 
   const selected = useMemo(
     () => workspace?.records.find((item) => item.record_ref === selectedRef),
@@ -539,15 +538,26 @@ export function CrmAdoptionWorkspace() {
       </div>
 
       <div className="crm-adoption-toolbar">
-        <label>
-          <span>Search private CRM</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Name, address, company, note, tag…"
-          />
-        </label>
+        <form
+          className="crm-adoption-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSubmittedQuery(query);
+          }}
+        >
+          <label>
+            <span>Search private CRM</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Name, address, company, note, tag…"
+            />
+          </label>
+          <button type="submit" disabled={busy}>
+            Search
+          </button>
+        </form>
         <label>
           <span>Record type</span>
           <select

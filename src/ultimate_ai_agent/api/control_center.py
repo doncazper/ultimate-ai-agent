@@ -149,6 +149,21 @@ def _crm_json_nesting_exceeds_limit(body: bytes) -> bool:
     return False
 
 
+def _crm_no_store_send(send: Send) -> Send:
+    async def no_store_send(message: Message) -> None:
+        if message["type"] == "http.response.start":
+            headers = [
+                (name, value)
+                for name, value in message.get("headers", [])
+                if name.lower() != b"cache-control"
+            ]
+            headers.append((b"cache-control", b"no-store"))
+            message = {**message, "headers": headers}
+        await send(message)
+
+    return no_store_send
+
+
 class CrmAdoptionBodyLimitMiddleware:
     def __init__(
         self,
@@ -167,6 +182,8 @@ class CrmAdoptionBodyLimitMiddleware:
         ):
             await self.app(scope, receive, send)
             return
+
+        send = _crm_no_store_send(send)
 
         for name, value in scope.get("headers", ()):
             if name.lower() != b"content-length":
@@ -237,6 +254,22 @@ class CrmAdoptionBodyLimitMiddleware:
         await response(scope, receive, send)
 
 
+class CrmAdoptionPrivateResponseMiddleware:
+    """Prevent authenticated founder-private CRM responses from being cached."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope.get("path", "").startswith(
+            "/control-center/crm/adoption"
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        await self.app(scope, receive, _crm_no_store_send(send))
+
+
 def register_control_center_routes(
     app: FastAPI,
     *,
@@ -246,6 +279,7 @@ def register_control_center_routes(
     _task_decomposition_service_getter = task_decomposition_service_getter
     if not getattr(app.state, _REGISTERED_ATTR, False):
         app.add_middleware(CrmAdoptionBodyLimitMiddleware)
+        app.add_middleware(CrmAdoptionPrivateResponseMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
 
