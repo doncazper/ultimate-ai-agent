@@ -13,7 +13,6 @@ const apiMocks = vi.hoisted(() => ({
   recordManualMemoryCandidate: vi.fn(),
   revokeAuthorityLease: vi.fn(),
   fetchControlCenterSettingsStatus: vi.fn(),
-  loadCrmAdoptionWorkspace: vi.fn(),
 }));
 
 const mutationBinding = {
@@ -344,36 +343,6 @@ function attachExactPlansBridge(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
-    schema_version: "uaa-crm-adoption-workspace.v1",
-    contract_ref: "contract-ref:queue-v2-q32-crm-adoption:v1",
-    foundation_contract_ref: "uaa-eco-005-crm-private-portfolio.v1",
-    storage_state: "empty",
-    revision: 0,
-    workspace_name: "Founder private CRM",
-    workspace_preset: "founder_private",
-    records: [],
-    counts: {
-      person: 0,
-      organization: 0,
-      property: 0,
-      relationship: 0,
-      opportunity: 0,
-      activity: 0,
-      follow_up: 0,
-    },
-    can_undo: false,
-    next_safe_action: "Capture or review a local CRM record.",
-    private_values_included: true,
-    private_values_confined_to_local_response: true,
-    raw_paths_included: false,
-    fixture_primary_truth: false,
-    connector_runtime_enabled: false,
-    external_crm_write_enabled: false,
-    send_enabled: false,
-    provider_model_call_enabled: false,
-    production_authority_enabled: false,
-  });
 });
 
 afterEach(() => {
@@ -822,8 +791,6 @@ describe("North Star backend wiring", () => {
     Object.assign(data.crmLocalCommandCenter.social_relationship_projection, { backend_owned: true });
     for (const item of data.crmLocalCommandCenter.social_relationship_projection.items) item.backend_owned = true;
     const { rerender } = render(<NorthStarControlCenter activePath="/workspace/crm" data={data} />);
-    expect(screen.getByRole("heading", { name: "Your CRM" })).toBeVisible();
-    expect(screen.getByText("Founder-private workspace")).toBeVisible();
     expect(screen.getByText(/Backend-owned CRM read model/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
     expect(screen.getByText("Social relationship context")).toBeVisible();

@@ -7,6 +7,8 @@ import type {
   CrmAdoptionWorkspaceView,
 } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
+import { mockControlCenterData } from "../mocks/controlCenterData";
+import { CrmSurface } from "../northstar/PrimarySurfaces";
 import {
   CrmAdoptionWorkspace,
   crmLocalDateTimeInputValue,
@@ -139,6 +141,16 @@ describe("CrmAdoptionWorkspace", () => {
       schema_version: "uaa-crm-adoption-approval-receipt.v1",
     });
     apiMocks.commitCrmAdoptionMutation.mockResolvedValue(receipt);
+  });
+
+  it("mounts founder-private CRM adoption on the primary CRM surface", async () => {
+    render(<CrmSurface data={structuredClone(mockControlCenterData)} />);
+
+    expect(screen.getByRole("heading", { name: "Your CRM" })).toBeVisible();
+    expect(screen.getByText("Founder-private workspace")).toBeVisible();
+    await waitFor(() =>
+      expect(apiMocks.loadCrmAdoptionWorkspace).toHaveBeenCalledTimes(1),
+    );
   });
 
   it("renders real private records while keeping external authority off", async () => {
