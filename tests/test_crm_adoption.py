@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -302,6 +302,62 @@ def test_state_write_failure_does_not_publish_audit(
     )
     assert retry_approval.approval_ref == preview.approval_ref
     assert retried.after_revision == 1
+
+
+def test_expired_lease_uses_a_fresh_retry_scope_without_a_failed_commit(
+    tmp_path: Path,
+) -> None:
+    store = CrmAdoptionStore(tmp_path / "crm")
+    request = _create_request()
+    preview = store.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:expired-lease-retry"
+    capture_request = CrmAdoptionApprovalCaptureRequest(
+        operation="mutation",
+        mutation=CrmAdoptionCommitRequest(
+            mutation=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+    )
+    store.capture_approval(
+        request=capture_request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    store._authorize_exact_local_write(
+        action=request.action,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+        payload_fingerprint_ref=store._mutation_fingerprint(request),
+        expected_revision=request.expected_revision,
+        idempotency_ref=idempotency_ref,
+    )
+    lease_store = AuthorityLeaseStore(store.state_dir / "authority")
+    leases = lease_store.list_leases()
+    assert len(leases) == 1
+    lease_store._write_leases(
+        [
+            leases[0].model_copy(
+                update={"expires_at": datetime.now(timezone.utc) - timedelta(minutes=1)}
+            )
+        ]
+    )
+
+    store.capture_approval(
+        request=capture_request,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    receipt = store.commit_mutation(
+        request=request,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+
+    assert receipt.after_revision == 1
+    assert len(AuthorityLeaseStore(store.state_dir / "authority").list_leases()) == 2
 
 
 def test_ambiguous_state_publication_preserves_journal_for_restart_recovery(
@@ -850,6 +906,79 @@ def test_restore_audit_failure_is_repaired_by_exact_replay(
     assert replay.replayed is True
     assert target.audit_file.exists()
     assert attempts == 1
+
+
+def test_corrupt_state_recovery_preserves_and_replaces_orphan_pending_audit(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = CrmAdoptionStore(tmp_path / "source")
+    _commit(source, _create_request(name="Recovered Person"), suffix="source")
+    passphrase = "correct horse battery staple"
+    backup = source.create_portable_backup(
+        CrmPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target = CrmAdoptionStore(tmp_path / "target")
+    request = _create_request(name="Interrupted Person")
+    preview = target.preview_mutation(request)
+    idempotency_ref = "idempotency-ref:crm-adoption-test:orphan-audit-source"
+    target.capture_approval(
+        request=CrmAdoptionApprovalCaptureRequest(
+            operation="mutation",
+            mutation=CrmAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+        ),
+        idempotency_ref=idempotency_ref,
+        confirmed=True,
+    )
+    append_audit = target._append_audit
+    monkeypatch.setattr(
+        target,
+        "_append_audit",
+        lambda _receipt: (_ for _ in ()).throw(OSError("synthetic audit failure")),
+    )
+    with pytest.raises(CrmAdoptionError, match="AUDIT_FINALIZATION_REQUIRED"):
+        target.commit_mutation(
+            request=request,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+            idempotency_ref=idempotency_ref,
+            confirmed=True,
+        )
+    orphan_payload = target.pending_audit_file.read_bytes()
+    target.state_file.write_bytes(b"corrupt-state")
+    monkeypatch.setattr(target, "_append_audit", append_audit)
+
+    restore = CrmPortableRestoreRequest(passphrase=passphrase, backup=backup)
+    restore_preview = target.preview_restore(restore)
+    restore_request = CrmPortableRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=restore_preview.preview_ref,
+        approval_ref=restore_preview.approval_ref,
+    )
+    restore_idempotency_ref = (
+        "idempotency-ref:crm-adoption-test:orphan-audit-recovery"
+    )
+    _capture_restore(
+        target,
+        restore_request,
+        idempotency_ref=restore_idempotency_ref,
+    )
+    target.commit_restore(
+        request=restore_request,
+        idempotency_ref=restore_idempotency_ref,
+        confirmed=True,
+    )
+
+    assert target.read_view().records[0].display_name == "Recovered Person"
+    assert not target.pending_audit_file.exists()
+    quarantined = list(target.state_dir.glob("*.orphan-*"))
+    assert len(quarantined) == 1
+    assert quarantined[0].read_bytes() == orphan_payload
 
 
 def test_all_supported_record_kinds_are_durable_and_searchable(tmp_path: Path) -> None:

@@ -318,8 +318,8 @@ export function CrmAdoptionWorkspace() {
       due_at: crmLocalDateTimeInputValue(record.due_at),
       occurred_at: crmLocalDateTimeInputValue(record.occurred_at),
       amount_minor: record.amount_minor ?? null,
-      currency: record.currency ?? "USD",
-      priority: record.priority ?? "medium",
+      currency: record.currency,
+      priority: record.priority,
     });
   }, []);
 
@@ -733,7 +733,11 @@ export function CrmAdoptionWorkspace() {
       {pendingRestore ? (
         <ConfirmationPanel
           title="Review encrypted backup restore"
-          summary="Replace the active CRM view with the verified backup. The current state remains available to Undo."
+          summary={
+            workspace?.storage_state === "ready"
+              ? "Replace the active CRM view with the verified backup. The current state remains available to Undo."
+              : "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo."
+          }
           details={`${pendingRestore.preview.record_count} records; backup revision ${pendingRestore.preview.backup_revision}. Integrity check passed.`}
           labels={[]}
           busy={busy}
@@ -921,7 +925,18 @@ function RecordEditor({
         </label>
         <label>
           <span>Priority</span>
-          <select value={draft.priority ?? "medium"} onChange={(event) => set("priority", event.target.value as "high" | "medium" | "low")}>
+          <select
+            value={draft.priority ?? ""}
+            onChange={(event) =>
+              set(
+                "priority",
+                event.target.value
+                  ? (event.target.value as "high" | "medium" | "low")
+                  : null,
+              )
+            }
+          >
+            <option value="">Not set</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>

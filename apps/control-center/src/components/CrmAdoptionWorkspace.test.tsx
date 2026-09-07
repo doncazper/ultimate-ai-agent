@@ -5,6 +5,8 @@ import type {
   CrmAdoptionMutationPreview,
   CrmAdoptionMutationReceipt,
   CrmAdoptionWorkspaceView,
+  CrmPortableBackup,
+  CrmPortableRestorePreview,
 } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { mockControlCenterData } from "../mocks/controlCenterData";
@@ -125,6 +127,33 @@ const receipt: CrmAdoptionMutationReceipt = {
   approval_authority_granted: true,
 };
 
+const portableBackup = {
+  schema_version: "uaa-crm-adoption-portable-backup.v1",
+  contract_ref: workspace.contract_ref,
+  salt: "c2FsdC1zYWx0LXNhbHQtc2FsdA==",
+  nonce: "bm9uY2Utbm9uY2U=",
+  ciphertext: "ZW5jcnlwdGVkLWJhY2t1cC1wYXlsb2Fk",
+  ciphertext_fingerprint_ref: "fingerprint-ref:crm-backup:test",
+  created_at: "2026-09-06T17:00:00+00:00",
+  private_values_encrypted: true,
+  key_material_included: false,
+  raw_paths_included: false,
+} satisfies CrmPortableBackup;
+
+const restorePreview = {
+  schema_version: "uaa-crm-adoption-restore-preview.v1",
+  contract_ref: workspace.contract_ref,
+  preview_ref: "preview-ref:crm-restore:test",
+  approval_ref: "approval-ref:crm-restore:test",
+  current_state_ref: "state-ref:crm:test",
+  backup_revision: 4,
+  record_count: 1,
+  counts: workspace.counts,
+  integrity_status: "ok",
+  private_values_included: false,
+  restore_performed: false,
+} satisfies CrmPortableRestorePreview;
+
 const mutationBinding: BackendTruthReadBinding = {
   snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
   backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
@@ -141,6 +170,7 @@ describe("CrmAdoptionWorkspace", () => {
       schema_version: "uaa-crm-adoption-approval-receipt.v1",
     });
     apiMocks.commitCrmAdoptionMutation.mockResolvedValue(receipt);
+    apiMocks.previewCrmPortableRestore.mockResolvedValue(restorePreview);
   });
 
   it("mounts founder-private CRM adoption on the primary CRM surface", async () => {
@@ -255,6 +285,36 @@ describe("CrmAdoptionWorkspace", () => {
     spies.forEach((spy) => spy.mockRestore());
   });
 
+  it("preserves imported nullable fields when editing another value", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      records: [{ ...workspace.records[0], currency: null, priority: null }],
+    });
+    render(<CrmAdoptionWorkspace />);
+    await screen.findAllByText("Example Contact");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Priority")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Name or title"), {
+      target: { value: "Corrected Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCrmAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update",
+          patch: expect.objectContaining({
+            display_name: "Corrected Contact",
+            currency: null,
+            priority: null,
+          }),
+        }),
+        expect.stringMatching(/^idempotency-ref:crm-adoption-ui:update:/),
+      ),
+    );
+  });
+
   it("shows recovery-required state without pretending ordinary edits are safe", async () => {
     apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
       ...workspace,
@@ -278,6 +338,34 @@ describe("CrmAdoptionWorkspace", () => {
     ).toBeDisabled();
     expect(screen.getByLabelText("Name or title")).toBeDisabled();
     expect(screen.getByLabelText("Open backup to restore")).toBeEnabled();
+  });
+
+  it("does not promise Undo when restoring an unreadable workspace", async () => {
+    apiMocks.loadCrmAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      storage_state: "recovery_required",
+      records: [],
+      can_undo: false,
+    });
+    const file = {
+      size: 256,
+      text: vi.fn().mockResolvedValue(JSON.stringify(portableBackup)),
+    } as unknown as File;
+    render(<CrmAdoptionWorkspace />);
+    await screen.findByText("recovery_required");
+    fireEvent.change(screen.getByLabelText("Backup passphrase"), {
+      target: { value: "correct horse battery staple" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Open backup to restore"), {
+      target: { files: [file] },
+    });
+
+    expect(
+      await screen.findByText(
+        "Replace the active CRM view with the verified backup. No readable current snapshot will be retained for Undo.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("contains a failed manual refresh and keeps the failure actionable", async () => {

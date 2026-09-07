@@ -1120,6 +1120,8 @@ class CrmAdoptionStore:
                         ],
                     }
                 )
+                if not current_readable:
+                    self._quarantine_pending_audit_for_recovery()
                 self._stage_audit(receipt)
                 if not current_readable:
                     self._prepare_recovery_key()
@@ -1380,6 +1382,30 @@ class CrmAdoptionStore:
                 os.close(directory_fd)
         except OSError as exc:
             raise CrmAdoptionError("CRM_ADOPTION_KEY_RECOVERY_FAILED") from exc
+
+    def _quarantine_pending_audit_for_recovery(self) -> None:
+        """Preserve an orphan journal before an approved unreadable-state restore."""
+
+        if not self.pending_audit_file.exists():
+            return
+        if (
+            self.pending_audit_file.is_symlink()
+            or not self.pending_audit_file.is_file()
+        ):
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_PENDING_UNSAFE")
+        quarantine = self.pending_audit_file.with_name(
+            f"{self.pending_audit_file.name}.orphan-{secrets.token_hex(8)}"
+        )
+        try:
+            os.replace(self.pending_audit_file, quarantine)
+            os.chmod(quarantine, 0o600)
+            directory_fd = os.open(self.state_dir, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError as exc:
+            raise CrmAdoptionError("CRM_ADOPTION_AUDIT_RECOVERY_FAILED") from exc
 
     def _finalize_audit(self, receipt: CrmAdoptionMutationReceipt) -> None:
         try:
@@ -1901,7 +1927,7 @@ class CrmAdoptionStore:
             )
             if matching is None and not denied:
                 return candidate
-            if matching is not None and matching.status != "revoked":
+            if matching is not None and matching.is_active():
                 return candidate
             candidate = _hash_ref(
                 "idempotency-ref:crm-adoption-lease-retry",
