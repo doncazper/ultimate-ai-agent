@@ -733,7 +733,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
       "release_status": "founder_loop_v1_proofed",
-      "approval_requirement": "Content-free Chat workspace reads require no mutation approval. Draft checkpoint, archive, and recover routes require backend-truth binding, idempotency, and durable receipts. Reviewed local model prerequisites and explicit local gateway authorization remain required for the separate redacted probe; model output is non-authoritative and no execution permission is granted.",
+      "approval_requirement": "Content-free Chat workspace reads require no mutation approval. Draft checkpoint, archive, and recover routes require backend-truth binding, idempotency, and durable receipts. Reviewed local model prerequisites and explicit local gateway authorization remain required for the separate redacted probe; model output is not authority and no execution permission is granted.",
       "evidence_audit_output": "The bounded Q33 Chat workspace records backend-owned draft metadata and thread lifecycle receipts without receiving draft bodies. Existing Chat turn and reviewable Actions/Plans handoff receipts remain proofed with model/runtime/auth/tool-denial truth refs and Evidence Timeline visibility. No model authority, handoff execution, memory write, plan/action execution, provider/public/production authority is granted.",
       "current_backend_routes": [
         {
