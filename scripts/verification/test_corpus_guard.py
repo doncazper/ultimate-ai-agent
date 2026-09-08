@@ -11921,6 +11921,39 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     return expected_paths
 
 
+def _safe_visual_regression_timeout_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the bounded visual command timeout alignment."""
+
+    manifest_path = "scripts/verification/ci_command_manifest.py"
+    expected_paths = {manifest_path}
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    prior_manifest = prior_by_path[manifest_path]
+    timeout_needle = (
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+    )
+    timeout_replacement = (
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+    )
+    if prior_manifest.count(timeout_needle) != 1:
+        return set()
+    if current_by_path[manifest_path] != prior_manifest.replace(
+        timeout_needle,
+        timeout_replacement,
+        1,
+    ):
+        return set()
+    return expected_paths
+
+
 def _safe_performance_runner_evidence_alignment_paths(
     *,
     current_by_path: dict[str, str],
@@ -12098,6 +12131,18 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior_by_path={
             path: prior_runner_by_path[path] for path in effective_changed_runner_paths
         },
+    )
+    safe_runner_paths.update(
+        _safe_visual_regression_timeout_alignment_paths(
+            current_by_path={
+                path: current_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+            prior_by_path={
+                path: prior_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+        )
     )
     safe_runner_paths.update(
         _safe_performance_runner_evidence_alignment_paths(

@@ -12,6 +12,56 @@ from scripts.verification import test_corpus_guard as guard
 VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
 
 
+def _visual_timeout_manifest_source() -> str:
+    return (
+        "def _command_from_release(command):\n"
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+        "        timeout = 900\n"
+    )
+
+
+def test_exact_visual_timeout_alignment_is_admitted() -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current},
+        prior_by_path={path: prior},
+    ) == {path}
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "\n# unrelated runner change\n",
+        '\nPYTEST_ARGS = ("--ignore", "tests/security")\n',
+    ),
+)
+def test_visual_timeout_alignment_rejects_extra_runner_changes(
+    mutation: str,
+) -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current + mutation},
+        prior_by_path={path: prior},
+    ) == set()
+
+
 def _source_ref(test_ref: str) -> str:
     return guard.build_test_source_ref(test_ref, f"verified-source:{test_ref}")
 
