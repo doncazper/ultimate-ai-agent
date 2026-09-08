@@ -6552,6 +6552,10 @@ async function submitChatWorkspaceMutation(
     response,
   )) as ResultEnvelope<ChatThreadMutationReceipt>;
   const receipt = data.result ?? data.data;
+  const receiptApprovalIdempotencyRef =
+    isChatThreadMutationReceipt(receipt) && receipt.replayed
+      ? receipt.approval_idempotency_key_ref
+      : approvalReceipt.approval_idempotency_key_ref;
   const receiptMatchesRequest =
     response.ok &&
     isChatThreadMutationReceipt(receipt) &&
@@ -6560,7 +6564,7 @@ async function submitChatWorkspaceMutation(
       threadRef,
       request,
       idempotencyRef,
-      approvalReceipt.approval_idempotency_key_ref,
+      receiptApprovalIdempotencyRef,
     ));
   return {
     receipt: receiptMatchesRequest ? receipt : null,

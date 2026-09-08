@@ -106,6 +106,7 @@ function stubCheckpointReceipt(
 ) {
   const approvalAttempts = new Map<string, string>();
   let mutationAttempts = 0;
+  const durableReceipts = new Map<string, Record<string, unknown>>();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -239,6 +240,22 @@ function stubCheckpointReceipt(
           },
         );
       }
+      const durableReceipt = durableReceipts.get(mutationIdempotencyRef);
+      if (durableReceipt) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { ...durableReceipt, replayed: true },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              ...responseBindingHeaders,
+            },
+          },
+        );
+      }
       const receipt = {
         contract_ref: "contract-ref:chat-content-free-workspace:v1",
         mutation_kind: "draft_checkpoint",
@@ -269,6 +286,7 @@ function stubCheckpointReceipt(
         created_at: "2026-09-07T12:01:00Z",
         ...overrides,
       };
+      durableReceipts.set(mutationIdempotencyRef, receipt);
       return new Response(JSON.stringify({ success: true, data: receipt }), {
         status: 200,
         headers: {
@@ -407,6 +425,27 @@ describe("content-free Chat workspace API boundary", () => {
     expect(mutationHeaders[0]).toBe(approvalHeaders[0]);
     expect(mutationHeaders[1]).toBe(mutationHeaders[0]);
     expect(resolved.approval_idempotency_key_ref).toBe(approvalHeaders[1]);
+  });
+
+  it("accepts the immutable completed replay after approval renewal", async () => {
+    stubCheckpointReceipt({}, true, thread.thread_ref, {}, true);
+    const request = {
+      confirmed: true as const,
+      expected_revision: 0,
+      draft_present: true,
+      draft_character_count: 24,
+      draft_fingerprint_ref: thread.draft_fingerprint_ref,
+    };
+
+    const first = await checkpointChatDraft(thread.thread_ref, request, binding);
+    const replay = await checkpointChatDraft(thread.thread_ref, request, binding);
+
+    expect(replay).toEqual({ ...first, replayed: true });
+    expect(replay.approval_idempotency_key_ref).not.toBe(
+      new Headers(vi.mocked(globalThis.fetch).mock.calls[4]?.[1]?.headers).get(
+        "X-UAA-Idempotency-Key",
+      ),
+    );
   });
 
   it("accepts only an exact prior checkpoint snapshot on overwrite", async () => {
