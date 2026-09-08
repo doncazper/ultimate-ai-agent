@@ -381,6 +381,18 @@ def test_performance_lane_timeout_covers_the_full_foundation_report() -> None:
     )
 
 
+def test_visual_lane_timeout_covers_the_bounded_playwright_runner() -> None:
+    job = next(
+        job
+        for job in manifest.CI_JOB_GRAPH
+        if job.job_ref == "release-lane-visual-regression"
+    )
+    visual = manifest.command_registry()["command:frontend.visual-regression"]
+
+    assert visual.timeout_seconds == 930
+    assert visual.timeout_seconds <= job.timeout_minutes * 60
+
+
 def test_exact_shard_reproduction_plan_is_canonical_but_never_in_full_graph() -> None:
     lane_ref = "ci-pytest-shard-1-reproduce"
     command_ref = "command:pytest.shard-1-reproduce"
