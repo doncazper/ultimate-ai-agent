@@ -287,6 +287,9 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
 _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE = re.compile(
     r"^/control-center/chat/turns/[^/]+/handoff$"
 )
+_CONTROL_CENTER_BOUND_CHAT_WORKSPACE_MUTATION_RE = re.compile(
+    r"^/control-center/chat/threads/[^/]+/(?:draft-checkpoint|lifecycle)$"
+)
 _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE = re.compile(
     r"^/control-center/memory/(?:"
     r"review/[^/]+/(?:"
@@ -850,6 +853,7 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
         path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE.fullmatch(path) is None
+        and _CONTROL_CENTER_BOUND_CHAT_WORKSPACE_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_GOAL_MUTATION_RE.fullmatch(path) is None
     ):

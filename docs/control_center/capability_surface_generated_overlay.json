@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 366,
+    "api_manifest_route_count": 369,
     "release_surface_route_count": 44,
     "visible_action_count": 47,
     "human_capability_count": 32,
@@ -1253,7 +1253,7 @@
           "ui_status": "local gated",
           "release_status": "ship",
           "owner": "mixed",
-          "backend_route_count": 6,
+          "backend_route_count": 9,
           "blocked_capability_count": 0,
           "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"
@@ -1268,7 +1268,7 @@
           "release_status": "founder_loop_v1_proofed",
           "side_effect_class": "local_ui_state_only",
           "risk_class": "high",
-          "backend_route_count": 6,
+          "backend_route_count": 9,
           "missing_backend_route_count": 0,
           "source_truth_status": "current"
         },

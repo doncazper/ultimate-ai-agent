@@ -26,6 +26,22 @@ from .operator_surface import (
     chat_turn_receipt_ref,
     chat_turn_ref_for_request,
 )
+from .workspace import (
+    CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
+    CHAT_WORKSPACE_BLOCKED_STATE_REFS,
+    CHAT_WORKSPACE_CONTRACT_REF,
+    CHAT_WORKSPACE_ROUTE_REFS,
+    CHAT_WORKSPACE_SOURCE,
+    ChatDraftCheckpointRequest,
+    ChatThreadLifecycleRequest,
+    ChatThreadMutationReceipt,
+    ChatThreadReadModel,
+    ChatWorkspaceReadModel,
+    build_chat_workspace_read_model,
+    chat_workspace_mutation_ref,
+    chat_workspace_payload_fingerprint_ref,
+    validate_chat_thread_ref,
+)
 
 __all__ = [
     "CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS",
@@ -54,4 +70,18 @@ __all__ = [
     "chat_turn_payload_for_fingerprint",
     "chat_turn_receipt_ref",
     "chat_turn_ref_for_request",
+    "CHAT_DRAFT_EMPTY_FINGERPRINT_REF",
+    "CHAT_WORKSPACE_BLOCKED_STATE_REFS",
+    "CHAT_WORKSPACE_CONTRACT_REF",
+    "CHAT_WORKSPACE_ROUTE_REFS",
+    "CHAT_WORKSPACE_SOURCE",
+    "ChatDraftCheckpointRequest",
+    "ChatThreadLifecycleRequest",
+    "ChatThreadMutationReceipt",
+    "ChatThreadReadModel",
+    "ChatWorkspaceReadModel",
+    "build_chat_workspace_read_model",
+    "chat_workspace_mutation_ref",
+    "chat_workspace_payload_fingerprint_ref",
+    "validate_chat_thread_ref",
 ]

@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `364` OpenAPI paths and `366` manifest route operations.
+Current generated contract snapshot: `367` OpenAPI paths and `369` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract
@@ -152,7 +152,8 @@ persist paths or file content.
 UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, turn-router preview,
 Action Inbox decisions,
-Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
+Today-to-Action envelope promotion, Chat durable receipts/handoffs and
+content-free draft/thread lifecycle mutations, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
 Memory feedback receipts, the exact-approved provider credential validation
 capability, the scoped provider capability route, governed runtime pilot

@@ -30,7 +30,12 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     build_web_evidence_product_slice_receipt,
 )
 from ultimate_ai_agent.core.authority import AuthorityLease
-from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
+from ultimate_ai_agent.core.chat import (
+    ChatDraftCheckpointRequest,
+    ChatHandoffRequest,
+    ChatThreadLifecycleRequest,
+    ChatTurnReceiptRequest,
+)
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
     MemoryContextPackActionProposalRequest,
@@ -413,6 +418,35 @@ class FounderLoopControlCenterService:
 
     def chat_turn_receipt(self, *, turn_ref: str) -> dict[str, Any] | None:
         return self.repository.latest_chat_turn_receipt(turn_ref)
+
+    def chat_workspace(self) -> dict[str, Any]:
+        return self.repository.chat_workspace()
+
+    def record_chat_draft_checkpoint(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatDraftCheckpointRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_chat_draft_checkpoint(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+
+    def record_chat_thread_lifecycle(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatThreadLifecycleRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.record_chat_thread_lifecycle(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
 
     def record_chat_handoff(
         self,

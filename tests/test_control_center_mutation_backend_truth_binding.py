@@ -234,6 +234,8 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/today/action-envelope",
         "/control-center/chat/turns",
         "/control-center/chat/turns/chat-turn-ref/handoff",
+        "/control-center/chat/threads/chat-thread-ref/draft-checkpoint",
+        "/control-center/chat/threads/chat-thread-ref/lifecycle",
         "/control-center/web-evidence/attach",
         "/control-center/memory/feedback",
         "/control-center/memory/review/manual-candidate",

@@ -97,6 +97,14 @@ Plans, Actions, and Evidence feel like one product. Implement the highest-value
 Q31 chat and cockpit adaptations behind the same Python/API contracts and prove
 normal work without operator-critical raw JSON or CLI fallback.
 
+Current bounded slice: `/chat` now provides a backend-owned content-free
+conversation workspace with clean-start drafting, a readable/searchable thread
+rail, exact draft checkpoint metadata, and archive/recover receipts. Unsent
+draft bodies remain in the current browser tab and are never sent to or stored
+by the server. Ordinary send/model calls and all broader authority remain
+blocked. Q33 is not terminal until its remaining cross-surface acceptance scope
+is implemented and qualified.
+
 ### Q34 — News And Source Intelligence Functional Adoption
 
 Turn authorized sources into useful, provenance-bound and freshness-aware

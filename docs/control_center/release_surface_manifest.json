@@ -1778,6 +1778,27 @@
           "route_classification": "local_sensitive"
         },
         {
+          "method": "GET",
+          "path": "/control-center/chat/workspace",
+          "operation_id": "get_control_center_chat_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+          "operation_id": "post_control_center_chat_threads_thread_ref_draft_checkpoint",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/chat/threads/{thread_ref}/lifecycle",
+          "operation_id": "post_control_center_chat_threads_thread_ref_lifecycle",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
           "method": "POST",
           "path": "/control-center/chat/turns",
           "operation_id": "post_control_center_chat_turns",
@@ -1813,6 +1834,11 @@
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
         "apps/control-center/src/App.test.tsx",
+        "tests/test_q33_chat_content_free_workspace.py",
+        "apps/control-center/src/api/client.chatWorkspace.test.ts",
+        "apps/control-center/src/components/ChatWorkspacePanel.test.tsx",
+        "scripts/inspect_chat_workspace.py",
+        "docs/control_center/Q33_FOUNDER_OPERATING_LOOP_ADOPTION.md",
         "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py",
         "tests/test_fcc_v1_004_chat_durable_receipt_handoff.py",
         "scripts/verify_founder_loop_v1.py",
@@ -1824,6 +1850,8 @@
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/control_center/Q33_FOUNDER_OPERATING_LOOP_ADOPTION.md",
+        "scripts/inspect_chat_workspace.py",
         "docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md",
         "scripts/verify_fcc_v1_004_chat_durable_receipt_handoff.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",

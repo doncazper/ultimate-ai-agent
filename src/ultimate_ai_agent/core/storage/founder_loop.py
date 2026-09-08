@@ -37,11 +37,16 @@ from ultimate_ai_agent.core.chat import (
     CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS,
     CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS,
     CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+    ChatDraftCheckpointRequest,
     ChatHandoffReceipt,
     ChatHandoffRequest,
+    ChatThreadLifecycleRequest,
+    ChatThreadMutationReceipt,
+    ChatThreadReadModel,
     ChatTurnReceipt,
     ChatTurnReceiptRequest,
     build_chat_local_operator_turn_envelope,
+    build_chat_workspace_read_model,
     chat_handoff_audit_ref,
     chat_handoff_created_ref,
     chat_handoff_payload_for_fingerprint,
@@ -55,6 +60,9 @@ from ultimate_ai_agent.core.chat import (
     chat_turn_payload_for_fingerprint,
     chat_turn_receipt_ref,
     chat_turn_ref_for_request,
+    chat_workspace_mutation_ref,
+    chat_workspace_payload_fingerprint_ref,
+    validate_chat_thread_ref,
 )
 from ultimate_ai_agent.core.code import (
     GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
@@ -6473,6 +6481,7 @@ class FounderLoopRepository:
             ),
             "chat_turn_receipts": self._count("chat_turn_receipts"),
             "chat_handoff_receipts": self._count("chat_handoff_receipts"),
+            "chat_thread_states": self._count("chat_thread_states"),
             "briefing_items": self._count("briefing_items"),
             "plan_summaries": self._count("plan_summaries"),
             "memory_review_queue": self._count("memory_review_queue"),
@@ -11089,6 +11098,272 @@ class FounderLoopRepository:
             return None
         return dict(json.loads(str(rows[0]["receipt_json"])))
 
+    def chat_workspace(self) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT thread_ref, display_name, state, revision, draft_present,
+                   draft_character_count, draft_fingerprint_ref, created_at, updated_at
+            FROM chat_thread_states
+            ORDER BY CASE state WHEN 'active' THEN 0 ELSE 1 END,
+                     updated_at DESC, thread_ref ASC
+            LIMIT 100
+            """,
+            (),
+        )
+        threads = [self._chat_thread_read_model(row) for row in rows]
+        workspace = build_chat_workspace_read_model(threads)
+        return workspace.model_dump(mode="json")
+
+    def record_chat_draft_checkpoint(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatDraftCheckpointRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        validate_chat_thread_ref(thread_ref)
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
+            {"thread_ref": thread_ref, **request.model_dump(mode="json")}
+        )
+        now = _utc_iso()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            replay = conn.execute(
+                """
+                SELECT payload_fingerprint_ref, receipt_json
+                FROM chat_thread_mutation_replays
+                WHERE key_ref = ?
+                LIMIT 1
+                """,
+                (idempotency_key_ref,),
+            ).fetchone()
+            if replay is not None:
+                if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                    raise FounderLoopStorageDuplicateError(
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
+                    )
+                receipt = dict(json.loads(str(replay["receipt_json"])))
+                return {**receipt, "replayed": True}
+            row = conn.execute(
+                """
+                SELECT thread_ref, display_name, state, revision, draft_present,
+                       draft_character_count, draft_fingerprint_ref, created_at, updated_at
+                FROM chat_thread_states
+                WHERE thread_ref = ?
+                LIMIT 1
+                """,
+                (thread_ref,),
+            ).fetchone()
+            if row is not None and str(row["state"]) == "archived":
+                raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_ARCHIVED")
+            if row is None:
+                existing_count = int(
+                    conn.execute(
+                        "SELECT COUNT(*) AS count FROM chat_thread_states"
+                    ).fetchone()["count"]
+                )
+                display_name = f"Conversation {existing_count + 1}"
+                revision = 1
+                created_at = now
+                conn.execute(
+                    """
+                    INSERT INTO chat_thread_states (
+                        thread_ref, display_name, state, revision, draft_present,
+                        draft_character_count, draft_fingerprint_ref, created_at, updated_at
+                    ) VALUES (?, ?, 'active', ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        thread_ref,
+                        display_name,
+                        revision,
+                        int(request.draft_present),
+                        request.draft_character_count,
+                        request.draft_fingerprint_ref,
+                        created_at,
+                        now,
+                    ),
+                )
+            else:
+                display_name = str(row["display_name"])
+                revision = int(row["revision"]) + 1
+                created_at = str(row["created_at"])
+                conn.execute(
+                    """
+                    UPDATE chat_thread_states
+                    SET revision = ?, draft_present = ?, draft_character_count = ?,
+                        draft_fingerprint_ref = ?, updated_at = ?
+                    WHERE thread_ref = ?
+                    """,
+                    (
+                        revision,
+                        int(request.draft_present),
+                        request.draft_character_count,
+                        request.draft_fingerprint_ref,
+                        now,
+                        thread_ref,
+                    ),
+                )
+            thread = ChatThreadReadModel(
+                thread_ref=thread_ref,
+                display_name=display_name,
+                state="active",
+                revision=revision,
+                draft_present=request.draft_present,
+                draft_character_count=request.draft_character_count,
+                draft_fingerprint_ref=request.draft_fingerprint_ref,
+                draft_recovery_state=(
+                    "metadata_only_reentry_required"
+                    if request.draft_present
+                    else "empty"
+                ),
+                created_at=created_at,
+                updated_at=now,
+            )
+            receipt = self._chat_thread_mutation_receipt(
+                mutation_kind="draft_checkpoint",
+                lifecycle_action=None,
+                thread=thread,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                created_at=now,
+            )
+            receipt_payload = receipt.model_dump(mode="json")
+            conn.execute(
+                """
+                INSERT INTO chat_thread_mutation_replays (
+                    key_ref, thread_ref, payload_fingerprint_ref, receipt_json, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key_ref,
+                    thread_ref,
+                    payload_fingerprint_ref,
+                    _json_dumps(receipt_payload),
+                    now,
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt.receipt_ref,
+                "safe_summary": (
+                    "Chat draft checkpoint metadata recorded without a draft body."
+                ),
+                "evidence_refs": [receipt.evidence_ref, *request.metadata_refs],
+            },
+        )
+        return receipt_payload
+
+    def record_chat_thread_lifecycle(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatThreadLifecycleRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        validate_chat_thread_ref(thread_ref)
+        _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
+        payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
+            {"thread_ref": thread_ref, **request.model_dump(mode="json")}
+        )
+        now = _utc_iso()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            replay = conn.execute(
+                """
+                SELECT payload_fingerprint_ref, receipt_json
+                FROM chat_thread_mutation_replays
+                WHERE key_ref = ?
+                LIMIT 1
+                """,
+                (idempotency_key_ref,),
+            ).fetchone()
+            if replay is not None:
+                if replay["payload_fingerprint_ref"] != payload_fingerprint_ref:
+                    raise FounderLoopStorageDuplicateError(
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
+                    )
+                receipt = dict(json.loads(str(replay["receipt_json"])))
+                return {**receipt, "replayed": True}
+            row = conn.execute(
+                """
+                SELECT thread_ref, display_name, state, revision, draft_present,
+                       draft_character_count, draft_fingerprint_ref, created_at, updated_at
+                FROM chat_thread_states
+                WHERE thread_ref = ?
+                LIMIT 1
+                """,
+                (thread_ref,),
+            ).fetchone()
+            if row is None:
+                raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND")
+            current_state = str(row["state"])
+            if request.action == "archive" and current_state != "active":
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_CHAT_THREAD_ALREADY_ARCHIVED"
+                )
+            if request.action == "recover" and current_state != "archived":
+                raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_ALREADY_ACTIVE")
+            target_state = "archived" if request.action == "archive" else "active"
+            revision = int(row["revision"]) + 1
+            conn.execute(
+                """
+                UPDATE chat_thread_states
+                SET state = ?, revision = ?, updated_at = ?
+                WHERE thread_ref = ?
+                """,
+                (target_state, revision, now, thread_ref),
+            )
+            thread = ChatThreadReadModel(
+                thread_ref=thread_ref,
+                display_name=str(row["display_name"]),
+                state=target_state,
+                revision=revision,
+                draft_present=bool(row["draft_present"]),
+                draft_character_count=int(row["draft_character_count"]),
+                draft_fingerprint_ref=str(row["draft_fingerprint_ref"]),
+                draft_recovery_state=(
+                    "metadata_only_reentry_required"
+                    if bool(row["draft_present"])
+                    else "empty"
+                ),
+                created_at=str(row["created_at"]),
+                updated_at=now,
+            )
+            receipt = self._chat_thread_mutation_receipt(
+                mutation_kind="lifecycle",
+                lifecycle_action=request.action,
+                thread=thread,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+                created_at=now,
+            )
+            receipt_payload = receipt.model_dump(mode="json")
+            conn.execute(
+                """
+                INSERT INTO chat_thread_mutation_replays (
+                    key_ref, thread_ref, payload_fingerprint_ref, receipt_json, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    idempotency_key_ref,
+                    thread_ref,
+                    payload_fingerprint_ref,
+                    _json_dumps(receipt_payload),
+                    now,
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.audit,
+            {
+                "event_ref": receipt.audit_ref,
+                "safe_summary": "Chat thread lifecycle state recorded without execution.",
+                "evidence_refs": [receipt.evidence_ref, *request.metadata_refs],
+            },
+        )
+        return receipt_payload
+
     def record_chat_handoff(
         self,
         *,
@@ -11246,6 +11521,67 @@ class FounderLoopRepository:
             (self._bounded_limit(limit),),
         )
         return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    @staticmethod
+    def _chat_thread_read_model(row: sqlite3.Row) -> ChatThreadReadModel:
+        draft_present = bool(row["draft_present"])
+        return ChatThreadReadModel(
+            thread_ref=str(row["thread_ref"]),
+            display_name=str(row["display_name"]),
+            state=str(row["state"]),
+            revision=int(row["revision"]),
+            draft_present=draft_present,
+            draft_character_count=int(row["draft_character_count"]),
+            draft_fingerprint_ref=str(row["draft_fingerprint_ref"]),
+            draft_recovery_state=(
+                "metadata_only_reentry_required" if draft_present else "empty"
+            ),
+            created_at=str(row["created_at"]),
+            updated_at=str(row["updated_at"]),
+        )
+
+    @staticmethod
+    def _chat_thread_mutation_receipt(
+        *,
+        mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+        lifecycle_action: Literal["archive", "recover"] | None,
+        thread: ChatThreadReadModel,
+        idempotency_key_ref: str,
+        payload_fingerprint_ref: str,
+        created_at: str,
+    ) -> ChatThreadMutationReceipt:
+        kind = lifecycle_action or mutation_kind
+        return ChatThreadMutationReceipt(
+            mutation_kind=mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread=thread,
+            receipt_ref=chat_workspace_mutation_ref(
+                kind=kind,
+                thread_ref=thread.thread_ref,
+                revision=thread.revision,
+                suffix="receipt",
+            ),
+            audit_ref=chat_workspace_mutation_ref(
+                kind=kind,
+                thread_ref=thread.thread_ref,
+                revision=thread.revision,
+                suffix="audit",
+            ),
+            evidence_ref=chat_workspace_mutation_ref(
+                kind=kind,
+                thread_ref=thread.thread_ref,
+                revision=thread.revision,
+                suffix="evidence-ref",
+            ),
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            safe_summary=(
+                "Chat draft checkpoint metadata recorded without a draft body."
+                if mutation_kind == "draft_checkpoint"
+                else "Chat thread lifecycle state recorded without execution."
+            ),
+            created_at=created_at,
+        )
 
     def _upsert_chat_handoff_action(
         self,
@@ -18582,6 +18918,24 @@ class FounderLoopRepository:
                     created_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS chat_thread_states (
+                    thread_ref TEXT PRIMARY KEY,
+                    display_name TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    revision INTEGER NOT NULL,
+                    draft_present INTEGER NOT NULL,
+                    draft_character_count INTEGER NOT NULL,
+                    draft_fingerprint_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_thread_mutation_replays (
+                    key_ref TEXT PRIMARY KEY,
+                    thread_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS plan_summaries (
                     plan_ref TEXT PRIMARY KEY,
                     title TEXT NOT NULL,
@@ -19524,6 +19878,7 @@ class FounderLoopRepository:
             "memory_review_write_lane_postures",
             "briefing_items",
             "chat_handoff_receipts",
+            "chat_thread_states",
             "chat_turn_receipts",
             "plan_summaries",
             "memory_review_decision_replays",

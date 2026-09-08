@@ -173,6 +173,9 @@ an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/control-center/chat/turns` | `post_control_center_chat_turns` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/chat/turns/{turn_ref}/handoff` | `post_control_center_chat_turns_turn_ref_handoff` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/chat/turns/{turn_ref}/receipt` | `get_control_center_chat_turns_turn_ref_receipt` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/chat/workspace` | `get_control_center_chat_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/draft-checkpoint` | `post_control_center_chat_threads_thread_ref_draft_checkpoint` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/lifecycle` | `post_control_center_chat_threads_thread_ref_lifecycle` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/context` | `get_control_center_coding_context` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/git-review` | `get_control_center_coding_git_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/live-preview` | `get_control_center_coding_live_preview` | `local_dev_workspace_only` | no | future | yes |

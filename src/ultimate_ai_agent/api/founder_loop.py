@@ -32,7 +32,12 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WebEvidenceProductSliceRequest,
 )
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
-from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
+from ultimate_ai_agent.core.chat import (
+    ChatDraftCheckpointRequest,
+    ChatHandoffRequest,
+    ChatThreadLifecycleRequest,
+    ChatTurnReceiptRequest,
+)
 from ultimate_ai_agent.core.control_center.backend_truth import (
     build_control_center_backend_truth,
 )
@@ -1454,6 +1459,160 @@ def post_control_center_chat_turn_receipt(
             "receipt_refs_only",
             "raw_content_omitted",
         ],
+    )
+
+
+@router.get("/chat/workspace", response_model=ResultEnvelope)
+def get_control_center_chat_workspace() -> ResultEnvelope:
+    data = get_founder_loop_service().chat_workspace()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_workspace",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-workspace",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-workspace"}],
+        redactions_applied=[
+            "draft_metadata_only",
+            "draft_body_omitted",
+            "safe_refs_only",
+        ],
+    )
+
+
+@router.post(
+    "/chat/threads/{thread_ref}/draft-checkpoint",
+    response_model=ResultEnvelope,
+)
+def post_control_center_chat_draft_checkpoint(
+    thread_ref: str,
+    request: ChatDraftCheckpointRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_chat_draft_checkpoint(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Chat workspace idempotency key already exists with different "
+                    "content-free draft metadata."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_CHAT_DRAFT_CHECKPOINT_ERROR"
+        raise HTTPException(
+            status_code=409 if code == "FOUNDER_LOOP_CHAT_THREAD_ARCHIVED" else 400,
+            detail={
+                "code": code,
+                "safe_message": (
+                    "The Chat draft checkpoint could not be recorded safely."
+                ),
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_DRAFT_CHECKPOINT_UNSAFE_INPUT",
+                "safe_message": "The Chat draft metadata contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_draft_checkpoint",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-draft-checkpoint",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-workspace"}],
+        redactions_applied=[
+            "draft_metadata_only",
+            "draft_body_not_received",
+            "safe_refs_only",
+        ],
+    )
+
+
+@router.post(
+    "/chat/threads/{thread_ref}/lifecycle",
+    response_model=ResultEnvelope,
+)
+def post_control_center_chat_thread_lifecycle(
+    thread_ref: str,
+    request: ChatThreadLifecycleRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_founder_loop_service().record_chat_thread_lifecycle(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Chat workspace idempotency key already exists with a "
+                    "different lifecycle request."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_CHAT_THREAD_LIFECYCLE_ERROR"
+        raise HTTPException(
+            status_code=404 if code == "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND" else 400,
+            detail={
+                "code": code,
+                "safe_message": "The Chat thread lifecycle could not be updated safely.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_THREAD_LIFECYCLE_UNSAFE_INPUT",
+                "safe_message": "The Chat lifecycle request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_thread_lifecycle",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:chat-thread-lifecycle",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:founder-loop:chat-workspace"}],
+        redactions_applied=["safe_refs_only", "draft_body_omitted"],
     )
 
 
