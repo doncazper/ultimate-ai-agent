@@ -4,10 +4,10 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from threading import RLock
 from typing import Any, Literal
 
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.storage.founder_loop import (
     DEFAULT_FOUNDER_LOOP_STATE_DIR,
     FOUNDER_LOOP_STATE_DIR_ENV,
@@ -51,7 +51,6 @@ class ChatWorkspaceRepository:
         self.state_dir = state_dir
         self.db_path = self._founder_loop.db_path
         self.read_only = read_only
-        self._outbox_lock = RLock()
         if ensure_storage:
             self._ensure_storage()
 
@@ -533,8 +532,15 @@ class ChatWorkspaceRepository:
         )
 
     def _flush_outbox_event(self, event_ref: str) -> None:
-        with self._outbox_lock:
-            self._flush_outbox_event_locked(event_ref)
+        try:
+            with FileSingleWriterLockManager(
+                self.state_dir / ".locks"
+            ).acquire("chat-workspace-evidence-outbox"):
+                self._flush_outbox_event_locked(event_ref)
+        except OSError as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_EVIDENCE_LOCK_UNAVAILABLE"
+            ) from exc
 
     def _flush_outbox_event_locked(self, event_ref: str) -> None:
         with self._connect() as conn:

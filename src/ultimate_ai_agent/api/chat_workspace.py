@@ -15,7 +15,6 @@ from ultimate_ai_agent.api.idempotency import (
 )
 from ultimate_ai_agent.api.request_validation import safe_validation_error_response
 from ultimate_ai_agent.api.route_registration import register_router_once
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.chat.workspace import (
     CHAT_WORKSPACE_CONTRACT_REF,
     CHAT_WORKSPACE_MAX_REQUEST_BYTES,
@@ -40,7 +39,6 @@ CHAT_WORKSPACE_MUTATION_ROUTE_RE = re.compile(
     r"^/control-center/chat/threads/[^/]+/(?:draft-checkpoint|lifecycle)$"
 )
 CHAT_WORKSPACE_READ_ROUTE = "/control-center/chat/workspace"
-_CHAT_WORKSPACE_APPROVAL_AUTHORITY = LocalApprovalAuthority()
 
 
 class ChatWorkspaceBodyTooLargeResponse(BaseModel):
@@ -56,9 +54,7 @@ class ChatWorkspaceBodyTooLargeResponse(BaseModel):
 
 
 def get_chat_workspace_service() -> ChatWorkspaceControlCenterService:
-    return ChatWorkspaceControlCenterService.from_env(
-        approval_authority=_CHAT_WORKSPACE_APPROVAL_AUTHORITY
-    )
+    return ChatWorkspaceControlCenterService.from_env()
 
 
 def _request_origin(scope: Scope) -> str | None:

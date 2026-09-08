@@ -362,12 +362,13 @@ def test_chat_workspace_rejects_creation_beyond_visible_capacity(
 def test_chat_workspace_serializes_concurrent_idempotent_checkpoints(
     tmp_path: Path,
 ) -> None:
-    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    state_dir = tmp_path / "founder-loop"
+    repo = ChatWorkspaceRepository(state_dir)
     idempotency_key_ref = "idempotency-ref:chat-workspace:concurrent-checkpoint"
 
     def record() -> dict:
         return _record_checkpoint(
-            repo,
+            ChatWorkspaceRepository(state_dir),
             request=_checkpoint(),
             key=idempotency_key_ref.removeprefix("idempotency-ref:chat-workspace:"),
         )
@@ -378,6 +379,11 @@ def test_chat_workspace_serializes_concurrent_idempotent_checkpoints(
     assert len({receipt["receipt_ref"] for receipt in receipts}) == 1
     assert sum(not receipt["replayed"] for receipt in receipts) == 1
     assert repo.workspace()["threads"][0]["revision"] == 1
+    assert len(
+        (state_dir / "logs" / "receipt.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ) == 1
 
 
 def test_chat_workspace_rejects_stale_checkpoint_and_lifecycle_revisions(
