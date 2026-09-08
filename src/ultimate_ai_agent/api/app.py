@@ -797,7 +797,30 @@ async def backend_response_binding_middleware(
     request: Request,
     call_next: Any,
 ) -> Any:
-    if _requires_control_center_mutation_binding(request):
+    requires_mutation_binding = _requires_control_center_mutation_binding(request)
+    side_effect_class = route_side_effect_class(request.url.path)
+    route_classification, _reason = route_classification_for_path(
+        request.method,
+        request.url.path,
+        side_effect_class,
+    )
+    idempotency_failure = idempotency_header_failure(
+        request.headers,
+        route_classification=route_classification,
+    )
+    explicit_binding_context = bool(
+        request.headers.get("origin")
+        or request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_REVISION_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
+    )
+    defer_chat_workspace_to_idempotency_gate = bool(
+        _CONTROL_CENTER_BOUND_CHAT_WORKSPACE_MUTATION_RE.fullmatch(request.url.path)
+        and not explicit_binding_context
+        and idempotency_failure is not None
+    )
+    if requires_mutation_binding and not defer_chat_workspace_to_idempotency_gate:
         identity = build_identity()
         expected_revision = request.headers.get(
             _EXPECTED_BACKEND_REVISION_HEADER
