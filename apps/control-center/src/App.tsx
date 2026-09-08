@@ -6,6 +6,7 @@ import {
   RouteStatePanel,
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
+import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
 import { MessengerShell } from "./components/messenger/MessengerShell";
 import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
@@ -14,6 +15,7 @@ import {
   useCriticalBackendTruth,
 } from "./hooks/useCriticalBackendTruth";
 import { useSkillMarketplacePosture } from "./hooks/useSkillMarketplacePosture";
+import { useMacOSSetupAssistant } from "./hooks/useMacOSSetupAssistant";
 import {
   getRouteStateDescriptor,
   getRouteSurfaceLabel,
@@ -63,6 +65,10 @@ export function App() {
     return <StudioRoute />;
   }
 
+  if (activePath === "/setup") {
+    return <SetupControlCenterRoute activePath={activePath} />;
+  }
+
   const staticPreviewRoute = renderStaticPreviewRoute(activePath);
   if (staticPreviewRoute) {
     return (
@@ -73,6 +79,127 @@ export function App() {
   }
 
   return <ControlCenterRoute activePath={activePath} />;
+}
+
+function SetupControlCenterRoute({ activePath }: { activePath: string }) {
+  const truthState = useCriticalBackendTruth(true);
+  const truthAdmitted = criticalTruthAllowsRoute(activePath, truthState);
+  const truthReadBinding = useMemo<BackendTruthReadBinding | null>(
+    () =>
+      truthAdmitted && truthState.truth
+        ? {
+            snapshotRef: truthState.truth.envelope_integrity_ref,
+            backendRevisionRef: truthState.truth.backend_revision_ref,
+            backendInstanceRef: truthState.truth.backend_instance_ref,
+          }
+        : null,
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
+  );
+  const setupState = useMacOSSetupAssistant(
+    truthAdmitted,
+    truthReadBinding,
+  );
+  const retry = async () => {
+    await truthState.retry();
+    setupState.retry();
+  };
+
+  if (!truthAdmitted) {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        retry={retry}
+        state={truthState}
+        surfaceLabel="Setup"
+      />
+    );
+  }
+
+  if (setupState.status === "loading") {
+    return (
+      <AppShell activePath={activePath}>
+        <RouteStatePanel
+          state={{
+            kind: "loading",
+            statusLabel: "loading",
+            surfaceLabel: "Setup",
+            title: "Setup is loading its local readiness summary",
+            message:
+              "Control Center is reading the one Python-owned Setup contract needed for this screen.",
+            nextSafeAction:
+              "Wait for the local Setup summary; no installer or model action is running.",
+            sourceLabel:
+              "Route truth: GET /control-center/setup-assistant/summary",
+          }}
+        />
+        <LoadingState surfaceLabel="Setup" />
+      </AppShell>
+    );
+  }
+
+  if (setupState.status === "error") {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        retry={retry}
+        state={{
+          ...truthState,
+          status: "degraded",
+          truth: null,
+          errorRef: setupState.errorRef,
+        }}
+        surfaceLabel="Setup"
+      />
+    );
+  }
+
+  const nextSafeAction =
+    setupState.data.diagnostics.find(
+      (diagnostic) => diagnostic.status === "missing",
+    )?.nextSafeAction ??
+    setupState.data.diagnostics.find(
+      (diagnostic) => diagnostic.status === "blocked",
+    )?.nextSafeAction ??
+    setupState.data.nextSteps[0] ??
+    "Inspect the current local Setup summary.";
+  const routeState: ControlCenterData["routeStates"][string] = {
+    route: "/setup",
+    surfaceLabel: "Setup",
+    state: "backend_owned",
+    statusLabel: "backend-owned",
+    sourceLabel: "Python Agent Core",
+    safeSummary: setupState.data.repoSafeScope,
+    backendRouteRefs: ["GET /control-center/setup-assistant/summary"],
+    warningRefs: [],
+    blockedAuthorityRefs: setupState.data.blockedCapabilities,
+    nextSafeAction,
+  };
+
+  return (
+    <AppShell activePath={activePath} routeState={routeState}>
+      <RouteStatePanel
+        state={{
+          kind: "success",
+          statusLabel: "backend-owned",
+          surfaceLabel: "Setup",
+          title: "Local Setup readiness is available",
+          message:
+            "This screen is bound directly to the Python-owned Setup summary instead of waiting for unrelated Control Center data.",
+          nextSafeAction,
+          sourceLabel:
+            "Route truth: GET /control-center/setup-assistant/summary",
+        }}
+      />
+      <BackendTruthMutationBindingProvider binding={truthReadBinding}>
+        <MacOSSetupAssistantPanel setup={setupState.data} />
+      </BackendTruthMutationBindingProvider>
+    </AppShell>
+  );
 }
 
 export function NorthStarRoute({

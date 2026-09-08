@@ -2200,7 +2200,7 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         for fragment in [
             "shows governed provider credential readiness without credential collection",
             "Provider credential readiness",
-            "Provider credential and cost posture",
+            "Provider and Settings diagnostics",
             "Provider cost authority posture",
             "CostGovernor binding",
             "Unknown paid cost",

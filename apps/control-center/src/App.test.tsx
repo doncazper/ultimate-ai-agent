@@ -9371,7 +9371,33 @@ describe("Web Control Center shell", () => {
     ] as const;
 
     for (const [path, heading] of expectedHeadings) {
-      mockFetchWithFallback();
+      if (path === "/setup") {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn(async () =>
+            new Response(
+              JSON.stringify({
+                success: true,
+                data: setupFixtureToBackendPayload(
+                  mockControlCenterData.macosSetupAssistant,
+                ),
+              }),
+              {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-UAA-Backend-Revision-Ref":
+                    TEST_MUTATION_BINDING.backendRevisionRef,
+                  "X-UAA-Backend-Instance-Ref":
+                    TEST_MUTATION_BINDING.backendInstanceRef,
+                },
+              },
+            ),
+          ),
+        );
+      } else {
+        mockFetchWithFallback();
+      }
       window.history.pushState({}, "", path);
       const { unmount } = render(<App />);
       expect(
@@ -16413,7 +16439,23 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders macOS setup assistant preview without installer authority", async () => {
-    mockFetchWithFallback();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: setupFixtureToBackendPayload(
+              mockControlCenterData.macosSetupAssistant,
+            ),
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
     window.history.pushState({}, "", "/setup");
     render(<App />);
 
@@ -16458,42 +16500,13 @@ describe("Web Control Center shell", () => {
       screen.getByText(/Provider setup is reference-only/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /Provider Catalog/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Provider account guidance/i)).toBeInTheDocument();
+      screen
+        .getAllByRole("link", { name: "Settings" })
+        .some((link) => link.closest(".setup-advanced") !== null),
+    ).toBe(true);
     expect(
-      screen.getByRole("heading", {
-        name: /Provider credential and cost posture/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/No provider authority/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Disabled no execution/i).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
-      0,
-    );
-    expect(
-      screen.getAllByText(/Provider router dry-run/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/No fallback execution/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Router no-authority refs/i).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Secret entry controls/i).length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("heading", { name: /Provider Catalog/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", { name: /api key|secret|token/i }),
     ).not.toBeInTheDocument();
@@ -19637,7 +19650,12 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/setup");
     render(<App />);
 
-    expect(await screen.findByText("Backend online")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Local Setup readiness is available"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Your local setup at a glance" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Backend API setup timeline")).toBeInTheDocument();
     expect(
       screen.getAllByText("control-center:setup-assistant-api-test").length,
@@ -19659,7 +19677,9 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Setup readiness diagnostics")).toBeInTheDocument();
     expect(screen.getByText("API plan diagnostic")).toBeInTheDocument();
-    expect(screen.getByText("API native application diagnostic")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("API native application diagnostic"),
+    ).toHaveLength(2);
     expect(screen.getByText("API rollback diagnostic")).toBeInTheDocument();
     expect(
       screen.getAllByText("define-and-rehearse-exact-rollback-lane").length,
@@ -22179,6 +22199,42 @@ function dogfoodLiveLoopEndpointData() {
   };
 }
 
+function backendKeyForSetupFixture(key: string): string {
+  const aliases: Record<string, string> = {
+    providerPayloadStored: "raw_provider_payload_stored",
+    promptStored: "raw_prompt_stored",
+    setupApprovalRef: "approval_ref",
+    terminalLogStored: "raw_log_stored",
+  };
+  return (
+    aliases[key] ?? key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+  );
+}
+
+function setupFixtureToBackendPayload(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(setupFixtureToBackendPayload);
+  }
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => [
+      backendKeyForSetupFixture(key),
+      setupFixtureToBackendPayload(nestedValue),
+    ]),
+  );
+}
+
+function setupAssistantSummaryForTest() {
+  return {
+    ...(setupFixtureToBackendPayload(
+      mockControlCenterData.macosSetupAssistant,
+    ) as Record<string, unknown>),
+    ...mockApiData.setupAssistantSummary,
+  };
+}
+
 function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
@@ -22301,7 +22357,7 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePluginMetadataPosture,
     [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
       mockControlCenterData.runtimeSkillMarketplacePosture,
-    [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.setupAssistantSummary]: setupAssistantSummaryForTest(),
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,
