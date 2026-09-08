@@ -177,6 +177,29 @@ def test_repo_local_mutation_without_browser_origin_keeps_cli_parity(
     assert response.status_code != 409
 
 
+def test_chat_workspace_mutation_requires_truth_binding_without_browser_origin(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        "/control-center/chat/threads/chat-thread:binding-test/draft-checkpoint",
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat-workspace:binding-test"
+        },
+        json={
+            "expected_revision": 0,
+            "draft_present": False,
+            "draft_character_count": 0,
+            "draft_fingerprint_ref": "draft-fingerprint-ref:chat:empty",
+            "metadata_refs": [],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+
+
 def test_well_shaped_but_unissued_truth_ref_is_rejected(
     monkeypatch,
     tmp_path,
@@ -268,7 +291,9 @@ def test_browser_product_and_runtime_mutations_require_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )
 
 
 @pytest.mark.parametrize(
@@ -292,6 +317,4 @@ def test_browser_crm_adoption_mutations_require_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")

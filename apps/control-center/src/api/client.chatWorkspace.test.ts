@@ -76,13 +76,39 @@ function stubWorkspace(value: unknown) {
 }
 
 
-function stubCheckpointReceipt(overrides: Record<string, unknown> = {}) {
+function stubCheckpointReceipt(
+  overrides: Record<string, unknown> = {},
+  includeResponseBinding = true,
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, init?: RequestInit) => {
       const idempotencyRef = new Headers(init?.headers).get(
         "X-UAA-Idempotency-Key",
       );
+      const request = JSON.parse(String(init?.body)) as {
+        expected_revision: number;
+        draft_present: boolean;
+        draft_character_count: number;
+        draft_fingerprint_ref: string;
+        metadata_refs?: string[];
+      };
+      const canonicalPayload = JSON.stringify({
+        draft_character_count: request.draft_character_count,
+        draft_fingerprint_ref: request.draft_fingerprint_ref,
+        draft_present: request.draft_present,
+        expected_revision: request.expected_revision,
+        metadata_refs: request.metadata_refs ?? [],
+        thread_ref: thread.thread_ref,
+      });
+      const payloadDigest = await globalThis.crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(canonicalPayload),
+      );
+      const payloadFingerprintRef = `payload-fingerprint:chat-workspace:${Array.from(
+        new Uint8Array(payloadDigest),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      ).join("")}`;
       const receipt = {
         contract_ref: "contract-ref:chat-content-free-workspace:v1",
         mutation_kind: "draft_checkpoint",
@@ -95,7 +121,7 @@ function stubCheckpointReceipt(overrides: Record<string, unknown> = {}) {
         evidence_ref:
           "evidence-ref:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
         idempotency_key_ref: idempotencyRef,
-        payload_fingerprint_ref: `payload-fingerprint:chat-workspace:${"a".repeat(64)}`,
+        payload_fingerprint_ref: payloadFingerprintRef,
         safe_summary: "Content-free checkpoint recorded.",
         raw_draft_received: false,
         draft_body_stored: false,
@@ -108,7 +134,15 @@ function stubCheckpointReceipt(overrides: Record<string, unknown> = {}) {
       };
       return new Response(JSON.stringify({ success: true, data: receipt }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(includeResponseBinding
+            ? {
+                "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+                "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+              }
+            : {}),
+        },
       });
     }),
   );
@@ -184,6 +218,16 @@ describe("content-free Chat workspace API boundary", () => {
     ["rebound thread", { thread: { ...thread, thread_ref: "chat-thread:other" } }],
     ["wrong revision", { thread: { ...thread, revision: 2 } }],
     ["wrong idempotency key", { idempotency_key_ref: "idempotency-ref:wrong" }],
+    [
+      "wrong payload fingerprint",
+      {
+        payload_fingerprint_ref: `payload-fingerprint:chat-workspace:${"a".repeat(64)}`,
+      },
+    ],
+    [
+      "different valid checkpoint metadata",
+      { thread: { ...thread, draft_character_count: 23 } },
+    ],
   ])("rejects %s on mutation response", async (_label, overrides) => {
     stubCheckpointReceipt(overrides);
 
@@ -199,5 +243,22 @@ describe("content-free Chat workspace API boundary", () => {
         binding,
       ),
     ).rejects.toThrow("Chat workspace state was not recorded safely.");
+  });
+
+  it("rejects a mutation response without exact backend provenance", async () => {
+    stubCheckpointReceipt({}, false);
+
+    await expect(
+      checkpointChatDraft(
+        thread.thread_ref,
+        {
+          expected_revision: 0,
+          draft_present: true,
+          draft_character_count: 24,
+          draft_fingerprint_ref: thread.draft_fingerprint_ref,
+        },
+        binding,
+      ),
+    ).rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
   });
 });

@@ -11145,7 +11145,13 @@ class FounderLoopRepository:
                         "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
                     )
                 return self._validated_chat_thread_mutation_replay(
-                    str(replay["receipt_json"])
+                    str(replay["receipt_json"]),
+                    expected_thread_ref=thread_ref,
+                    expected_payload_fingerprint_ref=payload_fingerprint_ref,
+                    expected_idempotency_key_ref=idempotency_key_ref,
+                    expected_mutation_kind="draft_checkpoint",
+                    expected_lifecycle_action=None,
+                    expected_revision=request.expected_revision + 1,
                 )
             row = conn.execute(
                 """
@@ -11299,7 +11305,13 @@ class FounderLoopRepository:
                         "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
                     )
                 return self._validated_chat_thread_mutation_replay(
-                    str(replay["receipt_json"])
+                    str(replay["receipt_json"]),
+                    expected_thread_ref=thread_ref,
+                    expected_payload_fingerprint_ref=payload_fingerprint_ref,
+                    expected_idempotency_key_ref=idempotency_key_ref,
+                    expected_mutation_kind="lifecycle",
+                    expected_lifecycle_action=request.action,
+                    expected_revision=request.expected_revision + 1,
                 )
             row = conn.execute(
                 """
@@ -11546,7 +11558,16 @@ class FounderLoopRepository:
         return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
 
     @staticmethod
-    def _validated_chat_thread_mutation_replay(receipt_json: str) -> dict[str, Any]:
+    def _validated_chat_thread_mutation_replay(
+        receipt_json: str,
+        *,
+        expected_thread_ref: str,
+        expected_payload_fingerprint_ref: str,
+        expected_idempotency_key_ref: str,
+        expected_mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+        expected_lifecycle_action: Literal["archive", "recover"] | None,
+        expected_revision: int,
+    ) -> dict[str, Any]:
         try:
             receipt = ChatThreadMutationReceipt.model_validate(
                 {**json.loads(receipt_json), "replayed": True}
@@ -11555,6 +11576,17 @@ class FounderLoopRepository:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT"
             ) from exc
+        if (
+            receipt.thread.thread_ref != expected_thread_ref
+            or receipt.thread.revision != expected_revision
+            or receipt.payload_fingerprint_ref != expected_payload_fingerprint_ref
+            or receipt.idempotency_key_ref != expected_idempotency_key_ref
+            or receipt.mutation_kind != expected_mutation_kind
+            or receipt.lifecycle_action != expected_lifecycle_action
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT"
+            )
         return receipt.model_dump(mode="json")
 
     @staticmethod

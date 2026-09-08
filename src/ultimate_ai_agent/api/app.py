@@ -849,11 +849,12 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
     if request.method.upper() != "POST":
         return False
     path = request.url.path
+    if _CONTROL_CENTER_BOUND_CHAT_WORKSPACE_MUTATION_RE.fullmatch(path) is not None:
+        return True
     if (
         path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_CHAT_MUTATION_RE.fullmatch(path) is None
-        and _CONTROL_CENTER_BOUND_CHAT_WORKSPACE_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_MEMORY_MUTATION_RE.fullmatch(path) is None
         and _CONTROL_CENTER_BOUND_GOAL_MUTATION_RE.fullmatch(path) is None
     ):

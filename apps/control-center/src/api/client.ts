@@ -6397,6 +6397,7 @@ async function mutateChatThread(
     ),
     body: JSON.stringify(request),
   });
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<ChatThreadMutationReceipt>;
@@ -6660,16 +6661,42 @@ async function chatThreadMutationReceiptMatchesRequest(
   const mutationKind = "action" in request ? "lifecycle" : "draft_checkpoint";
   const expectedRevision = request.expected_revision + 1;
   const receiptPrefix = `${kind}:${threadDigest.slice(0, 16)}:revision-${expectedRevision}`;
+  const payloadFingerprintRef = await chatThreadMutationPayloadFingerprintRef(
+    threadRef,
+    request,
+  );
+  if (!payloadFingerprintRef) {
+    return false;
+  }
   return (
     receipt.mutation_kind === mutationKind &&
     receipt.lifecycle_action === ("action" in request ? request.action : null) &&
     receipt.thread.thread_ref === threadRef &&
     receipt.thread.revision === expectedRevision &&
     receipt.idempotency_key_ref === idempotencyRef &&
+    receipt.payload_fingerprint_ref === payloadFingerprintRef &&
+    ("action" in request ||
+      (receipt.thread.draft_present === request.draft_present &&
+        receipt.thread.draft_character_count === request.draft_character_count &&
+        receipt.thread.draft_fingerprint_ref === request.draft_fingerprint_ref)) &&
     receipt.receipt_ref === `receipt:chat-workspace:${receiptPrefix}` &&
     receipt.audit_ref === `audit:chat-workspace:${receiptPrefix}` &&
     receipt.evidence_ref === `evidence-ref:chat-workspace:${receiptPrefix}`
   );
+}
+
+async function chatThreadMutationPayloadFingerprintRef(
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+): Promise<string | null> {
+  const digest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      thread_ref: threadRef,
+      ...request,
+      metadata_refs: request.metadata_refs ?? [],
+    }),
+  );
+  return digest ? `payload-fingerprint:chat-workspace:${digest}` : null;
 }
 
 async function chatSha256Hex(value: string): Promise<string | null> {

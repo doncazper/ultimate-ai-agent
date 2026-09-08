@@ -47,8 +47,29 @@ def _checkpoint(
             if count > 0
             else CHAT_DRAFT_EMPTY_FINGERPRINT_REF
         ),
-        metadata_refs=["metadata-ref:chat-workspace:test"],
+        metadata_refs=[f"metadata-ref:chat-workspace:revision-{expected_revision}"],
     )
+
+
+def _mutation_binding_headers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    origin: str | None = None,
+) -> dict[str, str]:
+    source_revision = "7" * 40
+    monkeypatch.setenv("UAA_BUILD_COMMIT", source_revision)
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(tmp_path / "binding-state"),
+        identity=build_identity(env={"UAA_BUILD_COMMIT": source_revision}),
+    )
+    return {
+        **({"origin": origin} if origin else {}),
+        "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+        "X-UAA-Expected-Backend-Revision-Ref": f"commit-ref:git:{source_revision}",
+        "X-UAA-Expected-Backend-Instance-Ref": backend_instance_ref(),
+        "X-UAA-Expected-Backend-Truth-Ref": truth["envelope_integrity_ref"],
+    }
 
 
 def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
@@ -75,6 +96,18 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
             draft_character_count=0,
             draft_fingerprint_ref=CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
             metadata_refs=["metadata-ref:" + "x" * 201],
+        )
+
+    with pytest.raises(
+        ValidationError,
+        match="metadata refs must bind the expected revision",
+    ):
+        ChatDraftCheckpointRequest(
+            expected_revision=0,
+            draft_present=False,
+            draft_character_count=0,
+            draft_fingerprint_ref=CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
+            metadata_refs=["metadata-ref:chat-workspace:private-note"],
         )
 
 
@@ -264,6 +297,43 @@ def test_chat_workspace_revalidates_stored_replay_receipts(tmp_path: Path) -> No
         )
 
 
+def test_chat_workspace_rebinds_stored_replay_to_exact_request(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+    repo = FounderLoopRepository(state_dir)
+    key_ref = "idempotency-ref:chat-workspace:rebound-replay"
+    repo.record_chat_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=_checkpoint(),
+        idempotency_key_ref=key_ref,
+    )
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
+        stored = json.loads(
+            conn.execute(
+                "SELECT receipt_json FROM chat_thread_mutation_replays WHERE key_ref = ?",
+                (key_ref,),
+            ).fetchone()[0]
+        )
+        stored["payload_fingerprint_ref"] = (
+            "payload-fingerprint:chat-workspace:" + "a" * 64
+        )
+        conn.execute(
+            "UPDATE chat_thread_mutation_replays SET receipt_json = ? WHERE key_ref = ?",
+            (json.dumps(stored), key_ref),
+        )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
+    ):
+        repo.record_chat_draft_checkpoint(
+            thread_ref=THREAD_REF,
+            request=_checkpoint(),
+            idempotency_key_ref=key_ref,
+        )
+
+
 def test_chat_workspace_rejects_unbounded_or_wrong_namespace_thread_refs(
     tmp_path: Path,
 ) -> None:
@@ -294,7 +364,10 @@ def test_chat_workspace_api_exposes_clean_start_and_content_free_checkpoint(
     checkpoint = client.post(
         f"/control-center/chat/threads/{THREAD_REF}/draft-checkpoint",
         headers={
-            "X-UAA-Idempotency-Key": ("idempotency-ref:chat-workspace:api-checkpoint-1")
+            **_mutation_binding_headers(monkeypatch, tmp_path),
+            "X-UAA-Idempotency-Key": (
+                "idempotency-ref:chat-workspace:api-checkpoint-1"
+            ),
         },
         json=_checkpoint().model_dump(mode="json"),
     )
@@ -316,14 +389,20 @@ def test_chat_workspace_api_rejects_body_fields_and_missing_threads(
 
     unsafe = client.post(
         f"/control-center/chat/threads/{THREAD_REF}/draft-checkpoint",
-        headers={"X-UAA-Idempotency-Key": "idempotency-ref:chat:unsafe"},
+        headers={
+            **_mutation_binding_headers(monkeypatch, tmp_path),
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat:unsafe",
+        },
         json={**_checkpoint().model_dump(mode="json"), "draft_body": "x" * 24},
     )
     assert unsafe.status_code == 422
 
     missing = client.post(
         f"/control-center/chat/threads/{THREAD_REF}/lifecycle",
-        headers={"X-UAA-Idempotency-Key": "idempotency-ref:chat:missing"},
+        headers={
+            **_mutation_binding_headers(monkeypatch, tmp_path),
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat:missing",
+        },
         json={"action": "archive", "expected_revision": 1},
     )
     assert missing.status_code == 404
@@ -338,19 +417,11 @@ def test_chat_workspace_api_rejects_oversized_and_deep_json_before_decode(
     client = TestClient(app)
     route = f"/control-center/chat/threads/{THREAD_REF}/draft-checkpoint"
     origin = "http://localhost:5173"
-    source_revision = "7" * 40
-    monkeypatch.setenv("UAA_BUILD_COMMIT", source_revision)
-    truth = build_control_center_backend_truth(
-        repo=FounderLoopRepository(tmp_path / "binding-state"),
-        identity=build_identity(env={"UAA_BUILD_COMMIT": source_revision}),
+    bound_headers = _mutation_binding_headers(
+        monkeypatch,
+        tmp_path,
+        origin=origin,
     )
-    bound_headers = {
-        "origin": origin,
-        "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
-        "X-UAA-Expected-Backend-Revision-Ref": f"commit-ref:git:{source_revision}",
-        "X-UAA-Expected-Backend-Instance-Ref": backend_instance_ref(),
-        "X-UAA-Expected-Backend-Truth-Ref": truth["envelope_integrity_ref"],
-    }
 
     oversized = client.post(
         route,

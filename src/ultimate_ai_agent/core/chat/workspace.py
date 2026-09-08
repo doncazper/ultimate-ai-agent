@@ -62,8 +62,10 @@ class ChatDraftCheckpointRequest(BaseModel):
     @model_validator(mode="after")
     def validate_checkpoint(self) -> "ChatDraftCheckpointRequest":
         validate_task_ref(self.draft_fingerprint_ref, "draft_fingerprint_ref")
-        for value in self.metadata_refs:
-            validate_task_ref(value, "metadata_refs")
+        _validate_chat_workspace_metadata_refs(
+            self.metadata_refs,
+            expected_revision=self.expected_revision,
+        )
         if self.draft_present:
             if self.draft_character_count == 0:
                 raise ValueError("a present Chat draft must have a character count")
@@ -92,8 +94,10 @@ class ChatThreadLifecycleRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_lifecycle(self) -> "ChatThreadLifecycleRequest":
-        for value in self.metadata_refs:
-            validate_task_ref(value, "metadata_refs")
+        _validate_chat_workspace_metadata_refs(
+            self.metadata_refs,
+            expected_revision=self.expected_revision,
+        )
         validate_safe_task_payload(
             self.model_dump(mode="json"), "chat_thread_lifecycle_request"
         )
@@ -363,6 +367,16 @@ def validate_chat_thread_ref(thread_ref: str) -> None:
     validate_task_ref(thread_ref, "thread_ref")
     if CHAT_THREAD_REF_RE.fullmatch(thread_ref) is None:
         raise ValueError("thread_ref must be a bounded Chat workspace ref")
+
+
+def _validate_chat_workspace_metadata_refs(
+    metadata_refs: list[str], *, expected_revision: int
+) -> None:
+    for value in metadata_refs:
+        validate_task_ref(value, "metadata_refs")
+    expected = [f"metadata-ref:chat-workspace:revision-{expected_revision}"]
+    if metadata_refs and metadata_refs != expected:
+        raise ValueError("Chat workspace metadata refs must bind the expected revision")
 
 
 def chat_workspace_mutation_ref(
