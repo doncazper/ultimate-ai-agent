@@ -101,7 +101,7 @@ AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256 = (
 FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verification/ci_command_manifest.py": (
         "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
-        "1ab89d536a62035467b2b2f1031830839986dcd9739942390ce00ba1d6aa7b42",
+        "03f83c22ec6a4135e156f1d773325fabfbabeb29cde4f2d3ec2aec8d2fd3d0b2",
     ),
     "scripts/verification/verification_contracts.py": (
         "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",
@@ -118,6 +118,16 @@ FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verify_release_lanes.py": (
         "4d8260090f8d9da6b211a0391becbf487e22ca061524479ba2418b67015e0517",
         "120e9cfb345a0922cad88114c414b9278414145935dda3cf73b76b3cf2e46a4f",
+    ),
+}
+HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
+    "pyproject.toml": (
+        "aef8b076beaa53744845d5ee2225e732928ae9c3a03a4305d13a6d02415095d5",
+        "a15762be4ac750f0ff33ae35432bb6ac87a9e67e7ffbfd41926e391a1c1dbcdb",
+    ),
+    "uv.lock": (
+        "03f91336bb5bc1f1d23b1fbafe3f7019b85939a08432721eb8df164f53c4d402",
+        "051afe63218256bdf37ed584630f7e53d65e68d565d4feb04f17e9072511cb14",
     ),
 }
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
@@ -12026,6 +12036,29 @@ def _safe_foundation_isolation_runner_alignment_paths(
     return expected_paths
 
 
+def _safe_httpx2_security_dependency_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the reviewed httpx2/httpcore2 security lock upgrade."""
+
+    expected_paths = set(HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return expected_paths
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -12089,6 +12122,24 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    expected_dependency_paths = set(
+        HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+    )
+    dependency_alignment_paths = all_changed & expected_dependency_paths
+    safe_dependency_paths: set[str] = set()
+    if dependency_alignment_paths == expected_dependency_paths:
+        safe_dependency_paths = _safe_httpx2_security_dependency_alignment_paths(
+            current_by_path={
+                path: _read_worktree_text(repo, path)
+                if (repo / path).is_file()
+                else ""
+                for path in dependency_alignment_paths
+            },
+            prior_by_path={
+                path: _base_text(repo, base_sha, path) or ""
+                for path in dependency_alignment_paths
+            },
+        )
     for path in all_changed:
         if not _is_python_test_path(path):
             continue
@@ -12214,7 +12265,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         raise TestCorpusGuardError(
             "changed pytest runner dependency cannot be inventoried safely"
         )
-    if all_changed & PYTEST_DEPENDENCY_LOCK_PATHS:
+    if (all_changed & PYTEST_DEPENDENCY_LOCK_PATHS) - safe_dependency_paths:
         raise TestCorpusGuardError(
             "changed pytest dependency lock cannot be inventoried safely"
         )
@@ -12286,9 +12337,11 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 "changed pytest entry-point configuration cannot be inventoried safely"
             )
 
-        if path == "pyproject.toml" and _pytest_dev_dependencies(
-            current
-        ) != _pytest_dev_dependencies(prior):
+        if (
+            path == "pyproject.toml"
+            and _pytest_dev_dependencies(current) != _pytest_dev_dependencies(prior)
+            and path not in safe_dependency_paths
+        ):
             raise TestCorpusGuardError(
                 "changed pytest dependency configuration cannot be inventoried safely"
             )

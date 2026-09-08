@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -60,6 +61,63 @@ def test_visual_timeout_alignment_rejects_extra_runner_changes(
         current_by_path={path: current + mutation},
         prior_by_path={path: prior},
     ) == set()
+
+
+def test_exact_httpx2_security_dependency_alignment_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = "pyproject.toml"
+    lock_path = "uv.lock"
+    prior = {
+        project_path: 'dev = ["httpx2>=2.5.0,<3.0.0"]\n',
+        lock_path: 'name = "httpx2"\nversion = "2.5.0"\n',
+    }
+    current = {
+        project_path: 'dev = ["httpx2>=2.12.0,<3.0.0"]\n',
+        lock_path: 'name = "httpx2"\nversion = "2.12.0"\n',
+    }
+    monkeypatch.setattr(
+        guard,
+        "HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+    assert guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path=current,
+        prior_by_path=prior,
+    ) == {project_path, lock_path}
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path={
+            **current,
+            lock_path: current[lock_path] + "pytest-exclusion = true\n",
+        },
+        prior_by_path=prior,
+    )
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path=current,
+        prior_by_path={
+            **prior,
+            project_path: prior[project_path] + "# different base\n",
+        },
+    )
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path={project_path: current[project_path]},
+        prior_by_path={project_path: prior[project_path]},
+    )
+
+
+def test_httpx2_security_dependency_current_fingerprints_are_exact() -> None:
+    root = Path(__file__).parents[1]
+    for path, (_, current_digest) in (
+        guard.HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
 
 
 def _source_ref(test_ref: str) -> str:
