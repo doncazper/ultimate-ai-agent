@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loadMacOSSetupAssistantRoute,
   type BackendTruthReadBinding,
@@ -25,23 +25,62 @@ export type MacOSSetupAssistantLoadState =
       retry: () => void;
     };
 
+type InternalLoadState =
+  | { status: "loading"; data: null; errorRef: null }
+  | {
+      status: "ready";
+      data: MacOSSetupAssistantData;
+      errorRef: null;
+      backendRevisionRef: string;
+      backendInstanceRef: string;
+    }
+  | { status: "error"; data: null; errorRef: string };
+
 export function useMacOSSetupAssistant(
   enabled: boolean,
   binding: BackendTruthReadBinding | null,
 ): MacOSSetupAssistantLoadState {
+  const snapshotRef = binding?.snapshotRef ?? null;
+  const backendRevisionRef = binding?.backendRevisionRef ?? null;
+  const backendInstanceRef = binding?.backendInstanceRef ?? null;
+  const latestSnapshotRef = useRef(snapshotRef);
+  latestSnapshotRef.current = snapshotRef;
   const [reloadGeneration, setReloadGeneration] = useState(0);
-  const [state, setState] = useState<
-    Omit<MacOSSetupAssistantLoadState, "retry">
-  >({ status: "loading", data: null, errorRef: null });
+  const [state, setState] = useState<InternalLoadState>({
+    status: "loading",
+    data: null,
+    errorRef: null,
+  });
   const retry = () => setReloadGeneration((generation) => generation + 1);
 
   useEffect(() => {
-    if (!enabled || binding === null) return;
+    if (!enabled || !backendRevisionRef || !backendInstanceRef) return;
     let active = true;
-    setState({ status: "loading", data: null, errorRef: null });
-    loadMacOSSetupAssistantRoute(binding)
+    setState((current) =>
+      current.status === "ready" &&
+      current.backendRevisionRef === backendRevisionRef &&
+      current.backendInstanceRef === backendInstanceRef
+        ? current
+        : { status: "loading", data: null, errorRef: null },
+    );
+    const expectedBinding = latestSnapshotRef.current
+      ? {
+          snapshotRef: latestSnapshotRef.current,
+          backendRevisionRef,
+          backendInstanceRef,
+        }
+      : null;
+    loadMacOSSetupAssistantRoute(expectedBinding)
       .then((data) => {
-        if (active) setState({ status: "ready", data, errorRef: null });
+        if (active) {
+          setState({
+            status: "ready",
+            data,
+            errorRef: null,
+            backendRevisionRef,
+            backendInstanceRef,
+          });
+        }
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -58,12 +97,32 @@ export function useMacOSSetupAssistant(
       active = false;
     };
   }, [
-    binding?.backendInstanceRef,
-    binding?.backendRevisionRef,
-    binding?.snapshotRef,
+    backendInstanceRef,
+    backendRevisionRef,
     enabled,
     reloadGeneration,
   ]);
 
+  if (
+    enabled &&
+    state.status === "ready" &&
+    (state.backendRevisionRef !== backendRevisionRef ||
+      state.backendInstanceRef !== backendInstanceRef)
+  ) {
+    return {
+      status: "loading",
+      data: null,
+      errorRef: null,
+      retry,
+    };
+  }
+  if (state.status === "ready") {
+    const {
+      backendRevisionRef: _backendRevisionRef,
+      backendInstanceRef: _backendInstanceRef,
+      ...visibleState
+    } = state;
+    return { ...visibleState, retry };
+  }
   return { ...state, retry } as MacOSSetupAssistantLoadState;
 }

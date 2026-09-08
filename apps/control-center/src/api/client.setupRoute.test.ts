@@ -79,4 +79,19 @@ describe("loadMacOSSetupAssistantRoute", () => {
       "SETUP_ASSISTANT_RESPONSE_INVALID",
     );
   });
+
+  it.each(["live_probe_performed", "state_change_performed"])(
+    "rejects a complete Setup response with unsafe diagnostic %s",
+    async (field) => {
+      const payload = toBackendPayload(
+        mockControlCenterData.macosSetupAssistant,
+      ) as { diagnostics: Array<Record<string, unknown>> };
+      payload.diagnostics[0][field] = true;
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
+
+      await expect(loadMacOSSetupAssistantRoute(binding)).rejects.toThrow(
+        "SETUP_ASSISTANT_RESPONSE_INVALID",
+      );
+    },
+  );
 });

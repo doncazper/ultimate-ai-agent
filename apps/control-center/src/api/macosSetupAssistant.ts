@@ -66,7 +66,7 @@ export function normalizeMacOSSetupAssistant(
   return {
     value,
     usedFallback:
-      lifecycleSourceRequiresFallback(source) ||
+      setupSafetySourceRequiresFallback(source) ||
       JSON.stringify(value) !== JSON.stringify(probeValue),
   };
 }
@@ -427,10 +427,41 @@ function normalizeMacOSSetupLifecycleOperation(
   };
 }
 
-function lifecycleSourceRequiresFallback(source: unknown): boolean {
+function setupSafetySourceRequiresFallback(source: unknown): boolean {
   if (!isRecord(source)) {
     return true;
   }
+  const diagnostics = recordsValue(source, "diagnostics");
+  if (
+    diagnostics.length === 0 ||
+    diagnostics.some(
+      (diagnostic) =>
+        diagnostic.read_only !== true ||
+        diagnostic.live_probe_performed !== false ||
+        diagnostic.state_change_performed !== false,
+    )
+  ) {
+    return true;
+  }
+
+  const rollbackPlan = recordValue(source, "rollback_plan");
+  if (
+    !rollbackPlan ||
+    !allBooleanFieldsEqual(
+      rollbackPlan,
+      [
+        "rollback_available_after_approval",
+        "rollback_execution_available",
+        "rollback_rehearsal_completed",
+        "restore_proof_available",
+        "rollback_executed",
+      ],
+      false,
+    )
+  ) {
+    return true;
+  }
+
   const lifecycle = recordValue(source, "lifecycle");
   if (
     !lifecycle ||
