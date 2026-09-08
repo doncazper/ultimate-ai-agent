@@ -22217,6 +22217,15 @@ function setupFixtureToBackendPayload(value: unknown): unknown {
   );
 }
 
+function setupAssistantSummaryForTest() {
+  return {
+    ...(setupFixtureToBackendPayload(
+      mockControlCenterData.macosSetupAssistant,
+    ) as Record<string, unknown>),
+    ...mockApiData.setupAssistantSummary,
+  };
+}
+
 function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
@@ -22339,7 +22348,7 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePluginMetadataPosture,
     [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
       mockControlCenterData.runtimeSkillMarketplacePosture,
-    [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.setupAssistantSummary]: setupAssistantSummaryForTest(),
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,
