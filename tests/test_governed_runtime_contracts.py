@@ -921,23 +921,23 @@ def test_runtime_store_lock_contention_fails_closed_within_bounded_wait(
         args=(state_dir, started_path, release_path),
     )
     process.start()
-    deadline = time.monotonic() + 5
-    while not started_path.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
-    assert started_path.exists()
-    monkeypatch.setattr(
-        runtime_storage,
-        "RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS",
-        0.05,
-    )
-    monkeypatch.setattr(
-        runtime_storage,
-        "RUNTIME_GATEWAY_LOCK_POLL_SECONDS",
-        0.001,
-    )
-
-    started = time.monotonic()
     try:
+        deadline = time.monotonic() + 5
+        while not started_path.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert started_path.exists()
+        monkeypatch.setattr(
+            runtime_storage,
+            "RUNTIME_GATEWAY_LOCK_TIMEOUT_SECONDS",
+            0.05,
+        )
+        monkeypatch.setattr(
+            runtime_storage,
+            "RUNTIME_GATEWAY_LOCK_POLL_SECONDS",
+            0.001,
+        )
+
+        started = time.monotonic()
         with pytest.raises(
             RuntimeInvocationStorageError,
             match="RUNTIME_STORAGE_LEDGER_PATH_INVALID",
