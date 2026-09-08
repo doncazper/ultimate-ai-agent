@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.chat import (
     CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS,
     CHAT_LOCAL_OPERATOR_REQUIRED_TRUTH_FIELDS,
     CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF,
+    CHAT_WORKSPACE_MAX_REVISION,
     ChatDraftCheckpointRequest,
     ChatHandoffReceipt,
     ChatHandoffRequest,
@@ -11143,8 +11144,9 @@ class FounderLoopRepository:
                     raise FounderLoopStorageDuplicateError(
                         "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
                     )
-                receipt = dict(json.loads(str(replay["receipt_json"])))
-                return {**receipt, "replayed": True}
+                return self._validated_chat_thread_mutation_replay(
+                    str(replay["receipt_json"])
+                )
             row = conn.execute(
                 """
                 SELECT thread_ref, display_name, state, revision, draft_present,
@@ -11158,6 +11160,10 @@ class FounderLoopRepository:
             if row is not None and str(row["state"]) == "archived":
                 raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_ARCHIVED")
             if row is None:
+                if request.expected_revision != 0:
+                    raise FounderLoopStorageError(
+                        "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT"
+                    )
                 existing_count = int(
                     conn.execute(
                         "SELECT COUNT(*) AS count FROM chat_thread_states"
@@ -11185,6 +11191,14 @@ class FounderLoopRepository:
                     ),
                 )
             else:
+                if request.expected_revision != int(row["revision"]):
+                    raise FounderLoopStorageError(
+                        "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT"
+                    )
+                if int(row["revision"]) >= CHAT_WORKSPACE_MAX_REVISION:
+                    raise FounderLoopStorageError(
+                        "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED"
+                    )
                 display_name = str(row["display_name"])
                 revision = int(row["revision"]) + 1
                 created_at = str(row["created_at"])
@@ -11284,8 +11298,9 @@ class FounderLoopRepository:
                     raise FounderLoopStorageDuplicateError(
                         "FOUNDER_LOOP_CHAT_WORKSPACE_IDEMPOTENCY_CONFLICT"
                     )
-                receipt = dict(json.loads(str(replay["receipt_json"])))
-                return {**receipt, "replayed": True}
+                return self._validated_chat_thread_mutation_replay(
+                    str(replay["receipt_json"])
+                )
             row = conn.execute(
                 """
                 SELECT thread_ref, display_name, state, revision, draft_present,
@@ -11298,6 +11313,14 @@ class FounderLoopRepository:
             ).fetchone()
             if row is None:
                 raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND")
+            if request.expected_revision != int(row["revision"]):
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT"
+                )
+            if int(row["revision"]) >= CHAT_WORKSPACE_MAX_REVISION:
+                raise FounderLoopStorageError(
+                    "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED"
+                )
             current_state = str(row["state"])
             if request.action == "archive" and current_state != "active":
                 raise FounderLoopStorageError(
@@ -11521,6 +11544,18 @@ class FounderLoopRepository:
             (self._bounded_limit(limit),),
         )
         return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    @staticmethod
+    def _validated_chat_thread_mutation_replay(receipt_json: str) -> dict[str, Any]:
+        try:
+            receipt = ChatThreadMutationReceipt.model_validate(
+                {**json.loads(receipt_json), "replayed": True}
+            )
+        except (TypeError, ValueError) as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT"
+            ) from exc
+        return receipt.model_dump(mode="json")
 
     @staticmethod
     def _chat_thread_read_model(row: sqlite3.Row) -> ChatThreadReadModel:

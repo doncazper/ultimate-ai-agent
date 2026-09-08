@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchChatWorkspace } from "./client";
+import { checkpointChatDraft, fetchChatWorkspace } from "./client";
+import type { BackendTruthReadBinding } from "./client";
 
 
 const thread = {
@@ -11,11 +12,19 @@ const thread = {
   revision: 1,
   draft_present: true,
   draft_character_count: 24,
-  draft_fingerprint_ref: "draft-fingerprint-ref:chat:local-a001c0250539fdc1",
+  draft_fingerprint_ref:
+    "draft-fingerprint-ref:chat:local-a001c0250539fdc1a001c0250539fdc1",
   draft_recovery_state: "metadata_only_reentry_required",
   draft_body_stored: false,
   created_at: "2026-09-07T12:00:00Z",
   updated_at: "2026-09-07T12:01:00Z",
+};
+
+const binding: BackendTruthReadBinding = {
+  snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
+  backendRevisionRef: `commit-ref:git:${"1".repeat(40)}`,
+  backendInstanceRef:
+    "backend-instance-ref:control-center:22222222222222222222222222222222",
 };
 
 const workspace = {
@@ -67,6 +76,45 @@ function stubWorkspace(value: unknown) {
 }
 
 
+function stubCheckpointReceipt(overrides: Record<string, unknown> = {}) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, init?: RequestInit) => {
+      const idempotencyRef = new Headers(init?.headers).get(
+        "X-UAA-Idempotency-Key",
+      );
+      const receipt = {
+        contract_ref: "contract-ref:chat-content-free-workspace:v1",
+        mutation_kind: "draft_checkpoint",
+        lifecycle_action: null,
+        thread,
+        receipt_ref:
+          "receipt:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+        audit_ref:
+          "audit:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+        evidence_ref:
+          "evidence-ref:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+        idempotency_key_ref: idempotencyRef,
+        payload_fingerprint_ref: `payload-fingerprint:chat-workspace:${"a".repeat(64)}`,
+        safe_summary: "Content-free checkpoint recorded.",
+        raw_draft_received: false,
+        draft_body_stored: false,
+        model_call_performed: false,
+        tool_execution_performed: false,
+        connector_write_performed: false,
+        replayed: false,
+        created_at: "2026-09-07T12:01:00Z",
+        ...overrides,
+      };
+      return new Response(JSON.stringify({ success: true, data: receipt }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+}
+
+
 describe("content-free Chat workspace API boundary", () => {
   it("accepts the exact bounded backend-owned contract", async () => {
     stubWorkspace(workspace);
@@ -103,5 +151,53 @@ describe("content-free Chat workspace API boundary", () => {
     await expect(fetchChatWorkspace(null)).rejects.toThrow(
       "Chat workspace metadata was rejected safely.",
     );
+  });
+
+  it("binds a mutation receipt to the exact thread, revision, and idempotency key", async () => {
+    stubCheckpointReceipt();
+
+    await expect(
+      checkpointChatDraft(
+        thread.thread_ref,
+        {
+          expected_revision: 0,
+          draft_present: true,
+          draft_character_count: 24,
+          draft_fingerprint_ref: thread.draft_fingerprint_ref,
+        },
+        binding,
+      ),
+    ).resolves.toMatchObject({
+      thread,
+      mutation_kind: "draft_checkpoint",
+    });
+  });
+
+  it.each([
+    [
+      "rebound receipt thread digest",
+      {
+        receipt_ref:
+          "receipt:chat-workspace:draft_checkpoint:aaaaaaaaaaaaaaaa:revision-1",
+      },
+    ],
+    ["rebound thread", { thread: { ...thread, thread_ref: "chat-thread:other" } }],
+    ["wrong revision", { thread: { ...thread, revision: 2 } }],
+    ["wrong idempotency key", { idempotency_key_ref: "idempotency-ref:wrong" }],
+  ])("rejects %s on mutation response", async (_label, overrides) => {
+    stubCheckpointReceipt(overrides);
+
+    await expect(
+      checkpointChatDraft(
+        thread.thread_ref,
+        {
+          expected_revision: 0,
+          draft_present: true,
+          draft_character_count: 24,
+          draft_fingerprint_ref: thread.draft_fingerprint_ref,
+        },
+        binding,
+      ),
+    ).rejects.toThrow("Chat workspace state was not recorded safely.");
   });
 });

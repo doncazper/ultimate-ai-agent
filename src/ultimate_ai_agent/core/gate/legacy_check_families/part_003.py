@@ -876,6 +876,32 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.rate_limit_group == "chat_durable_receipt"
                 and route.blocked_from_production
             )
+            is_founder_loop_chat_workspace_state = (
+                path in FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.protected_route
+                and route.blocked_from_production
+                and (
+                    (
+                        route.method == "GET"
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and not route.idempotency_required
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and route.route_classification == "mutating_requires_authority"
+                        and route.approval_posture
+                        == "required_before_mutation_authority"
+                        and route.idempotency_required
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "chat_durable_receipt"
+                    )
+                )
+            )
             is_founder_loop_memory_review_decision_state = (
                 path in FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES
                 and route.method == "POST"
@@ -1170,6 +1196,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_founder_loop_action_envelope_state
                 and not is_founder_loop_exact_attention_state
                 and not is_founder_loop_chat_durable_receipt_state
+                and not is_founder_loop_chat_workspace_state
                 and not is_founder_loop_memory_review_decision_state
                 and not is_founder_loop_local_task_commit_state
                 and not is_founder_loop_memory_context_action_proposal_state
@@ -1379,11 +1406,12 @@ class FoundationGateLegacyChecksPart003Mixin:
             *sorted((app_root / "src").rglob("*.tsx")),
             *sorted((app_root / "src").rglob("*.css")),
         ]
-        source_text = "\n".join(
-            self._read(path).lower()
+        source_text_by_path = {
+            path.relative_to(self.root).as_posix(): self._read(path).lower()
             for path in source_paths
             if self._context.is_file(path) and ".test." not in path.name
-        )
+        }
+        source_text = "\n".join(source_text_by_path.values())
         forbidden = [
             "/control-center/actions/execute",
             "/control-center/plugins/enable",
@@ -1403,11 +1431,20 @@ class FoundationGateLegacyChecksPart003Mixin:
             "app store connect",
             "keychain",
         ]
-        failures.extend(
-            f"forbidden frontend source fragment: {fragment}"
-            for fragment in forbidden
-            if fragment in source_text
-        )
+        fragment_exceptions = {
+            "sessionstorage": {
+                "apps/control-center/src/components/ChatWorkspacePanel.tsx"
+            }
+        }
+        for fragment in forbidden:
+            unexpected_paths = [
+                path
+                for path, text in source_text_by_path.items()
+                if fragment in text
+                and path not in fragment_exceptions.get(fragment, set())
+            ]
+            if unexpected_paths:
+                failures.append(f"forbidden frontend source fragment: {fragment}")
         if "no authority to run actions" not in source_text:
             failures.append("frontend does not visibly mark no action authority")
         return self._result(
@@ -1458,6 +1495,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "decideRuntimeGoalMutationApproval",
             "revokeRuntimeGoalMutationApproval",
             "postCrmAdoptionEnvelope",
+            "mutateChatThread",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

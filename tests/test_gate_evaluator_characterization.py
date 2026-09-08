@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_DECISION_ROUTES,
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
+    FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES,
     CONTROL_CENTER_AUTOCORRECT_ROUTES,
     CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
     CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
@@ -106,6 +107,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/actions/{action_id}/receipt",
         "/control-center/actions/{action_id}/reject",
         "/control-center/backend-truth",
+        "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
         "/control-center/chat/turns",
         "/control-center/chat/turns/{turn_ref}/handoff",
         "/control-center/chat/turns/{turn_ref}/receipt",
@@ -167,6 +171,11 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES == {
         "/control-center/chat/turns",
         "/control-center/chat/turns/{turn_ref}/handoff",
+    }
+    assert FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES == {
+        "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
     }
     assert FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES == {
         "/control-center/memory/review/{candidate_ref}/accept",

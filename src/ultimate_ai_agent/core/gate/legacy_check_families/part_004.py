@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
 
+M13_BROWSER_API_FRAGMENT_EXCEPTIONS = {
+    "sessionstorage": {"apps/control-center/src/components/ChatWorkspacePanel.tsx"}
+}
+
 
 class FoundationGateLegacyChecksPart004Mixin:
     """Legacy checks from m13_frontend_no_sensitive_browser_apis through m18_local_runtime_manual_smoke_surface_safe."""
@@ -33,6 +37,8 @@ class FoundationGateLegacyChecksPart004Mixin:
                 f"{rel} forbidden browser API: {fragment}"
                 for fragment in forbidden
                 if fragment in lowered
+                and rel.as_posix()
+                not in M13_BROWSER_API_FRAGMENT_EXCEPTIONS.get(fragment, set())
             )
         return self._result(criterion, failures, ["apps/control-center/src"])
 

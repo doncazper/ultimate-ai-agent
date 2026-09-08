@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from ultimate_ai_agent.api.cors import apply_loopback_cors_response_headers
 from ultimate_ai_agent.api.dependencies import (
     get_founder_loop_service,
     get_news_signals_repository,
@@ -16,6 +20,7 @@ from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_REF_HEADER,
 )
 from ultimate_ai_agent.api.route_registration import register_router_once
+from ultimate_ai_agent.api.request_validation import safe_validation_error_response
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
@@ -33,6 +38,9 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
 )
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.chat import (
+    CHAT_WORKSPACE_CONTRACT_REF,
+    CHAT_WORKSPACE_MAX_REQUEST_BYTES,
+    CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
     ChatDraftCheckpointRequest,
     ChatHandoffRequest,
     ChatThreadLifecycleRequest,
@@ -74,6 +82,191 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
 _AUTOCORRECT_REVIEW_SESSION = CorrectionReviewSession()
+_CHAT_WORKSPACE_MUTATION_ROUTE_RE = re.compile(
+    r"^/control-center/chat/threads/[^/]+/(?:draft-checkpoint|lifecycle)$"
+)
+_CHAT_WORKSPACE_READ_ROUTE = "/control-center/chat/workspace"
+
+
+class ChatWorkspaceBodyTooLargeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    detail: Literal[
+        "The content-free Chat workspace request exceeds the permitted local bound."
+    ]
+    code: Literal["CHAT_WORKSPACE_REQUEST_BODY_LIMIT_EXCEEDED"]
+    contract_ref: Literal["contract-ref:chat-content-free-workspace:v1"]
+    maximum_body_bytes: Literal[8192]
+    maximum_json_nesting_depth: Literal[16]
+
+
+def _chat_workspace_request_origin(scope: Scope) -> str | None:
+    for name, value in scope.get("headers", ()):
+        if name.lower() == b"origin":
+            try:
+                return value.decode("ascii")
+            except UnicodeDecodeError:
+                return None
+    return None
+
+
+def _chat_workspace_json_nesting_exceeds_limit(body: bytes) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    for value in body:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif value == ord("\\"):
+                escaped = True
+            elif value == ord('"'):
+                in_string = False
+            continue
+        if value == ord('"'):
+            in_string = True
+        elif value in (ord("["), ord("{")):
+            depth += 1
+            if depth > CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH:
+                return True
+        elif value in (ord("]"), ord("}")) and depth > 0:
+            depth -= 1
+    return False
+
+
+def _chat_workspace_no_store_send(send: Send) -> Send:
+    async def no_store_send(message: Message) -> None:
+        if message["type"] == "http.response.start":
+            headers = [
+                (name, value)
+                for name, value in message.get("headers", [])
+                if name.lower() != b"cache-control"
+            ]
+            headers.append((b"cache-control", b"no-store"))
+            message = {**message, "headers": headers}
+        await send(message)
+
+    return no_store_send
+
+
+class ChatWorkspacePrivateBoundaryMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        maximum_body_bytes: int = CHAT_WORKSPACE_MAX_REQUEST_BYTES,
+    ) -> None:
+        self.app = app
+        self.maximum_body_bytes = maximum_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope.get("path", "")
+        is_read = scope["type"] == "http" and path == _CHAT_WORKSPACE_READ_ROUTE
+        is_mutation = (
+            scope["type"] == "http"
+            and scope.get("method", "").upper() == "POST"
+            and _CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(path) is not None
+        )
+        if not is_read and not is_mutation:
+            await self.app(scope, receive, send)
+            return
+
+        send = _chat_workspace_no_store_send(send)
+        if is_read:
+            await self.app(scope, receive, send)
+            return
+
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            try:
+                content_length = int(value)
+            except ValueError:
+                break
+            if content_length > self.maximum_body_bytes:
+                await self._reject_size(scope, receive, send)
+                return
+
+        buffered_body = bytearray()
+        disconnected = False
+        received_bytes = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            received_bytes += len(chunk)
+            if received_bytes > self.maximum_body_bytes:
+                await self._reject_size(scope, receive, send)
+                return
+            buffered_body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = bytes(buffered_body)
+        if _chat_workspace_json_nesting_exceeds_limit(body):
+            response = safe_validation_error_response(
+                path=path,
+                errors=[
+                    {
+                        "type": "value_error",
+                        "loc": ["body"],
+                        "msg": (
+                            "The content-free Chat workspace request exceeds "
+                            "the permitted JSON nesting bound."
+                        ),
+                    }
+                ],
+            )
+            apply_loopback_cors_response_headers(
+                response,
+                _chat_workspace_request_origin(scope),
+            )
+            await response(scope, receive, send)
+            return
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                if disconnected:
+                    return {"type": "http.disconnect"}
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.disconnect"}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject_size(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    "The content-free Chat workspace request exceeds the "
+                    "permitted local bound."
+                ),
+                "code": "CHAT_WORKSPACE_REQUEST_BODY_LIMIT_EXCEEDED",
+                "contract_ref": CHAT_WORKSPACE_CONTRACT_REF,
+                "maximum_body_bytes": self.maximum_body_bytes,
+                "maximum_json_nesting_depth": (
+                    CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH
+                ),
+            },
+        )
+        apply_loopback_cors_response_headers(
+            response,
+            _chat_workspace_request_origin(scope),
+        )
+        await response(scope, receive, send)
 
 
 class FounderLoopActionRevisionConflictDetail(BaseModel):
@@ -1483,6 +1676,12 @@ def get_control_center_chat_workspace() -> ResultEnvelope:
 @router.post(
     "/chat/threads/{thread_ref}/draft-checkpoint",
     response_model=ResultEnvelope,
+    responses={
+        413: {
+            "model": ChatWorkspaceBodyTooLargeResponse,
+            "description": "Chat workspace request exceeds the bounded input size.",
+        }
+    },
 )
 def post_control_center_chat_draft_checkpoint(
     thread_ref: str,
@@ -1520,7 +1719,17 @@ def post_control_center_chat_draft_checkpoint(
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_CHAT_DRAFT_CHECKPOINT_ERROR"
         raise HTTPException(
-            status_code=409 if code == "FOUNDER_LOOP_CHAT_THREAD_ARCHIVED" else 400,
+            status_code=(
+                409
+                if code
+                in {
+                    "FOUNDER_LOOP_CHAT_THREAD_ARCHIVED",
+                    "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
+                    "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED",
+                    "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
+                }
+                else 400
+            ),
             detail={
                 "code": code,
                 "safe_message": (
@@ -1554,6 +1763,12 @@ def post_control_center_chat_draft_checkpoint(
 @router.post(
     "/chat/threads/{thread_ref}/lifecycle",
     response_model=ResultEnvelope,
+    responses={
+        413: {
+            "model": ChatWorkspaceBodyTooLargeResponse,
+            "description": "Chat workspace request exceeds the bounded input size.",
+        }
+    },
 )
 def post_control_center_chat_thread_lifecycle(
     thread_ref: str,
@@ -1590,8 +1805,18 @@ def post_control_center_chat_thread_lifecycle(
         ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_CHAT_THREAD_LIFECYCLE_ERROR"
+        if code == "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND":
+            status_code = 404
+        elif code in {
+            "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
+            "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED",
+            "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
+        }:
+            status_code = 409
+        else:
+            status_code = 400
         raise HTTPException(
-            status_code=404 if code == "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND" else 400,
+            status_code=status_code,
             detail={
                 "code": code,
                 "safe_message": "The Chat thread lifecycle could not be updated safely.",
@@ -2591,4 +2816,6 @@ def _idempotency_key_ref(
 
 
 def register_founder_loop_routes(app: FastAPI) -> None:
+    if not getattr(app.state, _REGISTERED_ATTR, False):
+        app.add_middleware(ChatWorkspacePrivateBoundaryMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)

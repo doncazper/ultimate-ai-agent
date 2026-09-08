@@ -32,6 +32,11 @@ def test_control_center_frontend_verifier_passes_current_repo() -> None:
     verifier = load_verifier()
 
     assert verifier.verify(ROOT) == []
+    assert verifier.BROWSER_API_FRAGMENT_EXCEPTIONS == {
+        "sessionstorage": {
+            Path("apps/control-center/src/components/ChatWorkspacePanel.tsx")
+        }
+    }
 
 
 def test_control_center_frontend_verifier_tracks_m20_device_drift_strings() -> None:

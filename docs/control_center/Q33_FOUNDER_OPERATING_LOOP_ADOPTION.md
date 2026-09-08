@@ -21,7 +21,8 @@ same content-free workspace contract without creating local state or printing
 the inspected path.
 
 The server stores only the thread ref, generated display name, lifecycle state,
-revision, draft-present flag, character count, and a content fingerprint. It
+revision, draft-present flag, character count, and an opaque random session
+fingerprint that is not derived from the draft text. It
 does not receive or store the draft body. The current browser tab may retain an
 unsent draft in session storage so route changes and refresh can restore it. If
 that tab-local body is missing or its fingerprint does not match the backend
@@ -29,8 +30,11 @@ checkpoint, the UI reports that re-entry is required instead of inventing a
 recovery.
 
 Draft checkpoints and archive/recover requests require the existing Control
-Center backend-truth binding, exact idempotency input, targeted local rate
-limits, durable replay/conflict handling, and content-free receipt/audit refs.
+Center backend-truth binding, expected current revision, exact idempotency
+input, targeted local rate limits, bounded request size and JSON depth, durable
+replay/conflict handling, private no-store responses, and content-free
+receipt/audit refs. Stored replay receipts are reconstructed through the
+governing contract before they can be returned.
 
 ## Authority boundary
 

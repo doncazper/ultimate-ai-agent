@@ -6351,6 +6351,7 @@ export async function checkpointChatDraft(
   binding: BackendTruthReadBinding | null,
 ): Promise<ChatThreadMutationReceipt> {
   return mutateChatThread(
+    threadRef,
     chatDraftCheckpointEndpoint(threadRef),
     request,
     `idempotency-ref:control-center-chat-draft:${safeChatSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
@@ -6364,6 +6365,7 @@ export async function updateChatThreadLifecycle(
   binding: BackendTruthReadBinding | null,
 ): Promise<ChatThreadMutationReceipt> {
   return mutateChatThread(
+    threadRef,
     chatThreadLifecycleEndpoint(threadRef),
     request,
     `idempotency-ref:control-center-chat-thread:${request.action}:${safeChatSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
@@ -6372,6 +6374,7 @@ export async function updateChatThreadLifecycle(
 }
 
 async function mutateChatThread(
+  threadRef: string,
   endpoint: string,
   request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
   idempotencyRef: string,
@@ -6398,7 +6401,16 @@ async function mutateChatThread(
     response,
   )) as ResultEnvelope<ChatThreadMutationReceipt>;
   const receipt = data.result ?? data.data;
-  if (!response.ok || !isChatThreadMutationReceipt(receipt)) {
+  const receiptMatchesRequest =
+    response.ok &&
+    isChatThreadMutationReceipt(receipt) &&
+    (await chatThreadMutationReceiptMatchesRequest(
+      receipt,
+      threadRef,
+      request,
+      idempotencyRef,
+    ));
+  if (!receiptMatchesRequest) {
     throw new Error(
       sanitizeForDisplay(
         extractErrorMessage(
@@ -6505,6 +6517,7 @@ function isChatThreadReadModel(value: unknown): boolean {
     (record.state === "active" || record.state === "archived") &&
     Number.isInteger(record.revision) &&
     Number(record.revision) >= 1 &&
+    Number(record.revision) <= 2_147_483_647 &&
     typeof draftPresent === "boolean" &&
     Number.isInteger(characterCount) &&
     Number(characterCount) >= 0 &&
@@ -6629,8 +6642,49 @@ function isChatThreadRef(value: unknown): value is string {
 function isChatDraftFingerprintRef(value: unknown): value is string {
   return (
     typeof value === "string" &&
-    /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{16})$/.test(value)
+    /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$/.test(value)
   );
+}
+
+async function chatThreadMutationReceiptMatchesRequest(
+  receipt: ChatThreadMutationReceipt,
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+): Promise<boolean> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  if (!threadDigest) {
+    return false;
+  }
+  const kind = "action" in request ? request.action : "draft_checkpoint";
+  const mutationKind = "action" in request ? "lifecycle" : "draft_checkpoint";
+  const expectedRevision = request.expected_revision + 1;
+  const receiptPrefix = `${kind}:${threadDigest.slice(0, 16)}:revision-${expectedRevision}`;
+  return (
+    receipt.mutation_kind === mutationKind &&
+    receipt.lifecycle_action === ("action" in request ? request.action : null) &&
+    receipt.thread.thread_ref === threadRef &&
+    receipt.thread.revision === expectedRevision &&
+    receipt.idempotency_key_ref === idempotencyRef &&
+    receipt.receipt_ref === `receipt:chat-workspace:${receiptPrefix}` &&
+    receipt.audit_ref === `audit:chat-workspace:${receiptPrefix}` &&
+    receipt.evidence_ref === `evidence-ref:chat-workspace:${receiptPrefix}`
+  );
+}
+
+async function chatSha256Hex(value: string): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    return null;
+  }
+  try {
+    const digest = await subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  } catch {
+    return null;
+  }
 }
 
 function isChatSafeRef(value: unknown): value is string {

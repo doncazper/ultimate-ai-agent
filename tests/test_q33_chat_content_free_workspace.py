@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -11,11 +12,18 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.build_identity import build_identity
 from ultimate_ai_agent.core.chat import (
     CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
     CHAT_WORKSPACE_CONTRACT_REF,
+    CHAT_WORKSPACE_MAX_REQUEST_BYTES,
+    CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
     ChatDraftCheckpointRequest,
     ChatThreadLifecycleRequest,
+)
+from ultimate_ai_agent.core.control_center.backend_truth import (
+    backend_instance_ref,
+    build_control_center_backend_truth,
 )
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
@@ -27,12 +35,15 @@ from ultimate_ai_agent.core.storage import (
 THREAD_REF = "chat-thread:q33-workspace-test"
 
 
-def _checkpoint(*, count: int = 24) -> ChatDraftCheckpointRequest:
+def _checkpoint(
+    *, count: int = 24, expected_revision: int = 0
+) -> ChatDraftCheckpointRequest:
     return ChatDraftCheckpointRequest(
+        expected_revision=expected_revision,
         draft_present=count > 0,
         draft_character_count=count,
         draft_fingerprint_ref=(
-            "draft-fingerprint-ref:chat:local-a001c0250539fdc1"
+            "draft-fingerprint-ref:chat:local-a001c0250539fdc1a001c0250539fdc1"
             if count > 0
             else CHAT_DRAFT_EMPTY_FINGERPRINT_REF
         ),
@@ -51,9 +62,19 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
 
     with pytest.raises(ValidationError, match="String should match pattern"):
         ChatDraftCheckpointRequest(
+            expected_revision=0,
             draft_present=True,
             draft_character_count=24,
             draft_fingerprint_ref="draft-fingerprint-ref:chat:not-a-fingerprint",
+        )
+
+    with pytest.raises(ValidationError, match="at most 200 characters"):
+        ChatDraftCheckpointRequest(
+            expected_revision=0,
+            draft_present=False,
+            draft_character_count=0,
+            draft_fingerprint_ref=CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
+            metadata_refs=["metadata-ref:" + "x" * 201],
         )
 
 
@@ -91,16 +112,19 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
         repo.record_chat_draft_checkpoint(
             thread_ref=THREAD_REF,
             request=ChatDraftCheckpointRequest(
+                expected_revision=0,
                 draft_present=True,
                 draft_character_count=25,
-                draft_fingerprint_ref="draft-fingerprint-ref:chat:local-b001c0250539fdc1",
+                draft_fingerprint_ref=(
+                    "draft-fingerprint-ref:chat:local-b001c0250539fdc1b001c0250539fdc1"
+                ),
             ),
             idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-1",
         )
 
     archived = repo.record_chat_thread_lifecycle(
         thread_ref=THREAD_REF,
-        request=ChatThreadLifecycleRequest(action="archive"),
+        request=ChatThreadLifecycleRequest(action="archive", expected_revision=1),
         idempotency_key_ref="idempotency-ref:chat-workspace:archive-1",
     )
     assert archived["thread"]["state"] == "archived"
@@ -111,19 +135,19 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
     ):
         repo.record_chat_thread_lifecycle(
             thread_ref=THREAD_REF,
-            request=ChatThreadLifecycleRequest(action="archive"),
+            request=ChatThreadLifecycleRequest(action="archive", expected_revision=2),
             idempotency_key_ref="idempotency-ref:chat-workspace:archive-2",
         )
     with pytest.raises(FounderLoopStorageError, match="CHAT_THREAD_ARCHIVED"):
         repo.record_chat_draft_checkpoint(
             thread_ref=THREAD_REF,
-            request=_checkpoint(),
+            request=_checkpoint(expected_revision=2),
             idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-2",
         )
 
     recovered = repo.record_chat_thread_lifecycle(
         thread_ref=THREAD_REF,
-        request=ChatThreadLifecycleRequest(action="recover"),
+        request=ChatThreadLifecycleRequest(action="recover", expected_revision=2),
         idempotency_key_ref="idempotency-ref:chat-workspace:recover-1",
     )
     workspace = repo.chat_workspace()
@@ -135,7 +159,7 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
     ):
         repo.record_chat_thread_lifecycle(
             thread_ref=THREAD_REF,
-            request=ChatThreadLifecycleRequest(action="recover"),
+            request=ChatThreadLifecycleRequest(action="recover", expected_revision=3),
             idempotency_key_ref="idempotency-ref:chat-workspace:recover-2",
         )
     assert workspace["status"] == "workspace_ready"
@@ -167,6 +191,77 @@ def test_chat_workspace_serializes_concurrent_idempotent_checkpoints(
     assert len({receipt["receipt_ref"] for receipt in receipts}) == 1
     assert sum(not receipt["replayed"] for receipt in receipts) == 1
     assert repo.chat_workspace()["threads"][0]["revision"] == 1
+
+
+def test_chat_workspace_rejects_stale_checkpoint_and_lifecycle_revisions(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder-loop")
+    repo.record_chat_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=_checkpoint(),
+        idempotency_key_ref="idempotency-ref:chat-workspace:revision-create",
+    )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
+    ):
+        repo.record_chat_draft_checkpoint(
+            thread_ref=THREAD_REF,
+            request=_checkpoint(count=25),
+            idempotency_key_ref="idempotency-ref:chat-workspace:revision-stale-draft",
+        )
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
+    ):
+        repo.record_chat_thread_lifecycle(
+            thread_ref=THREAD_REF,
+            request=ChatThreadLifecycleRequest(
+                action="archive",
+                expected_revision=2,
+            ),
+            idempotency_key_ref="idempotency-ref:chat-workspace:revision-stale-state",
+        )
+
+    thread = repo.chat_workspace()["threads"][0]
+    assert thread["revision"] == 1
+    assert thread["state"] == "active"
+    assert thread["draft_character_count"] == 24
+
+
+def test_chat_workspace_revalidates_stored_replay_receipts(tmp_path: Path) -> None:
+    state_dir = tmp_path / "founder-loop"
+    repo = FounderLoopRepository(state_dir)
+    key_ref = "idempotency-ref:chat-workspace:corrupt-replay"
+    repo.record_chat_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=_checkpoint(),
+        idempotency_key_ref=key_ref,
+    )
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
+        stored = json.loads(
+            conn.execute(
+                "SELECT receipt_json FROM chat_thread_mutation_replays WHERE key_ref = ?",
+                (key_ref,),
+            ).fetchone()[0]
+        )
+        stored["model_call_performed"] = True
+        conn.execute(
+            "UPDATE chat_thread_mutation_replays SET receipt_json = ? WHERE key_ref = ?",
+            (json.dumps(stored), key_ref),
+        )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
+    ):
+        repo.record_chat_draft_checkpoint(
+            thread_ref=THREAD_REF,
+            request=_checkpoint(),
+            idempotency_key_ref=key_ref,
+        )
 
 
 def test_chat_workspace_rejects_unbounded_or_wrong_namespace_thread_refs(
@@ -229,10 +324,86 @@ def test_chat_workspace_api_rejects_body_fields_and_missing_threads(
     missing = client.post(
         f"/control-center/chat/threads/{THREAD_REF}/lifecycle",
         headers={"X-UAA-Idempotency-Key": "idempotency-ref:chat:missing"},
-        json={"action": "archive"},
+        json={"action": "archive", "expected_revision": 1},
     )
     assert missing.status_code == 404
     assert missing.json()["detail"]["code"] == "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND"
+
+
+def test_chat_workspace_api_rejects_oversized_and_deep_json_before_decode(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "api-state"))
+    client = TestClient(app)
+    route = f"/control-center/chat/threads/{THREAD_REF}/draft-checkpoint"
+    origin = "http://localhost:5173"
+    source_revision = "7" * 40
+    monkeypatch.setenv("UAA_BUILD_COMMIT", source_revision)
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(tmp_path / "binding-state"),
+        identity=build_identity(env={"UAA_BUILD_COMMIT": source_revision}),
+    )
+    bound_headers = {
+        "origin": origin,
+        "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+        "X-UAA-Expected-Backend-Revision-Ref": f"commit-ref:git:{source_revision}",
+        "X-UAA-Expected-Backend-Instance-Ref": backend_instance_ref(),
+        "X-UAA-Expected-Backend-Truth-Ref": truth["envelope_integrity_ref"],
+    }
+
+    oversized = client.post(
+        route,
+        content=b"{" + b"x" * CHAT_WORKSPACE_MAX_REQUEST_BYTES,
+        headers={
+            **bound_headers,
+            "content-type": "application/json",
+            "content-length": "1",
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat:oversized-body",
+        },
+    )
+    assert oversized.status_code == 413
+    assert oversized.headers["Cache-Control"] == "no-store"
+    assert oversized.headers["Access-Control-Allow-Origin"] == origin
+    assert oversized.json() == {
+        "detail": (
+            "The content-free Chat workspace request exceeds the permitted local bound."
+        ),
+        "code": "CHAT_WORKSPACE_REQUEST_BODY_LIMIT_EXCEEDED",
+        "contract_ref": CHAT_WORKSPACE_CONTRACT_REF,
+        "maximum_body_bytes": CHAT_WORKSPACE_MAX_REQUEST_BYTES,
+        "maximum_json_nesting_depth": CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
+    }
+
+    deeply_nested = b"[" * (CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH + 1)
+    deeply_nested += b"]" * (CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH + 1)
+    nested = client.post(
+        route,
+        content=deeply_nested,
+        headers={
+            **bound_headers,
+            "content-type": "application/json",
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat:deep-body",
+        },
+    )
+    assert nested.status_code == 422
+    assert nested.headers["Cache-Control"] == "no-store"
+    assert nested.json()["error"]["code"] == "REQUEST_VALIDATION_FAILED"
+
+
+def test_chat_workspace_private_routes_are_no_store_and_publish_body_limit() -> None:
+    client = TestClient(app)
+    read_response = client.get("/control-center/chat/workspace")
+    assert read_response.headers["Cache-Control"] == "no-store"
+
+    paths = app.openapi()["paths"]
+    for route in (
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
+    ):
+        response = paths[route]["post"]["responses"]["413"]
+        schema = response["content"]["application/json"]["schema"]
+        assert schema["$ref"].endswith("/ChatWorkspaceBodyTooLargeResponse")
 
 
 def test_chat_workspace_cli_is_read_only_content_free_and_missing_state_safe(

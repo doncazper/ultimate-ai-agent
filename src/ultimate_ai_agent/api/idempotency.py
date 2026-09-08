@@ -27,6 +27,15 @@ CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
 CRM_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:crm-adoption-authority-approval-store:v1"
 )
+CHAT_WORKSPACE_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:chat-workspace-mutation-replay-store:v1"
+)
+CHAT_WORKSPACE_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
+    }
+)
 CRM_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS = frozenset(
     {"/control-center/crm/adoption/approval"}
 )
@@ -124,6 +133,11 @@ def route_idempotency_enforcement(
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in CHAT_WORKSPACE_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CHAT_WORKSPACE_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
     if route_classification_requires_idempotency(route_classification):
         return ApiRouteIdempotencyEnforcement.header_shape_gate_only, None

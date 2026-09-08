@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -18,6 +18,9 @@ from ultimate_ai_agent.core.time import utc_now
 
 CHAT_WORKSPACE_CONTRACT_REF = "contract-ref:chat-content-free-workspace:v1"
 CHAT_WORKSPACE_SOURCE = "python_core_chat_content_free_workspace"
+CHAT_WORKSPACE_MAX_REQUEST_BYTES = 8 * 1024
+CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH = 16
+CHAT_WORKSPACE_MAX_REVISION = 2_147_483_647
 CHAT_WORKSPACE_ROUTE_REFS = (
     "GET /control-center/chat/workspace",
     "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
@@ -25,7 +28,7 @@ CHAT_WORKSPACE_ROUTE_REFS = (
 )
 CHAT_DRAFT_EMPTY_FINGERPRINT_REF = "draft-fingerprint-ref:chat:empty"
 CHAT_DRAFT_FINGERPRINT_RE = re.compile(
-    r"^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{16})$"
+    r"^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$"
 )
 CHAT_THREAD_REF_RE = re.compile(r"^chat-thread:[A-Za-z0-9][A-Za-z0-9_.:@-]{0,187}$")
 CHAT_DISPLAY_NAME_RE = re.compile(r"^Conversation [1-9][0-9]{0,5}$")
@@ -37,9 +40,11 @@ CHAT_WORKSPACE_BLOCKED_STATE_REFS = (
     "blocked-state:chat-workspace:no-connector-write",
     "blocked-state:chat-workspace:no-production-authority",
 )
+ChatWorkspaceMetadataRef = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class ChatDraftCheckpointRequest(BaseModel):
+    expected_revision: int = Field(ge=0, le=CHAT_WORKSPACE_MAX_REVISION)
     draft_present: bool
     draft_character_count: int = Field(ge=0, le=32_000)
     draft_fingerprint_ref: str = Field(
@@ -47,7 +52,10 @@ class ChatDraftCheckpointRequest(BaseModel):
         max_length=200,
         pattern=CHAT_DRAFT_FINGERPRINT_RE.pattern,
     )
-    metadata_refs: list[str] = Field(default_factory=list, max_length=16)
+    metadata_refs: list[ChatWorkspaceMetadataRef] = Field(
+        default_factory=list,
+        max_length=16,
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -74,7 +82,11 @@ class ChatDraftCheckpointRequest(BaseModel):
 
 class ChatThreadLifecycleRequest(BaseModel):
     action: Literal["archive", "recover"]
-    metadata_refs: list[str] = Field(default_factory=list, max_length=16)
+    expected_revision: int = Field(ge=1, le=CHAT_WORKSPACE_MAX_REVISION)
+    metadata_refs: list[ChatWorkspaceMetadataRef] = Field(
+        default_factory=list,
+        max_length=16,
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -101,7 +113,7 @@ class ChatThreadReadModel(BaseModel):
         pattern=CHAT_DISPLAY_NAME_RE.pattern,
     )
     state: Literal["active", "archived"]
-    revision: int = Field(ge=1)
+    revision: int = Field(ge=1, le=CHAT_WORKSPACE_MAX_REVISION)
     draft_present: bool
     draft_character_count: int = Field(ge=0, le=32_000)
     draft_fingerprint_ref: str = Field(

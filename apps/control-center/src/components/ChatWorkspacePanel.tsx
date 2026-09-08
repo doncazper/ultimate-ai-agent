@@ -16,13 +16,23 @@ import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 const CHAT_DRAFT_SESSION_KEY = "uaa.chat.content-free-workspace.drafts.v1";
 const EMPTY_DRAFT_FINGERPRINT_REF = "draft-fingerprint-ref:chat:empty";
 const DEFAULT_THREAD_REF = "chat-thread:local-default";
+const CHAT_THREAD_REF_PATTERN =
+  /^chat-thread:[A-Za-z0-9][A-Za-z0-9_.:@-]{0,187}$/;
+const CHAT_DRAFT_FINGERPRINT_PATTERN =
+  /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$/;
+const MAX_SESSION_DRAFTS = 100;
+
+interface SessionDraft {
+  body: string;
+  fingerprintRef: string;
+}
 
 
 export function ChatWorkspacePanel() {
   const binding = useBackendTruthMutationBinding();
   const [workspace, setWorkspace] = useState<ChatWorkspaceReadModel>();
   const [activeThreadRef, setActiveThreadRef] = useState(DEFAULT_THREAD_REF);
-  const [sessionDrafts, setSessionDrafts] = useState<Record<string, string>>(
+  const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionDraft>>(
     readSessionDrafts,
   );
   const [search, setSearch] = useState("");
@@ -57,7 +67,8 @@ export function ChatWorkspacePanel() {
   const activeThread = workspace?.threads.find(
     (thread) => thread.thread_ref === activeThreadRef,
   );
-  const draft = sessionDrafts[activeThreadRef] ?? "";
+  const draftEntry = sessionDrafts[activeThreadRef];
+  const draft = draftEntry?.body ?? "";
   const visibleThreads = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (workspace?.threads ?? []).filter(
@@ -67,11 +78,35 @@ export function ChatWorkspacePanel() {
         thread.state.includes(query),
     );
   }, [search, workspace]);
-  const recoveryLabel = draftRecoveryLabel(activeThread, draft);
+  const recoveryLabel = draftRecoveryLabel(
+    activeThread,
+    draft,
+    draftEntry?.fingerprintRef,
+  );
 
   function updateDraft(value: string) {
     const bounded = value.slice(0, 32_000);
-    const next = { ...sessionDrafts, [activeThreadRef]: bounded };
+    let fingerprintRef = EMPTY_DRAFT_FINGERPRINT_REF;
+    if (bounded) {
+      try {
+        fingerprintRef = newDraftFingerprintRef();
+      } catch {
+        setSessionDrafts(
+          boundSessionDrafts({
+            ...sessionDrafts,
+            [activeThreadRef]: { body: bounded, fingerprintRef: "" },
+          }),
+        );
+        setMessage(
+          "Draft is held in this tab, but secure checkpoint identity is unavailable.",
+        );
+        return;
+      }
+    }
+    const next = boundSessionDrafts({
+      ...sessionDrafts,
+      [activeThreadRef]: { body: bounded, fingerprintRef },
+    });
     setSessionDrafts(next);
     writeSessionDrafts(next);
     setMessage("Draft is held in this browser tab. Save a safe checkpoint when ready.");
@@ -89,10 +124,16 @@ export function ChatWorkspacePanel() {
     }
     setPending(true);
     try {
-      const fingerprint = draftFingerprintRef(draft);
+      const fingerprint = draftEntry?.fingerprintRef ?? EMPTY_DRAFT_FINGERPRINT_REF;
+      if (draft && !CHAT_DRAFT_FINGERPRINT_PATTERN.test(fingerprint)) {
+        throw new Error(
+          "Secure draft checkpoint identity is unavailable. The draft remains in this tab.",
+        );
+      }
       await checkpointChatDraft(
         activeThreadRef,
         {
+          expected_revision: activeThread?.revision ?? 0,
           draft_present: draft.length > 0,
           draft_character_count: draft.length,
           draft_fingerprint_ref: fingerprint,
@@ -132,6 +173,7 @@ export function ChatWorkspacePanel() {
         thread.thread_ref,
         {
           action,
+          expected_revision: thread.revision,
           metadata_refs: [
             `metadata-ref:chat-workspace:revision-${thread.revision}`,
           ],
@@ -279,7 +321,7 @@ export function ChatWorkspacePanel() {
 }
 
 
-function readSessionDrafts(): Record<string, string> {
+function readSessionDrafts(): Record<string, SessionDraft> {
   try {
     const value = window.sessionStorage.getItem(CHAT_DRAFT_SESSION_KEY);
     if (!value) {
@@ -291,11 +333,31 @@ function readSessionDrafts(): Record<string, string> {
     }
     return Object.fromEntries(
       Object.entries(parsed)
+        .slice(0, MAX_SESSION_DRAFTS)
         .filter(
-          ([key, draft]) =>
-            key.startsWith("chat-thread:") && typeof draft === "string",
+          ([key, draft]) => {
+            if (
+              !CHAT_THREAD_REF_PATTERN.test(key) ||
+              !draft ||
+              typeof draft !== "object" ||
+              Array.isArray(draft)
+            ) {
+              return false;
+            }
+            const record = draft as Record<string, unknown>;
+            return (
+              Object.keys(record).length === 2 &&
+              typeof record.body === "string" &&
+              record.body.length <= 32_000 &&
+              typeof record.fingerprintRef === "string" &&
+              CHAT_DRAFT_FINGERPRINT_PATTERN.test(record.fingerprintRef) &&
+              (record.body
+                ? record.fingerprintRef !== EMPTY_DRAFT_FINGERPRINT_REF
+                : record.fingerprintRef === EMPTY_DRAFT_FINGERPRINT_REF)
+            );
+          },
         )
-        .map(([key, draft]) => [key, String(draft).slice(0, 32_000)]),
+        .map(([key, draft]) => [key, draft as SessionDraft]),
     );
   } catch {
     return {};
@@ -303,29 +365,35 @@ function readSessionDrafts(): Record<string, string> {
 }
 
 
-function writeSessionDrafts(drafts: Record<string, string>) {
+function writeSessionDrafts(drafts: Record<string, SessionDraft>) {
   try {
-    window.sessionStorage.setItem(CHAT_DRAFT_SESSION_KEY, JSON.stringify(drafts));
+    window.sessionStorage.setItem(
+      CHAT_DRAFT_SESSION_KEY,
+      JSON.stringify(boundSessionDrafts(drafts)),
+    );
   } catch {
     // The UI still holds the transient draft if session storage is unavailable.
   }
 }
 
 
-function draftFingerprintRef(value: string): string {
-  if (!value) {
-    return EMPTY_DRAFT_FINGERPRINT_REF;
+function boundSessionDrafts(
+  drafts: Record<string, SessionDraft>,
+): Record<string, SessionDraft> {
+  return Object.fromEntries(Object.entries(drafts).slice(-MAX_SESSION_DRAFTS));
+}
+
+
+function newDraftFingerprintRef(): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error("CHAT_DRAFT_FINGERPRINT_IDENTITY_UNAVAILABLE");
   }
-  let first = 0x811c9dc5;
-  let second = 0x9e3779b9;
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    first = Math.imul(first ^ code, 0x01000193);
-    second = Math.imul(second ^ (code + index), 0x85ebca6b);
-  }
-  const suffix = [first, second]
-    .map((part) => (part >>> 0).toString(16).padStart(8, "0"))
-    .join("");
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  const suffix = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
   return `draft-fingerprint-ref:chat:local-${suffix}`;
 }
 
@@ -333,11 +401,15 @@ function draftFingerprintRef(value: string): string {
 function draftRecoveryLabel(
   thread: ChatThreadReadModel | undefined,
   draft: string,
+  fingerprintRef: string | undefined,
 ): string {
   if (!thread?.draft_present) {
     return draft ? "Unsaved in this tab" : "No saved draft checkpoint";
   }
-  if (thread.draft_fingerprint_ref === draftFingerprintRef(draft)) {
+  if (
+    draft &&
+    thread.draft_fingerprint_ref === fingerprintRef
+  ) {
     return "Draft restored in this tab";
   }
   return "Checkpoint found; draft body must be re-entered on this device";

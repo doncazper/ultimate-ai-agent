@@ -37,7 +37,8 @@ const thread: ChatThreadReadModel = {
   revision: 1,
   draft_present: true,
   draft_character_count: 24,
-  draft_fingerprint_ref: "draft-fingerprint-ref:chat:local-a001c0250539fdc1",
+  draft_fingerprint_ref:
+    "draft-fingerprint-ref:chat:local-a001c0250539fdc1a001c0250539fdc1",
   draft_recovery_state: "metadata_only_reentry_required",
   draft_body_stored: false,
   created_at: "2026-09-08T01:00:00+00:00",
@@ -125,7 +126,19 @@ describe("ChatWorkspacePanel", () => {
   it("supports clean-start drafting and restores the body only in this tab", async () => {
     apiMocks.fetchChatWorkspace
       .mockResolvedValueOnce(cleanWorkspace)
-      .mockResolvedValue(savedWorkspace);
+      .mockImplementation(async () => {
+        const request = apiMocks.checkpointChatDraft.mock.calls.at(-1)?.[1];
+        return {
+          ...savedWorkspace,
+          threads: [
+            {
+              ...thread,
+              draft_fingerprint_ref:
+                request?.draft_fingerprint_ref ?? thread.draft_fingerprint_ref,
+            },
+          ],
+        };
+      });
     const view = renderPanel();
 
     expect(await screen.findByText("clean start")).toBeInTheDocument();
@@ -141,6 +154,7 @@ describe("ChatWorkspacePanel", () => {
       expect(apiMocks.checkpointChatDraft).toHaveBeenCalledWith(
         "chat-thread:local-default",
         expect.objectContaining({
+          expected_revision: 0,
           draft_present: true,
           draft_character_count: 24,
         }),
@@ -188,7 +202,7 @@ describe("ChatWorkspacePanel", () => {
     await waitFor(() =>
       expect(apiMocks.updateChatThreadLifecycle).toHaveBeenCalledWith(
         thread.thread_ref,
-        expect.objectContaining({ action: "archive" }),
+        expect.objectContaining({ action: "archive", expected_revision: 1 }),
         binding,
       ),
     );
@@ -196,7 +210,7 @@ describe("ChatWorkspacePanel", () => {
     await waitFor(() =>
       expect(apiMocks.updateChatThreadLifecycle).toHaveBeenLastCalledWith(
         thread.thread_ref,
-        expect.objectContaining({ action: "recover" }),
+        expect.objectContaining({ action: "recover", expected_revision: 2 }),
         binding,
       ),
     );

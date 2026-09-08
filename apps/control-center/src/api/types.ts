@@ -4024,6 +4024,7 @@ export interface ChatWorkspaceReadModel {
 }
 
 export interface ChatDraftCheckpointRequest {
+  expected_revision: number;
   draft_present: boolean;
   draft_character_count: number;
   draft_fingerprint_ref: string;
@@ -4032,6 +4033,7 @@ export interface ChatDraftCheckpointRequest {
 
 export interface ChatThreadLifecycleRequest {
   action: ChatThreadLifecycleAction;
+  expected_revision: number;
   metadata_refs?: string[];
 }
 
