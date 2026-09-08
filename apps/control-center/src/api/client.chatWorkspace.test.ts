@@ -312,6 +312,67 @@ describe("content-free Chat workspace API boundary", () => {
     const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
 
     expect(headers.get("X-UAA-Idempotency-Key")?.length).toBeLessThanOrEqual(200);
+    expect(headers.get("X-UAA-Idempotency-Key")).toMatch(
+      /^idempotency-ref:control-center-chat-draft:[0-9a-f]{32}:[0-9a-f]{32}$/,
+    );
+  });
+
+  it("binds distinct checkpoint requests to collision-resistant digests", async () => {
+    stubCheckpointReceipt();
+    const firstRequest = {
+      confirmed: true as const,
+      expected_revision: 0,
+      draft_present: true,
+      draft_character_count: 24,
+      draft_fingerprint_ref: thread.draft_fingerprint_ref,
+    };
+
+    await checkpointChatDraft(thread.thread_ref, firstRequest, binding);
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const firstKey = new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get(
+      "X-UAA-Idempotency-Key",
+    );
+
+    await checkpointChatDraft(
+      thread.thread_ref,
+      {
+        ...firstRequest,
+        metadata_refs: ["metadata-ref:chat-workspace:distinct-request"],
+      },
+      binding,
+    );
+    const secondKey = new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get(
+      "X-UAA-Idempotency-Key",
+    );
+
+    expect(firstKey).toMatch(
+      /^idempotency-ref:control-center-chat-draft:[0-9a-f]{32}:[0-9a-f]{32}$/,
+    );
+    expect(secondKey).toMatch(
+      /^idempotency-ref:control-center-chat-draft:[0-9a-f]{32}:[0-9a-f]{32}$/,
+    );
+    expect(secondKey).not.toBe(firstKey);
+  });
+
+  it("fails closed before approval capture when a strong digest is unavailable", async () => {
+    vi.stubGlobal("crypto", {});
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      checkpointChatDraft(
+        thread.thread_ref,
+        {
+          confirmed: true,
+          expected_revision: 0,
+          draft_present: true,
+          draft_character_count: 24,
+          draft_fingerprint_ref: thread.draft_fingerprint_ref,
+        },
+        binding,
+      ),
+    ).rejects.toThrow("CHAT_WORKSPACE_IDEMPOTENCY_DIGEST_UNAVAILABLE");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([

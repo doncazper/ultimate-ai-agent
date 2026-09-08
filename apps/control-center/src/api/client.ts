@@ -6353,11 +6353,18 @@ export async function checkpointChatDraft(
   request: ChatDraftCheckpointRequest,
   binding: BackendTruthReadBinding | null,
 ): Promise<ChatThreadMutationReceipt> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  const requestDigest = await chatSha256Hex(
+    stableStringifyForIdempotency(request),
+  );
+  if (!threadDigest || !requestDigest) {
+    throw new Error("CHAT_WORKSPACE_IDEMPOTENCY_DIGEST_UNAVAILABLE");
+  }
   return mutateChatThread(
     threadRef,
     chatDraftCheckpointEndpoint(threadRef),
     request,
-    `idempotency-ref:control-center-chat-draft:${safeHashSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
+    `idempotency-ref:control-center-chat-draft:${threadDigest.slice(0, 32)}:${requestDigest.slice(0, 32)}`,
     binding,
   );
 }
@@ -6367,11 +6374,18 @@ export async function updateChatThreadLifecycle(
   request: ChatThreadLifecycleRequest,
   binding: BackendTruthReadBinding | null,
 ): Promise<ChatThreadMutationReceipt> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  const requestDigest = await chatSha256Hex(
+    stableStringifyForIdempotency(request),
+  );
+  if (!threadDigest || !requestDigest) {
+    throw new Error("CHAT_WORKSPACE_IDEMPOTENCY_DIGEST_UNAVAILABLE");
+  }
   return mutateChatThread(
     threadRef,
     chatThreadLifecycleEndpoint(threadRef),
     request,
-    `idempotency-ref:control-center-chat-thread:${request.action}:${safeHashSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
+    `idempotency-ref:control-center-chat-thread:${request.action}:${threadDigest.slice(0, 32)}:${requestDigest.slice(0, 32)}`,
     binding,
   );
 }

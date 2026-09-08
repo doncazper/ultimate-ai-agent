@@ -41,8 +41,11 @@ published by the read contract. A separate durable approval route captures the
 exact operator-confirmed grant before the mutation request; approval capture
 alone does not mutate the workspace. The Python mutation service can only load
 and validate that already captured exact grant and cannot issue authority for
-itself. Active approvals expire after five minutes and are capped at 512. Every
-supplied idempotency alias must be individually valid and equal.
+itself. Active approvals expire after five minutes and are capped at 512.
+Expired exact-idempotency approvals remain non-renewable replay tombstones, and
+the combined approval history is capped at the same 10,000-record bound as
+workspace mutations. Every supplied idempotency alias must be individually
+valid and equal.
 
 The workspace accepts at most 10,000 unique mutation records. Once that bound
 is reached, old keys still replay exactly while new keys fail before state is

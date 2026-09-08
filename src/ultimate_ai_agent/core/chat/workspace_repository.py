@@ -83,6 +83,8 @@ class ChatWorkspaceRepository:
         )
 
     def workspace(self) -> dict[str, Any]:
+        if self.read_only and not self._workspace_schema_exists():
+            return build_chat_workspace_read_model([]).model_dump(mode="json")
         rows = self._fetch_all(
             """
             SELECT thread_ref, display_name, state, revision, draft_present,
@@ -136,10 +138,6 @@ class ChatWorkspaceRepository:
         expires_at = now + timedelta(minutes=CHAT_WORKSPACE_APPROVAL_TTL_MINUTES)
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            conn.execute(
-                "DELETE FROM chat_workspace_approval_grants WHERE expires_at <= ?",
-                (now.isoformat(),),
-            )
             row = conn.execute(
                 """
                 SELECT approval_ref, approval_request_json, approval_grant_json,
@@ -157,8 +155,7 @@ class ChatWorkspaceRepository:
                     str(row["mutation_kind"]) != request.mutation_kind
                     or row["lifecycle_action"] != lifecycle_action
                     or str(row["thread_ref"]) != thread_ref
-                    or str(row["payload_fingerprint_ref"])
-                    != payload_fingerprint_ref
+                    or str(row["payload_fingerprint_ref"]) != payload_fingerprint_ref
                 ):
                     raise FounderLoopStorageDuplicateError(
                         "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_IDEMPOTENCY_CONFLICT"
@@ -173,16 +170,31 @@ class ChatWorkspaceRepository:
                     expected_idempotency_key_ref=idempotency_key_ref,
                     expected_payload_fingerprint_ref=payload_fingerprint_ref,
                     now=now,
+                    allow_expired_replay=True,
                 )
             else:
-                count = int(
+                active_count = int(
+                    conn.execute(
+                        """
+                        SELECT COUNT(*) AS count
+                        FROM chat_workspace_approval_grants
+                        WHERE expires_at > ?
+                        """,
+                        (now.isoformat(),),
+                    ).fetchone()["count"]
+                )
+                if active_count >= CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS:
+                    raise FounderLoopStorageError(
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_CAPACITY_REACHED"
+                    )
+                history_count = int(
                     conn.execute(
                         "SELECT COUNT(*) AS count FROM chat_workspace_approval_grants"
                     ).fetchone()["count"]
                 )
-                if count >= CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS:
+                if history_count >= CHAT_WORKSPACE_MAX_MUTATION_RECORDS:
                     raise FounderLoopStorageError(
-                        "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_CAPACITY_REACHED"
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_HISTORY_CAPACITY_REACHED"
                     )
                 authority = LocalApprovalAuthority()
                 authority.create_request(approval_request)
@@ -598,6 +610,7 @@ class ChatWorkspaceRepository:
         expected_idempotency_key_ref: str,
         expected_payload_fingerprint_ref: str,
         now: datetime,
+        allow_expired_replay: bool = False,
     ) -> ApprovalGrant:
         try:
             stored_request = ApprovalRequest.model_validate(
@@ -624,8 +637,7 @@ class ChatWorkspaceRepository:
             or row["lifecycle_action"] != expected_lifecycle_action
             or str(row["thread_ref"]) != expected_thread_ref
             or str(row["idempotency_key_ref"]) != expected_idempotency_key_ref
-            or str(row["payload_fingerprint_ref"])
-            != expected_payload_fingerprint_ref
+            or str(row["payload_fingerprint_ref"]) != expected_payload_fingerprint_ref
             or str(row["created_at"]) != grant.created_at.isoformat()
             or str(row["expires_at"])
             != (grant.expires_at.isoformat() if grant.expires_at else "")
@@ -660,6 +672,8 @@ class ChatWorkspaceRepository:
             current_time=now,
         )
         if not decision.allowed:
+            if allow_expired_replay and "APPROVAL_EXPIRED" in decision.reason_codes:
+                return grant
             code = (
                 "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_EXPIRED"
                 if "APPROVAL_EXPIRED" in decision.reason_codes
@@ -667,6 +681,18 @@ class ChatWorkspaceRepository:
             )
             raise FounderLoopStorageError(code)
         return grant
+
+    def _workspace_schema_exists(self) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'chat_thread_states'
+                LIMIT 1
+                """
+            ).fetchone()
+        return row is not None
 
     def _connect(self) -> sqlite3.Connection:
         return self._founder_loop._connect()

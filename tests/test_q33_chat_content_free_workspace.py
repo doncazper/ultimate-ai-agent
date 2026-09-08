@@ -351,12 +351,9 @@ def test_chat_workspace_validates_exact_local_approval_before_storage(
     assert repo.workspace()["threads"] == []
 
 
-def test_chat_workspace_durable_approval_is_exact_idempotent_and_expires_closed(
-    monkeypatch: pytest.MonkeyPatch,
+def test_chat_workspace_durable_approval_is_exact_idempotent(
     tmp_path: Path,
 ) -> None:
-    import ultimate_ai_agent.core.chat.workspace_repository as repository_module
-
     state_dir = tmp_path / "founder-loop"
     repo = ChatWorkspaceRepository(state_dir)
     request = _checkpoint()
@@ -380,6 +377,25 @@ def test_chat_workspace_durable_approval_is_exact_idempotent_and_expires_closed(
     assert replay == first
     assert repo.workspace()["threads"] == []
 
+
+def test_chat_workspace_expired_approval_replay_cannot_renew_authority(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import ultimate_ai_agent.core.chat.workspace_repository as repository_module
+
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    request = _checkpoint()
+    capture = ChatWorkspaceApprovalCaptureRequest(
+        mutation_kind="draft_checkpoint",
+        draft_checkpoint=request,
+    )
+    idempotency_ref = "idempotency-ref:chat-workspace:expired-replay"
+    first = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref=idempotency_ref,
+    )
     expires_at = datetime.fromisoformat(str(first["expires_at"]).replace("Z", "+00:00"))
     monkeypatch.setattr(
         repository_module,
@@ -387,6 +403,13 @@ def test_chat_workspace_durable_approval_is_exact_idempotent_and_expires_closed(
         lambda: expires_at + timedelta(seconds=1),
     )
 
+    replay = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref=idempotency_ref,
+    )
+
+    assert replay == first
     with pytest.raises(ChatWorkspaceApprovalError, match="APPROVAL_EXPIRED"):
         ChatWorkspaceControlCenterService(
             repo,
@@ -395,9 +418,8 @@ def test_chat_workspace_durable_approval_is_exact_idempotent_and_expires_closed(
             thread_ref=THREAD_REF,
             request=request,
             idempotency_key_ref=idempotency_ref,
-            approval_ref=first["approval_ref"],
+            approval_ref=replay["approval_ref"],
         )
-
     assert repo.workspace()["threads"] == []
 
 
@@ -436,6 +458,41 @@ def test_chat_workspace_approval_capacity_preserves_exact_replay(
 
     assert replay == first
     assert repo.workspace()["threads"] == []
+
+
+def test_chat_workspace_expired_approval_history_is_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import ultimate_ai_agent.core.chat.workspace_repository as repository_module
+
+    monkeypatch.setattr(repository_module, "CHAT_WORKSPACE_MAX_MUTATION_RECORDS", 1)
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    capture = ChatWorkspaceApprovalCaptureRequest(
+        mutation_kind="draft_checkpoint",
+        draft_checkpoint=_checkpoint(),
+    )
+    first = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref="idempotency-ref:chat-workspace:history-first",
+    )
+    expires_at = datetime.fromisoformat(str(first["expires_at"]).replace("Z", "+00:00"))
+    monkeypatch.setattr(
+        repository_module,
+        "utc_now",
+        lambda: expires_at + timedelta(seconds=1),
+    )
+
+    with pytest.raises(
+        FounderLoopStorageError,
+        match="APPROVAL_HISTORY_CAPACITY_REACHED",
+    ):
+        repo.capture_approval(
+            thread_ref=THREAD_REF,
+            request=capture,
+            idempotency_key_ref="idempotency-ref:chat-workspace:history-second",
+        )
 
 
 def test_chat_workspace_repairs_pending_evidence_on_exact_replay(
@@ -528,9 +585,7 @@ def test_chat_workspace_migrates_legacy_ambiguous_outbox_without_duplicate_log(
         key="legacy-ambiguous-outbox",
     )
     records = (
-        (state_dir / "logs" / "receipt.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
+        (state_dir / "logs" / "receipt.jsonl").read_text(encoding="utf-8").splitlines()
     )
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
@@ -1093,3 +1148,42 @@ def test_chat_workspace_cli_is_read_only_content_free_and_missing_state_safe(
     assert missing_payload["storage_state"] == "state_not_found_no_write"
     assert missing_payload["chat_workspace_read_model"]["status"] == "safe_demo_ready"
     assert not missing_state_dir.exists()
+
+
+def test_chat_workspace_cli_treats_pre_workspace_database_as_empty_read_only(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+    FounderLoopRepository(state_dir, seed_defaults=False)
+    before_files = {
+        path.relative_to(state_dir): (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(
+                Path(__file__).resolve().parents[1]
+                / "scripts/inspect_chat_workspace.py"
+            ),
+            "--state-dir",
+            str(state_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    after_files = {
+        path.relative_to(state_dir): (path.stat().st_mtime_ns, path.stat().st_size)
+        for path in state_dir.rglob("*")
+        if path.is_file()
+    }
+    payload = json.loads(result.stdout)
+
+    assert after_files == before_files
+    assert payload["storage_state"] == "existing_state_read_only"
+    assert payload["inspection_error_ref"] is None
+    assert payload["chat_workspace_read_model"]["status"] == "safe_demo_ready"
+    assert payload["chat_workspace_read_model"]["threads"] == []
