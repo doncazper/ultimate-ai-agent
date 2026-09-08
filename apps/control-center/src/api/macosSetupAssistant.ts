@@ -14,6 +14,7 @@ import type {
   MacOSSetupRollbackPlan,
   MacOSSetupStepStatus,
 } from "./types";
+import { containsSecretLike } from "./redaction";
 
 const MACOS_SETUP_STATUSES = new Set<MacOSSetupStepStatus>([
   "planned",
@@ -56,6 +57,58 @@ const MACOS_SETUP_LIFECYCLE_OPERATIONS =
   new Set<MacOSSetupLifecycleOperationName>(
     MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE,
   );
+const MACOS_SETUP_STEP_KINDS = new Set([
+  "first_launch",
+  "runtime_health",
+  "local_model_readiness",
+  "model_selection",
+  "model_download_planning",
+  "launch_agent_setup_planning",
+  "local_bridge_setup_planning",
+  "background_service_setup_planning",
+  "setup_question",
+  "openwebui_bridge",
+  "mattermost_bridge",
+  "approval",
+  "receipt_audit_latency",
+  "rollback_uninstall",
+]);
+const MACOS_SETUP_APPROVAL_STATUSES = new Set([
+  "dry_run_plan_created",
+  "approval_required",
+  "blocked_prerequisite_missing",
+  "denied_unsafe_authority",
+  "not_scoped",
+]);
+const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
+  "model_selection",
+  "model_download_planning",
+  "launch_agent_setup_planning",
+  "local_bridge_setup_planning",
+  "background_service_setup_planning",
+  "openwebui_bridge",
+  "mattermost_bridge",
+]);
+const MACOS_SETUP_SAFE_REF_RE = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
+const MACOS_SETUP_SAFE_TEXT_RE =
+  /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
+const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
+const MACOS_SETUP_ABSOLUTE_PATH_RE =
+  /(^|[\s"'`])(?:~\/?|\/(?:Users|home|usr|var|private|tmp)\/|[A-Za-z]:[\\/]|\\\\)/;
+const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
+const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
+const MACOS_SETUP_MAX_LOG_CHARS = 400;
+const MACOS_SETUP_RUNTIME_TEXT_FRAGMENTS = [
+  "launchctl",
+  "load launchagent",
+  "start launchagent",
+  "install launchagent",
+  "start background service",
+  "install background service",
+  "download model now",
+  "execute installer",
+  "run installer",
+];
 export function normalizeMacOSSetupAssistant(
   source: unknown,
   fallback: MacOSSetupAssistantData,
@@ -63,11 +116,12 @@ export function normalizeMacOSSetupAssistant(
   const value = normalizeMacOSSetupAssistantValue(source, fallback);
   const probeFallback = alternateFallback(fallback);
   const probeValue = normalizeMacOSSetupAssistantValue(source, probeFallback);
+  const usedFallback =
+    setupSafetySourceRequiresFallback(source) ||
+    JSON.stringify(value) !== JSON.stringify(probeValue);
   return {
-    value,
-    usedFallback:
-      setupSafetySourceRequiresFallback(source) ||
-      JSON.stringify(value) !== JSON.stringify(probeValue),
+    value: usedFallback ? fallback : value,
+    usedFallback,
   };
 }
 
@@ -431,49 +485,349 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
   if (!isRecord(source)) {
     return true;
   }
-  const diagnostics = recordsValue(source, "diagnostics");
+  const steps = recordArray(source.steps);
+  const diagnostics = recordArray(source.diagnostics);
+  const recommendations = recordArray(source.model_recommendations);
+  const bridges = recordArray(source.bridge_previews, true);
+  const envelopes = recordArray(source.approval_envelopes);
+  const lifecycle = recordValue(source, "lifecycle");
+  const receiptPlan = recordValue(source, "receipt_plan");
+  const rollbackPlan = recordValue(source, "rollback_plan");
+
+  return (
+    !isSafeRef(source.plan_ref) ||
+    !isSetupStatus(source.status) ||
+    source.macos_first !== true ||
+    source.local_first !== true ||
+    source.disabled_by_default !== true ||
+    typeof source.control_center_preview_ready !== "boolean" ||
+    source.native_macos_app_ready !== false ||
+    source.setup_question_assistant_enabled !== false ||
+    source.model_output_authoritative !== false ||
+    source.installer_side_effects_enabled !== false ||
+    !isSafeRef(source.visual_shell_ref) ||
+    !isSafeText(source.full_strength_goal, MACOS_SETUP_MAX_DETAIL_CHARS) ||
+    !isSafeText(source.repo_safe_scope, MACOS_SETUP_MAX_DETAIL_CHARS) ||
+    !isSafeText(
+      source.blocked_authority_summary,
+      MACOS_SETUP_MAX_DETAIL_CHARS,
+    ) ||
+    !isSafeText(
+      source.local_package_proof_status,
+      MACOS_SETUP_MAX_DETAIL_CHARS,
+    ) ||
+    !isSafeRefArray(source.first_run_loop_refs, true) ||
+    !isSafeRefArray(source.local_package_proof_refs, true) ||
+    !isSafeRefArray(source.promotion_path_refs, true) ||
+    !isSafeRefArray(source.blocked_capabilities) ||
+    !isSafeTextArray(source.next_steps, MACOS_SETUP_MAX_DETAIL_CHARS) ||
+    !isSafeTextArray(
+      source.morning_review_checklist,
+      MACOS_SETUP_MAX_DETAIL_CHARS,
+    ) ||
+    !steps ||
+    !diagnostics ||
+    !recommendations ||
+    !bridges ||
+    !envelopes ||
+    !lifecycle ||
+    !receiptPlan ||
+    !rollbackPlan ||
+    steps.some((step) => !isSafeSetupStep(step)) ||
+    diagnostics.some((diagnostic) => !isSafeSetupDiagnostic(diagnostic)) ||
+    recommendations.some(
+      (recommendation) => !isSafeSetupRecommendation(recommendation),
+    ) ||
+    bridges.some((bridge) => !isSafeSetupBridge(bridge)) ||
+    envelopes.some((envelope) => !isSafeSetupApprovalEnvelope(envelope)) ||
+    !approvalEnvelopesBindToSteps(steps, envelopes) ||
+    !isSafeSetupReceiptPlan(receiptPlan) ||
+    !isSafeSetupRollbackPlan(rollbackPlan) ||
+    !isSafeSetupLifecycle(lifecycle)
+  );
+}
+
+function isSafeSetupDiagnostic(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.diagnostic_ref) &&
+    isSafeText(value.label, 120) &&
+    (value.status === "ready" ||
+      value.status === "missing" ||
+      value.status === "blocked") &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeRefArray(value.source_refs, true) &&
+    isSafeRefArray(value.reason_codes, true) &&
+    isSafeRef(value.next_safe_action) &&
+    value.read_only === true &&
+    value.live_probe_performed === false &&
+    value.state_change_performed === false
+  );
+}
+
+function isSafeSetupStep(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.step_id) &&
+    typeof value.kind === "string" &&
+    MACOS_SETUP_STEP_KINDS.has(value.kind) &&
+    isSafeText(value.label, 120) &&
+    isSetupStatus(value.status) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeRouteArray(value.route_refs) &&
+    isSafeTextArray(value.detail_preview, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeTextArray(value.log_preview, MACOS_SETUP_MAX_LOG_CHARS) &&
+    typeof value.approval_required === "boolean" &&
+    (value.status !== "approval_required" ||
+      value.approval_required === true) &&
+    isSafeOptionalRef(value.approval_ref) &&
+    isSafeRef(value.receipt_ref) &&
+    isSafeRef(value.rollback_ref) &&
+    isSafeOptionalRef(value.latency_ref) &&
+    isSafeRefArray(value.reason_codes) &&
+    isSafeRef(value.next_safe_action) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "state_change_allowed",
+        "state_change_performed",
+        "terminal_command_executed",
+        "model_download_performed",
+        "launch_agent_changed",
+        "background_service_changed",
+        "raw_log_stored",
+        "raw_prompt_stored",
+        "credential_material_stored",
+        "model_output_authoritative",
+      ],
+      false,
+    )
+  );
+}
+
+function isSafeSetupRecommendation(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.recommendation_ref) &&
+    isSafeRef(value.model_ref) &&
+    isSafeText(value.display_name, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.fit_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.recommended_for, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.memory_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.disk_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.privacy_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    typeof value.approval_required_before_download === "boolean" &&
+    typeof value.selected_by_default === "boolean" &&
+    isSafeRefArray(value.reason_codes) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "model_download_performed",
+        "model_file_read_performed",
+        "model_call_performed",
+        "raw_model_url_included",
+        "raw_local_path_included",
+      ],
+      false,
+    )
+  );
+}
+
+function isSafeSetupBridge(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.bridge_ref) &&
+    isSafeText(value.label, 120) &&
+    isSetupStatus(value.status) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeText(value.enablement_default, 80) &&
+    typeof value.approval_required === "boolean" &&
+    isSafeRefArray(value.reason_codes) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "credential_material_stored",
+        "raw_transcript_stored",
+        "connector_write_performed",
+      ],
+      false,
+    )
+  );
+}
+
+function isSafeSetupApprovalEnvelope(
+  value: Record<string, unknown>,
+): boolean {
+  return (
+    isSafeRef(value.envelope_ref) &&
+    typeof value.status === "string" &&
+    MACOS_SETUP_APPROVAL_STATUSES.has(value.status) &&
+    isSafeRef(value.setup_step_id) &&
+    typeof value.setup_step_kind === "string" &&
+    MACOS_SETUP_STEP_KINDS.has(value.setup_step_kind) &&
+    isSafeEnvelopeText(value.safe_summary) &&
+    isSafePrefixedRefArray(value.requested_scope_refs, "scope-ref:") &&
+    isSafeApprovalRequestRef(value.approval_request_ref) &&
+    isSafePrefixedRef(value.expected_receipt_ref, "receipt-plan:") &&
+    isSafePrefixedRef(value.rollback_plan_ref, "rollback-plan:") &&
+    isSafePrefixedRef(value.idempotency_key_ref, "idempotency-ref:") &&
+    isSafeText(value.risk_class, 40) &&
+    value.side_effect_class === "validation_only" &&
+    isSafeRefArray(value.not_scoped_actions, true) &&
+    isSafeRefArray(value.blocked_runtime_authority, true) &&
+    isSafeRefArray(value.evidence_refs, true) &&
+    isSafeRefArray(value.verifier_refs, true) &&
+    isSafeRef(value.operator_next_action) &&
+    isSafeEnvelopeText(value.stale_state_handling) &&
+    isSafeEnvelopeText(value.redaction_summary) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "dry_run_only",
+        "approval_required",
+        "approval_ref_is_identifier_only",
+        "exact_scope_required",
+        "idempotency_required",
+        "rollback_required",
+        "redaction_required",
+        "disabled_by_default",
+      ],
+      true,
+    ) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "real_execution_requested",
+        "real_installation_requested",
+        "subprocess_execution_requested",
+        "launchctl_requested",
+        "launch_agent_load_requested",
+        "launch_agent_start_requested",
+        "model_download_requested",
+        "background_service_start_requested",
+        "network_or_cache_write_requested",
+        "provider_or_model_call_requested",
+        "credential_capture_requested",
+        "connector_write_requested",
+        "approval_grant_captured",
+        "receipt_created",
+        "audit_event_created",
+        "rollback_executed",
+        "raw_path_included",
+        "raw_log_included",
+        "raw_prompt_included",
+        "raw_provider_payload_included",
+        "secret_like_value_included",
+        "unscoped_authority_requested",
+        "production_authority_requested",
+      ],
+      false,
+    ) &&
+    isSafeRefArray(value.reason_codes)
+  );
+}
+
+function approvalEnvelopesBindToSteps(
+  steps: Record<string, unknown>[],
+  envelopes: Record<string, unknown>[],
+): boolean {
+  const stepsById = new Map(
+    steps.map((step) => [String(step.step_id), step] as const),
+  );
+  const envelopeKinds = new Set(
+    envelopes.map((envelope) => String(envelope.setup_step_kind)),
+  );
   if (
-    diagnostics.length === 0 ||
-    diagnostics.some(
-      (diagnostic) =>
-        diagnostic.read_only !== true ||
-        diagnostic.live_probe_performed !== false ||
-        diagnostic.state_change_performed !== false,
+    stepsById.size !== steps.length ||
+    envelopeKinds.size !== MACOS_SETUP_REQUIRED_APPROVAL_KINDS.size ||
+    ![...MACOS_SETUP_REQUIRED_APPROVAL_KINDS].every((kind) =>
+      envelopeKinds.has(kind),
     )
   ) {
-    return true;
+    return false;
   }
+  return envelopes.every((envelope) => {
+    const step = stepsById.get(String(envelope.setup_step_id));
+    return (
+      step !== undefined &&
+      step.kind === envelope.setup_step_kind &&
+      step.approval_ref === envelope.approval_request_ref &&
+      step.receipt_ref === envelope.expected_receipt_ref &&
+      step.rollback_ref === envelope.rollback_plan_ref
+    );
+  });
+}
 
-  const rollbackPlan = recordValue(source, "rollback_plan");
-  if (
-    !rollbackPlan ||
-    !allBooleanFieldsEqual(
-      rollbackPlan,
+function isSafeSetupReceiptPlan(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.receipt_plan_ref) &&
+    isSafeRef(value.audit_ref) &&
+    isSafeRef(value.latency_ref) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "receipt_created",
+        "audit_event_created",
+        "raw_log_stored",
+        "raw_prompt_stored",
+        "raw_provider_payload_stored",
+        "credential_material_stored",
+      ],
+      false,
+    )
+  );
+}
+
+function isSafeSetupRollbackPlan(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.rollback_plan_ref) &&
+    isSafeRef(value.uninstall_ref) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.rollback_contract_defined === true &&
+    isSafeRefArray(value.blocked_reason_refs, true) &&
+    isSafeRef(value.next_safe_action) &&
+    allBooleanFieldsEqual(
+      value,
       [
         "rollback_available_after_approval",
         "rollback_execution_available",
         "rollback_rehearsal_completed",
         "restore_proof_available",
         "rollback_executed",
+        "launch_agent_removed",
+        "model_files_removed",
+        "config_removed",
       ],
       false,
     )
-  ) {
-    return true;
-  }
+  );
+}
 
-  const lifecycle = recordValue(source, "lifecycle");
-  if (
-    !lifecycle ||
-    lifecycle.status !== "blocked_by_authority" ||
-    lifecycle.current_state !== "prerequisites" ||
-    !hasExactStringSequence(
-      lifecycle.state_sequence,
+function isSafeSetupLifecycle(value: Record<string, unknown>): boolean {
+  const operations = recordArray(value.operations);
+  const healthContract = recordValue(value, "health_contract");
+  return (
+    !!operations &&
+    !!healthContract &&
+    isSafeRef(value.schema_version) &&
+    isSafeRef(value.contract_ref) &&
+    value.status === "blocked_by_authority" &&
+    value.current_state === "prerequisites" &&
+    hasExactStringSequence(
+      value.state_sequence,
       MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE,
-    ) ||
-    !hasExactLifecycleOperationSequence(lifecycle.operations) ||
-    !allBooleanFieldsEqual(
-      lifecycle,
+    ) &&
+    hasExactLifecycleOperationSequence(value.operations) &&
+    isSafeRef(value.authority_prerequisite_ref) &&
+    isSafeRef(value.authority_state_ref) &&
+    isSafeRef(value.python_core_service_ref) &&
+    isSafeRef(value.api_surface_ref) &&
+    isSafeRef(value.cli_surface_ref) &&
+    isSafeRef(value.control_center_surface_ref) &&
+    isSafeRef(value.safe_disable_ref) &&
+    isSafeRef(value.rollback_contract_ref) &&
+    isSafeRef(value.receipt_contract_ref) &&
+    isSafeRefArray(value.blocked_reason_refs, true) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    allBooleanFieldsEqual(
+      value,
       [
         "activation_authorized",
         "installation_performed",
@@ -489,50 +843,80 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
         "production_authority_enabled",
       ],
       false,
-    )
-  ) {
-    return true;
-  }
+    ) &&
+    operations.every((operation, index) =>
+      isSafeSetupLifecycleOperation(
+        operation,
+        MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE[index],
+      ),
+    ) &&
+    isSafeSetupHealthContract(healthContract)
+  );
+}
 
-  const operations = lifecycle.operations as Record<string, unknown>[];
-  const operationProofFields = [
-    "authority_granted",
-    "state_change_performed",
-    "subprocess_executed",
-    "file_mutation_performed",
-    "process_mutation_performed",
-    "credential_write_performed",
-    "network_request_performed",
-    "receipt_persisted",
-  ];
-  if (
-    operations.some((operation, index) => {
-      const operationName = MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE[index];
-      const readOnly =
-        operationName === "plan" ||
-        operationName === "status" ||
-        operationName === "receipts";
-      return (
-        operation.status !==
-          (readOnly ? "available_read_only" : "blocked_by_authority") ||
-        operation.current_state !== "prerequisites" ||
-        operation.approval_required !== !readOnly ||
-        !allBooleanFieldsEqual(operation, operationProofFields, false) ||
-        (readOnly &&
-          (operation.mutation_required !== false ||
-            operation.live_probe_required !== false))
-      );
-    })
-  ) {
-    return true;
-  }
-
-  const healthContract = recordValue(lifecycle, "health_contract");
+function isSafeSetupLifecycleOperation(
+  value: Record<string, unknown>,
+  expectedOperation: MacOSSetupLifecycleOperationName,
+): boolean {
+  const readOnly =
+    expectedOperation === "plan" ||
+    expectedOperation === "status" ||
+    expectedOperation === "receipts";
   return (
-    !healthContract ||
-    healthContract.status !== "blocked_by_authority" ||
-    !allBooleanFieldsEqual(
-      healthContract,
+    value.operation === expectedOperation &&
+    isSafeRef(value.command_ref) &&
+    value.status ===
+      (readOnly ? "available_read_only" : "blocked_by_authority") &&
+    value.current_state === "prerequisites" &&
+    typeof value.target_state === "string" &&
+    MACOS_SETUP_LIFECYCLE_STATES.has(
+      value.target_state as MacOSSetupLifecycleState,
+    ) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    isSafeRef(value.exact_scope_ref) &&
+    isSafeRef(value.approval_ref) &&
+    isSafeRef(value.idempotency_key_ref) &&
+    isSafeRef(value.receipt_ref) &&
+    isSafeRef(value.rollback_ref) &&
+    isSafeRef(value.safe_disable_ref) &&
+    isSafeRefArray(value.evidence_refs, true) &&
+    isSafeRefArray(value.verifier_refs, true) &&
+    isSafeRefArray(value.reason_codes) &&
+    typeof value.mutation_required === "boolean" &&
+    typeof value.live_probe_required === "boolean" &&
+    value.approval_required === !readOnly &&
+    (!readOnly ||
+      (value.mutation_required === false &&
+        value.live_probe_required === false)) &&
+    (readOnly ||
+      (value.reason_codes as string[]).includes(
+        "MACOS_SETUP_LIFECYCLE_AUTHORITY_NOT_GRANTED",
+      )) &&
+    allBooleanFieldsEqual(
+      value,
+      [
+        "authority_granted",
+        "state_change_performed",
+        "subprocess_executed",
+        "file_mutation_performed",
+        "process_mutation_performed",
+        "credential_write_performed",
+        "network_request_performed",
+        "receipt_persisted",
+      ],
+      false,
+    )
+  );
+}
+
+function isSafeSetupHealthContract(value: Record<string, unknown>): boolean {
+  return (
+    isSafeRef(value.contract_ref) &&
+    value.status === "blocked_by_authority" &&
+    isSafeRefArray(value.required_check_refs, true) &&
+    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    allBooleanFieldsEqual(
+      value,
       [
         "process_identity_verified",
         "api_manifest_version_verified",
@@ -1004,6 +1388,116 @@ function recordsValue(
 ): Record<string, unknown>[] {
   const candidate = value[key];
   return Array.isArray(candidate) ? candidate.filter(isRecord) : [];
+}
+
+function recordArray(
+  value: unknown,
+  allowEmpty = false,
+): Record<string, unknown>[] | undefined {
+  if (
+    !Array.isArray(value) ||
+    (!allowEmpty && value.length === 0) ||
+    value.length > MACOS_SETUP_MAX_COLLECTION_ITEMS ||
+    !value.every(isRecord)
+  ) {
+    return undefined;
+  }
+  return value;
+}
+
+function isSetupStatus(value: unknown): value is MacOSSetupStepStatus {
+  return (
+    typeof value === "string" &&
+    MACOS_SETUP_STATUSES.has(value as MacOSSetupStepStatus)
+  );
+}
+
+function isSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    MACOS_SETUP_SAFE_REF_RE.test(value) &&
+    !containsSecretLike(value)
+  );
+}
+
+function isSafeOptionalRef(value: unknown): boolean {
+  return value === undefined || value === null || isSafeRef(value);
+}
+
+function isSafePrefixedRef(value: unknown, prefix: string): value is string {
+  return isSafeRef(value) && value.startsWith(prefix);
+}
+
+function isSafeApprovalRequestRef(value: unknown): value is string {
+  return (
+    isSafeRef(value) &&
+    !value.startsWith("approval_test") &&
+    (value.startsWith("approval-ref:") ||
+      value.startsWith("approval-request-ref:"))
+  );
+}
+
+function isSafeRefArray(
+  value: unknown,
+  requireNonEmpty = false,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    (!requireNonEmpty || value.length > 0) &&
+    value.length <= MACOS_SETUP_MAX_COLLECTION_ITEMS &&
+    value.every(isSafeRef)
+  );
+}
+
+function isSafePrefixedRefArray(value: unknown, prefix: string): boolean {
+  return (
+    isSafeRefArray(value, true) &&
+    value.every((item) => item.startsWith(prefix))
+  );
+}
+
+function isSafeRouteArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MACOS_SETUP_MAX_COLLECTION_ITEMS &&
+    value.every(
+      (item) =>
+        typeof item === "string" &&
+        MACOS_SETUP_SAFE_ROUTE_RE.test(item) &&
+        !containsSecretLike(item),
+    )
+  );
+}
+
+function isSafeText(value: unknown, maxLength: number): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  return (
+    text.length > 0 &&
+    Array.from(text).length <= maxLength &&
+    MACOS_SETUP_SAFE_TEXT_RE.test(text) &&
+    !MACOS_SETUP_ABSOLUTE_PATH_RE.test(text) &&
+    !containsSecretLike(text)
+  );
+}
+
+function isSafeTextArray(value: unknown, maxLength: number): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MACOS_SETUP_MAX_COLLECTION_ITEMS &&
+    value.every((item) => isSafeText(item, maxLength))
+  );
+}
+
+function isSafeEnvelopeText(value: unknown): value is string {
+  return (
+    isSafeText(value, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    !MACOS_SETUP_RUNTIME_TEXT_FRAGMENTS.some((fragment) =>
+      value.toLowerCase().includes(fragment),
+    )
+  );
 }
 
 function stringValue(

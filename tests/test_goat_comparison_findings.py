@@ -74,6 +74,7 @@ def test_provenance_replacement_preserves_the_historical_artifact() -> None:
     assert proof["contract_transition"]["report_projection_changed"] is False
     assert proof["contract_transition"]["changed_source_refs"] == [
         "repo-ref:uaa:apps/control-center/src/App.test.tsx",
+        "repo-ref:uaa:pyproject.toml",
         "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
         "repo-ref:uaa:tests/test_goat_comparison_findings.py",
         "repo-ref:uaa:uv.lock",

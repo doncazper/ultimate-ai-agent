@@ -16,6 +16,7 @@ let backend: ChildProcess | null = null;
 
 const foundationVisualSurfaces = [
   ["work-board", "/work-board", ["/control-center/work-board"]],
+  ["setup", "/setup", ["/control-center/setup-assistant/summary"]],
   [
     "crm",
     "/workspace/crm",
@@ -191,6 +192,13 @@ test("foundation visual baselines stay backend-owned", async ({
           timeout: 30_000,
         });
         await expect(page.getByText("Backend-owned Work Board")).toBeVisible();
+      } else if (name === "setup") {
+        await expect(
+          page.getByRole("heading", { name: "macOS Setup Assistant" }),
+        ).toBeVisible({ timeout: 30_000 });
+        await expect(
+          page.getByText("Your local setup at a glance", { exact: true }),
+        ).toBeVisible();
       } else {
         await expect(
           page.getByRole("heading", { name: "Your CRM", exact: true }),

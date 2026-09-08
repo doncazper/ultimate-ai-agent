@@ -85,6 +85,7 @@ import {
   mockControlCenterData,
 } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
+import { setupFixtureToBackendPayload } from "./test/macosSetupAssistantFixture";
 
 const TEST_MUTATION_BINDING: BackendTruthReadBinding = {
   snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
@@ -22190,39 +22191,51 @@ function dogfoodLiveLoopEndpointData() {
   };
 }
 
-function backendKeyForSetupFixture(key: string): string {
-  const aliases: Record<string, string> = {
-    providerPayloadStored: "raw_provider_payload_stored",
-    promptStored: "raw_prompt_stored",
-    setupApprovalRef: "approval_ref",
-    terminalLogStored: "raw_log_stored",
-  };
-  return (
-    aliases[key] ?? key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-  );
-}
-
-function setupFixtureToBackendPayload(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(setupFixtureToBackendPayload);
-  }
-  if (typeof value !== "object" || value === null) {
-    return value;
-  }
-  return Object.fromEntries(
-    Object.entries(value).map(([key, nestedValue]) => [
-      backendKeyForSetupFixture(key),
-      setupFixtureToBackendPayload(nestedValue),
-    ]),
-  );
-}
-
 function setupAssistantSummaryForTest() {
+  const base = setupFixtureToBackendPayload(
+    mockControlCenterData.macosSetupAssistant,
+  ) as Record<string, unknown>;
+  const api = mockApiData.setupAssistantSummary;
+  const steps = base.steps as Array<Record<string, unknown>>;
+  const envelopes = base.approval_envelopes as Array<Record<string, unknown>>;
+  const modelStep = steps.find((step) => step.kind === "model_selection");
+  const modelEnvelope = envelopes.find(
+    (envelope) => envelope.setup_step_kind === "model_selection",
+  );
+  const apiStep = api.steps[0];
+  const apiEnvelope = api.approval_envelopes[0];
+  if (!modelStep || !modelEnvelope || !apiStep || !apiEnvelope) {
+    throw new Error("SETUP_TEST_FIXTURE_INCOMPLETE");
+  }
   return {
-    ...(setupFixtureToBackendPayload(
-      mockControlCenterData.macosSetupAssistant,
-    ) as Record<string, unknown>),
-    ...mockApiData.setupAssistantSummary,
+    ...base,
+    ...api,
+    steps: steps.map((step) =>
+      step.kind === "model_selection"
+        ? { ...modelStep, ...apiStep, kind: "model_selection" }
+        : step,
+    ),
+    model_recommendations: [
+      {
+        ...(base.model_recommendations as Array<Record<string, unknown>>)[0],
+        ...api.model_recommendations[0],
+      },
+    ],
+    bridge_previews: [
+      {
+        ...(base.bridge_previews as Array<Record<string, unknown>>)[0],
+        ...api.bridge_previews[0],
+      },
+    ],
+    approval_envelopes: envelopes.map((envelope) =>
+      envelope.setup_step_kind === "model_selection"
+        ? {
+            ...modelEnvelope,
+            ...apiEnvelope,
+            setup_step_kind: "model_selection",
+          }
+        : envelope,
+    ),
   };
 }
 
@@ -22962,6 +22975,9 @@ const mockApiData = {
       ],
       next_safe_action: "define-and-rehearse-exact-rollback-lane",
       rollback_executed: false,
+      launch_agent_removed: false,
+      model_files_removed: false,
+      config_removed: false,
     },
     blocked_capabilities: ["macos-setup-model-download"],
     next_steps: ["Review setup summary."],

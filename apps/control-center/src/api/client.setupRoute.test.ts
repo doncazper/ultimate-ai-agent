@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
+import { buildCompleteMacOSSetupPayload } from "../test/macosSetupAssistantFixture";
 import {
   loadMacOSSetupAssistantRoute,
   type BackendTruthReadBinding,
@@ -22,25 +23,9 @@ function response(data: unknown) {
   });
 }
 
-function toBackendPayload(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(toBackendPayload);
-  }
-  if (typeof value !== "object" || value === null) {
-    return value;
-  }
-  const keyAliases: Record<string, string> = {
-    providerPayloadStored: "raw_provider_payload_stored",
-    promptStored: "raw_prompt_stored",
-    setupApprovalRef: "approval_ref",
-    terminalLogStored: "raw_log_stored",
-  };
-  return Object.fromEntries(
-    Object.entries(value).map(([key, nestedValue]) => [
-      keyAliases[key] ??
-        key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`),
-      toBackendPayload(nestedValue),
-    ]),
+function completeBackendPayload(): Record<string, unknown> {
+  return buildCompleteMacOSSetupPayload(
+    mockControlCenterData.macosSetupAssistant,
   );
 }
 
@@ -53,13 +38,16 @@ describe("loadMacOSSetupAssistantRoute", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        response(toBackendPayload(mockControlCenterData.macosSetupAssistant)),
+        response(completeBackendPayload()),
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(loadMacOSSetupAssistantRoute(binding)).resolves.toEqual(
-      mockControlCenterData.macosSetupAssistant,
+    const loaded = await loadMacOSSetupAssistantRoute(binding);
+    expect(loaded.planRef).toBe(
+      mockControlCenterData.macosSetupAssistant.planRef,
     );
+    expect(loaded.steps).toHaveLength(14);
+    expect(loaded.approvalEnvelopes).toHaveLength(7);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       "/control-center/setup-assistant/summary",
@@ -83,9 +71,9 @@ describe("loadMacOSSetupAssistantRoute", () => {
   it.each(["live_probe_performed", "state_change_performed"])(
     "rejects a complete Setup response with unsafe diagnostic %s",
     async (field) => {
-      const payload = toBackendPayload(
-        mockControlCenterData.macosSetupAssistant,
-      ) as { diagnostics: Array<Record<string, unknown>> };
+    const payload = completeBackendPayload() as {
+      diagnostics: Array<Record<string, unknown>>;
+    };
       payload.diagnostics[0][field] = true;
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
 
@@ -94,4 +82,31 @@ describe("loadMacOSSetupAssistantRoute", () => {
       );
     },
   );
+
+  it.each([
+    "native_macos_app_ready",
+    "setup_question_assistant_enabled",
+    "model_output_authoritative",
+    "installer_side_effects_enabled",
+  ])("rejects a complete Setup response claiming unsafe %s", async (field) => {
+    const payload = completeBackendPayload();
+    payload[field] = true;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
+
+    await expect(loadMacOSSetupAssistantRoute(binding)).rejects.toThrow(
+      "SETUP_ASSISTANT_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects unsafe Setup display text before returning route data", async () => {
+    const payload = completeBackendPayload() as {
+      steps: Array<Record<string, unknown>>;
+    };
+    payload.steps[0].safe_summary = "Review /Users/operator/private.log";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
+
+    await expect(loadMacOSSetupAssistantRoute(binding)).rejects.toThrow(
+      "SETUP_ASSISTANT_RESPONSE_INVALID",
+    );
+  });
 });

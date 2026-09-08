@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
+import { buildCompleteMacOSSetupPayload } from "../test/macosSetupAssistantFixture";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 
 const LIFECYCLE_STATES = [
@@ -107,7 +108,27 @@ function lifecyclePayload(
   };
 }
 
+function completeSetupPayload(): Record<string, unknown> {
+  return buildCompleteMacOSSetupPayload(
+    mockControlCenterData.macosSetupAssistant,
+  );
+}
+
 describe("macOS Setup Assistant normalization provenance", () => {
+  it("accepts the complete bounded backend safety contract", () => {
+    const normalized = normalizeMacOSSetupAssistant(
+      completeSetupPayload(),
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(false);
+    expect(normalized.value.planRef).toBe(
+      mockControlCenterData.macosSetupAssistant.planRef,
+    );
+    expect(normalized.value.steps).toHaveLength(14);
+    expect(normalized.value.approvalEnvelopes).toHaveLength(7);
+  });
+
   it("marks partial backend objects as fallback-derived", () => {
     const normalized = normalizeMacOSSetupAssistant(
       { plan_ref: "setup-plan-ref:partial" },
@@ -152,25 +173,9 @@ describe("macOS Setup Assistant normalization provenance", () => {
     );
 
     expect(normalized.usedFallback).toBe(true);
-    expect(normalized.value.lifecycle.contractRef).toBe(
-      "macos-setup-lifecycle-contract:backend-test",
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
     );
-    expect(normalized.value.lifecycle.stateSequence).toEqual(LIFECYCLE_STATES);
-    expect(
-      normalized.value.lifecycle.operations.find(
-        (operation) => operation.operation === "install",
-      ),
-    ).toMatchObject({
-      operation: "install",
-      status: "blocked_by_authority",
-      targetState: "installed",
-      mutationRequired: true,
-      authorityGranted: false,
-      stateChangePerformed: false,
-    });
-    expect(
-      normalized.value.lifecycle.healthContract.processIdentityVerified,
-    ).toBe(false);
   });
 
   it("fails closed on tampered lifecycle execution and authority claims", () => {
@@ -328,6 +333,197 @@ describe("macOS Setup Assistant normalization provenance", () => {
       restoreProofAvailable: false,
       rollbackExecuted: false,
     });
+  });
+
+  it.each([
+    "launch_agent_removed",
+    "model_files_removed",
+    "config_removed",
+  ])("fails closed when rollback claims %s", (unsafeField) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    payload.rollback_plan = {
+      ...rollbackPlan,
+      launch_agent_removed: false,
+      model_files_removed: false,
+      config_removed: false,
+    };
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(false);
+
+    payload.rollback_plan = {
+      ...(payload.rollback_plan as Record<string, unknown>),
+      [unsafeField]: true,
+    };
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it.each([
+    "macos_first",
+    "local_first",
+    "disabled_by_default",
+  ])("rejects a disabled required posture flag %s", (field) => {
+    const payload = completeSetupPayload();
+    payload[field] = false;
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it.each([
+    "native_macos_app_ready",
+    "setup_question_assistant_enabled",
+    "model_output_authoritative",
+    "installer_side_effects_enabled",
+  ])("rejects a forbidden top-level authority claim %s", (field) => {
+    const payload = completeSetupPayload();
+    payload[field] = true;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    ).toMatchObject({
+      usedFallback: true,
+      value: mockControlCenterData.macosSetupAssistant,
+    });
+  });
+
+  it.each([
+    ["steps", "state_change_allowed"],
+    ["steps", "terminal_command_executed"],
+    ["steps", "raw_log_stored"],
+    ["model_recommendations", "model_download_performed"],
+    ["model_recommendations", "model_call_performed"],
+    ["model_recommendations", "raw_local_path_included"],
+    ["bridge_previews", "credential_material_stored"],
+    ["bridge_previews", "raw_transcript_stored"],
+    ["bridge_previews", "connector_write_performed"],
+    ["approval_envelopes", "real_execution_requested"],
+    ["approval_envelopes", "provider_or_model_call_requested"],
+    ["approval_envelopes", "raw_prompt_included"],
+  ])(
+    "rejects nested forbidden claim %s.%s",
+    (collectionName, field) => {
+      const payload = completeSetupPayload();
+      const collection = payload[collectionName] as Array<
+        Record<string, unknown>
+      >;
+      collection[0][field] = true;
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects missing approval requirements and forged receipt bindings", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].exact_scope_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+
+    const reboundPayload = completeSetupPayload();
+    const reboundEnvelopes = reboundPayload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    reboundEnvelopes[0].expected_receipt_ref =
+      "receipt-plan:macos-setup:substituted";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        reboundPayload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    "receipt_created",
+    "audit_event_created",
+    "raw_log_stored",
+    "raw_prompt_stored",
+    "raw_provider_payload_stored",
+    "credential_material_stored",
+  ])("rejects receipt-plan write claim %s", (field) => {
+    const payload = completeSetupPayload();
+    const receiptPlan = payload.receipt_plan as Record<string, unknown>;
+    receiptPlan[field] = true;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
+    ["terminal control text", "Unsafe\u001bsummary"],
+    ["raw local path", "Review /Users/operator/private.log"],
+    ["overlong text", "A".repeat(801)],
+  ])("rejects %s before Setup text reaches the UI", (_name, unsafeText) => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    steps[0].safe_summary = unsafeText;
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it("rejects oversized Setup collections before rendering", () => {
+    const payload = completeSetupPayload();
+    payload.next_steps = Array.from(
+      { length: 101 },
+      (_, index) => `Review bounded setup step ${index}`,
+    );
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
   });
 
   it.each(["plan", "status", "receipts"] as const)(
