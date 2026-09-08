@@ -1141,9 +1141,8 @@ def test_goal_api_is_idempotent_versioned_and_receipt_verified(
             "x-uaa-goal-approval-ref": "approval-ref:untrusted",
         },
     )
-    assert malformed_preferred_ref.status_code == 200
-    assert malformed_preferred_ref.json()["success"] is False
-    assert malformed_preferred_ref.json()["error"]["code"] == "GOAL_REQUEST_REF_INVALID"
+    assert malformed_preferred_ref.status_code == 400
+    assert malformed_preferred_ref.json()["code"] == "API_IDEMPOTENCY_CONFLICT"
 
     missing_approval = client.post(
         "/api/runtime/goals",

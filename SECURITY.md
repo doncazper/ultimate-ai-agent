@@ -164,7 +164,8 @@ remains blocked until Developer ID hardened-runtime signing, notarization,
 stapling, Gatekeeper assessment, release publishing, and independent
 distribution review are completed.
 
-The global idempotency middleware validates only header presence and shape.
+The global idempotency middleware validates header presence and shape, rejects
+any invalid supplied alias, and requires supplied aliases to agree.
 `/api/manifest` now reports that as `header_shape_gate_only`; it must never be
 treated as durable deduplication or exactly-once execution. An exact route may
 report `route_owned_durable_replay` only when it names its durable receipt-store

@@ -46,6 +46,12 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/actions/{action_id}/reject"),
         ("POST", "/control-center/chat/turns"),
         ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
+        (
+            "POST",
+            "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        ),
+        ("POST", "/control-center/chat/threads/{thread_ref}/approval"),
+        ("POST", "/control-center/chat/threads/{thread_ref}/lifecycle"),
         ("POST", "/control-center/crm/local-mutations"),
         ("POST", "/control-center/crm/adoption/approval"),
         ("POST", "/control-center/crm/adoption/commit"),
@@ -186,9 +192,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 155
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 158
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "3fad61774975296be65cea56946d4cae8306de1095e488a2a212b4a0d1bf1123"
+    "dea3cddb99210db5ed51cf742eca31cd027d2593c40ffe60a7563b5e69dc4ea7"
 )
 
 

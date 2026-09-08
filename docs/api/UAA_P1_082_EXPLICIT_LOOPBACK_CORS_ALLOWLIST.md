@@ -22,7 +22,7 @@ origins:
 
 Allowed browser methods are `GET` and `POST`. Allowed request headers are
 `Authorization`, `Content-Type`, `X-UAA-Idempotency-Key`,
-`X-UAA-Idempotency-Ref`, `X-UAA-Operator-Confirmed`,
+`X-UAA-Idempotency-Ref`, `X-UAA-Approval-Ref`, `X-UAA-Operator-Confirmed`,
 `X-UAA-Control-Center-Mutation-Binding`,
 `X-UAA-Expected-Backend-Revision-Ref`,
 `X-UAA-Expected-Backend-Instance-Ref`,

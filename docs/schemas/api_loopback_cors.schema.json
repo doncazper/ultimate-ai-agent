@@ -67,6 +67,7 @@
           "Content-Type",
           "X-UAA-Idempotency-Key",
           "X-UAA-Idempotency-Ref",
+          "X-UAA-Approval-Ref",
           "X-UAA-Operator-Confirmed",
           "X-UAA-Control-Center-Mutation-Binding",
           "X-UAA-Expected-Backend-Revision-Ref",
@@ -75,8 +76,8 @@
           "X-Requested-With"
         ]
       },
-      "minItems": 10,
-      "maxItems": 10,
+      "minItems": 11,
+      "maxItems": 11,
       "uniqueItems": true
     },
     "exposed_headers": {

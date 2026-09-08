@@ -32,6 +32,13 @@ def test_default_api_verifier_context_is_cached() -> None:
         ("POST", "/control-center/crm/adoption/backup"),
         ("POST", "/control-center/crm/adoption/restore-preview"),
         ("POST", "/control-center/crm/adoption/restore"),
+        ("GET", "/control-center/chat/workspace"),
+        (
+            "POST",
+            "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        ),
+        ("POST", "/control-center/chat/threads/{thread_ref}/approval"),
+        ("POST", "/control-center/chat/threads/{thread_ref}/lifecycle"),
     }.issubset(first.routes_by_key)
 
 

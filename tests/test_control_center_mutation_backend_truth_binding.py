@@ -177,6 +177,54 @@ def test_repo_local_mutation_without_browser_origin_keeps_cli_parity(
     assert response.status_code != 409
 
 
+def test_chat_workspace_mutation_requires_truth_binding_without_browser_origin(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        "/control-center/chat/threads/chat-thread:binding-test/draft-checkpoint",
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat-workspace:binding-test"
+        },
+        json={
+            "expected_revision": 0,
+            "draft_present": False,
+            "draft_character_count": 0,
+            "draft_fingerprint_ref": "draft-fingerprint-ref:chat:empty",
+            "metadata_refs": [],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected_status", "expected_code"),
+    [
+        ({}, 428, "API_IDEMPOTENCY_REQUIRED"),
+        ({"X-UAA-Idempotency-Key": "short"}, 400, "API_IDEMPOTENCY_INVALID"),
+    ],
+)
+def test_chat_workspace_binding_preserves_idempotency_gate_precedence(
+    monkeypatch,
+    headers: dict[str, str],
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        "/control-center/chat/threads/chat-thread:binding-test/draft-checkpoint",
+        headers=headers,
+        json={},
+    )
+
+    assert response.status_code == expected_status
+    assert response.json()["code"] == expected_code
+
+
 def test_well_shaped_but_unissued_truth_ref_is_rejected(
     monkeypatch,
     tmp_path,

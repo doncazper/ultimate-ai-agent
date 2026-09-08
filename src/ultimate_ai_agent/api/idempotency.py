@@ -27,6 +27,21 @@ CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
 CRM_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:crm-adoption-authority-approval-store:v1"
 )
+CHAT_WORKSPACE_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:chat-workspace-mutation-replay-store:v1"
+)
+CHAT_WORKSPACE_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:chat-workspace-approval-store:v1"
+)
+CHAT_WORKSPACE_APPROVAL_DURABLE_REPLAY_PATHS = frozenset(
+    {"/control-center/chat/threads/{thread_ref}/approval"}
+)
+CHAT_WORKSPACE_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
+    }
+)
 CRM_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS = frozenset(
     {"/control-center/crm/adoption/approval"}
 )
@@ -125,6 +140,16 @@ def route_idempotency_enforcement(
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             CRM_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
+    if method == "POST" and path in CHAT_WORKSPACE_APPROVAL_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CHAT_WORKSPACE_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in CHAT_WORKSPACE_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CHAT_WORKSPACE_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
     if route_classification_requires_idempotency(route_classification):
         return ApiRouteIdempotencyEnforcement.header_shape_gate_only, None
     return ApiRouteIdempotencyEnforcement.not_required, None
@@ -148,11 +173,17 @@ def idempotency_header_failure(
 ) -> ApiIdempotencyFailure | None:
     if not route_classification_requires_idempotency(route_classification):
         return None
-    values = [
-        str(headers.get(header_name, "")).strip()  # type: ignore[attr-defined]
-        for header_name in IDEMPOTENCY_HEADER_NAMES
-    ]
-    if not any(values):
+    supplied_values: list[str] = []
+    getlist = getattr(headers, "getlist", None)
+    for header_name in IDEMPOTENCY_HEADER_NAMES:
+        if callable(getlist):
+            values = list(getlist(header_name))
+        else:
+            sentinel = object()
+            value = headers.get(header_name, sentinel)  # type: ignore[attr-defined]
+            values = [] if value is sentinel else [value]
+        supplied_values.extend(str(value).strip() for value in values)
+    if not supplied_values:
         return ApiIdempotencyFailure(
             status_code=428,
             code="API_IDEMPOTENCY_REQUIRED",
@@ -161,13 +192,19 @@ def idempotency_header_failure(
                 "idempotency ref before handler execution."
             ),
         )
-    if any(idempotency_value_valid(value) for value in values):
-        return None
-    return ApiIdempotencyFailure(
-        status_code=400,
-        code="API_IDEMPOTENCY_INVALID",
-        safe_message="The idempotency key or scoped idempotency ref is invalid.",
-    )
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        return ApiIdempotencyFailure(
+            status_code=400,
+            code="API_IDEMPOTENCY_INVALID",
+            safe_message="The idempotency key or scoped idempotency ref is invalid.",
+        )
+    if len(set(supplied_values)) > 1:
+        return ApiIdempotencyFailure(
+            status_code=400,
+            code="API_IDEMPOTENCY_CONFLICT",
+            safe_message="The supplied idempotency values do not match.",
+        )
+    return None
 
 
 def api_idempotency_audit_policy_payload(

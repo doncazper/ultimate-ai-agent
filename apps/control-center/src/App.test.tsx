@@ -19832,6 +19832,10 @@ describe("Web Control Center shell", () => {
       API_ENDPOINTS.runtimeSmokeReportValidate,
     );
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.controlCenterChatTurns);
+    expect(READ_ENDPOINTS).toContain(API_ENDPOINTS.controlCenterChatWorkspace);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterChatWorkspace)).toBe(
+      true,
+    );
     expect(READ_ENDPOINTS).not.toContain(
       API_ENDPOINTS.runtimeGoalApprovalPrepareCreate,
     );
@@ -22338,6 +22342,37 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
+    [API_ENDPOINTS.controlCenterChatWorkspace]: {
+      schema_version: "chat-content-free-workspace.v1",
+      contract_ref: "contract-ref:chat-content-free-workspace:v1",
+      source: "python_core_chat_content_free_workspace",
+      status: "safe_demo_ready",
+      threads: [],
+      active_thread_ref: null,
+      route_refs: [
+        "GET /control-center/chat/workspace",
+        "POST /control-center/chat/threads/{thread_ref}/approval",
+        "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "POST /control-center/chat/threads/{thread_ref}/lifecycle",
+      ],
+      blocked_state_refs: [
+        "blocked-state:chat-workspace:no-draft-body-persistence",
+        "blocked-state:chat-workspace:no-model-call",
+        "blocked-state:chat-workspace:no-tool-execution",
+        "blocked-state:chat-workspace:no-memory-write",
+        "blocked-state:chat-workspace:no-connector-write",
+        "blocked-state:chat-workspace:no-production-authority",
+      ],
+      safe_summary:
+        "Conversation organization and draft recovery metadata are owned by the Python core.",
+      next_safe_action: "Start a draft without a model.",
+      draft_body_stored: false,
+      model_call_enabled: false,
+      send_enabled: false,
+      tool_execution_enabled: false,
+      connector_write_enabled: false,
+      production_authority_enabled: false,
+    },
     [API_ENDPOINTS.founderMemoryReview]:
       mockControlCenterData.founderMemoryReview,
     [API_ENDPOINTS.founderMemoryWorkbench]:

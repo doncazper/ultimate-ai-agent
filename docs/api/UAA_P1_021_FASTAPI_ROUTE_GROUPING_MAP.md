@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `364`.
+Current OpenAPI path count: `368`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `366`
-- OpenAPI paths: `364`
+- Manifest route operations: `370`
+- OpenAPI paths: `368`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -24,7 +24,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 189 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:92, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 193 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:96, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -173,6 +173,10 @@ an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/control-center/chat/turns` | `post_control_center_chat_turns` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/chat/turns/{turn_ref}/handoff` | `post_control_center_chat_turns_turn_ref_handoff` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/chat/turns/{turn_ref}/receipt` | `get_control_center_chat_turns_turn_ref_receipt` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/chat/workspace` | `get_control_center_chat_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/approval` | `post_control_center_chat_threads_thread_ref_approval` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/draft-checkpoint` | `post_control_center_chat_threads_thread_ref_draft_checkpoint` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/lifecycle` | `post_control_center_chat_threads_thread_ref_lifecycle` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/context` | `get_control_center_coding_context` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/git-review` | `get_control_center_coding_git_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/live-preview` | `get_control_center_coding_live_preview` | `local_dev_workspace_only` | no | future | yes |

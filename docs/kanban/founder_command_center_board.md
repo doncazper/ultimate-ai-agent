@@ -256,6 +256,14 @@ Settings, including blocked states and the exact Action Inbox `local_task_create
 authority posture. No backend route, storage contract, API manifest entry, or
 operational maturity rank changed for this lane.
 
+**Q33 Chat Adoption Slice:** `/chat` now starts with a Python/API-owned
+content-free conversation workspace. It provides clean-start drafting, a
+readable/searchable thread rail, draft checkpoint metadata, and archive/recover
+receipts. The unsent body remains in the current browser tab and never reaches
+the server. Ordinary Chat send/model calls, tools, memory writes, connectors,
+and production authority remain blocked. This is a bounded Q33 slice, not
+terminal Q33 acceptance.
+
 **Authority Boundary:** No backend route changes unless separately scoped, no
 React-owned product truth, no new mutation controls, and no authority expansion.
 

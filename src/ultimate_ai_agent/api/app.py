@@ -24,6 +24,11 @@ from ultimate_ai_agent.api.capability_diagnostics import (
 from ultimate_ai_agent.api.communications import register_communications_routes
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
+from ultimate_ai_agent.api.chat_workspace import (
+    CHAT_WORKSPACE_MUTATION_ROUTE_RE,
+    CHAT_WORKSPACE_READ_ROUTE,
+    register_chat_workspace_routes,
+)
 from ultimate_ai_agent.api.founder_exact_action import (
     register_founder_exact_action_routes,
 )
@@ -316,6 +321,7 @@ configure_loopback_cors(app)
 register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
 register_founder_loop_routes(app)
+register_chat_workspace_routes(app)
 register_founder_exact_action_routes(app)
 register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
@@ -794,7 +800,30 @@ async def backend_response_binding_middleware(
     request: Request,
     call_next: Any,
 ) -> Any:
-    if _requires_control_center_mutation_binding(request):
+    requires_mutation_binding = _requires_control_center_mutation_binding(request)
+    side_effect_class = route_side_effect_class(request.url.path)
+    route_classification, _reason = route_classification_for_path(
+        request.method,
+        request.url.path,
+        side_effect_class,
+    )
+    idempotency_failure = idempotency_header_failure(
+        request.headers,
+        route_classification=route_classification,
+    )
+    explicit_binding_context = bool(
+        request.headers.get("origin")
+        or request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_REVISION_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
+    )
+    defer_chat_workspace_to_idempotency_gate = bool(
+        CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(request.url.path)
+        and not explicit_binding_context
+        and idempotency_failure is not None
+    )
+    if requires_mutation_binding and not defer_chat_workspace_to_idempotency_gate:
         identity = build_identity()
         expected_revision = request.headers.get(
             _EXPECTED_BACKEND_REVISION_HEADER
@@ -846,6 +875,8 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
     if request.method.upper() != "POST":
         return False
     path = request.url.path
+    if CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(path) is not None:
+        return True
     if (
         path not in _CONTROL_CENTER_BOUND_MUTATION_PATHS
         and _CONTROL_CENTER_BOUND_ACTION_MUTATION_RE.fullmatch(path) is None
@@ -866,7 +897,13 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
 @app.middleware("http")
 async def security_headers_api_middleware(request: Request, call_next: Any) -> Any:
     response = await call_next(request)
-    return apply_fastapi_security_headers(request, response)
+    response = apply_fastapi_security_headers(request, response)
+    if (
+        request.url.path == CHAT_WORKSPACE_READ_ROUTE
+        or CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(request.url.path) is not None
+    ):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 register_system_routes(app)

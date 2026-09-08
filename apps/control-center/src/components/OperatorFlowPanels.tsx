@@ -46,6 +46,7 @@ import type {
 import { EmptyState } from "./DataState";
 import { AuthorityMissionInspectionPanel } from "./AuthorityMissionInspectionPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
+import { ChatWorkspacePanel } from "./ChatWorkspacePanel";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 import { TurnRouterDiagnosticsPanel } from "./TurnRouterDiagnosticsPanel";
@@ -351,6 +352,8 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         status={statusLabel(models.state)}
         summary="Control Center can probe a redacted local turn through UAA /v1, record a durable receipt, and show model, runtime, auth, and tool-denial truth without treating output as authority."
       />
+
+      <ChatWorkspacePanel />
 
       <TurnRouterDiagnosticsPanel />
 

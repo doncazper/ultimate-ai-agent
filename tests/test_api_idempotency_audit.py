@@ -50,6 +50,54 @@ def test_mutating_route_rejects_missing_or_invalid_idempotency_before_handler() 
     assert "disabled by default" in allowed_to_handler.json()["detail"]
 
 
+def test_mutating_route_rejects_invalid_or_conflicting_idempotency_aliases() -> None:
+    client = TestClient(app)
+    route = "/task-decomposition/run"
+    body = {"raw_request": "safe summary"}
+
+    invalid_sibling = client.post(
+        route,
+        headers={
+            "X-UAA-Idempotency-Key": "bad",
+            "X-UAA-Idempotency-Ref": "idempotency:test-p1-084",
+        },
+        json=body,
+    )
+    conflicting = client.post(
+        route,
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency:test-p1-084-a",
+            "X-UAA-Idempotency-Ref": "idempotency:test-p1-084-b",
+        },
+        json=body,
+    )
+    blank_primary = client.post(
+        route,
+        headers={
+            "X-UAA-Idempotency-Key": "",
+            "X-UAA-Idempotency-Ref": "idempotency:test-p1-084",
+        },
+        json=body,
+    )
+    duplicate_mixed = client.post(
+        route,
+        headers=[
+            ("X-UAA-Idempotency-Key", "idempotency:test-p1-084"),
+            ("X-UAA-Idempotency-Key", "bad"),
+        ],
+        json=body,
+    )
+
+    assert invalid_sibling.status_code == 400
+    assert invalid_sibling.json()["code"] == "API_IDEMPOTENCY_INVALID"
+    assert conflicting.status_code == 400
+    assert conflicting.json()["code"] == "API_IDEMPOTENCY_CONFLICT"
+    assert blank_primary.status_code == 400
+    assert blank_primary.json()["code"] == "API_IDEMPOTENCY_INVALID"
+    assert duplicate_mixed.status_code == 400
+    assert duplicate_mixed.json()["code"] == "API_IDEMPOTENCY_INVALID"
+
+
 def test_non_mutating_route_does_not_require_idempotency_header() -> None:
     client = TestClient(app)
 

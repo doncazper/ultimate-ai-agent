@@ -3987,6 +3987,114 @@ export interface FounderLoopActionEnvelopePromotionReceipt {
 
 export type ChatHandoffTarget = "actions" | "plans";
 
+export type ChatThreadLifecycleAction = "archive" | "recover";
+
+export interface ChatThreadReadModel {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  thread_ref: string;
+  display_name: string;
+  state: "active" | "archived";
+  revision: number;
+  draft_present: boolean;
+  draft_character_count: number;
+  draft_fingerprint_ref: string;
+  draft_recovery_state: "empty" | "metadata_only_reentry_required";
+  draft_body_stored: false;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatWorkspaceReadModel {
+  schema_version: "chat-content-free-workspace.v1";
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  source: "python_core_chat_content_free_workspace";
+  status: "safe_demo_ready" | "workspace_ready";
+  threads: ChatThreadReadModel[];
+  active_thread_ref: string | null;
+  route_refs: string[];
+  blocked_state_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  draft_body_stored: false;
+  model_call_enabled: false;
+  send_enabled: false;
+  tool_execution_enabled: false;
+  connector_write_enabled: false;
+  production_authority_enabled: false;
+}
+
+export interface ChatDraftCheckpointRequest {
+  confirmed: true;
+  expected_revision: number;
+  draft_present: boolean;
+  draft_character_count: number;
+  draft_fingerprint_ref: string;
+  metadata_refs?: string[];
+}
+
+export interface ChatThreadLifecycleRequest {
+  confirmed: true;
+  action: ChatThreadLifecycleAction;
+  expected_revision: number;
+  metadata_refs?: string[];
+}
+
+export interface ChatWorkspaceApprovalCaptureRequest {
+  mutation_kind: "draft_checkpoint" | "lifecycle";
+  mutation_idempotency_key_ref: string;
+  draft_checkpoint: ChatDraftCheckpointRequest | null;
+  lifecycle: ChatThreadLifecycleRequest | null;
+}
+
+export interface ChatWorkspaceApprovalReceipt {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  mutation_kind: "draft_checkpoint" | "lifecycle";
+  lifecycle_action: ChatThreadLifecycleAction | null;
+  thread_ref: string;
+  idempotency_key_ref: string;
+  approval_idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  approval_request_ref: string;
+  approval_ref: string;
+  exact_approval_scope_ref: string;
+  approval_validation_ref: string;
+  expires_at: string;
+  exact_scope_granted: true;
+  mutation_performed: false;
+  raw_draft_received: false;
+}
+
+export interface ChatCheckpointSnapshot {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  checkpoint_ref: string;
+  thread: ChatThreadReadModel;
+}
+
+export interface ChatThreadMutationReceipt {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  mutation_kind: "draft_checkpoint" | "lifecycle";
+  lifecycle_action: ChatThreadLifecycleAction | null;
+  thread: ChatThreadReadModel;
+  previous_checkpoint: ChatCheckpointSnapshot | null;
+  receipt_ref: string;
+  audit_ref: string;
+  evidence_ref: string;
+  idempotency_key_ref: string;
+  approval_idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  approval_ref: string;
+  exact_approval_scope_ref: string;
+  approval_validation_ref: string;
+  safe_summary: string;
+  raw_draft_received: false;
+  draft_body_stored: false;
+  model_call_performed: false;
+  tool_execution_performed: false;
+  connector_write_performed: false;
+  replayed: boolean;
+  created_at: string;
+}
+
 export interface ChatTurnReceiptRequest {
   turn_ref?: string;
   route_ref: string;

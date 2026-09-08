@@ -66,6 +66,7 @@ export const API_ENDPOINTS = {
   controlCenterWebEvidenceAttach: "/control-center/web-evidence/attach",
   founderEvidenceTimeline: "/control-center/evidence/timeline",
   controlCenterChatTurns: "/control-center/chat/turns",
+  controlCenterChatWorkspace: "/control-center/chat/workspace",
   founderMemoryReview: "/control-center/memory/review",
   founderMemoryWorkbench: "/control-center/memory/workbench",
   founderMemorySearch: "/control-center/memory/search",
@@ -205,6 +206,18 @@ export function chatTurnHandoffEndpoint(turnRef: string): string {
   return `/control-center/chat/turns/${encodeURIComponent(turnRef)}/handoff`;
 }
 
+export function chatDraftCheckpointEndpoint(threadRef: string): string {
+  return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/draft-checkpoint`;
+}
+
+export function chatThreadApprovalEndpoint(threadRef: string): string {
+  return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/approval`;
+}
+
+export function chatThreadLifecycleEndpoint(threadRef: string): string {
+  return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/lifecycle`;
+}
+
 export function memoryReviewDecisionEndpoint(
   candidateRef: string,
   decision: MemoryReviewDecisionKind,
@@ -317,6 +330,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterProofIndex,
   API_ENDPOINTS.trustAuthorityMatrix,
   API_ENDPOINTS.founderEvidenceTimeline,
+  API_ENDPOINTS.controlCenterChatWorkspace,
   API_ENDPOINTS.founderMemoryReview,
   API_ENDPOINTS.founderMemoryWorkbench,
   API_ENDPOINTS.founderMemorySearch,

@@ -44,6 +44,7 @@ def test_loopback_cors_allowlist_is_explicit_and_non_credentialed() -> None:
         "Content-Type",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Approval-Ref",
         "X-UAA-Operator-Confirmed",
         "X-UAA-Control-Center-Mutation-Binding",
         "X-UAA-Expected-Backend-Revision-Ref",

@@ -2406,7 +2406,7 @@ def test_control_center_private_crm_routes_reject_ambiguous_idempotency_headers(
         },
     )
     assert conflict.status_code == 400
-    assert conflict.json()["detail"]["code"] == "API_IDEMPOTENCY_CONFLICT"
+    assert conflict.json()["code"] == "API_IDEMPOTENCY_CONFLICT"
 
     invalid = client.post(
         "/control-center/crm/adoption/approval",
@@ -2418,7 +2418,7 @@ def test_control_center_private_crm_routes_reject_ambiguous_idempotency_headers(
         },
     )
     assert invalid.status_code == 400
-    assert invalid.json()["detail"]["code"] == "API_IDEMPOTENCY_INVALID"
+    assert invalid.json()["code"] == "API_IDEMPOTENCY_INVALID"
 
 
 def test_control_center_private_crm_routes_complete_exact_local_loop(

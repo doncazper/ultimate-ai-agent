@@ -157,8 +157,15 @@ import type {
   ChatHandoffReceipt,
   ChatHandoffRequest,
   ChatHandoffTarget,
+  ChatDraftCheckpointRequest,
+  ChatThreadLifecycleRequest,
+  ChatThreadMutationReceipt,
+  ChatThreadReadModel,
+  ChatWorkspaceApprovalCaptureRequest,
+  ChatWorkspaceApprovalReceipt,
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
+  ChatWorkspaceReadModel,
   CodingGitReviewReadModel,
   CodingLivePreviewReadModel,
   CodingMultiAgentReviewReadModel,
@@ -181,6 +188,9 @@ import {
   actionDecisionEndpoint,
   actionLocalTaskCommitEndpoint,
   actionReceiptEndpoint,
+  chatDraftCheckpointEndpoint,
+  chatThreadApprovalEndpoint,
+  chatThreadLifecycleEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   communicationsReceiptEndpoint,
@@ -6321,6 +6331,810 @@ export async function fetchChatTurnReceipt(
     chatTurnReceiptEndpoint(turnRef),
     defaultControlCenterReadLimiter,
     binding,
+  );
+}
+
+export async function fetchChatWorkspace(
+  binding: BackendTruthReadBinding | null,
+): Promise<ChatWorkspaceReadModel> {
+  const value = await readEnvelope<unknown>(
+    API_ENDPOINTS.controlCenterChatWorkspace,
+    defaultControlCenterReadLimiter,
+    binding,
+  );
+  if (!isChatWorkspaceReadModel(value)) {
+    throw new Error("Chat workspace metadata was rejected safely.");
+  }
+  return value;
+}
+
+export async function checkpointChatDraft(
+  threadRef: string,
+  request: ChatDraftCheckpointRequest,
+  binding: BackendTruthReadBinding | null,
+): Promise<ChatThreadMutationReceipt> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  const requestDigest = await chatSha256Hex(
+    stableStringifyForIdempotency(request),
+  );
+  if (!threadDigest || !requestDigest) {
+    throw new Error("CHAT_WORKSPACE_IDEMPOTENCY_DIGEST_UNAVAILABLE");
+  }
+  return mutateChatThread(
+    threadRef,
+    chatDraftCheckpointEndpoint(threadRef),
+    request,
+    `idempotency-ref:control-center-chat-draft:${threadDigest.slice(0, 32)}:${requestDigest.slice(0, 32)}`,
+    binding,
+  );
+}
+
+export async function updateChatThreadLifecycle(
+  threadRef: string,
+  request: ChatThreadLifecycleRequest,
+  binding: BackendTruthReadBinding | null,
+): Promise<ChatThreadMutationReceipt> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  const requestDigest = await chatSha256Hex(
+    stableStringifyForIdempotency(request),
+  );
+  if (!threadDigest || !requestDigest) {
+    throw new Error("CHAT_WORKSPACE_IDEMPOTENCY_DIGEST_UNAVAILABLE");
+  }
+  return mutateChatThread(
+    threadRef,
+    chatThreadLifecycleEndpoint(threadRef),
+    request,
+    `idempotency-ref:control-center-chat-thread:${request.action}:${threadDigest.slice(0, 32)}:${requestDigest.slice(0, 32)}`,
+    binding,
+  );
+}
+
+async function mutateChatThread(
+  threadRef: string,
+  endpoint: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<ChatThreadMutationReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const approvalRequest: ChatWorkspaceApprovalCaptureRequest =
+    "action" in request
+      ? {
+          mutation_kind: "lifecycle",
+          mutation_idempotency_key_ref: idempotencyRef,
+          draft_checkpoint: null,
+          lifecycle: request,
+        }
+      : {
+          mutation_kind: "draft_checkpoint",
+          mutation_idempotency_key_ref: idempotencyRef,
+          draft_checkpoint: request,
+          lifecycle: null,
+        };
+  let approvalReceipt = await captureChatWorkspaceApproval(
+    threadRef,
+    request,
+    approvalRequest,
+    idempotencyRef,
+    idempotencyRef,
+    binding,
+  );
+  let mutationAttempt = await submitChatWorkspaceMutation(
+    threadRef,
+    endpoint,
+    request,
+    idempotencyRef,
+    approvalReceipt,
+    binding,
+  );
+  if (
+    !mutationAttempt.receipt &&
+    mutationAttempt.status === 403 &&
+    chatWorkspaceApiErrorCode(mutationAttempt.data) ===
+      "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_EXPIRED"
+  ) {
+    const freshApprovalIdempotencyRef = newChatApprovalIdempotencyRef();
+    approvalReceipt = await captureChatWorkspaceApproval(
+      threadRef,
+      request,
+      approvalRequest,
+      idempotencyRef,
+      freshApprovalIdempotencyRef,
+      binding,
+    );
+    mutationAttempt = await submitChatWorkspaceMutation(
+      threadRef,
+      endpoint,
+      request,
+      idempotencyRef,
+      approvalReceipt,
+      binding,
+    );
+  }
+  if (!mutationAttempt.receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          mutationAttempt.data,
+          "Chat workspace state was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return mutationAttempt.receipt;
+}
+
+async function captureChatWorkspaceApproval(
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  approvalRequest: ChatWorkspaceApprovalCaptureRequest,
+  mutationIdempotencyRef: string,
+  approvalIdempotencyRef: string,
+  binding: BackendTruthReadBinding | null,
+): Promise<ChatWorkspaceApprovalReceipt> {
+  const approvalResponse = await fetch(
+    `${API_BASE_POLICY.baseUrl}${chatThreadApprovalEndpoint(threadRef)}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": approvalIdempotencyRef,
+          },
+          binding,
+        ),
+      ),
+      body: JSON.stringify(approvalRequest),
+    },
+  );
+  validateBackendResponseBinding(approvalResponse.headers, binding);
+  const approvalData = (await readJsonSafely(
+    approvalResponse,
+  )) as ResultEnvelope<ChatWorkspaceApprovalReceipt>;
+  const approvalReceipt = approvalData.result ?? approvalData.data;
+  const approvalMatchesRequest =
+    approvalResponse.ok &&
+    isChatWorkspaceApprovalReceipt(approvalReceipt) &&
+    (await chatWorkspaceApprovalReceiptMatchesRequest(
+      approvalReceipt,
+      threadRef,
+      request,
+      mutationIdempotencyRef,
+      approvalIdempotencyRef,
+    ));
+  if (!approvalMatchesRequest) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          approvalData,
+          "Chat workspace approval was not captured safely.",
+        ),
+      ),
+    );
+  }
+  return approvalReceipt;
+}
+
+async function submitChatWorkspaceMutation(
+  threadRef: string,
+  endpoint: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+  approvalReceipt: ChatWorkspaceApprovalReceipt,
+  binding: BackendTruthReadBinding | null,
+): Promise<{
+  receipt: ChatThreadMutationReceipt | null;
+  data: ResultEnvelope<ChatThreadMutationReceipt> | unknown;
+  status: number;
+}> {
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: withLocalApiAuthHeaders(
+      withBackendTruthMutationHeaders(
+        {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyRef,
+          "X-UAA-Approval-Ref": approvalReceipt.approval_ref,
+        },
+        binding,
+      ),
+    ),
+    body: JSON.stringify(request),
+  });
+  validateBackendResponseBinding(response.headers, binding);
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<ChatThreadMutationReceipt>;
+  const receipt = data.result ?? data.data;
+  const receiptApprovalIdempotencyRef =
+    isChatThreadMutationReceipt(receipt) && receipt.replayed
+      ? receipt.approval_idempotency_key_ref
+      : approvalReceipt.approval_idempotency_key_ref;
+  const receiptMatchesRequest =
+    response.ok &&
+    isChatThreadMutationReceipt(receipt) &&
+    (await chatThreadMutationReceiptMatchesRequest(
+      receipt,
+      threadRef,
+      request,
+      idempotencyRef,
+      receiptApprovalIdempotencyRef,
+    ));
+  return {
+    receipt: receiptMatchesRequest ? receipt : null,
+    data,
+    status: response.status,
+  };
+}
+
+function isChatWorkspaceApprovalReceipt(
+  value: unknown,
+): value is ChatWorkspaceApprovalReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    hasExactChatKeys(record, [
+      "contract_ref",
+      "mutation_kind",
+      "lifecycle_action",
+      "thread_ref",
+      "idempotency_key_ref",
+      "approval_idempotency_key_ref",
+      "payload_fingerprint_ref",
+      "approval_request_ref",
+      "approval_ref",
+      "exact_approval_scope_ref",
+      "approval_validation_ref",
+      "expires_at",
+      "exact_scope_granted",
+      "mutation_performed",
+      "raw_draft_received",
+    ]) &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    (record.mutation_kind === "draft_checkpoint" ||
+      record.mutation_kind === "lifecycle") &&
+    (record.mutation_kind === "draft_checkpoint"
+      ? record.lifecycle_action === null
+      : record.lifecycle_action === "archive" ||
+        record.lifecycle_action === "recover") &&
+    isChatThreadRef(record.thread_ref) &&
+    isChatSafeRef(record.idempotency_key_ref) &&
+    isChatSafeRef(record.approval_idempotency_key_ref) &&
+    /^payload-fingerprint:chat-workspace:[0-9a-f]{64}$/.test(
+      String(record.payload_fingerprint_ref),
+    ) &&
+    /^approval-request-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_request_ref),
+    ) &&
+    /^approval-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_ref),
+    ) &&
+    /^approval-scope-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.exact_approval_scope_ref),
+    ) &&
+    /^approval-validation-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_validation_ref),
+    ) &&
+    chatTimestamp(record.expires_at) !== null &&
+    record.exact_scope_granted === true &&
+    record.mutation_performed === false &&
+    record.raw_draft_received === false
+  );
+}
+
+function isChatWorkspaceReadModel(
+  value: unknown,
+): value is ChatWorkspaceReadModel {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const threads = record.threads;
+  const activeThreadRef = record.active_thread_ref;
+  return (
+    hasExactChatKeys(record, [
+      "schema_version",
+      "contract_ref",
+      "source",
+      "status",
+      "threads",
+      "active_thread_ref",
+      "route_refs",
+      "blocked_state_refs",
+      "safe_summary",
+      "next_safe_action",
+      "draft_body_stored",
+      "model_call_enabled",
+      "send_enabled",
+      "tool_execution_enabled",
+      "connector_write_enabled",
+      "production_authority_enabled",
+    ]) &&
+    record.schema_version === "chat-content-free-workspace.v1" &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    record.source === "python_core_chat_content_free_workspace" &&
+    (record.status === "safe_demo_ready" || record.status === "workspace_ready") &&
+    record.draft_body_stored === false &&
+    record.model_call_enabled === false &&
+    record.send_enabled === false &&
+    record.tool_execution_enabled === false &&
+    record.connector_write_enabled === false &&
+    record.production_authority_enabled === false &&
+    Array.isArray(threads) &&
+    threads.length <= 100 &&
+    threads.every(isChatThreadReadModel) &&
+    new Set(
+      threads.map((thread) => (thread as ChatThreadReadModel).thread_ref),
+    ).size === threads.length &&
+    record.status === (threads.length > 0 ? "workspace_ready" : "safe_demo_ready") &&
+    (activeThreadRef === null ||
+      (isChatThreadRef(activeThreadRef) &&
+        threads.some(
+          (thread) =>
+            (thread as ChatThreadReadModel).thread_ref === activeThreadRef &&
+            (thread as ChatThreadReadModel).state === "active",
+        ))) &&
+    chatStringArrayEquals(record.route_refs, CHAT_WORKSPACE_ROUTE_REFS) &&
+    chatStringArrayEquals(
+      record.blocked_state_refs,
+      CHAT_WORKSPACE_BLOCKED_STATE_REFS,
+    ) &&
+    isChatSafeText(record.safe_summary, 500) &&
+    isChatSafeText(record.next_safe_action, 300)
+  );
+}
+
+function isChatThreadReadModel(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const draftPresent = record.draft_present;
+  const characterCount = record.draft_character_count;
+  const fingerprintRef = record.draft_fingerprint_ref;
+  const createdAt = chatTimestamp(record.created_at);
+  const updatedAt = chatTimestamp(record.updated_at);
+  return (
+    hasExactChatKeys(record, [
+      "contract_ref",
+      "thread_ref",
+      "display_name",
+      "state",
+      "revision",
+      "draft_present",
+      "draft_character_count",
+      "draft_fingerprint_ref",
+      "draft_recovery_state",
+      "draft_body_stored",
+      "created_at",
+      "updated_at",
+    ]) &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    isChatThreadRef(record.thread_ref) &&
+    typeof record.display_name === "string" &&
+    /^Conversation [1-9][0-9]{0,5}$/.test(record.display_name) &&
+    (record.state === "active" || record.state === "archived") &&
+    Number.isInteger(record.revision) &&
+    Number(record.revision) >= 1 &&
+    Number(record.revision) <= 2_147_483_647 &&
+    typeof draftPresent === "boolean" &&
+    Number.isInteger(characterCount) &&
+    Number(characterCount) >= 0 &&
+    Number(characterCount) <= 32_000 &&
+    isChatDraftFingerprintRef(fingerprintRef) &&
+    (draftPresent
+      ? Number(characterCount) > 0 &&
+        fingerprintRef !== "draft-fingerprint-ref:chat:empty" &&
+        record.draft_recovery_state === "metadata_only_reentry_required"
+      : characterCount === 0 &&
+        fingerprintRef === "draft-fingerprint-ref:chat:empty" &&
+        record.draft_recovery_state === "empty") &&
+    record.draft_body_stored === false &&
+    createdAt !== null &&
+    updatedAt !== null &&
+    updatedAt >= createdAt
+  );
+}
+
+function isChatThreadMutationReceipt(
+  value: unknown,
+): value is ChatThreadMutationReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const action = record.lifecycle_action;
+  const thread = record.thread as ChatThreadReadModel | undefined;
+  const kind = action ?? record.mutation_kind;
+  const revision = thread?.revision;
+  const threadHashPattern = "[0-9a-f]{16}";
+  return (
+    hasExactChatKeys(record, [
+      "contract_ref",
+      "mutation_kind",
+      "lifecycle_action",
+      "thread",
+      "previous_checkpoint",
+      "receipt_ref",
+      "audit_ref",
+      "evidence_ref",
+      "idempotency_key_ref",
+      "approval_idempotency_key_ref",
+      "payload_fingerprint_ref",
+      "approval_ref",
+      "exact_approval_scope_ref",
+      "approval_validation_ref",
+      "safe_summary",
+      "raw_draft_received",
+      "draft_body_stored",
+      "model_call_performed",
+      "tool_execution_performed",
+      "connector_write_performed",
+      "replayed",
+      "created_at",
+    ]) &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    (record.mutation_kind === "draft_checkpoint" ||
+      record.mutation_kind === "lifecycle") &&
+    (record.mutation_kind === "draft_checkpoint"
+      ? action === null && thread?.state === "active"
+      : (action === "archive" && thread?.state === "archived") ||
+        (action === "recover" && thread?.state === "active")) &&
+    isChatThreadReadModel(thread) &&
+    isChatCheckpointSnapshot(
+      record.previous_checkpoint,
+      record.mutation_kind,
+      thread,
+    ) &&
+    record.raw_draft_received === false &&
+    record.draft_body_stored === false &&
+    record.model_call_performed === false &&
+    record.tool_execution_performed === false &&
+    record.connector_write_performed === false &&
+    typeof record.replayed === "boolean" &&
+    typeof kind === "string" &&
+    Number.isInteger(revision) &&
+    new RegExp(
+      `^receipt:chat-workspace:${kind}:${threadHashPattern}:revision-${revision}$`,
+    ).test(String(record.receipt_ref)) &&
+    new RegExp(
+      `^audit:chat-workspace:${kind}:${threadHashPattern}:revision-${revision}$`,
+    ).test(String(record.audit_ref)) &&
+    new RegExp(
+      `^evidence-ref:chat-workspace:${kind}:${threadHashPattern}:revision-${revision}$`,
+    ).test(String(record.evidence_ref)) &&
+    isChatSafeRef(record.idempotency_key_ref) &&
+    isChatSafeRef(record.approval_idempotency_key_ref) &&
+    typeof record.payload_fingerprint_ref === "string" &&
+    /^payload-fingerprint:chat-workspace:[0-9a-f]{64}$/.test(
+      record.payload_fingerprint_ref,
+    ) &&
+    /^approval-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_ref),
+    ) &&
+    /^approval-scope-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.exact_approval_scope_ref),
+    ) &&
+    /^approval-validation-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_validation_ref),
+    ) &&
+    isChatSafeText(record.safe_summary, 300) &&
+    chatTimestamp(record.created_at) !== null
+  );
+}
+
+function isChatCheckpointSnapshot(
+  value: unknown,
+  mutationKind: unknown,
+  currentThread: ChatThreadReadModel | undefined,
+): boolean {
+  if (mutationKind === "lifecycle") {
+    return value === null;
+  }
+  if (!currentThread) {
+    return false;
+  }
+  if (currentThread.revision === 1) {
+    return value === null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const previousThread = record.thread as ChatThreadReadModel | undefined;
+  if (!previousThread || !isChatThreadReadModel(previousThread)) {
+    return false;
+  }
+  return (
+    hasExactChatKeys(record, ["contract_ref", "checkpoint_ref", "thread"]) &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    /^checkpoint-ref:chat-workspace:sha256:[0-9a-f]{64}$/.test(
+      String(record.checkpoint_ref),
+    ) &&
+    previousThread.state === "active" &&
+    previousThread.thread_ref === currentThread.thread_ref &&
+    previousThread.revision === currentThread.revision - 1
+  );
+}
+
+const CHAT_WORKSPACE_ROUTE_REFS = [
+  "GET /control-center/chat/workspace",
+  "POST /control-center/chat/threads/{thread_ref}/approval",
+  "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
+  "POST /control-center/chat/threads/{thread_ref}/lifecycle",
+] as const;
+
+const CHAT_WORKSPACE_BLOCKED_STATE_REFS = [
+  "blocked-state:chat-workspace:no-draft-body-persistence",
+  "blocked-state:chat-workspace:no-model-call",
+  "blocked-state:chat-workspace:no-tool-execution",
+  "blocked-state:chat-workspace:no-memory-write",
+  "blocked-state:chat-workspace:no-connector-write",
+  "blocked-state:chat-workspace:no-production-authority",
+] as const;
+
+function hasExactChatKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+}
+
+function isChatThreadRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 200 &&
+    /^chat-thread:[A-Za-z0-9][A-Za-z0-9_.:@-]{0,187}$/.test(value)
+  );
+}
+
+function isChatDraftFingerprintRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$/.test(value)
+  );
+}
+
+async function chatWorkspaceApprovalReceiptMatchesRequest(
+  receipt: ChatWorkspaceApprovalReceipt,
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+  approvalIdempotencyRef: string,
+): Promise<boolean> {
+  const payloadFingerprintRef = await chatThreadMutationPayloadFingerprintRef(
+    threadRef,
+    request,
+  );
+  if (!payloadFingerprintRef) {
+    return false;
+  }
+  const mutationKind = "action" in request ? "lifecycle" : "draft_checkpoint";
+  const lifecycleAction = "action" in request ? request.action : null;
+  const approvalDigest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      contract_ref: "contract-ref:chat-content-free-workspace:v1",
+      mutation_kind: mutationKind,
+      lifecycle_action: lifecycleAction,
+      thread_ref: threadRef,
+      idempotency_key_ref: idempotencyRef,
+      approval_idempotency_key_ref: approvalIdempotencyRef,
+      payload_fingerprint_ref: payloadFingerprintRef,
+    }),
+  );
+  if (!approvalDigest) {
+    return false;
+  }
+  const suffix = approvalDigest.slice(0, 32);
+  return (
+    receipt.mutation_kind === mutationKind &&
+    receipt.lifecycle_action === lifecycleAction &&
+    receipt.thread_ref === threadRef &&
+    receipt.idempotency_key_ref === idempotencyRef &&
+    receipt.approval_idempotency_key_ref === approvalIdempotencyRef &&
+    receipt.payload_fingerprint_ref === payloadFingerprintRef &&
+    receipt.approval_request_ref ===
+      `approval-request-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.approval_ref ===
+      `approval-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.exact_approval_scope_ref ===
+      `approval-scope-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.approval_validation_ref ===
+      `approval-validation-ref:chat-workspace:sha256:${suffix}`
+  );
+}
+
+async function chatThreadMutationReceiptMatchesRequest(
+  receipt: ChatThreadMutationReceipt,
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+  approvalIdempotencyRef: string,
+): Promise<boolean> {
+  const threadDigest = await chatSha256Hex(threadRef);
+  if (!threadDigest) {
+    return false;
+  }
+  const kind = "action" in request ? request.action : "draft_checkpoint";
+  const mutationKind = "action" in request ? "lifecycle" : "draft_checkpoint";
+  const expectedRevision = request.expected_revision + 1;
+  const receiptPrefix = `${kind}:${threadDigest.slice(0, 16)}:revision-${expectedRevision}`;
+  const payloadFingerprintRef = await chatThreadMutationPayloadFingerprintRef(
+    threadRef,
+    request,
+  );
+  if (!payloadFingerprintRef) {
+    return false;
+  }
+  const approvalDigest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      contract_ref: "contract-ref:chat-content-free-workspace:v1",
+      mutation_kind: mutationKind,
+      lifecycle_action: "action" in request ? request.action : null,
+      thread_ref: threadRef,
+      idempotency_key_ref: idempotencyRef,
+      approval_idempotency_key_ref: approvalIdempotencyRef,
+      payload_fingerprint_ref: payloadFingerprintRef,
+    }),
+  );
+  if (!approvalDigest) {
+    return false;
+  }
+  const approvalSuffix = approvalDigest.slice(0, 32);
+  const previousCheckpointMatches =
+    "action" in request || request.expected_revision === 0
+      ? receipt.previous_checkpoint === null
+      : receipt.previous_checkpoint !== null &&
+        receipt.previous_checkpoint.thread.thread_ref === threadRef &&
+        receipt.previous_checkpoint.thread.revision === request.expected_revision &&
+        receipt.previous_checkpoint.checkpoint_ref ===
+          (await chatCheckpointSnapshotRef(receipt.previous_checkpoint.thread));
+  return (
+    receipt.mutation_kind === mutationKind &&
+    receipt.lifecycle_action === ("action" in request ? request.action : null) &&
+    receipt.thread.thread_ref === threadRef &&
+    receipt.thread.revision === expectedRevision &&
+    receipt.idempotency_key_ref === idempotencyRef &&
+    receipt.approval_idempotency_key_ref === approvalIdempotencyRef &&
+    receipt.payload_fingerprint_ref === payloadFingerprintRef &&
+    receipt.approval_ref ===
+      `approval-ref:chat-workspace:sha256:${approvalSuffix}` &&
+    receipt.exact_approval_scope_ref ===
+      `approval-scope-ref:chat-workspace:sha256:${approvalSuffix}` &&
+    receipt.approval_validation_ref ===
+      `approval-validation-ref:chat-workspace:sha256:${approvalSuffix}` &&
+    previousCheckpointMatches &&
+    ("action" in request ||
+      (receipt.thread.draft_present === request.draft_present &&
+        receipt.thread.draft_character_count === request.draft_character_count &&
+        receipt.thread.draft_fingerprint_ref === request.draft_fingerprint_ref)) &&
+    receipt.receipt_ref === `receipt:chat-workspace:${receiptPrefix}` &&
+    receipt.audit_ref === `audit:chat-workspace:${receiptPrefix}` &&
+    receipt.evidence_ref === `evidence-ref:chat-workspace:${receiptPrefix}`
+  );
+}
+
+async function chatCheckpointSnapshotRef(
+  thread: ChatThreadReadModel,
+): Promise<string | null> {
+  const digest = await chatSha256Hex(stableStringifyForIdempotency(thread));
+  return digest ? `checkpoint-ref:chat-workspace:sha256:${digest}` : null;
+}
+
+function newChatApprovalIdempotencyRef(): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error("CHAT_WORKSPACE_APPROVAL_IDENTITY_UNAVAILABLE");
+  }
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  const suffix = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `idempotency-ref:control-center-chat-approval:${suffix}`;
+}
+
+function chatWorkspaceApiErrorCode(data: unknown): string | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null;
+  }
+  const record = data as Record<string, unknown>;
+  const detail = record.detail;
+  if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+    const code = (detail as Record<string, unknown>).code;
+    return typeof code === "string" && isChatSafeText(code, 120) ? code : null;
+  }
+  const error = record.error;
+  if (error && typeof error === "object" && !Array.isArray(error)) {
+    const code = (error as Record<string, unknown>).code;
+    return typeof code === "string" && isChatSafeText(code, 120) ? code : null;
+  }
+  return null;
+}
+
+async function chatThreadMutationPayloadFingerprintRef(
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+): Promise<string | null> {
+  const digest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      thread_ref: threadRef,
+      ...request,
+      metadata_refs: request.metadata_refs ?? [],
+    }),
+  );
+  return digest ? `payload-fingerprint:chat-workspace:${digest}` : null;
+}
+
+async function chatSha256Hex(value: string): Promise<string | null> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    return null;
+  }
+  try {
+    const digest = await subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  } catch {
+    return null;
+  }
+}
+
+function isChatSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 200 &&
+    /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/.test(value) &&
+    !/(?:raw[_-]?(?:prompt|response|path|log)|authorization|bearer|password|secret)/i.test(
+      value,
+    )
+  );
+}
+
+function isChatSafeText(value: unknown, maximum: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum &&
+    !/(?:\/Users\/|\/home\/|raw[_ -]?(?:prompt|response|path|log)|authorization|bearer\s+|password|secret)/i.test(
+      value,
+    )
+  );
+}
+
+function chatTimestamp(value: unknown): number | null {
+  if (
+    typeof value !== "string" ||
+    value.length > 64 ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      value,
+    )
+  ) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function chatStringArrayEquals(value: unknown, expected: readonly string[]): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === expected.length &&
+    value.every((item, index) => item === expected[index])
   );
 }
 

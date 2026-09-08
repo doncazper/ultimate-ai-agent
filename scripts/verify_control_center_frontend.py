@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 28
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 30
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -277,7 +277,6 @@ BROWSER_API_FRAGMENTS = [
     "cllocation",
     "locationmanager",
 ]
-
 NATIVE_OR_PLUGIN_FRAGMENTS = [
     "chrome.",
     "computer use",
@@ -949,6 +948,15 @@ def verify(root: Path = ROOT) -> list[str]:
             if fragment not in text:
                 failures.append(f"Chat durable receipt endpoint helper is missing: {fragment}")
         for fragment in [
+            "controlCenterChatWorkspace",
+            "chatDraftCheckpointEndpoint",
+            "chatThreadLifecycleEndpoint",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    f"Chat workspace endpoint helper is missing: {fragment}"
+                )
+        for fragment in [
             "runtimeGoalApprovalPrepareCreate:",
             '"/api/runtime/goals/approval-requests/create"',
             "runtimeGoalApprovalRevoke:",
@@ -974,6 +982,10 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client missing scoped web evidence attach helper")
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        if "chatThreadApprovalEndpoint(threadRef)" not in text:
+            failures.append(
+                "frontend client must capture chat mutation approval through its scoped endpoint"
+            )
         for fragment in [
             "postRuntimeGoalMutation",
             "prepareRuntimeGoalMutationApproval",
@@ -1131,6 +1143,23 @@ def verify(root: Path = ROOT) -> list[str]:
                     failures.append(
                         "frontend Memory feedback post missing "
                         f"safety fragment: {fragment}"
+                    )
+        if post_count >= 29:
+            required_chat_workspace_fragments = [
+                "checkpointChatDraft",
+                "updateChatThreadLifecycle",
+                "mutateChatThread",
+                "chatDraftCheckpointEndpoint(threadRef)",
+                "chatThreadLifecycleEndpoint(threadRef)",
+                "withBackendTruthMutationHeaders",
+                '"X-UAA-Idempotency-Key"',
+                "chatThreadMutationReceiptMatchesRequest",
+            ]
+            for fragment in required_chat_workspace_fragments:
+                if fragment not in text:
+                    failures.append(
+                        "frontend Chat workspace mutation missing safety fragment: "
+                        f"{fragment}"
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")

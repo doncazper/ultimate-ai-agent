@@ -314,6 +314,10 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         or (
             path.startswith("/control-center/chat/turns/") and path.endswith("/handoff")
         )
+        or (
+            path.startswith("/control-center/chat/threads/")
+            and path.endswith(("/approval", "/draft-checkpoint", "/lifecycle"))
+        )
     ):
         return "chat_durable_receipt"
     if (

@@ -2236,6 +2236,14 @@ FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES = frozenset(
         "/control-center/chat/turns/{turn_ref}/handoff",
     }
 )
+FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES = frozenset(
+    {
+        "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/approval",
+        "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+        "/control-center/chat/threads/{thread_ref}/lifecycle",
+    }
+)
 FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES = frozenset(
     {
         "/control-center/memory/review/{candidate_ref}/accept",
@@ -2310,6 +2318,7 @@ FOUNDER_LOOP_CONTROL_CENTER_ROUTES = (
     | FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES
     | FOUNDER_LOOP_EXACT_ATTENTION_ROUTES
     | FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES
+    | FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES
     | FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES
     | FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES
     | FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES
@@ -2759,6 +2768,7 @@ def _historical_control_center_path_set(paths: Iterable[str]) -> set[str]:
     path_set.difference_update(CONTROL_CENTER_AUTOCORRECT_ROUTES)
     path_set.difference_update(CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS)
     path_set.difference_update(CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS)
+    path_set.difference_update(FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES)
     return path_set
 
 

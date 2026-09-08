@@ -170,7 +170,8 @@ def test_mutation_header_must_equal_typed_idempotency_ref(
 
     assert missing.status_code == 428
     assert mismatch.status_code == 409
-    assert conflict.status_code == 409
+    assert conflict.status_code == 400
+    assert conflict.json()["code"] == "API_IDEMPOTENCY_CONFLICT"
     assert mismatch.headers["Cache-Control"] == "no-store"
     assert calls == []
 
