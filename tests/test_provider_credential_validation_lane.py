@@ -573,8 +573,6 @@ def test_provider_credential_validation_route_rejects_conflicting_idempotency_he
         json=request.model_dump(mode="json"),
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     payload = response.json()
-    assert payload["success"] is False
-    assert payload["data"]["status"] == "validation_blocked"
-    assert payload["data"]["reason_codes"] == ["IDEMPOTENCY_HEADER_CONFLICT"]
+    assert payload["code"] == "API_IDEMPOTENCY_CONFLICT"

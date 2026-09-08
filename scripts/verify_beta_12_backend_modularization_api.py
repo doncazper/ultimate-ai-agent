@@ -149,7 +149,7 @@ def _append_static_failures(failures: list[str]) -> None:
             "`/control-center/settings/status`",
         ],
         ROUTE_GROUPING_MAP: [
-            "`local_dev_workspace_only`:95",
+            "`local_dev_workspace_only`:96",
             "| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only`",
             "| GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `local_dev_workspace_only`",
             "| GET | `/control-center/trust-authority/matrix` | `get_control_center_trust_authority_matrix` | `local_dev_workspace_only`",
