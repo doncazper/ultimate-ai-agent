@@ -46,6 +46,7 @@ REQUIRED_DOC_SNIPPETS = {
         "Authorization",
         "X-UAA-Idempotency-Key",
         "X-UAA-Idempotency-Ref",
+        "X-UAA-Approval-Ref",
         "X-UAA-Operator-Confirmed",
         "X-UAA-Control-Center-Mutation-Binding",
         "X-UAA-Expected-Backend-Revision-Ref",

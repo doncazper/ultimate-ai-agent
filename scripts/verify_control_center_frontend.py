@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 29
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 30
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -982,6 +982,10 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client missing scoped web evidence attach helper")
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        if "chatThreadApprovalEndpoint(threadRef)" not in text:
+            failures.append(
+                "frontend client must capture chat mutation approval through its scoped endpoint"
+            )
         for fragment in [
             "postRuntimeGoalMutation",
             "prepareRuntimeGoalMutationApproval",

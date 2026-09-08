@@ -2239,6 +2239,7 @@ FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES = frozenset(
 FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES = frozenset(
     {
         "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/approval",
         "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
         "/control-center/chat/threads/{thread_ref}/lifecycle",
     }

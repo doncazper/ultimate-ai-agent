@@ -27,8 +27,9 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
             "/api/runtime/goals/approval-requests/revoke",
             "/control-center/crm/adoption/approval",
             "/control-center/crm/adoption/commit",
-            "/control-center/crm/adoption/restore",
-            "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+                "/control-center/crm/adoption/restore",
+                "/control-center/chat/threads/{thread_ref}/approval",
+                "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
             "/control-center/chat/threads/{thread_ref}/lifecycle",
         }
     ]
@@ -167,6 +168,17 @@ def test_chat_workspace_mutations_report_durable_replay_owner() -> None:
         route["durable_idempotency_owner_ref"]
         == "idempotency-owner:chat-workspace-mutation-replay-store:v1"
         for route in routes
+    )
+
+    approval_route = next(
+        route
+        for route in manifest["routes"]
+        if route["path"] == "/control-center/chat/threads/{thread_ref}/approval"
+        and route["method"] == "POST"
+    )
+    assert approval_route["idempotency_enforcement"] == "route_owned_durable_replay"
+    assert approval_route["durable_idempotency_owner_ref"] == (
+        "idempotency-owner:chat-workspace-approval-store:v1"
     )
 
 

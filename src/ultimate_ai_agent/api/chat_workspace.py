@@ -12,6 +12,7 @@ from ultimate_ai_agent.api.cors import apply_loopback_cors_response_headers
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
+    idempotency_value_valid,
 )
 from ultimate_ai_agent.api.request_validation import safe_validation_error_response
 from ultimate_ai_agent.api.route_registration import register_router_once
@@ -21,12 +22,14 @@ from ultimate_ai_agent.core.chat.workspace import (
     CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
     ChatDraftCheckpointRequest,
     ChatThreadLifecycleRequest,
+    ChatWorkspaceApprovalCaptureRequest,
 )
 from ultimate_ai_agent.core.chat.workspace_service import (
     ChatWorkspaceApprovalError,
     ChatWorkspaceControlCenterService,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.storage import (
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -36,9 +39,10 @@ from ultimate_ai_agent.core.storage import (
 router = APIRouter(prefix="/control-center/chat", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_chat_workspace_routes_registered"
 CHAT_WORKSPACE_MUTATION_ROUTE_RE = re.compile(
-    r"^/control-center/chat/threads/[^/]+/(?:draft-checkpoint|lifecycle)$"
+    r"^/control-center/chat/threads/[^/]+/(?:approval|draft-checkpoint|lifecycle)$"
 )
 CHAT_WORKSPACE_READ_ROUTE = "/control-center/chat/workspace"
+CHAT_WORKSPACE_APPROVAL_HEADER = "x-uaa-approval-ref"
 
 
 class ChatWorkspaceBodyTooLargeResponse(BaseModel):
@@ -54,7 +58,9 @@ class ChatWorkspaceBodyTooLargeResponse(BaseModel):
 
 
 def get_chat_workspace_service() -> ChatWorkspaceControlCenterService:
-    return ChatWorkspaceControlCenterService.from_env()
+    return ChatWorkspaceControlCenterService.from_env(
+        approval_authority=LocalApprovalAuthority()
+    )
 
 
 def _request_origin(scope: Scope) -> str | None:
@@ -239,6 +245,83 @@ def get_control_center_chat_workspace() -> ResultEnvelope:
 
 
 @router.post(
+    "/threads/{thread_ref}/approval",
+    response_model=ResultEnvelope,
+    responses={
+        413: {
+            "model": ChatWorkspaceBodyTooLargeResponse,
+            "description": "Chat workspace request exceeds the bounded input size.",
+        }
+    },
+)
+def post_control_center_chat_workspace_approval(
+    thread_ref: str,
+    request: ChatWorkspaceApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_key_ref = _idempotency_key_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        data = get_chat_workspace_service().capture_approval(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc),
+                "safe_message": (
+                    "The Chat workspace approval idempotency key already exists "
+                    "for another exact request."
+                ),
+            },
+        ) from exc
+    except FounderLoopStorageError as exc:
+        code = str(exc) or "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_ERROR"
+        status_code = 503 if "CAPACITY" in code else 409
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": code,
+                "safe_message": "The exact Chat workspace approval was not captured.",
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_UNSAFE_INPUT",
+                "safe_message": "The Chat workspace approval contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_chat_workspace_approval",
+        service="ChatWorkspaceControlCenterAPI",
+        trace_id=str(data["approval_validation_ref"]),
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:chat-workspace:approval"}],
+        redactions_applied=[
+            "draft_metadata_only",
+            "draft_body_not_received",
+            "exact_approval_refs_only",
+            "safe_refs_only",
+        ],
+    )
+
+
+@router.post(
     "/threads/{thread_ref}/draft-checkpoint",
     response_model=ResultEnvelope,
     responses={
@@ -259,16 +342,22 @@ def post_control_center_chat_draft_checkpoint(
         default=None,
         alias=IDEMPOTENCY_REF_HEADER,
     ),
+    x_uaa_approval_ref: str | None = Header(
+        default=None,
+        alias=CHAT_WORKSPACE_APPROVAL_HEADER,
+    ),
 ) -> ResultEnvelope:
     idempotency_key_ref = _idempotency_key_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
+    approval_ref = _required_approval_ref(x_uaa_approval_ref)
     try:
         data = get_chat_workspace_service().record_draft_checkpoint(
             thread_ref=thread_ref,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            approval_ref=approval_ref,
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
@@ -293,13 +382,21 @@ def post_control_center_chat_draft_checkpoint(
         ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_CHAT_DRAFT_CHECKPOINT_ERROR"
-        status_code = 503 if "EVIDENCE" in code else 409 if code in {
-            "FOUNDER_LOOP_CHAT_THREAD_ARCHIVED",
-            "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
-            "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED",
-            "FOUNDER_LOOP_CHAT_WORKSPACE_CAPACITY_REACHED",
-            "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
-        } else 400
+        status_code = (
+            503
+            if "EVIDENCE" in code
+            else 409
+            if code
+            in {
+                "FOUNDER_LOOP_CHAT_THREAD_ARCHIVED",
+                "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
+                "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED",
+                "FOUNDER_LOOP_CHAT_WORKSPACE_CAPACITY_REACHED",
+                "FOUNDER_LOOP_CHAT_WORKSPACE_MUTATION_CAPACITY_REACHED",
+                "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
+            }
+            else 400
+        )
         raise HTTPException(
             status_code=status_code,
             detail={
@@ -341,16 +438,22 @@ def post_control_center_chat_thread_lifecycle(
         default=None,
         alias=IDEMPOTENCY_REF_HEADER,
     ),
+    x_uaa_approval_ref: str | None = Header(
+        default=None,
+        alias=CHAT_WORKSPACE_APPROVAL_HEADER,
+    ),
 ) -> ResultEnvelope:
     idempotency_key_ref = _idempotency_key_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
+    approval_ref = _required_approval_ref(x_uaa_approval_ref)
     try:
         data = get_chat_workspace_service().record_lifecycle(
             thread_ref=thread_ref,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            approval_ref=approval_ref,
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
@@ -382,6 +485,7 @@ def post_control_center_chat_thread_lifecycle(
         elif code in {
             "FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
             "FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED",
+            "FOUNDER_LOOP_CHAT_WORKSPACE_MUTATION_CAPACITY_REACHED",
             "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
         }:
             status_code = 409
@@ -426,8 +530,12 @@ def _idempotency_key_ref(
     idempotency_key: str | None,
     idempotency_ref: str | None,
 ) -> str:
-    value = (idempotency_key or idempotency_ref or "").strip()
-    if not value:
+    supplied = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None
+    ]
+    if not supplied:
         raise HTTPException(
             status_code=428,
             detail={
@@ -437,7 +545,37 @@ def _idempotency_key_ref(
                 ),
             },
         )
-    return value
+    if any(not idempotency_value_valid(value) for value in supplied):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied[0]
+
+
+def _required_approval_ref(approval_ref: str | None) -> str:
+    if approval_ref is None or not approval_ref.strip():
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "CHAT_WORKSPACE_APPROVAL_REQUIRED",
+                "safe_message": (
+                    "Capture one exact Chat workspace approval before mutation."
+                ),
+            },
+        )
+    return approval_ref.strip()
 
 
 def register_chat_workspace_routes(app: FastAPI) -> None:

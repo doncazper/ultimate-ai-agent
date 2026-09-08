@@ -1485,6 +1485,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "decideRuntimeGoalMutationApproval",
             "revokeRuntimeGoalMutationApproval",
             "postCrmAdoptionEnvelope",
+            "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
         }
         for target in sorted(allowed_post_targets):

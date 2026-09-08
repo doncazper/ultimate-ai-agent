@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `367` OpenAPI paths and `369` manifest route operations.
+Current generated contract snapshot: `368` OpenAPI paths and `370` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The counts are generated from the FastAPI application and `/api/manifest`.
@@ -322,6 +322,7 @@ Current boundary summary:
   `GET /control-center/chat/turns/{turn_ref}/receipt`,
   `POST /control-center/chat/turns/{turn_ref}/handoff`,
   `GET /control-center/chat/workspace`,
+  `POST /control-center/chat/threads/{thread_ref}/approval`,
   `POST /control-center/chat/threads/{thread_ref}/draft-checkpoint`,
   `POST /control-center/chat/threads/{thread_ref}/lifecycle`,
   `GET /control-center/morning-briefing/summary`, and
@@ -330,7 +331,10 @@ Current boundary summary:
   only. The Chat workspace adds content-free draft checkpoint and thread
   lifecycle metadata; unsent draft bodies remain tab-local and are never sent
   to the server. Its mutations require explicit operator confirmation and an
-  exact local approval scope before storage. These routes do not grant action execution, connector writes,
+  exact five-minute grant captured through the separate durable approval route
+  before storage. Approval capture alone does not mutate workspace state. Durable
+  replay is capped at 10,000 unique mutations without deleting old keys, and
+  idempotency aliases must be individually valid and equal. These routes do not grant action execution, connector writes,
   provider/model calls, memory writes, email/calendar reads, or notification
   delivery.
 - `GET /control-center/work-board` exposes the Work Board Kanban cockpit read

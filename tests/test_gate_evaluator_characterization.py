@@ -108,6 +108,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/actions/{action_id}/reject",
         "/control-center/backend-truth",
         "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/approval",
         "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
         "/control-center/chat/threads/{thread_ref}/lifecycle",
         "/control-center/chat/turns",
@@ -174,6 +175,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES == {
         "/control-center/chat/workspace",
+        "/control-center/chat/threads/{thread_ref}/approval",
         "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
         "/control-center/chat/threads/{thread_ref}/lifecycle",
     }

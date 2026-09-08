@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `367`.
+Current OpenAPI path count: `368`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `369`
-- OpenAPI paths: `367`
+- Manifest route operations: `370`
+- OpenAPI paths: `368`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -174,6 +174,7 @@ an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/control-center/chat/turns/{turn_ref}/handoff` | `post_control_center_chat_turns_turn_ref_handoff` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/chat/turns/{turn_ref}/receipt` | `get_control_center_chat_turns_turn_ref_receipt` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/chat/workspace` | `get_control_center_chat_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/chat/threads/{thread_ref}/approval` | `post_control_center_chat_threads_thread_ref_approval` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/chat/threads/{thread_ref}/draft-checkpoint` | `post_control_center_chat_threads_thread_ref_draft_checkpoint` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/chat/threads/{thread_ref}/lifecycle` | `post_control_center_chat_threads_thread_ref_lifecycle` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/context` | `get_control_center_coding_context` | `local_dev_workspace_only` | no | future | yes |

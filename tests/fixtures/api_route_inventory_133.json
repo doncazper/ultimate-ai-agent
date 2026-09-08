@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 192,
-  "fingerprint": "api-contract-fingerprint:sha256:66ffc4498df5252643cc480b6ee0b0883adba6c3c41047e1810b43d126169d74",
+  "control_center_route_count": 193,
+  "fingerprint": "api-contract-fingerprint:sha256:a259baec5729dfcb007d9cea6f3b1e8b6addc3fd2c65be73b2c39418e65b0111",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 125,
-  "openapi_path_count": 367,
+  "mutating_route_count": 126,
+  "openapi_path_count": 368,
   "projection_fields": [
     "path",
     "method",
@@ -25,16 +25,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 244,
-    "required_before_mutation_authority": 125
+    "required_before_mutation_authority": 126
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 366,
+    "protected_local_bearer_required": 367,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 31,
     "local_sensitive": 210,
-    "mutating_requires_authority": 125,
+    "mutating_requires_authority": 126,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 369,
+  "route_count": 370,
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 244,
-    "required_before_mutation_authority": 125
+    "required_before_mutation_authority": 126
   },
-  "route_operation_count": 369,
+  "route_operation_count": 370,
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 212,
-    "targeted_local_fixed_window": 157
+    "targeted_local_fixed_window": 158
   },
   "routes": [
     {
@@ -2110,6 +2110,26 @@
       "route_classification": "local_readonly",
       "side_effect_class": "validation_only",
       "summary": "Get control center capabilities surface",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_control_center_chat_threads_thread_ref_approval",
+      "path": "/control-center/chat/threads/{thread_ref}/approval",
+      "rate_limit_group": "chat_durable_receipt",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post control center chat threads thread ref approval",
       "tags": [
         "control-center"
       ]
@@ -7440,5 +7460,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 157
+  "targeted_rate_limit_route_count": 158
 }

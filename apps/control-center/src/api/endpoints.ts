@@ -210,6 +210,10 @@ export function chatDraftCheckpointEndpoint(threadRef: string): string {
   return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/draft-checkpoint`;
 }
 
+export function chatThreadApprovalEndpoint(threadRef: string): string {
+  return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/approval`;
+}
+
 export function chatThreadLifecycleEndpoint(threadRef: string): string {
   return `/control-center/chat/threads/${encodeURIComponent(threadRef)}/lifecycle`;
 }

@@ -31,6 +31,7 @@ CONTROL_CENTER_LOOPBACK_CORS_HEADERS: tuple[str, ...] = (
     "Content-Type",
     "X-UAA-Idempotency-Key",
     "X-UAA-Idempotency-Ref",
+    "X-UAA-Approval-Ref",
     "X-UAA-Operator-Confirmed",
     "X-UAA-Control-Center-Mutation-Binding",
     "X-UAA-Expected-Backend-Revision-Ref",

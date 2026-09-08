@@ -37,6 +37,7 @@ def test_default_api_verifier_context_is_cached() -> None:
             "POST",
             "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
         ),
+        ("POST", "/control-center/chat/threads/{thread_ref}/approval"),
         ("POST", "/control-center/chat/threads/{thread_ref}/lifecycle"),
     }.issubset(first.routes_by_key)
 

@@ -131,7 +131,7 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
             "lease_ref": lease.lease_ref,
         },
         headers={
-            "x-uaa-idempotency-key": "bad",
+            "x-uaa-idempotency-key": "attention-api-inspect",
             "x-uaa-idempotency-ref": "attention-api-inspect",
         },
     )
@@ -165,9 +165,7 @@ def test_exact_action_api_completes_and_refreshes_backend_today(
         },
     )
     assert conflicting_idempotency.status_code == 400
-    assert conflicting_idempotency.json()["detail"]["code"] == (
-        "API_IDEMPOTENCY_CONFLICT"
-    )
+    assert conflicting_idempotency.json()["code"] == "API_IDEMPOTENCY_CONFLICT"
     request = {
         "workflow_ref": "founder-loop-attention-workflow:api-success",
         "today_item_ref": TODAY_ITEM_REF,

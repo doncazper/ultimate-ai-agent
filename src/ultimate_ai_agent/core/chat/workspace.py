@@ -36,8 +36,12 @@ CHAT_WORKSPACE_MAX_REQUEST_BYTES = 8 * 1024
 CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH = 16
 CHAT_WORKSPACE_MAX_REVISION = 2_147_483_647
 CHAT_WORKSPACE_MAX_THREADS = 100
+CHAT_WORKSPACE_MAX_MUTATION_RECORDS = 10_000
+CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS = 512
+CHAT_WORKSPACE_APPROVAL_TTL_MINUTES = 5
 CHAT_WORKSPACE_ROUTE_REFS = (
     "GET /control-center/chat/workspace",
+    "POST /control-center/chat/threads/{thread_ref}/approval",
     "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
     "POST /control-center/chat/threads/{thread_ref}/lifecycle",
 )
@@ -47,6 +51,7 @@ CHAT_DRAFT_FINGERPRINT_RE = re.compile(
 )
 CHAT_THREAD_REF_RE = re.compile(r"^chat-thread:[A-Za-z0-9][A-Za-z0-9_.:@-]{0,187}$")
 CHAT_DISPLAY_NAME_RE = re.compile(r"^Conversation [1-9][0-9]{0,5}$")
+CHAT_WORKSPACE_IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$")
 CHAT_WORKSPACE_BLOCKED_STATE_REFS = (
     "blocked-state:chat-workspace:no-draft-body-persistence",
     "blocked-state:chat-workspace:no-model-call",
@@ -119,6 +124,37 @@ class ChatThreadLifecycleRequest(BaseModel):
             self.model_dump(mode="json"), "chat_thread_lifecycle_request"
         )
         return self
+
+
+class ChatWorkspaceApprovalCaptureRequest(BaseModel):
+    mutation_kind: Literal["draft_checkpoint", "lifecycle"]
+    draft_checkpoint: ChatDraftCheckpointRequest | None = None
+    lifecycle: ChatThreadLifecycleRequest | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_capture(self) -> "ChatWorkspaceApprovalCaptureRequest":
+        if self.mutation_kind == "draft_checkpoint":
+            if self.draft_checkpoint is None or self.lifecycle is not None:
+                raise ValueError(
+                    "draft checkpoint approval must contain only its exact request"
+                )
+        elif self.lifecycle is None or self.draft_checkpoint is not None:
+            raise ValueError("lifecycle approval must contain only its exact request")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"), "chat_workspace_approval_capture_request"
+        )
+        return self
+
+    def mutation_request(
+        self,
+    ) -> ChatDraftCheckpointRequest | ChatThreadLifecycleRequest:
+        if self.mutation_kind == "draft_checkpoint":
+            assert self.draft_checkpoint is not None
+            return self.draft_checkpoint
+        assert self.lifecycle is not None
+        return self.lifecycle
 
 
 class ChatThreadReadModel(BaseModel):
@@ -300,6 +336,7 @@ class ChatThreadMutationReceipt(BaseModel):
             "approval_validation_ref",
         ):
             validate_task_ref(getattr(self, field_name), field_name)
+        validate_chat_workspace_idempotency_ref(self.idempotency_key_ref)
         if self.mutation_kind == "draft_checkpoint" and self.lifecycle_action:
             raise ValueError("draft checkpoint cannot carry a lifecycle action")
         if self.mutation_kind == "lifecycle" and self.lifecycle_action is None:
@@ -367,6 +404,71 @@ class ChatThreadMutationReceipt(BaseModel):
         validate_safe_task_text(self.safe_summary, "safe_summary")
         validate_safe_task_payload(
             self.model_dump(mode="json"), "chat_thread_mutation_receipt"
+        )
+        return self
+
+
+class ChatWorkspaceApprovalReceipt(BaseModel):
+    contract_ref: str = CHAT_WORKSPACE_CONTRACT_REF
+    mutation_kind: Literal["draft_checkpoint", "lifecycle"]
+    lifecycle_action: Literal["archive", "recover"] | None = None
+    thread_ref: str = Field(
+        min_length=1,
+        max_length=200,
+        pattern=CHAT_THREAD_REF_RE.pattern,
+    )
+    idempotency_key_ref: str = Field(min_length=1, max_length=200)
+    payload_fingerprint_ref: str = Field(min_length=1, max_length=200)
+    approval_request_ref: str = Field(min_length=1, max_length=200)
+    approval_ref: str = Field(min_length=1, max_length=200)
+    exact_approval_scope_ref: str = Field(min_length=1, max_length=200)
+    approval_validation_ref: str = Field(min_length=1, max_length=200)
+    expires_at: str = Field(min_length=1, max_length=64)
+    exact_scope_granted: bool = True
+    mutation_performed: bool = False
+    raw_draft_received: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_approval_receipt(self) -> "ChatWorkspaceApprovalReceipt":
+        if self.contract_ref != CHAT_WORKSPACE_CONTRACT_REF:
+            raise ValueError("unexpected Chat workspace approval contract ref")
+        validate_chat_thread_ref(self.thread_ref)
+        validate_chat_workspace_idempotency_ref(self.idempotency_key_ref)
+        if self.mutation_kind == "draft_checkpoint" and self.lifecycle_action:
+            raise ValueError("draft approval cannot carry a lifecycle action")
+        if self.mutation_kind == "lifecycle" and self.lifecycle_action is None:
+            raise ValueError("lifecycle approval must carry its exact action")
+        if not re.fullmatch(
+            r"payload-fingerprint:chat-workspace:[0-9a-f]{64}",
+            self.payload_fingerprint_ref,
+        ):
+            raise ValueError("Chat workspace payload fingerprint is invalid")
+        expected = chat_workspace_approval_refs(
+            mutation_kind=self.mutation_kind,
+            lifecycle_action=self.lifecycle_action,
+            thread_ref=self.thread_ref,
+            idempotency_key_ref=self.idempotency_key_ref,
+            payload_fingerprint_ref=self.payload_fingerprint_ref,
+        )
+        for field_name in (
+            "approval_request_ref",
+            "approval_ref",
+            "exact_approval_scope_ref",
+            "approval_validation_ref",
+        ):
+            if getattr(self, field_name) != expected[field_name]:
+                raise ValueError(
+                    f"Chat workspace approval {field_name} is not request-bound"
+                )
+        if not self.exact_scope_granted:
+            raise ValueError("Chat workspace approval did not grant exact scope")
+        if self.mutation_performed or self.raw_draft_received:
+            raise ValueError("Chat workspace approval capture performed denied behavior")
+        _aware_datetime(self.expires_at, "expires_at")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"), "chat_workspace_approval_receipt"
         )
         return self
 
@@ -489,6 +591,11 @@ def validate_chat_thread_ref(thread_ref: str) -> None:
     validate_task_ref(thread_ref, "thread_ref")
     if CHAT_THREAD_REF_RE.fullmatch(thread_ref) is None:
         raise ValueError("thread_ref must be a bounded Chat workspace ref")
+
+
+def validate_chat_workspace_idempotency_ref(idempotency_key_ref: str) -> None:
+    if CHAT_WORKSPACE_IDEMPOTENCY_RE.fullmatch(idempotency_key_ref) is None:
+        raise ValueError("idempotency_key_ref is not a bounded idempotency value")
 
 
 def _validate_chat_workspace_metadata_refs(

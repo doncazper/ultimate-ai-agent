@@ -13,6 +13,7 @@ conversation rail supports local search, selection, archive, and recovery.
 Python Agent Core owns the durable product state through:
 
 - `GET /control-center/chat/workspace`
+- `POST /control-center/chat/threads/{thread_ref}/approval`
 - `POST /control-center/chat/threads/{thread_ref}/draft-checkpoint`
 - `POST /control-center/chat/threads/{thread_ref}/lifecycle`
 
@@ -36,8 +37,19 @@ Center backend-truth binding, explicit operator confirmation, exact
 idempotency input, targeted local rate limits, bounded request size and JSON
 depth, durable replay/conflict handling, private no-store responses, and
 content-free receipt/audit refs. Creation stops at the same 100-thread bound
-published by the read contract. A transactional evidence outbox repairs a
-failed JSONL append on exact replay. Stored replay receipts are reconstructed
+published by the read contract. A separate durable approval route captures the
+exact operator-confirmed grant before the mutation request; approval capture
+alone does not mutate the workspace. The Python mutation service can only load
+and validate that already captured exact grant and cannot issue authority for
+itself. Active approvals expire after five minutes and are capped at 512. Every
+supplied idempotency alias must be individually valid and equal.
+
+The workspace accepts at most 10,000 unique mutation records. Once that bound
+is reached, old keys still replay exactly while new keys fail before state is
+changed. A transactional evidence outbox repairs a failed JSONL append on exact
+replay. Fresh delivery appends directly; the full log is consulted only after
+an ambiguous interrupted delivery, including legacy crash rows migrated as
+already attempted. Stored replay receipts are reconstructed
 through the governing contract before they can be returned.
 
 ## Authority boundary

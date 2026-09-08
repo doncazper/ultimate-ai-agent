@@ -4039,6 +4039,29 @@ export interface ChatThreadLifecycleRequest {
   metadata_refs?: string[];
 }
 
+export interface ChatWorkspaceApprovalCaptureRequest {
+  mutation_kind: "draft_checkpoint" | "lifecycle";
+  draft_checkpoint: ChatDraftCheckpointRequest | null;
+  lifecycle: ChatThreadLifecycleRequest | null;
+}
+
+export interface ChatWorkspaceApprovalReceipt {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  mutation_kind: "draft_checkpoint" | "lifecycle";
+  lifecycle_action: ChatThreadLifecycleAction | null;
+  thread_ref: string;
+  idempotency_key_ref: string;
+  payload_fingerprint_ref: string;
+  approval_request_ref: string;
+  approval_ref: string;
+  exact_approval_scope_ref: string;
+  approval_validation_ref: string;
+  expires_at: string;
+  exact_scope_granted: true;
+  mutation_performed: false;
+  raw_draft_received: false;
+}
+
 export interface ChatThreadMutationReceipt {
   contract_ref: "contract-ref:chat-content-free-workspace:v1";
   mutation_kind: "draft_checkpoint" | "lifecycle";

@@ -161,6 +161,8 @@ import type {
   ChatThreadLifecycleRequest,
   ChatThreadMutationReceipt,
   ChatThreadReadModel,
+  ChatWorkspaceApprovalCaptureRequest,
+  ChatWorkspaceApprovalReceipt,
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
   ChatWorkspaceReadModel,
@@ -187,6 +189,7 @@ import {
   actionLocalTaskCommitEndpoint,
   actionReceiptEndpoint,
   chatDraftCheckpointEndpoint,
+  chatThreadApprovalEndpoint,
   chatThreadLifecycleEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
@@ -6383,6 +6386,59 @@ async function mutateChatThread(
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
+  const approvalRequest: ChatWorkspaceApprovalCaptureRequest =
+    "action" in request
+      ? {
+          mutation_kind: "lifecycle",
+          draft_checkpoint: null,
+          lifecycle: request,
+        }
+      : {
+          mutation_kind: "draft_checkpoint",
+          draft_checkpoint: request,
+          lifecycle: null,
+        };
+  const approvalResponse = await fetch(
+    `${API_BASE_POLICY.baseUrl}${chatThreadApprovalEndpoint(threadRef)}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders(
+        withBackendTruthMutationHeaders(
+          {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": idempotencyRef,
+          },
+          binding,
+        ),
+      ),
+      body: JSON.stringify(approvalRequest),
+    },
+  );
+  validateBackendResponseBinding(approvalResponse.headers, binding);
+  const approvalData = (await readJsonSafely(
+    approvalResponse,
+  )) as ResultEnvelope<ChatWorkspaceApprovalReceipt>;
+  const approvalReceipt = approvalData.result ?? approvalData.data;
+  const approvalMatchesRequest =
+    approvalResponse.ok &&
+    isChatWorkspaceApprovalReceipt(approvalReceipt) &&
+    (await chatWorkspaceApprovalReceiptMatchesRequest(
+      approvalReceipt,
+      threadRef,
+      request,
+      idempotencyRef,
+    ));
+  if (!approvalMatchesRequest) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          approvalData,
+          "Chat workspace approval was not captured safely.",
+        ),
+      ),
+    );
+  }
   const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
     method: "POST",
     headers: withLocalApiAuthHeaders(
@@ -6391,6 +6447,7 @@ async function mutateChatThread(
           Accept: "application/json",
           "Content-Type": "application/json",
           "X-UAA-Idempotency-Key": idempotencyRef,
+          "X-UAA-Approval-Ref": approvalReceipt.approval_ref,
         },
         binding,
       ),
@@ -6422,6 +6479,61 @@ async function mutateChatThread(
     );
   }
   return receipt;
+}
+
+function isChatWorkspaceApprovalReceipt(
+  value: unknown,
+): value is ChatWorkspaceApprovalReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    hasExactChatKeys(record, [
+      "contract_ref",
+      "mutation_kind",
+      "lifecycle_action",
+      "thread_ref",
+      "idempotency_key_ref",
+      "payload_fingerprint_ref",
+      "approval_request_ref",
+      "approval_ref",
+      "exact_approval_scope_ref",
+      "approval_validation_ref",
+      "expires_at",
+      "exact_scope_granted",
+      "mutation_performed",
+      "raw_draft_received",
+    ]) &&
+    record.contract_ref === "contract-ref:chat-content-free-workspace:v1" &&
+    (record.mutation_kind === "draft_checkpoint" ||
+      record.mutation_kind === "lifecycle") &&
+    (record.mutation_kind === "draft_checkpoint"
+      ? record.lifecycle_action === null
+      : record.lifecycle_action === "archive" ||
+        record.lifecycle_action === "recover") &&
+    isChatThreadRef(record.thread_ref) &&
+    isChatSafeRef(record.idempotency_key_ref) &&
+    /^payload-fingerprint:chat-workspace:[0-9a-f]{64}$/.test(
+      String(record.payload_fingerprint_ref),
+    ) &&
+    /^approval-request-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_request_ref),
+    ) &&
+    /^approval-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_ref),
+    ) &&
+    /^approval-scope-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.exact_approval_scope_ref),
+    ) &&
+    /^approval-validation-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_validation_ref),
+    ) &&
+    chatTimestamp(record.expires_at) !== null &&
+    record.exact_scope_granted === true &&
+    record.mutation_performed === false &&
+    record.raw_draft_received === false
+  );
 }
 
 function isChatWorkspaceReadModel(
@@ -6619,6 +6731,7 @@ function isChatThreadMutationReceipt(
 
 const CHAT_WORKSPACE_ROUTE_REFS = [
   "GET /control-center/chat/workspace",
+  "POST /control-center/chat/threads/{thread_ref}/approval",
   "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
   "POST /control-center/chat/threads/{thread_ref}/lifecycle",
 ] as const;
@@ -6656,6 +6769,52 @@ function isChatDraftFingerprintRef(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$/.test(value)
+  );
+}
+
+async function chatWorkspaceApprovalReceiptMatchesRequest(
+  receipt: ChatWorkspaceApprovalReceipt,
+  threadRef: string,
+  request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+  idempotencyRef: string,
+): Promise<boolean> {
+  const payloadFingerprintRef = await chatThreadMutationPayloadFingerprintRef(
+    threadRef,
+    request,
+  );
+  if (!payloadFingerprintRef) {
+    return false;
+  }
+  const mutationKind = "action" in request ? "lifecycle" : "draft_checkpoint";
+  const lifecycleAction = "action" in request ? request.action : null;
+  const approvalDigest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      contract_ref: "contract-ref:chat-content-free-workspace:v1",
+      mutation_kind: mutationKind,
+      lifecycle_action: lifecycleAction,
+      thread_ref: threadRef,
+      idempotency_key_ref: idempotencyRef,
+      payload_fingerprint_ref: payloadFingerprintRef,
+    }),
+  );
+  if (!approvalDigest) {
+    return false;
+  }
+  const suffix = approvalDigest.slice(0, 32);
+  return (
+    receipt.mutation_kind === mutationKind &&
+    receipt.lifecycle_action === lifecycleAction &&
+    receipt.thread_ref === threadRef &&
+    receipt.idempotency_key_ref === idempotencyRef &&
+    receipt.payload_fingerprint_ref === payloadFingerprintRef &&
+    receipt.approval_request_ref ===
+      `approval-request-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.approval_ref ===
+      `approval-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.exact_approval_scope_ref ===
+      `approval-scope-ref:chat-workspace:sha256:${suffix}` &&
+    receipt.approval_validation_ref ===
+      `approval-validation-ref:chat-workspace:sha256:${suffix}`
   );
 }
 

@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-from ultimate_ai_agent.core.execution.validation import validate_execution_ref
+from ultimate_ai_agent.core.approvals import (
+    ApprovalGrant,
+    ApprovalRequest,
+    LocalApprovalAuthority,
+)
 from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 from ultimate_ai_agent.core.storage.founder_loop import (
     DEFAULT_FOUNDER_LOOP_STATE_DIR,
@@ -19,16 +24,24 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 from ultimate_ai_agent.core.time import utc_now
 
 from .workspace import (
+    CHAT_WORKSPACE_APPROVAL_TTL_MINUTES,
+    CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS,
     CHAT_WORKSPACE_MAX_REVISION,
     CHAT_WORKSPACE_MAX_THREADS,
+    CHAT_WORKSPACE_MAX_MUTATION_RECORDS,
+    ChatWorkspaceApprovalCaptureRequest,
+    ChatWorkspaceApprovalReceipt,
     ChatDraftCheckpointRequest,
     ChatThreadLifecycleRequest,
     ChatThreadMutationReceipt,
     ChatThreadReadModel,
+    build_chat_workspace_approval_request,
     build_chat_workspace_read_model,
+    chat_workspace_approval_refs,
     chat_workspace_mutation_ref,
     chat_workspace_payload_fingerprint_ref,
     validate_chat_thread_ref,
+    validate_chat_workspace_idempotency_ref,
 )
 
 
@@ -84,6 +97,195 @@ class ChatWorkspaceRepository:
             [self._thread_read_model(row) for row in rows]
         ).model_dump(mode="json")
 
+    def capture_approval(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatWorkspaceApprovalCaptureRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any]:
+        validate_chat_thread_ref(thread_ref)
+        validate_chat_workspace_idempotency_ref(idempotency_key_ref)
+        mutation_request = request.mutation_request()
+        lifecycle_action = (
+            mutation_request.action
+            if isinstance(mutation_request, ChatThreadLifecycleRequest)
+            else None
+        )
+        payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
+            {
+                "thread_ref": thread_ref,
+                **mutation_request.model_dump(mode="json"),
+            }
+        )
+        approval_request = build_chat_workspace_approval_request(
+            mutation_kind=request.mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        refs = chat_workspace_approval_refs(
+            mutation_kind=request.mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        now = utc_now()
+        expires_at = now + timedelta(minutes=CHAT_WORKSPACE_APPROVAL_TTL_MINUTES)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "DELETE FROM chat_workspace_approval_grants WHERE expires_at <= ?",
+                (now.isoformat(),),
+            )
+            row = conn.execute(
+                """
+                SELECT approval_ref, approval_request_json, approval_grant_json,
+                       mutation_kind, lifecycle_action, thread_ref,
+                       idempotency_key_ref, payload_fingerprint_ref,
+                       created_at, expires_at
+                FROM chat_workspace_approval_grants
+                WHERE idempotency_key_ref = ?
+                LIMIT 1
+                """,
+                (idempotency_key_ref,),
+            ).fetchone()
+            if row is not None:
+                if (
+                    str(row["mutation_kind"]) != request.mutation_kind
+                    or row["lifecycle_action"] != lifecycle_action
+                    or str(row["thread_ref"]) != thread_ref
+                    or str(row["payload_fingerprint_ref"])
+                    != payload_fingerprint_ref
+                ):
+                    raise FounderLoopStorageDuplicateError(
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_IDEMPOTENCY_CONFLICT"
+                    )
+                grant = self._validated_approval_row(
+                    row,
+                    expected_request=approval_request,
+                    expected_refs=refs,
+                    expected_mutation_kind=request.mutation_kind,
+                    expected_lifecycle_action=lifecycle_action,
+                    expected_thread_ref=thread_ref,
+                    expected_idempotency_key_ref=idempotency_key_ref,
+                    expected_payload_fingerprint_ref=payload_fingerprint_ref,
+                    now=now,
+                )
+            else:
+                count = int(
+                    conn.execute(
+                        "SELECT COUNT(*) AS count FROM chat_workspace_approval_grants"
+                    ).fetchone()["count"]
+                )
+                if count >= CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS:
+                    raise FounderLoopStorageError(
+                        "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_CAPACITY_REACHED"
+                    )
+                authority = LocalApprovalAuthority()
+                authority.create_request(approval_request)
+                grant = authority.grant(
+                    approval_request.approval_request_id,
+                    approved_by_actor_id="operator-ref:local-user",
+                    approval_ref=refs["approval_ref"],
+                    expires_at=expires_at,
+                )
+                conn.execute(
+                    """
+                    INSERT INTO chat_workspace_approval_grants (
+                        approval_ref, approval_request_json, approval_grant_json,
+                        mutation_kind, lifecycle_action, thread_ref,
+                        idempotency_key_ref, payload_fingerprint_ref,
+                        created_at, expires_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        grant.approval_ref,
+                        json.dumps(
+                            approval_request.model_dump(mode="json"),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ),
+                        json.dumps(
+                            grant.model_dump(mode="json"),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ),
+                        request.mutation_kind,
+                        lifecycle_action,
+                        thread_ref,
+                        idempotency_key_ref,
+                        payload_fingerprint_ref,
+                        grant.created_at.isoformat(),
+                        grant.expires_at.isoformat(),
+                    ),
+                )
+        return ChatWorkspaceApprovalReceipt(
+            mutation_kind=request.mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            approval_request_ref=refs["approval_request_ref"],
+            approval_ref=refs["approval_ref"],
+            exact_approval_scope_ref=refs["exact_approval_scope_ref"],
+            approval_validation_ref=refs["approval_validation_ref"],
+            expires_at=grant.expires_at.isoformat(),
+        ).model_dump(mode="json")
+
+    def load_exact_approval_grant(
+        self,
+        *,
+        approval_request: ApprovalRequest,
+        approval_ref: str,
+        mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+        lifecycle_action: Literal["archive", "recover"] | None,
+        thread_ref: str,
+        idempotency_key_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> ApprovalGrant:
+        refs = chat_workspace_approval_refs(
+            mutation_kind=mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        if approval_ref != refs["approval_ref"]:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_SCOPE_MISMATCH"
+            )
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT approval_ref, approval_request_json, approval_grant_json,
+                       mutation_kind, lifecycle_action, thread_ref,
+                       idempotency_key_ref, payload_fingerprint_ref,
+                       created_at, expires_at
+                FROM chat_workspace_approval_grants
+                WHERE approval_ref = ?
+                LIMIT 1
+                """,
+                (approval_ref,),
+            ).fetchone()
+        if row is None:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_REQUIRED"
+            )
+        return self._validated_approval_row(
+            row,
+            expected_request=approval_request,
+            expected_refs=refs,
+            expected_mutation_kind=mutation_kind,
+            expected_lifecycle_action=lifecycle_action,
+            expected_thread_ref=thread_ref,
+            expected_idempotency_key_ref=idempotency_key_ref,
+            expected_payload_fingerprint_ref=payload_fingerprint_ref,
+            now=utc_now(),
+        )
+
     def record_draft_checkpoint(
         self,
         *,
@@ -93,7 +295,7 @@ class ChatWorkspaceRepository:
         approval_refs: dict[str, str],
     ) -> dict[str, Any]:
         validate_chat_thread_ref(thread_ref)
-        validate_execution_ref(idempotency_key_ref, "idempotency_key_ref")
+        validate_chat_workspace_idempotency_ref(idempotency_key_ref)
         payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
             {"thread_ref": thread_ref, **request.model_dump(mode="json")}
         )
@@ -115,6 +317,7 @@ class ChatWorkspaceRepository:
                 )
                 evidence_event_ref = str(replayed_receipt["receipt_ref"])
             else:
+                self._require_mutation_capacity(conn)
                 row = self._thread_row(conn, thread_ref)
                 if row is not None and str(row["state"]) == "archived":
                     raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_ARCHIVED")
@@ -228,7 +431,7 @@ class ChatWorkspaceRepository:
         approval_refs: dict[str, str],
     ) -> dict[str, Any]:
         validate_chat_thread_ref(thread_ref)
-        validate_execution_ref(idempotency_key_ref, "idempotency_key_ref")
+        validate_chat_workspace_idempotency_ref(idempotency_key_ref)
         payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
             {"thread_ref": thread_ref, **request.model_dump(mode="json")}
         )
@@ -250,11 +453,10 @@ class ChatWorkspaceRepository:
                 )
                 evidence_event_ref = str(replayed_receipt["audit_ref"])
             else:
+                self._require_mutation_capacity(conn)
                 row = self._thread_row(conn, thread_ref)
                 if row is None:
-                    raise FounderLoopStorageError(
-                        "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND"
-                    )
+                    raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND")
                 self._require_revision(row, request.expected_revision)
                 current_state = str(row["state"])
                 if request.action == "archive" and current_state != "active":
@@ -265,9 +467,7 @@ class ChatWorkspaceRepository:
                     raise FounderLoopStorageError(
                         "FOUNDER_LOOP_CHAT_THREAD_ALREADY_ACTIVE"
                     )
-                target_state = (
-                    "archived" if request.action == "archive" else "active"
-                )
+                target_state = "archived" if request.action == "archive" else "active"
                 revision = int(row["revision"]) + 1
                 conn.execute(
                     """
@@ -350,10 +550,123 @@ class ChatWorkspaceRepository:
                     log_kind TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL,
+                    delivery_attempted_at TEXT,
                     delivered_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS chat_workspace_approval_grants (
+                    approval_ref TEXT PRIMARY KEY,
+                    approval_request_json TEXT NOT NULL,
+                    approval_grant_json TEXT NOT NULL,
+                    mutation_kind TEXT NOT NULL,
+                    lifecycle_action TEXT,
+                    thread_ref TEXT NOT NULL,
+                    idempotency_key_ref TEXT NOT NULL UNIQUE,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
                 );
                 """
             )
+            outbox_columns = {
+                str(row["name"])
+                for row in conn.execute(
+                    "PRAGMA table_info(chat_workspace_evidence_outbox)"
+                ).fetchall()
+            }
+            if "delivery_attempted_at" not in outbox_columns:
+                conn.execute(
+                    "ALTER TABLE chat_workspace_evidence_outbox "
+                    "ADD COLUMN delivery_attempted_at TEXT"
+                )
+                conn.execute(
+                    """
+                    UPDATE chat_workspace_evidence_outbox
+                    SET delivery_attempted_at = created_at
+                    WHERE delivered_at IS NULL
+                    """
+                )
+
+    @staticmethod
+    def _validated_approval_row(
+        row: sqlite3.Row,
+        *,
+        expected_request: ApprovalRequest,
+        expected_refs: dict[str, str],
+        expected_mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+        expected_lifecycle_action: Literal["archive", "recover"] | None,
+        expected_thread_ref: str,
+        expected_idempotency_key_ref: str,
+        expected_payload_fingerprint_ref: str,
+        now: datetime,
+    ) -> ApprovalGrant:
+        try:
+            stored_request = ApprovalRequest.model_validate(
+                json.loads(str(row["approval_request_json"]))
+            )
+            grant = ApprovalGrant.model_validate(
+                json.loads(str(row["approval_grant_json"]))
+            )
+        except (TypeError, ValueError) as exc:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_CORRUPT"
+            ) from exc
+        if (
+            stored_request.model_dump(
+                mode="json",
+                exclude={"created_at": True, "actor_context": {"created_at": True}},
+            )
+            != expected_request.model_dump(
+                mode="json",
+                exclude={"created_at": True, "actor_context": {"created_at": True}},
+            )
+            or str(row["approval_ref"]) != expected_refs["approval_ref"]
+            or str(row["mutation_kind"]) != expected_mutation_kind
+            or row["lifecycle_action"] != expected_lifecycle_action
+            or str(row["thread_ref"]) != expected_thread_ref
+            or str(row["idempotency_key_ref"]) != expected_idempotency_key_ref
+            or str(row["payload_fingerprint_ref"])
+            != expected_payload_fingerprint_ref
+            or str(row["created_at"]) != grant.created_at.isoformat()
+            or str(row["expires_at"])
+            != (grant.expires_at.isoformat() if grant.expires_at else "")
+            or grant.expires_at is None
+            or grant.expires_at <= grant.created_at
+            or grant.expires_at - grant.created_at
+            > timedelta(minutes=CHAT_WORKSPACE_APPROVAL_TTL_MINUTES)
+            or grant.approval_ref != expected_refs["approval_ref"]
+            or grant.approval_request_id != expected_request.approval_request_id
+            or grant.run_id != expected_request.run_id
+            or grant.subject_type != expected_request.subject_type
+            or grant.subject_id != expected_request.subject_id
+            or grant.granted_to_actor_id != expected_request.actor_context.actor_id
+            or grant.approved_by_actor_id != "operator-ref:local-user"
+            or grant.approved_actions != [expected_request.requested_action]
+            or grant.approved_resource_refs != expected_request.resource_refs
+            or grant.risk_level != expected_request.risk_level
+            or grant.data_classification != expected_request.data_classification
+            or grant.purpose != expected_request.purpose
+            or grant.event_ref != expected_request.event_ref
+            or grant.trace_id != expected_request.trace_id
+            or grant.metadata != {"approval_mode": "local_dev"}
+        ):
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_CORRUPT"
+            )
+        authority = LocalApprovalAuthority()
+        authority.create_request(expected_request)
+        authority.load_grant_for_validation(grant)
+        decision = authority.validate_at_trusted_time(
+            expected_request.to_validation_request(grant.approval_ref),
+            current_time=now,
+        )
+        if not decision.allowed:
+            code = (
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_EXPIRED"
+                if "APPROVAL_EXPIRED" in decision.reason_codes
+                else "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_DENIED"
+            )
+            raise FounderLoopStorageError(code)
+        return grant
 
     def _connect(self) -> sqlite3.Connection:
         return self._founder_loop._connect()
@@ -363,9 +676,7 @@ class ChatWorkspaceRepository:
             return list(conn.execute(sql, params).fetchall())
 
     @staticmethod
-    def _thread_row(
-        conn: sqlite3.Connection, thread_ref: str
-    ) -> sqlite3.Row | None:
+    def _thread_row(conn: sqlite3.Connection, thread_ref: str) -> sqlite3.Row | None:
         return conn.execute(
             """
             SELECT thread_ref, display_name, state, revision, draft_present,
@@ -394,6 +705,18 @@ class ChatWorkspaceRepository:
             raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT")
         if revision >= CHAT_WORKSPACE_MAX_REVISION:
             raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_THREAD_REVISION_EXHAUSTED")
+
+    @staticmethod
+    def _require_mutation_capacity(conn: sqlite3.Connection) -> None:
+        count = int(
+            conn.execute(
+                "SELECT COUNT(*) AS count FROM chat_thread_mutation_replays"
+            ).fetchone()["count"]
+        )
+        if count >= CHAT_WORKSPACE_MAX_MUTATION_RECORDS:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_MUTATION_CAPACITY_REACHED"
+            )
 
     @staticmethod
     def _build_thread(
@@ -520,8 +843,9 @@ class ChatWorkspaceRepository:
         conn.execute(
             """
             INSERT INTO chat_workspace_evidence_outbox (
-                event_ref, log_kind, payload_json, created_at, delivered_at
-            ) VALUES (?, ?, ?, ?, NULL)
+                event_ref, log_kind, payload_json, created_at,
+                delivery_attempted_at, delivered_at
+            ) VALUES (?, ?, ?, ?, NULL, NULL)
             """,
             (
                 event_ref,
@@ -533,9 +857,9 @@ class ChatWorkspaceRepository:
 
     def _flush_outbox_event(self, event_ref: str) -> None:
         try:
-            with FileSingleWriterLockManager(
-                self.state_dir / ".locks"
-            ).acquire("chat-workspace-evidence-outbox"):
+            with FileSingleWriterLockManager(self.state_dir / ".locks").acquire(
+                "chat-workspace-evidence-outbox"
+            ):
                 self._flush_outbox_event_locked(event_ref)
         except OSError as exc:
             raise FounderLoopStorageError(
@@ -546,7 +870,7 @@ class ChatWorkspaceRepository:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT log_kind, payload_json, delivered_at
+                SELECT log_kind, payload_json, delivery_attempted_at, delivered_at
                 FROM chat_workspace_evidence_outbox
                 WHERE event_ref = ?
                 LIMIT 1
@@ -559,6 +883,7 @@ class ChatWorkspaceRepository:
             )
         if row["delivered_at"] is not None:
             return
+        requires_recovery_scan = row["delivery_attempted_at"] is not None
         try:
             log_kind = JsonlLogKind(str(row["log_kind"]))
             payload = json.loads(str(row["payload_json"]))
@@ -568,7 +893,19 @@ class ChatWorkspaceRepository:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_CHAT_WORKSPACE_EVIDENCE_OUTBOX_CORRUPT"
             ) from exc
-        if not self._log_contains_event(log_kind, event_ref):
+        if not requires_recovery_scan:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE chat_workspace_evidence_outbox
+                    SET delivery_attempted_at = ?
+                    WHERE event_ref = ? AND delivery_attempted_at IS NULL
+                    """,
+                    (utc_now().isoformat(), event_ref),
+                )
+        if not requires_recovery_scan or not self._log_contains_event(
+            log_kind, event_ref
+        ):
             try:
                 self._founder_loop.append_log(log_kind, payload)
             except OSError as exc:
@@ -600,7 +937,10 @@ class ChatWorkspaceRepository:
                         record = json.loads(line)
                     except (TypeError, ValueError):
                         continue
-                    if isinstance(record, dict) and record.get("event_ref") == event_ref:
+                    if (
+                        isinstance(record, dict)
+                        and record.get("event_ref") == event_ref
+                    ):
                         return True
         except OSError as exc:
             raise FounderLoopStorageError(
@@ -639,7 +979,5 @@ class ChatWorkspaceRepository:
             or receipt.mutation_kind != expected_mutation_kind
             or receipt.lifecycle_action != expected_lifecycle_action
         ):
-            raise FounderLoopStorageError(
-                "FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT"
-            )
+            raise FounderLoopStorageError("FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT")
         return receipt.model_dump(mode="json")

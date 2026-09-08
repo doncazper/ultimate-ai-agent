@@ -54,6 +54,7 @@ const cleanWorkspace: ChatWorkspaceReadModel = {
   active_thread_ref: null,
   route_refs: [
     "GET /control-center/chat/workspace",
+    "POST /control-center/chat/threads/{thread_ref}/approval",
     "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
     "POST /control-center/chat/threads/{thread_ref}/lifecycle",
   ],

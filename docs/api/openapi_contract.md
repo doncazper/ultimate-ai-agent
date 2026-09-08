@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `367` OpenAPI paths and `369` manifest route operations.
+Current generated contract snapshot: `368` OpenAPI paths and `370` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -609,6 +609,7 @@ Contract rules:
   `GET /control-center/chat/turns/{turn_ref}/receipt`,
   `POST /control-center/chat/turns/{turn_ref}/handoff`,
   `GET /control-center/chat/workspace`,
+  `POST /control-center/chat/threads/{thread_ref}/approval`,
   `POST /control-center/chat/threads/{thread_ref}/draft-checkpoint`,
   `POST /control-center/chat/threads/{thread_ref}/lifecycle`,
   `GET /control-center/memory/l1-index`,

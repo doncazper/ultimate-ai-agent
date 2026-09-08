@@ -50,6 +50,7 @@ MUTATING_ROUTES = frozenset(
             "POST",
             "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
         ),
+        ("POST", "/control-center/chat/threads/{thread_ref}/approval"),
         ("POST", "/control-center/chat/threads/{thread_ref}/lifecycle"),
         ("POST", "/control-center/crm/local-mutations"),
         ("POST", "/control-center/crm/adoption/approval"),
@@ -191,9 +192,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 157
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 158
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "6cef273fac317ef8137db2a202c77d57cdda5023d4460d503f4ce776d31f371d"
+    "dea3cddb99210db5ed51cf742eca31cd027d2593c40ffe60a7563b5e69dc4ea7"
 )
 
 
