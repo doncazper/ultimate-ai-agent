@@ -9382,7 +9382,7 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders a clear heading for the backend-bound Setup page", async () => {
-    stubReadEndpointOverrides({
+    const fetchMock = stubReadEndpointOverrides({
       [API_ENDPOINTS.setupAssistantSummary]: setupFixtureToBackendPayload(
         mockControlCenterData.macosSetupAssistant,
       ),
@@ -9393,6 +9393,10 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
     ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      API_ENDPOINTS.setupAssistantSummary,
+    );
   });
 
   it("blocks all goal controls when backend truth is current but durable events are invalid", async () => {
