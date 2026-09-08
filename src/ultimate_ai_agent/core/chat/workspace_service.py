@@ -9,8 +9,6 @@ from .workspace import (
     ChatDraftCheckpointRequest,
     ChatThreadLifecycleRequest,
     ChatWorkspaceApprovalCaptureRequest,
-    build_chat_workspace_approval_request,
-    chat_workspace_approval_refs,
     chat_workspace_payload_fingerprint_ref,
 )
 from .workspace_repository import ChatWorkspaceRepository
@@ -70,10 +68,11 @@ class ChatWorkspaceControlCenterService:
         payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
             {"thread_ref": thread_ref, **request.model_dump(mode="json")}
         )
-        approval_refs = self._require_exact_approval(
+        approval_refs = self._require_approval_for_new_or_exact_replay(
             mutation_kind="draft_checkpoint",
             lifecycle_action=None,
             thread_ref=thread_ref,
+            request=request,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
             approval_ref=approval_ref,
@@ -96,10 +95,11 @@ class ChatWorkspaceControlCenterService:
         payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
             {"thread_ref": thread_ref, **request.model_dump(mode="json")}
         )
-        approval_refs = self._require_exact_approval(
+        approval_refs = self._require_approval_for_new_or_exact_replay(
             mutation_kind="lifecycle",
             lifecycle_action=request.action,
             thread_ref=thread_ref,
+            request=request,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
             approval_ref=approval_ref,
@@ -111,6 +111,32 @@ class ChatWorkspaceControlCenterService:
             approval_refs=approval_refs,
         )
 
+    def _require_approval_for_new_or_exact_replay(
+        self,
+        *,
+        mutation_kind: str,
+        lifecycle_action: str | None,
+        thread_ref: str,
+        request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+        idempotency_key_ref: str,
+        payload_fingerprint_ref: str,
+        approval_ref: str,
+    ) -> dict[str, str]:
+        replay = self.repository.exact_replay(
+            thread_ref=thread_ref,
+            request=request,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        return self._require_exact_approval(
+            mutation_kind=mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+            approval_ref=approval_ref,
+            allow_expired_replay=replay is not None,
+        )
+
     def _require_exact_approval(
         self,
         *,
@@ -120,32 +146,17 @@ class ChatWorkspaceControlCenterService:
         idempotency_key_ref: str,
         payload_fingerprint_ref: str,
         approval_ref: str,
+        allow_expired_replay: bool = False,
     ) -> dict[str, str]:
-        approval_request = build_chat_workspace_approval_request(
-            mutation_kind=mutation_kind,
-            lifecycle_action=lifecycle_action,
-            thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        refs = chat_workspace_approval_refs(
-            mutation_kind=mutation_kind,
-            lifecycle_action=lifecycle_action,
-            thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        if approval_ref != refs["approval_ref"]:
-            raise ChatWorkspaceApprovalError("CHAT_WORKSPACE_APPROVAL_SCOPE_MISMATCH")
         try:
-            grant = self.repository.load_exact_approval_grant(
-                approval_request=approval_request,
+            grant, approval_request, refs = self.repository.load_exact_approval_grant(
                 approval_ref=approval_ref,
                 mutation_kind=mutation_kind,
                 lifecycle_action=lifecycle_action,
                 thread_ref=thread_ref,
                 idempotency_key_ref=idempotency_key_ref,
                 payload_fingerprint_ref=payload_fingerprint_ref,
+                allow_expired_replay=allow_expired_replay,
             )
         except FounderLoopStorageError as exc:
             raise ChatWorkspaceApprovalError(str(exc)) from exc
@@ -155,5 +166,7 @@ class ChatWorkspaceControlCenterService:
             approval_request, approval_ref
         )
         if not decision.allowed:
+            if allow_expired_replay and "APPROVAL_EXPIRED" in decision.reason_codes:
+                return refs
             raise ChatWorkspaceApprovalError("CHAT_WORKSPACE_APPROVAL_DENIED")
         return refs

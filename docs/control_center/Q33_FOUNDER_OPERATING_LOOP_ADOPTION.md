@@ -24,12 +24,12 @@ the inspected path.
 The server stores only the thread ref, generated display name, lifecycle state,
 revision, draft-present flag, character count, and an opaque random session
 fingerprint that is not derived from the draft text. It
-does not receive or store the draft body. The mounted Chat surface may retain
-up to 100 unsent drafts in component memory and keeps each non-empty local
-conversation reachable from the rail. Draft bodies are discarded on reload. If
-a tab-local body is missing or its fingerprint does not match the backend
-checkpoint, the UI reports that re-entry is required instead of inventing a
-recovery.
+does not receive or store the draft body. The current browser tab may retain up
+to 100 unsent drafts in memory, including while the operator navigates away
+from and back to Chat, and keeps each non-empty local conversation reachable
+from the rail. Draft bodies are discarded on reload. If a tab-local body is
+missing or its fingerprint does not match the backend checkpoint, the UI
+reports that re-entry is required instead of inventing a recovery.
 
 Draft checkpoints and archive/recover requests require the existing Control
 Center backend-truth binding, explicit operator confirmation, exact
@@ -41,19 +41,26 @@ published by the read contract. A separate durable approval route captures the
 exact operator-confirmed grant before the mutation request; approval capture
 alone does not mutate the workspace. The Python mutation service can only load
 and validate that already captured exact grant and cannot issue authority for
-itself. Active approvals expire after five minutes and are capped at 512.
-Expired exact-idempotency approvals remain non-renewable replay tombstones, and
-the combined approval history is capped at the same 10,000-record bound as
-workspace mutations. Every supplied idempotency alias must be individually
-valid and equal.
+itself. Active approvals expire after five minutes and are capped at 512. Each
+approval capture attempt is exact-idempotent and cannot renew its own expired
+tombstone. An unused expired attempt may be replaced by one fresh, separately
+identified approval attempt while the mutation keeps its original durable
+idempotency identity. A completed exact mutation can still replay its immutable
+receipt after the governing approval expires; this recovery path performs no
+new state change. The combined approval history is capped at the same
+10,000-record bound as workspace mutations. Every supplied idempotency alias
+must be individually valid and equal.
 
 The workspace accepts at most 10,000 unique mutation records. Once that bound
 is reached, old keys still replay exactly while new keys fail before state is
 changed. A transactional evidence outbox repairs a failed JSONL append on exact
 replay. Fresh delivery appends directly; the full log is consulted only after
 an ambiguous interrupted delivery, including legacy crash rows migrated as
-already attempted. Stored replay receipts are reconstructed
-through the governing contract before they can be returned.
+already attempted. Stored replay receipts are reconstructed through the
+governing contract before they can be returned. Each checkpoint overwrite
+receipt also carries an exact, content-free snapshot and fingerprint of the
+immediately prior thread revision, so the overwritten state remains reviewable
+without retaining a draft body or granting a rollback mutation.
 
 ## Authority boundary
 

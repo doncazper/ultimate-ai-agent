@@ -22,9 +22,11 @@ from ultimate_ai_agent.core.chat.workspace import (
     CHAT_WORKSPACE_MAX_REQUEST_BYTES,
     CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
     ChatDraftCheckpointRequest,
+    ChatThreadReadModel,
     ChatThreadLifecycleRequest,
     ChatWorkspaceApprovalCaptureRequest,
     chat_workspace_approval_refs,
+    chat_workspace_checkpoint_ref,
     chat_workspace_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.chat.workspace_repository import ChatWorkspaceRepository
@@ -75,6 +77,7 @@ def _record_checkpoint(
         thread_ref=thread_ref,
         request=ChatWorkspaceApprovalCaptureRequest(
             mutation_kind="draft_checkpoint",
+            mutation_idempotency_key_ref=idempotency_key_ref,
             draft_checkpoint=request,
         ),
         idempotency_key_ref=idempotency_key_ref,
@@ -106,6 +109,7 @@ def _record_lifecycle(
         thread_ref=THREAD_REF,
         request=ChatWorkspaceApprovalCaptureRequest(
             mutation_kind="lifecycle",
+            mutation_idempotency_key_ref=idempotency_key_ref,
             lifecycle=request,
         ),
         idempotency_key_ref=idempotency_key_ref,
@@ -158,6 +162,7 @@ def _capture_api_approval(
         headers={**headers, "X-UAA-Idempotency-Key": idempotency_ref},
         json={
             "mutation_kind": mutation_kind,
+            "mutation_idempotency_key_ref": idempotency_ref,
             "draft_checkpoint": (
                 request.model_dump(mode="json")
                 if mutation_kind == "draft_checkpoint"
@@ -337,6 +342,7 @@ def test_chat_workspace_validates_exact_local_approval_before_storage(
         lifecycle_action=None,
         thread_ref=THREAD_REF,
         idempotency_key_ref=idempotency_key_ref,
+        approval_idempotency_key_ref=idempotency_key_ref,
         payload_fingerprint_ref=payload_fingerprint_ref,
     )["approval_ref"]
 
@@ -357,11 +363,12 @@ def test_chat_workspace_durable_approval_is_exact_idempotent(
     state_dir = tmp_path / "founder-loop"
     repo = ChatWorkspaceRepository(state_dir)
     request = _checkpoint()
+    idempotency_ref = "idempotency-ref:chat-workspace:durable-approval"
     capture = ChatWorkspaceApprovalCaptureRequest(
         mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=idempotency_ref,
         draft_checkpoint=request,
     )
-    idempotency_ref = "idempotency-ref:chat-workspace:durable-approval"
 
     first = repo.capture_approval(
         thread_ref=THREAD_REF,
@@ -386,11 +393,12 @@ def test_chat_workspace_expired_approval_replay_cannot_renew_authority(
 
     repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
     request = _checkpoint()
+    idempotency_ref = "idempotency-ref:chat-workspace:expired-replay"
     capture = ChatWorkspaceApprovalCaptureRequest(
         mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=idempotency_ref,
         draft_checkpoint=request,
     )
-    idempotency_ref = "idempotency-ref:chat-workspace:expired-replay"
     first = repo.capture_approval(
         thread_ref=THREAD_REF,
         request=capture,
@@ -423,6 +431,136 @@ def test_chat_workspace_expired_approval_replay_cannot_renew_authority(
     assert repo.workspace()["threads"] == []
 
 
+def test_chat_workspace_renews_only_the_approval_attempt_for_same_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import ultimate_ai_agent.core.approvals.authority as authority_module
+    import ultimate_ai_agent.core.chat.workspace_repository as repository_module
+
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    request = _checkpoint()
+    mutation_key = "idempotency-ref:chat-workspace:renewed-mutation"
+    capture = ChatWorkspaceApprovalCaptureRequest(
+        mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=mutation_key,
+        draft_checkpoint=request,
+    )
+    first = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref=mutation_key,
+    )
+    expires_at = datetime.fromisoformat(str(first["expires_at"]).replace("Z", "+00:00"))
+    after_expiry = expires_at + timedelta(seconds=1)
+    monkeypatch.setattr(repository_module, "utc_now", lambda: after_expiry)
+    monkeypatch.setattr(authority_module, "utc_now", lambda: after_expiry)
+
+    fresh_approval_key = "idempotency-ref:chat-workspace:renewed-approval-attempt"
+    renewed = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref=fresh_approval_key,
+    )
+    receipt = ChatWorkspaceControlCenterService(
+        repo,
+        approval_authority=LocalApprovalAuthority(),
+    ).record_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=request,
+        idempotency_key_ref=mutation_key,
+        approval_ref=renewed["approval_ref"],
+    )
+
+    assert renewed["approval_ref"] != first["approval_ref"]
+    assert renewed["idempotency_key_ref"] == mutation_key
+    assert renewed["approval_idempotency_key_ref"] == fresh_approval_key
+    assert receipt["idempotency_key_ref"] == mutation_key
+    assert receipt["approval_idempotency_key_ref"] == fresh_approval_key
+    assert receipt["replayed"] is False
+
+
+def test_chat_workspace_completed_mutation_replays_after_approval_expiry(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import ultimate_ai_agent.core.approvals.authority as authority_module
+    import ultimate_ai_agent.core.chat.workspace_repository as repository_module
+
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    request = _checkpoint()
+    mutation_key = "idempotency-ref:chat-workspace:expired-completed-replay"
+    capture = ChatWorkspaceApprovalCaptureRequest(
+        mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=mutation_key,
+        draft_checkpoint=request,
+    )
+    approval = repo.capture_approval(
+        thread_ref=THREAD_REF,
+        request=capture,
+        idempotency_key_ref=mutation_key,
+    )
+    service = ChatWorkspaceControlCenterService(
+        repo,
+        approval_authority=LocalApprovalAuthority(),
+    )
+    first = service.record_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=request,
+        idempotency_key_ref=mutation_key,
+        approval_ref=approval["approval_ref"],
+    )
+    expires_at = datetime.fromisoformat(
+        str(approval["expires_at"]).replace("Z", "+00:00")
+    )
+    after_expiry = expires_at + timedelta(seconds=1)
+    monkeypatch.setattr(repository_module, "utc_now", lambda: after_expiry)
+    monkeypatch.setattr(authority_module, "utc_now", lambda: after_expiry)
+
+    replay = service.record_draft_checkpoint(
+        thread_ref=THREAD_REF,
+        request=request,
+        idempotency_key_ref=mutation_key,
+        approval_ref=approval["approval_ref"],
+    )
+
+    assert replay["receipt_ref"] == first["receipt_ref"]
+    assert replay["replayed"] is True
+
+
+def test_chat_workspace_checkpoint_overwrite_preserves_exact_prior_snapshot(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+    repo = ChatWorkspaceRepository(state_dir)
+    first = _record_checkpoint(
+        repo,
+        request=_checkpoint(count=24, expected_revision=0),
+        key="prior-snapshot-first",
+    )
+    second_request = _checkpoint(count=25, expected_revision=1)
+    second = _record_checkpoint(
+        repo,
+        request=second_request,
+        key="prior-snapshot-second",
+    )
+
+    assert first["previous_checkpoint"] is None
+    assert second["previous_checkpoint"]["thread"] == first["thread"]
+    assert second["previous_checkpoint"]["checkpoint_ref"] == (
+        chat_workspace_checkpoint_ref(
+            ChatThreadReadModel.model_validate(first["thread"])
+        )
+    )
+    replay = _record_checkpoint(
+        ChatWorkspaceRepository(state_dir),
+        request=second_request,
+        key="prior-snapshot-second",
+    )
+    assert replay["previous_checkpoint"] == second["previous_checkpoint"]
+    assert replay["replayed"] is True
+
+
 def test_chat_workspace_approval_capacity_preserves_exact_replay(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -431,11 +569,12 @@ def test_chat_workspace_approval_capacity_preserves_exact_replay(
 
     monkeypatch.setattr(repository_module, "CHAT_WORKSPACE_MAX_ACTIVE_APPROVALS", 1)
     repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    first_key = "idempotency-ref:chat-workspace:approval-capacity-first"
     capture = ChatWorkspaceApprovalCaptureRequest(
         mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=first_key,
         draft_checkpoint=_checkpoint(),
     )
-    first_key = "idempotency-ref:chat-workspace:approval-capacity-first"
     first = repo.capture_approval(
         thread_ref=THREAD_REF,
         request=capture,
@@ -468,8 +607,10 @@ def test_chat_workspace_expired_approval_history_is_bounded(
 
     monkeypatch.setattr(repository_module, "CHAT_WORKSPACE_MAX_MUTATION_RECORDS", 1)
     repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    mutation_key = "idempotency-ref:chat-workspace:history-mutation"
     capture = ChatWorkspaceApprovalCaptureRequest(
         mutation_kind="draft_checkpoint",
+        mutation_idempotency_key_ref=mutation_key,
         draft_checkpoint=_checkpoint(),
     )
     first = repo.capture_approval(

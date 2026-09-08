@@ -128,6 +128,7 @@ class ChatThreadLifecycleRequest(BaseModel):
 
 class ChatWorkspaceApprovalCaptureRequest(BaseModel):
     mutation_kind: Literal["draft_checkpoint", "lifecycle"]
+    mutation_idempotency_key_ref: str = Field(min_length=1, max_length=200)
     draft_checkpoint: ChatDraftCheckpointRequest | None = None
     lifecycle: ChatThreadLifecycleRequest | None = None
 
@@ -135,6 +136,7 @@ class ChatWorkspaceApprovalCaptureRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_capture(self) -> "ChatWorkspaceApprovalCaptureRequest":
+        validate_chat_workspace_idempotency_ref(self.mutation_idempotency_key_ref)
         if self.mutation_kind == "draft_checkpoint":
             if self.draft_checkpoint is None or self.lifecycle is not None:
                 raise ValueError(
@@ -292,15 +294,40 @@ class ChatWorkspaceReadModel(BaseModel):
         return self
 
 
+class ChatCheckpointSnapshot(BaseModel):
+    contract_ref: str = CHAT_WORKSPACE_CONTRACT_REF
+    checkpoint_ref: str = Field(min_length=1, max_length=200)
+    thread: ChatThreadReadModel
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_snapshot(self) -> "ChatCheckpointSnapshot":
+        if self.contract_ref != CHAT_WORKSPACE_CONTRACT_REF:
+            raise ValueError("unexpected Chat checkpoint snapshot contract ref")
+        validate_task_ref(self.contract_ref, "contract_ref")
+        validate_task_ref(self.checkpoint_ref, "checkpoint_ref")
+        if self.thread.state != "active":
+            raise ValueError("Chat checkpoint snapshot must bind active prior state")
+        if self.checkpoint_ref != chat_workspace_checkpoint_ref(self.thread):
+            raise ValueError("Chat checkpoint snapshot ref is not state-bound")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"), "chat_checkpoint_snapshot"
+        )
+        return self
+
+
 class ChatThreadMutationReceipt(BaseModel):
     contract_ref: str = CHAT_WORKSPACE_CONTRACT_REF
     mutation_kind: Literal["draft_checkpoint", "lifecycle"]
     lifecycle_action: Literal["archive", "recover"] | None = None
     thread: ChatThreadReadModel
+    previous_checkpoint: ChatCheckpointSnapshot | None = None
     receipt_ref: str = Field(min_length=1, max_length=200)
     audit_ref: str = Field(min_length=1, max_length=200)
     evidence_ref: str = Field(min_length=1, max_length=200)
     idempotency_key_ref: str = Field(min_length=1, max_length=200)
+    approval_idempotency_key_ref: str = Field(min_length=1, max_length=200)
     payload_fingerprint_ref: str = Field(min_length=1, max_length=200)
     approval_ref: str = Field(min_length=1, max_length=200)
     exact_approval_scope_ref: str = Field(min_length=1, max_length=200)
@@ -330,6 +357,7 @@ class ChatThreadMutationReceipt(BaseModel):
             "audit_ref",
             "evidence_ref",
             "idempotency_key_ref",
+            "approval_idempotency_key_ref",
             "payload_fingerprint_ref",
             "approval_ref",
             "exact_approval_scope_ref",
@@ -337,6 +365,7 @@ class ChatThreadMutationReceipt(BaseModel):
         ):
             validate_task_ref(getattr(self, field_name), field_name)
         validate_chat_workspace_idempotency_ref(self.idempotency_key_ref)
+        validate_chat_workspace_idempotency_ref(self.approval_idempotency_key_ref)
         if self.mutation_kind == "draft_checkpoint" and self.lifecycle_action:
             raise ValueError("draft checkpoint cannot carry a lifecycle action")
         if self.mutation_kind == "lifecycle" and self.lifecycle_action is None:
@@ -347,6 +376,20 @@ class ChatThreadMutationReceipt(BaseModel):
             raise ValueError("archive receipt must bind an archived thread")
         if self.lifecycle_action == "recover" and self.thread.state != "active":
             raise ValueError("recover receipt must bind an active thread")
+        if self.mutation_kind == "lifecycle" and self.previous_checkpoint is not None:
+            raise ValueError("lifecycle receipt cannot carry a prior checkpoint")
+        if self.mutation_kind == "draft_checkpoint":
+            if self.thread.revision == 1:
+                if self.previous_checkpoint is not None:
+                    raise ValueError("first checkpoint cannot carry prior state")
+            elif (
+                self.previous_checkpoint is None
+                or self.previous_checkpoint.thread.thread_ref != self.thread.thread_ref
+                or self.previous_checkpoint.thread.revision != self.thread.revision - 1
+            ):
+                raise ValueError(
+                    "checkpoint overwrite must bind the exact prior revision"
+                )
         kind = self.lifecycle_action or self.mutation_kind
         expected_refs = {
             "receipt_ref": chat_workspace_mutation_ref(
@@ -381,6 +424,7 @@ class ChatThreadMutationReceipt(BaseModel):
             lifecycle_action=self.lifecycle_action,
             thread_ref=self.thread.thread_ref,
             idempotency_key_ref=self.idempotency_key_ref,
+            approval_idempotency_key_ref=self.approval_idempotency_key_ref,
             payload_fingerprint_ref=self.payload_fingerprint_ref,
         )
         for field_name in (
@@ -418,6 +462,7 @@ class ChatWorkspaceApprovalReceipt(BaseModel):
         pattern=CHAT_THREAD_REF_RE.pattern,
     )
     idempotency_key_ref: str = Field(min_length=1, max_length=200)
+    approval_idempotency_key_ref: str = Field(min_length=1, max_length=200)
     payload_fingerprint_ref: str = Field(min_length=1, max_length=200)
     approval_request_ref: str = Field(min_length=1, max_length=200)
     approval_ref: str = Field(min_length=1, max_length=200)
@@ -436,6 +481,7 @@ class ChatWorkspaceApprovalReceipt(BaseModel):
             raise ValueError("unexpected Chat workspace approval contract ref")
         validate_chat_thread_ref(self.thread_ref)
         validate_chat_workspace_idempotency_ref(self.idempotency_key_ref)
+        validate_chat_workspace_idempotency_ref(self.approval_idempotency_key_ref)
         if self.mutation_kind == "draft_checkpoint" and self.lifecycle_action:
             raise ValueError("draft approval cannot carry a lifecycle action")
         if self.mutation_kind == "lifecycle" and self.lifecycle_action is None:
@@ -450,6 +496,7 @@ class ChatWorkspaceApprovalReceipt(BaseModel):
             lifecycle_action=self.lifecycle_action,
             thread_ref=self.thread_ref,
             idempotency_key_ref=self.idempotency_key_ref,
+            approval_idempotency_key_ref=self.approval_idempotency_key_ref,
             payload_fingerprint_ref=self.payload_fingerprint_ref,
         )
         for field_name in (
@@ -465,7 +512,9 @@ class ChatWorkspaceApprovalReceipt(BaseModel):
         if not self.exact_scope_granted:
             raise ValueError("Chat workspace approval did not grant exact scope")
         if self.mutation_performed or self.raw_draft_received:
-            raise ValueError("Chat workspace approval capture performed denied behavior")
+            raise ValueError(
+                "Chat workspace approval capture performed denied behavior"
+            )
         _aware_datetime(self.expires_at, "expires_at")
         validate_safe_task_payload(
             self.model_dump(mode="json"), "chat_workspace_approval_receipt"
@@ -508,6 +557,7 @@ def chat_workspace_approval_refs(
     lifecycle_action: Literal["archive", "recover"] | None,
     thread_ref: str,
     idempotency_key_ref: str,
+    approval_idempotency_key_ref: str,
     payload_fingerprint_ref: str,
 ) -> dict[str, str]:
     material = {
@@ -516,12 +566,14 @@ def chat_workspace_approval_refs(
         "lifecycle_action": lifecycle_action,
         "thread_ref": thread_ref,
         "idempotency_key_ref": idempotency_key_ref,
+        "approval_idempotency_key_ref": approval_idempotency_key_ref,
         "payload_fingerprint_ref": payload_fingerprint_ref,
     }
     digest = hashlib.sha256(
         json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return {
+        "approval_idempotency_key_ref": approval_idempotency_key_ref,
         "approval_request_ref": (
             f"approval-request-ref:chat-workspace:sha256:{digest[:32]}"
         ),
@@ -543,6 +595,7 @@ def build_chat_workspace_approval_request(
     lifecycle_action: Literal["archive", "recover"] | None,
     thread_ref: str,
     idempotency_key_ref: str,
+    approval_idempotency_key_ref: str,
     payload_fingerprint_ref: str,
 ) -> ApprovalRequest:
     refs = chat_workspace_approval_refs(
@@ -550,6 +603,7 @@ def build_chat_workspace_approval_request(
         lifecycle_action=lifecycle_action,
         thread_ref=thread_ref,
         idempotency_key_ref=idempotency_key_ref,
+        approval_idempotency_key_ref=approval_idempotency_key_ref,
         payload_fingerprint_ref=payload_fingerprint_ref,
     )
     requested_action = (
@@ -579,6 +633,7 @@ def build_chat_workspace_approval_request(
             CHAT_WORKSPACE_CONTRACT_REF,
             thread_ref,
             idempotency_key_ref,
+            approval_idempotency_key_ref,
             payload_fingerprint_ref,
             refs["exact_approval_scope_ref"],
         ],
@@ -613,6 +668,14 @@ def chat_workspace_mutation_ref(
 ) -> str:
     safe_thread = hashlib.sha256(thread_ref.encode("utf-8")).hexdigest()[:16]
     return f"{suffix}:chat-workspace:{kind}:{safe_thread}:revision-{revision}"
+
+
+def chat_workspace_checkpoint_ref(thread: ChatThreadReadModel) -> str:
+    payload = thread.model_dump(mode="json")
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return f"checkpoint-ref:chat-workspace:sha256:{digest}"
 
 
 def _aware_datetime(value: str, field_name: str) -> datetime:

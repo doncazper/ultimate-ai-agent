@@ -4041,6 +4041,7 @@ export interface ChatThreadLifecycleRequest {
 
 export interface ChatWorkspaceApprovalCaptureRequest {
   mutation_kind: "draft_checkpoint" | "lifecycle";
+  mutation_idempotency_key_ref: string;
   draft_checkpoint: ChatDraftCheckpointRequest | null;
   lifecycle: ChatThreadLifecycleRequest | null;
 }
@@ -4051,6 +4052,7 @@ export interface ChatWorkspaceApprovalReceipt {
   lifecycle_action: ChatThreadLifecycleAction | null;
   thread_ref: string;
   idempotency_key_ref: string;
+  approval_idempotency_key_ref: string;
   payload_fingerprint_ref: string;
   approval_request_ref: string;
   approval_ref: string;
@@ -4062,15 +4064,23 @@ export interface ChatWorkspaceApprovalReceipt {
   raw_draft_received: false;
 }
 
+export interface ChatCheckpointSnapshot {
+  contract_ref: "contract-ref:chat-content-free-workspace:v1";
+  checkpoint_ref: string;
+  thread: ChatThreadReadModel;
+}
+
 export interface ChatThreadMutationReceipt {
   contract_ref: "contract-ref:chat-content-free-workspace:v1";
   mutation_kind: "draft_checkpoint" | "lifecycle";
   lifecycle_action: ChatThreadLifecycleAction | null;
   thread: ChatThreadReadModel;
+  previous_checkpoint: ChatCheckpointSnapshot | null;
   receipt_ref: string;
   audit_ref: string;
   evidence_ref: string;
   idempotency_key_ref: string;
+  approval_idempotency_key_ref: string;
   payload_fingerprint_ref: string;
   approval_ref: string;
   exact_approval_scope_ref: string;

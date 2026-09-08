@@ -29,6 +29,7 @@ from .workspace import (
     CHAT_WORKSPACE_MAX_REVISION,
     CHAT_WORKSPACE_MAX_THREADS,
     CHAT_WORKSPACE_MAX_MUTATION_RECORDS,
+    ChatCheckpointSnapshot,
     ChatWorkspaceApprovalCaptureRequest,
     ChatWorkspaceApprovalReceipt,
     ChatDraftCheckpointRequest,
@@ -38,6 +39,7 @@ from .workspace import (
     build_chat_workspace_approval_request,
     build_chat_workspace_read_model,
     chat_workspace_approval_refs,
+    chat_workspace_checkpoint_ref,
     chat_workspace_mutation_ref,
     chat_workspace_payload_fingerprint_ref,
     validate_chat_thread_ref,
@@ -108,6 +110,8 @@ class ChatWorkspaceRepository:
     ) -> dict[str, Any]:
         validate_chat_thread_ref(thread_ref)
         validate_chat_workspace_idempotency_ref(idempotency_key_ref)
+        approval_idempotency_key_ref = idempotency_key_ref
+        mutation_idempotency_key_ref = request.mutation_idempotency_key_ref
         mutation_request = request.mutation_request()
         lifecycle_action = (
             mutation_request.action
@@ -124,14 +128,16 @@ class ChatWorkspaceRepository:
             mutation_kind=request.mutation_kind,
             lifecycle_action=lifecycle_action,
             thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
+            idempotency_key_ref=mutation_idempotency_key_ref,
+            approval_idempotency_key_ref=approval_idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
         refs = chat_workspace_approval_refs(
             mutation_kind=request.mutation_kind,
             lifecycle_action=lifecycle_action,
             thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
+            idempotency_key_ref=mutation_idempotency_key_ref,
+            approval_idempotency_key_ref=approval_idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
         )
         now = utc_now()
@@ -148,7 +154,7 @@ class ChatWorkspaceRepository:
                 WHERE idempotency_key_ref = ?
                 LIMIT 1
                 """,
-                (idempotency_key_ref,),
+                (approval_idempotency_key_ref,),
             ).fetchone()
             if row is not None:
                 if (
@@ -167,7 +173,9 @@ class ChatWorkspaceRepository:
                     expected_mutation_kind=request.mutation_kind,
                     expected_lifecycle_action=lifecycle_action,
                     expected_thread_ref=thread_ref,
-                    expected_idempotency_key_ref=idempotency_key_ref,
+                    expected_approval_idempotency_key_ref=(
+                        approval_idempotency_key_ref
+                    ),
                     expected_payload_fingerprint_ref=payload_fingerprint_ref,
                     now=now,
                     allow_expired_replay=True,
@@ -238,7 +246,8 @@ class ChatWorkspaceRepository:
             mutation_kind=request.mutation_kind,
             lifecycle_action=lifecycle_action,
             thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
+            idempotency_key_ref=mutation_idempotency_key_ref,
+            approval_idempotency_key_ref=approval_idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
             approval_request_ref=refs["approval_request_ref"],
             approval_ref=refs["approval_ref"],
@@ -250,25 +259,14 @@ class ChatWorkspaceRepository:
     def load_exact_approval_grant(
         self,
         *,
-        approval_request: ApprovalRequest,
         approval_ref: str,
         mutation_kind: Literal["draft_checkpoint", "lifecycle"],
         lifecycle_action: Literal["archive", "recover"] | None,
         thread_ref: str,
         idempotency_key_ref: str,
         payload_fingerprint_ref: str,
-    ) -> ApprovalGrant:
-        refs = chat_workspace_approval_refs(
-            mutation_kind=mutation_kind,
-            lifecycle_action=lifecycle_action,
-            thread_ref=thread_ref,
-            idempotency_key_ref=idempotency_key_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        if approval_ref != refs["approval_ref"]:
-            raise FounderLoopStorageError(
-                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_SCOPE_MISMATCH"
-            )
+        allow_expired_replay: bool = False,
+    ) -> tuple[ApprovalGrant, ApprovalRequest, dict[str, str]]:
         with self._connect() as conn:
             row = conn.execute(
                 """
@@ -286,16 +284,73 @@ class ChatWorkspaceRepository:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_REQUIRED"
             )
-        return self._validated_approval_row(
+        approval_idempotency_key_ref = str(row["idempotency_key_ref"])
+        approval_request = build_chat_workspace_approval_request(
+            mutation_kind=mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            approval_idempotency_key_ref=approval_idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        refs = chat_workspace_approval_refs(
+            mutation_kind=mutation_kind,
+            lifecycle_action=lifecycle_action,
+            thread_ref=thread_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            approval_idempotency_key_ref=approval_idempotency_key_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        if approval_ref != refs["approval_ref"]:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_SCOPE_MISMATCH"
+            )
+        grant = self._validated_approval_row(
             row,
             expected_request=approval_request,
             expected_refs=refs,
             expected_mutation_kind=mutation_kind,
             expected_lifecycle_action=lifecycle_action,
             expected_thread_ref=thread_ref,
-            expected_idempotency_key_ref=idempotency_key_ref,
+            expected_approval_idempotency_key_ref=approval_idempotency_key_ref,
             expected_payload_fingerprint_ref=payload_fingerprint_ref,
             now=utc_now(),
+            allow_expired_replay=allow_expired_replay,
+        )
+        return grant, approval_request, refs
+
+    def exact_replay(
+        self,
+        *,
+        thread_ref: str,
+        request: ChatDraftCheckpointRequest | ChatThreadLifecycleRequest,
+        idempotency_key_ref: str,
+    ) -> dict[str, Any] | None:
+        validate_chat_thread_ref(thread_ref)
+        validate_chat_workspace_idempotency_ref(idempotency_key_ref)
+        payload_fingerprint_ref = chat_workspace_payload_fingerprint_ref(
+            {"thread_ref": thread_ref, **request.model_dump(mode="json")}
+        )
+        mutation_kind: Literal["draft_checkpoint", "lifecycle"] = (
+            "lifecycle"
+            if isinstance(request, ChatThreadLifecycleRequest)
+            else "draft_checkpoint"
+        )
+        lifecycle_action = (
+            request.action if isinstance(request, ChatThreadLifecycleRequest) else None
+        )
+        with self._connect() as conn:
+            replay = self._replay_row(conn, idempotency_key_ref)
+        if replay is None:
+            return None
+        return self._validated_replay(
+            replay,
+            expected_thread_ref=thread_ref,
+            expected_payload_fingerprint_ref=payload_fingerprint_ref,
+            expected_idempotency_key_ref=idempotency_key_ref,
+            expected_mutation_kind=mutation_kind,
+            expected_lifecycle_action=lifecycle_action,
+            expected_revision=request.expected_revision + 1,
         )
 
     def record_draft_checkpoint(
@@ -314,6 +369,7 @@ class ChatWorkspaceRepository:
         now = utc_now().isoformat()
         replayed_receipt: dict[str, Any] | None = None
         receipt: ChatThreadMutationReceipt | None = None
+        previous_checkpoint: ChatCheckpointSnapshot | None = None
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             replay = self._replay_row(conn, idempotency_key_ref)
@@ -371,6 +427,11 @@ class ChatWorkspaceRepository:
                     )
                 else:
                     self._require_revision(row, request.expected_revision)
+                    previous_thread = self._thread_read_model(row)
+                    previous_checkpoint = ChatCheckpointSnapshot(
+                        checkpoint_ref=chat_workspace_checkpoint_ref(previous_thread),
+                        thread=previous_thread,
+                    )
                     display_name = str(row["display_name"])
                     revision = int(row["revision"]) + 1
                     created_at = str(row["created_at"])
@@ -405,6 +466,7 @@ class ChatWorkspaceRepository:
                     mutation_kind="draft_checkpoint",
                     lifecycle_action=None,
                     thread=thread,
+                    previous_checkpoint=previous_checkpoint,
                     idempotency_key_ref=idempotency_key_ref,
                     payload_fingerprint_ref=payload_fingerprint_ref,
                     approval_refs=approval_refs,
@@ -424,6 +486,11 @@ class ChatWorkspaceRepository:
                             receipt.approval_ref,
                             receipt.exact_approval_scope_ref,
                             receipt.approval_validation_ref,
+                            *(
+                                [previous_checkpoint.checkpoint_ref]
+                                if previous_checkpoint is not None
+                                else []
+                            ),
                             *request.metadata_refs,
                         ],
                     },
@@ -504,6 +571,7 @@ class ChatWorkspaceRepository:
                     mutation_kind="lifecycle",
                     lifecycle_action=request.action,
                     thread=thread,
+                    previous_checkpoint=None,
                     idempotency_key_ref=idempotency_key_ref,
                     payload_fingerprint_ref=payload_fingerprint_ref,
                     approval_refs=approval_refs,
@@ -607,7 +675,7 @@ class ChatWorkspaceRepository:
         expected_mutation_kind: Literal["draft_checkpoint", "lifecycle"],
         expected_lifecycle_action: Literal["archive", "recover"] | None,
         expected_thread_ref: str,
-        expected_idempotency_key_ref: str,
+        expected_approval_idempotency_key_ref: str,
         expected_payload_fingerprint_ref: str,
         now: datetime,
         allow_expired_replay: bool = False,
@@ -636,7 +704,7 @@ class ChatWorkspaceRepository:
             or str(row["mutation_kind"]) != expected_mutation_kind
             or row["lifecycle_action"] != expected_lifecycle_action
             or str(row["thread_ref"]) != expected_thread_ref
-            or str(row["idempotency_key_ref"]) != expected_idempotency_key_ref
+            or str(row["idempotency_key_ref"]) != expected_approval_idempotency_key_ref
             or str(row["payload_fingerprint_ref"]) != expected_payload_fingerprint_ref
             or str(row["created_at"]) != grant.created_at.isoformat()
             or str(row["expires_at"])
@@ -797,6 +865,7 @@ class ChatWorkspaceRepository:
         mutation_kind: Literal["draft_checkpoint", "lifecycle"],
         lifecycle_action: Literal["archive", "recover"] | None,
         thread: ChatThreadReadModel,
+        previous_checkpoint: ChatCheckpointSnapshot | None,
         idempotency_key_ref: str,
         payload_fingerprint_ref: str,
         approval_refs: dict[str, str],
@@ -807,6 +876,7 @@ class ChatWorkspaceRepository:
             mutation_kind=mutation_kind,
             lifecycle_action=lifecycle_action,
             thread=thread,
+            previous_checkpoint=previous_checkpoint,
             receipt_ref=chat_workspace_mutation_ref(
                 kind=kind,
                 thread_ref=thread.thread_ref,
@@ -826,6 +896,7 @@ class ChatWorkspaceRepository:
                 suffix="evidence-ref",
             ),
             idempotency_key_ref=idempotency_key_ref,
+            approval_idempotency_key_ref=approval_refs["approval_idempotency_key_ref"],
             payload_fingerprint_ref=payload_fingerprint_ref,
             approval_ref=approval_refs["approval_ref"],
             exact_approval_scope_ref=approval_refs["exact_approval_scope_ref"],

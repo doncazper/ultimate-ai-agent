@@ -8,7 +8,10 @@ import type {
   ChatWorkspaceReadModel,
 } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
-import { ChatWorkspacePanel } from "./ChatWorkspacePanel";
+import {
+  ChatWorkspacePanel,
+  resetChatWorkspaceTabStateForTests,
+} from "./ChatWorkspacePanel";
 
 
 const apiMocks = vi.hoisted(() => ({
@@ -88,11 +91,14 @@ const receipt: ChatThreadMutationReceipt = {
   mutation_kind: "draft_checkpoint",
   lifecycle_action: null,
   thread,
+  previous_checkpoint: null,
   receipt_ref: "receipt:chat-workspace:draft_checkpoint:aaaaaaaaaaaaaaaa:revision-1",
   audit_ref: "audit:chat-workspace:draft_checkpoint:aaaaaaaaaaaaaaaa:revision-1",
   evidence_ref:
     "evidence-ref:chat-workspace:draft_checkpoint:aaaaaaaaaaaaaaaa:revision-1",
   idempotency_key_ref: "idempotency-ref:chat-workspace:test",
+  approval_idempotency_key_ref:
+    "idempotency-ref:chat-workspace:test-approval",
   payload_fingerprint_ref: `payload-fingerprint:chat-workspace:${"a".repeat(64)}`,
   approval_ref: `approval-ref:chat-workspace:sha256:${"b".repeat(32)}`,
   exact_approval_scope_ref:
@@ -119,6 +125,7 @@ function renderPanel() {
 
 describe("ChatWorkspacePanel", () => {
   beforeEach(() => {
+    resetChatWorkspaceTabStateForTests();
     vi.clearAllMocks();
     apiMocks.checkpointChatDraft.mockResolvedValue(receipt);
     apiMocks.updateChatThreadLifecycle.mockResolvedValue({
@@ -194,6 +201,23 @@ describe("ChatWorkspacePanel", () => {
     expect(screen.getByLabelText("Draft")).toHaveValue("");
     fireEvent.click(unsaved);
     expect(screen.getByLabelText("Draft")).toHaveValue("reachable local draft");
+  });
+
+  it("keeps tab-local drafts reachable when the Chat surface remounts", async () => {
+    apiMocks.fetchChatWorkspace.mockResolvedValue(cleanWorkspace);
+    const first = renderPanel();
+
+    await screen.findByText("clean start");
+    fireEvent.change(screen.getByLabelText("Draft"), {
+      target: { value: "draft survives route navigation" },
+    });
+    first.unmount();
+    renderPanel();
+
+    expect(await screen.findByLabelText("Draft")).toHaveValue(
+      "draft survives route navigation",
+    );
+    expect(apiMocks.checkpointChatDraft).not.toHaveBeenCalled();
   });
 
   it("records archive and recovery through the backend-owned lifecycle", async () => {

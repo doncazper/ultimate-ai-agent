@@ -24,12 +24,21 @@ interface SessionDraft {
   fingerprintRef: string;
 }
 
+let tabActiveThreadRef = DEFAULT_THREAD_REF;
+let tabSessionDrafts: Record<string, SessionDraft> = {};
+
+export function resetChatWorkspaceTabStateForTests() {
+  tabActiveThreadRef = DEFAULT_THREAD_REF;
+  tabSessionDrafts = {};
+}
 
 export function ChatWorkspacePanel() {
   const binding = useBackendTruthMutationBinding();
   const [workspace, setWorkspace] = useState<ChatWorkspaceReadModel>();
-  const [activeThreadRef, setActiveThreadRef] = useState(DEFAULT_THREAD_REF);
-  const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionDraft>>({});
+  const [activeThreadRef, setActiveThreadRefState] = useState(tabActiveThreadRef);
+  const [sessionDrafts, setSessionDraftsState] = useState<Record<string, SessionDraft>>(
+    tabSessionDrafts,
+  );
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState(
@@ -42,9 +51,14 @@ export function ChatWorkspacePanel() {
       .then((nextWorkspace) => {
         if (!cancelled) {
           setWorkspace(nextWorkspace);
-          setActiveThreadRef(
-            nextWorkspace.active_thread_ref ?? DEFAULT_THREAD_REF,
-          );
+          if (
+            tabActiveThreadRef === DEFAULT_THREAD_REF &&
+            Object.keys(tabSessionDrafts).length === 0
+          ) {
+            selectThread(
+              nextWorkspace.active_thread_ref ?? DEFAULT_THREAD_REF,
+            );
+          }
         }
       })
       .catch(() => {
@@ -95,12 +109,22 @@ export function ChatWorkspacePanel() {
     draftEntry?.fingerprintRef,
   );
 
+  function selectThread(threadRef: string) {
+    tabActiveThreadRef = threadRef;
+    setActiveThreadRefState(threadRef);
+  }
+
+  function replaceSessionDrafts(next: Record<string, SessionDraft>) {
+    tabSessionDrafts = next;
+    setSessionDraftsState(next);
+  }
+
   function updateDraft(value: string) {
     const bounded = value.slice(0, 32_000);
     if (!bounded) {
       const next = { ...sessionDrafts };
       delete next[activeThreadRef];
-      setSessionDrafts(next);
+      replaceSessionDrafts(next);
       setMessage("Draft cleared. No content was sent or stored.");
       return;
     }
@@ -117,7 +141,7 @@ export function ChatWorkspacePanel() {
     try {
       fingerprintRef = newDraftFingerprintRef();
     } catch {
-      setSessionDrafts({
+      replaceSessionDrafts({
         ...sessionDrafts,
         [activeThreadRef]: { body: bounded, fingerprintRef: "" },
       });
@@ -130,13 +154,13 @@ export function ChatWorkspacePanel() {
       ...sessionDrafts,
       [activeThreadRef]: { body: bounded, fingerprintRef },
     };
-    setSessionDrafts(next);
+    replaceSessionDrafts(next);
     setMessage("Draft is held in this browser tab. Save a safe checkpoint when ready.");
   }
 
   function startNewConversation() {
     const threadRef = `chat-thread:local-${Date.now().toString(36)}`;
-    setActiveThreadRef(threadRef);
+    selectThread(threadRef);
     setMessage("New conversation ready. No model or external service was contacted.");
   }
 
@@ -168,7 +192,7 @@ export function ChatWorkspacePanel() {
       );
       const nextWorkspace = await fetchChatWorkspace(binding);
       setWorkspace(nextWorkspace);
-      setActiveThreadRef(activeThreadRef);
+      selectThread(activeThreadRef);
       setMessage(
         "Draft checkpoint saved without sending or storing the draft body on the server.",
       );
@@ -207,7 +231,7 @@ export function ChatWorkspacePanel() {
       const nextWorkspace = await fetchChatWorkspace(binding);
       setWorkspace(nextWorkspace);
       if (action === "archive" && thread.thread_ref === activeThreadRef) {
-        setActiveThreadRef(
+        selectThread(
           nextWorkspace.active_thread_ref ?? DEFAULT_THREAD_REF,
         );
       }
@@ -263,7 +287,7 @@ export function ChatWorkspacePanel() {
                     : "chat-thread-button"
                 }
                 type="button"
-                onClick={() => setActiveThreadRef(thread.threadRef)}
+                onClick={() => selectThread(thread.threadRef)}
               >
                 <strong>{thread.displayName}</strong>
                 <span>Unsaved in this tab</span>
@@ -279,7 +303,7 @@ export function ChatWorkspacePanel() {
                     : "chat-thread-button"
                 }
                 type="button"
-                onClick={() => setActiveThreadRef(thread.thread_ref)}
+                onClick={() => selectThread(thread.thread_ref)}
               >
                 <strong>{thread.display_name}</strong>
                 <span>

@@ -76,20 +76,53 @@ function stubWorkspace(value: unknown) {
   );
 }
 
+async function sha256Hex(value: string) {
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+function stableRecord(value: Record<string, unknown>) {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+  );
+}
+
 
 function stubCheckpointReceipt(
   overrides: Record<string, unknown> = {},
   includeResponseBinding = true,
   expectedThreadRef = thread.thread_ref,
   approvalOverrides: Record<string, unknown> = {},
+  expireFirstMutation = false,
 ) {
+  const approvalAttempts = new Map<string, string>();
+  let mutationAttempts = 0;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
-      const idempotencyRef = new Headers(init?.headers).get(
+      const requestIdempotencyRef = new Headers(init?.headers).get(
         "X-UAA-Idempotency-Key",
       );
       const submitted = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      const mutationIdempotencyRef = url.endsWith("/approval")
+        ? String(submitted.mutation_idempotency_key_ref)
+        : String(requestIdempotencyRef);
+      const approvalIdempotencyRef = url.endsWith("/approval")
+        ? String(requestIdempotencyRef)
+        : approvalAttempts.get(
+            String(
+              new Headers(init?.headers).get("X-UAA-Approval-Ref"),
+            ),
+          ) ?? "";
       const request = (url.endsWith("/approval")
         ? submitted.draft_checkpoint
         : submitted) as {
@@ -121,8 +154,9 @@ function stubCheckpointReceipt(
         "SHA-256",
         new TextEncoder().encode(
           JSON.stringify({
+            approval_idempotency_key_ref: approvalIdempotencyRef,
             contract_ref: "contract-ref:chat-content-free-workspace:v1",
-            idempotency_key_ref: idempotencyRef,
+            idempotency_key_ref: mutationIdempotencyRef,
             lifecycle_action: null,
             mutation_kind: "draft_checkpoint",
             payload_fingerprint_ref: payloadFingerprintRef,
@@ -147,6 +181,7 @@ function stubCheckpointReceipt(
         .join("")
         .slice(0, 16);
       const approvalRef = `approval-ref:chat-workspace:sha256:${approvalSuffix}`;
+      approvalAttempts.set(approvalRef, approvalIdempotencyRef);
       const responseBindingHeaders: Record<string, string> = includeResponseBinding
         ? {
             "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
@@ -159,7 +194,8 @@ function stubCheckpointReceipt(
           mutation_kind: "draft_checkpoint",
           lifecycle_action: null,
           thread_ref: expectedThreadRef,
-          idempotency_key_ref: idempotencyRef,
+          idempotency_key_ref: mutationIdempotencyRef,
+          approval_idempotency_key_ref: approvalIdempotencyRef,
           payload_fingerprint_ref: payloadFingerprintRef,
           approval_request_ref:
             `approval-request-ref:chat-workspace:sha256:${approvalSuffix}`,
@@ -185,18 +221,38 @@ function stubCheckpointReceipt(
           },
         );
       }
+      mutationAttempts += 1;
+      if (expireFirstMutation && mutationAttempts === 1) {
+        return new Response(
+          JSON.stringify({
+            detail: {
+              code: "FOUNDER_LOOP_CHAT_WORKSPACE_APPROVAL_EXPIRED",
+              safe_message: "The exact local approval expired.",
+            },
+          }),
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+              ...responseBindingHeaders,
+            },
+          },
+        );
+      }
       const receipt = {
         contract_ref: "contract-ref:chat-content-free-workspace:v1",
         mutation_kind: "draft_checkpoint",
         lifecycle_action: null,
         thread: { ...thread, thread_ref: expectedThreadRef },
+        previous_checkpoint: null,
         receipt_ref:
           `receipt:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
         audit_ref:
           `audit:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
         evidence_ref:
           `evidence-ref:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
-        idempotency_key_ref: idempotencyRef,
+        idempotency_key_ref: mutationIdempotencyRef,
+        approval_idempotency_key_ref: approvalIdempotencyRef,
         payload_fingerprint_ref: payloadFingerprintRef,
         approval_ref: approvalRef,
         exact_approval_scope_ref:
@@ -315,6 +371,85 @@ describe("content-free Chat workspace API boundary", () => {
     expect(headers.get("X-UAA-Idempotency-Key")).toMatch(
       /^idempotency-ref:control-center-chat-draft:[0-9a-f]{32}:[0-9a-f]{32}$/,
     );
+  });
+
+  it("renews an expired approval attempt while preserving one mutation identity", async () => {
+    stubCheckpointReceipt({}, true, thread.thread_ref, {}, true);
+
+    const resolved = await checkpointChatDraft(
+      thread.thread_ref,
+      {
+        confirmed: true,
+        expected_revision: 0,
+        draft_present: true,
+        draft_character_count: 24,
+        draft_fingerprint_ref: thread.draft_fingerprint_ref,
+      },
+      binding,
+    );
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const approvalHeaders = [0, 2].map((index) =>
+      new Headers(fetchMock.mock.calls[index]?.[1]?.headers).get(
+        "X-UAA-Idempotency-Key",
+      ),
+    );
+    const mutationHeaders = [1, 3].map((index) =>
+      new Headers(fetchMock.mock.calls[index]?.[1]?.headers).get(
+        "X-UAA-Idempotency-Key",
+      ),
+    );
+    expect(approvalHeaders[1]).toMatch(
+      /^idempotency-ref:control-center-chat-approval:[0-9a-f]{32}$/,
+    );
+    expect(approvalHeaders[1]).not.toBe(approvalHeaders[0]);
+    expect(mutationHeaders[0]).toBe(approvalHeaders[0]);
+    expect(mutationHeaders[1]).toBe(mutationHeaders[0]);
+    expect(resolved.approval_idempotency_key_ref).toBe(approvalHeaders[1]);
+  });
+
+  it("accepts only an exact prior checkpoint snapshot on overwrite", async () => {
+    const threadSuffix = (await sha256Hex(thread.thread_ref)).slice(0, 16);
+    const checkpointRef = `checkpoint-ref:chat-workspace:sha256:${await sha256Hex(
+      stableRecord(thread),
+    )}`;
+    const overwriteReceipt = {
+      thread: { ...thread, revision: 2 },
+      previous_checkpoint: {
+        contract_ref: "contract-ref:chat-content-free-workspace:v1",
+        checkpoint_ref: checkpointRef,
+        thread,
+      },
+      receipt_ref:
+        `receipt:chat-workspace:draft_checkpoint:${threadSuffix}:revision-2`,
+      audit_ref: `audit:chat-workspace:draft_checkpoint:${threadSuffix}:revision-2`,
+      evidence_ref:
+        `evidence-ref:chat-workspace:draft_checkpoint:${threadSuffix}:revision-2`,
+    };
+    const request = {
+      confirmed: true as const,
+      expected_revision: 1,
+      draft_present: true,
+      draft_character_count: 24,
+      draft_fingerprint_ref: thread.draft_fingerprint_ref,
+    };
+    stubCheckpointReceipt(overwriteReceipt);
+
+    await expect(
+      checkpointChatDraft(thread.thread_ref, request, binding),
+    ).resolves.toMatchObject(overwriteReceipt);
+
+    stubCheckpointReceipt({
+      ...overwriteReceipt,
+      previous_checkpoint: {
+        ...overwriteReceipt.previous_checkpoint,
+        checkpoint_ref: `checkpoint-ref:chat-workspace:sha256:${"0".repeat(64)}`,
+      },
+    });
+    await expect(
+      checkpointChatDraft(thread.thread_ref, request, binding),
+    ).rejects.toThrow("Chat workspace state was not recorded safely.");
   });
 
   it("binds distinct checkpoint requests to collision-resistant digests", async () => {
