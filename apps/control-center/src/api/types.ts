@@ -4024,6 +4024,7 @@ export interface ChatWorkspaceReadModel {
 }
 
 export interface ChatDraftCheckpointRequest {
+  confirmed: true;
   expected_revision: number;
   draft_present: boolean;
   draft_character_count: number;
@@ -4032,6 +4033,7 @@ export interface ChatDraftCheckpointRequest {
 }
 
 export interface ChatThreadLifecycleRequest {
+  confirmed: true;
   action: ChatThreadLifecycleAction;
   expected_revision: number;
   metadata_refs?: string[];
@@ -4047,6 +4049,9 @@ export interface ChatThreadMutationReceipt {
   evidence_ref: string;
   idempotency_key_ref: string;
   payload_fingerprint_ref: string;
+  approval_ref: string;
+  exact_approval_scope_ref: string;
+  approval_validation_ref: string;
   safe_summary: string;
   raw_draft_received: false;
   draft_body_stored: false;

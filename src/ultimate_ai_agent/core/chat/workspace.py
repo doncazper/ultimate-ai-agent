@@ -8,6 +8,20 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.approvals import (
+    ApprovalRequest,
+    ApprovalRiskLevel,
+    ApprovalSubjectType,
+)
+from ultimate_ai_agent.core.hygiene.actor_context import (
+    ActorContext,
+    ActorType,
+    AuthoritySource,
+)
+from ultimate_ai_agent.core.hygiene.policies import (
+    ClassificationValue,
+    DataClassification,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -21,6 +35,7 @@ CHAT_WORKSPACE_SOURCE = "python_core_chat_content_free_workspace"
 CHAT_WORKSPACE_MAX_REQUEST_BYTES = 8 * 1024
 CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH = 16
 CHAT_WORKSPACE_MAX_REVISION = 2_147_483_647
+CHAT_WORKSPACE_MAX_THREADS = 100
 CHAT_WORKSPACE_ROUTE_REFS = (
     "GET /control-center/chat/workspace",
     "POST /control-center/chat/threads/{thread_ref}/draft-checkpoint",
@@ -44,6 +59,7 @@ ChatWorkspaceMetadataRef = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 class ChatDraftCheckpointRequest(BaseModel):
+    confirmed: Literal[True]
     expected_revision: int = Field(ge=0, le=CHAT_WORKSPACE_MAX_REVISION)
     draft_present: bool
     draft_character_count: int = Field(ge=0, le=32_000)
@@ -83,6 +99,7 @@ class ChatDraftCheckpointRequest(BaseModel):
 
 
 class ChatThreadLifecycleRequest(BaseModel):
+    confirmed: Literal[True]
     action: Literal["archive", "recover"]
     expected_revision: int = Field(ge=1, le=CHAT_WORKSPACE_MAX_REVISION)
     metadata_refs: list[ChatWorkspaceMetadataRef] = Field(
@@ -249,6 +266,9 @@ class ChatThreadMutationReceipt(BaseModel):
     evidence_ref: str = Field(min_length=1, max_length=200)
     idempotency_key_ref: str = Field(min_length=1, max_length=200)
     payload_fingerprint_ref: str = Field(min_length=1, max_length=200)
+    approval_ref: str = Field(min_length=1, max_length=200)
+    exact_approval_scope_ref: str = Field(min_length=1, max_length=200)
+    approval_validation_ref: str = Field(min_length=1, max_length=200)
     safe_summary: str = Field(min_length=1, max_length=300)
     raw_draft_received: bool = False
     draft_body_stored: bool = False
@@ -275,6 +295,9 @@ class ChatThreadMutationReceipt(BaseModel):
             "evidence_ref",
             "idempotency_key_ref",
             "payload_fingerprint_ref",
+            "approval_ref",
+            "exact_approval_scope_ref",
+            "approval_validation_ref",
         ):
             validate_task_ref(getattr(self, field_name), field_name)
         if self.mutation_kind == "draft_checkpoint" and self.lifecycle_action:
@@ -316,6 +339,20 @@ class ChatThreadMutationReceipt(BaseModel):
             self.payload_fingerprint_ref,
         ):
             raise ValueError("Chat workspace payload fingerprint is invalid")
+        expected_approval_refs = chat_workspace_approval_refs(
+            mutation_kind=self.mutation_kind,
+            lifecycle_action=self.lifecycle_action,
+            thread_ref=self.thread.thread_ref,
+            idempotency_key_ref=self.idempotency_key_ref,
+            payload_fingerprint_ref=self.payload_fingerprint_ref,
+        )
+        for field_name in (
+            "approval_ref",
+            "exact_approval_scope_ref",
+            "approval_validation_ref",
+        ):
+            if getattr(self, field_name) != expected_approval_refs[field_name]:
+                raise ValueError(f"Chat workspace {field_name} is not request-bound")
         _aware_datetime(self.created_at, "created_at")
         if any(
             (
@@ -361,6 +398,91 @@ def chat_workspace_payload_fingerprint_ref(payload: dict[str, Any]) -> str:
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     return f"payload-fingerprint:chat-workspace:{digest}"
+
+
+def chat_workspace_approval_refs(
+    *,
+    mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+    lifecycle_action: Literal["archive", "recover"] | None,
+    thread_ref: str,
+    idempotency_key_ref: str,
+    payload_fingerprint_ref: str,
+) -> dict[str, str]:
+    material = {
+        "contract_ref": CHAT_WORKSPACE_CONTRACT_REF,
+        "mutation_kind": mutation_kind,
+        "lifecycle_action": lifecycle_action,
+        "thread_ref": thread_ref,
+        "idempotency_key_ref": idempotency_key_ref,
+        "payload_fingerprint_ref": payload_fingerprint_ref,
+    }
+    digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {
+        "approval_request_ref": (
+            f"approval-request-ref:chat-workspace:sha256:{digest[:32]}"
+        ),
+        "approval_ref": f"approval-ref:chat-workspace:sha256:{digest[:32]}",
+        "exact_approval_scope_ref": (
+            f"approval-scope-ref:chat-workspace:sha256:{digest[:32]}"
+        ),
+        "approval_validation_ref": (
+            f"approval-validation-ref:chat-workspace:sha256:{digest[:32]}"
+        ),
+        "event_ref": f"event-ref:chat-workspace-approval:sha256:{digest[:32]}",
+        "run_ref": f"run-ref:chat-workspace:sha256:{digest[:32]}",
+    }
+
+
+def build_chat_workspace_approval_request(
+    *,
+    mutation_kind: Literal["draft_checkpoint", "lifecycle"],
+    lifecycle_action: Literal["archive", "recover"] | None,
+    thread_ref: str,
+    idempotency_key_ref: str,
+    payload_fingerprint_ref: str,
+) -> ApprovalRequest:
+    refs = chat_workspace_approval_refs(
+        mutation_kind=mutation_kind,
+        lifecycle_action=lifecycle_action,
+        thread_ref=thread_ref,
+        idempotency_key_ref=idempotency_key_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+    )
+    requested_action = (
+        "chat_workspace_draft_checkpoint"
+        if mutation_kind == "draft_checkpoint"
+        else f"chat_workspace_{lifecycle_action}"
+    )
+    return ApprovalRequest(
+        approval_request_id=refs["approval_request_ref"],
+        run_id=refs["run_ref"],
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id=thread_ref,
+        actor_context=ActorContext(
+            actor_type=ActorType.human_user,
+            actor_id="operator-ref:local-user",
+            authority_source=AuthoritySource.explicit_user_request,
+        ),
+        requested_action=requested_action,
+        purpose="Approve one exact content-free local Chat metadata mutation.",
+        risk_level=ApprovalRiskLevel.low,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="chat_workspace_content_free_metadata",
+            requires_redaction=True,
+        ),
+        resource_refs=[
+            CHAT_WORKSPACE_CONTRACT_REF,
+            thread_ref,
+            idempotency_key_ref,
+            payload_fingerprint_ref,
+            refs["exact_approval_scope_ref"],
+        ],
+        event_ref=refs["event_ref"],
+        trace_id="trace-ref:chat-workspace:local-metadata-mutation",
+    )
 
 
 def validate_chat_thread_ref(thread_ref: str) -> None:

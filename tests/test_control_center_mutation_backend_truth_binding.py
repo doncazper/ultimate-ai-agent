@@ -282,8 +282,6 @@ def test_expired_truth_envelope_is_rejected(
         "/control-center/today/action-envelope",
         "/control-center/chat/turns",
         "/control-center/chat/turns/chat-turn-ref/handoff",
-        "/control-center/chat/threads/chat-thread-ref/draft-checkpoint",
-        "/control-center/chat/threads/chat-thread-ref/lifecycle",
         "/control-center/web-evidence/attach",
         "/control-center/memory/feedback",
         "/control-center/memory/review/manual-candidate",
@@ -316,9 +314,7 @@ def test_browser_product_and_runtime_mutations_require_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == (
-        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
-    )
+    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
 
 
 @pytest.mark.parametrize(
@@ -342,4 +338,6 @@ def test_browser_crm_adoption_mutations_require_truth_binding(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )

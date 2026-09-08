@@ -13,14 +13,11 @@ import type {
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 
 
-const CHAT_DRAFT_SESSION_KEY = "uaa.chat.content-free-workspace.drafts.v1";
 const EMPTY_DRAFT_FINGERPRINT_REF = "draft-fingerprint-ref:chat:empty";
 const DEFAULT_THREAD_REF = "chat-thread:local-default";
-const CHAT_THREAD_REF_PATTERN =
-  /^chat-thread:[A-Za-z0-9][A-Za-z0-9_.:@-]{0,187}$/;
 const CHAT_DRAFT_FINGERPRINT_PATTERN =
   /^draft-fingerprint-ref:chat:(?:empty|local-[0-9a-f]{32})$/;
-const MAX_SESSION_DRAFTS = 100;
+const MAX_LOCAL_DRAFTS = 100;
 
 interface SessionDraft {
   body: string;
@@ -32,9 +29,7 @@ export function ChatWorkspacePanel() {
   const binding = useBackendTruthMutationBinding();
   const [workspace, setWorkspace] = useState<ChatWorkspaceReadModel>();
   const [activeThreadRef, setActiveThreadRef] = useState(DEFAULT_THREAD_REF);
-  const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionDraft>>(
-    readSessionDrafts,
-  );
+  const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionDraft>>({});
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState(
@@ -78,6 +73,22 @@ export function ChatWorkspacePanel() {
         thread.state.includes(query),
     );
   }, [search, workspace]);
+  const visibleUnsavedDrafts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const savedRefs = new Set(
+      (workspace?.threads ?? []).map((thread) => thread.thread_ref),
+    );
+    return Object.entries(sessionDrafts)
+      .filter(([threadRef, entry]) => !savedRefs.has(threadRef) && entry.body)
+      .map(([threadRef], index) => ({
+        threadRef,
+        displayName: `Unsaved conversation ${index + 1}`,
+      }))
+      .filter(
+        (thread) =>
+          !query || thread.displayName.toLowerCase().includes(query),
+      );
+  }, [search, sessionDrafts, workspace]);
   const recoveryLabel = draftRecoveryLabel(
     activeThread,
     draft,
@@ -86,29 +97,40 @@ export function ChatWorkspacePanel() {
 
   function updateDraft(value: string) {
     const bounded = value.slice(0, 32_000);
-    let fingerprintRef = EMPTY_DRAFT_FINGERPRINT_REF;
-    if (bounded) {
-      try {
-        fingerprintRef = newDraftFingerprintRef();
-      } catch {
-        setSessionDrafts(
-          boundSessionDrafts({
-            ...sessionDrafts,
-            [activeThreadRef]: { body: bounded, fingerprintRef: "" },
-          }),
-        );
-        setMessage(
-          "Draft is held in this tab, but secure checkpoint identity is unavailable.",
-        );
-        return;
-      }
+    if (!bounded) {
+      const next = { ...sessionDrafts };
+      delete next[activeThreadRef];
+      setSessionDrafts(next);
+      setMessage("Draft cleared. No content was sent or stored.");
+      return;
     }
-    const next = boundSessionDrafts({
+    if (
+      !sessionDrafts[activeThreadRef] &&
+      Object.keys(sessionDrafts).length >= MAX_LOCAL_DRAFTS
+    ) {
+      setMessage(
+        "The local draft limit is reached. Save or clear a draft before starting another.",
+      );
+      return;
+    }
+    let fingerprintRef = EMPTY_DRAFT_FINGERPRINT_REF;
+    try {
+      fingerprintRef = newDraftFingerprintRef();
+    } catch {
+      setSessionDrafts({
+        ...sessionDrafts,
+        [activeThreadRef]: { body: bounded, fingerprintRef: "" },
+      });
+      setMessage(
+        "Draft is held in this tab, but secure checkpoint identity is unavailable.",
+      );
+      return;
+    }
+    const next = {
       ...sessionDrafts,
       [activeThreadRef]: { body: bounded, fingerprintRef },
-    });
+    };
     setSessionDrafts(next);
-    writeSessionDrafts(next);
     setMessage("Draft is held in this browser tab. Save a safe checkpoint when ready.");
   }
 
@@ -133,6 +155,7 @@ export function ChatWorkspacePanel() {
       await checkpointChatDraft(
         activeThreadRef,
         {
+          confirmed: true,
           expected_revision: activeThread?.revision ?? 0,
           draft_present: draft.length > 0,
           draft_character_count: draft.length,
@@ -172,6 +195,7 @@ export function ChatWorkspacePanel() {
       await updateChatThreadLifecycle(
         thread.thread_ref,
         {
+          confirmed: true,
           action,
           expected_revision: thread.revision,
           metadata_refs: [
@@ -230,6 +254,22 @@ export function ChatWorkspacePanel() {
           placeholder="Search saved conversations"
         />
         <div className="chat-thread-list">
+          {visibleUnsavedDrafts.map((thread) => (
+            <div className="chat-thread-row" key={thread.threadRef}>
+              <button
+                className={
+                  thread.threadRef === activeThreadRef
+                    ? "chat-thread-button active"
+                    : "chat-thread-button"
+                }
+                type="button"
+                onClick={() => setActiveThreadRef(thread.threadRef)}
+              >
+                <strong>{thread.displayName}</strong>
+                <span>Unsaved in this tab</span>
+              </button>
+            </div>
+          ))}
           {visibleThreads.map((thread) => (
             <div className="chat-thread-row" key={thread.thread_ref}>
               <button
@@ -265,7 +305,7 @@ export function ChatWorkspacePanel() {
               </button>
             </div>
           ))}
-          {visibleThreads.length === 0 ? (
+          {visibleThreads.length === 0 && visibleUnsavedDrafts.length === 0 ? (
             <p className="muted-copy">No saved conversations match this view.</p>
           ) : null}
         </div>
@@ -318,69 +358,6 @@ export function ChatWorkspacePanel() {
       </article>
     </section>
   );
-}
-
-
-function readSessionDrafts(): Record<string, SessionDraft> {
-  try {
-    const value = window.sessionStorage.getItem(CHAT_DRAFT_SESSION_KEY);
-    if (!value) {
-      return {};
-    }
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-    return Object.fromEntries(
-      Object.entries(parsed)
-        .slice(0, MAX_SESSION_DRAFTS)
-        .filter(
-          ([key, draft]) => {
-            if (
-              !CHAT_THREAD_REF_PATTERN.test(key) ||
-              !draft ||
-              typeof draft !== "object" ||
-              Array.isArray(draft)
-            ) {
-              return false;
-            }
-            const record = draft as Record<string, unknown>;
-            return (
-              Object.keys(record).length === 2 &&
-              typeof record.body === "string" &&
-              record.body.length <= 32_000 &&
-              typeof record.fingerprintRef === "string" &&
-              CHAT_DRAFT_FINGERPRINT_PATTERN.test(record.fingerprintRef) &&
-              (record.body
-                ? record.fingerprintRef !== EMPTY_DRAFT_FINGERPRINT_REF
-                : record.fingerprintRef === EMPTY_DRAFT_FINGERPRINT_REF)
-            );
-          },
-        )
-        .map(([key, draft]) => [key, draft as SessionDraft]),
-    );
-  } catch {
-    return {};
-  }
-}
-
-
-function writeSessionDrafts(drafts: Record<string, SessionDraft>) {
-  try {
-    window.sessionStorage.setItem(
-      CHAT_DRAFT_SESSION_KEY,
-      JSON.stringify(boundSessionDrafts(drafts)),
-    );
-  } catch {
-    // The UI still holds the transient draft if session storage is unavailable.
-  }
-}
-
-
-function boundSessionDrafts(
-  drafts: Record<string, SessionDraft>,
-): Record<string, SessionDraft> {
-  return Object.fromEntries(Object.entries(drafts).slice(-MAX_SESSION_DRAFTS));
 }
 
 

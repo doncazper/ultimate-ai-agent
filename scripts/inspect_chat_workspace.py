@@ -15,13 +15,15 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from ultimate_ai_agent.core.chat import (  # noqa: E402
+from ultimate_ai_agent.core.chat.workspace import (  # noqa: E402
     CHAT_WORKSPACE_CONTRACT_REF,
     build_chat_workspace_read_model,
 )
+from ultimate_ai_agent.core.chat.workspace_repository import (  # noqa: E402
+    ChatWorkspaceRepository,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     FOUNDER_LOOP_STATE_DIR_ENV,
-    FounderLoopRepository,
 )
 
 
@@ -53,13 +55,12 @@ def main(argv: list[str] | None = None) -> int:
     inspection_error_ref = None
     if sqlite_state.exists():
         try:
-            repo = FounderLoopRepository(
+            repo = ChatWorkspaceRepository(
                 state_dir,
-                seed_defaults=False,
                 ensure_storage=False,
                 read_only=True,
             )
-            workspace = repo.chat_workspace()
+            workspace = repo.workspace()
             storage_state = "existing_state_read_only"
         except Exception:
             workspace = _empty_workspace()

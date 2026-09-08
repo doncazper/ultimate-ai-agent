@@ -6,6 +6,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,13 +14,19 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.build_identity import build_identity
-from ultimate_ai_agent.core.chat import (
+from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.chat.workspace import (
     CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
     CHAT_WORKSPACE_CONTRACT_REF,
     CHAT_WORKSPACE_MAX_REQUEST_BYTES,
     CHAT_WORKSPACE_MAX_REQUEST_NESTING_DEPTH,
     ChatDraftCheckpointRequest,
     ChatThreadLifecycleRequest,
+)
+from ultimate_ai_agent.core.chat.workspace_repository import ChatWorkspaceRepository
+from ultimate_ai_agent.core.chat.workspace_service import (
+    ChatWorkspaceApprovalError,
+    ChatWorkspaceControlCenterService,
 )
 from ultimate_ai_agent.core.control_center.backend_truth import (
     backend_instance_ref,
@@ -39,6 +46,7 @@ def _checkpoint(
     *, count: int = 24, expected_revision: int = 0
 ) -> ChatDraftCheckpointRequest:
     return ChatDraftCheckpointRequest(
+        confirmed=True,
         expected_revision=expected_revision,
         draft_present=count > 0,
         draft_character_count=count,
@@ -48,6 +56,38 @@ def _checkpoint(
             else CHAT_DRAFT_EMPTY_FINGERPRINT_REF
         ),
         metadata_refs=[f"metadata-ref:chat-workspace:revision-{expected_revision}"],
+    )
+
+
+def _record_checkpoint(
+    repo: ChatWorkspaceRepository,
+    *,
+    request: ChatDraftCheckpointRequest,
+    key: str,
+    thread_ref: str = THREAD_REF,
+) -> dict:
+    return ChatWorkspaceControlCenterService(repo).record_draft_checkpoint(
+        thread_ref=thread_ref,
+        request=request,
+        idempotency_key_ref=f"idempotency-ref:chat-workspace:{key}",
+    )
+
+
+def _record_lifecycle(
+    repo: ChatWorkspaceRepository,
+    *,
+    action: str,
+    expected_revision: int,
+    key: str,
+) -> dict:
+    return ChatWorkspaceControlCenterService(repo).record_lifecycle(
+        thread_ref=THREAD_REF,
+        request=ChatThreadLifecycleRequest(
+            confirmed=True,
+            action=action,
+            expected_revision=expected_revision,
+        ),
+        idempotency_key_ref=f"idempotency-ref:chat-workspace:{key}",
     )
 
 
@@ -73,6 +113,11 @@ def _mutation_binding_headers(
 
 
 def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
+    without_confirmation = _checkpoint().model_dump(mode="json")
+    without_confirmation.pop("confirmed")
+    with pytest.raises(ValidationError, match="Field required"):
+        ChatDraftCheckpointRequest.model_validate(without_confirmation)
+
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         ChatDraftCheckpointRequest.model_validate(
             {
@@ -83,6 +128,7 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
 
     with pytest.raises(ValidationError, match="String should match pattern"):
         ChatDraftCheckpointRequest(
+            confirmed=True,
             expected_revision=0,
             draft_present=True,
             draft_character_count=24,
@@ -91,6 +137,7 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
 
     with pytest.raises(ValidationError, match="at most 200 characters"):
         ChatDraftCheckpointRequest(
+            confirmed=True,
             expected_revision=0,
             draft_present=False,
             draft_character_count=0,
@@ -103,6 +150,7 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
         match="metadata refs must bind the expected revision",
     ):
         ChatDraftCheckpointRequest(
+            confirmed=True,
             expected_revision=0,
             draft_present=False,
             draft_character_count=0,
@@ -114,37 +162,36 @@ def test_chat_draft_checkpoint_schema_never_accepts_a_draft_body() -> None:
 def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop")
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
 
-    clean_start = repo.chat_workspace()
+    clean_start = repo.workspace()
     assert clean_start["status"] == "safe_demo_ready"
     assert clean_start["threads"] == []
     assert clean_start["draft_body_stored"] is False
     assert clean_start["model_call_enabled"] is False
     assert clean_start["send_enabled"] is False
 
-    receipt = repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
-        request=_checkpoint(),
-        idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-1",
-    )
-    replay = repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
-        request=_checkpoint(),
-        idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-1",
-    )
+    receipt = _record_checkpoint(repo, request=_checkpoint(), key="checkpoint-1")
+    replay = _record_checkpoint(repo, request=_checkpoint(), key="checkpoint-1")
 
     assert receipt["contract_ref"] == CHAT_WORKSPACE_CONTRACT_REF
     assert receipt["raw_draft_received"] is False
     assert receipt["draft_body_stored"] is False
     assert receipt["model_call_performed"] is False
+    assert receipt["approval_ref"].startswith(
+        "approval-ref:chat-workspace:sha256:"
+    )
+    assert receipt["exact_approval_scope_ref"].startswith(
+        "approval-scope-ref:chat-workspace:sha256:"
+    )
     assert replay["replayed"] is True
     assert replay["receipt_ref"] == receipt["receipt_ref"]
 
     with pytest.raises(FounderLoopStorageDuplicateError):
-        repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        _record_checkpoint(
+            repo,
             request=ChatDraftCheckpointRequest(
+                confirmed=True,
                 expected_revision=0,
                 draft_present=True,
                 draft_character_count=25,
@@ -152,13 +199,14 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
                     "draft-fingerprint-ref:chat:local-b001c0250539fdc1b001c0250539fdc1"
                 ),
             ),
-            idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-1",
+            key="checkpoint-1",
         )
 
-    archived = repo.record_chat_thread_lifecycle(
-        thread_ref=THREAD_REF,
-        request=ChatThreadLifecycleRequest(action="archive", expected_revision=1),
-        idempotency_key_ref="idempotency-ref:chat-workspace:archive-1",
+    archived = _record_lifecycle(
+        repo,
+        action="archive",
+        expected_revision=1,
+        key="archive-1",
     )
     assert archived["thread"]["state"] == "archived"
     assert archived["tool_execution_performed"] is False
@@ -166,34 +214,37 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_THREAD_ALREADY_ARCHIVED",
     ):
-        repo.record_chat_thread_lifecycle(
-            thread_ref=THREAD_REF,
-            request=ChatThreadLifecycleRequest(action="archive", expected_revision=2),
-            idempotency_key_ref="idempotency-ref:chat-workspace:archive-2",
+        _record_lifecycle(
+            repo,
+            action="archive",
+            expected_revision=2,
+            key="archive-2",
         )
     with pytest.raises(FounderLoopStorageError, match="CHAT_THREAD_ARCHIVED"):
-        repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        _record_checkpoint(
+            repo,
             request=_checkpoint(expected_revision=2),
-            idempotency_key_ref="idempotency-ref:chat-workspace:checkpoint-2",
+            key="checkpoint-2",
         )
 
-    recovered = repo.record_chat_thread_lifecycle(
-        thread_ref=THREAD_REF,
-        request=ChatThreadLifecycleRequest(action="recover", expected_revision=2),
-        idempotency_key_ref="idempotency-ref:chat-workspace:recover-1",
+    recovered = _record_lifecycle(
+        repo,
+        action="recover",
+        expected_revision=2,
+        key="recover-1",
     )
-    workspace = repo.chat_workspace()
+    workspace = repo.workspace()
 
     assert recovered["thread"]["state"] == "active"
     with pytest.raises(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_THREAD_ALREADY_ACTIVE",
     ):
-        repo.record_chat_thread_lifecycle(
-            thread_ref=THREAD_REF,
-            request=ChatThreadLifecycleRequest(action="recover", expected_revision=3),
-            idempotency_key_ref="idempotency-ref:chat-workspace:recover-2",
+        _record_lifecycle(
+            repo,
+            action="recover",
+            expected_revision=3,
+            key="recover-2",
         )
     assert workspace["status"] == "workspace_ready"
     assert workspace["active_thread_ref"] == THREAD_REF
@@ -205,17 +256,120 @@ def test_chat_workspace_persists_metadata_and_lifecycle_without_content(
     assert workspace["threads"][0]["draft_body_stored"] is False
 
 
+def test_chat_workspace_validates_exact_local_approval_before_storage(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    authority = LocalApprovalAuthority()
+    monkeypatch.setattr(
+        authority,
+        "validate_for_request",
+        lambda *_args, **_kwargs: SimpleNamespace(allowed=False),
+    )
+    service = ChatWorkspaceControlCenterService(
+        repo,
+        approval_authority=authority,
+    )
+
+    with pytest.raises(ChatWorkspaceApprovalError, match="APPROVAL_DENIED"):
+        service.record_draft_checkpoint(
+            thread_ref=THREAD_REF,
+            request=_checkpoint(),
+            idempotency_key_ref="idempotency-ref:chat-workspace:approval-denied",
+        )
+
+    assert repo.workspace()["threads"] == []
+
+
+def test_chat_workspace_repairs_pending_evidence_on_exact_replay(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+    repo = ChatWorkspaceRepository(state_dir)
+    original_append = repo._founder_loop.append_log
+
+    def fail_append(*_args, **_kwargs):
+        raise OSError("simulated evidence sink failure")
+
+    monkeypatch.setattr(repo._founder_loop, "append_log", fail_append)
+    with pytest.raises(FounderLoopStorageError, match="EVIDENCE_PENDING"):
+        _record_checkpoint(
+            repo,
+            request=_checkpoint(),
+            key="pending-evidence",
+        )
+
+    monkeypatch.setattr(repo._founder_loop, "append_log", original_append)
+    replay = _record_checkpoint(
+        repo,
+        request=_checkpoint(),
+        key="pending-evidence",
+    )
+    records = [
+        json.loads(line)
+        for line in (state_dir / "logs" / "receipt.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert replay["replayed"] is True
+    assert [record["event_ref"] for record in records] == [replay["receipt_ref"]]
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
+        delivered_at = conn.execute(
+            "SELECT delivered_at FROM chat_workspace_evidence_outbox"
+        ).fetchone()[0]
+    assert delivered_at is not None
+
+
+def test_chat_workspace_rejects_creation_beyond_visible_capacity(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+    repo = ChatWorkspaceRepository(state_dir)
+    timestamp = "2026-09-08T01:00:00+00:00"
+    with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
+        conn.executemany(
+            """
+            INSERT INTO chat_thread_states (
+                thread_ref, display_name, state, revision, draft_present,
+                draft_character_count, draft_fingerprint_ref, created_at, updated_at
+            ) VALUES (?, ?, 'active', 1, 0, 0, ?, ?, ?)
+            """,
+            [
+                (
+                    f"chat-thread:capacity-{index:03d}",
+                    f"Conversation {index}",
+                    CHAT_DRAFT_EMPTY_FINGERPRINT_REF,
+                    timestamp,
+                    timestamp,
+                )
+                for index in range(1, 101)
+            ],
+        )
+
+    assert len(repo.workspace()["threads"]) == 100
+    with pytest.raises(FounderLoopStorageError, match="CAPACITY_REACHED"):
+        _record_checkpoint(
+            repo,
+            request=_checkpoint(),
+            key="capacity-overflow",
+            thread_ref="chat-thread:capacity-overflow",
+        )
+
+
 def test_chat_workspace_serializes_concurrent_idempotent_checkpoints(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop")
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
     idempotency_key_ref = "idempotency-ref:chat-workspace:concurrent-checkpoint"
 
     def record() -> dict:
-        return repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        return _record_checkpoint(
+            repo,
             request=_checkpoint(),
-            idempotency_key_ref=idempotency_key_ref,
+            key=idempotency_key_ref.removeprefix("idempotency-ref:chat-workspace:"),
         )
 
     with ThreadPoolExecutor(max_workers=8) as executor:
@@ -223,42 +377,40 @@ def test_chat_workspace_serializes_concurrent_idempotent_checkpoints(
 
     assert len({receipt["receipt_ref"] for receipt in receipts}) == 1
     assert sum(not receipt["replayed"] for receipt in receipts) == 1
-    assert repo.chat_workspace()["threads"][0]["revision"] == 1
+    assert repo.workspace()["threads"][0]["revision"] == 1
 
 
 def test_chat_workspace_rejects_stale_checkpoint_and_lifecycle_revisions(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop")
-    repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
+    _record_checkpoint(
+        repo,
         request=_checkpoint(),
-        idempotency_key_ref="idempotency-ref:chat-workspace:revision-create",
+        key="revision-create",
     )
 
     with pytest.raises(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
     ):
-        repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        _record_checkpoint(
+            repo,
             request=_checkpoint(count=25),
-            idempotency_key_ref="idempotency-ref:chat-workspace:revision-stale-draft",
+            key="revision-stale-draft",
         )
     with pytest.raises(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_THREAD_REVISION_CONFLICT",
     ):
-        repo.record_chat_thread_lifecycle(
-            thread_ref=THREAD_REF,
-            request=ChatThreadLifecycleRequest(
-                action="archive",
-                expected_revision=2,
-            ),
-            idempotency_key_ref="idempotency-ref:chat-workspace:revision-stale-state",
+        _record_lifecycle(
+            repo,
+            action="archive",
+            expected_revision=2,
+            key="revision-stale-state",
         )
 
-    thread = repo.chat_workspace()["threads"][0]
+    thread = repo.workspace()["threads"][0]
     assert thread["revision"] == 1
     assert thread["state"] == "active"
     assert thread["draft_character_count"] == 24
@@ -266,12 +418,12 @@ def test_chat_workspace_rejects_stale_checkpoint_and_lifecycle_revisions(
 
 def test_chat_workspace_revalidates_stored_replay_receipts(tmp_path: Path) -> None:
     state_dir = tmp_path / "founder-loop"
-    repo = FounderLoopRepository(state_dir)
+    repo = ChatWorkspaceRepository(state_dir)
     key_ref = "idempotency-ref:chat-workspace:corrupt-replay"
-    repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
+    _record_checkpoint(
+        repo,
         request=_checkpoint(),
-        idempotency_key_ref=key_ref,
+        key=key_ref.removeprefix("idempotency-ref:chat-workspace:"),
     )
     with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
         stored = json.loads(
@@ -290,10 +442,10 @@ def test_chat_workspace_revalidates_stored_replay_receipts(tmp_path: Path) -> No
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
     ):
-        repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        _record_checkpoint(
+            repo,
             request=_checkpoint(),
-            idempotency_key_ref=key_ref,
+            key=key_ref.removeprefix("idempotency-ref:chat-workspace:"),
         )
 
 
@@ -301,12 +453,12 @@ def test_chat_workspace_rebinds_stored_replay_to_exact_request(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "founder-loop"
-    repo = FounderLoopRepository(state_dir)
+    repo = ChatWorkspaceRepository(state_dir)
     key_ref = "idempotency-ref:chat-workspace:rebound-replay"
-    repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
+    _record_checkpoint(
+        repo,
         request=_checkpoint(),
-        idempotency_key_ref=key_ref,
+        key=key_ref.removeprefix("idempotency-ref:chat-workspace:"),
     )
     with sqlite3.connect(state_dir / "founder_loop.sqlite3") as conn:
         stored = json.loads(
@@ -327,27 +479,28 @@ def test_chat_workspace_rebinds_stored_replay_to_exact_request(
         FounderLoopStorageError,
         match="FOUNDER_LOOP_CHAT_WORKSPACE_REPLAY_CORRUPT",
     ):
-        repo.record_chat_draft_checkpoint(
-            thread_ref=THREAD_REF,
+        _record_checkpoint(
+            repo,
             request=_checkpoint(),
-            idempotency_key_ref=key_ref,
+            key=key_ref.removeprefix("idempotency-ref:chat-workspace:"),
         )
 
 
 def test_chat_workspace_rejects_unbounded_or_wrong_namespace_thread_refs(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder-loop")
+    repo = ChatWorkspaceRepository(tmp_path / "founder-loop")
 
     for thread_ref in ("other-thread:q33", "chat-thread:" + "x" * 300):
         with pytest.raises(ValueError, match="bounded Chat workspace ref"):
-            repo.record_chat_draft_checkpoint(
+            _record_checkpoint(
+                repo,
                 thread_ref=thread_ref,
                 request=_checkpoint(),
-                idempotency_key_ref="idempotency-ref:chat-workspace:invalid-thread",
+                key="invalid-thread",
             )
 
-    assert repo.chat_workspace()["threads"] == []
+    assert repo.workspace()["threads"] == []
 
 
 def test_chat_workspace_api_exposes_clean_start_and_content_free_checkpoint(
@@ -403,7 +556,7 @@ def test_chat_workspace_api_rejects_body_fields_and_missing_threads(
             **_mutation_binding_headers(monkeypatch, tmp_path),
             "X-UAA-Idempotency-Key": "idempotency-ref:chat:missing",
         },
-        json={"action": "archive", "expected_revision": 1},
+        json={"confirmed": True, "action": "archive", "expected_revision": 1},
     )
     assert missing.status_code == 404
     assert missing.json()["detail"]["code"] == "FOUNDER_LOOP_CHAT_THREAD_NOT_FOUND"
@@ -466,6 +619,20 @@ def test_chat_workspace_private_routes_are_no_store_and_publish_body_limit() -> 
     client = TestClient(app)
     read_response = client.get("/control-center/chat/workspace")
     assert read_response.headers["Cache-Control"] == "no-store"
+    route = f"/control-center/chat/threads/{THREAD_REF}/draft-checkpoint"
+    missing_idempotency = client.post(route, json={})
+    missing_binding = client.post(
+        route,
+        headers={
+            "X-UAA-Idempotency-Key": "idempotency-ref:chat:no-store-binding"
+        },
+        json={},
+    )
+
+    assert missing_idempotency.status_code == 428
+    assert missing_idempotency.headers["Cache-Control"] == "no-store"
+    assert missing_binding.status_code == 409
+    assert missing_binding.headers["Cache-Control"] == "no-store"
 
     paths = app.openapi()["paths"]
     for route in (
@@ -481,11 +648,11 @@ def test_chat_workspace_cli_is_read_only_content_free_and_missing_state_safe(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "founder-loop"
-    repo = FounderLoopRepository(state_dir)
-    repo.record_chat_draft_checkpoint(
-        thread_ref=THREAD_REF,
+    repo = ChatWorkspaceRepository(state_dir)
+    _record_checkpoint(
+        repo,
         request=_checkpoint(),
-        idempotency_key_ref="idempotency-ref:chat-workspace:cli-checkpoint",
+        key="cli-checkpoint",
     )
     before_files = {
         path.relative_to(state_dir): (path.stat().st_mtime_ns, path.stat().st_size)

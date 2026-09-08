@@ -6354,7 +6354,7 @@ export async function checkpointChatDraft(
     threadRef,
     chatDraftCheckpointEndpoint(threadRef),
     request,
-    `idempotency-ref:control-center-chat-draft:${safeChatSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
+    `idempotency-ref:control-center-chat-draft:${safeHashSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
     binding,
   );
 }
@@ -6368,7 +6368,7 @@ export async function updateChatThreadLifecycle(
     threadRef,
     chatThreadLifecycleEndpoint(threadRef),
     request,
-    `idempotency-ref:control-center-chat-thread:${request.action}:${safeChatSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
+    `idempotency-ref:control-center-chat-thread:${request.action}:${safeHashSuffix(threadRef)}:${safeHashSuffix(stableStringifyForIdempotency(request))}`,
     binding,
   );
 }
@@ -6561,6 +6561,9 @@ function isChatThreadMutationReceipt(
       "evidence_ref",
       "idempotency_key_ref",
       "payload_fingerprint_ref",
+      "approval_ref",
+      "exact_approval_scope_ref",
+      "approval_validation_ref",
       "safe_summary",
       "raw_draft_received",
       "draft_body_stored",
@@ -6599,6 +6602,15 @@ function isChatThreadMutationReceipt(
     typeof record.payload_fingerprint_ref === "string" &&
     /^payload-fingerprint:chat-workspace:[0-9a-f]{64}$/.test(
       record.payload_fingerprint_ref,
+    ) &&
+    /^approval-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_ref),
+    ) &&
+    /^approval-scope-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.exact_approval_scope_ref),
+    ) &&
+    /^approval-validation-ref:chat-workspace:sha256:[0-9a-f]{32}$/.test(
+      String(record.approval_validation_ref),
     ) &&
     isChatSafeText(record.safe_summary, 300) &&
     chatTimestamp(record.created_at) !== null
@@ -6668,6 +6680,20 @@ async function chatThreadMutationReceiptMatchesRequest(
   if (!payloadFingerprintRef) {
     return false;
   }
+  const approvalDigest = await chatSha256Hex(
+    stableStringifyForIdempotency({
+      contract_ref: "contract-ref:chat-content-free-workspace:v1",
+      mutation_kind: mutationKind,
+      lifecycle_action: "action" in request ? request.action : null,
+      thread_ref: threadRef,
+      idempotency_key_ref: idempotencyRef,
+      payload_fingerprint_ref: payloadFingerprintRef,
+    }),
+  );
+  if (!approvalDigest) {
+    return false;
+  }
+  const approvalSuffix = approvalDigest.slice(0, 32);
   return (
     receipt.mutation_kind === mutationKind &&
     receipt.lifecycle_action === ("action" in request ? request.action : null) &&
@@ -6675,6 +6701,12 @@ async function chatThreadMutationReceiptMatchesRequest(
     receipt.thread.revision === expectedRevision &&
     receipt.idempotency_key_ref === idempotencyRef &&
     receipt.payload_fingerprint_ref === payloadFingerprintRef &&
+    receipt.approval_ref ===
+      `approval-ref:chat-workspace:sha256:${approvalSuffix}` &&
+    receipt.exact_approval_scope_ref ===
+      `approval-scope-ref:chat-workspace:sha256:${approvalSuffix}` &&
+    receipt.approval_validation_ref ===
+      `approval-validation-ref:chat-workspace:sha256:${approvalSuffix}` &&
     ("action" in request ||
       (receipt.thread.draft_present === request.draft_present &&
         receipt.thread.draft_character_count === request.draft_character_count &&

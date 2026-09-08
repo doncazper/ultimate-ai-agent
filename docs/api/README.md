@@ -329,7 +329,8 @@ Current boundary summary:
   summaries and Chat receipt/handoff refs with safe refs and bounded summaries
   only. The Chat workspace adds content-free draft checkpoint and thread
   lifecycle metadata; unsent draft bodies remain tab-local and are never sent
-  to the server. These routes do not grant action execution, connector writes,
+  to the server. Its mutations require explicit operator confirmation and an
+  exact local approval scope before storage. These routes do not grant action execution, connector writes,
   provider/model calls, memory writes, email/calendar reads, or notification
   delivery.
 - `GET /control-center/work-board` exposes the Work Board Kanban cockpit read

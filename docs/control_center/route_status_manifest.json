@@ -733,7 +733,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "high",
       "release_status": "founder_loop_v1_proofed",
-      "approval_requirement": "Content-free Chat workspace reads require no mutation approval. Draft checkpoint, archive, and recover routes require backend-truth binding, idempotency, and durable receipts. Reviewed local model prerequisites and explicit local gateway authorization remain required for the separate redacted probe; model output is not authority and no execution permission is granted.",
+      "approval_requirement": "Content-free Chat workspace reads require no mutation approval. Draft checkpoint, archive, and recover routes require explicit operator confirmation, exact LocalApprovalAuthority scope validation, backend-truth binding, idempotency, and durable receipts. Reviewed local model prerequisites and explicit local gateway authorization remain required for the separate redacted probe; model output is not authority and no execution permission is granted.",
       "evidence_audit_output": "The bounded Q33 Chat workspace records backend-owned draft metadata and thread lifecycle receipts without receiving draft bodies. Existing Chat turn and reviewable Actions/Plans handoff receipts remain proofed with model/runtime/auth/tool-denial truth refs and Evidence Timeline visibility. No model authority, handoff execution, memory write, plan/action execution, provider/public/production authority is granted.",
       "current_backend_routes": [
         {
@@ -2563,7 +2563,7 @@
       "side_effect_class": "local_ui_state_only",
       "risk_class": "high",
       "release_status": "founder_loop_v1_proofed",
-      "approval_requirement": "Content-free draft checkpoint and thread lifecycle routes require backend-truth binding and idempotency. Reviewed local model prerequisites and explicit local gateway authorization remain required before any model-backed chat loop can be product-ready. Model output is not authority.",
+      "approval_requirement": "Content-free draft checkpoint and thread lifecycle routes require explicit operator confirmation, exact LocalApprovalAuthority scope validation, backend-truth binding, and idempotency. Reviewed local model prerequisites and explicit local gateway authorization remain required before any model-backed chat loop can be product-ready. Model output is not authority.",
       "evidence_audit_output": "The bounded Q33 Chat workspace adds content-free draft metadata and archive/recover receipts. Existing durable turn receipts, Actions/Plans handoff receipts, model/runtime/auth/tool-denial truth refs, and Evidence Timeline visibility remain proofed; no model authority, handoff execution, memory write, plan/action execution, provider authority, public beta, or production authority is granted.",
       "backend_routes": [
         {

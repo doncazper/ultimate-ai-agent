@@ -1406,12 +1406,11 @@ class FoundationGateLegacyChecksPart003Mixin:
             *sorted((app_root / "src").rglob("*.tsx")),
             *sorted((app_root / "src").rglob("*.css")),
         ]
-        source_text_by_path = {
-            path.relative_to(self.root).as_posix(): self._read(path).lower()
+        source_text = "\n".join(
+            self._read(path).lower()
             for path in source_paths
             if self._context.is_file(path) and ".test." not in path.name
-        }
-        source_text = "\n".join(source_text_by_path.values())
+        )
         forbidden = [
             "/control-center/actions/execute",
             "/control-center/plugins/enable",
@@ -1431,20 +1430,11 @@ class FoundationGateLegacyChecksPart003Mixin:
             "app store connect",
             "keychain",
         ]
-        fragment_exceptions = {
-            "sessionstorage": {
-                "apps/control-center/src/components/ChatWorkspacePanel.tsx"
-            }
-        }
-        for fragment in forbidden:
-            unexpected_paths = [
-                path
-                for path, text in source_text_by_path.items()
-                if fragment in text
-                and path not in fragment_exceptions.get(fragment, set())
-            ]
-            if unexpected_paths:
-                failures.append(f"forbidden frontend source fragment: {fragment}")
+        failures.extend(
+            f"forbidden frontend source fragment: {fragment}"
+            for fragment in forbidden
+            if fragment in source_text
+        )
         if "no authority to run actions" not in source_text:
             failures.append("frontend does not visibly mark no action authority")
         return self._result(

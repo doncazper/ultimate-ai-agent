@@ -93,6 +93,11 @@ const receipt: ChatThreadMutationReceipt = {
     "evidence-ref:chat-workspace:draft_checkpoint:aaaaaaaaaaaaaaaa:revision-1",
   idempotency_key_ref: "idempotency-ref:chat-workspace:test",
   payload_fingerprint_ref: `payload-fingerprint:chat-workspace:${"a".repeat(64)}`,
+  approval_ref: `approval-ref:chat-workspace:sha256:${"b".repeat(32)}`,
+  exact_approval_scope_ref:
+    `approval-scope-ref:chat-workspace:sha256:${"b".repeat(32)}`,
+  approval_validation_ref:
+    `approval-validation-ref:chat-workspace:sha256:${"b".repeat(32)}`,
   safe_summary: "Content-free checkpoint recorded.",
   raw_draft_received: false,
   draft_body_stored: false,
@@ -114,7 +119,6 @@ function renderPanel() {
 describe("ChatWorkspacePanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    window.sessionStorage.clear();
     apiMocks.checkpointChatDraft.mockResolvedValue(receipt);
     apiMocks.updateChatThreadLifecycle.mockResolvedValue({
       ...receipt,
@@ -123,7 +127,7 @@ describe("ChatWorkspacePanel", () => {
     });
   });
 
-  it("supports clean-start drafting and restores the body only in this tab", async () => {
+  it("supports clean-start drafting and keeps the body in component state", async () => {
     apiMocks.fetchChatWorkspace
       .mockResolvedValueOnce(cleanWorkspace)
       .mockImplementation(async () => {
@@ -139,7 +143,7 @@ describe("ChatWorkspacePanel", () => {
           ],
         };
       });
-    const view = renderPanel();
+    renderPanel();
 
     expect(await screen.findByText("clean start")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send unavailable" })).toBeDisabled();
@@ -154,6 +158,7 @@ describe("ChatWorkspacePanel", () => {
       expect(apiMocks.checkpointChatDraft).toHaveBeenCalledWith(
         "chat-thread:local-default",
         expect.objectContaining({
+          confirmed: true,
           expected_revision: 0,
           draft_present: true,
           draft_character_count: 24,
@@ -167,10 +172,27 @@ describe("ChatWorkspacePanel", () => {
       await screen.findByText(/saved without sending or storing the draft body/i),
     ).toBeInTheDocument();
 
-    view.unmount();
-    renderPanel();
     expect(await screen.findByDisplayValue("x".repeat(24))).toBeInTheDocument();
     expect(screen.getByText("Draft restored in this tab")).toBeInTheDocument();
+  });
+
+  it("keeps an unsaved conversation reachable after starting another", async () => {
+    apiMocks.fetchChatWorkspace.mockResolvedValue(cleanWorkspace);
+    renderPanel();
+
+    await screen.findByText("clean start");
+    fireEvent.change(screen.getByLabelText("Draft"), {
+      target: { value: "reachable local draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+
+    const unsaved = screen.getByRole("button", {
+      name: /Unsaved conversation 1.*Unsaved in this tab/i,
+    });
+    expect(unsaved).toBeInTheDocument();
+    expect(screen.getByLabelText("Draft")).toHaveValue("");
+    fireEvent.click(unsaved);
+    expect(screen.getByLabelText("Draft")).toHaveValue("reachable local draft");
   });
 
   it("records archive and recovery through the backend-owned lifecycle", async () => {

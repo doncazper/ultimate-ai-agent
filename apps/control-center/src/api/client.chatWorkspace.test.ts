@@ -79,6 +79,7 @@ function stubWorkspace(value: unknown) {
 function stubCheckpointReceipt(
   overrides: Record<string, unknown> = {},
   includeResponseBinding = true,
+  expectedThreadRef = thread.thread_ref,
 ) {
   vi.stubGlobal(
     "fetch",
@@ -87,6 +88,7 @@ function stubCheckpointReceipt(
         "X-UAA-Idempotency-Key",
       );
       const request = JSON.parse(String(init?.body)) as {
+        confirmed: true;
         expected_revision: number;
         draft_present: boolean;
         draft_character_count: number;
@@ -94,12 +96,13 @@ function stubCheckpointReceipt(
         metadata_refs?: string[];
       };
       const canonicalPayload = JSON.stringify({
+        confirmed: request.confirmed,
         draft_character_count: request.draft_character_count,
         draft_fingerprint_ref: request.draft_fingerprint_ref,
         draft_present: request.draft_present,
         expected_revision: request.expected_revision,
         metadata_refs: request.metadata_refs ?? [],
-        thread_ref: thread.thread_ref,
+        thread_ref: expectedThreadRef,
       });
       const payloadDigest = await globalThis.crypto.subtle.digest(
         "SHA-256",
@@ -109,19 +112,53 @@ function stubCheckpointReceipt(
         new Uint8Array(payloadDigest),
         (byte) => byte.toString(16).padStart(2, "0"),
       ).join("")}`;
+      const approvalDigestBytes = await globalThis.crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(
+          JSON.stringify({
+            contract_ref: "contract-ref:chat-content-free-workspace:v1",
+            idempotency_key_ref: idempotencyRef,
+            lifecycle_action: null,
+            mutation_kind: "draft_checkpoint",
+            payload_fingerprint_ref: payloadFingerprintRef,
+            thread_ref: expectedThreadRef,
+          }),
+        ),
+      );
+      const approvalSuffix = Array.from(
+        new Uint8Array(approvalDigestBytes),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      )
+        .join("")
+        .slice(0, 32);
+      const threadDigestBytes = await globalThis.crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(expectedThreadRef),
+      );
+      const threadSuffix = Array.from(
+        new Uint8Array(threadDigestBytes),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      )
+        .join("")
+        .slice(0, 16);
       const receipt = {
         contract_ref: "contract-ref:chat-content-free-workspace:v1",
         mutation_kind: "draft_checkpoint",
         lifecycle_action: null,
-        thread,
+        thread: { ...thread, thread_ref: expectedThreadRef },
         receipt_ref:
-          "receipt:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+          `receipt:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
         audit_ref:
-          "audit:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+          `audit:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
         evidence_ref:
-          "evidence-ref:chat-workspace:draft_checkpoint:5f614fab2c0aeaf9:revision-1",
+          `evidence-ref:chat-workspace:draft_checkpoint:${threadSuffix}:revision-1`,
         idempotency_key_ref: idempotencyRef,
         payload_fingerprint_ref: payloadFingerprintRef,
+        approval_ref: `approval-ref:chat-workspace:sha256:${approvalSuffix}`,
+        exact_approval_scope_ref:
+          `approval-scope-ref:chat-workspace:sha256:${approvalSuffix}`,
+        approval_validation_ref:
+          `approval-validation-ref:chat-workspace:sha256:${approvalSuffix}`,
         safe_summary: "Content-free checkpoint recorded.",
         raw_draft_received: false,
         draft_body_stored: false,
@@ -194,6 +231,7 @@ describe("content-free Chat workspace API boundary", () => {
       checkpointChatDraft(
         thread.thread_ref,
         {
+          confirmed: true,
           expected_revision: 0,
           draft_present: true,
           draft_character_count: 24,
@@ -205,6 +243,27 @@ describe("content-free Chat workspace API boundary", () => {
       thread,
       mutation_kind: "draft_checkpoint",
     });
+  });
+
+  it("keeps idempotency refs bounded for the longest valid thread ref", async () => {
+    const longThreadRef = `chat-thread:${"a".repeat(188)}`;
+    stubCheckpointReceipt({}, true, longThreadRef);
+
+    await checkpointChatDraft(
+      longThreadRef,
+      {
+        confirmed: true,
+        expected_revision: 0,
+        draft_present: true,
+        draft_character_count: 24,
+        draft_fingerprint_ref: thread.draft_fingerprint_ref,
+      },
+      binding,
+    );
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+
+    expect(headers.get("X-UAA-Idempotency-Key")?.length).toBeLessThanOrEqual(200);
   });
 
   it.each([
@@ -235,6 +294,7 @@ describe("content-free Chat workspace API boundary", () => {
       checkpointChatDraft(
         thread.thread_ref,
         {
+          confirmed: true,
           expected_revision: 0,
           draft_present: true,
           draft_character_count: 24,
@@ -252,6 +312,7 @@ describe("content-free Chat workspace API boundary", () => {
       checkpointChatDraft(
         thread.thread_ref,
         {
+          confirmed: true,
           expected_revision: 0,
           draft_present: true,
           draft_character_count: 24,

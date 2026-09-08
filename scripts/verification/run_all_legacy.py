@@ -1086,16 +1086,6 @@ def verify_m13_web_control_center_frontend_safety() -> None:
                     in lowered
                 ):
                     continue
-                if (
-                    fragment == "sessionstorage"
-                    and rel_path.as_posix()
-                    == "apps/control-center/src/components/ChatWorkspacePanel.tsx"
-                    and lowered.count("sessionstorage") == 2
-                    and "chat_draft_session_key" in lowered
-                    and "sessionstorage.getitem" in lowered
-                    and "sessionstorage.setitem" in lowered
-                ):
-                    continue
                 if fragment == "authorization:" and rel_path.as_posix() == "apps/control-center/src/api/client.ts" and "withlocalapiauthheaders" in lowered and "setlocalapibearerforsession" in lowered and "consumelocalapibearerfromlocation" in lowered and "vite_uaa_local_api_bearer" not in lowered:
                     continue
                 print(f"FAIL: Forbidden frontend source fragment in {rel_path}: {fragment}")

@@ -277,12 +277,6 @@ BROWSER_API_FRAGMENTS = [
     "cllocation",
     "locationmanager",
 ]
-BROWSER_API_FRAGMENT_EXCEPTIONS = {
-    "sessionstorage": {
-        Path("apps/control-center/src/components/ChatWorkspacePanel.tsx")
-    }
-}
-
 NATIVE_OR_PLUGIN_FRAGMENTS = [
     "chrome.",
     "computer use",
@@ -751,9 +745,7 @@ def verify(root: Path = ROOT) -> list[str]:
             if _contains_forbidden_endpoint(text, endpoint):
                 failures.append(f"forbidden frontend endpoint in {rel}: {endpoint}")
         for fragment in BROWSER_API_FRAGMENTS:
-            if fragment in lowered and rel not in BROWSER_API_FRAGMENT_EXCEPTIONS.get(
-                fragment, set()
-            ):
+            if fragment in lowered:
                 failures.append(f"forbidden browser API in {rel}: {fragment}")
         for fragment in NATIVE_OR_PLUGIN_FRAGMENTS:
             if fragment in lowered:

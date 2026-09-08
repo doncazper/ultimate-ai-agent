@@ -23,18 +23,22 @@ the inspected path.
 The server stores only the thread ref, generated display name, lifecycle state,
 revision, draft-present flag, character count, and an opaque random session
 fingerprint that is not derived from the draft text. It
-does not receive or store the draft body. The current browser tab may retain an
-unsent draft in session storage so route changes and refresh can restore it. If
-that tab-local body is missing or its fingerprint does not match the backend
+does not receive or store the draft body. The mounted Chat surface may retain
+up to 100 unsent drafts in component memory and keeps each non-empty local
+conversation reachable from the rail. Draft bodies are discarded on reload. If
+a tab-local body is missing or its fingerprint does not match the backend
 checkpoint, the UI reports that re-entry is required instead of inventing a
 recovery.
 
 Draft checkpoints and archive/recover requests require the existing Control
-Center backend-truth binding, expected current revision, exact idempotency
-input, targeted local rate limits, bounded request size and JSON depth, durable
-replay/conflict handling, private no-store responses, and content-free
-receipt/audit refs. Stored replay receipts are reconstructed through the
-governing contract before they can be returned.
+Center backend-truth binding, explicit operator confirmation, exact
+`LocalApprovalAuthority` scope validation, expected current revision, exact
+idempotency input, targeted local rate limits, bounded request size and JSON
+depth, durable replay/conflict handling, private no-store responses, and
+content-free receipt/audit refs. Creation stops at the same 100-thread bound
+published by the read contract. A transactional evidence outbox repairs a
+failed JSONL append on exact replay. Stored replay receipts are reconstructed
+through the governing contract before they can be returned.
 
 ## Authority boundary
 
