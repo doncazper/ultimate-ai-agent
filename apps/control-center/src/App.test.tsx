@@ -9341,7 +9341,6 @@ describe("Web Control Center shell", () => {
       ["/briefing", /Morning Briefing/i],
       ["/crm", /UAA CRM local command center/i],
       ["/private-trial", /Private Operator Trial/i],
-      ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
       ["/differentiators", /Control Center Differentiators/i],
@@ -9371,33 +9370,7 @@ describe("Web Control Center shell", () => {
     ] as const;
 
     for (const [path, heading] of expectedHeadings) {
-      if (path === "/setup") {
-        vi.stubGlobal(
-          "fetch",
-          vi.fn(async () =>
-            new Response(
-              JSON.stringify({
-                success: true,
-                data: setupFixtureToBackendPayload(
-                  mockControlCenterData.macosSetupAssistant,
-                ),
-              }),
-              {
-                status: 200,
-                headers: {
-                  "Content-Type": "application/json",
-                  "X-UAA-Backend-Revision-Ref":
-                    TEST_MUTATION_BINDING.backendRevisionRef,
-                  "X-UAA-Backend-Instance-Ref":
-                    TEST_MUTATION_BINDING.backendInstanceRef,
-                },
-              },
-            ),
-          ),
-        );
-      } else {
-        mockFetchWithFallback();
-      }
+      mockFetchWithFallback();
       window.history.pushState({}, "", path);
       const { unmount } = render(<App />);
       expect(
@@ -9406,6 +9379,20 @@ describe("Web Control Center shell", () => {
       unmount();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("renders a clear heading for the backend-bound Setup page", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.setupAssistantSummary]: setupFixtureToBackendPayload(
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    });
+    window.history.pushState({}, "", "/setup");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
+    ).toBeInTheDocument();
   });
 
   it("blocks all goal controls when backend truth is current but durable events are invalid", async () => {
@@ -22226,15 +22213,6 @@ function setupFixtureToBackendPayload(value: unknown): unknown {
   );
 }
 
-function setupAssistantSummaryForTest() {
-  return {
-    ...(setupFixtureToBackendPayload(
-      mockControlCenterData.macosSetupAssistant,
-    ) as Record<string, unknown>),
-    ...mockApiData.setupAssistantSummary,
-  };
-}
-
 function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
@@ -22357,7 +22335,7 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePluginMetadataPosture,
     [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
       mockControlCenterData.runtimeSkillMarketplacePosture,
-    [API_ENDPOINTS.setupAssistantSummary]: setupAssistantSummaryForTest(),
+    [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,

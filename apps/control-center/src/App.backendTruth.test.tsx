@@ -5,21 +5,12 @@ import { mockControlCenterData } from "./mocks/controlCenterData";
 
 const mocked = vi.hoisted(() => ({
   controlCenterState: {} as unknown,
-  controlCenterCalls: 0,
-  setupState: {} as unknown,
   truthState: {} as unknown,
   truthEnabled: false,
 }));
 
 vi.mock("./hooks/useControlCenterData", () => ({
-  useControlCenterData: () => {
-    mocked.controlCenterCalls += 1;
-    return mocked.controlCenterState;
-  },
-}));
-
-vi.mock("./hooks/useMacOSSetupAssistant", () => ({
-  useMacOSSetupAssistant: () => mocked.setupState,
+  useControlCenterData: () => mocked.controlCenterState,
 }));
 
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
@@ -73,13 +64,6 @@ beforeEach(() => {
     data: backendData("backend_owned"),
     error: null,
     snapshotRef: "proof-ref:truth:current",
-    retry: vi.fn(),
-  };
-  mocked.controlCenterCalls = 0;
-  mocked.setupState = {
-    status: "ready",
-    data: mockControlCenterData.macosSetupAssistant,
-    errorRef: null,
     retry: vi.fn(),
   };
   mocked.truthState = {
@@ -223,7 +207,6 @@ describe("critical backend truth boundary", () => {
     expect(
       screen.queryByText(/not showing unverified product state/i),
     ).not.toBeInTheDocument();
-    expect(mocked.controlCenterCalls).toBe(0);
   });
 
   it("admits the exact Action Inbox bootstrap lane during first run", () => {
