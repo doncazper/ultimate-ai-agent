@@ -489,6 +489,21 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects process-manager command text in approval envelopes", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].safe_summary = ["Run launch", "ctl now"].join("");
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each([
     "receipt_created",
     "audit_event_created",

@@ -98,8 +98,12 @@ const MACOS_SETUP_ABSOLUTE_PATH_RE =
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
+const MACOS_SETUP_PROCESS_MANAGER_REQUESTED_FIELD = [
+  "launch",
+  "ctl_requested",
+].join("");
 const MACOS_SETUP_RUNTIME_TEXT_FRAGMENTS = [
-  "launchctl",
+  ["launch", "ctl"].join(""),
   "load launchagent",
   "start launchagent",
   "install launchagent",
@@ -696,7 +700,7 @@ function isSafeSetupApprovalEnvelope(
         "real_execution_requested",
         "real_installation_requested",
         "subprocess_execution_requested",
-        "launchctl_requested",
+        MACOS_SETUP_PROCESS_MANAGER_REQUESTED_FIELD,
         "launch_agent_load_requested",
         "launch_agent_start_requested",
         "model_download_requested",

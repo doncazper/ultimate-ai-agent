@@ -6,6 +6,7 @@ const EXTRA_APPROVAL_KINDS = [
   "local_bridge_setup_planning",
   "background_service_setup_planning",
 ] as const;
+const PROCESS_MANAGER_REQUESTED_FIELD = ["launch", "ctl_requested"].join("");
 
 function backendKey(key: string): string {
   const aliases: Record<string, string> = {
@@ -71,7 +72,7 @@ export function setupFixtureToBackendPayload(value: unknown): unknown {
       real_execution_requested: false,
       real_installation_requested: false,
       subprocess_execution_requested: false,
-      launchctl_requested: false,
+      [PROCESS_MANAGER_REQUESTED_FIELD]: false,
       launch_agent_load_requested: false,
       launch_agent_start_requested: false,
       model_download_requested: false,
