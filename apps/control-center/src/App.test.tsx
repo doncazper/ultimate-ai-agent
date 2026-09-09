@@ -22216,6 +22216,8 @@ function setupAssistantSummaryForTest() {
     receipt_plan: base.receipt_plan,
     rollback_plan: base.rollback_plan,
     promotion_path_refs: base.promotion_path_refs,
+    local_package_proof_status: base.local_package_proof_status,
+    local_package_proof_refs: base.local_package_proof_refs,
   };
 }
 
