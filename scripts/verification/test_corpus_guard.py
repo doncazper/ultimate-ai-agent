@@ -101,7 +101,7 @@ AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256 = (
 FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verification/ci_command_manifest.py": (
         "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
-        "03f83c22ec6a4135e156f1d773325fabfbabeb29cde4f2d3ec2aec8d2fd3d0b2",
+        "9ce74ebe81c01e4cd15f961fe8bde31932c713ffdd6426f7a36e74d7d6fdaa02",
     ),
     "scripts/verification/verification_contracts.py": (
         "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",
