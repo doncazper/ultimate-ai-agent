@@ -25831,7 +25831,7 @@ export const mockControlCenterData: ControlCenterData = {
         label: "Live health proof",
         status: "blocked",
         safeSummary:
-          "Live checks remain blocked because this lane cannot run probes.",
+          "Live process, version, loopback, compatibility, and forbidden-authority checks remain blocked because this lane cannot run probes.",
         sourceRefs: ["health-contract:macos-setup-lifecycle-v1"],
         reasonCodes: ["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
         nextSafeAction: "scope-read-only-health-probe-authority",
@@ -25844,7 +25844,7 @@ export const mockControlCenterData: ControlCenterData = {
         label: "Rollback readiness",
         status: "blocked",
         safeSummary:
-          "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked.",
+          "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked until an exact mutation lane is separately accepted.",
         sourceRefs: [
           "macos-setup-rollback-plan:foundation",
           "rollback-contract:macos-setup-lifecycle-v1",

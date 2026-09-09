@@ -442,6 +442,47 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it.each([
+    ["label", "Native macOS application is production ready"],
+    ["safe_summary", "Native app setup is production ready."],
+  ])("rejects substituted diagnostic display text in %s", (field, value) => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    const nativeApp = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.diagnostic_ref === "macos-setup-diagnostic:native-app",
+    );
+    expect(nativeApp).toBeDefined();
+    nativeApp![field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["runtime_health", "model_selection"])(
+    "rejects substituted prerequisite routes for %s",
+    (kind) => {
+      const payload = completeSetupPayload();
+      const steps = payload.steps as Array<Record<string, unknown>>;
+      const step = steps.find((candidate) => candidate.kind === kind);
+      expect(step).toBeDefined();
+      step!.route_refs = [
+        "/control-center/actions/{action_id}/local-task/commit",
+      ];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
   it("rejects an incomplete static diagnostic sequence", () => {
     const payload = completeSetupPayload();
     const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;

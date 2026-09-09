@@ -336,84 +336,106 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     status: "ready",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: [],
   },
   runtime_health: {
     stepId: "macos-setup-step:runtime-health",
     status: "ready",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: [
+      "/health",
+      "/version",
+      "/runtime/readiness",
+      "/runtime/capability-matrix",
+    ],
   },
   local_model_readiness: {
     stepId: "macos-setup-step:local-model-readiness",
     status: "blocked",
     nextSafeAction: "enable-reviewed-local-gateway",
     approvalRequired: false,
+    routeRefs: ["/v1/models", "/v1/chat/completions"],
   },
   model_selection: {
     stepId: "macos-setup-step:model-selection",
     status: "approval_required",
     nextSafeAction: "review-model-choice",
     approvalRequired: true,
+    routeRefs: [],
   },
   model_download_planning: {
     stepId: "macos-setup-step:model-download-planning",
     status: "approval_required",
     nextSafeAction: "review-model-download-envelope",
     approvalRequired: true,
+    routeRefs: [],
   },
   launch_agent_setup_planning: {
     stepId: "macos-setup-step:launch-agent-setup-planning",
     status: "blocked",
     nextSafeAction: "wait-for-native-packaging-milestone",
     approvalRequired: true,
+    routeRefs: [],
   },
   local_bridge_setup_planning: {
     stepId: "macos-setup-step:local-bridge-setup-planning",
     status: "approval_required",
     nextSafeAction: "review-local-bridge-envelope",
     approvalRequired: true,
+    routeRefs: ["/v1/models", "/v1/chat/completions"],
   },
   background_service_setup_planning: {
     stepId: "macos-setup-step:background-service-setup-planning",
     status: "blocked",
     nextSafeAction: "keep-background-service-not-scoped",
     approvalRequired: true,
+    routeRefs: [],
   },
   setup_question: {
     stepId: "macos-setup-step:ask-setup-question",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: [],
   },
   openwebui_bridge: {
     stepId: "macos-setup-step:openwebui-bridge",
     status: "approval_required",
     nextSafeAction: "review-openwebui-bridge",
     approvalRequired: true,
+    routeRefs: ["/v1/models", "/v1/chat/completions"],
   },
   mattermost_bridge: {
     stepId: "macos-setup-step:mattermost-bridge",
     status: "approval_required",
     nextSafeAction: "review-mattermost-bridge",
     approvalRequired: true,
+    routeRefs: [
+      "/integrations/mattermost/status",
+      "/integrations/mattermost/roles/catalog",
+    ],
   },
   approval: {
     stepId: "macos-setup-step:approvals",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: ["/approvals/validate", "/control-center/actions/preview"],
   },
   receipt_audit_latency: {
     stepId: "macos-setup-step:receipts-audit-latency",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: ["/receipts", "/events"],
   },
   rollback_uninstall: {
     stepId: "macos-setup-step:rollback-uninstall",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
+    routeRefs: [],
   },
 } as const;
 const MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE = [
@@ -424,7 +446,10 @@ const MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE = [
 ] as const;
 const MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF = {
   "macos-setup-diagnostic:read-only-plan": {
+    label: "Read-only setup plan",
     status: "ready",
+    safeSummary:
+      "The backend-owned plan, lifecycle contract, and bounded preview are ready for local inspection.",
     nextSafeAction: "inspect-setup-plan",
     sourceRefs: [
       "api-surface:control-center-setup-summary",
@@ -433,19 +458,28 @@ const MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF = {
     reasonCodes: ["MACOS_SETUP_READ_ONLY_PLAN_READY"],
   },
   "macos-setup-diagnostic:native-app": {
+    label: "Native macOS application",
     status: "missing",
+    safeSummary:
+      "A native macOS application is not implemented; the current Control Center surface is a local read-only preview.",
     nextSafeAction: "review-native-shell-scope",
     sourceRefs: ["control-center:setup-assistant-preview"],
     reasonCodes: ["MACOS_SETUP_NATIVE_APP_MISSING"],
   },
   "macos-setup-diagnostic:live-health-proof": {
+    label: "Live health proof",
     status: "blocked",
+    safeSummary:
+      "Live process, version, loopback, compatibility, and forbidden-authority checks remain blocked because this lane cannot run probes.",
     nextSafeAction: "scope-read-only-health-probe-authority",
     sourceRefs: ["health-contract:macos-setup-lifecycle-v1"],
     reasonCodes: ["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
   },
   "macos-setup-diagnostic:rollback-proof": {
+    label: "Rollback readiness",
     status: "blocked",
+    safeSummary:
+      "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked until an exact mutation lane is separately accepted.",
     nextSafeAction: "define-and-rehearse-exact-rollback-lane",
     sourceRefs: [
       "macos-setup-rollback-plan:foundation",
@@ -962,9 +996,9 @@ function isSafeSetupDiagnostic(value: Record<string, unknown>): boolean {
   const contract = setupDiagnosticContract(value.diagnostic_ref);
   return (
     contract !== undefined &&
-    isSafeText(value.label, 120) &&
+    value.label === contract.label &&
     value.status === contract.status &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === contract.safeSummary &&
     hasExactStringSequence(value.source_refs, contract.sourceRefs) &&
     hasExactStringSequence(value.reason_codes, contract.reasonCodes) &&
     value.next_safe_action === contract.nextSafeAction &&
@@ -985,7 +1019,7 @@ function isSafeSetupStep(value: Record<string, unknown>): boolean {
     isSafeText(value.label, 120) &&
     value.status === contract.status &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeRouteArray(value.route_refs) &&
+    hasExactStringSequence(value.route_refs, contract.routeRefs) &&
     isSafeTextArray(value.detail_preview, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeTextArray(value.log_preview, MACOS_SETUP_MAX_LOG_CHARS) &&
     value.approval_required === contract.approvalRequired &&

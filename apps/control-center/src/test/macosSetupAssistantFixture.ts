@@ -18,6 +18,12 @@ const EXTRA_APPROVAL_STEP_STATUS_BY_KIND = {
   local_bridge_setup_planning: "approval_required",
   background_service_setup_planning: "blocked",
 } as const;
+const EXTRA_APPROVAL_ROUTE_REFS_BY_KIND = {
+  model_download_planning: [],
+  launch_agent_setup_planning: [],
+  local_bridge_setup_planning: ["/v1/models", "/v1/chat/completions"],
+  background_service_setup_planning: [],
+} as const;
 const PROCESS_MANAGER_COMMAND = ["launch", "ctl"].join("");
 const EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND = {
   model_download_planning: "review-model-download-envelope",
@@ -223,6 +229,7 @@ function withCompleteApprovalKinds(
       label: `Bounded ${slug} review`,
       kind,
       status: EXTRA_APPROVAL_STEP_STATUS_BY_KIND[kind],
+      route_refs: EXTRA_APPROVAL_ROUTE_REFS_BY_KIND[kind],
       next_safe_action: EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND[kind],
       approval_ref: approvalRef,
       receipt_ref: receiptRef,
