@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
+import { buildCompleteMacOSSetupPayload } from "../test/macosSetupAssistantFixture";
 import { normalizeMacOSSetupAssistant } from "./macosSetupAssistant";
 
 const LIFECYCLE_STATES = [
@@ -27,6 +28,23 @@ const LIFECYCLE_OPERATIONS = [
   "rollback",
   "receipts",
 ] as const;
+const LIFECYCLE_SAFE_SUMMARY_BY_OPERATION = {
+  plan: "Inspect the exact local setup lifecycle plan without changing local state.",
+  status:
+    "Inspect backend-owned lifecycle posture without probing or launching a process.",
+  install:
+    "Installation remains blocked until an exact setup mutation milestone is accepted.",
+  verify:
+    "Live process and readiness verification remains blocked until probe authority is accepted.",
+  repair:
+    "Repair remains blocked until exact artifact scope and rollback authority are accepted.",
+  stop:
+    "Process stop remains blocked until exact process identity and control authority are accepted.",
+  rollback:
+    "Rollback execution remains blocked until an exact installed artifact receipt exists.",
+  receipts:
+    "Inspect planned receipt and rollback refs without claiming a durable setup receipt.",
+} as const;
 
 function lifecycleOperationPayload(
   operation: (typeof LIFECYCLE_OPERATIONS)[number],
@@ -42,7 +60,7 @@ function lifecycleOperationPayload(
     status: readOnly ? "available_read_only" : "blocked_by_authority",
     current_state: "prerequisites",
     target_state: "prerequisites",
-    safe_summary: "Bounded setup lifecycle operation.",
+    safe_summary: LIFECYCLE_SAFE_SUMMARY_BY_OPERATION[operation],
     exact_scope_ref: `scope-ref:macos-setup-lifecycle:${operation}`,
     approval_ref: `approval-ref:macos-setup-lifecycle:${operation}`,
     idempotency_key_ref: `idempotency-ref:macos-setup-lifecycle:${operation}`,
@@ -107,7 +125,472 @@ function lifecyclePayload(
   };
 }
 
+function completeSetupPayload(): Record<string, unknown> {
+  return buildCompleteMacOSSetupPayload(
+    mockControlCenterData.macosSetupAssistant,
+  );
+}
+
 describe("macOS Setup Assistant normalization provenance", () => {
+  it("accepts the complete bounded backend safety contract", () => {
+    const normalized = normalizeMacOSSetupAssistant(
+      completeSetupPayload(),
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(false);
+    expect(normalized.value.planRef).toBe(
+      mockControlCenterData.macosSetupAssistant.planRef,
+    );
+    expect(normalized.value.steps).toHaveLength(14);
+    expect(normalized.value.approvalEnvelopes).toHaveLength(7);
+  });
+
+  it("rejects a top-level Setup status promoted beyond dry run", () => {
+    const payload = completeSetupPayload();
+    payload.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+    ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["status", "public_signed_distribution_ready"],
+    ["refs", ["proof-ref:public-signed-installer"]],
+  ])("rejects substituted local package proof %s", (field, value) => {
+    const payload = completeSetupPayload();
+    if (field === "status") {
+      payload.local_package_proof_status = value;
+    } else {
+      payload.local_package_proof_refs = value;
+    }
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+    ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["full_strength_goal", "Setup is production ready."],
+    ["repo_safe_scope", "Installer execution is in scope."],
+    ["blocked_authority_summary", "All authority is granted."],
+    ["first_run_loop_refs", ["proof-ref:public-release-ready"]],
+    ["next_steps", ["Execute installer now."]],
+    ["morning_review_checklist", ["Download a model now."]],
+  ])("rejects substituted top-level Setup contract field %s", (field, value) => {
+    const payload = completeSetupPayload();
+    payload[field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a lifecycle operation rebound to another valid target state", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install!.target_state = "healthy";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a lifecycle operation rebound to another valid command ref", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install!.command_ref = "repo-local-command:macos-setup-lifecycle:status";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["exact_scope_ref", "scope-ref:macos-setup-lifecycle:stop"],
+    ["approval_ref", "approval-ref:macos-setup-lifecycle:stop"],
+    [
+      "idempotency_key_ref",
+      "idempotency-ref:macos-setup-lifecycle:stop",
+    ],
+    ["receipt_ref", "receipt-plan:macos-setup-lifecycle:stop"],
+    ["rollback_ref", "rollback-plan:macos-setup-lifecycle:stop"],
+    ["safe_disable_ref", "safe-disable-ref:macos-setup-lifecycle:stop"],
+  ])("rejects a rebound lifecycle %s", (field, substitutedRef) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install![field] = substitutedRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["cli_surface_ref", "repo-local-command:unrelated-surface"],
+    ["api_surface_ref", "api-surface:unrelated-summary"],
+    ["python_core_service_ref", "python-core-service:unrelated"],
+    ["safe_disable_ref", "safe-disable-ref:unrelated:enabled"],
+    ["rollback_contract_ref", "rollback-contract-ref:unrelated"],
+    ["receipt_contract_ref", "receipt-contract-ref:unrelated"],
+  ])("rejects a rebound lifecycle contract %s", (field, substitutedRef) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    lifecycle[field] = substitutedRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete lifecycle health-check contract", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const healthContract = lifecycle.health_contract as Record<string, unknown>;
+    healthContract.required_check_refs = [
+      "health-check-ref:setup-process-identity",
+    ];
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a bridge preview enabled by default", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].enablement_default = "enabled";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a bridge preview promoted to ready", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects substituted bridge labels and summaries", () => {
+    const substitutions = [
+      ["label", "Enabled OpenWebUI bridge"],
+      ["safe_summary", "OpenWebUI bridge enablement is complete."],
+    ] as const;
+
+    for (const [field, replacement] of substitutions) {
+      const payload = completeSetupPayload();
+      const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+      bridges[0][field] = replacement;
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects a substituted visual shell identity", () => {
+    const payload = completeSetupPayload();
+    payload.visual_shell_ref = "control-center:production-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a broadened approval scope for a bounded setup step", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].requested_scope_refs = [
+      "scope-ref:macos-setup-production-authority",
+    ];
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another valid status", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    const backgroundService = envelopes.find(
+      (envelope) =>
+        envelope.setup_step_kind === "background_service_setup_planning",
+    );
+    expect(backgroundService).toBeDefined();
+    backgroundService!.status = "approval_required";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope action rebound to an executable ref", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].operator_next_action = "execute-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["not_scoped_actions", "blocked_runtime_authority"])(
+    "rejects a substituted approval-envelope %s set",
+    (field) => {
+      const payload = completeSetupPayload();
+      const envelopes = payload.approval_envelopes as Array<
+        Record<string, unknown>
+      >;
+      envelopes[0][field] = ["review-only"];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects a blocked setup step rebound to ready", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const backgroundService = steps.find(
+      (step) => step.kind === "background_service_setup_planning",
+    );
+    expect(backgroundService).toBeDefined();
+    backgroundService!.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a non-envelope setup step rebound to ready", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const localModel = steps.find(
+      (step) => step.kind === "local_model_readiness",
+    );
+    expect(localModel).toBeDefined();
+    localModel!.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete static setup-step sequence", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    payload.steps = steps.filter(
+      (step) => step.kind !== "local_model_readiness",
+    );
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a mutating diagnostic next-action substitution", () => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    const nativeApp = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.diagnostic_ref === "macos-setup-diagnostic:native-app",
+    );
+    expect(nativeApp).toBeDefined();
+    nativeApp!.next_safe_action = "execute-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["label", "Native macOS application is production ready"],
+    ["safe_summary", "Native app setup is production ready."],
+  ])("rejects substituted diagnostic display text in %s", (field, value) => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    const nativeApp = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.diagnostic_ref === "macos-setup-diagnostic:native-app",
+    );
+    expect(nativeApp).toBeDefined();
+    nativeApp![field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["label", "Production setup complete"],
+    ["safe_summary", "Production setup is complete."],
+  ])("rejects substituted setup-step display text in %s", (field, value) => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const firstLaunch = steps.find((step) => step.kind === "first_launch");
+    expect(firstLaunch).toBeDefined();
+    firstLaunch![field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["runtime_health", "model_selection"])(
+    "rejects substituted prerequisite routes for %s",
+    (kind) => {
+      const payload = completeSetupPayload();
+      const steps = payload.steps as Array<Record<string, unknown>>;
+      const step = steps.find((candidate) => candidate.kind === kind);
+      expect(step).toBeDefined();
+      step!.route_refs = [
+        "/control-center/actions/{action_id}/local-task/commit",
+      ];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects an incomplete static diagnostic sequence", () => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    payload.diagnostics = diagnostics.slice(1);
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["empty", []],
+    [
+      "incomplete",
+      mockControlCenterData.macosSetupAssistant.blockedCapabilities.slice(1),
+    ],
+    [
+      "substituted",
+      [
+        ...mockControlCenterData.macosSetupAssistant.blockedCapabilities.slice(
+          0,
+          -1,
+        ),
+        "macos-setup-broader-authority",
+      ],
+    ],
+  ])("rejects a %s blocked-capability contract", (_name, capabilities) => {
+    const payload = completeSetupPayload();
+    payload.blocked_capabilities = capabilities;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("marks partial backend objects as fallback-derived", () => {
     const normalized = normalizeMacOSSetupAssistant(
       { plan_ref: "setup-plan-ref:partial" },
@@ -152,25 +635,9 @@ describe("macOS Setup Assistant normalization provenance", () => {
     );
 
     expect(normalized.usedFallback).toBe(true);
-    expect(normalized.value.lifecycle.contractRef).toBe(
-      "macos-setup-lifecycle-contract:backend-test",
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
     );
-    expect(normalized.value.lifecycle.stateSequence).toEqual(LIFECYCLE_STATES);
-    expect(
-      normalized.value.lifecycle.operations.find(
-        (operation) => operation.operation === "install",
-      ),
-    ).toMatchObject({
-      operation: "install",
-      status: "blocked_by_authority",
-      targetState: "installed",
-      mutationRequired: true,
-      authorityGranted: false,
-      stateChangePerformed: false,
-    });
-    expect(
-      normalized.value.lifecycle.healthContract.processIdentityVerified,
-    ).toBe(false);
   });
 
   it("fails closed on tampered lifecycle execution and authority claims", () => {
@@ -330,6 +797,648 @@ describe("macOS Setup Assistant normalization provenance", () => {
     });
   });
 
+  it.each([
+    "launch_agent_removed",
+    "model_files_removed",
+    "config_removed",
+  ])("fails closed when rollback claims %s", (unsafeField) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    payload.rollback_plan = {
+      ...rollbackPlan,
+      launch_agent_removed: false,
+      model_files_removed: false,
+      config_removed: false,
+    };
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(false);
+
+    payload.rollback_plan = {
+      ...(payload.rollback_plan as Record<string, unknown>),
+      [unsafeField]: true,
+    };
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it.each([
+    "macos_first",
+    "local_first",
+    "disabled_by_default",
+    "control_center_preview_ready",
+  ])("rejects a disabled required posture flag %s", (field) => {
+    const payload = completeSetupPayload();
+    payload[field] = false;
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it.each([
+    "native_macos_app_ready",
+    "setup_question_assistant_enabled",
+    "model_output_authoritative",
+    "installer_side_effects_enabled",
+  ])("rejects a forbidden top-level authority claim %s", (field) => {
+    const payload = completeSetupPayload();
+    payload[field] = true;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    ).toMatchObject({
+      usedFallback: true,
+      value: mockControlCenterData.macosSetupAssistant,
+    });
+  });
+
+  it.each([
+    ["steps", "state_change_allowed"],
+    ["steps", "terminal_command_executed"],
+    ["steps", "raw_log_stored"],
+    ["model_recommendations", "model_download_performed"],
+    ["model_recommendations", "model_call_performed"],
+    ["model_recommendations", "raw_local_path_included"],
+    ["bridge_previews", "credential_material_stored"],
+    ["bridge_previews", "raw_transcript_stored"],
+    ["bridge_previews", "connector_write_performed"],
+    ["approval_envelopes", "real_execution_requested"],
+    ["approval_envelopes", "provider_or_model_call_requested"],
+    ["approval_envelopes", "raw_prompt_included"],
+  ])(
+    "rejects nested forbidden claim %s.%s",
+    (collectionName, field) => {
+      const payload = completeSetupPayload();
+      const collection = payload[collectionName] as Array<
+        Record<string, unknown>
+      >;
+      collection[0][field] = true;
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects missing approval requirements and forged receipt bindings", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].exact_scope_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+
+    const reboundPayload = completeSetupPayload();
+    const reboundEnvelopes = reboundPayload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    reboundEnvelopes[0].expected_receipt_ref =
+      "receipt-plan:macos-setup:substituted";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        reboundPayload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+
+    const unapprovedStepPayload = completeSetupPayload();
+    const approvalBoundSteps = unapprovedStepPayload.steps as Array<
+      Record<string, unknown>
+    >;
+    const approvalBoundStep = approvalBoundSteps.find(
+      (step) => step.kind === "model_selection",
+    );
+    expect(approvalBoundStep).toBeDefined();
+    approvalBoundStep!.status = "ready";
+    approvalBoundStep!.approval_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        unapprovedStepPayload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects model download recommendations without approval", () => {
+    const payload = completeSetupPayload();
+    const recommendations = payload.model_recommendations as Array<
+      Record<string, unknown>
+    >;
+    recommendations[0].approval_required_before_download = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects bridge previews without approval", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].approval_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval-scoped step without a unique envelope", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const modelSelectionStep = steps.find(
+      (step) => step.kind === "model_selection",
+    );
+    expect(modelSelectionStep).toBeDefined();
+    steps.push({
+      ...modelSelectionStep,
+      step_id: "macos-setup-step:unbound-model-selection",
+      status: "ready",
+      approval_required: false,
+    });
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects process-manager command text in approval envelopes", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].safe_summary = ["Run launch", "ctl now"].join("");
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope summary rebound from another setup kind", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    const openWebUIEnvelope = envelopes.find(
+      (envelope) => envelope.setup_step_kind === "openwebui_bridge",
+    );
+    expect(openWebUIEnvelope).toBeDefined();
+    openWebUIEnvelope!.safe_summary =
+      "Dry-run envelope for future model choice review; no model is selected, read, downloaded, or called.";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["stale-state guidance", "stale_state_handling"],
+    ["redaction guidance", "redaction_summary"],
+  ])(
+    "rejects substituted approval-envelope %s across every setup lane",
+    (_name, field) => {
+      const baseline = completeSetupPayload();
+      const baselineEnvelopes = baseline.approval_envelopes as Array<
+        Record<string, unknown>
+      >;
+
+      baselineEnvelopes.forEach((_envelope, envelopeIndex) => {
+        const payload = completeSetupPayload();
+        const envelopes = payload.approval_envelopes as Array<
+          Record<string, unknown>
+        >;
+        envelopes[envelopeIndex][field] =
+          field === "stale_state_handling"
+            ? "This envelope never becomes stale."
+            : "Raw credentials and logs are included.";
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      });
+    },
+  );
+
+  it.each([
+    "receipt_created",
+    "audit_event_created",
+    "raw_log_stored",
+    "raw_prompt_stored",
+    "raw_provider_payload_stored",
+    "credential_material_stored",
+  ])("rejects receipt-plan write claim %s", (field) => {
+    const payload = completeSetupPayload();
+    const receiptPlan = payload.receipt_plan as Record<string, unknown>;
+    receiptPlan[field] = true;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
+    ["fine-grained GitHub token", `github_pat_${"a".repeat(82)}`],
+    ["terminal control text", "Unsafe\u001bsummary"],
+    ["raw local path", "Review /Users/operator/private.log"],
+    ["unlisted workspace path", "Review /workspace/operator/private.log"],
+    ["unlisted mount path", "Inspect /mnt/data/config.json"],
+    ["punctuation-prefixed absolute path", "Review /+mount/private.log"],
+    ["hyphen-adjacent path", "Review-/Users/operator/private.log"],
+    ["underscore-adjacent path", "Review_/Library/LaunchAgents/example.plist"],
+    ["period-adjacent path", "Review./workspace/operator/private.log"],
+    ["punctuated raw local path", "Path:/Users/operator/private.log"],
+    ["repeated-slash raw local path", "Review //Users/operator/private.log"],
+    ["file URL raw local path", "Review file:///Users/operator/private.log"],
+    ["macOS application path", "Review /Applications/UAA.app"],
+    [
+      "macOS launch agent path",
+      "Review /Library/LaunchAgents/com.example.plist",
+    ],
+    [
+      "punctuated macOS launch agent path",
+      "Review:/Library/LaunchAgents/example.plist",
+    ],
+    [
+      "oversized whitespace-padded text",
+      `${" ".repeat(10_000)}Safe summary${" ".repeat(10_000)}`,
+    ],
+    ["overlong text", "A".repeat(801)],
+  ])("rejects %s before Setup text reaches the UI", (_name, unsafeText) => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    steps[0].safe_summary = unsafeText;
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it.each([
+    ["detail_preview", "Review / Users/operator/private.log"],
+    ["log_preview", "Review / Users/operator/private.log"],
+    ["detail_preview", "Review / Users / operator / private.log"],
+    ["log_preview", "Review / Users / operator / private.log"],
+  ])(
+    "rejects whitespace-obscured absolute paths in %s",
+    (field, unsafePath) => {
+      const payload = completeSetupPayload();
+      const steps = payload.steps as Array<Record<string, unknown>>;
+      steps[0][field] = [unsafePath];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects substituted preview prose even when it is superficially safe", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    steps[0].detail_preview = ["Compare input/output states."];
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it("rejects hostname-shaped setup detail and log previews", () => {
+    for (const field of ["detail_preview", "log_preview"] as const) {
+      for (const hostname of ["Host MacBook-Pro.local", "MacBook-Pro"]) {
+        const payload = completeSetupPayload();
+        const steps = payload.steps as Array<Record<string, unknown>>;
+        steps[0][field] = [hostname];
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it.each([
+    ["standalone GitHub token", `ghp_${"a".repeat(36)}`],
+    ["fine-grained GitHub token", `github_pat_${"a".repeat(82)}`],
+    ["live Stripe secret", `sk_live_${"a".repeat(24)}`],
+    ["test Stripe secret", `sk_test_${"a".repeat(24)}`],
+    [
+      "standalone JWT",
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123456",
+    ],
+  ])("rejects a %s before Setup refs reach the UI", (_name, unsafeRef) => {
+    const payload = completeSetupPayload();
+    payload.plan_ref = unsafeRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another lane idempotency ref", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].idempotency_key_ref =
+      "idempotency-ref:macos-setup-openwebui-bridge";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another envelope identity", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].envelope_ref =
+      "macos-setup-approval-envelope:openwebui-bridge";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "blocked reason sequence",
+      "blocked_reason_refs",
+      ["blocked-ref:macos-setup-rollback-authority-missing"],
+    ],
+    ["next safe action", "next_safe_action", "inspect-setup-plan"],
+  ])("rejects a substituted rollback %s", (_name, field, replacement) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    rollbackPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["receipt_plan_ref", "macos-setup-receipt-plan:other"],
+    ["audit_ref", "macos-setup-audit:other"],
+    ["latency_ref", "macos-setup-latency:other"],
+  ])("rejects a substituted receipt-plan %s", (field, replacement) => {
+    const payload = completeSetupPayload();
+    const receiptPlan = payload.receipt_plan as Record<string, unknown>;
+    receiptPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["rollback_plan_ref", "macos-setup-rollback-plan:other"],
+    ["uninstall_ref", "macos-setup-uninstall:other"],
+  ])("rejects a substituted rollback-plan %s", (field, replacement) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    rollbackPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["missing", "reordered", "rebound", "multiple-defaults"])(
+    "rejects a %s model recommendation contract",
+    (caseName) => {
+      const payload = completeSetupPayload();
+      const recommendations = payload.model_recommendations as Array<
+        Record<string, unknown>
+      >;
+      if (caseName === "missing") {
+        payload.model_recommendations = recommendations.slice(0, -1);
+      } else if (caseName === "reordered") {
+        payload.model_recommendations = [
+          recommendations[1],
+          recommendations[0],
+          ...recommendations.slice(2),
+        ];
+      } else if (caseName === "rebound") {
+        recommendations[0].model_ref =
+          "local-model-option:balanced-assistant-gguf";
+      } else {
+        recommendations[1].selected_by_default = true;
+      }
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects substituted model recommendation copy", () => {
+    const substitutions: Array<[string, unknown]> = [
+      ["display_name", "Production ready model"],
+      ["fit_summary", "Model installation is complete."],
+      ["recommended_for", "Any production deployment."],
+      ["memory_bucket", "ram:any"],
+      ["disk_bucket", "disk:any"],
+      ["privacy_summary", "The model was called successfully."],
+      ["reason_codes", ["MACOS_SETUP_DEFAULT_LOCAL_MODEL"]],
+    ];
+
+    for (const recommendationIndex of [0, 1, 2, 3]) {
+      for (const [field, replacement] of substitutions) {
+        const payload = completeSetupPayload();
+        const recommendations = payload.model_recommendations as Array<
+          Record<string, unknown>
+        >;
+        recommendations[recommendationIndex][field] = replacement;
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it.each(["missing", "reordered", "substituted"])(
+    "rejects a %s Setup promotion path",
+    (caseName) => {
+      const payload = completeSetupPayload();
+      const refs = payload.promotion_path_refs as string[];
+      if (caseName === "missing") {
+        payload.promotion_path_refs = refs.slice(0, -1);
+      } else if (caseName === "reordered") {
+        payload.promotion_path_refs = [refs[1], refs[0], ...refs.slice(2)];
+      } else {
+        refs[0] = "promotion-path-ref:setup:unreviewed-rehearsal";
+      }
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects oversized Setup collections before rendering", () => {
+    const payload = completeSetupPayload();
+    payload.next_steps = Array.from(
+      { length: 101 },
+      (_, index) => `Review bounded setup step ${index}`,
+    );
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects oversized Setup collections before normalization traversal", () => {
+    const payload = completeSetupPayload();
+    const oversizedSteps = Array.from({ length: 101 }, () => ({}));
+    payload.steps = new Proxy(oversizedSteps, {
+      get(target, property, receiver) {
+        if (property === "filter" || property === Symbol.iterator) {
+          throw new Error("oversized collection was traversed");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    expect(() =>
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    ).not.toThrow();
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["receipt plan", "receipt_plan"],
+    ["rollback plan", "rollback_plan"],
+    ["lifecycle", "lifecycle"],
+    ["health contract", "health_contract"],
+  ])("rejects a substituted %s safe summary", (_name, contractName) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const contract =
+      contractName === "health_contract"
+        ? (lifecycle.health_contract as Record<string, unknown>)
+        : contractName === "lifecycle"
+          ? lifecycle
+          : (payload[contractName] as Record<string, unknown>);
+    contract.safe_summary =
+      "Installation is approved and every readiness proof is complete.";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each(["plan", "status", "receipts"] as const)(
     "pins %s lifecycle inspection to passive proof flags",
     (operationName) => {
@@ -400,6 +1509,41 @@ describe("macOS Setup Assistant normalization provenance", () => {
         ),
       ).toEqual(LIFECYCLE_OPERATIONS);
       expect(normalized.usedFallback).toBe(true);
+    },
+  );
+
+  it.each([
+    "plan",
+    "status",
+    "install",
+    "verify",
+    "repair",
+    "stop",
+    "rollback",
+    "receipts",
+  ] as const)(
+    "rejects a lifecycle summary rebound for %s",
+    (operationName) => {
+      const operations = LIFECYCLE_OPERATIONS.map((operation) =>
+        lifecycleOperationPayload(
+          operation,
+          operation === operationName
+            ? { safe_summary: "Execute installer now." }
+            : {},
+        ),
+      );
+
+      const normalized = normalizeMacOSSetupAssistant(
+        { lifecycle: lifecyclePayload({ operations }) },
+        mockControlCenterData.macosSetupAssistant,
+      );
+
+      expect(normalized.usedFallback).toBe(true);
+      expect(
+        normalized.value.lifecycle.operations.find(
+          (operation) => operation.operation === operationName,
+        )?.safeSummary,
+      ).not.toBe("Execute installer now.");
     },
   );
 

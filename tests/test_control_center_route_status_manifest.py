@@ -184,8 +184,22 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
         if action["action_id"] == "navigate-setup-assistant"
     )
     setup_route_paths = {route["path"] for route in setup_action["backend_routes"]}
-    assert "/control-center/dashboard" in setup_route_paths
-    assert "/control-center/providers/setup-guide" in setup_route_paths
+    assert setup_route_paths == {
+        "/control-center/backend-truth",
+        "/control-center/setup-assistant/summary",
+    }
+    setup_surface_route_paths = {
+        route["path"] for route in surfaces["Setup Assistant"]["current_backend_routes"]
+    }
+    assert setup_surface_route_paths == setup_route_paths
+    chat_action = next(
+        action for action in visible_actions if action["action_id"] == "navigate-chat-shell"
+    )
+    chat_route_paths = {route["path"] for route in chat_action["backend_routes"]}
+    assert "/control-center/agent-loop/thread" in chat_route_paths
+    assert "/control-center/agent-loop/thread" in {
+        route["path"] for route in surfaces["Chat Local Operator"]["current_backend_routes"]
+    }
     settings_action = next(
         action
         for action in visible_actions

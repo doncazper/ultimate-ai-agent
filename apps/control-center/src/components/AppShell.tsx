@@ -128,13 +128,18 @@ export function AppShell({
     authorityModeAuthoritative && authorityMode
       ? `Mode: ${humanize(authorityMode)}`
       : "Authority mode unknown";
+  const authorityPostureLabel = routeAuthoritative
+    ? "Authority posture not reported by this route read"
+    : "Unverified in fallback";
   const killSwitchStatus = authorityModeAuthoritative
     ? killSwitchEngaged
       ? "engaged"
       : killSwitchVisible
         ? "available"
         : "not visible"
-    : "unverified in fallback";
+    : routeAuthoritative
+      ? "not reported by this route read"
+      : "unverified in fallback";
 
   const surfaceClass = `surface-${activePath.replace(/^\//, "").replaceAll("/", "-") || "overview"}`;
 
@@ -193,7 +198,7 @@ export function AppShell({
               <span>Local task authority requires backend approval</span>
               <span>Sources blocked/status-only</span>
               {!authorityModeAuthoritative ? (
-                <span>Unverified in fallback</span>
+                <span>{authorityPostureLabel}</span>
               ) : null}
               <span>
                 <span>Kill-switch posture</span>: {killSwitchStatus}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -10,6 +11,158 @@ from scripts.verification import test_corpus_guard as guard
 
 
 VERIFICATION_ENVELOPE = "github-verification-envelope:test-fixture"
+
+
+def _visual_timeout_manifest_source() -> str:
+    return (
+        "def _command_from_release(command):\n"
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+        "        timeout = 900\n"
+        "\n"
+        "def command_registry():\n"
+        "    return {\n"
+        '            "command:foundation-gate.ci-parallel": CommandSpec(\n'
+        '                "command:foundation-gate.ci-parallel",\n'
+        "                (\n"
+        '                    ".venv/bin/python",\n'
+        '                    "-I",\n'
+        '                    "-B",\n'
+        '                    "-S",\n'
+        '                    "scripts/run_foundation_gate.py",\n'
+        '                    "--command-mode",\n'
+        '                    "ci-parallel",\n'
+        '                    "--ci-prerequisite-manifest",\n'
+        '                    "{temp_root}/uaa_foundation_prerequisite_manifest.json",\n'
+        '                    "--ci-prerequisite-sha",\n'
+        '                    "{repository_sha}",\n'
+        '                    "--ci-prerequisite-base-sha",\n'
+        '                    "{base_sha}",\n'
+        '                    "--no-write-latest",\n'
+        "                ),\n"
+        "                (),\n"
+        '                "gate",\n'
+        "                300,\n"
+        "            ),\n"
+        "    }\n"
+    )
+
+
+def test_exact_visual_timeout_alignment_is_admitted() -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current},
+        prior_by_path={path: prior},
+    ) == {path}
+
+
+def test_exact_terminal_foundation_timeout_alignment_is_admitted() -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    ).replace(
+        '                "gate",\n                300,\n',
+        '                "gate",\n                900,\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current},
+        prior_by_path={path: prior},
+    ) == {path}
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "\n# unrelated runner change\n",
+        '\nPYTEST_ARGS = ("--ignore", "tests/security")\n',
+    ),
+)
+def test_visual_timeout_alignment_rejects_extra_runner_changes(
+    mutation: str,
+) -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current + mutation},
+        prior_by_path={path: prior},
+    ) == set()
+
+
+def test_exact_httpx2_security_dependency_alignment_is_pair_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = "pyproject.toml"
+    lock_path = "uv.lock"
+    prior = {
+        project_path: 'dev = ["httpx2>=2.5.0,<3.0.0"]\n',
+        lock_path: 'name = "httpx2"\nversion = "2.5.0"\n',
+    }
+    current = {
+        project_path: 'dev = ["httpx2>=2.12.0,<3.0.0"]\n',
+        lock_path: 'name = "httpx2"\nversion = "2.12.0"\n',
+    }
+    monkeypatch.setattr(
+        guard,
+        "HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+    assert guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path=current,
+        prior_by_path=prior,
+    ) == {project_path, lock_path}
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path={
+            **current,
+            lock_path: current[lock_path] + "pytest-exclusion = true\n",
+        },
+        prior_by_path=prior,
+    )
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path=current,
+        prior_by_path={
+            **prior,
+            project_path: prior[project_path] + "# different base\n",
+        },
+    )
+    assert not guard._safe_httpx2_security_dependency_alignment_paths(
+        current_by_path={project_path: current[project_path]},
+        prior_by_path={project_path: prior[project_path]},
+    )
+
+
+def test_httpx2_security_dependency_current_fingerprints_are_exact() -> None:
+    root = Path(__file__).parents[1]
+    for path, (_, current_digest) in (
+        guard.HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
 
 
 def _source_ref(test_ref: str) -> str:

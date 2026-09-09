@@ -264,6 +264,14 @@ the server. Ordinary Chat send/model calls, tools, memory writes, connectors,
 and production authority remain blocked. This is a bounded Q33 slice, not
 terminal Q33 acceptance.
 
+**Q33 Setup Readability Slice:** `/setup` now reads only its
+backend-truth-bound Setup summary instead of waiting for the full Control Center
+read set. The first screen shows ready/missing/blocked counts, one priority
+attention item, and one next safe action. Complete lifecycle and evidence detail
+remains available in a collapsed technical disclosure; invalid or
+fallback-derived data fails closed. No setup action or authority was added, and
+this remains a bounded Q33 slice rather than terminal Q33 acceptance.
+
 **Authority Boundary:** No backend route changes unless separately scoped, no
 React-owned product truth, no new mutation controls, and no authority expansion.
 
@@ -874,6 +882,12 @@ production authority.
 
 Blockers/dependencies: Existing dry-run setup contract and read-only summary
 route.
+
+Current bounded implementation: The Setup route now loads only the exact
+backend-truth-bound summary, presents readable diagnostic counts and one next
+safe action first, and keeps full technical proof in a collapsed disclosure.
+The route fails closed on invalid/fallback-derived data and exposes no setup
+mutation control. Q33 remains active beyond this slice.
 
 ### FCC-P0-002 - P0 - First Product Loop Readability And Information Architecture
 

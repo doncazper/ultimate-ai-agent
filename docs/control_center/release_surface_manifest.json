@@ -1679,29 +1679,15 @@
       "backend_routes": [
         {
           "method": "GET",
-          "path": "/control-center/setup-assistant/summary",
-          "operation_id": "get_control_center_setup_assistant_summary",
-          "side_effect_class": "validation_only",
-          "route_classification": "local_readonly"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/dashboard",
-          "operation_id": "get_control_center_dashboard",
-          "side_effect_class": "validation_only",
-          "route_classification": "local_readonly"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/agent-loop/thread",
-          "operation_id": "get_control_center_agent_loop_thread",
+          "path": "/control-center/backend-truth",
+          "operation_id": "get_control_center_backend_truth",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
-          "path": "/control-center/providers/setup-guide",
-          "operation_id": "get_control_center_providers_setup_guide",
+          "path": "/control-center/setup-assistant/summary",
+          "operation_id": "get_control_center_setup_assistant_summary",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
         }
@@ -1774,6 +1760,13 @@
           "method": "GET",
           "path": "/control-center/today/summary",
           "operation_id": "get_control_center_today_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/agent-loop/thread",
+          "operation_id": "get_control_center_agent_loop_thread",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },

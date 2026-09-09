@@ -69,6 +69,7 @@ import type {
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   LocalModelsInspectionStatus,
+  MacOSSetupAssistantData,
   ModelProviderControlPlaneReadModel,
   ProviderCatalog,
   RedactedLocalChatProbeStatus,
@@ -523,6 +524,27 @@ export async function loadControlCenterBackendTruth(): Promise<ControlCenterBack
     API_ENDPOINTS.controlCenterBackendTruth,
   );
   return validateControlCenterBackendTruth(payload);
+}
+
+export async function loadMacOSSetupAssistantRoute(
+  expectedBinding: BackendTruthReadBinding | null,
+): Promise<MacOSSetupAssistantData> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const payload = await readEnvelope<unknown>(
+    API_ENDPOINTS.setupAssistantSummary,
+    defaultControlCenterReadLimiter,
+    expectedBinding,
+  );
+  const normalized = normalizeMacOSSetupAssistant(
+    payload,
+    mockControlCenterData.macosSetupAssistant,
+  );
+  if (normalized.usedFallback) {
+    throw new Error("SETUP_ASSISTANT_RESPONSE_INVALID");
+  }
+  return normalized.value;
 }
 
 export async function loadCrmAdoptionWorkspace(

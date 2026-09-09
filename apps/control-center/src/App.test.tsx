@@ -85,6 +85,7 @@ import {
   mockControlCenterData,
 } from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
+import { setupFixtureToBackendPayload } from "./test/macosSetupAssistantFixture";
 
 const TEST_MUTATION_BINDING: BackendTruthReadBinding = {
   snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"8".repeat(64)}`,
@@ -9341,7 +9342,6 @@ describe("Web Control Center shell", () => {
       ["/briefing", /Morning Briefing/i],
       ["/crm", /UAA CRM local command center/i],
       ["/private-trial", /Private Operator Trial/i],
-      ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
       ["/differentiators", /Control Center Differentiators/i],
@@ -9380,6 +9380,24 @@ describe("Web Control Center shell", () => {
       unmount();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("renders a clear heading for the backend-bound Setup page", async () => {
+    const fetchMock = stubReadEndpointOverrides({
+      [API_ENDPOINTS.setupAssistantSummary]: setupFixtureToBackendPayload(
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    });
+    window.history.pushState({}, "", "/setup");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      API_ENDPOINTS.setupAssistantSummary,
+    );
   });
 
   it("blocks all goal controls when backend truth is current but durable events are invalid", async () => {
@@ -16413,7 +16431,29 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders macOS setup assistant preview without installer authority", async () => {
-    mockFetchWithFallback();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: setupFixtureToBackendPayload(
+              mockControlCenterData.macosSetupAssistant,
+            ),
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-UAA-Backend-Revision-Ref":
+                TEST_MUTATION_BINDING.backendRevisionRef,
+              "X-UAA-Backend-Instance-Ref":
+                TEST_MUTATION_BINDING.backendInstanceRef,
+            },
+          },
+        ),
+      ),
+    );
     window.history.pushState({}, "", "/setup");
     render(<App />);
 
@@ -16458,42 +16498,13 @@ describe("Web Control Center shell", () => {
       screen.getByText(/Provider setup is reference-only/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /Provider Catalog/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Provider account guidance/i)).toBeInTheDocument();
+      screen
+        .getAllByRole("link", { name: "Settings" })
+        .some((link) => link.closest(".setup-advanced") !== null),
+    ).toBe(true);
     expect(
-      screen.getByRole("heading", {
-        name: /Provider credential and cost posture/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/No provider authority/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Disabled no execution/i).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
-      0,
-    );
-    expect(
-      screen.getAllByText(/Provider router dry-run/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/No fallback execution/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Router no-authority refs/i).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Secret entry controls/i).length,
-    ).toBeGreaterThan(0);
+      screen.queryByRole("heading", { name: /Provider Catalog/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("textbox", { name: /api key|secret|token/i }),
     ).not.toBeInTheDocument();
@@ -19637,16 +19648,22 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/setup");
     render(<App />);
 
-    expect(await screen.findByText("Backend online")).toBeInTheDocument();
-    expect(screen.getByText("Backend API setup timeline")).toBeInTheDocument();
     expect(
-      screen.getAllByText("control-center:setup-assistant-api-test").length,
+      await screen.findByText("Local Setup readiness is available"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Your local setup at a glance" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("First launch setup")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("control-center:setup-assistant-preview").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("macos-setup-approval-envelope:api-summary").length,
+      screen.getAllByText("macos-setup-approval-envelope:model-selection")
+        .length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("idempotency-ref:macos-setup-api-summary").length,
+      screen.getAllByText("idempotency-ref:macos-setup-model-selection").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("First-run proof spine")).toBeInTheDocument();
     expect(screen.getByText("Local package proof")).toBeInTheDocument();
@@ -19658,9 +19675,11 @@ describe("Web Control Center shell", () => {
       screen.getByText("loop-ref:setup-to-daily-loop:v1"),
     ).toBeInTheDocument();
     expect(screen.getByText("Setup readiness diagnostics")).toBeInTheDocument();
-    expect(screen.getByText("API plan diagnostic")).toBeInTheDocument();
-    expect(screen.getByText("API native application diagnostic")).toBeInTheDocument();
-    expect(screen.getByText("API rollback diagnostic")).toBeInTheDocument();
+    expect(screen.getByText("Read-only setup plan")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Native macOS application"),
+    ).toHaveLength(2);
+    expect(screen.getByText("Rollback readiness")).toBeInTheDocument();
     expect(
       screen.getAllByText("define-and-rehearse-exact-rollback-lane").length,
     ).toBeGreaterThan(0);
@@ -22179,6 +22198,33 @@ function dogfoodLiveLoopEndpointData() {
   };
 }
 
+function setupAssistantSummaryForTest() {
+  const base = setupFixtureToBackendPayload(
+    mockControlCenterData.macosSetupAssistant,
+  ) as Record<string, unknown>;
+  const api = mockApiData.setupAssistantSummary;
+  const steps = base.steps as Array<Record<string, unknown>>;
+  const envelopes = base.approval_envelopes as Array<Record<string, unknown>>;
+  return {
+    ...base,
+    ...api,
+    visual_shell_ref: base.visual_shell_ref,
+    diagnostics: base.diagnostics,
+    steps,
+    model_recommendations: base.model_recommendations,
+    bridge_previews: base.bridge_previews,
+    approval_envelopes: envelopes,
+    receipt_plan: base.receipt_plan,
+    rollback_plan: base.rollback_plan,
+    promotion_path_refs: base.promotion_path_refs,
+    local_package_proof_status: base.local_package_proof_status,
+    local_package_proof_refs: base.local_package_proof_refs,
+    first_run_loop_refs: base.first_run_loop_refs,
+    next_steps: base.next_steps,
+    morning_review_checklist: base.morning_review_checklist,
+  };
+}
+
 function envelopeForReadEndpoint(url: string) {
   const data = {
     [API_ENDPOINTS.controlCenterManifest]: {
@@ -22301,7 +22347,7 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePluginMetadataPosture,
     [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
       mockControlCenterData.runtimeSkillMarketplacePosture,
-    [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.setupAssistantSummary]: setupAssistantSummaryForTest(),
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,
@@ -22760,6 +22806,9 @@ const mockApiData = {
       "loop-ref:setup-to-daily-loop:v1",
       "contract-ref:start-here-local-loop:v1",
       "contract-ref:private-beta-readiness-gate:v1",
+      "contract-ref:dogfood-live-loop:acceptance",
+      "proof-ref:control-center-proof-index",
+      "trust-ref:authority-map",
     ],
     local_package_proof_status:
       "local_unsigned_loopback_package_proof_available_runtime_launch_blocked",
@@ -22915,10 +22964,36 @@ const mockApiData = {
       ],
       next_safe_action: "define-and-rehearse-exact-rollback-lane",
       rollback_executed: false,
+      launch_agent_removed: false,
+      model_files_removed: false,
+      config_removed: false,
     },
-    blocked_capabilities: ["macos-setup-model-download"],
-    next_steps: ["Review setup summary."],
-    morning_review_checklist: ["Confirm setup summary is dry-run only."],
+    blocked_capabilities: [
+      "macos-setup-runtime-installation",
+      "macos-setup-model-download",
+      "macos-setup-launch-agent-change",
+      "macos-setup-background-service-change",
+      "macos-setup-bridge-enablement",
+      "macos-setup-provider-call",
+      "macos-setup-credential-storage",
+      "macos-setup-rollback-execution",
+      "macos-setup-signed-distribution",
+      "macos-setup-production-authority",
+    ],
+    next_steps: [
+      "Review the setup-to-daily-loop proof refs before calling setup complete.",
+      "Inspect local unsigned package proof refs without launching the app bundle.",
+      "Review the Control Center setup preview against the first-launch flow.",
+      "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
+      "Review dry-run approval envelopes before any setup mutation route is scoped.",
+    ],
+    morning_review_checklist: [
+      "Verify the model choices are labels only and not live downloads.",
+      "Confirm every approval-required step has receipt and rollback refs.",
+      "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
+      "Confirm terminal details are bounded previews and not raw logs.",
+      "Decide the native macOS app scaffold location before adding signing work.",
+    ],
   },
   m15Review: {
     status: "mock_preview_only",

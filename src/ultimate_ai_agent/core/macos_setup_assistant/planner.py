@@ -342,7 +342,7 @@ def _default_steps() -> list[MacOSSetupStep]:
             status=MacOSSetupStepStatus.approval_required,
             safe_summary="Mattermost Agent Rooms remain a local, disabled-by-default bridge with explicit room approval.",
             route_refs=["/integrations/mattermost/status", "/integrations/mattermost/roles/catalog"],
-            detail_preview=["Room participation is speak-only by default.", "No raw transcript is persisted."],
+            detail_preview=["Room participation is speak-only by default.", "No transcript preview is persisted."],
             log_preview=["mattermost bridge preview only; no post observed"],
             approval_required=True,
             approval_ref="approval-ref:macos-setup-mattermost-bridge",
@@ -526,8 +526,9 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
                 "requirements change."
             ),
             redaction_summary=(
-                "Safe refs and disabled-by-default status only; credentials, cookies, "
-                "transcripts, prompts, and provider payloads are omitted."
+                "Safe refs and disabled-by-default status only; credentials, browser "
+                "session material, transcript content, prompts, and provider payloads "
+                "are omitted."
             ),
         ),
         _envelope(
@@ -596,8 +597,9 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
                 "requirements, or bridge defaults change before review."
             ),
             redaction_summary=(
-                "Safe refs and disabled-by-default status only; credentials, cookies, "
-                "transcripts, prompts, and provider payloads are omitted."
+                "Safe refs and disabled-by-default status only; credentials, browser "
+                "session material, transcript content, prompts, and provider payloads "
+                "are omitted."
             ),
         ),
         _envelope(
@@ -632,7 +634,7 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
             ),
             redaction_summary=(
                 "Safe refs and disabled-by-default status only; room identifiers, "
-                "credentials, raw transcripts, and provider payloads are omitted."
+                "credentials, transcript content, and provider payloads are omitted."
             ),
         ),
     ]

@@ -13,18 +13,15 @@ export function MacOSSetupAssistantPanel({
   providerCredentialReadiness,
   setup,
 }: {
-  providerCatalog: ProviderCatalog;
-  providerCredentialReadiness: ProviderCredentialReadinessSummary;
+  providerCatalog?: ProviderCatalog;
+  providerCredentialReadiness?: ProviderCredentialReadinessSummary;
   setup: MacOSSetupAssistantData;
 }) {
   const prerequisiteRefs = uniqueRefs(
     setup.steps.flatMap((step) => step.routeRefs),
   );
   const envelopesByStepId = new Map(
-    setup.approvalEnvelopes.map((envelope) => [
-      envelope.setupStepId,
-      envelope,
-    ]),
+    setup.approvalEnvelopes.map((envelope) => [envelope.setupStepId, envelope]),
   );
   const diagnosticCounts = setup.diagnostics.reduce(
     (counts, diagnostic) => ({
@@ -33,6 +30,14 @@ export function MacOSSetupAssistantPanel({
     }),
     { ready: 0, missing: 0, blocked: 0 },
   );
+  const attentionDiagnostic =
+    setup.diagnostics.find((diagnostic) => diagnostic.status === "missing") ??
+    setup.diagnostics.find((diagnostic) => diagnostic.status === "blocked") ??
+    setup.diagnostics[0];
+  const nextSafeAction =
+    attentionDiagnostic?.nextSafeAction ??
+    setup.nextSteps[0] ??
+    "Inspect the current local Setup summary.";
 
   return (
     <section className="page-section" aria-labelledby="macos-setup-heading">
@@ -44,33 +49,70 @@ export function MacOSSetupAssistantPanel({
         <span className="status-pill">{setup.status}</span>
       </div>
 
-      <article className="panel setup-diagnostics-panel">
+      <article className="panel setup-overview-panel">
         <div className="panel-heading">
-          <h3>Setup readiness diagnostics</h3>
-          <span>read-only</span>
+          <h3>Your local setup at a glance</h3>
+          <span>inspection only</span>
         </div>
         <p>
-          Backend-owned diagnostics distinguish what is ready, what is missing,
-          and what remains blocked without running probes or changing setup
-          state.
+          This read-only summary shows what is ready, what needs attention, and
+          what remains intentionally blocked. Opening this screen does not run
+          checks, install software, download a model, or change local settings.
         </p>
-        <div className="setup-summary-grid" aria-label="Setup diagnostic counts">
-          <div className="setup-flag" role="status">
-            <span>Ready</span>
-            <strong>{diagnosticCounts.ready}</strong>
+        <div className="setup-overview-grid">
+          <div
+            className="setup-readiness-counts"
+            aria-label="Setup diagnostic counts"
+          >
+            <div className="setup-status-metric ready" role="status">
+              <span>Ready</span>
+              <strong>{diagnosticCounts.ready}</strong>
+            </div>
+            <div className="setup-status-metric missing" role="status">
+              <span>Missing</span>
+              <strong>{diagnosticCounts.missing}</strong>
+            </div>
+            <div className="setup-status-metric blocked" role="status">
+              <span>Blocked</span>
+              <strong>{diagnosticCounts.blocked}</strong>
+            </div>
           </div>
-          <div className="setup-flag" role="status">
-            <span>Missing</span>
-            <strong>{diagnosticCounts.missing}</strong>
-          </div>
-          <div className="setup-flag" role="status">
-            <span>Blocked</span>
-            <strong>{diagnosticCounts.blocked}</strong>
+          <div className="setup-attention-card">
+            <div className="review-card-heading">
+              <h3>{attentionDiagnostic?.label ?? "Setup summary"}</h3>
+              <span>{attentionDiagnostic?.status ?? setup.status}</span>
+            </div>
+            <p>{attentionDiagnostic?.safeSummary ?? setup.repoSafeScope}</p>
+            <strong>Next safe action</strong>
+            <p>{nextSafeAction}</p>
           </div>
         </div>
-        <div className="stacked-list">
-          {setup.diagnostics.map((diagnostic) => (
-            <article
+      </article>
+
+      <details className="setup-advanced">
+        <summary>
+          <span>
+            <strong>Review technical setup proof and boundaries</strong>
+            <small>
+              Diagnostics, lifecycle refs, model recommendations, receipts, and
+              rollback posture
+            </small>
+          </span>
+        </summary>
+        <div className="setup-advanced-content">
+          <article className="panel setup-diagnostics-panel">
+            <div className="panel-heading">
+              <h3>Setup readiness diagnostics</h3>
+              <span>read-only</span>
+            </div>
+            <p>
+              Backend-owned diagnostics distinguish what is ready, what is
+              missing, and what remains blocked without running probes or
+              changing setup state.
+            </p>
+            <div className="stacked-list">
+              {setup.diagnostics.map((diagnostic) => (
+                <article
               className={`trace-row ${diagnostic.status}`}
               key={diagnostic.diagnosticRef}
             >
@@ -100,24 +142,30 @@ export function MacOSSetupAssistantPanel({
               </div>
             </article>
           ))}
-        </div>
-      </article>
-      <p className="section-copy">
-        Visual setup preview for a future native macOS first-launch flow. This
-        surface shows planned setup state, bounded terminal-style details,
-        local prerequisite refs, recommendation-only model choices, dry-run
-        approval envelopes, receipts, and rollback refs without running
-        installer actions.
-      </p>
+            </div>
+          </article>
+          <p className="section-copy">
+            Visual setup preview for a future native macOS first-launch flow.
+            This surface shows planned setup state, bounded terminal-style
+            details, local prerequisite refs, recommendation-only model choices,
+            dry-run approval envelopes, receipts, and rollback refs without
+            running installer actions.
+          </p>
 
-      <div className="setup-summary-grid">
-        <SetupFlag label="macOS first" value={setup.macosFirst} />
-        <SetupFlag label="Local first" value={setup.localFirst} />
-        <SetupFlag label="Disabled by default" value={setup.disabledByDefault} />
-        <SetupFlag label="Native app proof" value={setup.nativeMacosAppReady} />
-        <SetupFlag
-          label="Installer side effects"
-          value={setup.installerSideEffectsEnabled}
+          <div className="setup-summary-grid">
+            <SetupFlag label="macOS first" value={setup.macosFirst} />
+            <SetupFlag label="Local first" value={setup.localFirst} />
+            <SetupFlag
+              label="Disabled by default"
+              value={setup.disabledByDefault}
+            />
+            <SetupFlag
+              label="Native app proof"
+              value={setup.nativeMacosAppReady}
+            />
+            <SetupFlag
+              label="Installer side effects"
+              value={setup.installerSideEffectsEnabled}
         />
         <SetupFlag
           label="Model output authority"
@@ -199,13 +247,16 @@ export function MacOSSetupAssistantPanel({
         </div>
         <div className="panel-heading">
           <h3>Required live health proof</h3>
-          <span>{setup.lifecycle.healthContract.status}</span>
-        </div>
-        <p>{setup.lifecycle.healthContract.safeSummary}</p>
-        <div className="note-list" aria-label="Required setup health checks">
-          {setup.lifecycle.healthContract.requiredCheckRefs.map((ref) => (
-            <span key={ref}>{ref}</span>
-          ))}
+              <span>{setup.lifecycle.healthContract.status}</span>
+            </div>
+            <p>{setup.lifecycle.healthContract.safeSummary}</p>
+            <div
+              className="note-list"
+              aria-label="Required setup health checks"
+            >
+              {setup.lifecycle.healthContract.requiredCheckRefs.map((ref) => (
+                <span key={ref}>{ref}</span>
+              ))}
         </div>
       </article>
 
@@ -260,17 +311,20 @@ export function MacOSSetupAssistantPanel({
         <article className="panel">
           <div className="panel-heading">
             <h3>Local prerequisites</h3>
-            <span>read-only refs</span>
-          </div>
-          <p>
-            Setup visibility comes from existing local status routes only. No
-            lifecycle execution, model download, bridge, or installer control
-            is exposed.
-          </p>
-          <div className="note-list" aria-label="Local prerequisite route refs">
-            {prerequisiteRefs.map((route) => (
-              <span key={route}>{route}</span>
-            ))}
+                <span>read-only refs</span>
+              </div>
+              <p>
+                Setup visibility comes from existing local status routes only.
+                No lifecycle execution, model download, bridge, or installer
+                control is exposed.
+              </p>
+              <div
+                className="note-list"
+                aria-label="Local prerequisite route refs"
+              >
+                {prerequisiteRefs.map((route) => (
+                  <span key={route}>{route}</span>
+                ))}
           </div>
           <div className="note-list" aria-label="First-run loop refs">
             {setup.firstRunLoopRefs.map((ref) => (
@@ -297,21 +351,33 @@ export function MacOSSetupAssistantPanel({
       <article className="panel">
         <div className="panel-heading">
           <h3>Provider setup reference</h3>
-          <span>not required for local loop</span>
-        </div>
-        <p>
-          Provider setup is reference-only and not needed for the local loop.
-          Secret entry, provider validation, provider SDK calls, billing, and
-          model invocation remain blocked unless an accepted AuthorityLease-gated
-          capability is implemented and tested.
-        </p>
-      </article>
+              <span>not required for local loop</span>
+            </div>
+            <p>
+              Provider setup is reference-only and not needed for the local
+              loop. Secret entry, provider validation, provider SDK calls,
+              billing, and model invocation remain blocked unless an accepted
+              AuthorityLease-gated capability is implemented and tested.
+            </p>
+            {!providerCatalog || !providerCredentialReadiness ? (
+              <p>
+                Review optional provider and cost posture in{" "}
+                <a href="/settings">Settings</a>.
+              </p>
+            ) : null}
+          </article>
 
-      <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
-      <ProviderCredentialSetupSummary readiness={providerCredentialReadiness} />
+          {providerCatalog && providerCredentialReadiness ? (
+            <>
+              <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
+              <ProviderCredentialSetupSummary
+                readiness={providerCredentialReadiness}
+              />
+            </>
+          ) : null}
 
-      <div className="setup-layout">
-        <article className="panel">
+          <div className="setup-layout">
+            <article className="panel">
           <div className="panel-heading">
             <h3>Setup timeline</h3>
             <span>{setup.visualShellRef}</span>
@@ -404,13 +470,14 @@ export function MacOSSetupAssistantPanel({
               <div>
                 <dt>Next safe action</dt>
                 <dd>{setup.rollbackPlan.nextSafeAction}</dd>
-              </div>
-            </dl>
-            <p className="safe-copy">
-              {setup.receiptPlan.safeSummary} {setup.rollbackPlan.safeSummary}
-            </p>
-            <div className="note-list" aria-label="Rollback blockers">
-              {setup.rollbackPlan.blockedReasonRefs.map((ref) => (
+                  </div>
+                </dl>
+                <p className="safe-copy">
+                  {setup.receiptPlan.safeSummary}{" "}
+                  {setup.rollbackPlan.safeSummary}
+                </p>
+                <div className="note-list" aria-label="Rollback blockers">
+                  {setup.rollbackPlan.blockedReasonRefs.map((ref) => (
                 <span key={ref}>{ref}</span>
               ))}
             </div>
@@ -442,13 +509,14 @@ export function MacOSSetupAssistantPanel({
           <ul className="compact-list">
             {setup.bridgePreviews.map((bridge) => (
               <li key={bridge.bridgeRef}>
-                <strong>{bridge.label}</strong>
-                <small>
-                  {bridge.status} · default {bridge.enablementDefault} ·
-                  approval required: {bridge.approvalRequired ? "yes" : "no"}
-                </small>
-                <span>{bridge.safeSummary}</span>
-              </li>
+                    <strong>{bridge.label}</strong>
+                    <small>
+                      {bridge.status} · default {bridge.enablementDefault} ·
+                      approval required:{" "}
+                      {bridge.approvalRequired ? "yes" : "no"}
+                    </small>
+                    <span>{bridge.safeSummary}</span>
+                  </li>
             ))}
           </ul>
         </article>
@@ -464,9 +532,11 @@ export function MacOSSetupAssistantPanel({
                 <span>{item}</span>
               </li>
             ))}
-          </ul>
-        </article>
-      </div>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </details>
     </section>
   );
 }
@@ -538,7 +608,9 @@ function ProviderCredentialSetupSummary({
         </div>
         <div>
           <dt>Exact-approval candidate refs</dt>
-          <dd>{readiness.router_dry_run_readiness.eligible_provider_refs.length}</dd>
+          <dd>
+            {readiness.router_dry_run_readiness.eligible_provider_refs.length}
+          </dd>
         </div>
         <div>
           <dt>Router no-authority refs</dt>

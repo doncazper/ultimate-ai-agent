@@ -70,11 +70,29 @@ web access, shell execution, action execution, approval shortcut, public
 release claim, or production authority. The Send control remains unavailable.
 The existing separately governed redacted readiness probe remains unchanged.
 
+## Implemented Setup readability slice
+
+The Control Center `/setup` surface now reads only the backend-truth-bound
+`GET /control-center/setup-assistant/summary` contract instead of waiting for
+the unrelated Control Center read fan-out. Its first screen summarizes
+backend-owned ready, missing, and blocked diagnostic counts, identifies one
+priority attention item, and shows one next safe action. The complete lifecycle,
+health, proof, model-recommendation, approval-envelope, receipt, rollback, and
+blocked-authority detail remains available in a collapsed technical disclosure.
+Optional provider posture remains on `/settings` rather than delaying Setup.
+
+Malformed or fallback-derived Setup responses fail closed. Opening or expanding
+the surface performs no checks, probes, installs, downloads, provider/model
+calls, credential work, settings changes, or lifecycle mutations.
+
 ## Verification
 
 - `tests/test_q33_chat_content_free_workspace.py`
 - `tests/test_control_center_mutation_backend_truth_binding.py`
 - `apps/control-center/src/components/ChatWorkspacePanel.test.tsx`
+- `apps/control-center/src/api/client.setupRoute.test.ts`
+- `apps/control-center/src/components/MacOSSetupAssistantPanel.test.tsx`
+- `apps/control-center/src/App.backendTruth.test.tsx`
 - `python scripts/inspect_chat_workspace.py --state-dir <local-state-dir>`
 - OpenAPI/API manifest snapshot and documentation-integrity verification
 

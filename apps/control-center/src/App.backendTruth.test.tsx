@@ -202,8 +202,8 @@ describe("critical backend truth boundary", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { name: /macOS Setup Assistant/i }),
-    ).toBeInTheDocument();
+      screen.getByRole("status", { name: "Setup route state" }),
+    ).toHaveTextContent("Setup is loading its local readiness summary");
     expect(
       screen.queryByText(/not showing unverified product state/i),
     ).not.toBeInTheDocument();

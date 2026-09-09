@@ -101,7 +101,7 @@ AGGREGATE_PLATFORM_PROOF_APPROVED_CURRENT_SHA256 = (
 FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verification/ci_command_manifest.py": (
         "be25c4e44873b1d3fd6d8b26a77b5d75aaf4c1bcd06f939e6a0306749fe4e81f",
-        "1ab89d536a62035467b2b2f1031830839986dcd9739942390ce00ba1d6aa7b42",
+        "9ce74ebe81c01e4cd15f961fe8bde31932c713ffdd6426f7a36e74d7d6fdaa02",
     ),
     "scripts/verification/verification_contracts.py": (
         "9b1fcb542e7234f57e4e29810e4e51507ff8ea4deeee95f49cefa1711aa9e2ce",
@@ -118,6 +118,16 @@ FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH = {
     "scripts/verify_release_lanes.py": (
         "4d8260090f8d9da6b211a0391becbf487e22ca061524479ba2418b67015e0517",
         "120e9cfb345a0922cad88114c414b9278414145935dda3cf73b76b3cf2e46a4f",
+    ),
+}
+HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
+    "pyproject.toml": (
+        "aef8b076beaa53744845d5ee2225e732928ae9c3a03a4305d13a6d02415095d5",
+        "a15762be4ac750f0ff33ae35432bb6ac87a9e67e7ffbfd41926e391a1c1dbcdb",
+    ),
+    "uv.lock": (
+        "03f91336bb5bc1f1d23b1fbafe3f7019b85939a08432721eb8df164f53c4d402",
+        "051afe63218256bdf37ed584630f7e53d65e68d565d4feb04f17e9072511cb14",
     ),
 }
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
@@ -11921,6 +11931,80 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     return expected_paths
 
 
+def _safe_visual_regression_timeout_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the bounded visual and terminal Foundation timeouts."""
+
+    manifest_path = "scripts/verification/ci_command_manifest.py"
+    expected_paths = {manifest_path}
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    prior_manifest = prior_by_path[manifest_path]
+    timeout_needle = (
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+    )
+    timeout_replacement = (
+        '    timeout = 600 if category == "frontend" else 300\n'
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n'
+    )
+    if prior_manifest.count(timeout_needle) != 1:
+        return set()
+    expected_manifest = prior_manifest.replace(
+        timeout_needle,
+        timeout_replacement,
+        1,
+    )
+    terminal_timeout_needle = (
+        '            "command:foundation-gate.ci-parallel": CommandSpec(\n'
+        '                "command:foundation-gate.ci-parallel",\n'
+        "                (\n"
+        '                    ".venv/bin/python",\n'
+        '                    "-I",\n'
+        '                    "-B",\n'
+        '                    "-S",\n'
+        '                    "scripts/run_foundation_gate.py",\n'
+        '                    "--command-mode",\n'
+        '                    "ci-parallel",\n'
+        '                    "--ci-prerequisite-manifest",\n'
+        '                    "{temp_root}/uaa_foundation_prerequisite_manifest.json",\n'
+        '                    "--ci-prerequisite-sha",\n'
+        '                    "{repository_sha}",\n'
+        '                    "--ci-prerequisite-base-sha",\n'
+        '                    "{base_sha}",\n'
+        '                    "--no-write-latest",\n'
+        "                ),\n"
+        "                (),\n"
+        '                "gate",\n'
+        "                300,\n"
+        "            ),\n"
+    )
+    terminal_timeout_replacement = terminal_timeout_needle.replace(
+        "                300,\n",
+        "                900,\n",
+        1,
+    )
+    if expected_manifest.count(terminal_timeout_needle) != 1:
+        allowed_manifests = {expected_manifest}
+    else:
+        allowed_manifests = {
+            expected_manifest,
+            expected_manifest.replace(
+                terminal_timeout_needle,
+                terminal_timeout_replacement,
+                1,
+            ),
+        }
+    if current_by_path[manifest_path] not in allowed_manifests:
+        return set()
+    return expected_paths
+
+
 def _safe_performance_runner_evidence_alignment_paths(
     *,
     current_by_path: dict[str, str],
@@ -11982,6 +12066,29 @@ def _safe_foundation_isolation_runner_alignment_paths(
         return set()
     for path, (prior_digest, current_digest) in (
         FOUNDATION_ISOLATION_RUNNER_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return expected_paths
+
+
+def _safe_httpx2_security_dependency_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the reviewed httpx2/httpcore2 security lock upgrade."""
+
+    expected_paths = set(HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
     ):
         if (
             hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
@@ -12056,6 +12163,24 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     except UnicodeDecodeError as exc:
         raise TestCorpusGuardError("changed test corpus paths are malformed") from exc
     all_changed = {path for path in paths if path}
+    expected_dependency_paths = set(
+        HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+    )
+    dependency_alignment_paths = all_changed & expected_dependency_paths
+    safe_dependency_paths: set[str] = set()
+    if dependency_alignment_paths == expected_dependency_paths:
+        safe_dependency_paths = _safe_httpx2_security_dependency_alignment_paths(
+            current_by_path={
+                path: _read_worktree_text(repo, path)
+                if (repo / path).is_file()
+                else ""
+                for path in dependency_alignment_paths
+            },
+            prior_by_path={
+                path: _base_text(repo, base_sha, path) or ""
+                for path in dependency_alignment_paths
+            },
+        )
     for path in all_changed:
         if not _is_python_test_path(path):
             continue
@@ -12098,6 +12223,18 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior_by_path={
             path: prior_runner_by_path[path] for path in effective_changed_runner_paths
         },
+    )
+    safe_runner_paths.update(
+        _safe_visual_regression_timeout_alignment_paths(
+            current_by_path={
+                path: current_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+            prior_by_path={
+                path: prior_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+        )
     )
     safe_runner_paths.update(
         _safe_performance_runner_evidence_alignment_paths(
@@ -12169,7 +12306,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         raise TestCorpusGuardError(
             "changed pytest runner dependency cannot be inventoried safely"
         )
-    if all_changed & PYTEST_DEPENDENCY_LOCK_PATHS:
+    if (all_changed & PYTEST_DEPENDENCY_LOCK_PATHS) - safe_dependency_paths:
         raise TestCorpusGuardError(
             "changed pytest dependency lock cannot be inventoried safely"
         )
@@ -12241,9 +12378,11 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 "changed pytest entry-point configuration cannot be inventoried safely"
             )
 
-        if path == "pyproject.toml" and _pytest_dev_dependencies(
-            current
-        ) != _pytest_dev_dependencies(prior):
+        if (
+            path == "pyproject.toml"
+            and _pytest_dev_dependencies(current) != _pytest_dev_dependencies(prior)
+            and path not in safe_dependency_paths
+        ):
             raise TestCorpusGuardError(
                 "changed pytest dependency configuration cannot be inventoried safely"
             )

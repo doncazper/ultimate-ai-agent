@@ -25831,7 +25831,7 @@ export const mockControlCenterData: ControlCenterData = {
         label: "Live health proof",
         status: "blocked",
         safeSummary:
-          "Live checks remain blocked because this lane cannot run probes.",
+          "Live process, version, loopback, compatibility, and forbidden-authority checks remain blocked because this lane cannot run probes.",
         sourceRefs: ["health-contract:macos-setup-lifecycle-v1"],
         reasonCodes: ["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
         nextSafeAction: "scope-read-only-health-probe-authority",
@@ -25844,7 +25844,7 @@ export const mockControlCenterData: ControlCenterData = {
         label: "Rollback readiness",
         status: "blocked",
         safeSummary:
-          "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked.",
+          "Rollback refs exist, but execution, rehearsal, and restore proof remain blocked until an exact mutation lane is separately accepted.",
         sourceRefs: [
           "macos-setup-rollback-plan:foundation",
           "rollback-contract:macos-setup-lifecycle-v1",
@@ -25866,7 +25866,7 @@ export const mockControlCenterData: ControlCenterData = {
         kind: "first_launch",
         status: "ready",
         safeSummary:
-          "Show the local-first setup timeline before any installer authority exists.",
+          "Show the local-first setup timeline and next daily-loop proof refs before any installer authority exists.",
         routeRefs: [],
         detailPreview: [
           "Welcome state explains local-only posture.",
@@ -25956,7 +25956,7 @@ export const mockControlCenterData: ControlCenterData = {
         kind: "setup_question",
         status: "dry_run_only",
         safeSummary:
-          "A future setup assistant may answer questions from setup state, but model output is never authority.",
+          "The future setup assistant may answer questions from setup state, but model output is never authority.",
         routeRefs: [],
         detailPreview: [
           "Question answering remains a planned local assistant surface.",
@@ -26132,6 +26132,22 @@ export const mockControlCenterData: ControlCenterData = {
           "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
         ],
       },
+      {
+        recommendationRef: "macos-setup-model-rec:bring-your-own",
+        modelRef: "local-model-option:bring-your-own-gguf",
+        displayName: "Bring your own GGUF",
+        fitSummary:
+          "User-selected GGUF class with later safe-ref validation.",
+        recommendedFor:
+          "Users who already have a reviewed local model artifact.",
+        memoryBucket: "ram:user-reviewed",
+        diskBucket: "disk:user-reviewed",
+        privacySummary:
+          "Runs through local UAA setup planning; no model call is made by this recommendation.",
+        approvalRequiredBeforeDownload: true,
+        selectedByDefault: false,
+        reasonCodes: ["MACOS_SETUP_SAFE_REF_VALIDATION_REQUIRED"],
+      },
     ],
     bridgePreviews: [
       {
@@ -26226,7 +26242,7 @@ export const mockControlCenterData: ControlCenterData = {
           "openwebui-bridge-enablement",
           "credential-capture",
           "runtime-handoff",
-          "transcript-content-storage-blocked",
+          "raw-transcript-storage",
         ],
         blockedRuntimeAuthority: [
           "openwebui-runtime-authority",
@@ -26278,12 +26294,12 @@ export const mockControlCenterData: ControlCenterData = {
           "mattermost-room-join",
           "mattermost-post",
           "connector-write",
-          "transcript-content-storage-blocked",
+          "raw-transcript-storage",
         ],
         blockedRuntimeAuthority: [
           "mattermost-connector-write",
           "control-center-setup-credential-handling",
-          "transcript-content-persistence-blocked",
+          "raw-transcript-persistence",
         ],
         evidenceRefs: [
           "docs-ref:uaa-setup-assistant-plan",
@@ -26356,13 +26372,16 @@ export const mockControlCenterData: ControlCenterData = {
       "macos-setup-production-authority",
     ],
     nextSteps: [
+      "Review the setup-to-daily-loop proof refs before calling setup complete.",
+      "Inspect local unsigned package proof refs without launching the app bundle.",
       "Review the Control Center setup preview against the first-launch flow.",
       "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
-      "Add a reviewed dry-run API route only after the contract shape settles.",
+      "Review dry-run approval envelopes before any setup mutation route is scoped.",
     ],
     morningReviewChecklist: [
       "Verify the model choices are labels only and not live downloads.",
       "Confirm every approval-required step has receipt and rollback refs.",
+      "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
       "Confirm terminal details are bounded previews and not raw logs.",
       "Decide the native macOS app scaffold location before adding signing work.",
     ],

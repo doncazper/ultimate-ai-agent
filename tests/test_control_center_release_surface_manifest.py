@@ -63,6 +63,13 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert len(manifest["routes"]) == len(visible_routes) == 44
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
+    assert {route["path"] for route in by_path["/setup"]["backend_routes"]} == {
+        "/control-center/backend-truth",
+        "/control-center/setup-assistant/summary",
+    }
+    assert "/control-center/agent-loop/thread" in {
+        route["path"] for route in by_path["/chat"]["backend_routes"]
+    }
     assert by_path["/messenger"]["status"] == "experimental"
     assert by_path["/messenger"]["backend_routes"] == [
         {

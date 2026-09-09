@@ -19,10 +19,11 @@
     "posture": "reachable_ancestor_digest_equivalent"
   },
   "contract_transition": {
-    "current_evaluator_source_digest": "sha256:5831418b4b0f2fea55a967895aae2308bfaefd5e5a39cd87b40473bc98f2827d",
+    "current_evaluator_source_digest": "sha256:603db34ce4a63a8552b30169c76260a9ab7be674e702938d8bd9ba3925914cd8",
     "current_evaluator_source_file_count": 53,
     "changed_source_refs": [
       "repo-ref:uaa:apps/control-center/src/App.test.tsx",
+      "repo-ref:uaa:pyproject.toml",
       "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
       "repo-ref:uaa:tests/test_goat_comparison_findings.py",
       "repo-ref:uaa:uv.lock"

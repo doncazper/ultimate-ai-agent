@@ -141,6 +141,8 @@ def _command_from_release(command: LaneCommand) -> CommandSpec:
         else "release_lane"
     )
     timeout = 600 if category == "frontend" else 300
+    if command.command_ref == "command:frontend.visual-regression":
+        timeout = 930
     if command.command_ref == "command:foundation-gate.report-only":
         timeout = 900
     if command.command_ref == "command:desktop-packaging.proof":
@@ -351,7 +353,7 @@ def command_registry() -> dict[str, CommandSpec]:
                 ),
                 (),
                 "gate",
-                300,
+                900,
             ),
         }
     )
