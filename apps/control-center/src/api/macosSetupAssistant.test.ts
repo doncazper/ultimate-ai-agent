@@ -276,6 +276,69 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects a non-envelope setup step rebound to ready", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const localModel = steps.find(
+      (step) => step.kind === "local_model_readiness",
+    );
+    expect(localModel).toBeDefined();
+    localModel!.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete static setup-step sequence", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    payload.steps = steps.filter(
+      (step) => step.kind !== "local_model_readiness",
+    );
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a mutating diagnostic next-action substitution", () => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    const nativeApp = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.diagnostic_ref === "macos-setup-diagnostic:native-app",
+    );
+    expect(nativeApp).toBeDefined();
+    nativeApp!.next_safe_action = "execute-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete static diagnostic sequence", () => {
+    const payload = completeSetupPayload();
+    const diagnostics = payload.diagnostics as Array<Record<string, unknown>>;
+    payload.diagnostics = diagnostics.slice(1);
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each([
     ["empty", []],
     [
@@ -755,6 +818,9 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["raw local path", "Review /Users/operator/private.log"],
     ["unlisted workspace path", "Review /workspace/operator/private.log"],
     ["unlisted mount path", "Inspect /mnt/data/config.json"],
+    ["hyphen-adjacent path", "Review-/Users/operator/private.log"],
+    ["underscore-adjacent path", "Review_/Library/LaunchAgents/example.plist"],
+    ["period-adjacent path", "Review./workspace/operator/private.log"],
     ["punctuated raw local path", "Path:/Users/operator/private.log"],
     ["macOS application path", "Review /Applications/UAA.app"],
     [

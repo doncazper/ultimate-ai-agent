@@ -19648,15 +19648,16 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: "Your local setup at a glance" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Backend API setup timeline")).toBeInTheDocument();
+    expect(screen.getByText("First launch setup")).toBeInTheDocument();
     expect(
       screen.getAllByText("control-center:setup-assistant-api-test").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("macos-setup-approval-envelope:api-summary").length,
+      screen.getAllByText("macos-setup-approval-envelope:model-selection")
+        .length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("idempotency-ref:macos-setup-api-summary").length,
+      screen.getAllByText("idempotency-ref:macos-setup-model-selection").length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("First-run proof spine")).toBeInTheDocument();
     expect(screen.getByText("Local package proof")).toBeInTheDocument();
@@ -19668,11 +19669,11 @@ describe("Web Control Center shell", () => {
       screen.getByText("loop-ref:setup-to-daily-loop:v1"),
     ).toBeInTheDocument();
     expect(screen.getByText("Setup readiness diagnostics")).toBeInTheDocument();
-    expect(screen.getByText("API plan diagnostic")).toBeInTheDocument();
+    expect(screen.getByText("Read-only setup plan")).toBeInTheDocument();
     expect(
-      screen.getAllByText("API native application diagnostic"),
+      screen.getAllByText("Native macOS application"),
     ).toHaveLength(2);
-    expect(screen.getByText("API rollback diagnostic")).toBeInTheDocument();
+    expect(screen.getByText("Rollback readiness")).toBeInTheDocument();
     expect(
       screen.getAllByText("define-and-rehearse-exact-rollback-lane").length,
     ).toBeGreaterThan(0);
@@ -22198,28 +22199,11 @@ function setupAssistantSummaryForTest() {
   const api = mockApiData.setupAssistantSummary;
   const steps = base.steps as Array<Record<string, unknown>>;
   const envelopes = base.approval_envelopes as Array<Record<string, unknown>>;
-  const modelStep = steps.find((step) => step.kind === "model_selection");
-  const modelEnvelope = envelopes.find(
-    (envelope) => envelope.setup_step_kind === "model_selection",
-  );
-  const apiStep = api.steps[0];
-  const apiEnvelope = api.approval_envelopes[0];
-  if (!modelStep || !modelEnvelope || !apiStep || !apiEnvelope) {
-    throw new Error("SETUP_TEST_FIXTURE_INCOMPLETE");
-  }
   return {
     ...base,
     ...api,
-    steps: steps.map((step) =>
-      step.kind === "model_selection"
-        ? {
-            ...modelStep,
-            ...apiStep,
-            kind: "model_selection",
-            status: modelStep.status,
-          }
-        : step,
-    ),
+    diagnostics: base.diagnostics,
+    steps,
     model_recommendations: [
       {
         ...(base.model_recommendations as Array<Record<string, unknown>>)[0],
@@ -22232,16 +22216,7 @@ function setupAssistantSummaryForTest() {
         ...api.bridge_previews[0],
       },
     ],
-    approval_envelopes: envelopes.map((envelope) =>
-      envelope.setup_step_kind === "model_selection"
-        ? {
-            ...modelEnvelope,
-            ...apiEnvelope,
-            setup_step_kind: "model_selection",
-            requested_scope_refs: modelEnvelope.requested_scope_refs,
-          }
-        : envelope,
-    ),
+    approval_envelopes: envelopes,
   };
 }
 

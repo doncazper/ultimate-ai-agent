@@ -70,7 +70,7 @@ const MACOS_SETUP_LIFECYCLE_TARGET_STATES: Record<
   rollback: "rolled_back",
   receipts: "prerequisites",
 };
-const MACOS_SETUP_STEP_KINDS = new Set([
+const MACOS_SETUP_STEP_KIND_SEQUENCE = [
   "first_launch",
   "runtime_health",
   "local_model_readiness",
@@ -85,7 +85,10 @@ const MACOS_SETUP_STEP_KINDS = new Set([
   "approval",
   "receipt_audit_latency",
   "rollback_uninstall",
-]);
+] as const;
+const MACOS_SETUP_STEP_KINDS = new Set<string>(
+  MACOS_SETUP_STEP_KIND_SEQUENCE,
+);
 const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
   "model_selection",
   "model_download_planning",
@@ -121,14 +124,132 @@ const MACOS_SETUP_APPROVAL_STATUS_BY_KIND = {
   openwebui_bridge: "approval_required",
   mattermost_bridge: "approval_required",
 } as const;
-const MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND = {
-  model_selection: "approval_required",
-  model_download_planning: "approval_required",
-  launch_agent_setup_planning: "blocked",
-  local_bridge_setup_planning: "approval_required",
-  background_service_setup_planning: "blocked",
-  openwebui_bridge: "approval_required",
-  mattermost_bridge: "approval_required",
+const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
+  first_launch: {
+    stepId: "macos-setup-step:first-launch",
+    status: "ready",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+  runtime_health: {
+    stepId: "macos-setup-step:runtime-health",
+    status: "ready",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+  local_model_readiness: {
+    stepId: "macos-setup-step:local-model-readiness",
+    status: "blocked",
+    nextSafeAction: "enable-reviewed-local-gateway",
+    approvalRequired: false,
+  },
+  model_selection: {
+    stepId: "macos-setup-step:model-selection",
+    status: "approval_required",
+    nextSafeAction: "review-model-choice",
+    approvalRequired: true,
+  },
+  model_download_planning: {
+    stepId: "macos-setup-step:model-download-planning",
+    status: "approval_required",
+    nextSafeAction: "review-model-download-envelope",
+    approvalRequired: true,
+  },
+  launch_agent_setup_planning: {
+    stepId: "macos-setup-step:launch-agent-setup-planning",
+    status: "blocked",
+    nextSafeAction: "wait-for-native-packaging-milestone",
+    approvalRequired: true,
+  },
+  local_bridge_setup_planning: {
+    stepId: "macos-setup-step:local-bridge-setup-planning",
+    status: "approval_required",
+    nextSafeAction: "review-local-bridge-envelope",
+    approvalRequired: true,
+  },
+  background_service_setup_planning: {
+    stepId: "macos-setup-step:background-service-setup-planning",
+    status: "blocked",
+    nextSafeAction: "keep-background-service-not-scoped",
+    approvalRequired: true,
+  },
+  setup_question: {
+    stepId: "macos-setup-step:ask-setup-question",
+    status: "dry_run_only",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+  openwebui_bridge: {
+    stepId: "macos-setup-step:openwebui-bridge",
+    status: "approval_required",
+    nextSafeAction: "review-openwebui-bridge",
+    approvalRequired: true,
+  },
+  mattermost_bridge: {
+    stepId: "macos-setup-step:mattermost-bridge",
+    status: "approval_required",
+    nextSafeAction: "review-mattermost-bridge",
+    approvalRequired: true,
+  },
+  approval: {
+    stepId: "macos-setup-step:approvals",
+    status: "dry_run_only",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+  receipt_audit_latency: {
+    stepId: "macos-setup-step:receipts-audit-latency",
+    status: "dry_run_only",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+  rollback_uninstall: {
+    stepId: "macos-setup-step:rollback-uninstall",
+    status: "dry_run_only",
+    nextSafeAction: "inspect_setup_plan",
+    approvalRequired: false,
+  },
+} as const;
+const MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE = [
+  "macos-setup-diagnostic:read-only-plan",
+  "macos-setup-diagnostic:native-app",
+  "macos-setup-diagnostic:live-health-proof",
+  "macos-setup-diagnostic:rollback-proof",
+] as const;
+const MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF = {
+  "macos-setup-diagnostic:read-only-plan": {
+    status: "ready",
+    nextSafeAction: "inspect-setup-plan",
+    sourceRefs: [
+      "api-surface:control-center-setup-summary",
+      "repo-local-command:macos-setup-lifecycle",
+    ],
+    reasonCodes: ["MACOS_SETUP_READ_ONLY_PLAN_READY"],
+  },
+  "macos-setup-diagnostic:native-app": {
+    status: "missing",
+    nextSafeAction: "review-native-shell-scope",
+    sourceRefs: ["control-center:setup-assistant-preview"],
+    reasonCodes: ["MACOS_SETUP_NATIVE_APP_MISSING"],
+  },
+  "macos-setup-diagnostic:live-health-proof": {
+    status: "blocked",
+    nextSafeAction: "scope-read-only-health-probe-authority",
+    sourceRefs: ["health-contract:macos-setup-lifecycle-v1"],
+    reasonCodes: ["MACOS_SETUP_LIVE_HEALTH_PROOF_BLOCKED"],
+  },
+  "macos-setup-diagnostic:rollback-proof": {
+    status: "blocked",
+    nextSafeAction: "define-and-rehearse-exact-rollback-lane",
+    sourceRefs: [
+      "macos-setup-rollback-plan:foundation",
+      "rollback-contract:macos-setup-lifecycle-v1",
+    ],
+    reasonCodes: [
+      "MACOS_SETUP_ROLLBACK_AUTHORITY_MISSING",
+      "MACOS_SETUP_ROLLBACK_REHEARSAL_MISSING",
+    ],
+  },
 } as const;
 const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
   "macos-setup-runtime-installation",
@@ -154,7 +275,7 @@ const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[^A-Za-z0-9._/~\\-])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[^A-Za-z0-9/\\])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
@@ -592,6 +713,8 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
       source.morning_review_checklist,
       MACOS_SETUP_MAX_DETAIL_CHARS,
     ) ||
+    !hasExactSetupStepSequence(source.steps) ||
+    !hasExactSetupDiagnosticSequence(source.diagnostics) ||
     !steps ||
     !diagnostics ||
     !recommendations ||
@@ -615,16 +738,15 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
 }
 
 function isSafeSetupDiagnostic(value: Record<string, unknown>): boolean {
+  const contract = setupDiagnosticContract(value.diagnostic_ref);
   return (
-    isSafeRef(value.diagnostic_ref) &&
+    contract !== undefined &&
     isSafeText(value.label, 120) &&
-    (value.status === "ready" ||
-      value.status === "missing" ||
-      value.status === "blocked") &&
+    value.status === contract.status &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeRefArray(value.source_refs, true) &&
-    isSafeRefArray(value.reason_codes, true) &&
-    isSafeRef(value.next_safe_action) &&
+    hasExactStringSequence(value.source_refs, contract.sourceRefs) &&
+    hasExactStringSequence(value.reason_codes, contract.reasonCodes) &&
+    value.next_safe_action === contract.nextSafeAction &&
     value.read_only === true &&
     value.live_probe_performed === false &&
     value.state_change_performed === false
@@ -632,25 +754,28 @@ function isSafeSetupDiagnostic(value: Record<string, unknown>): boolean {
 }
 
 function isSafeSetupStep(value: Record<string, unknown>): boolean {
+  const contract = setupStepContract(value.kind);
+  if (contract === undefined) {
+    return false;
+  }
+  const suffix = contract.stepId.split(":")[1];
   return (
-    isSafeRef(value.step_id) &&
-    typeof value.kind === "string" &&
-    MACOS_SETUP_STEP_KINDS.has(value.kind) &&
+    value.step_id === contract.stepId &&
     isSafeText(value.label, 120) &&
-    isSetupStatus(value.status) &&
+    value.status === contract.status &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeRouteArray(value.route_refs) &&
     isSafeTextArray(value.detail_preview, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeTextArray(value.log_preview, MACOS_SETUP_MAX_LOG_CHARS) &&
-    typeof value.approval_required === "boolean" &&
-    (value.status !== "approval_required" ||
-      value.approval_required === true) &&
-    isSafeOptionalRef(value.approval_ref) &&
-    isSafeRef(value.receipt_ref) &&
-    isSafeRef(value.rollback_ref) &&
-    isSafeOptionalRef(value.latency_ref) &&
+    value.approval_required === contract.approvalRequired &&
+    (contract.approvalRequired
+      ? value.approval_ref === `approval-ref:macos-setup-${suffix}`
+      : value.approval_ref === undefined || value.approval_ref === null) &&
+    value.receipt_ref === `receipt-plan:macos-setup-${suffix}` &&
+    value.rollback_ref === `rollback-plan:macos-setup-${suffix}` &&
+    value.latency_ref === `latency-ref:macos-setup-${suffix}` &&
     isSafeRefArray(value.reason_codes) &&
-    isSafeRef(value.next_safe_action) &&
+    value.next_safe_action === contract.nextSafeAction &&
     allBooleanFieldsEqual(
       value,
       [
@@ -828,7 +953,6 @@ function approvalEnvelopesBindToSteps(
     return (
       envelope !== undefined &&
       envelope.setup_step_kind === step.kind &&
-      hasExactApprovalStepStatus(step.kind, step.status) &&
       step.approval_required === true &&
       step.approval_ref === envelope.approval_request_ref &&
       step.receipt_ref === envelope.expected_receipt_ref &&
@@ -1077,17 +1201,51 @@ function hasExactApprovalStatus(
   );
 }
 
-function hasExactApprovalStepStatus(
-  kind: unknown,
-  value: unknown,
-): boolean {
+function setupStepContract(kind: unknown) {
+  if (
+    typeof kind !== "string" ||
+    !(kind in MACOS_SETUP_STEP_CONTRACT_BY_KIND)
+  ) {
+    return undefined;
+  }
+  return MACOS_SETUP_STEP_CONTRACT_BY_KIND[
+    kind as keyof typeof MACOS_SETUP_STEP_CONTRACT_BY_KIND
+  ];
+}
+
+function setupDiagnosticContract(ref: unknown) {
+  if (
+    typeof ref !== "string" ||
+    !(ref in MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF)
+  ) {
+    return undefined;
+  }
+  return MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF[
+    ref as keyof typeof MACOS_SETUP_DIAGNOSTIC_CONTRACT_BY_REF
+  ];
+}
+
+function hasExactSetupStepSequence(value: unknown): boolean {
   return (
-    typeof kind === "string" &&
-    kind in MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND &&
-    value ===
-      MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND[
-        kind as keyof typeof MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND
-      ]
+    Array.isArray(value) &&
+    value.length === MACOS_SETUP_STEP_KIND_SEQUENCE.length &&
+    value.every(
+      (step, index) =>
+        isRecord(step) && step.kind === MACOS_SETUP_STEP_KIND_SEQUENCE[index],
+    )
+  );
+}
+
+function hasExactSetupDiagnosticSequence(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE.length &&
+    value.every(
+      (diagnostic, index) =>
+        isRecord(diagnostic) &&
+        diagnostic.diagnostic_ref ===
+          MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE[index],
+    )
   );
 }
 
