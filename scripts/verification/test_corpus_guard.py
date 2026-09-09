@@ -11936,7 +11936,7 @@ def _safe_visual_regression_timeout_alignment_paths(
     current_by_path: dict[str, str],
     prior_by_path: dict[str, str],
 ) -> set[str]:
-    """Admit only the bounded visual command timeout alignment."""
+    """Admit only the bounded visual and terminal Foundation timeouts."""
 
     manifest_path = "scripts/verification/ci_command_manifest.py"
     expected_paths = {manifest_path}
@@ -11955,11 +11955,52 @@ def _safe_visual_regression_timeout_alignment_paths(
     )
     if prior_manifest.count(timeout_needle) != 1:
         return set()
-    if current_by_path[manifest_path] != prior_manifest.replace(
+    expected_manifest = prior_manifest.replace(
         timeout_needle,
         timeout_replacement,
         1,
-    ):
+    )
+    terminal_timeout_needle = (
+        '            "command:foundation-gate.ci-parallel": CommandSpec(\n'
+        '                "command:foundation-gate.ci-parallel",\n'
+        "                (\n"
+        '                    ".venv/bin/python",\n'
+        '                    "-I",\n'
+        '                    "-B",\n'
+        '                    "-S",\n'
+        '                    "scripts/run_foundation_gate.py",\n'
+        '                    "--command-mode",\n'
+        '                    "ci-parallel",\n'
+        '                    "--ci-prerequisite-manifest",\n'
+        '                    "{temp_root}/uaa_foundation_prerequisite_manifest.json",\n'
+        '                    "--ci-prerequisite-sha",\n'
+        '                    "{repository_sha}",\n'
+        '                    "--ci-prerequisite-base-sha",\n'
+        '                    "{base_sha}",\n'
+        '                    "--no-write-latest",\n'
+        "                ),\n"
+        "                (),\n"
+        '                "gate",\n'
+        "                300,\n"
+        "            ),\n"
+    )
+    terminal_timeout_replacement = terminal_timeout_needle.replace(
+        "                300,\n",
+        "                900,\n",
+        1,
+    )
+    if expected_manifest.count(terminal_timeout_needle) != 1:
+        allowed_manifests = {expected_manifest}
+    else:
+        allowed_manifests = {
+            expected_manifest,
+            expected_manifest.replace(
+                terminal_timeout_needle,
+                terminal_timeout_replacement,
+                1,
+            ),
+        }
+    if current_by_path[manifest_path] not in allowed_manifests:
         return set()
     return expected_paths
 

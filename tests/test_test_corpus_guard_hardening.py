@@ -19,6 +19,32 @@ def _visual_timeout_manifest_source() -> str:
         '    timeout = 600 if category == "frontend" else 300\n'
         '    if command.command_ref == "command:foundation-gate.report-only":\n'
         "        timeout = 900\n"
+        "\n"
+        "def command_registry():\n"
+        "    return {\n"
+        '            "command:foundation-gate.ci-parallel": CommandSpec(\n'
+        '                "command:foundation-gate.ci-parallel",\n'
+        "                (\n"
+        '                    ".venv/bin/python",\n'
+        '                    "-I",\n'
+        '                    "-B",\n'
+        '                    "-S",\n'
+        '                    "scripts/run_foundation_gate.py",\n'
+        '                    "--command-mode",\n'
+        '                    "ci-parallel",\n'
+        '                    "--ci-prerequisite-manifest",\n'
+        '                    "{temp_root}/uaa_foundation_prerequisite_manifest.json",\n'
+        '                    "--ci-prerequisite-sha",\n'
+        '                    "{repository_sha}",\n'
+        '                    "--ci-prerequisite-base-sha",\n'
+        '                    "{base_sha}",\n'
+        '                    "--no-write-latest",\n'
+        "                ),\n"
+        "                (),\n"
+        '                "gate",\n'
+        "                300,\n"
+        "            ),\n"
+        "    }\n"
     )
 
 
@@ -30,6 +56,25 @@ def test_exact_visual_timeout_alignment_is_admitted() -> None:
         '    if command.command_ref == "command:frontend.visual-regression":\n'
         "        timeout = 930\n"
         '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    )
+
+    assert guard._safe_visual_regression_timeout_alignment_paths(
+        current_by_path={path: current},
+        prior_by_path={path: prior},
+    ) == {path}
+
+
+def test_exact_terminal_foundation_timeout_alignment_is_admitted() -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = _visual_timeout_manifest_source()
+    current = prior.replace(
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+        '    if command.command_ref == "command:frontend.visual-regression":\n'
+        "        timeout = 930\n"
+        '    if command.command_ref == "command:foundation-gate.report-only":\n',
+    ).replace(
+        '                "gate",\n                300,\n',
+        '                "gate",\n                900,\n',
     )
 
     assert guard._safe_visual_regression_timeout_alignment_paths(
