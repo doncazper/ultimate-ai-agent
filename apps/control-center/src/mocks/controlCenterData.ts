@@ -25866,7 +25866,7 @@ export const mockControlCenterData: ControlCenterData = {
         kind: "first_launch",
         status: "ready",
         safeSummary:
-          "Show the local-first setup timeline before any installer authority exists.",
+          "Show the local-first setup timeline and next daily-loop proof refs before any installer authority exists.",
         routeRefs: [],
         detailPreview: [
           "Welcome state explains local-only posture.",
@@ -25956,7 +25956,7 @@ export const mockControlCenterData: ControlCenterData = {
         kind: "setup_question",
         status: "dry_run_only",
         safeSummary:
-          "A future setup assistant may answer questions from setup state, but model output is never authority.",
+          "The future setup assistant may answer questions from setup state, but model output is never authority.",
         routeRefs: [],
         detailPreview: [
           "Question answering remains a planned local assistant surface.",

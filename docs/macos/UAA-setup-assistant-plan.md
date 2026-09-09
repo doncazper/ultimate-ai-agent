@@ -214,11 +214,12 @@ Local package proof labels:
 The current visual surface is the web Control Center because the repo does not
 yet contain a native macOS SwiftUI app. The Control Center panel is a product
 prototype and review surface for the future native window. It remains
-read-only, mock-backed when the local backend is unavailable, and non-authority.
-It can use `GET /control-center/setup-assistant/summary` when the local backend
-is available; the route returns the dry-run setup summary and embedded typed
-lifecycle contract and does not execute installer, probe, process, repair,
-stop, or rollback actions.
+read-only and non-authority. The `/setup` route uses
+`GET /control-center/setup-assistant/summary` and fails closed to an unavailable
+state when that backend response is absent, fallback-derived, or incompatible;
+it does not render mock Setup content as backend truth. The endpoint returns the
+dry-run setup summary and embedded typed lifecycle contract and does not execute
+installer, probe, process, repair, stop, or rollback actions.
 
 ## Native macOS Direction
 

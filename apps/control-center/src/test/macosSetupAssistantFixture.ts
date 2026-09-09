@@ -24,6 +24,28 @@ const EXTRA_APPROVAL_ROUTE_REFS_BY_KIND = {
   local_bridge_setup_planning: ["/v1/models", "/v1/chat/completions"],
   background_service_setup_planning: [],
 } as const;
+const EXTRA_APPROVAL_DISPLAY_BY_KIND = {
+  model_download_planning: {
+    label: "Model download planning",
+    safeSummary:
+      "Model download approval is represented as dry-run scope metadata only.",
+  },
+  launch_agent_setup_planning: {
+    label: "LaunchAgent setup planning",
+    safeSummary:
+      "LaunchAgent setup remains blocked until a reviewed native packaging milestone.",
+  },
+  local_bridge_setup_planning: {
+    label: "Local bridge setup planning",
+    safeSummary:
+      "Local bridge enablement is represented as disabled-by-default dry-run scope metadata.",
+  },
+  background_service_setup_planning: {
+    label: "Background-service setup planning",
+    safeSummary:
+      "Background-service setup remains not scoped and cannot start a daemon, scheduler, or worker.",
+  },
+} as const;
 const PROCESS_MANAGER_COMMAND = ["launch", "ctl"].join("");
 const EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND = {
   model_download_planning: "review-model-download-envelope",
@@ -226,9 +248,10 @@ function withCompleteApprovalKinds(
     steps.push({
       ...stepTemplate,
       step_id: stepId,
-      label: `Bounded ${slug} review`,
+      label: EXTRA_APPROVAL_DISPLAY_BY_KIND[kind].label,
       kind,
       status: EXTRA_APPROVAL_STEP_STATUS_BY_KIND[kind],
+      safe_summary: EXTRA_APPROVAL_DISPLAY_BY_KIND[kind].safeSummary,
       route_refs: EXTRA_APPROVAL_ROUTE_REFS_BY_KIND[kind],
       next_safe_action: EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND[kind],
       approval_ref: approvalRef,

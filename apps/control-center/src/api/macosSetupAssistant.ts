@@ -333,6 +333,9 @@ const MACOS_SETUP_LIFECYCLE_CONTRACT = {
 const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   first_launch: {
     stepId: "macos-setup-step:first-launch",
+    label: "First launch setup",
+    safeSummary:
+      "Show the local-first setup timeline and next daily-loop proof refs before any installer authority exists.",
     status: "ready",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -340,6 +343,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   runtime_health: {
     stepId: "macos-setup-step:runtime-health",
+    label: "Runtime health",
+    safeSummary:
+      "Use existing health and readiness refs as inspectable setup inputs.",
     status: "ready",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -352,6 +358,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   local_model_readiness: {
     stepId: "macos-setup-step:local-model-readiness",
+    label: "Local model readiness",
+    safeSummary:
+      "Model readiness remains gated by reviewed local gateway configuration.",
     status: "blocked",
     nextSafeAction: "enable-reviewed-local-gateway",
     approvalRequired: false,
@@ -359,6 +368,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   model_selection: {
     stepId: "macos-setup-step:model-selection",
+    label: "Model selection",
+    safeSummary:
+      "Model choices are recommendation records only until the user approves a download or safe-ref import.",
     status: "approval_required",
     nextSafeAction: "review-model-choice",
     approvalRequired: true,
@@ -366,6 +378,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   model_download_planning: {
     stepId: "macos-setup-step:model-download-planning",
+    label: "Model download planning",
+    safeSummary:
+      "Model download approval is represented as dry-run scope metadata only.",
     status: "approval_required",
     nextSafeAction: "review-model-download-envelope",
     approvalRequired: true,
@@ -373,6 +388,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   launch_agent_setup_planning: {
     stepId: "macos-setup-step:launch-agent-setup-planning",
+    label: "LaunchAgent setup planning",
+    safeSummary:
+      "LaunchAgent setup remains blocked until a reviewed native packaging milestone.",
     status: "blocked",
     nextSafeAction: "wait-for-native-packaging-milestone",
     approvalRequired: true,
@@ -380,6 +398,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   local_bridge_setup_planning: {
     stepId: "macos-setup-step:local-bridge-setup-planning",
+    label: "Local bridge setup planning",
+    safeSummary:
+      "Local bridge enablement is represented as disabled-by-default dry-run scope metadata.",
     status: "approval_required",
     nextSafeAction: "review-local-bridge-envelope",
     approvalRequired: true,
@@ -387,6 +408,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   background_service_setup_planning: {
     stepId: "macos-setup-step:background-service-setup-planning",
+    label: "Background-service setup planning",
+    safeSummary:
+      "Background-service setup remains not scoped and cannot start a daemon, scheduler, or worker.",
     status: "blocked",
     nextSafeAction: "keep-background-service-not-scoped",
     approvalRequired: true,
@@ -394,6 +418,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   setup_question: {
     stepId: "macos-setup-step:ask-setup-question",
+    label: "Setup questions",
+    safeSummary:
+      "The future setup assistant may answer questions from setup state, but model output is never authority.",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -401,6 +428,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   openwebui_bridge: {
     stepId: "macos-setup-step:openwebui-bridge",
+    label: "Optional OpenWebUI bridge",
+    safeSummary:
+      "OpenWebUI bridge setup is optional and remains explicit local approval work.",
     status: "approval_required",
     nextSafeAction: "review-openwebui-bridge",
     approvalRequired: true,
@@ -408,6 +438,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   mattermost_bridge: {
     stepId: "macos-setup-step:mattermost-bridge",
+    label: "Optional Mattermost Agent Rooms",
+    safeSummary:
+      "Mattermost Agent Rooms remain a local, disabled-by-default bridge with explicit room approval.",
     status: "approval_required",
     nextSafeAction: "review-mattermost-bridge",
     approvalRequired: true,
@@ -418,6 +451,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   approval: {
     stepId: "macos-setup-step:approvals",
+    label: "Approvals",
+    safeSummary:
+      "Every future setup mutation needs exact local approval before execution.",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -425,6 +461,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   receipt_audit_latency: {
     stepId: "macos-setup-step:receipts-audit-latency",
+    label: "Receipts, audit, and latency",
+    safeSummary:
+      "Receipt, audit, and latency refs are planned before any setup action is allowed.",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -432,6 +471,9 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   },
   rollback_uninstall: {
     stepId: "macos-setup-step:rollback-uninstall",
+    label: "Rollback and uninstall",
+    safeSummary:
+      "Rollback and uninstall refs are visible before any reviewed setup mutation exists.",
     status: "dry_run_only",
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
@@ -536,6 +578,7 @@ const MACOS_SETUP_RUNTIME_TEXT_FRAGMENTS = [
 ];
 const MACOS_SETUP_STANDALONE_CREDENTIAL_PATTERNS = [
   /\bgh[pousr]_[A-Za-z0-9]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
   /\bAIza[A-Za-z0-9_-]{20,}\b/,
   /\bsk-[A-Za-z0-9_-]{16,}\b/,
@@ -1016,9 +1059,9 @@ function isSafeSetupStep(value: Record<string, unknown>): boolean {
   const suffix = contract.stepId.split(":")[1];
   return (
     value.step_id === contract.stepId &&
-    isSafeText(value.label, 120) &&
+    value.label === contract.label &&
     value.status === contract.status &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === contract.safeSummary &&
     hasExactStringSequence(value.route_refs, contract.routeRefs) &&
     isSafeTextArray(value.detail_preview, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeTextArray(value.log_preview, MACOS_SETUP_MAX_LOG_CHARS) &&

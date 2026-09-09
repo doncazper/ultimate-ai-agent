@@ -463,6 +463,24 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it.each([
+    ["label", "Production setup complete"],
+    ["safe_summary", "Production setup is complete."],
+  ])("rejects substituted setup-step display text in %s", (field, value) => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const firstLaunch = steps.find((step) => step.kind === "first_launch");
+    expect(firstLaunch).toBeDefined();
+    firstLaunch![field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each(["runtime_health", "model_selection"])(
     "rejects substituted prerequisite routes for %s",
     (kind) => {
@@ -971,6 +989,7 @@ describe("macOS Setup Assistant normalization provenance", () => {
 
   it.each([
     ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
+    ["fine-grained GitHub token", `github_pat_${"a".repeat(82)}`],
     ["terminal control text", "Unsafe\u001bsummary"],
     ["raw local path", "Review /Users/operator/private.log"],
     ["unlisted workspace path", "Review /workspace/operator/private.log"],
@@ -1013,6 +1032,7 @@ describe("macOS Setup Assistant normalization provenance", () => {
 
   it.each([
     ["standalone GitHub token", `ghp_${"a".repeat(36)}`],
+    ["fine-grained GitHub token", `github_pat_${"a".repeat(82)}`],
     [
       "standalone JWT",
       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123456",
