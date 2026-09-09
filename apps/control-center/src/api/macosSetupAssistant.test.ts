@@ -994,6 +994,7 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["raw local path", "Review /Users/operator/private.log"],
     ["unlisted workspace path", "Review /workspace/operator/private.log"],
     ["unlisted mount path", "Inspect /mnt/data/config.json"],
+    ["punctuation-prefixed absolute path", "Review /+mount/private.log"],
     ["hyphen-adjacent path", "Review-/Users/operator/private.log"],
     ["underscore-adjacent path", "Review_/Library/LaunchAgents/example.plist"],
     ["period-adjacent path", "Review./workspace/operator/private.log"],

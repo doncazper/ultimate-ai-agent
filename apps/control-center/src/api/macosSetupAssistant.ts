@@ -557,7 +557,7 @@ const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[^A-Za-z0-9])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[^A-Za-z0-9])(?:~\/?|\/[^\s/]+(?:\/[^\s/]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
