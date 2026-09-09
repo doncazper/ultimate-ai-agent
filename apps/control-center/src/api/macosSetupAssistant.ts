@@ -129,6 +129,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   model_selection: {
     safeSummary:
       "Dry-run envelope for future model choice review; no model is selected, read, downloaded, or called.",
+    staleStateHandling:
+      "Stale if local model readiness refs, hardware buckets, or model recommendation classes change before review.",
+    redactionSummary:
+      "Safe recommendation refs only; raw model URLs, local file paths, prompts, logs, and provider payloads are omitted.",
     notScopedActions: [
       "model-selection-persistence",
       "model-file-read",
@@ -144,6 +148,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   model_download_planning: {
     safeSummary:
       "Dry-run envelope for future model download approval scope; no model is downloaded.",
+    staleStateHandling:
+      "Stale if model refs, route manifest, or local runtime prerequisites change; rebuild the dry-run envelope before approval review.",
+    redactionSummary:
+      "Safe refs and bounded summaries only; raw URLs, raw local paths, prompts, logs, and provider payloads are omitted.",
     notScopedActions: [
       "model-download-execution",
       "model-file-read",
@@ -159,6 +167,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   launch_agent_setup_planning: {
     safeSummary:
       "Dry-run envelope for future LaunchAgent setup scope; prerequisite authority is missing.",
+    staleStateHandling:
+      "Stale until a scoped native packaging milestone defines reviewed LaunchAgent approval and rollback evidence.",
+    redactionSummary:
+      "Safe refs only; plist paths, user paths, hostnames, raw logs, and command strings are omitted.",
     notScopedActions: [
       "launch-agent-installation",
       "launch-agent-load",
@@ -174,6 +186,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   local_bridge_setup_planning: {
     safeSummary:
       "Dry-run envelope for future local bridge setup scope; no bridge is enabled.",
+    staleStateHandling:
+      "Stale if bridge auth posture, local gateway refs, or credential handling requirements change.",
+    redactionSummary:
+      "Safe refs and disabled-by-default status only; credentials, browser session material, transcript content, prompts, and provider payloads are omitted.",
     notScopedActions: [
       "bridge-enable-now",
       "credential-capture",
@@ -189,6 +205,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   background_service_setup_planning: {
     safeSummary:
       "Dry-run envelope records that background-service setup is not scoped.",
+    staleStateHandling:
+      "Stale only when a later accepted milestone scopes background-service authority with approval, rollback, and safe-disable evidence.",
+    redactionSummary:
+      "Safe refs only; service labels, host details, raw logs, paths, and command strings are omitted.",
     notScopedActions: [
       "background-service-installation",
       "background-service-start",
@@ -204,6 +224,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   openwebui_bridge: {
     safeSummary:
       "Dry-run envelope for future OpenWebUI bridge review; no bridge, credential, or runtime handoff is enabled.",
+    staleStateHandling:
+      "Stale if OpenWebUI auth posture, local gateway refs, credential requirements, or bridge defaults change before review.",
+    redactionSummary:
+      "Safe refs and disabled-by-default status only; credentials, browser session material, transcript content, prompts, and provider payloads are omitted.",
     notScopedActions: [
       "openwebui-bridge-enablement",
       "credential-capture",
@@ -219,6 +243,10 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   mattermost_bridge: {
     safeSummary:
       "Dry-run envelope for future Mattermost room bridge review; no room join, post, connector write, or transcript capture occurs.",
+    staleStateHandling:
+      "Stale if room approval posture, connector policy, credential handling, or speak-only defaults change before review.",
+    redactionSummary:
+      "Safe refs and disabled-by-default status only; room identifiers, credentials, transcript content, and provider payloads are omitted.",
     notScopedActions: [
       "mattermost-room-join",
       "mattermost-post",
@@ -1366,8 +1394,8 @@ function isSafeSetupApprovalEnvelope(
     isSafeRefArray(value.evidence_refs, true) &&
     isSafeRefArray(value.verifier_refs, true) &&
     value.operator_next_action === stepContract.nextSafeAction &&
-    isSafeEnvelopeText(value.stale_state_handling) &&
-    isSafeEnvelopeText(value.redaction_summary) &&
+    value.stale_state_handling === boundary.staleStateHandling &&
+    value.redaction_summary === boundary.redactionSummary &&
     allBooleanFieldsEqual(
       value,
       [

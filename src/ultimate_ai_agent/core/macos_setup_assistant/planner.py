@@ -526,8 +526,9 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
                 "requirements change."
             ),
             redaction_summary=(
-                "Safe refs and disabled-by-default status only; credentials, cookies, "
-                "transcripts, prompts, and provider payloads are omitted."
+                "Safe refs and disabled-by-default status only; credentials, browser "
+                "session material, transcript content, prompts, and provider payloads "
+                "are omitted."
             ),
         ),
         _envelope(
@@ -596,8 +597,9 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
                 "requirements, or bridge defaults change before review."
             ),
             redaction_summary=(
-                "Safe refs and disabled-by-default status only; credentials, cookies, "
-                "transcripts, prompts, and provider payloads are omitted."
+                "Safe refs and disabled-by-default status only; credentials, browser "
+                "session material, transcript content, prompts, and provider payloads "
+                "are omitted."
             ),
         ),
         _envelope(
@@ -632,7 +634,7 @@ def _approval_envelopes(steps: list[MacOSSetupStep]) -> list[MacOSSetupApprovalE
             ),
             redaction_summary=(
                 "Safe refs and disabled-by-default status only; room identifiers, "
-                "credentials, raw transcripts, and provider payloads are omitted."
+                "credentials, transcript content, and provider payloads are omitted."
             ),
         ),
     ]

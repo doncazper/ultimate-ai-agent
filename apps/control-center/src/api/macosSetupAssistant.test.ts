@@ -1037,6 +1037,37 @@ describe("macOS Setup Assistant normalization provenance", () => {
   });
 
   it.each([
+    ["stale-state guidance", "stale_state_handling"],
+    ["redaction guidance", "redaction_summary"],
+  ])(
+    "rejects substituted approval-envelope %s across every setup lane",
+    (_name, field) => {
+      const baseline = completeSetupPayload();
+      const baselineEnvelopes = baseline.approval_envelopes as Array<
+        Record<string, unknown>
+      >;
+
+      baselineEnvelopes.forEach((_envelope, envelopeIndex) => {
+        const payload = completeSetupPayload();
+        const envelopes = payload.approval_envelopes as Array<
+          Record<string, unknown>
+        >;
+        envelopes[envelopeIndex][field] =
+          field === "stale_state_handling"
+            ? "This envelope never becomes stale."
+            : "Raw credentials and logs are included.";
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      });
+    },
+  );
+
+  it.each([
     "receipt_created",
     "audit_event_created",
     "raw_log_stored",

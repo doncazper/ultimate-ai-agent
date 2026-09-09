@@ -90,6 +90,26 @@ const APPROVAL_ENVELOPE_SAFE_SUMMARY_BY_KIND = {
   background_service_setup_planning:
     "Dry-run envelope records that background-service setup is not scoped.",
 } as const;
+const APPROVAL_ENVELOPE_STALE_STATE_BY_KIND = {
+  model_download_planning:
+    "Stale if model refs, route manifest, or local runtime prerequisites change; rebuild the dry-run envelope before approval review.",
+  launch_agent_setup_planning:
+    "Stale until a scoped native packaging milestone defines reviewed LaunchAgent approval and rollback evidence.",
+  local_bridge_setup_planning:
+    "Stale if bridge auth posture, local gateway refs, or credential handling requirements change.",
+  background_service_setup_planning:
+    "Stale only when a later accepted milestone scopes background-service authority with approval, rollback, and safe-disable evidence.",
+} as const;
+const APPROVAL_ENVELOPE_REDACTION_SUMMARY_BY_KIND = {
+  model_download_planning:
+    "Safe refs and bounded summaries only; raw URLs, raw local paths, prompts, logs, and provider payloads are omitted.",
+  launch_agent_setup_planning:
+    "Safe refs only; plist paths, user paths, hostnames, raw logs, and command strings are omitted.",
+  local_bridge_setup_planning:
+    "Safe refs and disabled-by-default status only; credentials, browser session material, transcript content, prompts, and provider payloads are omitted.",
+  background_service_setup_planning:
+    "Safe refs only; service labels, host details, raw logs, paths, and command strings are omitted.",
+} as const;
 const LIFECYCLE_SAFE_SUMMARY_BY_OPERATION = {
   plan: "Inspect the exact local setup lifecycle plan without changing local state.",
   status:
@@ -378,6 +398,9 @@ function withCompleteApprovalKinds(
       blocked_runtime_authority:
         EXTRA_APPROVAL_BLOCKED_AUTHORITY_BY_KIND[kind],
       operator_next_action: EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND[kind],
+      stale_state_handling: APPROVAL_ENVELOPE_STALE_STATE_BY_KIND[kind],
+      redaction_summary:
+        APPROVAL_ENVELOPE_REDACTION_SUMMARY_BY_KIND[kind],
     });
   }
   steps.sort(
