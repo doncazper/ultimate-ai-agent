@@ -19656,7 +19656,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("First launch setup")).toBeInTheDocument();
     expect(
-      screen.getAllByText("control-center:setup-assistant-api-test").length,
+      screen.getAllByText("control-center:setup-assistant-preview").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("macos-setup-approval-envelope:model-selection")
@@ -22208,6 +22208,7 @@ function setupAssistantSummaryForTest() {
   return {
     ...base,
     ...api,
+    visual_shell_ref: base.visual_shell_ref,
     diagnostics: base.diagnostics,
     steps,
     model_recommendations: base.model_recommendations,

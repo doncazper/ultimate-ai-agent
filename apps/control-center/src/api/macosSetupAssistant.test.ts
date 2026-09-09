@@ -322,6 +322,38 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects substituted bridge labels and summaries", () => {
+    const substitutions = [
+      ["label", "Enabled OpenWebUI bridge"],
+      ["safe_summary", "OpenWebUI bridge enablement is complete."],
+    ] as const;
+
+    for (const [field, replacement] of substitutions) {
+      const payload = completeSetupPayload();
+      const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+      bridges[0][field] = replacement;
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects a substituted visual shell identity", () => {
+    const payload = completeSetupPayload();
+    payload.visual_shell_ref = "control-center:production-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("rejects a broadened approval scope for a bounded setup step", () => {
     const payload = completeSetupPayload();
     const envelopes = payload.approval_envelopes as Array<
@@ -1089,7 +1121,7 @@ describe("macOS Setup Assistant normalization provenance", () => {
     },
   );
 
-  it("preserves an ordinary relative slash in preview prose", () => {
+  it("rejects substituted preview prose even when it is superficially safe", () => {
     const payload = completeSetupPayload();
     const steps = payload.steps as Array<Record<string, unknown>>;
     steps[0].detail_preview = ["Compare input/output states."];
@@ -1099,10 +1131,27 @@ describe("macOS Setup Assistant normalization provenance", () => {
       mockControlCenterData.macosSetupAssistant,
     );
 
-    expect(normalized.usedFallback).toBe(false);
-    expect(normalized.value.steps[0].detailPreview).toEqual([
-      "Compare input/output states.",
-    ]);
+    expect(normalized.usedFallback).toBe(true);
+    expect(normalized.value).toEqual(
+      mockControlCenterData.macosSetupAssistant,
+    );
+  });
+
+  it("rejects hostname-shaped setup detail and log previews", () => {
+    for (const field of ["detail_preview", "log_preview"] as const) {
+      for (const hostname of ["Host MacBook-Pro.local", "MacBook-Pro"]) {
+        const payload = completeSetupPayload();
+        const steps = payload.steps as Array<Record<string, unknown>>;
+        steps[0][field] = [hostname];
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      }
+    }
   });
 
   it.each([
@@ -1241,6 +1290,35 @@ describe("macOS Setup Assistant normalization provenance", () => {
       ).toBe(true);
     },
   );
+
+  it("rejects substituted model recommendation copy", () => {
+    const substitutions: Array<[string, unknown]> = [
+      ["display_name", "Production ready model"],
+      ["fit_summary", "Model installation is complete."],
+      ["recommended_for", "Any production deployment."],
+      ["memory_bucket", "ram:any"],
+      ["disk_bucket", "disk:any"],
+      ["privacy_summary", "The model was called successfully."],
+      ["reason_codes", ["MACOS_SETUP_DEFAULT_LOCAL_MODEL"]],
+    ];
+
+    for (const recommendationIndex of [0, 1, 2, 3]) {
+      for (const [field, replacement] of substitutions) {
+        const payload = completeSetupPayload();
+        const recommendations = payload.model_recommendations as Array<
+          Record<string, unknown>
+        >;
+        recommendations[recommendationIndex][field] = replacement;
+
+        expect(
+          normalizeMacOSSetupAssistant(
+            payload,
+            mockControlCenterData.macosSetupAssistant,
+          ).usedFallback,
+        ).toBe(true);
+      }
+    }
+  });
 
   it.each(["missing", "reordered", "substituted"])(
     "rejects a %s Setup promotion path",

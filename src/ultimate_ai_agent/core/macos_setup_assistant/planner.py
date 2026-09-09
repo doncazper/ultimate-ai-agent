@@ -342,7 +342,7 @@ def _default_steps() -> list[MacOSSetupStep]:
             status=MacOSSetupStepStatus.approval_required,
             safe_summary="Mattermost Agent Rooms remain a local, disabled-by-default bridge with explicit room approval.",
             route_refs=["/integrations/mattermost/status", "/integrations/mattermost/roles/catalog"],
-            detail_preview=["Room participation is speak-only by default.", "No raw transcript is persisted."],
+            detail_preview=["Room participation is speak-only by default.", "No transcript preview is persisted."],
             log_preview=["mattermost bridge preview only; no post observed"],
             approval_required=True,
             approval_ref="approval-ref:macos-setup-mattermost-bridge",

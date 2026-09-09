@@ -236,26 +236,84 @@ const MACOS_SETUP_BRIDGE_REF_SEQUENCE = [
   "macos-setup-bridge:openwebui",
   "macos-setup-bridge:mattermost",
 ] as const;
+const MACOS_SETUP_BRIDGE_CONTRACT_BY_REF = {
+  "macos-setup-bridge:openwebui": {
+    label: "OpenWebUI bridge",
+    safeSummary:
+      "Optional local OpenWebUI bridge remains disabled until explicit setup approval.",
+  },
+  "macos-setup-bridge:mattermost": {
+    label: "Mattermost Agent Rooms",
+    safeSummary:
+      "Optional Mattermost room bridge remains disabled until explicit setup approval.",
+  },
+} as const;
 const MACOS_SETUP_MODEL_RECOMMENDATION_SEQUENCE = [
   {
     recommendationRef: "macos-setup-model-rec:fast-local",
     modelRef: "local-model-option:small-chat-gguf",
+    displayName: "Fast local chat",
+    fitSummary: "Small local GGUF class for first-run readiness checks.",
+    recommendedFor: "Fastest offline setup check and low-memory Macs.",
+    memoryBucket: "ram:low-to-medium",
+    diskBucket: "disk:small",
+    privacySummary:
+      "Runs through local UAA setup planning; no model call is made by this recommendation.",
     selectedByDefault: true,
+    reasonCodes: [
+      "MACOS_SETUP_DEFAULT_LOCAL_MODEL",
+      "MACOS_SETUP_OFFLINE_FIRST",
+    ],
   },
   {
     recommendationRef: "macos-setup-model-rec:balanced-local",
     modelRef: "local-model-option:balanced-assistant-gguf",
+    displayName: "Balanced local assistant",
+    fitSummary:
+      "Balanced local GGUF class for general chat and planning.",
+    recommendedFor:
+      "Day-to-day UAA local assistant use after readiness is proven.",
+    memoryBucket: "ram:medium",
+    diskBucket: "disk:medium",
+    privacySummary:
+      "Runs through local UAA setup planning; no model call is made by this recommendation.",
     selectedByDefault: false,
+    reasonCodes: [
+      "MACOS_SETUP_BALANCED_DEFAULT",
+      "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
+    ],
   },
   {
     recommendationRef: "macos-setup-model-rec:coding-local",
     modelRef: "local-model-option:coding-assistant-gguf",
+    displayName: "Coding local assistant",
+    fitSummary:
+      "Coding-focused local GGUF class for developer workflows.",
+    recommendedFor:
+      "Code review, implementation planning, and local developer loops.",
+    memoryBucket: "ram:medium-to-high",
+    diskBucket: "disk:medium",
+    privacySummary:
+      "Runs through local UAA setup planning; no model call is made by this recommendation.",
     selectedByDefault: false,
+    reasonCodes: [
+      "MACOS_SETUP_CODING_WORKFLOW",
+      "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
+    ],
   },
   {
     recommendationRef: "macos-setup-model-rec:bring-your-own",
     modelRef: "local-model-option:bring-your-own-gguf",
+    displayName: "Bring your own GGUF",
+    fitSummary: "User-selected GGUF class with later safe-ref validation.",
+    recommendedFor:
+      "Users who already have a reviewed local model artifact.",
+    memoryBucket: "ram:user-reviewed",
+    diskBucket: "disk:user-reviewed",
+    privacySummary:
+      "Runs through local UAA setup planning; no model call is made by this recommendation.",
     selectedByDefault: false,
+    reasonCodes: ["MACOS_SETUP_SAFE_REF_VALIDATION_REQUIRED"],
   },
 ] as const;
 const MACOS_SETUP_PROMOTION_PATH_SEQUENCE = [
@@ -279,6 +337,8 @@ const MACOS_SETUP_REPO_SAFE_SCOPE =
   "Read-only setup plan, local package proof refs, dry-run approval envelopes, and bounded Control Center presentation only.";
 const MACOS_SETUP_BLOCKED_AUTHORITY_SUMMARY =
   "Installer execution, model downloads, LaunchAgent changes, bridge enablement, shell subprocess, browser automation, public distribution, signing, notarization, and production authority remain blocked.";
+const MACOS_SETUP_VISUAL_SHELL_REF =
+  "control-center:setup-assistant-preview";
 const MACOS_SETUP_FIRST_RUN_LOOP_REF_SEQUENCE = [
   "loop-ref:setup-to-daily-loop:v1",
   "contract-ref:start-here-local-loop:v1",
@@ -379,6 +439,12 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
     routeRefs: [],
+    detailPreview: [
+      "Welcome state explains local-only posture.",
+      "Details pane shows bounded setup previews.",
+      "Next step points to Start Here, Today, Action Inbox, Proof, Memory, and Trust refs.",
+    ],
+    logPreview: ["setup preview initialized; no command executed"],
   },
   runtime_health: {
     stepId: "macos-setup-step:runtime-health",
@@ -394,6 +460,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
       "/runtime/readiness",
       "/runtime/capability-matrix",
     ],
+    detailPreview: [
+      "Runtime status is read-only.",
+      "No lifecycle action is exposed.",
+    ],
+    logPreview: ["health route planned for read-only inspection"],
   },
   local_model_readiness: {
     stepId: "macos-setup-step:local-model-readiness",
@@ -404,6 +475,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "enable-reviewed-local-gateway",
     approvalRequired: false,
     routeRefs: ["/v1/models", "/v1/chat/completions"],
+    detailPreview: [
+      "Model list inspection is allowed only through configured local UAA routes.",
+      "Chat probes remain redacted and disabled by default.",
+    ],
+    logPreview: ["local model route preview is gated; no prompt sent"],
   },
   model_selection: {
     stepId: "macos-setup-step:model-selection",
@@ -414,6 +490,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "review-model-choice",
     approvalRequired: true,
     routeRefs: [],
+    detailPreview: [
+      "Choices show size and fit buckets.",
+      "No model file is read or downloaded by this slice.",
+    ],
+    logPreview: ["model recommendation list built from safe labels"],
   },
   model_download_planning: {
     stepId: "macos-setup-step:model-download-planning",
@@ -424,6 +505,13 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "review-model-download-envelope",
     approvalRequired: true,
     routeRefs: [],
+    detailPreview: [
+      "Future downloads require exact model refs and operator approval.",
+      "No model URL is fetched and no model file is written.",
+    ],
+    logPreview: [
+      "model download envelope created; no download attempted",
+    ],
   },
   launch_agent_setup_planning: {
     stepId: "macos-setup-step:launch-agent-setup-planning",
@@ -434,6 +522,13 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "wait-for-native-packaging-milestone",
     approvalRequired: true,
     routeRefs: [],
+    detailPreview: [
+      "The dry-run envelope names future approval scope refs only.",
+      "No launch agent file, load action, or start action is available.",
+    ],
+    logPreview: [
+      "launch agent envelope created; no launch action attempted",
+    ],
   },
   local_bridge_setup_planning: {
     stepId: "macos-setup-step:local-bridge-setup-planning",
@@ -444,6 +539,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "review-local-bridge-envelope",
     approvalRequired: true,
     routeRefs: ["/v1/models", "/v1/chat/completions"],
+    detailPreview: [
+      "Bridge setup requires exact local scope and credential-safe handling.",
+      "No bridge is enabled and no connector write occurs.",
+    ],
+    logPreview: ["local bridge envelope created; no bridge contacted"],
   },
   background_service_setup_planning: {
     stepId: "macos-setup-step:background-service-setup-planning",
@@ -454,6 +554,13 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "keep-background-service-not-scoped",
     approvalRequired: true,
     routeRefs: [],
+    detailPreview: [
+      "The envelope documents denied authority for future review.",
+      "No background service, daemon, scheduler, worker, or auto-start mechanism is created.",
+    ],
+    logPreview: [
+      "background service envelope created; no service action attempted",
+    ],
   },
   setup_question: {
     stepId: "macos-setup-step:ask-setup-question",
@@ -464,6 +571,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
     routeRefs: [],
+    detailPreview: [
+      "Question answering remains a planned local assistant surface.",
+      "Advice cannot approve downloads, services, or bridge enablement.",
+    ],
+    logPreview: ["question assistant placeholder; no model called"],
   },
   openwebui_bridge: {
     stepId: "macos-setup-step:openwebui-bridge",
@@ -474,6 +586,13 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "review-openwebui-bridge",
     approvalRequired: true,
     routeRefs: ["/v1/models", "/v1/chat/completions"],
+    detailPreview: [
+      "Bridge enablement is disabled by default.",
+      "No OpenWebUI runtime handoff is performed.",
+    ],
+    logPreview: [
+      "openwebui bridge preview only; no external runtime contacted",
+    ],
   },
   mattermost_bridge: {
     stepId: "macos-setup-step:mattermost-bridge",
@@ -487,6 +606,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
       "/integrations/mattermost/status",
       "/integrations/mattermost/roles/catalog",
     ],
+    detailPreview: [
+      "Room participation is speak-only by default.",
+      "No transcript preview is persisted.",
+    ],
+    logPreview: ["mattermost bridge preview only; no post observed"],
   },
   approval: {
     stepId: "macos-setup-step:approvals",
@@ -497,6 +621,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
     routeRefs: ["/approvals/validate", "/control-center/actions/preview"],
+    detailPreview: [
+      "Approval refs are identifiers only.",
+      "The visual shell cannot grant authority.",
+    ],
+    logPreview: ["approval boundary preview ready"],
   },
   receipt_audit_latency: {
     stepId: "macos-setup-step:receipts-audit-latency",
@@ -507,6 +636,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
     routeRefs: ["/receipts", "/events"],
+    detailPreview: [
+      "Raw terminal logs are not persisted.",
+      "Latency is tracked as safe summary metadata.",
+    ],
+    logPreview: ["receipt plan created as preview metadata"],
   },
   rollback_uninstall: {
     stepId: "macos-setup-step:rollback-uninstall",
@@ -517,6 +651,11 @@ const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
     nextSafeAction: "inspect_setup_plan",
     approvalRequired: false,
     routeRefs: [],
+    detailPreview: [
+      "Future model files, LaunchAgents, and local config need explicit rollback refs.",
+      "No rollback action is executed by this slice.",
+    ],
+    logPreview: ["rollback plan preview ready; no files changed"],
   },
 } as const;
 const MACOS_SETUP_DIAGNOSTIC_REF_SEQUENCE = [
@@ -599,7 +738,6 @@ const MACOS_SETUP_ABSOLUTE_PATH_RE =
   /(^|[^A-Za-z0-9])(?:~\/?|\/[^\s/]+(?:\/[^\s/]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
-const MACOS_SETUP_MAX_LOG_CHARS = 400;
 const MACOS_SETUP_PROCESS_MANAGER_REQUESTED_FIELD = [
   "launch",
   "ctl_requested",
@@ -1022,7 +1160,7 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     source.setup_question_assistant_enabled !== false ||
     source.model_output_authoritative !== false ||
     source.installer_side_effects_enabled !== false ||
-    !isSafeRef(source.visual_shell_ref) ||
+    source.visual_shell_ref !== MACOS_SETUP_VISUAL_SHELL_REF ||
     source.full_strength_goal !== MACOS_SETUP_FULL_STRENGTH_GOAL ||
     source.repo_safe_scope !== MACOS_SETUP_REPO_SAFE_SCOPE ||
     source.blocked_authority_summary !==
@@ -1104,8 +1242,8 @@ function isSafeSetupStep(value: Record<string, unknown>): boolean {
     value.status === contract.status &&
     value.safe_summary === contract.safeSummary &&
     hasExactStringSequence(value.route_refs, contract.routeRefs) &&
-    isSafeTextArray(value.detail_preview, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeTextArray(value.log_preview, MACOS_SETUP_MAX_LOG_CHARS) &&
+    hasExactStringSequence(value.detail_preview, contract.detailPreview) &&
+    hasExactStringSequence(value.log_preview, contract.logPreview) &&
     value.approval_required === contract.approvalRequired &&
     (contract.approvalRequired
       ? value.approval_ref === `approval-ref:macos-setup-${suffix}`
@@ -1135,18 +1273,21 @@ function isSafeSetupStep(value: Record<string, unknown>): boolean {
 }
 
 function isSafeSetupRecommendation(value: Record<string, unknown>): boolean {
+  const contract = MACOS_SETUP_MODEL_RECOMMENDATION_SEQUENCE.find(
+    (candidate) => candidate.recommendationRef === value.recommendation_ref,
+  );
   return (
-    isSafeRef(value.recommendation_ref) &&
-    isSafeRef(value.model_ref) &&
-    isSafeText(value.display_name, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.fit_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.recommended_for, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.memory_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.disk_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.privacy_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    contract !== undefined &&
+    value.model_ref === contract.modelRef &&
+    value.display_name === contract.displayName &&
+    value.fit_summary === contract.fitSummary &&
+    value.recommended_for === contract.recommendedFor &&
+    value.memory_bucket === contract.memoryBucket &&
+    value.disk_bucket === contract.diskBucket &&
+    value.privacy_summary === contract.privacySummary &&
     value.approval_required_before_download === true &&
-    typeof value.selected_by_default === "boolean" &&
-    isSafeRefArray(value.reason_codes) &&
+    value.selected_by_default === contract.selectedByDefault &&
+    hasExactStringSequence(value.reason_codes, contract.reasonCodes) &&
     allBooleanFieldsEqual(
       value,
       [
@@ -1162,14 +1303,17 @@ function isSafeSetupRecommendation(value: Record<string, unknown>): boolean {
 }
 
 function isSafeSetupBridge(value: Record<string, unknown>): boolean {
+  const contract =
+    typeof value.bridge_ref === "string"
+      ? MACOS_SETUP_BRIDGE_CONTRACT_BY_REF[
+          value.bridge_ref as keyof typeof MACOS_SETUP_BRIDGE_CONTRACT_BY_REF
+        ]
+      : undefined;
   return (
-    typeof value.bridge_ref === "string" &&
-    MACOS_SETUP_BRIDGE_REF_SEQUENCE.includes(
-      value.bridge_ref as (typeof MACOS_SETUP_BRIDGE_REF_SEQUENCE)[number],
-    ) &&
-    isSafeText(value.label, 120) &&
+    contract !== undefined &&
+    value.label === contract.label &&
     value.status === "approval_required" &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === contract.safeSummary &&
     value.enablement_default === "disabled" &&
     value.approval_required === true &&
     isSafeRefArray(value.reason_codes) &&
@@ -2213,14 +2357,6 @@ function containsAbsolutePath(value: string): boolean {
 function containsStandaloneCredential(value: string): boolean {
   return MACOS_SETUP_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
     pattern.test(value),
-  );
-}
-
-function isSafeTextArray(value: unknown, maxLength: number): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.length <= MACOS_SETUP_MAX_COLLECTION_ITEMS &&
-    value.every((item) => isSafeText(item, maxLength))
   );
 }
 

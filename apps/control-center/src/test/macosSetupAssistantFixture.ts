@@ -46,6 +46,40 @@ const EXTRA_APPROVAL_DISPLAY_BY_KIND = {
       "Background-service setup remains not scoped and cannot start a daemon, scheduler, or worker.",
   },
 } as const;
+const EXTRA_APPROVAL_PREVIEW_BY_KIND = {
+  model_download_planning: {
+    detailPreview: [
+      "Future downloads require exact model refs and operator approval.",
+      "No model URL is fetched and no model file is written.",
+    ],
+    logPreview: ["model download envelope created; no download attempted"],
+  },
+  launch_agent_setup_planning: {
+    detailPreview: [
+      "The dry-run envelope names future approval scope refs only.",
+      "No launch agent file, load action, or start action is available.",
+    ],
+    logPreview: [
+      "launch agent envelope created; no launch action attempted",
+    ],
+  },
+  local_bridge_setup_planning: {
+    detailPreview: [
+      "Bridge setup requires exact local scope and credential-safe handling.",
+      "No bridge is enabled and no connector write occurs.",
+    ],
+    logPreview: ["local bridge envelope created; no bridge contacted"],
+  },
+  background_service_setup_planning: {
+    detailPreview: [
+      "The envelope documents denied authority for future review.",
+      "No background service, daemon, scheduler, worker, or auto-start mechanism is created.",
+    ],
+    logPreview: [
+      "background service envelope created; no service action attempted",
+    ],
+  },
+} as const;
 const APPROVAL_ENVELOPE_SAFE_SUMMARY_BY_KIND = {
   model_download_planning:
     "Dry-run envelope for future model download approval scope; no model is downloaded.",
@@ -320,6 +354,8 @@ function withCompleteApprovalKinds(
       status: EXTRA_APPROVAL_STEP_STATUS_BY_KIND[kind],
       safe_summary: EXTRA_APPROVAL_DISPLAY_BY_KIND[kind].safeSummary,
       route_refs: EXTRA_APPROVAL_ROUTE_REFS_BY_KIND[kind],
+      detail_preview: EXTRA_APPROVAL_PREVIEW_BY_KIND[kind].detailPreview,
+      log_preview: EXTRA_APPROVAL_PREVIEW_BY_KIND[kind].logPreview,
       next_safe_action: EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND[kind],
       approval_ref: approvalRef,
       receipt_ref: receiptRef,
