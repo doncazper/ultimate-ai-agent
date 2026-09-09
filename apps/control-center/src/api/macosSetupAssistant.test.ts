@@ -932,6 +932,162 @@ describe("macOS Setup Assistant normalization provenance", () => {
     );
   });
 
+  it.each([
+    ["standalone GitHub token", `ghp_${"a".repeat(36)}`],
+    [
+      "standalone JWT",
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123456",
+    ],
+  ])("rejects a %s before Setup refs reach the UI", (_name, unsafeRef) => {
+    const payload = completeSetupPayload();
+    payload.plan_ref = unsafeRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another lane idempotency ref", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].idempotency_key_ref =
+      "idempotency-ref:macos-setup-openwebui-bridge";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another envelope identity", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].envelope_ref =
+      "macos-setup-approval-envelope:openwebui-bridge";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      "blocked reason sequence",
+      "blocked_reason_refs",
+      ["blocked-ref:macos-setup-rollback-authority-missing"],
+    ],
+    ["next safe action", "next_safe_action", "inspect-setup-plan"],
+  ])("rejects a substituted rollback %s", (_name, field, replacement) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    rollbackPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["receipt_plan_ref", "macos-setup-receipt-plan:other"],
+    ["audit_ref", "macos-setup-audit:other"],
+    ["latency_ref", "macos-setup-latency:other"],
+  ])("rejects a substituted receipt-plan %s", (field, replacement) => {
+    const payload = completeSetupPayload();
+    const receiptPlan = payload.receipt_plan as Record<string, unknown>;
+    receiptPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["rollback_plan_ref", "macos-setup-rollback-plan:other"],
+    ["uninstall_ref", "macos-setup-uninstall:other"],
+  ])("rejects a substituted rollback-plan %s", (field, replacement) => {
+    const payload = completeSetupPayload();
+    const rollbackPlan = payload.rollback_plan as Record<string, unknown>;
+    rollbackPlan[field] = replacement;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["missing", "reordered", "rebound", "multiple-defaults"])(
+    "rejects a %s model recommendation contract",
+    (caseName) => {
+      const payload = completeSetupPayload();
+      const recommendations = payload.model_recommendations as Array<
+        Record<string, unknown>
+      >;
+      if (caseName === "missing") {
+        payload.model_recommendations = recommendations.slice(0, -1);
+      } else if (caseName === "reordered") {
+        payload.model_recommendations = [
+          recommendations[1],
+          recommendations[0],
+          ...recommendations.slice(2),
+        ];
+      } else if (caseName === "rebound") {
+        recommendations[0].model_ref =
+          "local-model-option:balanced-assistant-gguf";
+      } else {
+        recommendations[1].selected_by_default = true;
+      }
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it.each(["missing", "reordered", "substituted"])(
+    "rejects a %s Setup promotion path",
+    (caseName) => {
+      const payload = completeSetupPayload();
+      const refs = payload.promotion_path_refs as string[];
+      if (caseName === "missing") {
+        payload.promotion_path_refs = refs.slice(0, -1);
+      } else if (caseName === "reordered") {
+        payload.promotion_path_refs = [refs[1], refs[0], ...refs.slice(2)];
+      } else {
+        refs[0] = "promotion-path-ref:setup:unreviewed-rehearsal";
+      }
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
   it("rejects oversized Setup collections before rendering", () => {
     const payload = completeSetupPayload();
     payload.next_steps = Array.from(

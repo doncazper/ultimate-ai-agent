@@ -221,6 +221,48 @@ const MACOS_SETUP_BRIDGE_REF_SEQUENCE = [
   "macos-setup-bridge:openwebui",
   "macos-setup-bridge:mattermost",
 ] as const;
+const MACOS_SETUP_MODEL_RECOMMENDATION_SEQUENCE = [
+  {
+    recommendationRef: "macos-setup-model-rec:fast-local",
+    modelRef: "local-model-option:small-chat-gguf",
+    selectedByDefault: true,
+  },
+  {
+    recommendationRef: "macos-setup-model-rec:balanced-local",
+    modelRef: "local-model-option:balanced-assistant-gguf",
+    selectedByDefault: false,
+  },
+  {
+    recommendationRef: "macos-setup-model-rec:coding-local",
+    modelRef: "local-model-option:coding-assistant-gguf",
+    selectedByDefault: false,
+  },
+  {
+    recommendationRef: "macos-setup-model-rec:bring-your-own",
+    modelRef: "local-model-option:bring-your-own-gguf",
+    selectedByDefault: false,
+  },
+] as const;
+const MACOS_SETUP_PROMOTION_PATH_SEQUENCE = [
+  "promotion-path-ref:setup:local-rehearsal-receipt",
+  "promotion-path-ref:setup:operator-review-notes",
+  "promotion-path-ref:setup:package-proof-hygiene",
+  "promotion-path-ref:setup:exact-approved-mutation-pr",
+] as const;
+const MACOS_SETUP_RECEIPT_PLAN_CONTRACT = {
+  receiptPlanRef: "macos-setup-receipt-plan:foundation",
+  auditRef: "macos-setup-audit:foundation",
+  latencyRef: "macos-setup-latency:foundation",
+} as const;
+const MACOS_SETUP_ROLLBACK_PLAN_CONTRACT = {
+  rollbackPlanRef: "macos-setup-rollback-plan:foundation",
+  uninstallRef: "macos-setup-uninstall:foundation",
+  blockedReasonRefs: [
+    "blocked-ref:macos-setup-rollback-authority-missing",
+    "blocked-ref:macos-setup-rollback-rehearsal-missing",
+  ],
+  nextSafeAction: "define-and-rehearse-exact-rollback-lane",
+} as const;
 const MACOS_SETUP_LIFECYCLE_CONTRACT = {
   schemaVersion: "macos_setup_lifecycle.v1",
   contractRef: "macos-setup-lifecycle-contract:v1",
@@ -420,6 +462,14 @@ const MACOS_SETUP_RUNTIME_TEXT_FRAGMENTS = [
   "execute installer",
   "run installer",
 ];
+const MACOS_SETUP_STANDALONE_CREDENTIAL_PATTERNS = [
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
+  /\bAIza[A-Za-z0-9_-]{20,}\b/,
+  /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{16,}\b/,
+  /\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
+] as const;
 export function normalizeMacOSSetupAssistant(
   source: unknown,
   fallback: MacOSSetupAssistantData,
@@ -829,7 +879,10 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     ) ||
     !isSafeRefArray(source.first_run_loop_refs, true) ||
     !isSafeRefArray(source.local_package_proof_refs, true) ||
-    !isSafeRefArray(source.promotion_path_refs, true) ||
+    !hasExactStringSequence(
+      source.promotion_path_refs,
+      MACOS_SETUP_PROMOTION_PATH_SEQUENCE,
+    ) ||
     !hasExactStringSequence(
       source.blocked_capabilities,
       MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE,
@@ -844,6 +897,7 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     !steps ||
     !diagnostics ||
     !recommendations ||
+    !hasExactSetupRecommendationSequence(source.model_recommendations) ||
     !hasExactBridgeSequence(source.bridge_previews) ||
     !bridges ||
     !envelopes ||
@@ -978,10 +1032,12 @@ function isSafeSetupApprovalEnvelope(
 ): boolean {
   const boundary = approvalBoundaryContract(value.setup_step_kind);
   const stepContract = setupStepContract(value.setup_step_kind);
+  const suffix = stepContract?.stepId.split(":")[1];
   return (
     boundary !== undefined &&
     stepContract !== undefined &&
-    isSafeRef(value.envelope_ref) &&
+    suffix !== undefined &&
+    value.envelope_ref === `macos-setup-approval-envelope:${suffix}` &&
     hasExactApprovalStatus(value.setup_step_kind, value.status) &&
     isSafeRef(value.setup_step_id) &&
     typeof value.setup_step_kind === "string" &&
@@ -994,7 +1050,7 @@ function isSafeSetupApprovalEnvelope(
     isSafeApprovalRequestRef(value.approval_request_ref) &&
     isSafePrefixedRef(value.expected_receipt_ref, "receipt-plan:") &&
     isSafePrefixedRef(value.rollback_plan_ref, "rollback-plan:") &&
-    isSafePrefixedRef(value.idempotency_key_ref, "idempotency-ref:") &&
+    value.idempotency_key_ref === `idempotency-ref:macos-setup-${suffix}` &&
     isSafeText(value.risk_class, 40) &&
     value.side_effect_class === "validation_only" &&
     hasExactStringSequence(
@@ -1104,9 +1160,10 @@ function approvalEnvelopesBindToSteps(
 
 function isSafeSetupReceiptPlan(value: Record<string, unknown>): boolean {
   return (
-    isSafeRef(value.receipt_plan_ref) &&
-    isSafeRef(value.audit_ref) &&
-    isSafeRef(value.latency_ref) &&
+    value.receipt_plan_ref ===
+      MACOS_SETUP_RECEIPT_PLAN_CONTRACT.receiptPlanRef &&
+    value.audit_ref === MACOS_SETUP_RECEIPT_PLAN_CONTRACT.auditRef &&
+    value.latency_ref === MACOS_SETUP_RECEIPT_PLAN_CONTRACT.latencyRef &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     allBooleanFieldsEqual(
       value,
@@ -1125,12 +1182,17 @@ function isSafeSetupReceiptPlan(value: Record<string, unknown>): boolean {
 
 function isSafeSetupRollbackPlan(value: Record<string, unknown>): boolean {
   return (
-    isSafeRef(value.rollback_plan_ref) &&
-    isSafeRef(value.uninstall_ref) &&
+    value.rollback_plan_ref ===
+      MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.rollbackPlanRef &&
+    value.uninstall_ref === MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.uninstallRef &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     value.rollback_contract_defined === true &&
-    isSafeRefArray(value.blocked_reason_refs, true) &&
-    isSafeRef(value.next_safe_action) &&
+    hasExactStringSequence(
+      value.blocked_reason_refs,
+      MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.blockedReasonRefs,
+    ) &&
+    value.next_safe_action ===
+      MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.nextSafeAction &&
     allBooleanFieldsEqual(
       value,
       [
@@ -1334,6 +1396,24 @@ function hasExactBridgeSequence(value: unknown): boolean {
         isRecord(bridge) &&
         bridge.bridge_ref === MACOS_SETUP_BRIDGE_REF_SEQUENCE[index],
     )
+  );
+}
+
+function hasExactSetupRecommendationSequence(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === MACOS_SETUP_MODEL_RECOMMENDATION_SEQUENCE.length &&
+    value.every((recommendation, index) => {
+      if (!isRecord(recommendation)) {
+        return false;
+      }
+      const expected = MACOS_SETUP_MODEL_RECOMMENDATION_SEQUENCE[index];
+      return (
+        recommendation.recommendation_ref === expected.recommendationRef &&
+        recommendation.model_ref === expected.modelRef &&
+        recommendation.selected_by_default === expected.selectedByDefault
+      );
+    })
   );
 }
 
@@ -1902,7 +1982,8 @@ function isSafeRef(value: unknown): value is string {
   return (
     typeof value === "string" &&
     MACOS_SETUP_SAFE_REF_RE.test(value) &&
-    !containsSecretLike(value)
+    !containsSecretLike(value) &&
+    !containsStandaloneCredential(value)
   );
 }
 
@@ -1943,7 +2024,8 @@ function isSafeRouteArray(value: unknown): value is string[] {
       (item) =>
         typeof item === "string" &&
         MACOS_SETUP_SAFE_ROUTE_RE.test(item) &&
-        !containsSecretLike(item),
+        !containsSecretLike(item) &&
+        !containsStandaloneCredential(item),
     )
   );
 }
@@ -1959,7 +2041,14 @@ function isSafeText(value: unknown, maxLength: number): value is string {
     Array.from(text).length <= maxLength &&
     MACOS_SETUP_SAFE_TEXT_RE.test(text) &&
     !MACOS_SETUP_ABSOLUTE_PATH_RE.test(text) &&
-    !containsSecretLike(text)
+    !containsSecretLike(text) &&
+    !containsStandaloneCredential(text)
+  );
+}
+
+function containsStandaloneCredential(value: string): boolean {
+  return MACOS_SETUP_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
+    pattern.test(value),
   );
 }
 

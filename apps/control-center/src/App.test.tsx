@@ -22213,6 +22213,9 @@ function setupAssistantSummaryForTest() {
     model_recommendations: base.model_recommendations,
     bridge_previews: base.bridge_previews,
     approval_envelopes: envelopes,
+    receipt_plan: base.receipt_plan,
+    rollback_plan: base.rollback_plan,
+    promotion_path_refs: base.promotion_path_refs,
   };
 }
 

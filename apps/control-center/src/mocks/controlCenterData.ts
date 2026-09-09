@@ -26132,6 +26132,22 @@ export const mockControlCenterData: ControlCenterData = {
           "MACOS_SETUP_APPROVAL_BEFORE_DOWNLOAD",
         ],
       },
+      {
+        recommendationRef: "macos-setup-model-rec:bring-your-own",
+        modelRef: "local-model-option:bring-your-own-gguf",
+        displayName: "Bring your own GGUF",
+        fitSummary:
+          "User-selected GGUF class with later safe-ref validation.",
+        recommendedFor:
+          "Users who already have a reviewed local model artifact.",
+        memoryBucket: "ram:user-reviewed",
+        diskBucket: "disk:user-reviewed",
+        privacySummary:
+          "Runs through local UAA setup planning; no model call is made by this recommendation.",
+        approvalRequiredBeforeDownload: true,
+        selectedByDefault: false,
+        reasonCodes: ["MACOS_SETUP_SAFE_REF_VALIDATION_REQUIRED"],
+      },
     ],
     bridgePreviews: [
       {
