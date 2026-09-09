@@ -250,6 +250,15 @@ const MACOS_SETUP_PROMOTION_PATH_SEQUENCE = [
   "promotion-path-ref:setup:package-proof-hygiene",
   "promotion-path-ref:setup:exact-approved-mutation-pr",
 ] as const;
+const MACOS_SETUP_LOCAL_PACKAGE_PROOF_STATUS =
+  "local_unsigned_loopback_package_proof_available_runtime_launch_blocked";
+const MACOS_SETUP_LOCAL_PACKAGE_PROOF_REF_SEQUENCE = [
+  "packaging-proof:local-runtime-loopback",
+  "packaging-proof:local-macos-app-bundle",
+  "packaging-proof-summary:local-macos-app-bundle",
+  "script:verify-local-runtime-packaging-proof",
+  "script:verify-local-macos-app-bundle-proof",
+] as const;
 const MACOS_SETUP_RECEIPT_PLAN_CONTRACT = {
   receiptPlanRef: "macos-setup-receipt-plan:foundation",
   auditRef: "macos-setup-audit:foundation",
@@ -874,12 +883,13 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
       source.blocked_authority_summary,
       MACOS_SETUP_MAX_DETAIL_CHARS,
     ) ||
-    !isSafeText(
-      source.local_package_proof_status,
-      MACOS_SETUP_MAX_DETAIL_CHARS,
-    ) ||
+    source.local_package_proof_status !==
+      MACOS_SETUP_LOCAL_PACKAGE_PROOF_STATUS ||
     !isSafeRefArray(source.first_run_loop_refs, true) ||
-    !isSafeRefArray(source.local_package_proof_refs, true) ||
+    !hasExactStringSequence(
+      source.local_package_proof_refs,
+      MACOS_SETUP_LOCAL_PACKAGE_PROOF_REF_SEQUENCE,
+    ) ||
     !hasExactStringSequence(
       source.promotion_path_refs,
       MACOS_SETUP_PROMOTION_PATH_SEQUENCE,

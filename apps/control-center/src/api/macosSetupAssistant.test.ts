@@ -137,6 +137,25 @@ describe("macOS Setup Assistant normalization provenance", () => {
       normalizeMacOSSetupAssistant(
         payload,
         mockControlCenterData.macosSetupAssistant,
+    ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["status", "public_signed_distribution_ready"],
+    ["refs", ["proof-ref:public-signed-installer"]],
+  ])("rejects substituted local package proof %s", (field, value) => {
+    const payload = completeSetupPayload();
+    if (field === "status") {
+      payload.local_package_proof_status = value;
+    } else {
+      payload.local_package_proof_refs = value;
+    }
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
       ).usedFallback,
     ).toBe(true);
   });
