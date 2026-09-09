@@ -102,6 +102,23 @@ const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
   "openwebui_bridge",
   "mattermost_bridge",
 ]);
+const MACOS_SETUP_APPROVAL_SCOPE_BY_KIND = {
+  model_selection: ["scope-ref:macos-setup-model-selection"],
+  model_download_planning: [
+    "scope-ref:macos-setup-model-download-planning",
+  ],
+  launch_agent_setup_planning: [
+    "scope-ref:macos-setup-launch-agent-setup-planning",
+  ],
+  local_bridge_setup_planning: [
+    "scope-ref:macos-setup-local-bridge-setup-planning",
+  ],
+  background_service_setup_planning: [
+    "scope-ref:macos-setup-background-service-setup-planning",
+  ],
+  openwebui_bridge: ["scope-ref:macos-setup-openwebui-bridge"],
+  mattermost_bridge: ["scope-ref:macos-setup-mattermost-bridge"],
+} as const;
 const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
   "macos-setup-runtime-installation",
   "macos-setup-model-download",
@@ -113,6 +130,13 @@ const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
   "macos-setup-rollback-execution",
   "macos-setup-signed-distribution",
   "macos-setup-production-authority",
+] as const;
+const MACOS_SETUP_REQUIRED_HEALTH_CHECK_SEQUENCE = [
+  "health-check-ref:setup-process-identity",
+  "health-check-ref:setup-api-manifest-version",
+  "health-check-ref:setup-loopback-bind",
+  "health-check-ref:setup-control-center-compatibility",
+  "health-check-ref:setup-forbidden-authority-absent",
 ] as const;
 const MACOS_SETUP_SAFE_REF_RE = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
 const MACOS_SETUP_SAFE_TEXT_RE =
@@ -668,7 +692,7 @@ function isSafeSetupBridge(value: Record<string, unknown>): boolean {
     isSafeText(value.label, 120) &&
     isSetupStatus(value.status) &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeText(value.enablement_default, 80) &&
+    value.enablement_default === "disabled" &&
     value.approval_required === true &&
     isSafeRefArray(value.reason_codes) &&
     allBooleanFieldsEqual(
@@ -694,7 +718,10 @@ function isSafeSetupApprovalEnvelope(
     typeof value.setup_step_kind === "string" &&
     MACOS_SETUP_STEP_KINDS.has(value.setup_step_kind) &&
     isSafeEnvelopeText(value.safe_summary) &&
-    isSafePrefixedRefArray(value.requested_scope_refs, "scope-ref:") &&
+    hasExactApprovalScope(
+      value.setup_step_kind,
+      value.requested_scope_refs,
+    ) &&
     isSafeApprovalRequestRef(value.approval_request_ref) &&
     isSafePrefixedRef(value.expected_receipt_ref, "receipt-plan:") &&
     isSafePrefixedRef(value.rollback_plan_ref, "rollback-plan:") &&
@@ -909,7 +936,8 @@ function isSafeSetupLifecycleOperation(
     expectedOperation === "receipts";
   return (
     value.operation === expectedOperation &&
-    isSafeRef(value.command_ref) &&
+    value.command_ref ===
+      `repo-local-command:macos-setup-lifecycle:${expectedOperation}` &&
     value.status ===
       (readOnly ? "available_read_only" : "blocked_by_authority") &&
     value.current_state === "prerequisites" &&
@@ -956,7 +984,10 @@ function isSafeSetupHealthContract(value: Record<string, unknown>): boolean {
   return (
     isSafeRef(value.contract_ref) &&
     value.status === "blocked_by_authority" &&
-    isSafeRefArray(value.required_check_refs, true) &&
+    hasExactStringSequence(
+      value.required_check_refs,
+      MACOS_SETUP_REQUIRED_HEALTH_CHECK_SEQUENCE,
+    ) &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     allBooleanFieldsEqual(
       value,
@@ -994,6 +1025,24 @@ function hasExactStringSequence(
     Array.isArray(value) &&
     value.length === expected.length &&
     value.every((item, index) => item === expected[index])
+  );
+}
+
+function hasExactApprovalScope(
+  kind: unknown,
+  value: unknown,
+): boolean {
+  if (
+    typeof kind !== "string" ||
+    !(kind in MACOS_SETUP_APPROVAL_SCOPE_BY_KIND)
+  ) {
+    return false;
+  }
+  return hasExactStringSequence(
+    value,
+    MACOS_SETUP_APPROVAL_SCOPE_BY_KIND[
+      kind as keyof typeof MACOS_SETUP_APPROVAL_SCOPE_BY_KIND
+    ],
   );
 }
 
@@ -1489,13 +1538,6 @@ function isSafeRefArray(
     (!requireNonEmpty || value.length > 0) &&
     value.length <= MACOS_SETUP_MAX_COLLECTION_ITEMS &&
     value.every(isSafeRef)
-  );
-}
-
-function isSafePrefixedRefArray(value: unknown, prefix: string): boolean {
-  return (
-    isSafeRefArray(value, true) &&
-    value.every((item) => item.startsWith(prefix))
   );
 }
 

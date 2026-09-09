@@ -22233,6 +22233,7 @@ function setupAssistantSummaryForTest() {
             ...modelEnvelope,
             ...apiEnvelope,
             setup_step_kind: "model_selection",
+            requested_scope_refs: modelEnvelope.requested_scope_refs,
           }
         : envelope,
     ),

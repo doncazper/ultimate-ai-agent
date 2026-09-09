@@ -147,6 +147,70 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects a lifecycle operation rebound to another valid command ref", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install!.command_ref = "repo-local-command:macos-setup-lifecycle:status";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an incomplete lifecycle health-check contract", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const healthContract = lifecycle.health_contract as Record<string, unknown>;
+    healthContract.required_check_refs = [
+      "health-check-ref:setup-process-identity",
+    ];
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a bridge preview enabled by default", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].enablement_default = "enabled";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a broadened approval scope for a bounded setup step", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].requested_scope_refs = [
+      "scope-ref:macos-setup-production-authority",
+    ];
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each([
     ["empty", []],
     [
