@@ -34,6 +34,30 @@ beforeEach(() => {
 });
 
 describe("useMacOSSetupAssistant", () => {
+  it("preserves only known safe Setup error references", async () => {
+    mocked.load.mockRejectedValueOnce(
+      new Error("BACKEND_RESPONSE_PROVENANCE_MISMATCH"),
+    );
+    const { result } = renderHook(() =>
+      useMacOSSetupAssistant(true, binding("proof-ref:truth:current")),
+    );
+
+    await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.errorRef).toBe(
+      "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
+    );
+  });
+
+  it("does not expose arbitrary token-shaped error messages", async () => {
+    mocked.load.mockRejectedValueOnce(new Error("123456"));
+    const { result } = renderHook(() =>
+      useMacOSSetupAssistant(true, binding("proof-ref:truth:current")),
+    );
+
+    await waitFor(() => expect(result.current.status).toBe("error"));
+    expect(result.current.errorRef).toBe("SETUP_ASSISTANT_UNAVAILABLE");
+  });
+
   it("keeps ready Setup data when only the truth snapshot rotates", async () => {
     mocked.load.mockResolvedValueOnce(
       mockControlCenterData.macosSetupAssistant,

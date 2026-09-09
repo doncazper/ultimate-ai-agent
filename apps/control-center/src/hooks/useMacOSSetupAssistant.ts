@@ -36,6 +36,11 @@ type InternalLoadState =
     }
   | { status: "error"; data: null; errorRef: string };
 
+const MACOS_SETUP_SAFE_ERROR_REFS = new Set([
+  "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
+  "SETUP_ASSISTANT_RESPONSE_INVALID",
+]);
+
 export function useMacOSSetupAssistant(
   enabled: boolean,
   binding: BackendTruthReadBinding | null,
@@ -88,7 +93,8 @@ export function useMacOSSetupAssistant(
           status: "error",
           data: null,
           errorRef:
-            error instanceof Error && /^[A-Z0-9_:-]+$/.test(error.message)
+            error instanceof Error &&
+            MACOS_SETUP_SAFE_ERROR_REFS.has(error.message)
               ? error.message
               : "SETUP_ASSISTANT_UNAVAILABLE",
         });
