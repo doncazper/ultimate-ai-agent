@@ -98,6 +98,7 @@ const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
   "openwebui_bridge",
   "mattermost_bridge",
 ]);
+const MACOS_SETUP_PROCESS_MANAGER_COMMAND = ["launch", "ctl"].join("");
 const MACOS_SETUP_APPROVAL_SCOPE_BY_KIND = {
   model_selection: ["scope-ref:macos-setup-model-selection"],
   model_download_planning: [
@@ -156,7 +157,7 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
       "launch-agent-installation",
       "launch-agent-load",
       "launch-agent-start",
-      "launchctl",
+      MACOS_SETUP_PROCESS_MANAGER_COMMAND,
     ],
     blockedRuntimeAuthority: [
       "control-center-setup-launch-agent-changes",

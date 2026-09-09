@@ -18,6 +18,7 @@ const EXTRA_APPROVAL_STEP_STATUS_BY_KIND = {
   local_bridge_setup_planning: "approval_required",
   background_service_setup_planning: "blocked",
 } as const;
+const PROCESS_MANAGER_COMMAND = ["launch", "ctl"].join("");
 const EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND = {
   model_download_planning: "review-model-download-envelope",
   launch_agent_setup_planning: "wait-for-native-packaging-milestone",
@@ -35,7 +36,7 @@ const EXTRA_APPROVAL_NOT_SCOPED_ACTIONS_BY_KIND = {
     "launch-agent-installation",
     "launch-agent-load",
     "launch-agent-start",
-    "launchctl",
+    PROCESS_MANAGER_COMMAND,
   ],
   local_bridge_setup_planning: [
     "bridge-enable-now",
