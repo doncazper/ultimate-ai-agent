@@ -381,6 +381,24 @@ def test_performance_lane_timeout_covers_the_full_foundation_report() -> None:
     )
 
 
+def test_terminal_foundation_timeout_covers_the_full_foundation_report() -> None:
+    job = next(
+        job for job in manifest.CI_JOB_GRAPH if job.job_ref == "foundation-gate-report"
+    )
+    registry = manifest.command_registry()
+    lane = manifest.lane_registry()["ci-foundation-report"]
+    foundation_report = registry["command:foundation-gate.ci-parallel"]
+
+    assert foundation_report.timeout_seconds == 900
+    assert (
+        sum(
+            registry[command_ref].timeout_seconds
+            for command_ref in lane.command_refs
+        )
+        <= job.timeout_minutes * 60
+    )
+
+
 def test_visual_lane_timeout_covers_the_bounded_playwright_runner() -> None:
     job = next(
         job

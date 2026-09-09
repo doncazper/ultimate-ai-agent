@@ -353,7 +353,7 @@ def command_registry() -> dict[str, CommandSpec]:
                 ),
                 (),
                 "gate",
-                300,
+                900,
             ),
         }
     )
