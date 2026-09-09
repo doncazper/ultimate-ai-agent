@@ -46,6 +46,41 @@ const EXTRA_APPROVAL_DISPLAY_BY_KIND = {
       "Background-service setup remains not scoped and cannot start a daemon, scheduler, or worker.",
   },
 } as const;
+const APPROVAL_ENVELOPE_SAFE_SUMMARY_BY_KIND = {
+  model_download_planning:
+    "Dry-run envelope for future model download approval scope; no model is downloaded.",
+  launch_agent_setup_planning:
+    "Dry-run envelope for future LaunchAgent setup scope; prerequisite authority is missing.",
+  local_bridge_setup_planning:
+    "Dry-run envelope for future local bridge setup scope; no bridge is enabled.",
+  background_service_setup_planning:
+    "Dry-run envelope records that background-service setup is not scoped.",
+} as const;
+const LIFECYCLE_SAFE_SUMMARY_BY_OPERATION = {
+  plan: "Inspect the exact local setup lifecycle plan without changing local state.",
+  status:
+    "Inspect backend-owned lifecycle posture without probing or launching a process.",
+  install:
+    "Installation remains blocked until an exact setup mutation milestone is accepted.",
+  verify:
+    "Live process and readiness verification remains blocked until probe authority is accepted.",
+  repair:
+    "Repair remains blocked until exact artifact scope and rollback authority are accepted.",
+  stop:
+    "Process stop remains blocked until exact process identity and control authority are accepted.",
+  rollback:
+    "Rollback execution remains blocked until an exact installed artifact receipt exists.",
+  receipts:
+    "Inspect planned receipt and rollback refs without claiming a durable setup receipt.",
+} as const;
+const RECEIPT_PLAN_SAFE_SUMMARY =
+  "Setup assistant receipt plan is preview-only; no installer side effect has occurred.";
+const ROLLBACK_PLAN_SAFE_SUMMARY =
+  "Rollback has contract refs only; approval alone cannot make rollback executable without a separately accepted mutation lane and rehearsal proof.";
+const LIFECYCLE_SAFE_SUMMARY =
+  "Lifecycle state, command, health, receipt, and rollback contracts are available for inspection; every live activation remains blocked by authority.";
+const HEALTH_CONTRACT_SAFE_SUMMARY =
+  "The complete readiness proof is typed but no live process, API, bind, compatibility, or authority probe has run.";
 const PROCESS_MANAGER_COMMAND = ["launch", "ctl"].join("");
 const EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND = {
   model_download_planning: "review-model-download-envelope",
@@ -205,9 +240,41 @@ export function setupFixtureToBackendPayload(value: unknown): unknown {
       production_authority_requested: false,
     };
   }
+  if (
+    "commandRef" in value &&
+    "operation" in value &&
+    typeof value.operation === "string" &&
+    value.operation in LIFECYCLE_SAFE_SUMMARY_BY_OPERATION
+  ) {
+    return {
+      ...payload,
+      safe_summary:
+        LIFECYCLE_SAFE_SUMMARY_BY_OPERATION[
+          value.operation as keyof typeof LIFECYCLE_SAFE_SUMMARY_BY_OPERATION
+      ],
+    };
+  }
+  if (
+    "contractRef" in value &&
+    "requiredCheckRefs" in value &&
+    "processIdentityVerified" in value
+  ) {
+    return { ...payload, safe_summary: HEALTH_CONTRACT_SAFE_SUMMARY };
+  }
+  if (
+    "contractRef" in value &&
+    "operations" in value &&
+    "healthContract" in value
+  ) {
+    return { ...payload, safe_summary: LIFECYCLE_SAFE_SUMMARY };
+  }
+  if ("receiptPlanRef" in value && "receiptCreated" in value) {
+    return { ...payload, safe_summary: RECEIPT_PLAN_SAFE_SUMMARY };
+  }
   if ("rollbackPlanRef" in value && "rollbackExecuted" in value) {
     return {
       ...payload,
+      safe_summary: ROLLBACK_PLAN_SAFE_SUMMARY,
       launch_agent_removed: false,
       model_files_removed: false,
       config_removed: false,
@@ -265,6 +332,7 @@ function withCompleteApprovalKinds(
       status: EXTRA_APPROVAL_STATUS_BY_KIND[kind],
       setup_step_id: stepId,
       setup_step_kind: kind,
+      safe_summary: APPROVAL_ENVELOPE_SAFE_SUMMARY_BY_KIND[kind],
       requested_scope_refs: [`scope-ref:macos-setup-${slug}`],
       approval_request_ref: approvalRef,
       expected_receipt_ref: receiptRef,

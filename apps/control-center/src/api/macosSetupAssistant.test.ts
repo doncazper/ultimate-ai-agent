@@ -28,6 +28,23 @@ const LIFECYCLE_OPERATIONS = [
   "rollback",
   "receipts",
 ] as const;
+const LIFECYCLE_SAFE_SUMMARY_BY_OPERATION = {
+  plan: "Inspect the exact local setup lifecycle plan without changing local state.",
+  status:
+    "Inspect backend-owned lifecycle posture without probing or launching a process.",
+  install:
+    "Installation remains blocked until an exact setup mutation milestone is accepted.",
+  verify:
+    "Live process and readiness verification remains blocked until probe authority is accepted.",
+  repair:
+    "Repair remains blocked until exact artifact scope and rollback authority are accepted.",
+  stop:
+    "Process stop remains blocked until exact process identity and control authority are accepted.",
+  rollback:
+    "Rollback execution remains blocked until an exact installed artifact receipt exists.",
+  receipts:
+    "Inspect planned receipt and rollback refs without claiming a durable setup receipt.",
+} as const;
 
 function lifecycleOperationPayload(
   operation: (typeof LIFECYCLE_OPERATIONS)[number],
@@ -43,7 +60,7 @@ function lifecycleOperationPayload(
     status: readOnly ? "available_read_only" : "blocked_by_authority",
     current_state: "prerequisites",
     target_state: "prerequisites",
-    safe_summary: "Bounded setup lifecycle operation.",
+    safe_summary: LIFECYCLE_SAFE_SUMMARY_BY_OPERATION[operation],
     exact_scope_ref: `scope-ref:macos-setup-lifecycle:${operation}`,
     approval_ref: `approval-ref:macos-setup-lifecycle:${operation}`,
     idempotency_key_ref: `idempotency-ref:macos-setup-lifecycle:${operation}`,
@@ -967,6 +984,26 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects an approval envelope summary rebound from another setup kind", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    const openWebUIEnvelope = envelopes.find(
+      (envelope) => envelope.setup_step_kind === "openwebui_bridge",
+    );
+    expect(openWebUIEnvelope).toBeDefined();
+    openWebUIEnvelope!.safe_summary =
+      "Dry-run envelope for future model choice review; no model is selected, read, downloaded, or called.";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each([
     "receipt_created",
     "audit_event_created",
@@ -1032,8 +1069,47 @@ describe("macOS Setup Assistant normalization provenance", () => {
   });
 
   it.each([
+    ["detail_preview", "Review / Users/operator/private.log"],
+    ["log_preview", "Review / Users/operator/private.log"],
+    ["detail_preview", "Review / Users / operator / private.log"],
+    ["log_preview", "Review / Users / operator / private.log"],
+  ])(
+    "rejects whitespace-obscured absolute paths in %s",
+    (field, unsafePath) => {
+      const payload = completeSetupPayload();
+      const steps = payload.steps as Array<Record<string, unknown>>;
+      steps[0][field] = [unsafePath];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
+
+  it("preserves an ordinary relative slash in preview prose", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    steps[0].detail_preview = ["Compare input/output states."];
+
+    const normalized = normalizeMacOSSetupAssistant(
+      payload,
+      mockControlCenterData.macosSetupAssistant,
+    );
+
+    expect(normalized.usedFallback).toBe(false);
+    expect(normalized.value.steps[0].detailPreview).toEqual([
+      "Compare input/output states.",
+    ]);
+  });
+
+  it.each([
     ["standalone GitHub token", `ghp_${"a".repeat(36)}`],
     ["fine-grained GitHub token", `github_pat_${"a".repeat(82)}`],
+    ["live Stripe secret", `sk_live_${"a".repeat(24)}`],
+    ["test Stripe secret", `sk_test_${"a".repeat(24)}`],
     [
       "standalone JWT",
       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123456",
@@ -1203,6 +1279,57 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects oversized Setup collections before normalization traversal", () => {
+    const payload = completeSetupPayload();
+    const oversizedSteps = Array.from({ length: 101 }, () => ({}));
+    payload.steps = new Proxy(oversizedSteps, {
+      get(target, property, receiver) {
+        if (property === "filter" || property === Symbol.iterator) {
+          throw new Error("oversized collection was traversed");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    expect(() =>
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ),
+    ).not.toThrow();
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["receipt plan", "receipt_plan"],
+    ["rollback plan", "rollback_plan"],
+    ["lifecycle", "lifecycle"],
+    ["health contract", "health_contract"],
+  ])("rejects a substituted %s safe summary", (_name, contractName) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const contract =
+      contractName === "health_contract"
+        ? (lifecycle.health_contract as Record<string, unknown>)
+        : contractName === "lifecycle"
+          ? lifecycle
+          : (payload[contractName] as Record<string, unknown>);
+    contract.safe_summary =
+      "Installation is approved and every readiness proof is complete.";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each(["plan", "status", "receipts"] as const)(
     "pins %s lifecycle inspection to passive proof flags",
     (operationName) => {
@@ -1273,6 +1400,41 @@ describe("macOS Setup Assistant normalization provenance", () => {
         ),
       ).toEqual(LIFECYCLE_OPERATIONS);
       expect(normalized.usedFallback).toBe(true);
+    },
+  );
+
+  it.each([
+    "plan",
+    "status",
+    "install",
+    "verify",
+    "repair",
+    "stop",
+    "rollback",
+    "receipts",
+  ] as const)(
+    "rejects a lifecycle summary rebound for %s",
+    (operationName) => {
+      const operations = LIFECYCLE_OPERATIONS.map((operation) =>
+        lifecycleOperationPayload(
+          operation,
+          operation === operationName
+            ? { safe_summary: "Execute installer now." }
+            : {},
+        ),
+      );
+
+      const normalized = normalizeMacOSSetupAssistant(
+        { lifecycle: lifecyclePayload({ operations }) },
+        mockControlCenterData.macosSetupAssistant,
+      );
+
+      expect(normalized.usedFallback).toBe(true);
+      expect(
+        normalized.value.lifecycle.operations.find(
+          (operation) => operation.operation === operationName,
+        )?.safeSummary,
+      ).not.toBe("Execute installer now.");
     },
   );
 

@@ -127,6 +127,8 @@ const MACOS_SETUP_APPROVAL_STATUS_BY_KIND = {
 } as const;
 const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
   model_selection: {
+    safeSummary:
+      "Dry-run envelope for future model choice review; no model is selected, read, downloaded, or called.",
     notScopedActions: [
       "model-selection-persistence",
       "model-file-read",
@@ -140,6 +142,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   model_download_planning: {
+    safeSummary:
+      "Dry-run envelope for future model download approval scope; no model is downloaded.",
     notScopedActions: [
       "model-download-execution",
       "model-file-read",
@@ -153,6 +157,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   launch_agent_setup_planning: {
+    safeSummary:
+      "Dry-run envelope for future LaunchAgent setup scope; prerequisite authority is missing.",
     notScopedActions: [
       "launch-agent-installation",
       "launch-agent-load",
@@ -166,6 +172,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   local_bridge_setup_planning: {
+    safeSummary:
+      "Dry-run envelope for future local bridge setup scope; no bridge is enabled.",
     notScopedActions: [
       "bridge-enable-now",
       "credential-capture",
@@ -179,6 +187,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   background_service_setup_planning: {
+    safeSummary:
+      "Dry-run envelope records that background-service setup is not scoped.",
     notScopedActions: [
       "background-service-installation",
       "background-service-start",
@@ -192,6 +202,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   openwebui_bridge: {
+    safeSummary:
+      "Dry-run envelope for future OpenWebUI bridge review; no bridge, credential, or runtime handoff is enabled.",
     notScopedActions: [
       "openwebui-bridge-enablement",
       "credential-capture",
@@ -205,6 +217,8 @@ const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
     ],
   },
   mattermost_bridge: {
+    safeSummary:
+      "Dry-run envelope for future Mattermost room bridge review; no room join, post, connector write, or transcript capture occurs.",
     notScopedActions: [
       "mattermost-room-join",
       "mattermost-post",
@@ -291,10 +305,14 @@ const MACOS_SETUP_RECEIPT_PLAN_CONTRACT = {
   receiptPlanRef: "macos-setup-receipt-plan:foundation",
   auditRef: "macos-setup-audit:foundation",
   latencyRef: "macos-setup-latency:foundation",
+  safeSummary:
+    "Setup assistant receipt plan is preview-only; no installer side effect has occurred.",
 } as const;
 const MACOS_SETUP_ROLLBACK_PLAN_CONTRACT = {
   rollbackPlanRef: "macos-setup-rollback-plan:foundation",
   uninstallRef: "macos-setup-uninstall:foundation",
+  safeSummary:
+    "Rollback has contract refs only; approval alone cannot make rollback executable without a separately accepted mutation lane and rehearsal proof.",
   blockedReasonRefs: [
     "blocked-ref:macos-setup-rollback-authority-missing",
     "blocked-ref:macos-setup-rollback-rehearsal-missing",
@@ -305,6 +323,10 @@ const MACOS_SETUP_LIFECYCLE_CONTRACT = {
   schemaVersion: "macos_setup_lifecycle.v1",
   contractRef: "macos-setup-lifecycle-contract:v1",
   healthContractRef: "macos-setup-health-contract:v1",
+  safeSummary:
+    "Lifecycle state, command, health, receipt, and rollback contracts are available for inspection; every live activation remains blocked by authority.",
+  healthSafeSummary:
+    "The complete readiness proof is typed but no live process, API, bind, compatibility, or authority probe has run.",
   authorityPrerequisiteRef:
     "authority-prerequisite:macos-setup-exact-lifecycle",
   authorityStateRef: "authority-state:macos-setup-lifecycle:not-granted",
@@ -329,6 +351,23 @@ const MACOS_SETUP_LIFECYCLE_CONTRACT = {
     "pytest:test-macos-setup-lifecycle",
     "verifier:control-center-frontend",
   ],
+} as const;
+const MACOS_SETUP_LIFECYCLE_SAFE_SUMMARY_BY_OPERATION = {
+  plan: "Inspect the exact local setup lifecycle plan without changing local state.",
+  status:
+    "Inspect backend-owned lifecycle posture without probing or launching a process.",
+  install:
+    "Installation remains blocked until an exact setup mutation milestone is accepted.",
+  verify:
+    "Live process and readiness verification remains blocked until probe authority is accepted.",
+  repair:
+    "Repair remains blocked until exact artifact scope and rollback authority are accepted.",
+  stop:
+    "Process stop remains blocked until exact process identity and control authority are accepted.",
+  rollback:
+    "Rollback execution remains blocked until an exact installed artifact receipt exists.",
+  receipts:
+    "Inspect planned receipt and rollback refs without claiming a durable setup receipt.",
 } as const;
 const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   first_launch: {
@@ -582,6 +621,7 @@ const MACOS_SETUP_STANDALONE_CREDENTIAL_PATTERNS = [
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
   /\bAIza[A-Za-z0-9_-]{20,}\b/,
   /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/,
   /\bxox[baprs]-[A-Za-z0-9-]{16,}\b/,
   /\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
 ] as const;
@@ -589,12 +629,13 @@ export function normalizeMacOSSetupAssistant(
   source: unknown,
   fallback: MacOSSetupAssistantData,
 ): { value: MacOSSetupAssistantData; usedFallback: boolean } {
+  if (setupSafetySourceRequiresFallback(source)) {
+    return { value: fallback, usedFallback: true };
+  }
   const value = normalizeMacOSSetupAssistantValue(source, fallback);
   const probeFallback = alternateFallback(fallback);
   const probeValue = normalizeMacOSSetupAssistantValue(source, probeFallback);
-  const usedFallback =
-    setupSafetySourceRequiresFallback(source) ||
-    JSON.stringify(value) !== JSON.stringify(probeValue);
+  const usedFallback = JSON.stringify(value) !== JSON.stringify(probeValue);
   return {
     value: usedFallback ? fallback : value,
     usedFallback,
@@ -1159,7 +1200,7 @@ function isSafeSetupApprovalEnvelope(
     isSafeRef(value.setup_step_id) &&
     typeof value.setup_step_kind === "string" &&
     MACOS_SETUP_STEP_KINDS.has(value.setup_step_kind) &&
-    isSafeEnvelopeText(value.safe_summary) &&
+    value.safe_summary === boundary.safeSummary &&
     hasExactApprovalScope(
       value.setup_step_kind,
       value.requested_scope_refs,
@@ -1281,7 +1322,7 @@ function isSafeSetupReceiptPlan(value: Record<string, unknown>): boolean {
       MACOS_SETUP_RECEIPT_PLAN_CONTRACT.receiptPlanRef &&
     value.audit_ref === MACOS_SETUP_RECEIPT_PLAN_CONTRACT.auditRef &&
     value.latency_ref === MACOS_SETUP_RECEIPT_PLAN_CONTRACT.latencyRef &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === MACOS_SETUP_RECEIPT_PLAN_CONTRACT.safeSummary &&
     allBooleanFieldsEqual(
       value,
       [
@@ -1302,7 +1343,7 @@ function isSafeSetupRollbackPlan(value: Record<string, unknown>): boolean {
     value.rollback_plan_ref ===
       MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.rollbackPlanRef &&
     value.uninstall_ref === MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.uninstallRef &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === MACOS_SETUP_ROLLBACK_PLAN_CONTRACT.safeSummary &&
     value.rollback_contract_defined === true &&
     hasExactStringSequence(
       value.blocked_reason_refs,
@@ -1361,7 +1402,7 @@ function isSafeSetupLifecycle(value: Record<string, unknown>): boolean {
       value.blocked_reason_refs,
       MACOS_SETUP_LIFECYCLE_CONTRACT.blockedReasonRefs,
     ) &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === MACOS_SETUP_LIFECYCLE_CONTRACT.safeSummary &&
     allBooleanFieldsEqual(
       value,
       [
@@ -1407,7 +1448,8 @@ function isSafeSetupLifecycleOperation(
     value.current_state === "prerequisites" &&
     value.target_state ===
       MACOS_SETUP_LIFECYCLE_TARGET_STATES[expectedOperation] &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary ===
+      MACOS_SETUP_LIFECYCLE_SAFE_SUMMARY_BY_OPERATION[expectedOperation] &&
     value.exact_scope_ref ===
       `scope-ref:macos-setup-lifecycle:${expectedOperation}` &&
     value.approval_ref ===
@@ -1475,7 +1517,7 @@ function isSafeSetupHealthContract(value: Record<string, unknown>): boolean {
       value.required_check_refs,
       MACOS_SETUP_REQUIRED_HEALTH_CHECK_SEQUENCE,
     ) &&
-    isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
+    value.safe_summary === MACOS_SETUP_LIFECYCLE_CONTRACT.healthSafeSummary &&
     allBooleanFieldsEqual(
       value,
       [
@@ -2157,10 +2199,15 @@ function isSafeText(value: unknown, maxLength: number): value is string {
     text.length > 0 &&
     Array.from(text).length <= maxLength &&
     MACOS_SETUP_SAFE_TEXT_RE.test(text) &&
-    !MACOS_SETUP_ABSOLUTE_PATH_RE.test(text) &&
+    !containsAbsolutePath(text) &&
     !containsSecretLike(text) &&
     !containsStandaloneCredential(text)
   );
+}
+
+function containsAbsolutePath(value: string): boolean {
+  const detectionValue = value.replace(/\/ +/g, "/");
+  return MACOS_SETUP_ABSOLUTE_PATH_RE.test(detectionValue);
 }
 
 function containsStandaloneCredential(value: string): boolean {
