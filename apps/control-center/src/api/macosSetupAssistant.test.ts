@@ -129,6 +129,52 @@ describe("macOS Setup Assistant normalization provenance", () => {
     expect(normalized.value.approvalEnvelopes).toHaveLength(7);
   });
 
+  it("rejects a lifecycle operation rebound to another valid target state", () => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install!.target_state = "healthy";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["empty", []],
+    [
+      "incomplete",
+      mockControlCenterData.macosSetupAssistant.blockedCapabilities.slice(1),
+    ],
+    [
+      "substituted",
+      [
+        ...mockControlCenterData.macosSetupAssistant.blockedCapabilities.slice(
+          0,
+          -1,
+        ),
+        "macos-setup-broader-authority",
+      ],
+    ],
+  ])("rejects a %s blocked-capability contract", (_name, capabilities) => {
+    const payload = completeSetupPayload();
+    payload.blocked_capabilities = capabilities;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("marks partial backend objects as fallback-derived", () => {
     const normalized = normalizeMacOSSetupAssistant(
       { plan_ref: "setup-plan-ref:partial" },
@@ -578,10 +624,15 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
     ["terminal control text", "Unsafe\u001bsummary"],
     ["raw local path", "Review /Users/operator/private.log"],
+    ["punctuated raw local path", "Path:/Users/operator/private.log"],
     ["macOS application path", "Review /Applications/UAA.app"],
     [
       "macOS launch agent path",
       "Review /Library/LaunchAgents/com.example.plist",
+    ],
+    [
+      "punctuated macOS launch agent path",
+      "Review:/Library/LaunchAgents/example.plist",
     ],
     ["overlong text", "A".repeat(801)],
   ])("rejects %s before Setup text reaches the UI", (_name, unsafeText) => {

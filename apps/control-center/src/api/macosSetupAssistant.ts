@@ -57,6 +57,19 @@ const MACOS_SETUP_LIFECYCLE_OPERATIONS =
   new Set<MacOSSetupLifecycleOperationName>(
     MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE,
   );
+const MACOS_SETUP_LIFECYCLE_TARGET_STATES: Record<
+  MacOSSetupLifecycleOperationName,
+  MacOSSetupLifecycleState
+> = {
+  plan: "prerequisites",
+  status: "prerequisites",
+  install: "installed",
+  verify: "healthy",
+  repair: "healthy",
+  stop: "stopping",
+  rollback: "rolled_back",
+  receipts: "prerequisites",
+};
 const MACOS_SETUP_STEP_KINDS = new Set([
   "first_launch",
   "runtime_health",
@@ -89,12 +102,24 @@ const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
   "openwebui_bridge",
   "mattermost_bridge",
 ]);
+const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
+  "macos-setup-runtime-installation",
+  "macos-setup-model-download",
+  "macos-setup-launch-agent-change",
+  "macos-setup-background-service-change",
+  "macos-setup-bridge-enablement",
+  "macos-setup-provider-call",
+  "macos-setup-credential-storage",
+  "macos-setup-rollback-execution",
+  "macos-setup-signed-distribution",
+  "macos-setup-production-authority",
+] as const;
 const MACOS_SETUP_SAFE_REF_RE = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
 const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[\s"'`])(?:~\/?|\/(?:Applications|Library|Network|System|Users|Volumes|bin|dev|etc|home|opt|private|sbin|tmp|usr|var)(?:\/|\b)|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[^A-Za-z0-9._/\\-])(?:~\/?|\/(?:Applications|Library|Network|System|Users|Volumes|bin|dev|etc|home|opt|private|sbin|tmp|usr|var)(?:\/|\b)|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
@@ -523,7 +548,10 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     !isSafeRefArray(source.first_run_loop_refs, true) ||
     !isSafeRefArray(source.local_package_proof_refs, true) ||
     !isSafeRefArray(source.promotion_path_refs, true) ||
-    !isSafeRefArray(source.blocked_capabilities) ||
+    !hasExactStringSequence(
+      source.blocked_capabilities,
+      MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE,
+    ) ||
     !isSafeTextArray(source.next_steps, MACOS_SETUP_MAX_DETAIL_CHARS) ||
     !isSafeTextArray(
       source.morning_review_checklist,
@@ -885,10 +913,8 @@ function isSafeSetupLifecycleOperation(
     value.status ===
       (readOnly ? "available_read_only" : "blocked_by_authority") &&
     value.current_state === "prerequisites" &&
-    typeof value.target_state === "string" &&
-    MACOS_SETUP_LIFECYCLE_STATES.has(
-      value.target_state as MacOSSetupLifecycleState,
-    ) &&
+    value.target_state ===
+      MACOS_SETUP_LIFECYCLE_TARGET_STATES[expectedOperation] &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeRef(value.exact_scope_ref) &&
     isSafeRef(value.approval_ref) &&
