@@ -259,6 +259,34 @@ const MACOS_SETUP_LOCAL_PACKAGE_PROOF_REF_SEQUENCE = [
   "script:verify-local-runtime-packaging-proof",
   "script:verify-local-macos-app-bundle-proof",
 ] as const;
+const MACOS_SETUP_FULL_STRENGTH_GOAL =
+  "First run leads from local setup posture to a daily loop with Today, Action Inbox, receipt, evidence, proof, memory, and Trust refs.";
+const MACOS_SETUP_REPO_SAFE_SCOPE =
+  "Read-only setup plan, local package proof refs, dry-run approval envelopes, and bounded Control Center presentation only.";
+const MACOS_SETUP_BLOCKED_AUTHORITY_SUMMARY =
+  "Installer execution, model downloads, LaunchAgent changes, bridge enablement, shell subprocess, browser automation, public distribution, signing, notarization, and production authority remain blocked.";
+const MACOS_SETUP_FIRST_RUN_LOOP_REF_SEQUENCE = [
+  "loop-ref:setup-to-daily-loop:v1",
+  "contract-ref:start-here-local-loop:v1",
+  "contract-ref:private-beta-readiness-gate:v1",
+  "contract-ref:dogfood-live-loop:acceptance",
+  "proof-ref:control-center-proof-index",
+  "trust-ref:authority-map",
+] as const;
+const MACOS_SETUP_NEXT_STEP_SEQUENCE = [
+  "Review the setup-to-daily-loop proof refs before calling setup complete.",
+  "Inspect local unsigned package proof refs without launching the app bundle.",
+  "Review the Control Center setup preview against the first-launch flow.",
+  "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
+  "Review dry-run approval envelopes before any setup mutation route is scoped.",
+] as const;
+const MACOS_SETUP_MORNING_REVIEW_CHECKLIST_SEQUENCE = [
+  "Verify the model choices are labels only and not live downloads.",
+  "Confirm every approval-required step has receipt and rollback refs.",
+  "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
+  "Confirm terminal details are bounded previews and not raw logs.",
+  "Decide the native macOS app scaffold location before adding signing work.",
+] as const;
 const MACOS_SETUP_RECEIPT_PLAN_CONTRACT = {
   receiptPlanRef: "macos-setup-receipt-plan:foundation",
   auditRef: "macos-setup-audit:foundation",
@@ -877,15 +905,16 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     source.model_output_authoritative !== false ||
     source.installer_side_effects_enabled !== false ||
     !isSafeRef(source.visual_shell_ref) ||
-    !isSafeText(source.full_strength_goal, MACOS_SETUP_MAX_DETAIL_CHARS) ||
-    !isSafeText(source.repo_safe_scope, MACOS_SETUP_MAX_DETAIL_CHARS) ||
-    !isSafeText(
-      source.blocked_authority_summary,
-      MACOS_SETUP_MAX_DETAIL_CHARS,
-    ) ||
+    source.full_strength_goal !== MACOS_SETUP_FULL_STRENGTH_GOAL ||
+    source.repo_safe_scope !== MACOS_SETUP_REPO_SAFE_SCOPE ||
+    source.blocked_authority_summary !==
+      MACOS_SETUP_BLOCKED_AUTHORITY_SUMMARY ||
     source.local_package_proof_status !==
       MACOS_SETUP_LOCAL_PACKAGE_PROOF_STATUS ||
-    !isSafeRefArray(source.first_run_loop_refs, true) ||
+    !hasExactStringSequence(
+      source.first_run_loop_refs,
+      MACOS_SETUP_FIRST_RUN_LOOP_REF_SEQUENCE,
+    ) ||
     !hasExactStringSequence(
       source.local_package_proof_refs,
       MACOS_SETUP_LOCAL_PACKAGE_PROOF_REF_SEQUENCE,
@@ -898,10 +927,10 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
       source.blocked_capabilities,
       MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE,
     ) ||
-    !isSafeTextArray(source.next_steps, MACOS_SETUP_MAX_DETAIL_CHARS) ||
-    !isSafeTextArray(
+    !hasExactStringSequence(source.next_steps, MACOS_SETUP_NEXT_STEP_SEQUENCE) ||
+    !hasExactStringSequence(
       source.morning_review_checklist,
-      MACOS_SETUP_MAX_DETAIL_CHARS,
+      MACOS_SETUP_MORNING_REVIEW_CHECKLIST_SEQUENCE,
     ) ||
     !hasExactSetupStepSequence(source.steps) ||
     !hasExactSetupDiagnosticSequence(source.diagnostics) ||

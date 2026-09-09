@@ -156,6 +156,25 @@ describe("macOS Setup Assistant normalization provenance", () => {
       normalizeMacOSSetupAssistant(
         payload,
         mockControlCenterData.macosSetupAssistant,
+    ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["full_strength_goal", "Setup is production ready."],
+    ["repo_safe_scope", "Installer execution is in scope."],
+    ["blocked_authority_summary", "All authority is granted."],
+    ["first_run_loop_refs", ["proof-ref:public-release-ready"]],
+    ["next_steps", ["Execute installer now."]],
+    ["morning_review_checklist", ["Download a model now."]],
+  ])("rejects substituted top-level Setup contract field %s", (field, value) => {
+    const payload = completeSetupPayload();
+    payload[field] = value;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
       ).usedFallback,
     ).toBe(true);
   });

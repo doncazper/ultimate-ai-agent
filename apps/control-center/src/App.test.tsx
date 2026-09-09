@@ -22218,6 +22218,9 @@ function setupAssistantSummaryForTest() {
     promotion_path_refs: base.promotion_path_refs,
     local_package_proof_status: base.local_package_proof_status,
     local_package_proof_refs: base.local_package_proof_refs,
+    first_run_loop_refs: base.first_run_loop_refs,
+    next_steps: base.next_steps,
+    morning_review_checklist: base.morning_review_checklist,
   };
 }
 
@@ -22802,6 +22805,9 @@ const mockApiData = {
       "loop-ref:setup-to-daily-loop:v1",
       "contract-ref:start-here-local-loop:v1",
       "contract-ref:private-beta-readiness-gate:v1",
+      "contract-ref:dogfood-live-loop:acceptance",
+      "proof-ref:control-center-proof-index",
+      "trust-ref:authority-map",
     ],
     local_package_proof_status:
       "local_unsigned_loopback_package_proof_available_runtime_launch_blocked",
@@ -22973,8 +22979,20 @@ const mockApiData = {
       "macos-setup-signed-distribution",
       "macos-setup-production-authority",
     ],
-    next_steps: ["Review setup summary."],
-    morning_review_checklist: ["Confirm setup summary is dry-run only."],
+    next_steps: [
+      "Review the setup-to-daily-loop proof refs before calling setup complete.",
+      "Inspect local unsigned package proof refs without launching the app bundle.",
+      "Review the Control Center setup preview against the first-launch flow.",
+      "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
+      "Review dry-run approval envelopes before any setup mutation route is scoped.",
+    ],
+    morning_review_checklist: [
+      "Verify the model choices are labels only and not live downloads.",
+      "Confirm every approval-required step has receipt and rollback refs.",
+      "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
+      "Confirm terminal details are bounded previews and not raw logs.",
+      "Decide the native macOS app scaffold location before adding signing work.",
+    ],
   },
   m15Review: {
     status: "mock_preview_only",

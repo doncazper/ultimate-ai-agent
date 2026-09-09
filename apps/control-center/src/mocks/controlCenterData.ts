@@ -26372,13 +26372,16 @@ export const mockControlCenterData: ControlCenterData = {
       "macos-setup-production-authority",
     ],
     nextSteps: [
+      "Review the setup-to-daily-loop proof refs before calling setup complete.",
+      "Inspect local unsigned package proof refs without launching the app bundle.",
       "Review the Control Center setup preview against the first-launch flow.",
       "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
-      "Add a reviewed dry-run API route only after the contract shape settles.",
+      "Review dry-run approval envelopes before any setup mutation route is scoped.",
     ],
     morningReviewChecklist: [
       "Verify the model choices are labels only and not live downloads.",
       "Confirm every approval-required step has receipt and rollback refs.",
+      "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
       "Confirm terminal details are bounded previews and not raw logs.",
       "Decide the native macOS app scaffold location before adding signing work.",
     ],
