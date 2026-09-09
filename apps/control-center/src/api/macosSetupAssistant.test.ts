@@ -129,6 +129,18 @@ describe("macOS Setup Assistant normalization provenance", () => {
     expect(normalized.value.approvalEnvelopes).toHaveLength(7);
   });
 
+  it("rejects a top-level Setup status promoted beyond dry run", () => {
+    const payload = completeSetupPayload();
+    payload.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("rejects a lifecycle operation rebound to another valid target state", () => {
     const payload = completeSetupPayload();
     const lifecycle = payload.lifecycle as Record<string, unknown>;
@@ -193,6 +205,26 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it.each([
+    ["cli_surface_ref", "repo-local-command:unrelated-surface"],
+    ["api_surface_ref", "api-surface:unrelated-summary"],
+    ["python_core_service_ref", "python-core-service:unrelated"],
+    ["safe_disable_ref", "safe-disable-ref:unrelated:enabled"],
+    ["rollback_contract_ref", "rollback-contract-ref:unrelated"],
+    ["receipt_contract_ref", "receipt-contract-ref:unrelated"],
+  ])("rejects a rebound lifecycle contract %s", (field, substitutedRef) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    lifecycle[field] = substitutedRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("rejects an incomplete lifecycle health-check contract", () => {
     const payload = completeSetupPayload();
     const lifecycle = payload.lifecycle as Record<string, unknown>;
@@ -213,6 +245,19 @@ describe("macOS Setup Assistant normalization provenance", () => {
     const payload = completeSetupPayload();
     const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
     bridges[0].enablement_default = "enabled";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects a bridge preview promoted to ready", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].status = "ready";
 
     expect(
       normalizeMacOSSetupAssistant(
@@ -258,6 +303,39 @@ describe("macOS Setup Assistant normalization provenance", () => {
       ).usedFallback,
     ).toBe(true);
   });
+
+  it("rejects an approval envelope action rebound to an executable ref", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    envelopes[0].operator_next_action = "execute-installer";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it.each(["not_scoped_actions", "blocked_runtime_authority"])(
+    "rejects a substituted approval-envelope %s set",
+    (field) => {
+      const payload = completeSetupPayload();
+      const envelopes = payload.approval_envelopes as Array<
+        Record<string, unknown>
+      >;
+      envelopes[0][field] = ["review-only"];
+
+      expect(
+        normalizeMacOSSetupAssistant(
+          payload,
+          mockControlCenterData.macosSetupAssistant,
+        ).usedFallback,
+      ).toBe(true);
+    },
+  );
 
   it("rejects a blocked setup step rebound to ready", () => {
     const payload = completeSetupPayload();
@@ -822,6 +900,8 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["underscore-adjacent path", "Review_/Library/LaunchAgents/example.plist"],
     ["period-adjacent path", "Review./workspace/operator/private.log"],
     ["punctuated raw local path", "Path:/Users/operator/private.log"],
+    ["repeated-slash raw local path", "Review //Users/operator/private.log"],
+    ["file URL raw local path", "Review file:///Users/operator/private.log"],
     ["macOS application path", "Review /Applications/UAA.app"],
     [
       "macOS launch agent path",

@@ -26226,7 +26226,7 @@ export const mockControlCenterData: ControlCenterData = {
           "openwebui-bridge-enablement",
           "credential-capture",
           "runtime-handoff",
-          "transcript-content-storage-blocked",
+          "raw-transcript-storage",
         ],
         blockedRuntimeAuthority: [
           "openwebui-runtime-authority",
@@ -26278,12 +26278,12 @@ export const mockControlCenterData: ControlCenterData = {
           "mattermost-room-join",
           "mattermost-post",
           "connector-write",
-          "transcript-content-storage-blocked",
+          "raw-transcript-storage",
         ],
         blockedRuntimeAuthority: [
           "mattermost-connector-write",
           "control-center-setup-credential-handling",
-          "transcript-content-persistence-blocked",
+          "raw-transcript-persistence",
         ],
         evidenceRefs: [
           "docs-ref:uaa-setup-assistant-plan",

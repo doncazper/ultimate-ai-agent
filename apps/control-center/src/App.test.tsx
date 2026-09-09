@@ -16443,7 +16443,13 @@ describe("Web Control Center shell", () => {
           }),
           {
             status: 200,
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "X-UAA-Backend-Revision-Ref":
+                TEST_MUTATION_BINDING.backendRevisionRef,
+              "X-UAA-Backend-Instance-Ref":
+                TEST_MUTATION_BINDING.backendInstanceRef,
+            },
           },
         ),
       ),
@@ -22204,18 +22210,8 @@ function setupAssistantSummaryForTest() {
     ...api,
     diagnostics: base.diagnostics,
     steps,
-    model_recommendations: [
-      {
-        ...(base.model_recommendations as Array<Record<string, unknown>>)[0],
-        ...api.model_recommendations[0],
-      },
-    ],
-    bridge_previews: [
-      {
-        ...(base.bridge_previews as Array<Record<string, unknown>>)[0],
-        ...api.bridge_previews[0],
-      },
-    ],
+    model_recommendations: base.model_recommendations,
+    bridge_previews: base.bridge_previews,
     approval_envelopes: envelopes,
   };
 }

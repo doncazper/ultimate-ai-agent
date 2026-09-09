@@ -124,6 +124,132 @@ const MACOS_SETUP_APPROVAL_STATUS_BY_KIND = {
   openwebui_bridge: "approval_required",
   mattermost_bridge: "approval_required",
 } as const;
+const MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND = {
+  model_selection: {
+    notScopedActions: [
+      "model-selection-persistence",
+      "model-file-read",
+      "model-download-execution",
+      "model-call",
+    ],
+    blockedRuntimeAuthority: [
+      "control-center-setup-model-selection-write",
+      "runtime-model-calls",
+      "provider-api-calls",
+    ],
+  },
+  model_download_planning: {
+    notScopedActions: [
+      "model-download-execution",
+      "model-file-read",
+      "model-call",
+      "raw-model-url-display",
+    ],
+    blockedRuntimeAuthority: [
+      "control-center-setup-model-downloads",
+      "runtime-model-calls",
+      "provider-api-calls",
+    ],
+  },
+  launch_agent_setup_planning: {
+    notScopedActions: [
+      "launch-agent-installation",
+      "launch-agent-load",
+      "launch-agent-start",
+      "launchctl",
+    ],
+    blockedRuntimeAuthority: [
+      "control-center-setup-launch-agent-changes",
+      "shell-subprocess-execution",
+      "macos-system-control-authority",
+    ],
+  },
+  local_bridge_setup_planning: {
+    notScopedActions: [
+      "bridge-enable-now",
+      "credential-capture",
+      "connector-write",
+      "raw-transcript-storage",
+    ],
+    blockedRuntimeAuthority: [
+      "control-center-setup-credential-handling",
+      "openwebui-runtime-authority",
+      "connector-writes",
+    ],
+  },
+  background_service_setup_planning: {
+    notScopedActions: [
+      "background-service-installation",
+      "background-service-start",
+      "daemon-scheduler-worker",
+      "auto-start-mechanism",
+    ],
+    blockedRuntimeAuthority: [
+      "control-center-setup-background-service-changes",
+      "autonomous-background-execution",
+      "macos-system-control-authority",
+    ],
+  },
+  openwebui_bridge: {
+    notScopedActions: [
+      "openwebui-bridge-enablement",
+      "credential-capture",
+      "runtime-handoff",
+      "raw-transcript-storage",
+    ],
+    blockedRuntimeAuthority: [
+      "openwebui-runtime-authority",
+      "control-center-setup-credential-handling",
+      "provider-api-calls",
+    ],
+  },
+  mattermost_bridge: {
+    notScopedActions: [
+      "mattermost-room-join",
+      "mattermost-post",
+      "connector-write",
+      "raw-transcript-storage",
+    ],
+    blockedRuntimeAuthority: [
+      "mattermost-connector-write",
+      "control-center-setup-credential-handling",
+      "raw-transcript-persistence",
+    ],
+  },
+} as const;
+const MACOS_SETUP_BRIDGE_REF_SEQUENCE = [
+  "macos-setup-bridge:openwebui",
+  "macos-setup-bridge:mattermost",
+] as const;
+const MACOS_SETUP_LIFECYCLE_CONTRACT = {
+  schemaVersion: "macos_setup_lifecycle.v1",
+  contractRef: "macos-setup-lifecycle-contract:v1",
+  healthContractRef: "macos-setup-health-contract:v1",
+  authorityPrerequisiteRef:
+    "authority-prerequisite:macos-setup-exact-lifecycle",
+  authorityStateRef: "authority-state:macos-setup-lifecycle:not-granted",
+  pythonCoreServiceRef: "python-core-service:macos-setup-lifecycle",
+  apiSurfaceRef: "api-surface:control-center-setup-summary",
+  cliSurfaceRef: "repo-local-command:macos-setup-lifecycle",
+  controlCenterSurfaceRef: "control-center-surface:macos-setup-lifecycle",
+  safeDisableRef: "safe-disable-ref:macos-setup-lifecycle:disabled",
+  rollbackContractRef: "rollback-contract-ref:macos-setup-lifecycle",
+  receiptContractRef: "receipt-contract-ref:macos-setup-lifecycle",
+  blockedReasonRefs: [
+    "blocked-reason-ref:setup-install-authority-missing",
+    "blocked-reason-ref:setup-process-authority-missing",
+    "blocked-reason-ref:setup-file-mutation-authority-missing",
+    "blocked-reason-ref:setup-credential-write-authority-missing",
+  ],
+  operationEvidenceRefs: [
+    "docs-ref:uaa-setup-assistant-plan",
+    "packaging-proof:local-macos-app-bundle",
+  ],
+  operationVerifierRefs: [
+    "pytest:test-macos-setup-lifecycle",
+    "verifier:control-center-frontend",
+  ],
+} as const;
 const MACOS_SETUP_STEP_CONTRACT_BY_KIND = {
   first_launch: {
     stepId: "macos-setup-step:first-launch",
@@ -275,7 +401,7 @@ const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[^A-Za-z0-9/\\])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[^A-Za-z0-9])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
@@ -681,7 +807,7 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
 
   return (
     !isSafeRef(source.plan_ref) ||
-    !isSetupStatus(source.status) ||
+    source.status !== "dry_run_only" ||
     source.macos_first !== true ||
     source.local_first !== true ||
     source.disabled_by_default !== true ||
@@ -718,6 +844,7 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     !steps ||
     !diagnostics ||
     !recommendations ||
+    !hasExactBridgeSequence(source.bridge_previews) ||
     !bridges ||
     !envelopes ||
     !lifecycle ||
@@ -824,9 +951,12 @@ function isSafeSetupRecommendation(value: Record<string, unknown>): boolean {
 
 function isSafeSetupBridge(value: Record<string, unknown>): boolean {
   return (
-    isSafeRef(value.bridge_ref) &&
+    typeof value.bridge_ref === "string" &&
+    MACOS_SETUP_BRIDGE_REF_SEQUENCE.includes(
+      value.bridge_ref as (typeof MACOS_SETUP_BRIDGE_REF_SEQUENCE)[number],
+    ) &&
     isSafeText(value.label, 120) &&
-    isSetupStatus(value.status) &&
+    value.status === "approval_required" &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     value.enablement_default === "disabled" &&
     value.approval_required === true &&
@@ -846,7 +976,11 @@ function isSafeSetupBridge(value: Record<string, unknown>): boolean {
 function isSafeSetupApprovalEnvelope(
   value: Record<string, unknown>,
 ): boolean {
+  const boundary = approvalBoundaryContract(value.setup_step_kind);
+  const stepContract = setupStepContract(value.setup_step_kind);
   return (
+    boundary !== undefined &&
+    stepContract !== undefined &&
     isSafeRef(value.envelope_ref) &&
     hasExactApprovalStatus(value.setup_step_kind, value.status) &&
     isSafeRef(value.setup_step_id) &&
@@ -863,11 +997,17 @@ function isSafeSetupApprovalEnvelope(
     isSafePrefixedRef(value.idempotency_key_ref, "idempotency-ref:") &&
     isSafeText(value.risk_class, 40) &&
     value.side_effect_class === "validation_only" &&
-    isSafeRefArray(value.not_scoped_actions, true) &&
-    isSafeRefArray(value.blocked_runtime_authority, true) &&
+    hasExactStringSequence(
+      value.not_scoped_actions,
+      boundary.notScopedActions,
+    ) &&
+    hasExactStringSequence(
+      value.blocked_runtime_authority,
+      boundary.blockedRuntimeAuthority,
+    ) &&
     isSafeRefArray(value.evidence_refs, true) &&
     isSafeRefArray(value.verifier_refs, true) &&
-    isSafeRef(value.operator_next_action) &&
+    value.operator_next_action === stepContract.nextSafeAction &&
     isSafeEnvelopeText(value.stale_state_handling) &&
     isSafeEnvelopeText(value.redaction_summary) &&
     allBooleanFieldsEqual(
@@ -956,7 +1096,8 @@ function approvalEnvelopesBindToSteps(
       step.approval_required === true &&
       step.approval_ref === envelope.approval_request_ref &&
       step.receipt_ref === envelope.expected_receipt_ref &&
-      step.rollback_ref === envelope.rollback_plan_ref
+      step.rollback_ref === envelope.rollback_plan_ref &&
+      step.next_safe_action === envelope.operator_next_action
     );
   });
 }
@@ -1013,8 +1154,8 @@ function isSafeSetupLifecycle(value: Record<string, unknown>): boolean {
   return (
     !!operations &&
     !!healthContract &&
-    isSafeRef(value.schema_version) &&
-    isSafeRef(value.contract_ref) &&
+    value.schema_version === MACOS_SETUP_LIFECYCLE_CONTRACT.schemaVersion &&
+    value.contract_ref === MACOS_SETUP_LIFECYCLE_CONTRACT.contractRef &&
     value.status === "blocked_by_authority" &&
     value.current_state === "prerequisites" &&
     hasExactStringSequence(
@@ -1022,16 +1163,25 @@ function isSafeSetupLifecycle(value: Record<string, unknown>): boolean {
       MACOS_SETUP_LIFECYCLE_STATE_SEQUENCE,
     ) &&
     hasExactLifecycleOperationSequence(value.operations) &&
-    isSafeRef(value.authority_prerequisite_ref) &&
-    isSafeRef(value.authority_state_ref) &&
-    isSafeRef(value.python_core_service_ref) &&
-    isSafeRef(value.api_surface_ref) &&
-    isSafeRef(value.cli_surface_ref) &&
-    isSafeRef(value.control_center_surface_ref) &&
-    isSafeRef(value.safe_disable_ref) &&
-    isSafeRef(value.rollback_contract_ref) &&
-    isSafeRef(value.receipt_contract_ref) &&
-    isSafeRefArray(value.blocked_reason_refs, true) &&
+    value.authority_prerequisite_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.authorityPrerequisiteRef &&
+    value.authority_state_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.authorityStateRef &&
+    value.python_core_service_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.pythonCoreServiceRef &&
+    value.api_surface_ref === MACOS_SETUP_LIFECYCLE_CONTRACT.apiSurfaceRef &&
+    value.cli_surface_ref === MACOS_SETUP_LIFECYCLE_CONTRACT.cliSurfaceRef &&
+    value.control_center_surface_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.controlCenterSurfaceRef &&
+    value.safe_disable_ref === MACOS_SETUP_LIFECYCLE_CONTRACT.safeDisableRef &&
+    value.rollback_contract_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.rollbackContractRef &&
+    value.receipt_contract_ref ===
+      MACOS_SETUP_LIFECYCLE_CONTRACT.receiptContractRef &&
+    hasExactStringSequence(
+      value.blocked_reason_refs,
+      MACOS_SETUP_LIFECYCLE_CONTRACT.blockedReasonRefs,
+    ) &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     allBooleanFieldsEqual(
       value,
@@ -1091,11 +1241,28 @@ function isSafeSetupLifecycleOperation(
       `rollback-plan:macos-setup-lifecycle:${expectedOperation}` &&
     value.safe_disable_ref ===
       `safe-disable-ref:macos-setup-lifecycle:${expectedOperation}` &&
-    isSafeRefArray(value.evidence_refs, true) &&
-    isSafeRefArray(value.verifier_refs, true) &&
-    isSafeRefArray(value.reason_codes) &&
-    typeof value.mutation_required === "boolean" &&
-    typeof value.live_probe_required === "boolean" &&
+    hasExactStringSequence(
+      value.evidence_refs,
+      MACOS_SETUP_LIFECYCLE_CONTRACT.operationEvidenceRefs,
+    ) &&
+    hasExactStringSequence(
+      value.verifier_refs,
+      MACOS_SETUP_LIFECYCLE_CONTRACT.operationVerifierRefs,
+    ) &&
+    hasExactStringSequence(
+      value.reason_codes,
+      readOnly
+        ? ["MACOS_SETUP_LIFECYCLE_READ_ONLY_INSPECTION"]
+        : [
+            "MACOS_SETUP_LIFECYCLE_AUTHORITY_NOT_GRANTED",
+            "MACOS_SETUP_LIFECYCLE_NO_SIDE_EFFECTS",
+          ],
+    ) &&
+    value.mutation_required ===
+      ["install", "repair", "stop", "rollback"].includes(
+        expectedOperation,
+      ) &&
+    value.live_probe_required === (expectedOperation === "verify") &&
     value.approval_required === !readOnly &&
     (!readOnly ||
       (value.mutation_required === false &&
@@ -1123,7 +1290,7 @@ function isSafeSetupLifecycleOperation(
 
 function isSafeSetupHealthContract(value: Record<string, unknown>): boolean {
   return (
-    isSafeRef(value.contract_ref) &&
+    value.contract_ref === MACOS_SETUP_LIFECYCLE_CONTRACT.healthContractRef &&
     value.status === "blocked_by_authority" &&
     hasExactStringSequence(
       value.required_check_refs,
@@ -1154,6 +1321,18 @@ function hasExactLifecycleOperationSequence(value: unknown): boolean {
         isRecord(operation) &&
         operation.operation ===
           MACOS_SETUP_LIFECYCLE_OPERATION_SEQUENCE[index],
+    )
+  );
+}
+
+function hasExactBridgeSequence(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === MACOS_SETUP_BRIDGE_REF_SEQUENCE.length &&
+    value.every(
+      (bridge, index) =>
+        isRecord(bridge) &&
+        bridge.bridge_ref === MACOS_SETUP_BRIDGE_REF_SEQUENCE[index],
     )
   );
 }
@@ -1199,6 +1378,18 @@ function hasExactApprovalStatus(
         kind as keyof typeof MACOS_SETUP_APPROVAL_STATUS_BY_KIND
       ]
   );
+}
+
+function approvalBoundaryContract(kind: unknown) {
+  if (
+    typeof kind !== "string" ||
+    !(kind in MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND)
+  ) {
+    return undefined;
+  }
+  return MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND[
+    kind as keyof typeof MACOS_SETUP_APPROVAL_BOUNDARY_BY_KIND
+  ];
 }
 
 function setupStepContract(kind: unknown) {

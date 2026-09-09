@@ -24,6 +24,54 @@ const EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND = {
   local_bridge_setup_planning: "review-local-bridge-envelope",
   background_service_setup_planning: "keep-background-service-not-scoped",
 } as const;
+const EXTRA_APPROVAL_NOT_SCOPED_ACTIONS_BY_KIND = {
+  model_download_planning: [
+    "model-download-execution",
+    "model-file-read",
+    "model-call",
+    "raw-model-url-display",
+  ],
+  launch_agent_setup_planning: [
+    "launch-agent-installation",
+    "launch-agent-load",
+    "launch-agent-start",
+    "launchctl",
+  ],
+  local_bridge_setup_planning: [
+    "bridge-enable-now",
+    "credential-capture",
+    "connector-write",
+    "raw-transcript-storage",
+  ],
+  background_service_setup_planning: [
+    "background-service-installation",
+    "background-service-start",
+    "daemon-scheduler-worker",
+    "auto-start-mechanism",
+  ],
+} as const;
+const EXTRA_APPROVAL_BLOCKED_AUTHORITY_BY_KIND = {
+  model_download_planning: [
+    "control-center-setup-model-downloads",
+    "runtime-model-calls",
+    "provider-api-calls",
+  ],
+  launch_agent_setup_planning: [
+    "control-center-setup-launch-agent-changes",
+    "shell-subprocess-execution",
+    "macos-system-control-authority",
+  ],
+  local_bridge_setup_planning: [
+    "control-center-setup-credential-handling",
+    "openwebui-runtime-authority",
+    "connector-writes",
+  ],
+  background_service_setup_planning: [
+    "control-center-setup-background-service-changes",
+    "autonomous-background-execution",
+    "macos-system-control-authority",
+  ],
+} as const;
 const SETUP_STEP_KIND_SEQUENCE = [
   "first_launch",
   "runtime_health",
@@ -191,6 +239,10 @@ function withCompleteApprovalKinds(
       expected_receipt_ref: receiptRef,
       rollback_plan_ref: rollbackRef,
       idempotency_key_ref: `idempotency-ref:macos-setup-${slug}`,
+      not_scoped_actions: EXTRA_APPROVAL_NOT_SCOPED_ACTIONS_BY_KIND[kind],
+      blocked_runtime_authority:
+        EXTRA_APPROVAL_BLOCKED_AUTHORITY_BY_KIND[kind],
+      operator_next_action: EXTRA_APPROVAL_NEXT_SAFE_ACTION_BY_KIND[kind],
     });
   }
   steps.sort(
