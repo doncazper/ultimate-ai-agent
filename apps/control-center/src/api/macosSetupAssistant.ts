@@ -94,7 +94,7 @@ const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[\s"'`])(?:~\/?|\/(?:Users|home|usr|var|private|tmp)\/|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[\s"'`])(?:~\/?|\/(?:Applications|Library|Network|System|Users|Volumes|bin|dev|etc|home|opt|private|sbin|tmp|usr|var)(?:\/|\b)|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
@@ -500,7 +500,7 @@ function setupSafetySourceRequiresFallback(source: unknown): boolean {
     source.macos_first !== true ||
     source.local_first !== true ||
     source.disabled_by_default !== true ||
-    typeof source.control_center_preview_ready !== "boolean" ||
+    source.control_center_preview_ready !== true ||
     source.native_macos_app_ready !== false ||
     source.setup_question_assistant_enabled !== false ||
     source.model_output_authoritative !== false ||
@@ -747,6 +747,7 @@ function approvalEnvelopesBindToSteps(
     return (
       step !== undefined &&
       step.kind === envelope.setup_step_kind &&
+      step.approval_required === true &&
       step.approval_ref === envelope.approval_request_ref &&
       step.receipt_ref === envelope.expected_receipt_ref &&
       step.rollback_ref === envelope.rollback_plan_ref

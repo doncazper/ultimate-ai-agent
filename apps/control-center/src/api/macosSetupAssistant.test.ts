@@ -375,6 +375,7 @@ describe("macOS Setup Assistant normalization provenance", () => {
     "macos_first",
     "local_first",
     "disabled_by_default",
+    "control_center_preview_ready",
   ])("rejects a disabled required posture flag %s", (field) => {
     const payload = completeSetupPayload();
     payload[field] = false;
@@ -468,6 +469,24 @@ describe("macOS Setup Assistant normalization provenance", () => {
         mockControlCenterData.macosSetupAssistant,
       ).usedFallback,
     ).toBe(true);
+
+    const unapprovedStepPayload = completeSetupPayload();
+    const approvalBoundSteps = unapprovedStepPayload.steps as Array<
+      Record<string, unknown>
+    >;
+    const approvalBoundStep = approvalBoundSteps.find(
+      (step) => step.kind === "model_selection",
+    );
+    expect(approvalBoundStep).toBeDefined();
+    approvalBoundStep!.status = "ready";
+    approvalBoundStep!.approval_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        unapprovedStepPayload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
   });
 
   it.each([
@@ -494,6 +513,11 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
     ["terminal control text", "Unsafe\u001bsummary"],
     ["raw local path", "Review /Users/operator/private.log"],
+    ["macOS application path", "Review /Applications/UAA.app"],
+    [
+      "macOS launch agent path",
+      "Review /Library/LaunchAgents/com.example.plist",
+    ],
     ["overlong text", "A".repeat(801)],
   ])("rejects %s before Setup text reaches the UI", (_name, unsafeText) => {
     const payload = completeSetupPayload();
