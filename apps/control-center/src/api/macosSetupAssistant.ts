@@ -617,7 +617,7 @@ function isSafeSetupRecommendation(value: Record<string, unknown>): boolean {
     isSafeText(value.memory_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeText(value.disk_bucket, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeText(value.privacy_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    typeof value.approval_required_before_download === "boolean" &&
+    value.approval_required_before_download === true &&
     typeof value.selected_by_default === "boolean" &&
     isSafeRefArray(value.reason_codes) &&
     allBooleanFieldsEqual(
@@ -641,7 +641,7 @@ function isSafeSetupBridge(value: Record<string, unknown>): boolean {
     isSetupStatus(value.status) &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
     isSafeText(value.enablement_default, 80) &&
-    typeof value.approval_required === "boolean" &&
+    value.approval_required === true &&
     isSafeRefArray(value.reason_codes) &&
     allBooleanFieldsEqual(
       value,
@@ -737,8 +737,20 @@ function approvalEnvelopesBindToSteps(
   const envelopeKinds = new Set(
     envelopes.map((envelope) => String(envelope.setup_step_kind)),
   );
+  const requiredApprovalSteps = steps.filter(
+    (step) =>
+      typeof step.kind === "string" &&
+      MACOS_SETUP_REQUIRED_APPROVAL_KINDS.has(step.kind),
+  );
+  const envelopesByStepId = new Map(
+    envelopes.map(
+      (envelope) => [String(envelope.setup_step_id), envelope] as const,
+    ),
+  );
   if (
     stepsById.size !== steps.length ||
+    envelopesByStepId.size !== envelopes.length ||
+    requiredApprovalSteps.length !== envelopes.length ||
     envelopeKinds.size !== MACOS_SETUP_REQUIRED_APPROVAL_KINDS.size ||
     ![...MACOS_SETUP_REQUIRED_APPROVAL_KINDS].every((kind) =>
       envelopeKinds.has(kind),
@@ -746,11 +758,11 @@ function approvalEnvelopesBindToSteps(
   ) {
     return false;
   }
-  return envelopes.every((envelope) => {
-    const step = stepsById.get(String(envelope.setup_step_id));
+  return requiredApprovalSteps.every((step) => {
+    const envelope = envelopesByStepId.get(String(step.step_id));
     return (
-      step !== undefined &&
-      step.kind === envelope.setup_step_kind &&
+      envelope !== undefined &&
+      envelope.setup_step_kind === step.kind &&
       step.approval_required === true &&
       step.approval_ref === envelope.approval_request_ref &&
       step.receipt_ref === envelope.expected_receipt_ref &&

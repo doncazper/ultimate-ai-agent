@@ -489,6 +489,56 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects model download recommendations without approval", () => {
+    const payload = completeSetupPayload();
+    const recommendations = payload.model_recommendations as Array<
+      Record<string, unknown>
+    >;
+    recommendations[0].approval_required_before_download = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects bridge previews without approval", () => {
+    const payload = completeSetupPayload();
+    const bridges = payload.bridge_previews as Array<Record<string, unknown>>;
+    bridges[0].approval_required = false;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval-scoped step without a unique envelope", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const modelSelectionStep = steps.find(
+      (step) => step.kind === "model_selection",
+    );
+    expect(modelSelectionStep).toBeDefined();
+    steps.push({
+      ...modelSelectionStep,
+      step_id: "macos-setup-step:unbound-model-selection",
+      status: "ready",
+      approval_required: false,
+    });
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("rejects process-manager command text in approval envelopes", () => {
     const payload = completeSetupPayload();
     const envelopes = payload.approval_envelopes as Array<
