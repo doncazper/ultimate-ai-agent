@@ -165,6 +165,34 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it.each([
+    ["exact_scope_ref", "scope-ref:macos-setup-lifecycle:stop"],
+    ["approval_ref", "approval-ref:macos-setup-lifecycle:stop"],
+    [
+      "idempotency_key_ref",
+      "idempotency-ref:macos-setup-lifecycle:stop",
+    ],
+    ["receipt_ref", "receipt-plan:macos-setup-lifecycle:stop"],
+    ["rollback_ref", "rollback-plan:macos-setup-lifecycle:stop"],
+    ["safe_disable_ref", "safe-disable-ref:macos-setup-lifecycle:stop"],
+  ])("rejects a rebound lifecycle %s", (field, substitutedRef) => {
+    const payload = completeSetupPayload();
+    const lifecycle = payload.lifecycle as Record<string, unknown>;
+    const operations = lifecycle.operations as Array<Record<string, unknown>>;
+    const install = operations.find(
+      (operation) => operation.operation === "install",
+    );
+    expect(install).toBeDefined();
+    install![field] = substitutedRef;
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it("rejects an incomplete lifecycle health-check contract", () => {
     const payload = completeSetupPayload();
     const lifecycle = payload.lifecycle as Record<string, unknown>;
@@ -202,6 +230,26 @@ describe("macOS Setup Assistant normalization provenance", () => {
     envelopes[0].requested_scope_refs = [
       "scope-ref:macos-setup-production-authority",
     ];
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
+  it("rejects an approval envelope rebound to another valid status", () => {
+    const payload = completeSetupPayload();
+    const envelopes = payload.approval_envelopes as Array<
+      Record<string, unknown>
+    >;
+    const backgroundService = envelopes.find(
+      (envelope) =>
+        envelope.setup_step_kind === "background_service_setup_planning",
+    );
+    expect(backgroundService).toBeDefined();
+    backgroundService!.status = "approval_required";
 
     expect(
       normalizeMacOSSetupAssistant(
@@ -697,6 +745,10 @@ describe("macOS Setup Assistant normalization provenance", () => {
     [
       "punctuated macOS launch agent path",
       "Review:/Library/LaunchAgents/example.plist",
+    ],
+    [
+      "oversized whitespace-padded text",
+      `${" ".repeat(10_000)}Safe summary${" ".repeat(10_000)}`,
     ],
     ["overlong text", "A".repeat(801)],
   ])("rejects %s before Setup text reaches the UI", (_name, unsafeText) => {

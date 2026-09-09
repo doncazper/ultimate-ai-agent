@@ -86,13 +86,6 @@ const MACOS_SETUP_STEP_KINDS = new Set([
   "receipt_audit_latency",
   "rollback_uninstall",
 ]);
-const MACOS_SETUP_APPROVAL_STATUSES = new Set([
-  "dry_run_plan_created",
-  "approval_required",
-  "blocked_prerequisite_missing",
-  "denied_unsafe_authority",
-  "not_scoped",
-]);
 const MACOS_SETUP_REQUIRED_APPROVAL_KINDS = new Set([
   "model_selection",
   "model_download_planning",
@@ -118,6 +111,15 @@ const MACOS_SETUP_APPROVAL_SCOPE_BY_KIND = {
   ],
   openwebui_bridge: ["scope-ref:macos-setup-openwebui-bridge"],
   mattermost_bridge: ["scope-ref:macos-setup-mattermost-bridge"],
+} as const;
+const MACOS_SETUP_APPROVAL_STATUS_BY_KIND = {
+  model_selection: "approval_required",
+  model_download_planning: "approval_required",
+  launch_agent_setup_planning: "blocked_prerequisite_missing",
+  local_bridge_setup_planning: "approval_required",
+  background_service_setup_planning: "not_scoped",
+  openwebui_bridge: "approval_required",
+  mattermost_bridge: "approval_required",
 } as const;
 const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
   "macos-setup-runtime-installation",
@@ -712,8 +714,7 @@ function isSafeSetupApprovalEnvelope(
 ): boolean {
   return (
     isSafeRef(value.envelope_ref) &&
-    typeof value.status === "string" &&
-    MACOS_SETUP_APPROVAL_STATUSES.has(value.status) &&
+    hasExactApprovalStatus(value.setup_step_kind, value.status) &&
     isSafeRef(value.setup_step_id) &&
     typeof value.setup_step_kind === "string" &&
     MACOS_SETUP_STEP_KINDS.has(value.setup_step_kind) &&
@@ -944,12 +945,18 @@ function isSafeSetupLifecycleOperation(
     value.target_state ===
       MACOS_SETUP_LIFECYCLE_TARGET_STATES[expectedOperation] &&
     isSafeText(value.safe_summary, MACOS_SETUP_MAX_DETAIL_CHARS) &&
-    isSafeRef(value.exact_scope_ref) &&
-    isSafeRef(value.approval_ref) &&
-    isSafeRef(value.idempotency_key_ref) &&
-    isSafeRef(value.receipt_ref) &&
-    isSafeRef(value.rollback_ref) &&
-    isSafeRef(value.safe_disable_ref) &&
+    value.exact_scope_ref ===
+      `scope-ref:macos-setup-lifecycle:${expectedOperation}` &&
+    value.approval_ref ===
+      `approval-ref:macos-setup-lifecycle:${expectedOperation}` &&
+    value.idempotency_key_ref ===
+      `idempotency-ref:macos-setup-lifecycle:${expectedOperation}` &&
+    value.receipt_ref ===
+      `receipt-plan:macos-setup-lifecycle:${expectedOperation}` &&
+    value.rollback_ref ===
+      `rollback-plan:macos-setup-lifecycle:${expectedOperation}` &&
+    value.safe_disable_ref ===
+      `safe-disable-ref:macos-setup-lifecycle:${expectedOperation}` &&
     isSafeRefArray(value.evidence_refs, true) &&
     isSafeRefArray(value.verifier_refs, true) &&
     isSafeRefArray(value.reason_codes) &&
@@ -1043,6 +1050,20 @@ function hasExactApprovalScope(
     MACOS_SETUP_APPROVAL_SCOPE_BY_KIND[
       kind as keyof typeof MACOS_SETUP_APPROVAL_SCOPE_BY_KIND
     ],
+  );
+}
+
+function hasExactApprovalStatus(
+  kind: unknown,
+  value: unknown,
+): boolean {
+  return (
+    typeof kind === "string" &&
+    kind in MACOS_SETUP_APPROVAL_STATUS_BY_KIND &&
+    value ===
+      MACOS_SETUP_APPROVAL_STATUS_BY_KIND[
+        kind as keyof typeof MACOS_SETUP_APPROVAL_STATUS_BY_KIND
+      ]
   );
 }
 
@@ -1558,8 +1579,9 @@ function isSafeText(value: unknown, maxLength: number): value is string {
   if (typeof value !== "string") {
     return false;
   }
-  const text = value.trim();
+  const text = value;
   return (
+    text === text.trim() &&
     text.length > 0 &&
     Array.from(text).length <= maxLength &&
     MACOS_SETUP_SAFE_TEXT_RE.test(text) &&

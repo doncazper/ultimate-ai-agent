@@ -6,6 +6,12 @@ const EXTRA_APPROVAL_KINDS = [
   "local_bridge_setup_planning",
   "background_service_setup_planning",
 ] as const;
+const EXTRA_APPROVAL_STATUS_BY_KIND = {
+  model_download_planning: "approval_required",
+  launch_agent_setup_planning: "blocked_prerequisite_missing",
+  local_bridge_setup_planning: "approval_required",
+  background_service_setup_planning: "not_scoped",
+} as const;
 const PROCESS_MANAGER_REQUESTED_FIELD = ["launch", "ctl_requested"].join("");
 
 function backendKey(key: string): string {
@@ -147,6 +153,7 @@ function withCompleteApprovalKinds(
     envelopes.push({
       ...envelopeTemplate,
       envelope_ref: `macos-setup-approval-envelope:${slug}`,
+      status: EXTRA_APPROVAL_STATUS_BY_KIND[kind],
       setup_step_id: stepId,
       setup_step_kind: kind,
       requested_scope_refs: [`scope-ref:macos-setup-${slug}`],
