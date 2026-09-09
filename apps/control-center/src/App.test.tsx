@@ -22212,7 +22212,12 @@ function setupAssistantSummaryForTest() {
     ...api,
     steps: steps.map((step) =>
       step.kind === "model_selection"
-        ? { ...modelStep, ...apiStep, kind: "model_selection" }
+        ? {
+            ...modelStep,
+            ...apiStep,
+            kind: "model_selection",
+            status: modelStep.status,
+          }
         : step,
     ),
     model_recommendations: [

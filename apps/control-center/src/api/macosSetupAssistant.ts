@@ -121,6 +121,15 @@ const MACOS_SETUP_APPROVAL_STATUS_BY_KIND = {
   openwebui_bridge: "approval_required",
   mattermost_bridge: "approval_required",
 } as const;
+const MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND = {
+  model_selection: "approval_required",
+  model_download_planning: "approval_required",
+  launch_agent_setup_planning: "blocked",
+  local_bridge_setup_planning: "approval_required",
+  background_service_setup_planning: "blocked",
+  openwebui_bridge: "approval_required",
+  mattermost_bridge: "approval_required",
+} as const;
 const MACOS_SETUP_BLOCKED_CAPABILITY_SEQUENCE = [
   "macos-setup-runtime-installation",
   "macos-setup-model-download",
@@ -145,7 +154,7 @@ const MACOS_SETUP_SAFE_TEXT_RE =
   /^[A-Za-z0-9][A-Za-z0-9 _.,:/()+#;-]{0,799}$/;
 const MACOS_SETUP_SAFE_ROUTE_RE = /^\/[A-Za-z0-9_./{}:-]{0,179}$/;
 const MACOS_SETUP_ABSOLUTE_PATH_RE =
-  /(^|[^A-Za-z0-9._/\\-])(?:~\/?|\/(?:Applications|Library|Network|System|Users|Volumes|bin|dev|etc|home|opt|private|sbin|tmp|usr|var)(?:\/|\b)|[A-Za-z]:[\\/]|\\\\)/;
+  /(^|[^A-Za-z0-9._/~\\-])(?:~\/?|\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\/?|[A-Za-z]:[\\/]|\\\\)/;
 const MACOS_SETUP_MAX_COLLECTION_ITEMS = 100;
 const MACOS_SETUP_MAX_DETAIL_CHARS = 800;
 const MACOS_SETUP_MAX_LOG_CHARS = 400;
@@ -819,6 +828,7 @@ function approvalEnvelopesBindToSteps(
     return (
       envelope !== undefined &&
       envelope.setup_step_kind === step.kind &&
+      hasExactApprovalStepStatus(step.kind, step.status) &&
       step.approval_required === true &&
       step.approval_ref === envelope.approval_request_ref &&
       step.receipt_ref === envelope.expected_receipt_ref &&
@@ -1063,6 +1073,20 @@ function hasExactApprovalStatus(
     value ===
       MACOS_SETUP_APPROVAL_STATUS_BY_KIND[
         kind as keyof typeof MACOS_SETUP_APPROVAL_STATUS_BY_KIND
+      ]
+  );
+}
+
+function hasExactApprovalStepStatus(
+  kind: unknown,
+  value: unknown,
+): boolean {
+  return (
+    typeof kind === "string" &&
+    kind in MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND &&
+    value ===
+      MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND[
+        kind as keyof typeof MACOS_SETUP_APPROVAL_STEP_STATUS_BY_KIND
       ]
   );
 }

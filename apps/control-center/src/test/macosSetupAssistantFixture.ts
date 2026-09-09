@@ -12,6 +12,12 @@ const EXTRA_APPROVAL_STATUS_BY_KIND = {
   local_bridge_setup_planning: "approval_required",
   background_service_setup_planning: "not_scoped",
 } as const;
+const EXTRA_APPROVAL_STEP_STATUS_BY_KIND = {
+  model_download_planning: "approval_required",
+  launch_agent_setup_planning: "blocked",
+  local_bridge_setup_planning: "approval_required",
+  background_service_setup_planning: "blocked",
+} as const;
 const PROCESS_MANAGER_REQUESTED_FIELD = ["launch", "ctl_requested"].join("");
 
 function backendKey(key: string): string {
@@ -145,6 +151,7 @@ function withCompleteApprovalKinds(
       step_id: stepId,
       label: `Bounded ${slug} review`,
       kind,
+      status: EXTRA_APPROVAL_STEP_STATUS_BY_KIND[kind],
       approval_ref: approvalRef,
       receipt_ref: receiptRef,
       rollback_ref: rollbackRef,

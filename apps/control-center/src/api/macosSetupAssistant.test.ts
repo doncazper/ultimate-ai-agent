@@ -259,6 +259,23 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ).toBe(true);
   });
 
+  it("rejects a blocked setup step rebound to ready", () => {
+    const payload = completeSetupPayload();
+    const steps = payload.steps as Array<Record<string, unknown>>;
+    const backgroundService = steps.find(
+      (step) => step.kind === "background_service_setup_planning",
+    );
+    expect(backgroundService).toBeDefined();
+    backgroundService!.status = "ready";
+
+    expect(
+      normalizeMacOSSetupAssistant(
+        payload,
+        mockControlCenterData.macosSetupAssistant,
+      ).usedFallback,
+    ).toBe(true);
+  });
+
   it.each([
     ["empty", []],
     [
@@ -736,6 +753,8 @@ describe("macOS Setup Assistant normalization provenance", () => {
     ["secret-like text", ["token", "abcdefghijklmnop"].join("=")],
     ["terminal control text", "Unsafe\u001bsummary"],
     ["raw local path", "Review /Users/operator/private.log"],
+    ["unlisted workspace path", "Review /workspace/operator/private.log"],
+    ["unlisted mount path", "Inspect /mnt/data/config.json"],
     ["punctuated raw local path", "Path:/Users/operator/private.log"],
     ["macOS application path", "Review /Applications/UAA.app"],
     [
