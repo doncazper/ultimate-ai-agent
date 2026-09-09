@@ -139,7 +139,7 @@
         "mobile": "visual-baseline-file:mobile:work-board"
       },
       "baseline_hashes": {
-        "desktop": "sha256:521314289c3172679e8c29a04aa1c7bbac66ddb9ad8482b042bd9eaca327a47b",
+        "desktop": "sha256:22211bee6d742ac195684ea2d88b4be045d7c2a59f85f4e7b5dbb4e487b87325",
         "mobile": "sha256:4e3ac1401e8c97ed97fe7b6f8cb4f51d343eca23dec6797ac450f15344e04f35"
       },
       "raw_private_screenshot_included": false
@@ -244,7 +244,7 @@
         "mobile": "visual-baseline-file:mobile:setup"
       },
       "baseline_hashes": {
-        "desktop": "sha256:59e4b3d547face2299bb641da5cd4a264d48d7693abe96bbc694d2e8cf49a9d7",
+        "desktop": "sha256:96d78478d2eabf74eb129199fc87112a29e6ed9df2348df5057ac1215278db9e",
         "mobile": "sha256:ad4adacb89a15080c5355876331e4a4ec1ff1f6ffc9dfe1adf5a679c9e9b1682"
       },
       "raw_private_screenshot_included": false

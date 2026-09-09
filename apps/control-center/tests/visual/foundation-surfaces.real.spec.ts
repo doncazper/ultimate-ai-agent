@@ -199,6 +199,18 @@ test("foundation visual baselines stay backend-owned", async ({
         await expect(
           page.getByText("Your local setup at a glance", { exact: true }),
         ).toBeVisible();
+        await expect(
+          page.getByText("Authority posture not reported by this route read", {
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByText(
+            "Kill-switch posture: not reported by this route read",
+            { exact: true },
+          ),
+        ).toBeVisible();
+        await expect(page.getByText("Unverified in fallback")).toHaveCount(0);
       } else {
         await expect(
           page.getByRole("heading", { name: "Your CRM", exact: true }),
