@@ -1015,6 +1015,17 @@ describe("North Star backend wiring", () => {
     apiMocks.previewAuthorityDecision.mockResolvedValue(deniedPreview);
 
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", {
+      name: "Create local task record",
+    })).not.toBeInTheDocument();
+    cleanup();
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
+      </BackendTruthMutationBindingProvider>,
+    );
 
     await waitFor(() => expect(apiMocks.previewAuthorityDecision).toHaveBeenCalledWith({
       action_ref: "authority-action-ref:founder-loop-local-task-commit",
@@ -1033,7 +1044,7 @@ describe("North Star backend wiring", () => {
       draft_fallback_available: true,
       rollback_ref: "rollback-not-applicable:local-task-safe-disable",
       safe_disable_ref: "safe-disable:founder-loop:local-task-create-scorecard",
-    }));
+    }, mutationBinding));
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });

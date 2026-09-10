@@ -275,6 +275,9 @@ describe("local task commit boundary", () => {
       "Host MacBook-Pro.local",
       "username=operator",
       "Review /Users/operator/private.log",
+      "raw_prompt: copy the private prompt here",
+      "response: private model output",
+      "Receipt created by alice@example.com",
       `ghp_${"a".repeat(36)}`,
     ]) {
       expect(localTaskCommitReceiptIsSafe({

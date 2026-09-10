@@ -670,6 +670,7 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
   const localTaskCommitAlreadyRecorded = isRecordedReceiptRef(localTaskCommitReceiptRef);
   const localTaskCommitLaneReady = Boolean(
     authoritative
+    && mutationBinding
     && backendEnvelope
     && decisionLaneReadable
     && decisionLaneItem?.lane_id === "approved_no_execution"
@@ -697,7 +698,7 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
       localTaskCommitRequest,
     );
     setLocalTaskAuthorityPreview({ itemRef, status: "checking" });
-    void previewAuthorityDecision(authorityRequest)
+    void previewAuthorityDecision(authorityRequest, mutationBinding)
       .then((preview) => {
         if (cancelled) return;
         setLocalTaskAuthorityPreview({
@@ -715,7 +716,7 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     return () => {
       cancelled = true;
     };
-  }, [itemRef, localTaskCommitLaneReady, localTaskCommitRequest]);
+  }, [itemRef, localTaskCommitLaneReady, localTaskCommitRequest, mutationBinding]);
   const canCommitLocalTask = Boolean(
     localTaskCommitLaneReady
     && itemRef

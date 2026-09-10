@@ -493,8 +493,17 @@ export function withBackendTruthMutationHeaders(
     throw new Error("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
   }
   return {
-    ...headers,
+    ...withBackendTruthExpectedHeaders(headers, binding),
     "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+  };
+}
+
+function withBackendTruthExpectedHeaders(
+  headers: Record<string, string>,
+  binding: BackendTruthReadBinding,
+): Record<string, string> {
+  return {
+    ...headers,
     "X-UAA-Expected-Backend-Revision-Ref": binding.backendRevisionRef,
     "X-UAA-Expected-Backend-Instance-Ref": binding.backendInstanceRef,
     "X-UAA-Expected-Backend-Truth-Ref": binding.snapshotRef,
@@ -5607,6 +5616,7 @@ export async function fetchAuthorityMissionCompletions(): Promise<AuthorityMissi
 
 export async function previewAuthorityDecision(
   request: AuthorityActionRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<AuthorityDecisionPreview> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -5615,13 +5625,24 @@ export async function previewAuthorityDecision(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityDecisionPreview}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      }),
+      headers: withLocalApiAuthHeaders(
+        binding === null
+          ? {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            }
+          : withBackendTruthExpectedHeaders(
+              {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              binding,
+            ),
+      ),
       body: JSON.stringify(request),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<AuthorityDecisionPreview>;
@@ -7785,6 +7806,9 @@ function isSafeLocalTaskReceiptDisplayValue(
   const pathDetectionValue = value.replace(/\/ +/g, "/");
   return !/(^|[^A-Za-z0-9])(?:~\/?|\/[^\s/]+(?:\/[^\s/]+)*\/?|[A-Za-z]:[\\/]|\\\\)/.test(pathDetectionValue)
     && !/\b(?:file|https?):\/\//i.test(value)
+    && !/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(value)
+    && !/\b(?:raw[ _-]?(?:prompt|response|provider(?:[ _-]?payload)?|log)|prompt|response|provider[ _-]?(?:payload|response|content)|log)[ _-]?(?:body|content)?\s*[:=]/i.test(value)
+    && !/\bprivate\s+(?:prompt|response|model\s+output|provider\s+payload|log)\b/i.test(value)
     && !/\b(?:user(?:name)?|host(?:name)?|serial(?:_?number)?)\s*[:=]\s*\S+/i.test(value)
     && !/\bhost\s+[A-Za-z0-9][A-Za-z0-9.-]{2,}/i.test(value)
     && !/\b[A-Za-z0-9][A-Za-z0-9-]{1,62}\.(?:local|lan|internal)\b/i.test(value)

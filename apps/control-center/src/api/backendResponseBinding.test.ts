@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchFounderActionsInbox,
+  previewAuthorityDecision,
   validateBackendResponseBinding,
   withBackendTruthMutationHeaders,
   type BackendTruthReadBinding,
@@ -106,5 +107,86 @@ describe("backend response provenance binding", () => {
     await expect(fetchFounderActionsInbox(binding)).rejects.toThrow(
       "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
     );
+  });
+
+  it("binds an authority preview to the admitted backend process", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          ok: true,
+          result: { preview_ref: "preview-ref:test" },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+            "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+          },
+        },
+      ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await previewAuthorityDecision({
+      action_ref: "authority-action-ref:test",
+      domain: "workspace",
+      capability: "write",
+      safe_summary: "Evaluate exact test authority.",
+      resource_refs: ["resource-ref:test"],
+      route_ref: "POST /test",
+      lane_ref: "lane-ref:test",
+      requested_mode: "ask_before_changes",
+      draft_fallback_available: true,
+      rollback_ref: "rollback-ref:test",
+      safe_disable_ref: "safe-disable-ref:test",
+    }, binding);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-UAA-Expected-Backend-Revision-Ref": binding.backendRevisionRef,
+          "X-UAA-Expected-Backend-Instance-Ref": binding.backendInstanceRef,
+          "X-UAA-Expected-Backend-Truth-Ref": binding.snapshotRef,
+        }),
+      }),
+    );
+  });
+
+  it("rejects an authority preview from a replacement backend", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            result: { preview_ref: "preview-ref:test" },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+              "X-UAA-Backend-Instance-Ref":
+                "backend-instance-ref:control-center:44444444444444444444444444444444",
+            },
+          },
+        ),
+      ),
+    );
+
+    await expect(previewAuthorityDecision({
+      action_ref: "authority-action-ref:test",
+      domain: "workspace",
+      capability: "write",
+      safe_summary: "Evaluate exact test authority.",
+      resource_refs: ["resource-ref:test"],
+      route_ref: "POST /test",
+      lane_ref: "lane-ref:test",
+      requested_mode: "ask_before_changes",
+      draft_fallback_available: true,
+      rollback_ref: "rollback-ref:test",
+      safe_disable_ref: "safe-disable-ref:test",
+    }, binding)).rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
   });
 });
