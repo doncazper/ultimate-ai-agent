@@ -100,7 +100,11 @@ and reports every broader authority flag disabled.
 The UI validates the returned receipt against the exact item and approval,
 requires the content-free local-task contract, and rejects any receipt that
 claims connector, shell, provider/model, memory, context-injection, raw-content,
-or external side effects. It then refreshes the backend Action Inbox and does
+external side effects, local paths, account identifiers, or hostname-shaped
+values. Authority previews initiated by the browser are accepted only while
+their exact backend revision, process instance, and issued truth envelope remain
+current; repo-local preview callers without browser binding retain CLI parity.
+The UI then refreshes the backend Action Inbox and does
 not claim reconciliation until the backend-owned receipt visibility binds both
 the task ref and receipt ref.
 

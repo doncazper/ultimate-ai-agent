@@ -273,6 +273,7 @@ describe("local task commit boundary", () => {
       `credential: ${"x".repeat(20)}`,
       `Bearer ${"a".repeat(20)}`,
       "Host MacBook-Pro.local",
+      "Receipt created on build-17.corp.example.com",
       "username=operator",
       "Review /Users/operator/private.log",
       "raw_prompt: copy the private prompt here",

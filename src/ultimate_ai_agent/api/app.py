@@ -801,6 +801,7 @@ async def backend_response_binding_middleware(
     call_next: Any,
 ) -> Any:
     requires_mutation_binding = _requires_control_center_mutation_binding(request)
+    requires_preview_binding = _requires_control_center_preview_binding(request)
     side_effect_class = route_side_effect_class(request.url.path)
     route_classification, _reason = route_classification_for_path(
         request.method,
@@ -823,7 +824,10 @@ async def backend_response_binding_middleware(
         and not explicit_binding_context
         and idempotency_failure is not None
     )
-    if requires_mutation_binding and not defer_chat_workspace_to_idempotency_gate:
+    if (
+        (requires_mutation_binding or requires_preview_binding)
+        and not defer_chat_workspace_to_idempotency_gate
+    ):
         identity = build_identity()
         expected_revision = request.headers.get(
             _EXPECTED_BACKEND_REVISION_HEADER
@@ -833,8 +837,11 @@ async def backend_response_binding_middleware(
         )
         expected_truth = request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
         if (
-            request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
-            != _CONTROL_CENTER_MUTATION_BINDING_VERSION
+            (
+                requires_mutation_binding
+                and request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+                != _CONTROL_CENTER_MUTATION_BINDING_VERSION
+            )
             or not identity.source_revision_bound
             or expected_revision != identity.commit_ref
             or expected_instance != backend_instance_ref()
@@ -846,16 +853,27 @@ async def backend_response_binding_middleware(
                 expected_backend_instance_ref=expected_instance or "",
             )
         ):
+            is_preview = requires_preview_binding and not requires_mutation_binding
             response = JSONResponse(
                 status_code=409,
                 content={
                     "detail": (
-                        "Control Center mutation provenance did not match the "
+                        "Control Center authority preview provenance did not match "
+                        "the current backend process."
+                        if is_preview
+                        else "Control Center mutation provenance did not match the "
                         "current backend process."
                     ),
-                    "code": "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH",
+                    "code": (
+                        "BACKEND_TRUTH_PREVIEW_PROVENANCE_MISMATCH"
+                        if is_preview
+                        else "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+                    ),
                     "policy_ref": (
                         "policy-ref:control-center:"
+                        "preview-backend-truth-binding-v1"
+                        if is_preview
+                        else "policy-ref:control-center:"
                         "mutation-backend-truth-binding-v1"
                     ),
                 },
@@ -869,6 +887,21 @@ async def backend_response_binding_middleware(
     response.headers["X-UAA-Backend-Revision-Ref"] = identity.commit_ref
     response.headers["X-UAA-Backend-Instance-Ref"] = backend_instance_ref()
     return response
+
+
+def _requires_control_center_preview_binding(request: Request) -> bool:
+    if (
+        request.method.upper() != "POST"
+        or request.url.path != "/api/runtime/authority-decisions/preview"
+    ):
+        return False
+    return bool(
+        request.headers.get("origin")
+        or request.headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_REVISION_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER)
+        or request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
+    )
 
 
 def _requires_control_center_mutation_binding(request: Request) -> bool:

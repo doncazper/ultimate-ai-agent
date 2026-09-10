@@ -7811,7 +7811,7 @@ function isSafeLocalTaskReceiptDisplayValue(
     && !/\bprivate\s+(?:prompt|response|model\s+output|provider\s+payload|log)\b/i.test(value)
     && !/\b(?:user(?:name)?|host(?:name)?|serial(?:_?number)?)\s*[:=]\s*\S+/i.test(value)
     && !/\bhost\s+[A-Za-z0-9][A-Za-z0-9.-]{2,}/i.test(value)
-    && !/\b[A-Za-z0-9][A-Za-z0-9-]{1,62}\.(?:local|lan|internal)\b/i.test(value)
+    && !/\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\b/i.test(value)
     && !/\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/i.test(value)
     && !LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
       pattern.test(value));
