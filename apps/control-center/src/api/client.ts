@@ -5926,6 +5926,7 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     "action_scope_ref",
     "action_envelope_ref",
     "approval_envelope_ref",
+    "local_task_commit_approval_ref",
     "action_rollback_ref",
     "rollback_ref",
     "action_safe_disable_ref",
@@ -6036,6 +6037,52 @@ function actionInboxGroupsMatchWorkQueue(
     || !Array.isArray(workQueue.work_items)) return false;
   const lanes = workQueue.lanes as unknown[];
   const workItems = workQueue.work_items as unknown[];
+  const itemRefs = items
+    .filter(isPlainRecord)
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    itemRefs.length !== items.length
+    || new Set(itemRefs).size !== itemRefs.length
+    || workQueue.item_count !== items.length
+    || workQueue.lane_count !== lanes.length
+    || workQueue.work_item_count !== workItems.length
+    || !Array.isArray(workQueue.work_item_refs)
+  ) return false;
+  const laneRecords = lanes.filter(isPlainRecord);
+  if (laneRecords.length !== lanes.length) return false;
+  const laneItemRefs = laneRecords.flatMap((lane) =>
+    Array.isArray(lane.item_refs) ? lane.item_refs : [undefined]);
+  if (
+    laneRecords.some((lane) =>
+      !Array.isArray(lane.item_refs)
+      || lane.count !== lane.item_refs.length)
+    || !hasExactStringSet(laneItemRefs, itemRefs)
+  ) return false;
+  const countForLane = (laneId: string) => laneRecords
+    .filter((lane) => lane.lane_id === laneId)
+    .reduce((total, lane) => total + Number(lane.count), 0);
+  if (
+    workQueue.ready_for_decision_count !== countForLane("ready_for_decision")
+    || workQueue.approved_local_task_count !== countForLane("approved_local_task_lane")
+    || workQueue.proposal_only_count !== countForLane("proposal_only_no_execution_path")
+    || workQueue.blocked_count !== countForLane("blocked_by_authority")
+    || workQueue.receipt_recorded_count !== countForLane("receipt_recorded")
+    || workQueue.operator_actionable_count !== (
+      countForLane("ready_for_decision")
+      + countForLane("approved_local_task_lane")
+    )
+  ) return false;
+  const workItemRecords = workItems.filter(isPlainRecord);
+  const workItemRefs = workItemRecords
+    .map((workItem) => workItem.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    workItemRecords.length !== workItems.length
+    || workItemRefs.length !== workItems.length
+    || !hasExactStringSet(workQueue.work_item_refs, workItemRefs)
+    || workItemRefs.some((itemRef) => !itemRefs.includes(itemRef))
+  ) return false;
   return items.every((item) => {
     if (!isPlainRecord(item)
       || typeof item.item_ref !== "string"
@@ -6056,6 +6103,14 @@ function actionInboxGroupsMatchWorkQueue(
     const workItem = workItemMatches[0] as Record<string, unknown>;
     return workItem.lane_id === item.action_group_id
       && workItem.lane_label === item.action_group_label;
+  }) && workItemRecords.every((workItem) => {
+    const item = items.find((candidate) =>
+      isPlainRecord(candidate) && candidate.item_ref === workItem.item_ref);
+    return Boolean(
+      isPlainRecord(item)
+      && workItem.lane_id === item.action_group_id
+      && workItem.lane_label === item.action_group_label,
+    );
   });
 }
 
@@ -8036,6 +8091,7 @@ export async function localTaskCommitReceiptIsSafe(
     || !Array.isArray(receipt.evidence_refs)
     || !Array.isArray(receipt.blocked_state_refs)
     || !Array.isArray(receipt.rollback_blocker_refs)
+    || typeof receipt.replayed !== "boolean"
   ) return false;
   if (
     typeof receipt.authority_lease_ref !== "string"

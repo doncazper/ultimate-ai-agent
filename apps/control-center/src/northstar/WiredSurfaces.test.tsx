@@ -693,7 +693,7 @@ describe("North Star backend wiring", () => {
     });
     apiMocks.fetchNorthStarDecisionsInbox.mockResolvedValue(data.founderActionsInbox);
 
-    render(
+    const view = render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <NorthStarControlCenter
           activePath="/workspace/decisions"
@@ -711,10 +711,26 @@ describe("North Star backend wiring", () => {
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(1);
+
+    const propagatedData = structuredClone(data);
+    propagatedData.founderActionsInbox = structuredClone(
+      data.founderActionsInbox,
+    );
+    view.rerender(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={propagatedData}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+    expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
+    expect(screen.getByText("reject", { selector: "strong" })).toBeVisible();
   });
 
   it("continues an exact approval and keeps its receipt while parent state reconciles", async () => {
     const onActionInboxRefresh = vi.fn();
+    const onLocalTaskCommitFenceChange = vi.fn();
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
     );
@@ -883,6 +899,7 @@ describe("North Star backend wiring", () => {
           activePath="/workspace/decisions"
           data={data}
           onActionInboxRefresh={onActionInboxRefresh}
+          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
         />
       </BackendTruthMutationBindingProvider>,
     );
@@ -929,6 +946,7 @@ describe("North Star backend wiring", () => {
     expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
     expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(2);
     expect(onActionInboxRefresh).toHaveBeenLastCalledWith(approvedData.founderActionsInbox);
+    expect(onLocalTaskCommitFenceChange).toHaveBeenCalledWith(item.item_ref, true);
 
     const propagatedData = structuredClone(approvedData);
     propagatedData.founderActionsInbox = structuredClone(
@@ -940,6 +958,7 @@ describe("North Star backend wiring", () => {
           activePath="/workspace/decisions"
           data={propagatedData}
           onActionInboxRefresh={onActionInboxRefresh}
+          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
         />
       </BackendTruthMutationBindingProvider>,
     );
@@ -958,6 +977,7 @@ describe("North Star backend wiring", () => {
           activePath="/workspace/decisions"
           data={reconciledData}
           onActionInboxRefresh={onActionInboxRefresh}
+          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
         />
       </BackendTruthMutationBindingProvider>,
     );
@@ -965,6 +985,23 @@ describe("North Star backend wiring", () => {
       screen.queryByRole("button", { name: "Create local task record" }),
     ).not.toBeInTheDocument();
     expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
+    expect(onLocalTaskCommitFenceChange).toHaveBeenCalledWith(item.item_ref, false);
+  });
+
+  it("keeps global runtime posture unverified on the scoped Decisions loader", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions", "/settings");
+
+    render(
+      <NorthStarControlCenter
+        activePath="/workspace/decisions"
+        data={data}
+      />,
+    );
+
+    expect(screen.getByText("Local runtime").parentElement).toHaveTextContent(
+      "Unverified",
+    );
   });
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
@@ -1092,6 +1129,55 @@ describe("North Star backend wiring", () => {
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
 
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "mutating_controls_enabled",
+    "decision_receipts_required",
+  ] as const)("does not offer local task commit when inbox %s is false", async (
+    disabledFlag,
+  ) => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref:
+        "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    attachWorkspaceWriteAuthority(data);
+    data.founderActionsInbox[disabledFlag] = false;
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 

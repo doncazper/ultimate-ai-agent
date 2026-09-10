@@ -154,6 +154,8 @@ function GlobalPostureBar({
   previewOnly: boolean;
 }) {
   const backendReady = data.connection.state === "online" && !data.connection.usingMockData;
+  const runtimeRouteBacked = backendReady
+    && data.routeStates["/runtime"]?.state === "backend_owned";
   const authorityRouteBacked = backendReady && data.routeStates["/settings"]?.state === "backend_owned";
   const mode = authorityRouteBacked
     ? data.settingsStatus.authority_lease_state.active_mode.replaceAll("_", " ")
@@ -167,7 +169,7 @@ function GlobalPostureBar({
     && data.routeStates["/critical/dashboard-read-model"]?.state === "backend_owned";
 
   const items = [
-    { icon: "shield-check" as const, label: "Local runtime", value: backendReady ? "Ready" : "Preview", tone: backendReady ? "green" : "orange" },
+    { icon: "shield-check" as const, label: "Local runtime", value: runtimeRouteBacked ? "Ready" : "Unverified", tone: runtimeRouteBacked ? "green" : "blue" },
     { icon: "shield" as const, label: "Authority mode", value: mode, tone: "orange" },
     { icon: "clock" as const, label: "Active lease", value: activeLease ? activeLease.mode.replaceAll("_", " ") : "No active lease", tone: activeLease ? "orange" : "blue" },
     { icon: "receipt-text" as const, label: "Receipts", value: authorityRouteBacked && authorityState.receipts_required ? "Required" : "Unverified", tone: "blue" },

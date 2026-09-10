@@ -182,6 +182,21 @@ function boundedDecisionFixtures() {
       .map((item) => item.item_ref);
     lane.count = lane.item_refs.length;
   }
+  const laneCount = (laneId: string) => workQueue.lanes
+    .find((lane) => lane.lane_id === laneId)?.count ?? 0;
+  workQueue.item_count = inbox.items.length;
+  workQueue.ready_for_decision_count = laneCount("ready_for_decision");
+  workQueue.approved_local_task_count = laneCount("approved_local_task_lane");
+  workQueue.proposal_only_count = laneCount("proposal_only_no_execution_path");
+  workQueue.blocked_count = laneCount("blocked_by_authority");
+  workQueue.receipt_recorded_count = laneCount("receipt_recorded");
+  workQueue.operator_actionable_count = workQueue.ready_for_decision_count
+    + workQueue.approved_local_task_count;
+  const inboxItemRefs = new Set(inbox.items.map((item) => item.item_ref));
+  workQueue.work_items = workQueue.work_items.filter((item) =>
+    inboxItemRefs.has(item.item_ref));
+  workQueue.work_item_refs = workQueue.work_items.map((item) => item.item_ref);
+  workQueue.work_item_count = workQueue.work_items.length;
   return {
     [API_ENDPOINTS.founderActionsInbox]: inbox,
     [API_ENDPOINTS.controlCenterSettingsStatus]: {
@@ -276,6 +291,19 @@ describe("loadNorthStarDecisionsData", () => {
     );
   });
 
+  it("rejects a non-string local task commit approval ref", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].local_task_commit_approval_ref = 42;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
   it.each([
     ["approval_required_before_mutation", "true"],
     ["mutating_controls_enabled", "false"],
@@ -339,6 +367,8 @@ describe("loadNorthStarDecisionsData", () => {
     inbox.items[0].action_group_id = "expired_stale";
     inbox.items[0].action_group_label = "Expired/stale";
     const workQueue = inbox.action_inbox_work_queue_read_model as {
+      ready_for_decision_count: number;
+      operator_actionable_count: number;
       lanes: Array<{
         lane_id: string;
         label: string;
@@ -359,6 +389,8 @@ describe("loadNorthStarDecisionsData", () => {
     }
     priorLane.item_refs = priorLane.item_refs.filter((ref) => ref !== itemRef);
     priorLane.count = priorLane.item_refs.length;
+    workQueue.ready_for_decision_count -= 1;
+    workQueue.operator_actionable_count -= 1;
     expiredLane.item_refs.push(itemRef);
     expiredLane.count = expiredLane.item_refs.length;
     workItem.lane_id = "expired_stale";
@@ -391,6 +423,51 @@ describe("loadNorthStarDecisionsData", () => {
     };
     inbox.items[0].action_group_id = "receipt_recorded";
     inbox.items[0].action_group_label = "Receipt recorded";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects an empty Action Inbox while the work queue retains items", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: unknown[];
+    };
+    inbox.items = [];
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects work-queue aggregate counts that do not match the inbox", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      action_inbox_work_queue_read_model: { item_count: number };
+    };
+    inbox.action_inbox_work_queue_read_model.item_count += 1;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects a work-queue lane ref with no matching Action Inbox item", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      action_inbox_work_queue_read_model: {
+        item_count: number;
+        lanes: Array<{ count: number; item_refs: string[] }>;
+      };
+    };
+    const workQueue = inbox.action_inbox_work_queue_read_model;
+    workQueue.lanes[0].item_refs.push("founder-action:orphaned-work-queue-item");
+    workQueue.lanes[0].count += 1;
+    workQueue.item_count += 1;
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
@@ -516,6 +593,14 @@ describe("local task commit boundary", () => {
       ...receipt,
       evidence_refs: [...receipt.evidence_refs, "evidence-ref:release.v1"],
     }, binding)).toBe(true);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      replayed: undefined,
+    } as unknown as FounderLoopLocalTaskCommitReceipt, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      replayed: "false",
+    } as unknown as FounderLoopLocalTaskCommitReceipt, binding)).toBe(false);
     expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       authority_decision_ref: "authority-policy-decision-ref:substituted",

@@ -35,7 +35,7 @@ vi.mock("./api/backendTruth", async (importOriginal) => {
     isCriticalControlCenterPath: () => false,
   };
 });
-import { App, criticalRouteDataIsBackendOwned, NorthStarRoute } from "./App";
+import { ActionInboxCancellationControl, App, criticalRouteDataIsBackendOwned, NorthStarRoute } from "./App";
 import { BackendTruthMutationBindingProvider } from "./backendTruthMutationBinding";
 import {
   API_ENDPOINTS,
@@ -72,6 +72,7 @@ import type {
   AuthorityLease,
   AuthorityLeaseReceipt,
   AuthorityMissionPlan,
+  ControlCenterData,
   RuntimeGoalCreateRequest,
   RuntimeGoalMutationApprovalRequestSpec,
   RuntimeGoalMutationSubmissionApprovalRecovery,
@@ -20645,6 +20646,36 @@ describe("Web Control Center shell", () => {
     ).toBe(false);
   });
 
+  it("keeps cancellation fenced while a validated local-task receipt awaits reconciliation", () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-pending-commit:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-pending-commit";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+      status: "approved",
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={vi.fn()}
+        pendingLocalTaskCommitItemRefs={[itemRef]}
+      />,
+    );
+
+    expect(screen.getByRole("button", {
+      name: "Cancellation unavailable · local task commit pending",
+    })).toBeDisabled();
+    expect(screen.getByText(/waiting for backend reconciliation/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cancel exact revision" })).not.toBeInTheDocument();
+  });
+
   it("confirms cancellation only after an authoritative refreshed revision", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-cancel:00000001:11111111111111111111";
@@ -20825,6 +20856,23 @@ function revisionBoundActionInbox({
     lane.item_refs = lane.lane_id === item.action_group_id ? [itemRef] : [];
     lane.count = lane.item_refs.length;
   }
+  const laneCount = (laneId: string) => workQueue.lanes
+    .find((lane) => lane.lane_id === laneId)?.count ?? 0;
+  Object.assign(workQueue, {
+    item_count: 1,
+    operator_actionable_count:
+      laneCount("ready_for_decision")
+      + laneCount("approved_local_task_lane"),
+    ready_for_decision_count: laneCount("ready_for_decision"),
+    approved_local_task_count: laneCount("approved_local_task_lane"),
+    proposal_only_count: laneCount("proposal_only_no_execution_path"),
+    blocked_count: laneCount("blocked_by_authority"),
+    receipt_recorded_count: laneCount("receipt_recorded"),
+    lane_count: workQueue.lanes.length,
+    work_item_count: 0,
+    work_item_refs: [],
+    work_items: [],
+  });
   Object.assign(inbox, {
     action_revision_contract_ref:
       "contract-ref:founder-loop-action-revision-lifecycle:v1",

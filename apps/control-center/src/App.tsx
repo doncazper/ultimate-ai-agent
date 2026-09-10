@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import {
   ErrorState,
@@ -268,10 +268,31 @@ export function NorthStarRoute({
   const [actionInboxOverride, setActionInboxOverride] =
     useState<FounderLoopActionsInbox | null>(null);
   const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
+  const [pendingLocalTaskCommitItemRefs, setPendingLocalTaskCommitItemRefs] =
+    useState<string[]>([]);
+  const updateLocalTaskCommitFence = useCallback(
+    (itemRef: string, pending: boolean) => {
+      setPendingLocalTaskCommitItemRefs((current) => {
+        const next = pending
+          ? Array.from(new Set([...current, itemRef]))
+          : current.filter((candidate) => candidate !== itemRef);
+        return next.length === current.length
+          && next.every((candidate, index) => candidate === current[index])
+          ? current
+          : next;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     setActionInboxOverride(null);
     setRevisionRefreshFailed(false);
+    if (loadedActionInbox) {
+      setPendingLocalTaskCommitItemRefs((current) =>
+        reconcilePendingLocalTaskCommitItemRefs(current, loadedActionInbox),
+      );
+    }
   }, [loadedActionInboxSnapshotKey]);
 
   useEffect(() => {
@@ -451,8 +472,12 @@ export function NorthStarRoute({
           <ActionInboxCancellationControl
             binding={truthReadBinding}
             data={visibleData}
+            pendingLocalTaskCommitItemRefs={pendingLocalTaskCommitItemRefs}
             onAuthoritativeRefresh={(inbox) => {
               setActionInboxOverride(inbox);
+              setPendingLocalTaskCommitItemRefs((current) =>
+                reconcilePendingLocalTaskCommitItemRefs(current, inbox),
+              );
               setRevisionRefreshFailed(false);
             }}
           />
@@ -460,8 +485,12 @@ export function NorthStarRoute({
         <NorthStarControlCenter
           activePath={activePath}
           data={visibleData}
+          onLocalTaskCommitFenceChange={updateLocalTaskCommitFence}
           onActionInboxRefresh={(inbox) => {
             setActionInboxOverride(inbox);
+            setPendingLocalTaskCommitItemRefs((current) =>
+              reconcilePendingLocalTaskCommitItemRefs(current, inbox),
+            );
             setRevisionRefreshFailed(false);
           }}
         />
@@ -470,13 +499,15 @@ export function NorthStarRoute({
   );
 }
 
-function ActionInboxCancellationControl({
+export function ActionInboxCancellationControl({
   binding,
   data,
+  pendingLocalTaskCommitItemRefs,
   onAuthoritativeRefresh,
 }: {
   binding: BackendTruthReadBinding | null;
   data: ControlCenterData;
+  pendingLocalTaskCommitItemRefs: readonly string[];
   onAuthoritativeRefresh: (inbox: FounderLoopActionsInbox) => void;
 }) {
   const inbox = data.founderActionsInbox;
@@ -499,6 +530,9 @@ function ActionInboxCancellationControl({
   const localTaskCommitted = Boolean(
     selectedItem?.local_task_commit_receipt_ref?.startsWith("receipt:"),
   );
+  const localTaskCommitPending = Boolean(
+    selectedItem && pendingLocalTaskCommitItemRefs.includes(selectedItem.item_ref),
+  );
   const canCancel = Boolean(
     authoritative &&
       binding &&
@@ -509,6 +543,7 @@ function ActionInboxCancellationControl({
       selectedItem.action_revision_decision_eligible === true &&
       selectedItem.status !== "cancelled" &&
       !localTaskCommitted &&
+      !localTaskCommitPending &&
       expectedRevisionRef,
   );
 
@@ -584,6 +619,8 @@ function ActionInboxCancellationControl({
       <p>
         {localTaskCommitted
           ? "This Action is terminal because its local task is already committed. Cancellation remains blocked; the durable task receipt is unchanged."
+          : localTaskCommitPending
+            ? "A validated local task commit receipt is waiting for backend reconciliation. Cancellation remains blocked until the exact committed projection is visible."
           : "Python Core validates the displayed revision and invalidates earlier approvals atomically. This control never executes the action."}
       </p>
       <label>
@@ -613,11 +650,30 @@ function ActionInboxCancellationControl({
           ? "Recording cancellation…"
           : localTaskCommitted
             ? "Cancellation unavailable · local task committed"
+            : localTaskCommitPending
+              ? "Cancellation unavailable · local task commit pending"
             : "Cancel exact revision"}
       </button>
       <p aria-live="polite">{feedback}</p>
     </section>
   );
+}
+
+function reconcilePendingLocalTaskCommitItemRefs(
+  current: readonly string[],
+  inbox: FounderLoopActionsInbox,
+): string[] {
+  const next = current.filter((itemRef) => {
+    const item = inbox.items.find((candidate) => candidate.item_ref === itemRef);
+    return Boolean(
+      item
+      && !item.local_task_commit_receipt_ref?.startsWith("receipt:"),
+    );
+  });
+  return next.length === current.length
+    && next.every((candidate, index) => candidate === current[index])
+    ? current as string[]
+    : next;
 }
 
 function StudioRoute() {
