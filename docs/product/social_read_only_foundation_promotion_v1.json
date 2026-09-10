@@ -3,7 +3,7 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:ad4d7001a8aaae81c838ddc05c10b906bdf585f187ebc38342bd2e0190c733ea",
+  "acceptance_subject_digest": "sha256:9552ae01ab67afee1d72d18ef73aa53b9e4eac1704819285d6accb350ad4053d",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:d54d7fa8b17154e9c79e451788b743a145cba261c2c01cacd584a0820348209c"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:99007b87a53c0ae7e98e717f8fe71ed184c86ee8e5ccd58f4a11b8a0ff9fc690"},
@@ -12,7 +12,7 @@
     {"path_ref": "repo-path-ref:apps/control-center/src/mocks/controlCenterData.ts", "sha256": "sha256:488d23130384b35e748b666ed6ef3f93d84943f9b7e399a13e9242a01b05eae2"},
     {"path_ref": "repo-path-ref:apps/control-center/src/northstar/PrimarySurfaces.tsx", "sha256": "sha256:060fcea4bde47f8ab299601c36ffb86d039290650e70940bca2740fe9f73b137"},
     {"path_ref": "repo-path-ref:apps/control-center/src/northstar/northStar.css", "sha256": "sha256:02c1910b447244f50e3fc7b49eeae7057c90e69865721b503128c4ca14bdb15e"},
-    {"path_ref": "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx", "sha256": "sha256:8950a68b5c9a9896ec34534f249f2973103a81002687f081f14a47cbd7859cbe"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/northstar/WiredSurfaces.test.tsx", "sha256": "sha256:c1477e4cb5ba73618b25900b887bf1949f39c982448e7ceb486e5eb8a4ce247f"},
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/foundation-surfaces.real.spec.ts", "sha256": "sha256:15c432b647fd46a0205f99e3c24c236a2555e0c7dda64f83fe85c8810aeef334"},
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/desktop/crm.png", "sha256": "sha256:3abe5e74e143f3acba688fc155abd07256926d7a5e697fd352bbe70b169a57a8"},
     {"path_ref": "repo-path-ref:apps/control-center/tests/visual/__snapshots__/mobile/crm.png", "sha256": "sha256:5521b0ddcc86c883ade4542069ae5291a6b69cb151a9408e13d3740dd951c3fe"},

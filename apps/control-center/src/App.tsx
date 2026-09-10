@@ -457,7 +457,14 @@ export function NorthStarRoute({
             }}
           />
         ) : null}
-        <NorthStarControlCenter activePath={activePath} data={visibleData} />
+        <NorthStarControlCenter
+          activePath={activePath}
+          data={visibleData}
+          onActionInboxRefresh={(inbox) => {
+            setActionInboxOverride(inbox);
+            setRevisionRefreshFailed(false);
+          }}
+        />
       </BackendTruthMutationBindingProvider>
     </Suspense>
   );

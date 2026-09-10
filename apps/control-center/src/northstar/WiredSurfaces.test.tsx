@@ -678,6 +678,7 @@ describe("North Star backend wiring", () => {
   });
 
   it("continues an exact approval into a backend-confirmed local task receipt", async () => {
+    const onActionInboxRefresh = vi.fn();
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
     );
@@ -829,7 +830,11 @@ describe("North Star backend wiring", () => {
 
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
-        <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+          onActionInboxRefresh={onActionInboxRefresh}
+        />
       </BackendTruthMutationBindingProvider>,
     );
     expect(
@@ -869,6 +874,7 @@ describe("North Star backend wiring", () => {
     expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(2);
+    expect(onActionInboxRefresh).toHaveBeenLastCalledWith(committedInbox);
   });
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
@@ -1048,8 +1054,62 @@ describe("North Star backend wiring", () => {
       rollback_ref: "rollback-not-applicable:local-task-safe-disable",
       safe_disable_ref: "safe-disable:founder-loop:local-task-create-scorecard",
     }, mutationBinding));
+    expect(await screen.findByText(
+      /Workspace write authority is unavailable for this exact local task/i,
+    )).toBeVisible();
+    expect(screen.getByRole("link", {
+      name: "Review authority in Settings",
+    })).toHaveAttribute("href", "/settings");
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it("does not treat a rebound local task receipt projection as recorded", async () => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    const reboundTaskRef = "local-task:founder-loop:another-action";
+    const reboundReceiptRef =
+      "receipt:founder-loop-local-task:rebound-receipt";
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref: "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_ref: reboundTaskRef,
+      local_task_commit_receipt_ref: reboundReceiptRef,
+      receipt_refs: [...item.receipt_refs, reboundReceiptRef],
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+        local_task_ref: reboundTaskRef,
+        local_task_commit_receipt_ref: reboundReceiptRef,
+        missing_field_states: ["none"],
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(await screen.findByRole("button", {
+      name: "Create local task record",
+    })).toBeEnabled();
+    expect(screen.queryByText(
+      "The exact local task receipt is recorded in the backend review loop.",
+    )).not.toBeInTheDocument();
   });
 
   it("renders the backend-owned plan, action, decision, receipt, and blocked-state review path", () => {

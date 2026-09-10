@@ -104,9 +104,11 @@ external side effects, local paths, account identifiers, or hostname-shaped
 values. Authority previews initiated by the browser are accepted only while
 their exact backend revision, process instance, and issued truth envelope remain
 current; repo-local preview callers without browser binding retain CLI parity.
-The UI then refreshes the backend Action Inbox and does
-not claim reconciliation until the backend-owned receipt visibility binds both
-the task ref and receipt ref.
+Denied previews remain visible with a Settings recovery path and never expose
+the commit control. The UI then refreshes the backend Action Inbox, propagates
+that authoritative snapshot to sibling Action Inbox controls, and does not
+claim reconciliation until the canonical backend-owned receipt projection
+binds both the exact item-derived task ref and local-task receipt ref.
 
 This completes the bounded Decision -> approved local Task handoff on the
 North Star surface. It does not add broad action execution or make the Work

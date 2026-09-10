@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.build_identity import build_identity
 from ultimate_ai_agent.core.control_center.backend_truth import (
     backend_instance_ref,
@@ -263,7 +262,7 @@ def test_browser_authority_preview_requires_exact_backend_truth(
     tmp_path,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
 
     response = TestClient(app).post(
         "/api/runtime/authority-decisions/preview",
@@ -283,7 +282,7 @@ def test_browser_authority_preview_rejects_unissued_truth_token(
     tmp_path,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
     headers = _bound_headers(tmp_path)
     headers.pop("X-UAA-Control-Center-Mutation-Binding")
     headers["X-UAA-Expected-Backend-Truth-Ref"] = (
@@ -307,7 +306,7 @@ def test_browser_authority_preview_rejects_expired_truth_token(
     tmp_path,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
     headers = _bound_headers(tmp_path, now=utc_now() - timedelta(minutes=2))
     headers.pop("X-UAA-Control-Center-Mutation-Binding")
 
@@ -328,7 +327,7 @@ def test_browser_authority_preview_accepts_current_truth_without_mutation_header
     tmp_path,
 ) -> None:
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
-    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
     headers = _bound_headers(tmp_path)
     headers.pop("X-UAA-Control-Center-Mutation-Binding")
 
