@@ -121,6 +121,17 @@ function boundedDecisionFixtures() {
     "deferred",
     "receipt_recorded",
   ];
+  const laneLabels: Record<string, string> = {
+    needs_approval: "Needs approval",
+    blocked: "Blocked",
+    draft_only: "Draft-only",
+    cost_blocked: "Cost blocked",
+    no_authority: "No authority",
+    approved_no_execution: "Approved / no execution",
+    rejected: "Rejected",
+    deferred: "Deferred",
+    receipt_recorded: "Receipt recorded",
+  };
   inbox.action_inbox_decision_lane_contract_ref =
     "contract-ref:product-loop-005-action-inbox-decision-lanes:v1";
   inbox.action_inbox_decision_lane_read_model = {
@@ -135,7 +146,7 @@ function boundedDecisionFixtures() {
     lane_order: laneOrder,
     lanes: laneOrder.map((laneId) => ({
       lane_id: laneId,
-      label: laneId,
+      label: laneLabels[laneId],
       status: "empty",
       safe_summary: "No bounded fixture item is present.",
       count: 0,
@@ -165,6 +176,12 @@ function boundedDecisionFixtures() {
   } as NonNullable<typeof inbox.action_inbox_decision_lane_read_model>;
   workQueue.source = "python_core_action_inbox_work_queue_read_model";
   workQueue.backend_owned = true;
+  for (const lane of workQueue.lanes) {
+    lane.item_refs = inbox.items
+      .filter((item) => item.action_group_id === lane.lane_id)
+      .map((item) => item.item_ref);
+    lane.count = lane.item_refs.length;
+  }
   return {
     [API_ENDPOINTS.founderActionsInbox]: inbox,
     [API_ENDPOINTS.controlCenterSettingsStatus]: {
@@ -260,6 +277,39 @@ describe("loadNorthStarDecisionsData", () => {
   });
 
   it.each([
+    ["approval_required_before_mutation", "true"],
+    ["mutating_controls_enabled", "false"],
+    ["action_execution_enabled", "false"],
+    ["decision_receipts_required", "false"],
+  ])("rejects a non-boolean top-level %s posture", async (field, value) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as
+      Record<string, unknown>;
+    inbox[field] = value;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects unsafe nested decision-lane display text", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      action_inbox_decision_lane_read_model: {
+        lanes: Array<Record<string, unknown>>;
+      };
+    };
+    inbox.action_inbox_decision_lane_read_model.lanes[0].label =
+      "raw_prompt: private backend content";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it.each([
     ["title", `credential: ${"x".repeat(20)}`],
     ["safe_summary", "raw_prompt: private backend content"],
     ["next_safe_action", "Review /Users/operator/private.log"],
@@ -284,9 +334,35 @@ describe("loadNorthStarDecisionsData", () => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
       items: Array<Record<string, unknown>>;
+      action_inbox_work_queue_read_model: unknown;
     };
     inbox.items[0].action_group_id = "expired_stale";
     inbox.items[0].action_group_label = "Expired/stale";
+    const workQueue = inbox.action_inbox_work_queue_read_model as {
+      lanes: Array<{
+        lane_id: string;
+        label: string;
+        count: number;
+        item_refs: string[];
+      }>;
+      work_items: Array<Record<string, unknown>>;
+    };
+    const itemRef = String(inbox.items[0].item_ref);
+    const priorLane = workQueue.lanes.find((lane) =>
+      lane.item_refs.includes(itemRef));
+    const expiredLane = workQueue.lanes.find((lane) =>
+      lane.lane_id === "expired_stale");
+    const workItem = workQueue.work_items.find((candidate) =>
+      candidate.item_ref === itemRef);
+    if (!priorLane || !expiredLane || !workItem) {
+      throw new Error("Expected bounded work-queue group fixtures");
+    }
+    priorLane.item_refs = priorLane.item_refs.filter((ref) => ref !== itemRef);
+    priorLane.count = priorLane.item_refs.length;
+    expiredLane.item_refs.push(itemRef);
+    expiredLane.count = expiredLane.item_refs.length;
+    workItem.lane_id = "expired_stale";
+    workItem.lane_label = "Expired/stale";
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
@@ -305,6 +381,40 @@ describe("loadNorthStarDecisionsData", () => {
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
       "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects a valid Action Inbox group pair rebound from its work-queue lane", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].action_group_id = "receipt_recorded";
+    inbox.items[0].action_group_label = "Receipt recorded";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("accepts dotted structured refs without treating them as hostnames", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<{
+        action_scope_ref: string;
+        approval_envelope?: { exact_scope: string };
+      }>;
+    };
+    if (!inbox.items[0].approval_envelope) {
+      throw new Error("Expected bounded approval envelope fixture");
+    }
+    inbox.items[0].action_scope_ref = "scope-ref:release.v1";
+    inbox.items[0].approval_envelope.exact_scope = "scope-ref:release.v1";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
+      expect.objectContaining({ items: expect.any(Array) }),
     );
   });
 

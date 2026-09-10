@@ -5835,9 +5835,31 @@ export async function fetchFounderActionsInbox(
   return inbox;
 }
 
+const NORTH_STAR_ACTION_GROUP_LABELS_BY_ID = new Map([
+  ["ready_for_decision", "Ready for decision"],
+  ["approved_local_task_lane", "Approved local-task create lane"],
+  ["blocked_by_authority", "Blocked by authority"],
+  ["expired_stale", "Expired/stale"],
+  ["receipt_recorded", "Receipt recorded"],
+  ["proposal_only_no_execution_path", "Proposal-only / no execution path"],
+]);
+
+const NORTH_STAR_DECISION_LANE_LABELS_BY_ID = new Map([
+  ["needs_approval", "Needs approval"],
+  ["blocked", "Blocked"],
+  ["draft_only", "Draft-only"],
+  ["cost_blocked", "Cost blocked"],
+  ["no_authority", "No authority"],
+  ["approved_no_execution", "Approved / no execution"],
+  ["rejected", "Rejected"],
+  ["deferred", "Deferred"],
+  ["receipt_recorded", "Receipt recorded"],
+]);
+
 export function validateNorthStarDecisionsInbox(
   inbox: FounderLoopActionsInbox,
 ): FounderLoopActionsInbox {
+  const inboxRecord = inbox as unknown as Record<string, unknown>;
   const normalized = normalizeFounderActionsInbox(inbox);
   const normalizedRecord = normalized.value as unknown as
     Record<string, unknown>;
@@ -5846,6 +5868,10 @@ export function validateNorthStarDecisionsInbox(
   const workQueue = normalized.value.action_inbox_work_queue_read_model;
   if (
     normalized.usedFallback
+    || inboxRecord.approval_required_before_mutation !== true
+    || typeof inboxRecord.mutating_controls_enabled !== "boolean"
+    || inboxRecord.action_execution_enabled !== false
+    || typeof inboxRecord.decision_receipts_required !== "boolean"
     || !Array.isArray(items)
     || items.length > 50
     || !items.every(isSafeNorthStarDecisionInboxItem)
@@ -5855,6 +5881,7 @@ export function validateNorthStarDecisionsInbox(
     || !decisionLane.backend_owned
     || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
     || !workQueue.backend_owned
+    || !actionInboxGroupsMatchWorkQueue(items, workQueue)
   ) {
     throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
   }
@@ -5873,6 +5900,9 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     Array.isArray(candidate)
     && candidate.every((entry) =>
       isSafeLocalTaskReceiptRef(entry as string | undefined));
+  const isSafeStructuredRefArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every(isSafeNorthStarStructuredRef);
   const safeDisplayFields: Array<[string, number]> = [
     ["title", 160],
     ["safe_summary", 500],
@@ -5889,15 +5919,9 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     ["action_expires_at", 120],
     ["expires_at", 120],
   ];
-  const actionGroupLabelsById = new Map([
-    ["ready_for_decision", "Ready for decision"],
-    ["approved_local_task_lane", "Approved local-task create lane"],
-    ["blocked_by_authority", "Blocked by authority"],
-    ["expired_stale", "Expired/stale"],
-    ["receipt_recorded", "Receipt recorded"],
-    ["proposal_only_no_execution_path", "Proposal-only / no execution path"],
-  ]);
-  const actionGroupLabels = new Set(actionGroupLabelsById.values());
+  const actionGroupLabels = new Set(
+    NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.values(),
+  );
   const renderedOptionalRefFields = [
     "action_scope_ref",
     "action_envelope_ref",
@@ -5933,38 +5957,34 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     && (value.action_group_id === undefined
       || (
         typeof value.action_group_id === "string"
-        && actionGroupLabelsById.has(value.action_group_id)
+        && NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.has(value.action_group_id)
       ))
     && (
       typeof value.action_group_id !== "string"
       || typeof value.action_group_label !== "string"
-      || actionGroupLabelsById.get(value.action_group_id)
+      || NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.get(value.action_group_id)
         === value.action_group_label
     )
     && renderedOptionalRefFields.every((field) =>
       value[field] === undefined
       || value[field] === null
-      || isSafeLocalTaskReceiptDisplayValue(
-        value[field] as string | undefined,
-      ))
+      || isSafeNorthStarStructuredRef(value[field]))
     && typeof value.approval_required === "boolean"
     && ["evidence_refs", "receipt_refs", "audit_refs"].every((field) =>
       isSafeRefArray(value[field]))
     && (value.action_review_actions === undefined
       || isSafeDisplayArray(value.action_review_actions, 80))
     && optionalRefArrayFields.every((field) =>
-      value[field] === undefined || isSafeDisplayArray(value[field]))
+      value[field] === undefined || isSafeStructuredRefArray(value[field]))
     && (approvalEnvelope === undefined
       || (
         isPlainRecord(approvalEnvelope)
-        && isSafeLocalTaskReceiptDisplayValue(
-          approvalEnvelope.exact_scope as string | undefined,
-        )
+        && isSafeNorthStarStructuredRef(approvalEnvelope.exact_scope)
         && isSafeDisplayArray(
           approvalEnvelope.missing_field_states,
           120,
         )
-        && isSafeDisplayArray(approvalEnvelope.expected_receipt_refs)
+        && isSafeStructuredRefArray(approvalEnvelope.expected_receipt_refs)
       ))
     && (receiptVisibility === undefined
       || (
@@ -5974,9 +5994,8 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
           "local_task_ref",
           "local_task_commit_receipt_ref",
           "evidence_timeline_event_ref",
-        ].every((field) => isSafeLocalTaskReceiptDisplayValue(
-          receiptVisibility[field] as string | undefined,
-        ))
+        ].every((field) =>
+          isSafeNorthStarStructuredRef(receiptVisibility[field]))
         && (
           String(receiptVisibility.local_task_commit_receipt_ref).startsWith(
             "receipt:founder-loop-local-task:",
@@ -5988,9 +6007,8 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
             : (
               receiptVisibility.local_task_commit_idempotency_key_ref
                 === undefined
-              || isSafeLocalTaskReceiptDisplayValue(
-                receiptVisibility.local_task_commit_idempotency_key_ref as
-                  string | undefined,
+              || isSafeNorthStarStructuredRef(
+                receiptVisibility.local_task_commit_idempotency_key_ref,
               )
             )
         )
@@ -6007,6 +6025,38 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
           120,
         )
       ));
+}
+
+function actionInboxGroupsMatchWorkQueue(
+  items: unknown[],
+  workQueue: unknown,
+): boolean {
+  if (!isPlainRecord(workQueue)
+    || !Array.isArray(workQueue.lanes)
+    || !Array.isArray(workQueue.work_items)) return false;
+  const lanes = workQueue.lanes as unknown[];
+  const workItems = workQueue.work_items as unknown[];
+  return items.every((item) => {
+    if (!isPlainRecord(item)
+      || typeof item.item_ref !== "string"
+      || typeof item.action_group_id !== "string"
+      || typeof item.action_group_label !== "string") return false;
+    const laneMatches = lanes.filter((lane) =>
+      isPlainRecord(lane)
+      && Array.isArray(lane.item_refs)
+      && lane.item_refs.includes(item.item_ref));
+    if (laneMatches.length !== 1) return false;
+    const lane = laneMatches[0] as Record<string, unknown>;
+    if (lane.lane_id !== item.action_group_id
+      || lane.label !== item.action_group_label) return false;
+    const workItemMatches = workItems.filter((workItem) =>
+      isPlainRecord(workItem) && workItem.item_ref === item.item_ref);
+    if (workItemMatches.length > 1) return false;
+    if (workItemMatches.length === 0) return true;
+    const workItem = workItemMatches[0] as Record<string, unknown>;
+    return workItem.lane_id === item.action_group_id
+      && workItem.lane_label === item.action_group_label;
+  });
 }
 
 export async function fetchNorthStarDecisionsInbox(
@@ -8125,6 +8175,44 @@ function isSafeLocalTaskReceiptRef(
   return typeof value === "string"
     && /^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$/.test(value)
     && isSafeLocalTaskReceiptDisplayValue(value, 240, false);
+}
+
+const NORTH_STAR_STRUCTURED_REF_SENTINELS = new Set([
+  "backend_read_model_unavailable",
+  "missing",
+  "mock_only_backend_read_model_unavailable",
+  "none",
+  "not_applicable",
+  "pending",
+  "planned",
+  "unknown",
+]);
+
+function isSafeNorthStarStructuredRef(value: unknown): value is string {
+  return typeof value === "string"
+    && (
+      NORTH_STAR_STRUCTURED_REF_SENTINELS.has(value)
+      || isSafeLocalTaskReceiptRef(value)
+    );
+}
+
+function hasSafeNorthStarStructuredRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) =>
+    Array.isArray(record[field])
+    && (record[field] as unknown[]).every(isSafeNorthStarStructuredRef));
+}
+
+function hasSafeNorthStarOptionalStructuredRefs(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) =>
+    record[field] === null
+    || record[field] === undefined
+    || isSafeNorthStarStructuredRef(record[field]));
 }
 
 function todayActionEnvelopeIdempotencyRef(
@@ -20405,7 +20493,11 @@ function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {
     !hasTrueFlags(value, PLANS_TO_ACTIONS_BRIDGE_TRUE_FLAGS) ||
     value.raw_content_included !== false ||
     !hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) ||
-    !hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS)
+    !hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS) ||
+    !hasSafeNorthStarStructuredRefArrays(
+      value,
+      PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS,
+    )
   ) {
     return false;
   }
@@ -20419,8 +20511,9 @@ function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {
     return false;
   }
   return (
-    typeof value.next_safe_action === "string" &&
-    typeof value.authority_boundary === "string"
+    isSafeLocalTaskReceiptDisplayValue(value.status as string, 120) &&
+    isSafeLocalTaskReceiptDisplayValue(value.next_safe_action as string, 500) &&
+    isSafeLocalTaskReceiptDisplayValue(value.authority_boundary as string, 500)
   );
 }
 
@@ -20446,6 +20539,31 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
   if (!requiredTextFields.every((field) => typeof value[field] === "string")) {
     return false;
   }
+  if (![
+    "item_ref",
+    "source_plan_ref",
+    "action_envelope_ref",
+    "action_scope_ref",
+    "approval_requirement_ref",
+    "rollback_ref",
+    "safe_disable_ref",
+  ].every((field) => isSafeNorthStarStructuredRef(value[field]))) {
+    return false;
+  }
+  if (!([
+    ["plan_title", 160],
+    ["plan_status", 120],
+    ["safe_summary", 500],
+    ["why_proposed", 500],
+    ["risk_class", 80],
+    ["next_safe_action", 500],
+  ] as const).every(([field, maxLength]) =>
+    isSafeLocalTaskReceiptDisplayValue(
+      value[field] as string | undefined,
+      maxLength,
+    ))) {
+    return false;
+  }
   for (const field of [
     "linked_action_item_ref",
     "task_decomposition_proposal_ref",
@@ -20455,7 +20573,7 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     if (
       value[field] !== null &&
       value[field] !== undefined &&
-      typeof value[field] !== "string"
+      !isSafeNorthStarStructuredRef(value[field])
     ) {
       return false;
     }
@@ -20465,6 +20583,16 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     value.raw_content_included === false &&
     hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) &&
     hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_ITEM_REQUIRED_ARRAYS) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "expected_receipt_refs",
+      "receipt_refs",
+      "evidence_refs",
+      "step_refs",
+      "risk_refs",
+      "ambiguity_refs",
+      "missing_evidence_refs",
+      "blocked_authority_refs",
+    ]) &&
     hasRequiredReviewReceiptLabels(value.review_receipt_labels) &&
     isOptionalSafeFusionMetadata(value) &&
     (value.expected_receipt_refs as unknown[]).length > 0 &&
@@ -20527,12 +20655,36 @@ function isSafeFusionWorkClassification(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_work_classification.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    [
+      "judgment_required",
+      "mechanical",
+      "validation",
+      "bookkeeping",
+      "ambiguous",
+      "blocked",
+    ].includes(String(value.classification)) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.confidence_posture as string,
+      120,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.ambiguity_posture as string,
+      240,
+    ) &&
+    typeof value.human_review_required === "boolean" &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "reviewed_at_ref",
+      "expiry_posture_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "reason_refs",
+      "blocked_authority_refs",
+      "source_refs",
+      "evidence_refs",
+    ]) &&
     value.review_aid_only === true &&
     value.execution_authorized === false &&
-    value.action_execution_enabled === false &&
-    Array.isArray(value.reason_refs) &&
-    Array.isArray(value.source_refs) &&
-    Array.isArray(value.evidence_refs)
+    value.action_execution_enabled === false
   );
 }
 
@@ -20541,12 +20693,29 @@ function isSafeFusionDelegation(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_delegation_proposal.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    ["proposed", "rejected", "deferred", "blocked", "future_only"].includes(
+      String(value.proposal_state),
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.proposed_delegate_kind as string,
+      120,
+    ) &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "delegate_scope_ref",
+      "review_required_posture_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "main_owner_responsibility_refs",
+      "delegated_work_refs",
+      "blocked_execution_refs",
+      "expected_receipt_refs",
+      "rollback_safe_disable_posture_refs",
+    ]) &&
     value.future_only === true &&
     value.creates_approval_ref === false &&
     value.creates_execution_ref === false &&
     value.worker_execution_enabled === false &&
     value.background_dispatch_enabled === false &&
-    Array.isArray(value.blocked_execution_refs) &&
     isSafeFusionWorkClassification(value.work_classification)
   );
 }
@@ -20556,9 +20725,30 @@ function isSafeFusionCacheContext(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_cache_context_economics.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "context_budget_ref",
+      "compaction_boundary_ref",
+    ]) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.cache_reuse_posture as string,
+      120,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.reroute_reason as string,
+      500,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.estimated_context_cost_posture as string,
+      240,
+    ) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "cache_or_context_blocker_refs",
+      "evidence_refs",
+    ]) &&
+    typeof value.cache_miss_expected === "boolean" &&
     value.explanatory_posture_only === true &&
-    value.runtime_model_switch_performed === false &&
-    Array.isArray(value.cache_or_context_blocker_refs)
+    value.measured_provider_event === false &&
+    value.runtime_model_switch_performed === false
   );
 }
 
@@ -21437,6 +21627,8 @@ function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
     value.production_authority_enabled === false &&
     value.approval_alone_executes === false &&
     hasStringArrays(value, ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS) &&
+    isSafeLocalTaskReceiptDisplayValue(value.status as string, 120) &&
+    hasSafeNorthStarStructuredRefArrays(value, ["blocked_state_refs"]) &&
     ACTION_DECISION_LANE_ORDER.length ===
       (value.lane_order as string[]).length &&
     ACTION_DECISION_LANE_ORDER.every(
@@ -21461,8 +21653,23 @@ function isSafeActionInboxDecisionLane(value: unknown): boolean {
       "safe_summary",
       "next_safe_action",
     ]) &&
+    NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(String(value.lane_id))
+      === value.label &&
+    ([
+      ["status", 120],
+      ["safe_summary", 500],
+      ["next_safe_action", 500],
+    ] as const).every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      )) &&
     typeof value.count === "number" &&
     hasStringArrays(value, ["item_refs", "blocked_state_refs"]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "item_refs",
+      "blocked_state_refs",
+    ]) &&
     value.approval_alone_executes === false &&
     value.action_execution_enabled === false
   );
@@ -21476,6 +21683,44 @@ function isSafeActionInboxDecisionLaneItem(value: unknown): boolean {
     hasStringFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_STRINGS) &&
     hasNumberFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_NUMBERS) &&
     hasStringArrays(value, ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS) &&
+    isSafeNorthStarStructuredRef(value.item_ref) &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "approval_envelope_ref",
+      "approval_scope_ref",
+      "approval_requirement_ref",
+      "rollback_ref",
+      "safe_disable_ref",
+      "provider_ref",
+      "model_profile_ref",
+      "cost_estimate_ref",
+      "captured_usage_ref",
+      "budget_decision_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(
+      value,
+      ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS,
+    ) &&
+    NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(String(value.lane_id))
+      === value.lane_label &&
+    ([
+      ["title", 160],
+      ["status", 120],
+      ["priority", 80],
+      ["action_kind", 120],
+      ["side_effect_class", 120],
+      ["safe_summary", 500],
+      ["why_shown", 500],
+      ["next_safe_action", 500],
+      ["authority_boundary", 500],
+      ["approval_envelope_status", 120],
+      ["expected_receipt_state", 120],
+      ["cost_state_label", 120],
+      ["provider_authority_state_label", 160],
+    ] as const).every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      )) &&
     value.backend_owned === true &&
     value.safe_refs_only === true &&
     value.raw_content_included === false &&

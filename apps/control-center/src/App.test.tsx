@@ -2433,6 +2433,17 @@ function actionDecisionLaneReadModelFixture(
     "deferred",
     "receipt_recorded",
   ] as const;
+  const laneLabels: Record<(typeof laneIds)[number], string> = {
+    needs_approval: "Needs approval",
+    blocked: "Blocked",
+    draft_only: "Draft-only",
+    cost_blocked: "Cost blocked",
+    no_authority: "No authority",
+    approved_no_execution: "Approved / no execution",
+    rejected: "Rejected",
+    deferred: "Deferred",
+    receipt_recorded: "Receipt recorded",
+  };
   const item = {
     item_ref: "founder-action:test-cost-blocked",
     lane_id: "cost_blocked",
@@ -2515,7 +2526,7 @@ function actionDecisionLaneReadModelFixture(
     lane_order: laneIds,
     lanes: laneIds.map((laneId) => ({
       lane_id: laneId,
-      label: laneId === "cost_blocked" ? "Cost blocked" : laneId,
+      label: laneLabels[laneId],
       status: laneId === "cost_blocked" ? "review_ready" : "empty",
       safe_summary:
         laneId === "cost_blocked"
@@ -5588,7 +5599,36 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("drops incomplete Action Inbox decision groups instead of crashing the route", async () => {
+  it.each([
+    [
+      "missing cost fields",
+      (unsafeItem: Record<string, unknown>) => {
+        delete unsafeItem.estimated_cost_usd;
+        delete unsafeItem.max_approved_cost_usd;
+      },
+    ],
+    [
+      "unsafe nested display text",
+      (unsafeItem: Record<string, unknown>) => {
+        unsafeItem.lane_label = "raw_prompt: private backend content";
+      },
+    ],
+    [
+      "unsafe nested ref array",
+      (unsafeItem: Record<string, unknown>) => {
+        unsafeItem.evidence_refs = ["raw_prompt: private backend content"];
+      },
+    ],
+    [
+      "unsafe optional ref",
+      (unsafeItem: Record<string, unknown>) => {
+        unsafeItem.provider_ref = "raw_prompt: private backend content";
+      },
+    ],
+  ])("drops unsafe Action Inbox decision groups for %s", async (
+    _,
+    mutateItem,
+  ) => {
     const unsafeInbox = {
       ...mockControlCenterData.founderActionsInbox,
       action_inbox_decision_lane_contract_ref:
@@ -5601,8 +5641,7 @@ describe("Web Control Center shell", () => {
               return item;
             }
             const unsafeItem = { ...item } as Record<string, unknown>;
-            delete unsafeItem.estimated_cost_usd;
-            delete unsafeItem.max_approved_cost_usd;
+            mutateItem(unsafeItem);
             return unsafeItem;
           },
         ),
@@ -7164,10 +7203,49 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("fails closed when the Plans-to-Actions bridge is missing or unsafe", async () => {
-    const unsafeBridge = plansToActionsBridgeFixture({
-      action_execution_enabled: true,
-    });
+  it.each([
+    [
+      "execution authority",
+      () => plansToActionsBridgeFixture({ action_execution_enabled: true }),
+    ],
+    [
+      "unsafe nested display text",
+      () => {
+        const bridge = plansToActionsBridgeFixture() as {
+          items: Array<Record<string, unknown>>;
+        };
+        bridge.items[0].plan_title = "raw_prompt: private backend content";
+        return bridge;
+      },
+    ],
+    [
+      "unsafe nested ref array",
+      () => {
+        const bridge = plansToActionsBridgeFixture() as {
+          items: Array<Record<string, unknown>>;
+        };
+        bridge.items[0].risk_refs = ["raw_prompt: private backend content"];
+        return bridge;
+      },
+    ],
+    [
+      "unsafe nested routing metadata",
+      () => {
+        const bridge = plansToActionsBridgeFixture() as {
+          items: Array<Record<string, unknown>>;
+        };
+        bridge.items[0].delegation_proposal = {
+          ...fusionDelegationFixture(),
+          proposed_delegate_kind: "raw_prompt: private backend content",
+        };
+        return bridge;
+      },
+    ],
+  ])("fails closed when the Plans-to-Actions bridge has %s", async (
+    _,
+    buildUnsafeBridge,
+  ) => {
+    const unsafeBridge = buildUnsafeBridge();
     const inbox = {
       ...mockControlCenterData.founderActionsInbox,
       plans_to_actions_bridge_contract_ref:
@@ -12741,7 +12819,7 @@ describe("Web Control Center shell", () => {
           lane_id: laneId,
           label: laneLabels[laneId],
           status: `${laneId}_state`,
-          safe_summary: `${laneLabels[laneId]} safe-ref lane.`,
+          safe_summary: "Backend-owned decision lane contains safe refs only.",
           count:
             laneId === "cost_blocked" || laneId === "approved_no_execution"
               ? 1
@@ -20687,6 +20765,16 @@ function revisionBoundActionInbox({
     action_revision_decision_eligible: true,
     receipt_refs: receiptRef ? [receiptRef] : [],
   });
+  const workQueue = cloneForTest(
+    mockControlCenterData.founderActionsInbox.action_inbox_work_queue_read_model,
+  );
+  if (!workQueue) {
+    throw new Error("Expected bounded Action Inbox work-queue fixture");
+  }
+  for (const lane of workQueue.lanes) {
+    lane.item_refs = lane.lane_id === item.action_group_id ? [itemRef] : [];
+    lane.count = lane.item_refs.length;
+  }
   Object.assign(inbox, {
     action_revision_contract_ref:
       "contract-ref:founder-loop-action-revision-lifecycle:v1",
@@ -20703,10 +20791,7 @@ function revisionBoundActionInbox({
     action_inbox_work_queue_contract_ref:
       "contract-ref:usable-authority-action-inbox-work-queue:v1",
     action_inbox_work_queue_read_model: {
-      ...cloneForTest(
-        mockControlCenterData.founderActionsInbox
-          .action_inbox_work_queue_read_model,
-      ),
+      ...workQueue,
       source: "python_core_action_inbox_work_queue_read_model",
       backend_owned: true,
       status: "implemented_backend_owned_action_inbox_work_queue",
