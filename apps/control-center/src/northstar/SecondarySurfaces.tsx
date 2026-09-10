@@ -854,7 +854,7 @@ export function DecisionReviewSurface({
         submittedRequest,
         mutationBinding,
       );
-      if (!localTaskCommitReceiptIsSafe(
+      if (!(await localTaskCommitReceiptIsSafe(
         recorded,
         {
           itemRef: submittedItemRef,
@@ -870,7 +870,7 @@ export function DecisionReviewSurface({
             ?? submittedItem.rollback_ref
             ?? "",
         },
-      )) {
+      ))) {
         throw new Error("The local task receipt did not match the exact approved lane.");
       }
       setLocalTaskReceipts((current) => ({
@@ -1027,6 +1027,7 @@ function localTaskCommitReceiptProjectionIsBound(
     && hasNoMissingFieldStates(projection.missing_field_states)
     && projection.local_task_ref === localTaskRef
     && item.local_task_ref === localTaskRef
+    && typeof receiptRef === "string"
     && receiptRef.startsWith("receipt:founder-loop-local-task:")
     && isSafeNorthStarRef(receiptRef)
     && item.local_task_commit_receipt_ref === receiptRef

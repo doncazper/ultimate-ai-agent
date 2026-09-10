@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildLocalTaskCommitAuthorityRequest,
   buildLocalTaskCommitRequest,
+  localTaskAuthorityProofRefs,
   localTaskCommitIdempotencyRef,
   localTaskCommitReceiptIsSafe,
   loadNorthStarDecisionsData,
@@ -21,16 +22,21 @@ const binding = {
 const localTaskItemRef = "founder-action:mock-local-task-review";
 const localTaskApprovalRef = "approval-ref:northstar:local-task-approved";
 
-function validLocalTaskReceipt(): FounderLoopLocalTaskCommitReceipt {
+async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceipt> {
   const request = buildLocalTaskCommitRequest(
     localTaskItemRef,
     localTaskApprovalRef,
   );
+  const authorityLeaseRef = "authority-lease-ref:northstar-workspace-write";
+  const authorityProof = await localTaskAuthorityProofRefs(
+    authorityLeaseRef,
+    "ask",
+  );
   const authorityProofRefs = [
-    "authority-policy-decision-ref:northstar-local-task",
-    "authority-lease-ref:northstar-workspace-write",
-    "audit-ref:authority-policy:northstar-local-task",
-    "receipt-ref:authority-policy:northstar-local-task",
+    authorityProof.authorityDecisionRef,
+    authorityLeaseRef,
+    authorityProof.authorityAuditRef,
+    authorityProof.authorityPolicyReceiptRef,
   ] as const;
   return {
     contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
@@ -235,7 +241,7 @@ describe("loadNorthStarDecisionsData", () => {
 });
 
 describe("local task commit boundary", () => {
-  it("builds one canonical payload and binds authority evaluation to the exact item", () => {
+  it("builds one canonical payload and binds authority evaluation to the exact item", async () => {
     const request = buildLocalTaskCommitRequest(
       localTaskItemRef,
       localTaskApprovalRef,
@@ -268,10 +274,21 @@ describe("local task commit boundary", () => {
       lane_ref: "lane-ref:action-inbox-local-task-commit",
       requested_mode: "ask_before_changes",
     }));
+    await expect(localTaskAuthorityProofRefs(
+      "authority-lease-ref:northstar-workspace-write",
+      "ask",
+    )).resolves.toEqual({
+      authorityDecisionRef:
+        "authority-policy-decision-ref:sha256:06aa4ea47021558fd62b7da8",
+      authorityAuditRef:
+        "audit-ref:authority-policy:sha256:06aa4ea47021558fd62b7da8",
+      authorityPolicyReceiptRef:
+        "receipt-ref:authority-policy:sha256:c67344a7b22a5b5c27497c81",
+    });
   });
 
-  it("rejects receipts without the exact authority proof or with unsafe display data", () => {
-    const receipt = validLocalTaskReceipt();
+  it("rejects receipts without the exact authority proof or with unsafe display data", async () => {
+    const receipt = await validLocalTaskReceipt();
     const binding = {
       itemRef: localTaskItemRef,
       approvalRef: localTaskApprovalRef,
@@ -280,14 +297,32 @@ describe("local task commit boundary", () => {
       rollbackRef: receipt.rollback_ref ?? "",
     };
 
-    expect(localTaskCommitReceiptIsSafe(receipt, binding)).toBe(true);
-    expect(localTaskCommitReceiptIsSafe({
+    expect(await localTaskCommitReceiptIsSafe(receipt, binding)).toBe(true);
+    expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       evidence_refs: [...receipt.evidence_refs, "evidence-ref:release.v1"],
     }, binding)).toBe(true);
-    expect(localTaskCommitReceiptIsSafe({
+    expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       authority_decision_ref: "authority-policy-decision-ref:substituted",
+    }, binding)).toBe(false);
+    const substitutedProofRefs = [
+      "authority-policy-decision-ref:sha256:111111111111111111111111",
+      receipt.authority_lease_ref,
+      "audit-ref:authority-policy:sha256:111111111111111111111111",
+      "receipt-ref:authority-policy:sha256:222222222222222222222222",
+    ] as const;
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      authority_decision_ref: substitutedProofRefs[0],
+      authority_audit_ref: substitutedProofRefs[2],
+      authority_policy_receipt_ref: substitutedProofRefs[3],
+      evidence_refs: receipt.evidence_refs.map((ref) => {
+        if (ref === receipt.authority_decision_ref) return substitutedProofRefs[0];
+        if (ref === receipt.authority_audit_ref) return substitutedProofRefs[2];
+        if (ref === receipt.authority_policy_receipt_ref) return substitutedProofRefs[3];
+        return ref;
+      }),
     }, binding)).toBe(false);
     for (const unsafeSummary of [
       `credential: ${"x".repeat(20)}`,
@@ -301,16 +336,16 @@ describe("local task commit boundary", () => {
       "Receipt created by alice@example.com",
       `ghp_${"a".repeat(36)}`,
     ]) {
-      expect(localTaskCommitReceiptIsSafe({
+      expect(await localTaskCommitReceiptIsSafe({
         ...receipt,
         safe_summary: unsafeSummary,
       }, binding)).toBe(false);
     }
-    expect(localTaskCommitReceiptIsSafe({
+    expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       receipt_ref: "receipt-ref:/Users/operator/private.log",
     }, binding)).toBe(false);
-    expect(localTaskCommitReceiptIsSafe({
+    expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       evidence_refs: receipt.evidence_refs.filter(
         (ref) => ref !== receipt.authority_policy_receipt_ref,

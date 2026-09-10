@@ -7713,16 +7713,66 @@ export function localTaskCommitAuthorityPreviewIsSafe(
       isSafeLocalTaskReceiptDisplayValue(value));
 }
 
-export function localTaskCommitReceiptIsSafe(
+export async function localTaskAuthorityProofRefs(
+  authorityLeaseRef: string,
+  authorityDecisionOutcome: "allow" | "ask",
+): Promise<{
+  authorityDecisionRef: string;
+  authorityAuditRef: string;
+  authorityPolicyReceiptRef: string;
+}> {
+  const payload = {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    domain: "workspace",
+    capability: "write",
+    lease_ref: authorityLeaseRef,
+    outcome: authorityDecisionOutcome,
+  };
+  const receiptPayload = {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    lease_ref: authorityLeaseRef,
+    outcome: authorityDecisionOutcome,
+  };
+  const [proofDigest, receiptDigest] = await Promise.all([
+    sha256Hex(portableCanonicalJson(payload)),
+    sha256Hex(portableCanonicalJson(receiptPayload)),
+  ]);
+  return {
+    authorityDecisionRef:
+      `authority-policy-decision-ref:sha256:${proofDigest.slice(0, 24)}`,
+    authorityAuditRef:
+      `audit-ref:authority-policy:sha256:${proofDigest.slice(0, 24)}`,
+    authorityPolicyReceiptRef:
+      `receipt-ref:authority-policy:sha256:${receiptDigest.slice(0, 24)}`,
+  };
+}
+
+export async function localTaskCommitReceiptIsSafe(
   receipt: FounderLoopLocalTaskCommitReceipt,
   binding: LocalTaskCommitReceiptBinding,
-): boolean {
+): Promise<boolean> {
   if (
     !Array.isArray(receipt?.approval_reason_refs)
     || !Array.isArray(receipt.evidence_refs)
     || !Array.isArray(receipt.blocked_state_refs)
     || !Array.isArray(receipt.rollback_blocker_refs)
   ) return false;
+  if (
+    typeof receipt.authority_lease_ref !== "string"
+    || (receipt.authority_decision_outcome !== "allow"
+      && receipt.authority_decision_outcome !== "ask")
+  ) return false;
+  let expectedAuthorityProofRefs: Awaited<
+    ReturnType<typeof localTaskAuthorityProofRefs>
+  >;
+  try {
+    expectedAuthorityProofRefs = await localTaskAuthorityProofRefs(
+      receipt.authority_lease_ref,
+      receipt.authority_decision_outcome,
+    );
+  } catch {
+    return false;
+  }
   const authorityProofRefs = [
     receipt.authority_decision_ref,
     receipt.authority_lease_ref,
@@ -7767,6 +7817,12 @@ export function localTaskCommitReceiptIsSafe(
     && receipt.authority_required_mode_ref === "authority-mode-ref:ask-before-changes"
     && (receipt.authority_decision_outcome === "allow"
       || receipt.authority_decision_outcome === "ask")
+    && receipt.authority_decision_ref
+      === expectedAuthorityProofRefs.authorityDecisionRef
+    && receipt.authority_audit_ref
+      === expectedAuthorityProofRefs.authorityAuditRef
+    && receipt.authority_policy_receipt_ref
+      === expectedAuthorityProofRefs.authorityPolicyReceiptRef
     && authorityProofRefs.every((ref) => receipt.evidence_refs.includes(ref))
     && receipt.safe_disable_enabled === true
     && receipt.rollback_execution_enabled === false
