@@ -37,6 +37,8 @@ export function NorthStarShell({
   const backendRoute = backendRouteBySurface[activeSurface];
   const routeState = backendRoute ? data.routeStates[backendRoute] : undefined;
   const backendReady = data.connection.state === "online" && !data.connection.usingMockData;
+  const runtimeReady = backendReady
+    && data.routeStates["/runtime"]?.state === "backend_owned";
   const routeBacked = routeState?.state === "backend_owned";
   const previewOnly = !routeBacked;
   const fixtureSurface = activeSurface === "communications" || activeSurface === "calendar";
@@ -66,10 +68,10 @@ export function NorthStarShell({
         </a>
         <WorkspaceNav activeSurface={activeSurface} />
         <div className="ns-sidebar-runtime">
-          <StatusDot tone={backendReady ? "green" : "orange"} />
+          <StatusDot tone={runtimeReady ? "green" : "orange"} />
           <span>
-            <strong>{backendReady ? "Local ready" : "Preview mode"}</strong>
-            <small>{backendReady ? "Backend connection verified" : "No authority inferred"}</small>
+            <strong>{runtimeReady ? "Local ready" : "Runtime unverified"}</strong>
+            <small>{runtimeReady ? "Backend runtime verified" : "No runtime authority inferred"}</small>
           </span>
         </div>
       </aside>

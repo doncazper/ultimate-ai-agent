@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import { buildLocalTaskCommitRequest, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef } from "../api/client";
-import type { AuthorityDecisionPreview, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
+import type { AuthorityDecisionPreview, FounderLoopActionDecisionReceipt, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
@@ -915,6 +915,10 @@ describe("North Star backend wiring", () => {
         /local task receipt did not match the exact approved lane/i,
       )).length,
     ).toBeGreaterThan(0);
+    expect(onLocalTaskCommitFenceChange).toHaveBeenLastCalledWith(
+      item.item_ref,
+      false,
+    );
     expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(1);
     commitButton = screen.getByRole("button", { name: "Create local task record" });
     fireEvent.click(commitButton);
@@ -1002,9 +1006,12 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText("Local runtime").parentElement).toHaveTextContent(
       "Unverified",
     );
+    expect(screen.getByText("Runtime unverified")).toBeVisible();
+    expect(screen.getByText("No runtime authority inferred")).toBeVisible();
   });
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
+    const onLocalTaskCommitFenceChange = vi.fn();
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
     );
@@ -1073,12 +1080,17 @@ describe("North Star backend wiring", () => {
         <NorthStarControlCenter
           activePath="/workspace/decisions"
           data={data}
+          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
         />
       </BackendTruthMutationBindingProvider>,
     );
     fireEvent.click(await screen.findByRole("button", {
       name: "Create local task record",
     }));
+    expect(onLocalTaskCommitFenceChange).toHaveBeenLastCalledWith(
+      firstItem.item_ref,
+      true,
+    );
     fireEvent.click(screen.getByRole("button", {
       name: new RegExp(secondItem.title),
     }));
@@ -1741,6 +1753,68 @@ describe("North Star backend wiring", () => {
     fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
 
     expect((await screen.findAllByText(/receipt:refresh-failure:test.*Refresh pending: temporary refresh failure/)).length).toBeGreaterThan(0);
+  });
+
+  it("keeps an asynchronous decision receipt bound to its submitted item", async () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const [submittedItem, otherItem] = data.founderActionsInbox.items;
+    if (!submittedItem || !otherItem) {
+      throw new Error("Expected two Action Inbox items");
+    }
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
+    Object.assign(submittedItem, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
+      action_review_actions: ["reject"],
+      approval_envelope: {
+        ...submittedItem.approval_envelope,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+      receipt_visibility: {
+        ...submittedItem.receipt_visibility,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+    });
+    attachExactDecisionLane(data, submittedItem.item_ref);
+    let resolveDecision: ((receipt: FounderLoopActionDecisionReceipt) => void)
+      | undefined;
+    apiMocks.submitActionDecision.mockImplementationOnce(() =>
+      new Promise((resolve) => {
+        resolveDecision = resolve;
+      }));
+    apiMocks.fetchNorthStarDecisionsInbox.mockRejectedValue(
+      new Error("temporary refresh failure"),
+    );
+
+    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+    fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
+    fireEvent.click(screen.getByRole("button", {
+      name: new RegExp(otherItem.title),
+    }));
+    expect(screen.getByRole("heading", { name: otherItem.title })).toBeVisible();
+
+    if (!resolveDecision) throw new Error("Expected pending Action decision");
+    await act(async () => resolveDecision?.({
+      decision: "reject",
+      receipt_ref: "receipt:decision-item-binding:test",
+      replayed: false,
+      action_executed: false,
+      safe_summary: "Exact reject receipt recorded without action execution.",
+    } as FounderLoopActionDecisionReceipt));
+    await waitFor(() => expect(apiMocks.fetchNorthStarDecisionsInbox)
+      .toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("receipt:decision-item-binding:test"))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {
+      name: new RegExp(submittedItem.title),
+    }));
+    expect((await screen.findAllByText(/receipt:decision-item-binding:test/)).length)
+      .toBeGreaterThan(0);
   });
 
   it("renders overlooked backend read models while keeping writes disabled", () => {

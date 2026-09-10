@@ -475,6 +475,71 @@ describe("loadNorthStarDecisionsData", () => {
     );
   });
 
+  it("accepts the backend lane's bounded first eight refs while validating its full count", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+      action_inbox_work_queue_read_model: {
+        item_count: number;
+        ready_for_decision_count: number;
+        approved_local_task_count: number;
+        proposal_only_count: number;
+        blocked_count: number;
+        receipt_recorded_count: number;
+        operator_actionable_count: number;
+        work_item_count: number;
+        work_item_refs: string[];
+        work_items: Array<Record<string, unknown>>;
+        lanes: Array<{
+          lane_id: string;
+          label: string;
+          count: number;
+          item_refs: string[];
+        }>;
+      };
+    };
+    const sourceItem = inbox.items[0];
+    const workQueue = inbox.action_inbox_work_queue_read_model;
+    const sourceWorkItem = workQueue.work_items[0];
+    if (!sourceItem || !sourceWorkItem) {
+      throw new Error("Expected bounded Action Inbox fixtures");
+    }
+    inbox.items = Array.from({ length: 9 }, (_, index) => ({
+      ...structuredClone(sourceItem),
+      item_ref: `founder-action:bounded-lane-${index + 1}`,
+      action_group_id: "ready_for_decision",
+      action_group_label: "Ready for decision",
+    }));
+    for (const lane of workQueue.lanes) {
+      const matchingRefs = inbox.items
+        .filter((item) => item.action_group_id === lane.lane_id)
+        .map((item) => String(item.item_ref));
+      lane.count = matchingRefs.length;
+      lane.item_refs = matchingRefs.slice(0, 8);
+    }
+    workQueue.item_count = inbox.items.length;
+    workQueue.ready_for_decision_count = inbox.items.length;
+    workQueue.approved_local_task_count = 0;
+    workQueue.proposal_only_count = 0;
+    workQueue.blocked_count = 0;
+    workQueue.receipt_recorded_count = 0;
+    workQueue.operator_actionable_count = inbox.items.length;
+    workQueue.work_items = inbox.items.slice(0, 6).map((item) => ({
+      ...structuredClone(sourceWorkItem),
+      item_ref: item.item_ref,
+      lane_id: "ready_for_decision",
+      lane_label: "Ready for decision",
+    }));
+    workQueue.work_item_refs = workQueue.work_items.map((item) =>
+      String(item.item_ref));
+    workQueue.work_item_count = workQueue.work_items.length;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
+      expect.objectContaining({ items: expect.any(Array) }),
+    );
+  });
+
   it("accepts dotted structured refs without treating them as hostnames", async () => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {

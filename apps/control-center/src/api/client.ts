@@ -6051,13 +6051,32 @@ function actionInboxGroupsMatchWorkQueue(
   ) return false;
   const laneRecords = lanes.filter(isPlainRecord);
   if (laneRecords.length !== lanes.length) return false;
-  const laneItemRefs = laneRecords.flatMap((lane) =>
-    Array.isArray(lane.item_refs) ? lane.item_refs : [undefined]);
+  const laneIds = laneRecords
+    .map((lane) => lane.lane_id)
+    .filter((laneId): laneId is string => typeof laneId === "string");
   if (
-    laneRecords.some((lane) =>
-      !Array.isArray(lane.item_refs)
-      || lane.count !== lane.item_refs.length)
-    || !hasExactStringSet(laneItemRefs, itemRefs)
+    !hasExactStringSet(
+      laneIds,
+      Array.from(NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.keys()),
+    )
+    || laneRecords.some((lane) => {
+      if (
+        typeof lane.lane_id !== "string"
+        || !Array.isArray(lane.item_refs)
+        || lane.label !== NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.get(lane.lane_id)
+      ) return true;
+      const expectedLaneItemRefs = items
+        .filter(isPlainRecord)
+        .filter((item) => item.action_group_id === lane.lane_id)
+        .map((item) => item.item_ref)
+        .filter((itemRef): itemRef is string => typeof itemRef === "string");
+      return lane.count !== expectedLaneItemRefs.length
+        || lane.item_refs.length > 8
+        || !hasExactStringSet(
+          lane.item_refs,
+          expectedLaneItemRefs.slice(0, 8),
+        );
+    })
   ) return false;
   const countForLane = (laneId: string) => laneRecords
     .filter((lane) => lane.lane_id === laneId)
@@ -6090,8 +6109,7 @@ function actionInboxGroupsMatchWorkQueue(
       || typeof item.action_group_label !== "string") return false;
     const laneMatches = lanes.filter((lane) =>
       isPlainRecord(lane)
-      && Array.isArray(lane.item_refs)
-      && lane.item_refs.includes(item.item_ref));
+      && lane.lane_id === item.action_group_id);
     if (laneMatches.length !== 1) return false;
     const lane = laneMatches[0] as Record<string, unknown>;
     if (lane.lane_id !== item.action_group_id
