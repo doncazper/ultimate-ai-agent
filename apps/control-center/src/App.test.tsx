@@ -20806,6 +20806,98 @@ describe("Web Control Center shell", () => {
     ));
   });
 
+  it("retains the cancellation fence when dispatch and authoritative recovery are uncertain", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel-uncertain:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-cancel-uncertain";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST" && String(url).endsWith("/cancel")) {
+        throw new Error("cancellation dispatch response unavailable");
+      }
+      if (String(url).endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        throw new Error("authoritative recovery refresh unavailable");
+      }
+      throw new Error(`unexpected request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onAuthoritativeRefresh = vi.fn();
+    const onCancellationFenceChange = vi.fn();
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={onAuthoritativeRefresh}
+        pendingLocalTaskCommitItemRefs={[]}
+        onCancellationFenceChange={onCancellationFenceChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
+
+    expect(
+      await screen.findByText(/mutation fence remains active/i),
+    ).toBeInTheDocument();
+    expect(onCancellationFenceChange).toHaveBeenCalledWith(itemRef, true);
+    expect(onCancellationFenceChange).not.toHaveBeenCalledWith(itemRef, false);
+    expect(onAuthoritativeRefresh).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases an uncertain cancellation fence only after authoritative recovery", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel-recovered:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-cancel-recovered";
+    const inbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = inbox as unknown as ControlCenterData["founderActionsInbox"];
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST" && String(url).endsWith("/cancel")) {
+        throw new Error("cancellation dispatch response unavailable");
+      }
+      if (String(url).endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onAuthoritativeRefresh = vi.fn();
+    const onCancellationFenceChange = vi.fn();
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={onAuthoritativeRefresh}
+        pendingLocalTaskCommitItemRefs={[]}
+        onCancellationFenceChange={onCancellationFenceChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
+
+    expect(
+      await screen.findByText(/authoritative recovery refresh confirmed/i),
+    ).toBeInTheDocument();
+    expect(onCancellationFenceChange.mock.calls).toEqual([
+      [itemRef, true],
+      [itemRef, false],
+    ]);
+    expect(onAuthoritativeRefresh).toHaveBeenCalledWith(inbox);
+  });
+
   it("confirms cancellation only after an authoritative refreshed revision", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-cancel:00000001:11111111111111111111";

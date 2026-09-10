@@ -658,12 +658,33 @@ export function ActionInboxCancellationControl({
         );
       }
     } catch (error) {
-      onCancellationFenceChange?.(submittedItemRef, false);
-      setFeedback(
+      const failureMessage =
         error instanceof Error
           ? error.message
-          : "The cancellation was not recorded safely.",
-      );
+          : "The cancellation was not recorded safely.";
+      try {
+        const refreshed = await fetchNorthStarDecisionsInbox(binding);
+        const refreshedItem = refreshed.items.find(
+          (item) => item.item_ref === submittedItemRef,
+        );
+        if (!refreshedItem) {
+          setFeedback(
+            `${failureMessage} Cancellation outcome is uncertain; the mutation fence remains active because the authoritative refresh omitted the submitted item.`,
+          );
+          return;
+        }
+        onAuthoritativeRefresh(refreshed);
+        onCancellationFenceChange?.(submittedItemRef, false);
+        setFeedback(
+          refreshedItem.status === "cancelled"
+            ? "Cancellation confirmed by an authoritative recovery refresh after the dispatch response became uncertain."
+            : `${failureMessage} The authoritative recovery refresh confirmed the current Action Inbox state and released the cancellation fence.`,
+        );
+      } catch {
+        setFeedback(
+          `${failureMessage} Cancellation outcome is uncertain; the mutation fence remains active until a validated authoritative refresh succeeds.`,
+        );
+      }
     } finally {
       setPending(false);
     }

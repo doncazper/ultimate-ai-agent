@@ -771,6 +771,29 @@ export function DecisionReviewSurface({
   ), [itemRef, localTaskCommitApprovalRef]);
   const localTaskCommitAlreadyRecorded =
     localTaskCommitProjectionStatus === "bound";
+  const localTaskSafeDisablePosture = item?.local_task_safe_disable_posture;
+  const localTaskSafeDisablePostureReady = Boolean(
+    item
+    && item.local_task_safe_disable_active === false
+    && item.local_task_rollback_execution_enabled === false
+    && localTaskSafeDisablePosture
+    && localTaskSafeDisablePosture.schema_version
+      === "founder_loop_local_task_safe_disable_posture.v1"
+    && localTaskSafeDisablePosture.source === "python_core_founder_loop_storage"
+    && localTaskSafeDisablePosture.backend_owned === true
+    && localTaskSafeDisablePosture.lane_id === "local_task_create"
+    && localTaskSafeDisablePosture.action_kind === "local_task_create"
+    && localTaskSafeDisablePosture.local_task_commits_enabled === true
+    && localTaskSafeDisablePosture.safe_disable_active === false
+    && localTaskSafeDisablePosture.rollback_execution_enabled === false
+    && localTaskSafeDisablePosture.safe_disable_ref
+      === item.local_task_safe_disable_ref
+    && localTaskSafeDisablePosture.safe_disable_posture_ref
+      === item.local_task_safe_disable_posture_ref
+    && localTaskSafeDisablePosture.rollback_ref === item.local_task_rollback_ref
+    && Array.isArray(localTaskSafeDisablePosture.disabled_reason_refs)
+    && localTaskSafeDisablePosture.disabled_reason_refs.length === 0
+  );
   const localTaskCommitLaneReady = Boolean(
     authoritative
     && inbox.mutating_controls_enabled
@@ -792,6 +815,7 @@ export function DecisionReviewSurface({
     && !uncertainLocalTaskCommitItemRefs.includes(item.item_ref)
     && localTaskCommitApprovalRef
     && localTaskCommitProjectionStatus === "absent"
+    && localTaskSafeDisablePostureReady
     && actionInboxLocalTaskCommitIsEligible(inbox, item),
   );
   useEffect(() => {

@@ -96,6 +96,33 @@ function attachExactDecisionLane(
     ...(actionItem.action_kind === "local_task_create" ? {
       local_task_ref: localTaskRef,
       local_task_commit_receipt_ref: null,
+      local_task_safe_disable_ref: safeDisableRef,
+      local_task_safe_disable_active: false,
+      local_task_safe_disable_posture_ref:
+        "safe-disable-posture:founder-loop:local-task-create",
+      local_task_rollback_ref: rollbackRef,
+      local_task_rollback_execution_enabled: false,
+      local_task_safe_disable_posture: {
+        schema_version: "founder_loop_local_task_safe_disable_posture.v1",
+        source: "python_core_founder_loop_storage",
+        backend_owned: true,
+        lane_id: "local_task_create",
+        action_kind: "local_task_create",
+        local_task_commits_enabled: true,
+        safe_disable_active: false,
+        safe_disable_ref: safeDisableRef,
+        rollback_ref: rollbackRef,
+        safe_disable_posture_ref:
+          "safe-disable-posture:founder-loop:local-task-create",
+        disabled_reason_refs: [],
+        blocked_state_refs: ["blocked-state:test:no-action-execution"],
+        rollback_execution_enabled: false,
+        rollback_blocker_refs: [
+          "blocked-state:local-task-rollback-execution-not-scoped",
+        ],
+        next_safe_action:
+          "Commit the exact approved local task through Python Core.",
+      },
     } : {}),
     approval_envelope: {
       ...actionItem.approval_envelope,
@@ -1146,6 +1173,53 @@ describe("North Star backend wiring", () => {
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
 
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "local_task_safe_disable_active",
+    "local_task_rollback_execution_enabled",
+  ] as const)("keeps local task commit unavailable when %s is true", async (field) => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref:
+        "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    attachWorkspaceWriteAuthority(data);
+    item[field] = true;
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 

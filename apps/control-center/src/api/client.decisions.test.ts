@@ -118,13 +118,23 @@ function boundedDecisionFixtures() {
   const workQueue = inbox.action_inbox_work_queue_read_model;
   if (!workQueue) throw new Error("Missing Action Inbox work queue fixture");
   for (const item of inbox.items) {
-    if (!item.approval_envelope) continue;
-    Object.assign(item.approval_envelope, {
-      schema_version: "founder_loop_action_approval_envelope.v1",
-      contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
-      source: "python_core_action_inbox_read_model",
-      backend_owned: true,
-    });
+    if (item.approval_envelope) {
+      Object.assign(item.approval_envelope, {
+        schema_version: "founder_loop_action_approval_envelope.v1",
+        contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      });
+    }
+    if (item.receipt_visibility) {
+      Object.assign(item.receipt_visibility, {
+        schema_version: "founder_loop_action_receipt_visibility.v1",
+        contract_ref:
+          "contract-ref:founder-loop-action-receipt-visibility:v1",
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      });
+    }
   }
   inbox.expected_revision_required = true;
   inbox.cancel_decision_enabled = true;
@@ -779,6 +789,27 @@ describe("loadNorthStarDecisionsData", () => {
       throw new Error("Expected bounded approval envelope fixture");
     }
     inbox.items[0].approval_envelope[field] = value;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it.each([
+    ["backend_owned", "false"],
+    ["source", "mock_fallback_non_authoritative"],
+    ["contract_ref", "contract-ref:founder-loop-action-receipt-visibility:other"],
+    ["schema_version", "founder_loop_action_receipt_visibility.v2"],
+  ])("rejects receipt visibility with non-canonical %s", async (field, value) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<{ receipt_visibility?: Record<string, unknown> }>;
+    };
+    if (!inbox.items[0].receipt_visibility) {
+      throw new Error("Expected bounded receipt visibility fixture");
+    }
+    inbox.items[0].receipt_visibility[field] = value;
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(

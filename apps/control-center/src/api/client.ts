@@ -6123,6 +6123,12 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     && (receiptVisibility === undefined
       || (
         isPlainRecord(receiptVisibility)
+        && receiptVisibility.schema_version
+          === "founder_loop_action_receipt_visibility.v1"
+        && receiptVisibility.contract_ref
+          === "contract-ref:founder-loop-action-receipt-visibility:v1"
+        && receiptVisibility.source === "python_core_action_inbox_read_model"
+        && receiptVisibility.backend_owned === true
         && [
           "decision_receipt_ref",
           "local_task_ref",
