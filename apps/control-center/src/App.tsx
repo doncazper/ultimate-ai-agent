@@ -32,6 +32,9 @@ import type {
 import {
   ACTION_INBOX_REVISION_REFRESH_EVENT,
   fetchFounderActionsInbox,
+  fetchNorthStarDecisionsInbox,
+  founderLoopLocalTaskRef,
+  localTaskCommitReceiptRefForIdempotency,
   submitActionCancellation,
   type BackendTruthReadBinding,
 } from "./api/client";
@@ -628,7 +631,7 @@ export function ActionInboxCancellationControl({
         resultRevisionRef: receipt.result_revision_ref,
       });
       try {
-        const refreshed = await fetchFounderActionsInbox(binding);
+        const refreshed = await fetchNorthStarDecisionsInbox(binding);
         const refreshedItem = refreshed.items.find(
           (item) => item.item_ref === submittedItemRef,
         );
@@ -716,16 +719,44 @@ export function ActionInboxCancellationControl({
   );
 }
 
-function reconcilePendingLocalTaskCommitItemRefs(
+function localTaskCommitProjectionIsExactlyBound(
+  item: FounderLoopActionsInbox["items"][number] | undefined,
+): boolean {
+  const projection = item?.receipt_visibility;
+  const idempotencyRef = projection?.local_task_commit_idempotency_key_ref;
+  if (!item || !projection || typeof idempotencyRef !== "string") return false;
+  const localTaskRef = founderLoopLocalTaskRef(item.item_ref);
+  const receiptRef = localTaskCommitReceiptRefForIdempotency(
+    item.item_ref,
+    idempotencyRef,
+  );
+  const missingStatesAreClear =
+    projection.missing_field_states.length === 0
+    || (
+      projection.missing_field_states.length === 1
+      && projection.missing_field_states[0] === "none"
+    );
+  return projection.schema_version
+      === "founder_loop_action_receipt_visibility.v1"
+    && projection.contract_ref
+      === "contract-ref:founder-loop-action-receipt-visibility:v1"
+    && projection.source === "python_core_action_inbox_read_model"
+    && projection.backend_owned === true
+    && missingStatesAreClear
+    && item.local_task_ref === localTaskRef
+    && projection.local_task_ref === localTaskRef
+    && item.local_task_commit_receipt_ref === receiptRef
+    && projection.local_task_commit_receipt_ref === receiptRef
+    && item.receipt_refs.includes(receiptRef);
+}
+
+export function reconcilePendingLocalTaskCommitItemRefs(
   current: readonly string[],
   inbox: FounderLoopActionsInbox,
 ): string[] {
   const next = current.filter((itemRef) => {
     const item = inbox.items.find((candidate) => candidate.item_ref === itemRef);
-    return Boolean(
-      item
-      && !item.local_task_commit_receipt_ref?.startsWith("receipt:"),
-    );
+    return !localTaskCommitProjectionIsExactlyBound(item);
   });
   return next.length === current.length
     && next.every((candidate, index) => candidate === current[index])

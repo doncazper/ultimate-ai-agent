@@ -4,6 +4,7 @@ import {
   buildLocalTaskCommitAuthorityRequest,
   buildLocalTaskCommitRequest,
   fetchNorthStarDecisionsInbox,
+  founderLoopLocalTaskRef,
   localTaskAuthorityProofRefs,
   localTaskCommitDerivedRefs,
   localTaskCommitIdempotencyRef,
@@ -28,10 +29,13 @@ const binding = {
 const localTaskItemRef = "founder-action:mock-local-task-review";
 const localTaskApprovalRef = "approval-ref:northstar:local-task-approved";
 
-async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceipt> {
+async function validLocalTaskReceipt(
+  itemRef = localTaskItemRef,
+  approvalRef = localTaskApprovalRef,
+): Promise<FounderLoopLocalTaskCommitReceipt> {
   const request = buildLocalTaskCommitRequest(
-    localTaskItemRef,
-    localTaskApprovalRef,
+    itemRef,
+    approvalRef,
   );
   const authorityLeaseRef = "authority-lease-ref:northstar-workspace-write";
   const authorityProof = await localTaskAuthorityProofRefs(
@@ -45,26 +49,25 @@ async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceip
     authorityProof.authorityPolicyReceiptRef,
   ] as const;
   const derivedRefs = await localTaskCommitDerivedRefs(
-    localTaskItemRef,
+    itemRef,
     request,
   );
   return {
     contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
-    item_ref: localTaskItemRef,
+    item_ref: itemRef,
     action_kind: "local_task_create",
-    local_task_ref:
-      "local-task:founder-loop:founder-action-mock-local-task-review",
+    local_task_ref: founderLoopLocalTaskRef(itemRef),
     status: "local_task_created",
     receipt_ref: derivedRefs.receiptRef,
     audit_ref: derivedRefs.auditRef,
     idempotency_key_ref: localTaskCommitIdempotencyRef(
-      localTaskItemRef,
+      itemRef,
       request,
     ),
     payload_fingerprint_ref: derivedRefs.payloadFingerprintRef,
     run_ref: "run-ref:founder-loop-v1:governed-local-loop",
     evidence_timeline_event_ref: derivedRefs.evidenceTimelineEventRef,
-    approval_ref: localTaskApprovalRef,
+    approval_ref: approvalRef,
     approval_status: "approved",
     approval_reason_refs: ["approval-reason-ref:northstar:test"],
     authority_decision_ref: authorityProofRefs[0],
@@ -114,6 +117,15 @@ function boundedDecisionFixtures() {
   const inbox = structuredClone(mockControlCenterData.founderActionsInbox);
   const workQueue = inbox.action_inbox_work_queue_read_model;
   if (!workQueue) throw new Error("Missing Action Inbox work queue fixture");
+  for (const item of inbox.items) {
+    if (!item.approval_envelope) continue;
+    Object.assign(item.approval_envelope, {
+      schema_version: "founder_loop_action_approval_envelope.v1",
+      contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
+      source: "python_core_action_inbox_read_model",
+      backend_owned: true,
+    });
+  }
   inbox.expected_revision_required = true;
   inbox.cancel_decision_enabled = true;
   const laneOrder = [
@@ -753,9 +765,47 @@ describe("loadNorthStarDecisionsData", () => {
       "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
     );
   });
+
+  it.each([
+    ["backend_owned", "false"],
+    ["source", "mock_fallback_non_authoritative"],
+    ["contract_ref", "contract-ref:founder-loop-action-approval-envelope:other"],
+  ])("rejects an approval envelope with non-canonical %s", async (field, value) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<{ approval_envelope?: Record<string, unknown> }>;
+    };
+    if (!inbox.items[0].approval_envelope) {
+      throw new Error("Expected bounded approval envelope fixture");
+    }
+    inbox.items[0].approval_envelope[field] = value;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
 });
 
 describe("local task commit boundary", () => {
+  it("accepts exact Core-derived receipt refs longer than the display-text cap", async () => {
+    const itemRef = `founder-action:${"i".repeat(80)}`;
+    const approvalRef = `approval-ref:${"a".repeat(85)}`;
+    const request = buildLocalTaskCommitRequest(itemRef, approvalRef);
+    const receipt = await validLocalTaskReceipt(itemRef, approvalRef);
+    const exactBinding = {
+      itemRef,
+      approvalRef,
+      idempotencyRef: receipt.idempotency_key_ref,
+      request,
+      safeDisableRef: receipt.safe_disable_ref ?? "",
+      rollbackRef: receipt.rollback_ref ?? "",
+    };
+
+    expect(receipt.receipt_ref.length).toBeGreaterThan(240);
+    expect(await localTaskCommitReceiptIsSafe(receipt, exactBinding)).toBe(true);
+  });
+
   it("builds one canonical payload and binds authority evaluation to the exact item", async () => {
     const request = buildLocalTaskCommitRequest(
       localTaskItemRef,

@@ -35,7 +35,7 @@ vi.mock("./api/backendTruth", async (importOriginal) => {
     isCriticalControlCenterPath: () => false,
   };
 });
-import { ActionInboxCancellationControl, App, criticalRouteDataIsBackendOwned, NorthStarRoute } from "./App";
+import { ActionInboxCancellationControl, App, criticalRouteDataIsBackendOwned, NorthStarRoute, reconcilePendingLocalTaskCommitItemRefs } from "./App";
 import { BackendTruthMutationBindingProvider } from "./backendTruthMutationBinding";
 import {
   API_ENDPOINTS,
@@ -58,6 +58,8 @@ import {
   CONTROL_CENTER_READ_TIMEOUT_MS,
   fetchFounderActionsInbox,
   fetchMemoryReviewDecisionReceipt,
+  founderLoopLocalTaskRef,
+  localTaskCommitReceiptRefForIdempotency,
   requestRedactedLocalChatProbe,
   recordChatTurnReceipt,
   recordMemoryFeedback,
@@ -73,6 +75,7 @@ import type {
   AuthorityLeaseReceipt,
   AuthorityMissionPlan,
   ControlCenterData,
+  FounderLoopActionsInbox,
   RuntimeGoalCreateRequest,
   RuntimeGoalMutationApprovalRequestSpec,
   RuntimeGoalMutationSubmissionApprovalRecovery,
@@ -20679,6 +20682,55 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByRole("button", { name: "Cancel exact revision" })).not.toBeInTheDocument();
   });
 
+  it("retains the shared task fence until the exact terminal receipt projection is bound", () => {
+    const itemRef = "founder-action:ui-parent-fence";
+    const idempotencyRef =
+      "idempotency-ref:control-center-local-task:ui-parent-fence:approval-ref-test";
+    const localTaskRef = founderLoopLocalTaskRef(itemRef);
+    const receiptRef = localTaskCommitReceiptRefForIdempotency(
+      itemRef,
+      idempotencyRef,
+    );
+    const inbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef:
+        "action-revision:founder-action-ui-parent-fence:00000002:22222222222222222222",
+      status: "receipt_recorded",
+      receiptRef,
+    }) as unknown as FounderLoopActionsInbox;
+    Object.assign(inbox.items[0], {
+      local_task_ref: localTaskRef,
+      local_task_commit_receipt_ref: receiptRef,
+      receipt_visibility: {
+        schema_version: "founder_loop_action_receipt_visibility.v1",
+        contract_ref:
+          "contract-ref:founder-loop-action-receipt-visibility:v1",
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+        decision_receipt_ref: "receipt:founder-loop-action:test:approve",
+        local_task_ref: localTaskRef,
+        local_task_commit_receipt_ref: receiptRef,
+        local_task_commit_idempotency_key_ref: idempotencyRef,
+        evidence_timeline_event_ref:
+          "evidence-timeline:local-task/founder-action-ui-parent-fence",
+        replay_posture: "idempotency_replay_available",
+        conflict_posture: "conflicting_idempotency_payload_rejected",
+        missing_field_states: ["none"],
+      },
+    });
+
+    expect(reconcilePendingLocalTaskCommitItemRefs([itemRef], inbox)).toEqual(
+      [],
+    );
+
+    const substituted = structuredClone(inbox);
+    substituted.items[0].local_task_commit_receipt_ref =
+      "receipt:founder-loop-local-task:substituted";
+    expect(
+      reconcilePendingLocalTaskCommitItemRefs([itemRef], substituted),
+    ).toEqual([itemRef]);
+  });
+
   it("raises the cancellation fence before the exact cancellation completes", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-cancel-fence:00000001:11111111111111111111";
@@ -20825,6 +20877,69 @@ describe("Web Control Center shell", () => {
     expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
       expected_revision_ref: revisionRef,
     });
+  });
+
+  it("keeps cancellation fenced when the refreshed inbox fails bounded validation", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel-invalid-refresh:00000001:11111111111111111111";
+    const resultRevisionRef =
+      "action-revision:founder-action-ui-cancel-invalid-refresh:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-cancel-invalid-refresh";
+    const receiptRef =
+      "receipt:founder-loop-action:ui-cancel-invalid-refresh:cancel";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+    const invalidRefresh = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: resultRevisionRef,
+      status: "cancelled",
+      receiptRef,
+    });
+    invalidRefresh.items[0].safe_summary =
+      "raw_prompt: private backend content";
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST" && String(url).endsWith("/cancel")) {
+        return new Response(JSON.stringify({
+          ok: true,
+          result: {
+            decision: "cancel",
+            status: "cancelled",
+            receipt_ref: receiptRef,
+            result_revision_ref: resultRevisionRef,
+          },
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ ok: true, result: invalidRefresh }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onAuthoritativeRefresh = vi.fn();
+    const onCancellationFenceChange = vi.fn();
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={onAuthoritativeRefresh}
+        pendingLocalTaskCommitItemRefs={[]}
+        onCancellationFenceChange={onCancellationFenceChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
+
+    expect(
+      await screen.findByText(/authoritative refresh failed/i),
+    ).toBeInTheDocument();
+    expect(onAuthoritativeRefresh).not.toHaveBeenCalled();
+    expect(onCancellationFenceChange).toHaveBeenLastCalledWith(itemRef, true);
   });
 
   it("preserves the last confirmed Action Inbox when cancellation refresh fails", async () => {

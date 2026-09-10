@@ -6105,6 +6105,12 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     && (approvalEnvelope === undefined
       || (
         isPlainRecord(approvalEnvelope)
+        && approvalEnvelope.schema_version
+          === "founder_loop_action_approval_envelope.v1"
+        && approvalEnvelope.contract_ref
+          === "contract-ref:founder-loop-action-approval-envelope:v1"
+        && approvalEnvelope.source === "python_core_action_inbox_read_model"
+        && approvalEnvelope.backend_owned === true
         && isSafeNorthStarStructuredRef(approvalEnvelope.exact_scope)
         && isSafeDisplayArray(
           approvalEnvelope.missing_field_states,
@@ -8373,7 +8379,7 @@ function isSafeLocalTaskReceiptRef(
 ): value is string {
   return typeof value === "string"
     && /^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$/.test(value)
-    && isSafeLocalTaskReceiptDisplayValue(value, 240, false);
+    && isSafeLocalTaskReceiptDisplayValue(value, 256 * 1024, false);
 }
 
 const NORTH_STAR_STRUCTURED_REF_SENTINELS = new Set([

@@ -1068,16 +1068,54 @@ export function DecisionReviewSurface({
         }
       }
     } catch (error) {
-      onLocalTaskCommitFenceChange?.(submittedItemRef, false);
-      const failureMessage = error instanceof Error
+      setUncertainLocalTaskCommitItemRefs((current) =>
+        current.includes(submittedItemRef)
+          ? current
+          : [...current, submittedItemRef],
+      );
+      const failureDetail = error instanceof Error
         ? error.message
-        : "Local task receipt was not recorded safely.";
+        : "Local task receipt was not returned safely.";
+      const failureMessage =
+        `The local task outcome is uncertain after submission. The commit fence remains active until an exact authoritative projection reconciles it. ${failureDetail}`;
       setLocalTaskFeedback((current) => ({
         ...current,
         [submittedItemRef]: failureMessage,
       }));
       if (selectedItemRef.current === submittedItemRef) {
         setFeedback(failureMessage);
+      }
+      try {
+        const refreshed = await fetchNorthStarDecisionsInbox(mutationBinding);
+        setInbox(refreshed);
+        onAuthoritativeRefresh?.(refreshed);
+        const refreshedItem = refreshed.items.find(
+          (candidate) => candidate.item_ref === submittedItemRef,
+        );
+        const refreshedProjectionState =
+          localTaskCommitReceiptProjectionState(refreshedItem);
+        if (
+          refreshedProjectionState === "bound"
+          || refreshedProjectionState === "absent"
+        ) {
+          setUncertainLocalTaskCommitItemRefs((current) =>
+            current.filter((itemRef) => itemRef !== submittedItemRef),
+          );
+          onLocalTaskCommitFenceChange?.(submittedItemRef, false);
+          const reconciledMessage = refreshedProjectionState === "bound"
+            ? "The authoritative queue confirms the exact local task receipt. The commit fence is cleared."
+            : "The authoritative queue confirms no local task record was created. The commit fence is cleared and the exact action may be retried.";
+          setLocalTaskFeedback((current) => ({
+            ...current,
+            [submittedItemRef]: reconciledMessage,
+          }));
+          if (selectedItemRef.current === submittedItemRef) {
+            setFeedback(reconciledMessage);
+          }
+        }
+      } catch {
+        // The post-dispatch outcome remains uncertain and fenced until a later
+        // authoritative projection proves the exact terminal or absent state.
       }
     } finally {
       setPendingLocalTaskCommit(false);
@@ -1241,7 +1279,11 @@ function localTaskCommitReceiptProjectionIsBound(
 }
 
 function isSafeNorthStarRef(value: string | null | undefined): value is string {
-  if (!value || !/^[A-Za-z0-9][A-Za-z0-9:_./#=@-]{0,239}$/.test(value)) return false;
+  if (
+    !value
+    || value.length > 256 * 1024
+    || !/^[A-Za-z0-9][A-Za-z0-9:_./#=@-]*$/.test(value)
+  ) return false;
   const lowered = value.toLowerCase();
   return !lowered.includes("/users/")
     && !lowered.includes("raw_prompt")
