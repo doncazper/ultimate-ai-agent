@@ -677,7 +677,7 @@ describe("North Star backend wiring", () => {
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
   });
 
-  it("continues an exact approval into a backend-confirmed local task receipt", async () => {
+  it("continues an exact approval and keeps its receipt while parent state reconciles", async () => {
     const onActionInboxRefresh = vi.fn();
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
@@ -826,9 +826,9 @@ describe("North Star backend wiring", () => {
       .mockResolvedValueOnce(localTaskReceipt);
     apiMocks.fetchFounderActionsInbox
       .mockResolvedValueOnce(approvedData.founderActionsInbox)
-      .mockResolvedValueOnce(committedInbox);
+      .mockResolvedValueOnce(approvedData.founderActionsInbox);
 
-    render(
+    const view = render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <NorthStarControlCenter
           activePath="/workspace/decisions"
@@ -872,9 +872,45 @@ describe("North Star backend wiring", () => {
     expect(apiMocks.commitLocalTask).toHaveBeenCalledTimes(3);
     expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
     expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(2);
-    expect(onActionInboxRefresh).toHaveBeenLastCalledWith(committedInbox);
+    expect(onActionInboxRefresh).toHaveBeenLastCalledWith(approvedData.founderActionsInbox);
+
+    const propagatedData = structuredClone(approvedData);
+    propagatedData.founderActionsInbox = structuredClone(
+      approvedData.founderActionsInbox,
+    );
+    view.rerender(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={propagatedData}
+          onActionInboxRefresh={onActionInboxRefresh}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
+    expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
+
+    const reconciledData = structuredClone(approvedData);
+    reconciledData.founderActionsInbox = committedInbox;
+    view.rerender(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={reconciledData}
+          onActionInboxRefresh={onActionInboxRefresh}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
   });
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {

@@ -559,12 +559,57 @@ export function DecisionReviewSurface({
   const selectedItemRef = useRef<string | undefined>(undefined);
   const [feedback, setFeedback] = useState("Select an exact backend action envelope to review.");
   useEffect(() => {
+    const currentItemRef = selectedItemRef.current;
+    const currentPendingReceipt = currentItemRef
+      ? localTaskReceipts[currentItemRef]
+      : undefined;
+    const currentProjectedItem = currentItemRef
+      ? data.founderActionsInbox.items.find(
+          (candidate) => candidate.item_ref === currentItemRef,
+        )
+      : undefined;
+    const currentReceiptReconciled = Boolean(
+      currentPendingReceipt
+      && localTaskCommitReceiptProjectionIsBound(currentProjectedItem)
+      && currentProjectedItem?.receipt_visibility?.local_task_commit_receipt_ref
+        === currentPendingReceipt.receipt_ref
+      && currentProjectedItem.receipt_visibility.local_task_ref
+        === currentPendingReceipt.local_task_ref,
+    );
     setInbox(data.founderActionsInbox);
-    setSelected(0);
+    const nextSelected = currentItemRef
+      ? data.founderActionsInbox.items.findIndex(
+          (candidate) => candidate.item_ref === currentItemRef,
+        )
+      : -1;
+    setSelected(nextSelected >= 0 ? nextSelected : 0);
     setReceipt(undefined);
-    setLocalTaskReceipts({});
-    setLocalTaskFeedback({});
-    setFeedback("Select an exact backend action envelope to review.");
+    // Keep exact validated commit receipts as the local mutation fence while a
+    // propagated backend snapshot is still catching up with the new receipt.
+    setLocalTaskReceipts((current) => Object.fromEntries(
+      Object.entries(current).filter(([itemRef, pendingReceipt]) => {
+        const projectedItem = data.founderActionsInbox.items.find(
+          (candidate) => candidate.item_ref === itemRef,
+        );
+        return !(
+          localTaskCommitReceiptProjectionIsBound(projectedItem)
+          && projectedItem?.receipt_visibility?.local_task_commit_receipt_ref
+            === pendingReceipt.receipt_ref
+          && projectedItem.receipt_visibility.local_task_ref
+            === pendingReceipt.local_task_ref
+        );
+      }),
+    ));
+    if (currentReceiptReconciled && currentPendingReceipt && currentItemRef) {
+      const reconciledMessage = `${currentPendingReceipt.replayed ? "Replayed" : "Recorded"} local task receipt · ${currentPendingReceipt.receipt_ref}. Backend read model reconciled.`;
+      setLocalTaskFeedback((current) => ({
+        ...current,
+        [currentItemRef]: reconciledMessage,
+      }));
+      setFeedback(reconciledMessage);
+    } else if (!currentPendingReceipt) {
+      setFeedback("Select an exact backend action envelope to review.");
+    }
   }, [data.founderActionsInbox]);
   const authoritative = data.connection.state === "online" && !data.connection.usingMockData && data.routeStates["/actions"]?.state === "backend_owned";
   const items = inbox.items;

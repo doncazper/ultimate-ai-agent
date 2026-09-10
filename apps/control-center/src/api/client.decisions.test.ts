@@ -216,6 +216,22 @@ describe("loadNorthStarDecisionsData", () => {
       "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
     );
   });
+
+  it.each([
+    ["missing", undefined],
+    ["malformed", { lease_ref: "authority-lease-ref:unsafe" }],
+  ])("fails closed when active AuthorityLease data is %s", async (_label, activeLeases) => {
+    const fixtures = boundedDecisionFixtures();
+    const settings = fixtures[API_ENDPOINTS.controlCenterSettingsStatus] as {
+      authority_lease_state: { active_leases?: unknown };
+    };
+    settings.authority_lease_state.active_leases = activeLeases;
+    stubBoundedFetch(fixtures);
+
+    await expect(loadNorthStarDecisionsData(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
 });
 
 describe("local task commit boundary", () => {
@@ -265,6 +281,10 @@ describe("local task commit boundary", () => {
     };
 
     expect(localTaskCommitReceiptIsSafe(receipt, binding)).toBe(true);
+    expect(localTaskCommitReceiptIsSafe({
+      ...receipt,
+      evidence_refs: [...receipt.evidence_refs, "evidence-ref:release.v1"],
+    }, binding)).toBe(true);
     expect(localTaskCommitReceiptIsSafe({
       ...receipt,
       authority_decision_ref: "authority-policy-decision-ref:substituted",

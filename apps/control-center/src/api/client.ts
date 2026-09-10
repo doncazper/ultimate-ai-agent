@@ -7676,9 +7676,6 @@ export function localTaskCommitAuthorityPreviewIsSafe(
       ? decision.required_capability_refs
       : []),
     ...(Array.isArray(decision.reason_refs) ? decision.reason_refs : []),
-    ...(Array.isArray(preview.redactions_applied)
-      ? preview.redactions_applied
-      : []),
   ];
   return preview.schema_version === "uaa-authority-decision-preview.v1"
     && preview.execution_performed === false
@@ -7710,8 +7707,10 @@ export function localTaskCommitAuthorityPreviewIsSafe(
     && Array.isArray(decision.required_capability_refs)
     && decision.required_capability_refs.includes("authority-capability-ref:write")
     && new Set(preview.active_lease_refs).size === preview.active_lease_refs.length
-    && requiredRefs.every((ref) =>
-      isSafeLocalTaskReceiptDisplayValue(ref));
+    && requiredRefs.every(isSafeLocalTaskReceiptRef)
+    && Array.isArray(preview.redactions_applied)
+    && preview.redactions_applied.every((value) =>
+      isSafeLocalTaskReceiptDisplayValue(value));
 }
 
 export function localTaskCommitReceiptIsSafe(
@@ -7777,8 +7776,7 @@ export function localTaskCommitReceiptIsSafe(
     && receipt.evidence_refs.includes(receipt.evidence_timeline_event_ref)
     && LOCAL_TASK_COMMIT_BLOCKED_REFS.every((ref) =>
       receipt.blocked_state_refs.includes(ref))
-    && requiredRefs.every((ref) =>
-      isSafeLocalTaskReceiptDisplayValue(ref))
+    && requiredRefs.every(isSafeLocalTaskReceiptRef)
     && isSafeLocalTaskReceiptDisplayValue(receipt.safe_summary, 320)
     && Number.isFinite(Date.parse(receipt.created_at))
     && receipt.local_task_created === true
@@ -7794,6 +7792,7 @@ export function localTaskCommitReceiptIsSafe(
 function isSafeLocalTaskReceiptDisplayValue(
   value: string | null | undefined,
   maxLength = 240,
+  detectHostname = true,
 ): value is string {
   if (
     typeof value !== "string"
@@ -7811,10 +7810,18 @@ function isSafeLocalTaskReceiptDisplayValue(
     && !/\bprivate\s+(?:prompt|response|model\s+output|provider\s+payload|log)\b/i.test(value)
     && !/\b(?:user(?:name)?|host(?:name)?|serial(?:_?number)?)\s*[:=]\s*\S+/i.test(value)
     && !/\bhost\s+[A-Za-z0-9][A-Za-z0-9.-]{2,}/i.test(value)
-    && !/\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\b/i.test(value)
+    && (!detectHostname || !/\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\b/i.test(value))
     && !/\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/i.test(value)
     && !LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
       pattern.test(value));
+}
+
+function isSafeLocalTaskReceiptRef(
+  value: string | null | undefined,
+): value is string {
+  return typeof value === "string"
+    && /^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$/.test(value)
+    && isSafeLocalTaskReceiptDisplayValue(value, 240, false);
 }
 
 function todayActionEnvelopeIdempotencyRef(
@@ -14392,6 +14399,12 @@ function isSafeControlCenterSettingsStatus(
     "full_machine_access_session",
     "delegated_mission_autonomous_window",
   ]);
+  const authorityLeaseStatuses = new Set([
+    "active",
+    "expired",
+    "revoked",
+    "planned",
+  ]);
   return (
     value.schema_version === "uaa-control-center-settings-status.v1" &&
     value.module_id === "settings" &&
@@ -14405,6 +14418,15 @@ function isSafeControlCenterSettingsStatus(
     Array.isArray(value.redactions_applied) &&
     authority.schema_version === "uaa-authority-state.v1" &&
     authority.backend_owned === true &&
+    Array.isArray(authority.active_leases) &&
+    authority.active_leases.every((lease) =>
+      isPlainRecord(lease)
+      && typeof lease.lease_ref === "string"
+      && lease.lease_ref.length > 0
+      && typeof lease.mode === "string"
+      && authorityModes.has(lease.mode)
+      && typeof lease.status === "string"
+      && authorityLeaseStatuses.has(lease.status)) &&
     typeof authority.active_mode === "string" &&
     authorityModes.has(authority.active_mode) &&
     authority.unknown_authority_default === "deny" &&

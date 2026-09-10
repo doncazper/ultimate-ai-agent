@@ -15055,6 +15055,16 @@ describe("Web Control Center shell", () => {
     expect(String(previewRequest.body)).toContain(
       "authority-action-ref:control-center-preview-workspace-execute",
     );
+    const previewHeaders = new Headers(previewRequest.headers);
+    expect(previewHeaders.get("X-UAA-Expected-Backend-Revision-Ref")).toBe(
+      TEST_MUTATION_BINDING.backendRevisionRef,
+    );
+    expect(previewHeaders.get("X-UAA-Expected-Backend-Instance-Ref")).toBe(
+      TEST_MUTATION_BINDING.backendInstanceRef,
+    );
+    expect(previewHeaders.get("X-UAA-Expected-Backend-Truth-Ref")).toBe(
+      TEST_MUTATION_BINDING.snapshotRef,
+    );
     expect(JSON.stringify(previewRequest.headers)).not.toContain(
       "X-UAA-Idempotency-Key",
     );
