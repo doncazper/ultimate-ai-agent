@@ -1168,16 +1168,28 @@ describe("North Star backend wiring", () => {
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
-  it("blocks recommit when a local task receipt projection is rebound", async () => {
+  it.each([
+    [
+      "task and receipt are rebound",
+      "local-task:founder-loop:another-action",
+      "receipt:founder-loop-local-task:rebound-receipt",
+    ],
+    [
+      "canonical task has a substituted exact-prefixed receipt",
+      "local-task:founder-loop:founder-action-mock-local-task-review",
+      "receipt:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-control-center-local-task-mock-local-task-review-approval-ref-substituted",
+    ],
+  ])("blocks recommit when the projected %s", async (
+    _label,
+    projectedTaskRef,
+    projectedReceiptRef,
+  ) => {
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
     );
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
-    const reboundTaskRef = "local-task:founder-loop:another-action";
-    const reboundReceiptRef =
-      "receipt:founder-loop-local-task:rebound-receipt";
     attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     Object.assign(item, {
       status: "approved",
@@ -1188,15 +1200,15 @@ describe("North Star backend wiring", () => {
       local_task_commit_approval_status: "backend_owned_approval_ready",
       local_task_commit_eligible: true,
       local_task_commit_blocked_reasons: [],
-      local_task_ref: reboundTaskRef,
-      local_task_commit_receipt_ref: reboundReceiptRef,
-      receipt_refs: [...item.receipt_refs, reboundReceiptRef],
+      local_task_ref: projectedTaskRef,
+      local_task_commit_receipt_ref: projectedReceiptRef,
+      receipt_refs: [...item.receipt_refs, projectedReceiptRef],
       receipt_visibility: {
         ...item.receipt_visibility,
         source: "python_core_action_inbox_read_model",
         backend_owned: true,
-        local_task_ref: reboundTaskRef,
-        local_task_commit_receipt_ref: reboundReceiptRef,
+        local_task_ref: projectedTaskRef,
+        local_task_commit_receipt_ref: projectedReceiptRef,
         missing_field_states: ["none"],
       },
     });

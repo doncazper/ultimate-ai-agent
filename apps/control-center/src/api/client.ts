@@ -5866,17 +5866,16 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
   const isStringArray = (candidate: unknown): candidate is string[] =>
     Array.isArray(candidate)
     && candidate.every((entry) => typeof entry === "string");
-  const requiredTextFields = [
-    "item_ref",
-    "title",
-    "safe_summary",
-    "surface",
-    "priority",
-    "risk_class",
-    "status",
-    "side_effect_class",
-    "authority_boundary",
-    "next_safe_action",
+  const safeDisplayFields: Array<[string, number]> = [
+    ["title", 160],
+    ["safe_summary", 500],
+    ["surface", 120],
+    ["priority", 80],
+    ["risk_class", 80],
+    ["status", 120],
+    ["side_effect_class", 120],
+    ["authority_boundary", 500],
+    ["next_safe_action", 500],
   ];
   const requiredArrayFields = ["evidence_refs", "receipt_refs", "audit_refs"];
   const optionalArrayFields = [
@@ -5885,7 +5884,12 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     "action_blocked_state_refs",
     "local_task_commit_blocked_reasons",
   ];
-  return requiredTextFields.every((field) => typeof value[field] === "string")
+  return isSafeLocalTaskReceiptRef(value.item_ref as string | undefined)
+    && safeDisplayFields.every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      ))
     && typeof value.approval_required === "boolean"
     && requiredArrayFields.every((field) => isStringArray(value[field]))
     && optionalArrayFields.every((field) =>
@@ -7651,6 +7655,8 @@ const LOCAL_TASK_COMMIT_SAFE_DISABLE_REF =
   "safe-disable:founder-loop:local-task-create-scorecard";
 const LOCAL_TASK_COMMIT_ROLLBACK_REF =
   "rollback-not-applicable:local-task-safe-disable";
+const LOCAL_TASK_COMMIT_SAFE_DISABLE_POSTURE_REF =
+  "safe-disable-posture:founder-loop:local-task-create:enabled";
 const LOCAL_TASK_COMMIT_BLOCKED_REFS = [
   "blocked-state:no-connector-write",
   "blocked-state:no-shell-subprocess-execution",
@@ -7690,6 +7696,13 @@ function localTaskCommitSafeSuffix(value: string): string {
 
 export function founderLoopLocalTaskRef(itemRef: string): string {
   return `local-task:founder-loop:${localTaskCommitSafeSuffix(itemRef)}`;
+}
+
+export function localTaskCommitReceiptRef(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): string {
+  return `receipt:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(localTaskCommitIdempotencyRef(itemRef, request))}`;
 }
 
 export function buildLocalTaskCommitRequest(
@@ -7850,8 +7863,7 @@ export async function localTaskCommitDerivedRefs(
   };
   const digest = await sha256Hex(portableCanonicalJson(payload));
   return {
-    receiptRef:
-      `receipt:founder-loop-local-task:${itemSuffix}:${idempotencySuffix}`,
+    receiptRef: localTaskCommitReceiptRef(itemRef, request),
     auditRef:
       `audit:founder-loop-local-task:${itemSuffix}:${idempotencySuffix}`,
     evidenceTimelineEventRef: `evidence-timeline:local-task/${itemSuffix}`,
@@ -7940,6 +7952,8 @@ export async function localTaskCommitReceiptIsSafe(
     && receipt.run_ref === "run-ref:founder-loop-v1:governed-local-loop"
     && receipt.safe_disable_ref === binding.safeDisableRef
     && receipt.rollback_ref === binding.rollbackRef
+    && receipt.safe_disable_posture_ref
+      === LOCAL_TASK_COMMIT_SAFE_DISABLE_POSTURE_REF
     && receipt.authority_domain_ref === "authority-domain-ref:workspace"
     && receipt.authority_capability_ref === "authority-capability-ref:write"
     && receipt.authority_required_mode_ref === "authority-mode-ref:ask-before-changes"

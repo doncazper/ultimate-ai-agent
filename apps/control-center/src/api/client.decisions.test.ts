@@ -258,6 +258,23 @@ describe("loadNorthStarDecisionsData", () => {
       "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
     );
   });
+
+  it.each([
+    ["title", `credential: ${"x".repeat(20)}`],
+    ["safe_summary", "raw_prompt: private backend content"],
+    ["next_safe_action", "Review /Users/operator/private.log"],
+  ])("rejects unsafe refreshed inbox %s text", async (field, unsafeText) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0][field] = unsafeText;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
 });
 
 describe("local task commit boundary", () => {
@@ -388,6 +405,11 @@ describe("local task commit boundary", () => {
     expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
       payload_fingerprint_ref: substitutedDerivedRefs.payloadRef,
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      safe_disable_posture_ref:
+        "safe-disable-posture:founder-loop:local-task-create:substituted",
     }, binding)).toBe(false);
     expect(await localTaskCommitReceiptIsSafe({
       ...receipt,
