@@ -786,6 +786,14 @@ export function DecisionReviewSurface({
     && localTaskSafeDisablePosture.local_task_commits_enabled === true
     && localTaskSafeDisablePosture.safe_disable_active === false
     && localTaskSafeDisablePosture.rollback_execution_enabled === false
+    && isSafeNorthStarRef(item.local_task_safe_disable_ref)
+    && isSafeNorthStarRef(item.local_task_safe_disable_posture_ref)
+    && isSafeNorthStarRef(item.local_task_rollback_ref)
+    && isSafeNorthStarRef(localTaskSafeDisablePosture.safe_disable_ref)
+    && isSafeNorthStarRef(
+      localTaskSafeDisablePosture.safe_disable_posture_ref,
+    )
+    && isSafeNorthStarRef(localTaskSafeDisablePosture.rollback_ref)
     && localTaskSafeDisablePosture.safe_disable_ref
       === item.local_task_safe_disable_ref
     && localTaskSafeDisablePosture.safe_disable_posture_ref
@@ -1302,9 +1310,10 @@ function localTaskCommitReceiptProjectionIsBound(
   return localTaskCommitReceiptProjectionState(item) === "bound";
 }
 
-function isSafeNorthStarRef(value: string | null | undefined): value is string {
+function isSafeNorthStarRef(value: unknown): value is string {
   if (
-    !value
+    typeof value !== "string"
+    || !value
     || value.length > 256 * 1024
     || !/^[A-Za-z0-9][A-Za-z0-9:_./#=@-]*$/.test(value)
   ) return false;

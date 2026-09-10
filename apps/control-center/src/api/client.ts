@@ -8115,7 +8115,11 @@ export function localTaskCommitAuthorityPreviewIsSafe(
   request: AuthorityActionRequest,
 ): boolean {
   const decision = preview?.decision;
-  if (!decision || !Array.isArray(preview.active_lease_refs)) return false;
+  if (
+    !decision
+    || !Array.isArray(preview.active_lease_refs)
+    || !Array.isArray(preview.request_resource_refs)
+  ) return false;
   const requiredRefs = [
     preview.preview_ref,
     preview.preview_receipt_ref,
@@ -8127,6 +8131,7 @@ export function localTaskCommitAuthorityPreviewIsSafe(
     decision.rollback_ref,
     decision.safe_disable_ref,
     decision.kill_switch_ref,
+    ...preview.request_resource_refs,
     ...preview.active_lease_refs,
     ...(Array.isArray(decision.required_domain_refs)
       ? decision.required_domain_refs
@@ -8150,6 +8155,13 @@ export function localTaskCommitAuthorityPreviewIsSafe(
     && preview.audit_required === true
     && preview.redaction_required === true
     && decision.action_ref === request.action_ref
+    && sameSafeLocalTaskAuthorityRefs(
+      preview.request_resource_refs,
+      request.resource_refs ?? [],
+    )
+    && preview.request_route_ref === (request.route_ref ?? null)
+    && preview.request_lane_ref === (request.lane_ref ?? null)
+    && isSafeLocalTaskReceiptRef(preview.request_lane_ref)
     && decision.domain === "workspace"
     && decision.capability === "write"
     && decision.required_mode === "ask_before_changes"
@@ -8170,6 +8182,18 @@ export function localTaskCommitAuthorityPreviewIsSafe(
     && Array.isArray(preview.redactions_applied)
     && preview.redactions_applied.every((value) =>
       isSafeLocalTaskReceiptDisplayValue(value));
+}
+
+function sameSafeLocalTaskAuthorityRefs(
+  left: unknown,
+  right: readonly string[],
+): left is string[] {
+  return Array.isArray(left)
+    && left.length === right.length
+    && left.every(
+      (value, index) =>
+        value === right[index] && isSafeLocalTaskReceiptRef(value),
+    );
 }
 
 export async function localTaskAuthorityProofRefs(

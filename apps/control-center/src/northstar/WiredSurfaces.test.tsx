@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import { buildLocalTaskCommitRequest, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef } from "../api/client";
+import { buildLocalTaskCommitAuthorityRequest, buildLocalTaskCommitRequest, localTaskCommitAuthorityPreviewIsSafe, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef } from "../api/client";
 import type { AuthorityDecisionPreview, FounderLoopActionDecisionReceipt, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
@@ -369,10 +369,21 @@ function attachWorkspaceWriteAuthority(data: ReturnType<typeof cloneData>) {
   }];
 }
 
-function safeLocalTaskAuthorityPreview(): AuthorityDecisionPreview {
+function safeLocalTaskAuthorityPreview(
+  request = buildLocalTaskCommitAuthorityRequest(
+    "founder-action:mock-local-task-review",
+    buildLocalTaskCommitRequest(
+      "founder-action:mock-local-task-review",
+      "approval-ref:northstar:local-task-approved",
+    ),
+  ),
+): AuthorityDecisionPreview {
   return {
     schema_version: "uaa-authority-decision-preview.v1",
     preview_ref: "authority-decision-preview-ref:northstar-local-task",
+    request_resource_refs: request.resource_refs ?? [],
+    request_route_ref: request.route_ref ?? null,
+    request_lane_ref: request.lane_ref ?? null,
     decision: {
       schema_version: "uaa-authority-state.v1",
       decision_ref: "authority-policy-decision-ref:northstar-local-task",
@@ -633,6 +644,31 @@ afterEach(() => {
 });
 
 describe("North Star backend wiring", () => {
+  it("binds a local-task authority preview to the exact reviewed commit request", () => {
+    const commitRequest = buildLocalTaskCommitRequest(
+      "founder-action:mock-local-task-review",
+      "approval-ref:northstar:local-task-approved",
+    );
+    const authorityRequest = buildLocalTaskCommitAuthorityRequest(
+      "founder-action:mock-local-task-review",
+      commitRequest,
+    );
+    const preview = safeLocalTaskAuthorityPreview();
+
+    expect(
+      localTaskCommitAuthorityPreviewIsSafe(preview, authorityRequest),
+    ).toBe(true);
+    for (const substituted of [
+      { ...preview, request_resource_refs: ["resource-ref:another-item"] },
+      { ...preview, request_route_ref: "POST /another-route" },
+      { ...preview, request_lane_ref: "lane-ref:another-lane" },
+    ]) {
+      expect(
+        localTaskCommitAuthorityPreviewIsSafe(substituted, authorityRequest),
+      ).toBe(false);
+    }
+  });
+
   it("renders Today as an operator workspace and keeps selection presentation-only", () => {
     const data = cloneData();
     markLiveBackend(data, "/today");
@@ -1044,8 +1080,8 @@ describe("North Star backend wiring", () => {
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
     const onLocalTaskCommitFenceChange = vi.fn();
-    apiMocks.previewAuthorityDecision.mockResolvedValue(
-      safeLocalTaskAuthorityPreview(),
+    apiMocks.previewAuthorityDecision.mockImplementation(
+      async (request) => safeLocalTaskAuthorityPreview(request),
     );
     const data = cloneData();
     markLiveBackend(data, "/actions");
@@ -1206,6 +1242,59 @@ describe("North Star backend wiring", () => {
     attachExactLocalTaskWorkQueue(data, item.item_ref);
     attachWorkspaceWriteAuthority(data);
     item[field] = true;
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it("keeps local task commit unavailable when matching safe-disable refs are malformed", () => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref:
+        "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    attachWorkspaceWriteAuthority(data);
+    const malformedRef = 42 as unknown as string;
+    item.local_task_safe_disable_ref = malformedRef;
+    item.local_task_safe_disable_posture_ref = malformedRef;
+    item.local_task_rollback_ref = malformedRef;
+    if (!item.local_task_safe_disable_posture) {
+      throw new Error("Expected local task safe-disable posture");
+    }
+    item.local_task_safe_disable_posture.safe_disable_ref = malformedRef;
+    item.local_task_safe_disable_posture.safe_disable_posture_ref = malformedRef;
+    item.local_task_safe_disable_posture.rollback_ref = malformedRef;
 
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>

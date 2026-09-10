@@ -14640,6 +14640,9 @@ describe("Web Control Center shell", () => {
     const authorityPreview: AuthorityDecisionPreview = {
       schema_version: "uaa-authority-decision-preview.v1",
       preview_ref: "authority-decision-preview-ref:app-test-workspace-execute",
+      request_resource_refs: [],
+      request_route_ref: null,
+      request_lane_ref: null,
       decision: {
         schema_version: "uaa-authority-state.v1",
         decision_ref: "authority-policy-decision-ref:app-test-workspace-execute",
@@ -20515,6 +20518,68 @@ describe("Web Control Center shell", () => {
     await screen.findByText("Authoritatively refreshed Action review");
   });
 
+  it("rejects an unsafe Decisions conflict refresh and preserves the confirmed snapshot", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-decisions-refresh:00000001:11111111111111111111";
+    const unsafeRevisionRef =
+      "action-revision:founder-action-ui-decisions-refresh:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-decisions-refresh";
+    const initialInbox = revisionBoundActionInbox({ itemRef, revisionRef });
+    const unsafeRefresh = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: unsafeRevisionRef,
+    });
+    unsafeRefresh.items[0].title = "Unsafe conflict replacement";
+    unsafeRefresh.items[0].safe_summary = "raw_prompt: private backend content";
+    let inboxReads = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        inboxReads += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: inboxReads === 1 ? initialInbox : unsafeRefresh,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/workspace/decisions");
+    render(<App />);
+
+    expect((await screen.findAllByText("Revision-bound Action review")).length)
+      .toBeGreaterThan(0);
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
+          detail: {
+            code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+            currentRevisionRef: unsafeRevisionRef,
+            currentGenerationRef:
+              "action-generation:founder-action-ui-decisions-refresh:00000002",
+            refreshRouteRef: "GET /control-center/actions/inbox",
+          },
+        }),
+      );
+    });
+
+    await screen.findByText("Action revision refresh unavailable");
+    expect(screen.getAllByText("Revision-bound Action review").length)
+      .toBeGreaterThan(0);
+    expect(screen.queryByText("Unsafe conflict replacement"))
+      .not.toBeInTheDocument();
+    expect(inboxReads).toBeGreaterThanOrEqual(2);
+  });
+
   it("preserves the confirmed actions snapshot when stale refresh fails and accepts a later retry", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-actions-failed:00000001:11111111111111111111";
@@ -20851,7 +20916,7 @@ describe("Web Control Center shell", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("releases an uncertain cancellation fence only after authoritative recovery", async () => {
+  it("retains an uncertain cancellation fence until a later refresh advances the submitted revision", async () => {
     const revisionRef =
       "action-revision:founder-action-ui-cancel-recovered:00000001:11111111111111111111";
     const itemRef = "founder-action:ui-cancel-recovered";
@@ -20877,7 +20942,7 @@ describe("Web Control Center shell", () => {
     const onAuthoritativeRefresh = vi.fn();
     const onCancellationFenceChange = vi.fn();
 
-    render(
+    const view = render(
       <ActionInboxCancellationControl
         binding={TEST_MUTATION_BINDING}
         data={data}
@@ -20889,13 +20954,32 @@ describe("Web Control Center shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
 
     expect(
-      await screen.findByText(/authoritative recovery refresh confirmed/i),
+      await screen.findByText(/recovery still shows the submitted revision/i),
     ).toBeInTheDocument();
-    expect(onCancellationFenceChange.mock.calls).toEqual([
-      [itemRef, true],
-      [itemRef, false],
-    ]);
+    expect(onCancellationFenceChange).toHaveBeenCalledWith(itemRef, true);
+    expect(onCancellationFenceChange).not.toHaveBeenCalledWith(itemRef, false);
     expect(onAuthoritativeRefresh).toHaveBeenCalledWith(inbox);
+
+    const advancedData = cloneForTest(data);
+    advancedData.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef:
+        "action-revision:founder-action-ui-cancel-recovered:00000002:22222222222222222222",
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+    view.rerender(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={advancedData}
+        onAuthoritativeRefresh={onAuthoritativeRefresh}
+        pendingLocalTaskCommitItemRefs={[]}
+        onCancellationFenceChange={onCancellationFenceChange}
+      />,
+    );
+
+    await waitFor(() => expect(onCancellationFenceChange).toHaveBeenLastCalledWith(
+      itemRef,
+      false,
+    ));
   });
 
   it("confirms cancellation only after an authoritative refreshed revision", async () => {

@@ -264,7 +264,7 @@ export function NorthStarRoute({
     ? loadedActionInbox.items
         .map(
           (item) =>
-            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}`,
+            `${item.item_ref}:${item.action_revision_ref ?? item.expected_revision_ref ?? "missing"}:${item.status}:${item.receipt_refs.join(",")}:${item.local_task_commit_receipt_ref ?? "missing"}`,
         )
         .join("|")
     : "unavailable";
@@ -273,8 +273,12 @@ export function NorthStarRoute({
   const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
   const [pendingLocalTaskCommitItemRefs, setPendingLocalTaskCommitItemRefs] =
     useState<string[]>([]);
-  const [pendingCancellationItemRefs, setPendingCancellationItemRefs] =
-    useState<string[]>([]);
+  const [pendingCancellationAttempts, setPendingCancellationAttempts] =
+    useState<PendingActionCancellation[]>([]);
+  const pendingCancellationItemRefs = useMemo(
+    () => pendingCancellationAttempts.map((attempt) => attempt.itemRef),
+    [pendingCancellationAttempts],
+  );
   const updateLocalTaskCommitFence = useCallback(
     (itemRef: string, pending: boolean) => {
       setPendingLocalTaskCommitItemRefs((current) => {
@@ -289,17 +293,31 @@ export function NorthStarRoute({
     },
     [],
   );
-  const updateCancellationFence = useCallback(
-    (itemRef: string, pending: boolean) => {
-      setPendingCancellationItemRefs((current) => {
-        const next = pending
-          ? Array.from(new Set([...current, itemRef]))
-          : current.filter((candidate) => candidate !== itemRef);
-        return next.length === current.length
-          && next.every((candidate, index) => candidate === current[index])
-          ? current
-          : next;
+  const updateCancellationAttempt = useCallback(
+    (itemRef: string, attempt: PendingActionCancellation | null) => {
+      setPendingCancellationAttempts((current) => {
+        if (!attempt) {
+          const next = current.filter(
+            (candidate) => candidate.itemRef !== itemRef,
+          );
+          return next.length === current.length ? current : next;
+        }
+        const next = [
+          ...current.filter(
+            (candidate) => candidate.itemRef !== attempt.itemRef,
+          ),
+          attempt,
+        ];
+        return next;
       });
+    },
+    [],
+  );
+  const reconcileCancellationAttempts = useCallback(
+    (inbox: FounderLoopActionsInbox) => {
+      setPendingCancellationAttempts((current) =>
+        reconcilePendingActionCancellations(current, inbox),
+      );
     },
     [],
   );
@@ -311,8 +329,9 @@ export function NorthStarRoute({
       setPendingLocalTaskCommitItemRefs((current) =>
         reconcilePendingLocalTaskCommitItemRefs(current, loadedActionInbox),
       );
+      reconcileCancellationAttempts(loadedActionInbox);
     }
-  }, [loadedActionInboxSnapshotKey]);
+  }, [loadedActionInboxSnapshotKey, reconcileCancellationAttempts]);
 
   useEffect(() => {
     const canonicalPath = canonicalizeControlCenterPath(activePath);
@@ -324,9 +343,15 @@ export function NorthStarRoute({
     let active = true;
     const refreshAfterConflict = () => {
       setRevisionRefreshFailed(false);
-      void fetchFounderActionsInbox(truthReadBinding)
+      const fetchConflictInbox = canonicalPath === "/workspace/decisions"
+        ? fetchNorthStarDecisionsInbox
+        : fetchFounderActionsInbox;
+      void fetchConflictInbox(truthReadBinding)
         .then((inbox) => {
-          if (active) setActionInboxOverride(inbox);
+          if (active) {
+            setActionInboxOverride(inbox);
+            reconcileCancellationAttempts(inbox);
+          }
         })
         .catch(() => {
           if (active) setRevisionRefreshFailed(true);
@@ -343,7 +368,7 @@ export function NorthStarRoute({
         refreshAfterConflict as EventListener,
       );
     };
-  }, [activePath, truthReadBinding]);
+  }, [activePath, reconcileCancellationAttempts, truthReadBinding]);
   const retryCriticalRoute = async () => {
     await truthState.retry();
     state.retry();
@@ -491,13 +516,15 @@ export function NorthStarRoute({
           <ActionInboxCancellationControl
             binding={truthReadBinding}
             data={visibleData}
+            pendingCancellationAttempts={pendingCancellationAttempts}
             pendingLocalTaskCommitItemRefs={pendingLocalTaskCommitItemRefs}
-            onCancellationFenceChange={updateCancellationFence}
+            onCancellationAttemptChange={updateCancellationAttempt}
             onAuthoritativeRefresh={(inbox) => {
               setActionInboxOverride(inbox);
               setPendingLocalTaskCommitItemRefs((current) =>
                 reconcilePendingLocalTaskCommitItemRefs(current, inbox),
               );
+              reconcileCancellationAttempts(inbox);
               setRevisionRefreshFailed(false);
             }}
           />
@@ -512,6 +539,7 @@ export function NorthStarRoute({
             setPendingLocalTaskCommitItemRefs((current) =>
               reconcilePendingLocalTaskCommitItemRefs(current, inbox),
             );
+            reconcileCancellationAttempts(inbox);
             setRevisionRefreshFailed(false);
           }}
         />
@@ -523,13 +551,20 @@ export function NorthStarRoute({
 export function ActionInboxCancellationControl({
   binding,
   data,
+  pendingCancellationAttempts,
   pendingLocalTaskCommitItemRefs,
+  onCancellationAttemptChange,
   onCancellationFenceChange,
   onAuthoritativeRefresh,
 }: {
   binding: BackendTruthReadBinding | null;
   data: ControlCenterData;
+  pendingCancellationAttempts?: readonly PendingActionCancellation[];
   pendingLocalTaskCommitItemRefs: readonly string[];
+  onCancellationAttemptChange?: (
+    itemRef: string,
+    attempt: PendingActionCancellation | null,
+  ) => void;
   onCancellationFenceChange?: (itemRef: string, pending: boolean) => void;
   onAuthoritativeRefresh: (inbox: FounderLoopActionsInbox) => void;
 }) {
@@ -538,11 +573,8 @@ export function ActionInboxCancellationControl({
     inbox.items[0]?.item_ref ?? "",
   );
   const [pending, setPending] = useState(false);
-  const [pendingCancellationReceipt, setPendingCancellationReceipt] = useState<{
-    itemRef: string;
-    receiptRef: string;
-    resultRevisionRef: string;
-  } | null>(null);
+  const [localPendingCancellationAttempt, setLocalPendingCancellationAttempt] =
+    useState<PendingActionCancellation | null>(null);
   const [feedback, setFeedback] = useState(
     "Cancel is revision-bound and invalidates every earlier backend-owned approval.",
   );
@@ -561,6 +593,10 @@ export function ActionInboxCancellationControl({
   const localTaskCommitPending = Boolean(
     selectedItem && pendingLocalTaskCommitItemRefs.includes(selectedItem.item_ref),
   );
+  const pendingCancellationAttempt =
+    pendingCancellationAttempts?.find(
+      (attempt) => attempt.itemRef === selectedItem?.item_ref,
+    ) ?? localPendingCancellationAttempt;
   const canCancel = Boolean(
     authoritative &&
       binding &&
@@ -572,7 +608,7 @@ export function ActionInboxCancellationControl({
       selectedItem.status !== "cancelled" &&
       !localTaskCommitted &&
       !localTaskCommitPending &&
-      !pendingCancellationReceipt &&
+      !pendingCancellationAttempt &&
       expectedRevisionRef,
   );
 
@@ -585,30 +621,37 @@ export function ActionInboxCancellationControl({
   }, [inbox.items, selectedItemRef]);
 
   useEffect(() => {
-    if (!pendingCancellationReceipt) return;
-    const reconciledItem = inbox.items.find(
-      (item) => item.item_ref === pendingCancellationReceipt.itemRef,
-    );
-    if (
-      reconciledItem?.status === "cancelled"
-      && reconciledItem.action_revision_ref
-        === pendingCancellationReceipt.resultRevisionRef
-      && reconciledItem.receipt_refs.includes(
-        pendingCancellationReceipt.receiptRef,
-      )
-    ) {
-      onCancellationFenceChange?.(pendingCancellationReceipt.itemRef, false);
-      setPendingCancellationReceipt(null);
+    if (!pendingCancellationAttempt) return;
+    if (actionCancellationSnapshotProvesSafe(
+      pendingCancellationAttempt,
+      inbox,
+    )) {
+      onCancellationFenceChange?.(pendingCancellationAttempt.itemRef, false);
+      setLocalPendingCancellationAttempt(null);
+      onCancellationAttemptChange?.(pendingCancellationAttempt.itemRef, null);
       setFeedback(
-        `Cancellation confirmed by the refreshed backend read model · ${pendingCancellationReceipt.receiptRef}.`,
+        pendingCancellationAttempt.receiptRef
+          ? `Cancellation confirmed by the refreshed backend read model · ${pendingCancellationAttempt.receiptRef}.`
+          : "The authoritative Action Inbox advanced beyond the submitted cancellation revision and released the mutation fence.",
       );
     }
-  }, [inbox.items, onCancellationFenceChange, pendingCancellationReceipt]);
+  }, [
+    inbox,
+    onCancellationAttemptChange,
+    onCancellationFenceChange,
+    pendingCancellationAttempt,
+  ]);
 
   async function cancelSelectedRevision() {
     if (!selectedItem || !expectedRevisionRef || !canCancel || pending) return;
     const submittedItemRef = selectedItem.item_ref;
+    const submittedAttempt: PendingActionCancellation = {
+      itemRef: submittedItemRef,
+      submittedRevisionRef: expectedRevisionRef,
+    };
     setPending(true);
+    setLocalPendingCancellationAttempt(submittedAttempt);
+    onCancellationAttemptChange?.(submittedItemRef, submittedAttempt);
     onCancellationFenceChange?.(submittedItemRef, true);
     setFeedback("Recording the cancellation against the exact displayed revision…");
     try {
@@ -625,11 +668,13 @@ export function ActionInboxCancellationControl({
         },
         binding,
       );
-      setPendingCancellationReceipt({
-        itemRef: submittedItemRef,
+      const receiptedAttempt: PendingActionCancellation = {
+        ...submittedAttempt,
         receiptRef: receipt.receipt_ref,
         resultRevisionRef: receipt.result_revision_ref,
-      });
+      };
+      setLocalPendingCancellationAttempt(receiptedAttempt);
+      onCancellationAttemptChange?.(submittedItemRef, receiptedAttempt);
       try {
         const refreshed = await fetchNorthStarDecisionsInbox(binding);
         const refreshedItem = refreshed.items.find(
@@ -647,7 +692,8 @@ export function ActionInboxCancellationControl({
           return;
         }
         onCancellationFenceChange?.(submittedItemRef, false);
-        setPendingCancellationReceipt(null);
+        setLocalPendingCancellationAttempt(null);
+        onCancellationAttemptChange?.(submittedItemRef, null);
         onAuthoritativeRefresh(refreshed);
         setFeedback(
           `Cancellation confirmed by the refreshed backend read model · ${receipt.receipt_ref}.`,
@@ -674,12 +720,20 @@ export function ActionInboxCancellationControl({
           return;
         }
         onAuthoritativeRefresh(refreshed);
-        onCancellationFenceChange?.(submittedItemRef, false);
-        setFeedback(
-          refreshedItem.status === "cancelled"
-            ? "Cancellation confirmed by an authoritative recovery refresh after the dispatch response became uncertain."
-            : `${failureMessage} The authoritative recovery refresh confirmed the current Action Inbox state and released the cancellation fence.`,
-        );
+        if (actionCancellationSnapshotProvesSafe(submittedAttempt, refreshed)) {
+          onCancellationFenceChange?.(submittedItemRef, false);
+          setLocalPendingCancellationAttempt(null);
+          onCancellationAttemptChange?.(submittedItemRef, null);
+          setFeedback(
+            refreshedItem.status === "cancelled"
+              ? "Cancellation confirmed by an authoritative recovery refresh after the dispatch response became uncertain."
+              : `${failureMessage} The authoritative recovery refresh advanced beyond the submitted revision and released the cancellation fence.`,
+          );
+        } else {
+          setFeedback(
+            `${failureMessage} Cancellation outcome is uncertain; the authoritative recovery still shows the submitted revision, so the mutation fence remains active.`,
+          );
+        }
       } catch {
         setFeedback(
           `${failureMessage} Cancellation outcome is uncertain; the mutation fence remains active until a validated authoritative refresh succeeds.`,
@@ -738,6 +792,51 @@ export function ActionInboxCancellationControl({
       <p aria-live="polite">{feedback}</p>
     </section>
   );
+}
+
+export interface PendingActionCancellation {
+  itemRef: string;
+  submittedRevisionRef: string;
+  receiptRef?: string;
+  resultRevisionRef?: string;
+}
+
+function actionCancellationSnapshotProvesSafe(
+  attempt: PendingActionCancellation,
+  inbox: FounderLoopActionsInbox,
+): boolean {
+  const item = inbox.items.find(
+    (candidate) => candidate.item_ref === attempt.itemRef,
+  );
+  if (!item) return false;
+  const currentRevisionRef =
+    item.action_revision_ref ?? item.expected_revision_ref;
+  const exactCancellationReceiptBound = Boolean(
+    attempt.receiptRef
+      && attempt.resultRevisionRef
+      && item.status === "cancelled"
+      && currentRevisionRef === attempt.resultRevisionRef
+      && item.receipt_refs.includes(attempt.receiptRef),
+  );
+  return exactCancellationReceiptBound
+    || localTaskCommitProjectionIsExactlyBound(item)
+    || Boolean(
+      currentRevisionRef
+        && currentRevisionRef !== attempt.submittedRevisionRef,
+    );
+}
+
+export function reconcilePendingActionCancellations(
+  current: readonly PendingActionCancellation[],
+  inbox: FounderLoopActionsInbox,
+): PendingActionCancellation[] {
+  const next = current.filter(
+    (attempt) => !actionCancellationSnapshotProvesSafe(attempt, inbox),
+  );
+  return next.length === current.length
+    && next.every((candidate, index) => candidate === current[index])
+    ? current as PendingActionCancellation[]
+    : next;
 }
 
 function localTaskCommitProjectionIsExactlyBound(

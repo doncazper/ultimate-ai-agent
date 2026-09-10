@@ -15279,6 +15279,9 @@ export interface AuthorityDecisionPreview {
   schema_version: "uaa-authority-decision-preview.v1";
   preview_ref: string;
   decision: AuthorityPolicyDecision;
+  request_resource_refs: string[];
+  request_route_ref: string | null;
+  request_lane_ref: string | null;
   active_lease_refs: string[];
   preview_receipt_ref: string;
   audit_record_ref: string;
