@@ -562,9 +562,6 @@ function attachExactPlansBridge(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMocks.previewAuthorityDecision.mockResolvedValue(
-    safeLocalTaskAuthorityPreview(),
-  );
 });
 
 afterEach(() => {
@@ -681,6 +678,9 @@ describe("North Star backend wiring", () => {
   });
 
   it("continues an exact approval into a backend-confirmed local task receipt", async () => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
@@ -872,6 +872,9 @@ describe("North Star backend wiring", () => {
   });
 
   it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
+    apiMocks.previewAuthorityDecision.mockResolvedValue(
+      safeLocalTaskAuthorityPreview(),
+    );
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const [firstItem, secondItem] = data.founderActionsInbox.items;
