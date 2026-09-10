@@ -5871,6 +5871,8 @@ export function validateNorthStarDecisionsInbox(
     || inboxRecord.approval_required_before_mutation !== true
     || typeof inboxRecord.mutating_controls_enabled !== "boolean"
     || inboxRecord.action_execution_enabled !== false
+    || inboxRecord.expected_revision_required !== true
+    || inboxRecord.cancel_decision_enabled !== true
     || typeof inboxRecord.decision_receipts_required !== "boolean"
     || !Array.isArray(items)
     || items.length > 50
@@ -5882,10 +5884,133 @@ export function validateNorthStarDecisionsInbox(
     || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
     || !workQueue.backend_owned
     || !actionInboxGroupsMatchWorkQueue(items, workQueue)
+    || !decisionLanesMatchActionInbox(items, decisionLane)
   ) {
     throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
   }
   return normalized.value;
+}
+
+function decisionLanesMatchActionInbox(
+  items: unknown[],
+  decisionLane: NonNullable<
+    FounderLoopActionsInbox["action_inbox_decision_lane_read_model"]
+  >,
+): boolean {
+  const itemRecords = items.filter(isPlainRecord);
+  const decisionItems = decisionLane.items as unknown[];
+  const decisionItemRecords = decisionItems.filter(isPlainRecord);
+  const itemRefs = itemRecords
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  const decisionItemRefs = decisionItemRecords
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    itemRecords.length !== items.length
+    || decisionItemRecords.length !== decisionItems.length
+    || !hasExactStringSet(decisionItemRefs, itemRefs)
+    || decisionLane.lanes.length !== NORTH_STAR_DECISION_LANE_LABELS_BY_ID.size
+  ) return false;
+
+  if (decisionLane.lanes.some((lane) => {
+    const expectedRefs = decisionItemRecords
+      .filter((item) => item.lane_id === lane.lane_id)
+      .map((item) => item.item_ref)
+      .filter((itemRef): itemRef is string => typeof itemRef === "string");
+    return lane.label !== NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(lane.lane_id)
+      || lane.count !== expectedRefs.length
+      || !hasExactStringSet(lane.item_refs, expectedRefs);
+  })) return false;
+
+  return itemRecords.every((item) => {
+    const matches = decisionItemRecords.filter(
+      (candidate) => candidate.item_ref === item.item_ref,
+    );
+    if (matches.length !== 1) return false;
+    const laneItem = matches[0];
+    const expectedReceiptRefs = Array.isArray(item.action_expected_receipt_refs)
+      ? item.action_expected_receipt_refs
+      : isPlainRecord(item.approval_envelope)
+          && Array.isArray(item.approval_envelope.expected_receipt_refs)
+        ? item.approval_envelope.expected_receipt_refs
+        : [];
+    const boundScalarFields = [
+      "title",
+      "status",
+      "priority",
+      "side_effect_class",
+      "safe_summary",
+      "next_safe_action",
+      "authority_boundary",
+      "approval_required",
+    ];
+    return decisionLaneIdMatchesActionGroup(item, laneItem)
+      && boundScalarFields.every((field) => laneItem[field] === item[field])
+      && laneItem.action_kind === (item.action_kind ?? "review_only")
+      && laneItem.approval_envelope_ref === item.approval_envelope_ref
+      && laneItem.approval_scope_ref === (
+        item.action_scope_ref
+        ?? (isPlainRecord(item.approval_envelope)
+          ? item.approval_envelope.exact_scope
+          : undefined)
+      )
+      && laneItem.rollback_ref === (item.action_rollback_ref ?? item.rollback_ref)
+      && laneItem.safe_disable_ref === (
+        item.action_safe_disable_ref ?? item.safe_disable_ref
+      )
+      && hasExactStringSet(
+        laneItem.expected_receipt_refs as unknown[],
+        expectedReceiptRefs.filter(
+          (value): value is string => typeof value === "string",
+        ),
+      )
+      && hasExactStringSet(
+        laneItem.evidence_refs as unknown[],
+        Array.isArray(item.evidence_refs)
+          ? item.evidence_refs.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      )
+      && hasExactStringSet(
+        laneItem.receipt_refs as unknown[],
+        Array.isArray(item.receipt_refs)
+          ? item.receipt_refs.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      );
+  });
+}
+
+function decisionLaneIdMatchesActionGroup(
+  item: Record<string, unknown>,
+  laneItem: Record<string, unknown>,
+): boolean {
+  const groupId = item.action_group_id;
+  const status = String(item.status ?? "").toLowerCase();
+  const laneId = laneItem.lane_id;
+  if (groupId === "blocked_by_authority") return laneId === "blocked";
+  if (groupId === "expired_stale") return laneId === "deferred";
+  if (groupId === "proposal_only_no_execution_path") {
+    return laneId === "draft_only";
+  }
+  if (groupId === "approved_local_task_lane") {
+    return laneId === "approved_no_execution";
+  }
+  if (groupId === "receipt_recorded") {
+    if (status === "rejected") return laneId === "rejected";
+    if (["deferred", "expired", "stale", "superseded"].includes(status)) {
+      return laneId === "deferred";
+    }
+    if (status === "approved") return laneId === "approved_no_execution";
+    return laneId === "receipt_recorded";
+  }
+  return groupId === "ready_for_decision"
+    && ["needs_approval", "cost_blocked", "no_authority"].includes(
+      String(laneId),
+    );
 }
 
 function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {

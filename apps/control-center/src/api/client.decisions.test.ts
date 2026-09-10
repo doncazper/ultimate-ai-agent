@@ -12,7 +12,11 @@ import {
 } from "./client";
 import { API_ENDPOINTS } from "./endpoints";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import type { FounderLoopLocalTaskCommitReceipt } from "./types";
+import type {
+  FounderLoopActionInboxDecisionLaneId,
+  FounderLoopActionsInbox,
+  FounderLoopLocalTaskCommitReceipt,
+} from "./types";
 
 const binding = {
   snapshotRef: `proof-ref:backend-truth-envelope:sha256:${"1".repeat(64)}`,
@@ -110,6 +114,8 @@ function boundedDecisionFixtures() {
   const inbox = structuredClone(mockControlCenterData.founderActionsInbox);
   const workQueue = inbox.action_inbox_work_queue_read_model;
   if (!workQueue) throw new Error("Missing Action Inbox work queue fixture");
+  inbox.expected_revision_required = true;
+  inbox.cancel_decision_enabled = true;
   const laneOrder = [
     "needs_approval",
     "blocked",
@@ -197,6 +203,102 @@ function boundedDecisionFixtures() {
     inboxItemRefs.has(item.item_ref));
   workQueue.work_item_refs = workQueue.work_items.map((item) => item.item_ref);
   workQueue.work_item_count = workQueue.work_items.length;
+  const decisionReadModel = inbox.action_inbox_decision_lane_read_model;
+  const decisionLaneId = (
+    action: (typeof inbox.items)[number],
+  ): (typeof decisionReadModel.items)[number]["lane_id"] => {
+    switch (action.action_group_id) {
+      case "blocked_by_authority": return "blocked";
+      case "expired_stale": return "deferred";
+      case "approved_local_task_lane": return "approved_no_execution";
+      case "receipt_recorded": return action.status === "rejected"
+        ? "rejected"
+        : action.status === "deferred"
+          ? "deferred"
+          : action.status === "approved"
+            ? "approved_no_execution"
+            : "receipt_recorded";
+      case "proposal_only_no_execution_path": return "draft_only";
+      default: return "needs_approval";
+    }
+  };
+  decisionReadModel.items = inbox.items.map((action) => {
+    const laneId = decisionLaneId(action);
+    const laneLabel = laneLabels[laneId];
+    const expectedReceiptRefs = action.action_expected_receipt_refs
+      ?? action.approval_envelope?.expected_receipt_refs
+      ?? [];
+    return {
+      item_ref: action.item_ref,
+      lane_id: laneId,
+      lane_label: laneLabel,
+      title: action.title,
+      status: action.status,
+      priority: action.priority,
+      action_kind: action.action_kind ?? "review_only",
+      side_effect_class: action.side_effect_class,
+      safe_summary: action.safe_summary,
+      why_shown: action.action_group_reason ?? "Backend-derived decision lane.",
+      next_safe_action: action.next_safe_action,
+      authority_boundary: action.authority_boundary,
+      approval_required: action.approval_required,
+      approval_envelope_ref: action.approval_envelope_ref,
+      approval_envelope_status: action.approval_envelope_status,
+      approval_scope_ref:
+        action.action_scope_ref ?? action.approval_envelope?.exact_scope,
+      approval_requirement_ref:
+        action.action_approval_requirement_ref
+        ?? action.approval_envelope?.approval_requirement,
+      expected_receipt_refs: expectedReceiptRefs,
+      expected_receipt_state: "visible",
+      evidence_refs: action.evidence_refs,
+      receipt_refs: action.receipt_refs,
+      expected_receipt_refs_visible: true,
+      rollback_ref: action.action_rollback_ref ?? action.rollback_ref,
+      safe_disable_ref: action.action_safe_disable_ref ?? action.safe_disable_ref,
+      blocked_authority_refs: action.action_blocked_state_refs ?? [],
+      missing_envelope_field_states: [],
+      cost_state_label: "Cost approved",
+      provider_authority_state_label: "No provider authority",
+      estimated_cost_usd: 0,
+      max_approved_cost_usd: 0,
+      provider_ref: "provider-ref:not-invoked",
+      model_profile_ref: "model-profile-ref:not-invoked",
+      input_metered_units: 0,
+      output_metered_units: 0,
+      total_metered_units: 0,
+      cost_estimate_ref: `cost-estimate-ref:test:${action.item_ref}`,
+      captured_usage_ref: `usage-capture-ref:test:${action.item_ref}`,
+      budget_decision_ref: `budget-decision-ref:test:${action.item_ref}`,
+      cost_receipt_refs: [],
+      cost_blocked_state_refs: [],
+      unknown_paid_cost_requires_explicit_approval: true,
+      frontier_usage_claimed: false,
+      cost_telemetry_complete: true,
+      provider_model_refs_present: false,
+      backend_owned: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      approval_alone_executes: false,
+      approval_ref_authority: false,
+      approval_grants_runtime_authority: false,
+      action_execution_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      browser_execution_enabled: false,
+      provider_model_call_enabled: false,
+      memory_write_enabled: false,
+      context_injection_authorized: false,
+      hidden_memory_write_authorized: false,
+      production_authority_enabled: false,
+    };
+  });
+  for (const lane of decisionReadModel.lanes) {
+    lane.item_refs = decisionReadModel.items
+      .filter((item) => item.lane_id === lane.lane_id)
+      .map((item) => item.item_ref);
+    lane.count = lane.item_refs.length;
+  }
   return {
     [API_ENDPOINTS.founderActionsInbox]: inbox,
     [API_ENDPOINTS.controlCenterSettingsStatus]: {
@@ -209,6 +311,37 @@ function boundedDecisionFixtures() {
       },
     },
   };
+}
+
+function setDecisionLaneForItem(
+  inbox: FounderLoopActionsInbox,
+  itemRef: string,
+  laneId: FounderLoopActionInboxDecisionLaneId,
+) {
+  const readModel = inbox.action_inbox_decision_lane_read_model;
+  const laneItem = readModel?.items.find((item) => item.item_ref === itemRef);
+  if (!readModel || !laneItem) {
+    throw new Error(`Missing decision-lane fixture for ${itemRef}`);
+  }
+  const laneLabels: Record<FounderLoopActionInboxDecisionLaneId, string> = {
+    needs_approval: "Needs approval",
+    blocked: "Blocked",
+    draft_only: "Draft-only",
+    cost_blocked: "Cost blocked",
+    no_authority: "No authority",
+    approved_no_execution: "Approved / no execution",
+    rejected: "Rejected",
+    deferred: "Deferred",
+    receipt_recorded: "Receipt recorded",
+  };
+  laneItem.lane_id = laneId;
+  laneItem.lane_label = laneLabels[laneId];
+  for (const lane of readModel.lanes) {
+    lane.item_refs = readModel.items
+      .filter((item) => item.lane_id === lane.lane_id)
+      .map((item) => item.item_ref);
+    lane.count = lane.item_refs.length;
+  }
 }
 
 function stubBoundedFetch(fixtures: Record<string, unknown>) {
@@ -309,6 +442,8 @@ describe("loadNorthStarDecisionsData", () => {
     ["mutating_controls_enabled", "false"],
     ["action_execution_enabled", "false"],
     ["decision_receipts_required", "false"],
+    ["expected_revision_required", "false"],
+    ["cancel_decision_enabled", "false"],
   ])("rejects a non-boolean top-level %s posture", async (field, value) => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as
@@ -395,6 +530,11 @@ describe("loadNorthStarDecisionsData", () => {
     expiredLane.count = expiredLane.item_refs.length;
     workItem.lane_id = "expired_stale";
     workItem.lane_label = "Expired/stale";
+    setDecisionLaneForItem(
+      inbox as unknown as FounderLoopActionsInbox,
+      itemRef,
+      "deferred",
+    );
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
@@ -533,6 +673,23 @@ describe("loadNorthStarDecisionsData", () => {
     workQueue.work_item_refs = workQueue.work_items.map((item) =>
       String(item.item_ref));
     workQueue.work_item_count = workQueue.work_items.length;
+    const decisionReadModel = (
+      inbox as unknown as FounderLoopActionsInbox
+    ).action_inbox_decision_lane_read_model;
+    const sourceDecisionItem = decisionReadModel?.items[0];
+    if (!decisionReadModel || !sourceDecisionItem) {
+      throw new Error("Expected bounded decision-lane fixtures");
+    }
+    decisionReadModel.items = inbox.items.map((item) => ({
+      ...structuredClone(sourceDecisionItem),
+      item_ref: String(item.item_ref),
+    }));
+    for (const lane of decisionReadModel.lanes) {
+      lane.item_refs = decisionReadModel.items
+        .filter((item) => item.lane_id === lane.lane_id)
+        .map((item) => item.item_ref);
+      lane.count = lane.item_refs.length;
+    }
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
@@ -553,10 +710,30 @@ describe("loadNorthStarDecisionsData", () => {
     }
     inbox.items[0].action_scope_ref = "scope-ref:release.v1";
     inbox.items[0].approval_envelope.exact_scope = "scope-ref:release.v1";
+    const laneItem = (
+      inbox as unknown as FounderLoopActionsInbox
+    ).action_inbox_decision_lane_read_model?.items[0];
+    if (!laneItem) throw new Error("Expected bounded decision-lane item");
+    laneItem.approval_scope_ref = "scope-ref:release.v1";
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
       expect.objectContaining({ items: expect.any(Array) }),
+    );
+  });
+
+  it("rejects a decision lane rebound across the authoritative work queue", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox];
+    const blockedItem = inbox.items.find(
+      (item) => item.action_group_id === "blocked_by_authority",
+    );
+    if (!blockedItem) throw new Error("Expected blocked Action Inbox item");
+    setDecisionLaneForItem(inbox, blockedItem.item_ref, "needs_approval");
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
     );
   });
 

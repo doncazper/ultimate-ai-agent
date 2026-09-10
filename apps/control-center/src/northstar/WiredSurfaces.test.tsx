@@ -728,7 +728,7 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText("reject", { selector: "strong" })).toBeVisible();
   });
 
-  it("continues an exact approval and keeps its receipt while parent state reconciles", async () => {
+  it("retains the exact commit fence after an invalid successful response", async () => {
     const onActionInboxRefresh = vi.fn();
     const onLocalTaskCommitFenceChange = vi.fn();
     apiMocks.previewAuthorityDecision.mockResolvedValue(
@@ -854,46 +854,16 @@ describe("North Star backend wiring", () => {
       ],
       created_at: "2026-09-09T00:00:00Z",
     };
-    const committedInbox = structuredClone(approvedData.founderActionsInbox);
-    const committedItem = committedInbox.items.find(
-      (candidate) => candidate.item_ref === item.item_ref,
-    );
-    if (!committedItem?.receipt_visibility) {
-      throw new Error("Expected committed Action Inbox receipt visibility");
-    }
-    Object.assign(committedItem, {
-      status: "receipt_recorded",
-      action_group_id: "receipt_recorded",
-      action_group_label: "Receipt recorded",
-      local_task_commit_eligible: false,
-      local_task_ref: localTaskReceipt.local_task_ref,
-      local_task_commit_receipt_ref: localTaskReceipt.receipt_ref,
-      receipt_refs: [...committedItem.receipt_refs, localTaskReceipt.receipt_ref],
-      receipt_visibility: {
-        ...committedItem.receipt_visibility,
-        local_task_ref: localTaskReceipt.local_task_ref,
-        local_task_commit_receipt_ref: localTaskReceipt.receipt_ref,
-        local_task_commit_idempotency_key_ref:
-          localTaskReceipt.idempotency_key_ref,
-        missing_field_states: ["none"],
-      },
-    });
     apiMocks.submitActionDecision.mockResolvedValue(approvalReceipt);
-    apiMocks.commitLocalTask
-      .mockResolvedValueOnce({
-        ...localTaskReceipt,
-        connector_write_performed: undefined,
-      })
-      .mockResolvedValueOnce({
-        ...localTaskReceipt,
-        idempotency_key_ref: "idempotency-ref:substituted-receipt",
-      })
-      .mockResolvedValueOnce(localTaskReceipt);
+    apiMocks.commitLocalTask.mockResolvedValueOnce({
+      ...localTaskReceipt,
+      connector_write_performed: undefined,
+    });
     apiMocks.fetchNorthStarDecisionsInbox
       .mockResolvedValueOnce(approvedData.founderActionsInbox)
       .mockResolvedValueOnce(approvedData.founderActionsInbox);
 
-    const view = render(
+    render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <NorthStarControlCenter
           activePath="/workspace/decisions"
@@ -911,85 +881,18 @@ describe("North Star backend wiring", () => {
     fireEvent.click(commitButton);
 
     expect(
-      (await screen.findAllByText(
-        /local task receipt did not match the exact approved lane/i,
-      )).length,
+      (await screen.findAllByText(/response was not safe to display/i)).length,
     ).toBeGreaterThan(0);
     expect(onLocalTaskCommitFenceChange).toHaveBeenLastCalledWith(
       item.item_ref,
-      false,
+      true,
     );
-    expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(1);
-    commitButton = screen.getByRole("button", { name: "Create local task record" });
-    fireEvent.click(commitButton);
-
-    await waitFor(() => expect(apiMocks.commitLocalTask).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByRole("button", {
-      name: "Create local task record",
-    })).toBeEnabled());
-    commitButton = screen.getByRole("button", {
-      name: "Create local task record",
-    });
-    fireEvent.click(commitButton);
-
-    await waitFor(() => expect(apiMocks.commitLocalTask).toHaveBeenCalledWith(
-      item.item_ref,
-      {
-        approval_ref: approvalReceipt.approval_ref,
-        decision_reason_ref: "decision-reason-ref:control-center:local-task-commit",
-        metadata_refs: [
-          "metadata-ref:control-center-local-task-commit",
-          item.item_ref,
-        ],
-      },
-      mutationBinding,
-    ));
-    await waitFor(() => expect(apiMocks.commitLocalTask).toHaveBeenCalledTimes(3));
-    expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
-    expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
     expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(2);
     expect(onActionInboxRefresh).toHaveBeenLastCalledWith(approvedData.founderActionsInbox);
     expect(onLocalTaskCommitFenceChange).toHaveBeenCalledWith(item.item_ref, true);
-
-    const propagatedData = structuredClone(approvedData);
-    propagatedData.founderActionsInbox = structuredClone(
-      approvedData.founderActionsInbox,
-    );
-    view.rerender(
-      <BackendTruthMutationBindingProvider binding={mutationBinding}>
-        <NorthStarControlCenter
-          activePath="/workspace/decisions"
-          data={propagatedData}
-          onActionInboxRefresh={onActionInboxRefresh}
-          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
-        />
-      </BackendTruthMutationBindingProvider>,
-    );
-
     expect(
       screen.queryByRole("button", { name: "Create local task record" }),
     ).not.toBeInTheDocument();
-    expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
-    expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
-
-    const reconciledData = structuredClone(approvedData);
-    reconciledData.founderActionsInbox = committedInbox;
-    view.rerender(
-      <BackendTruthMutationBindingProvider binding={mutationBinding}>
-        <NorthStarControlCenter
-          activePath="/workspace/decisions"
-          data={reconciledData}
-          onActionInboxRefresh={onActionInboxRefresh}
-          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
-        />
-      </BackendTruthMutationBindingProvider>,
-    );
-    expect(
-      screen.queryByRole("button", { name: "Create local task record" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
-    expect(onLocalTaskCommitFenceChange).toHaveBeenCalledWith(item.item_ref, false);
   });
 
   it("keeps global runtime posture unverified on the scoped Decisions loader", () => {
@@ -1141,6 +1044,53 @@ describe("North Star backend wiring", () => {
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
 
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it("blocks the exact local-task commit while cancellation is pending", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref: "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_ref:
+        "local-task:founder-loop:founder-action-mock-local-task-review",
+      local_task_commit_receipt_ref: null,
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_ref: "pending",
+        local_task_commit_receipt_ref: "pending",
+        missing_field_states: [
+          "local_task_ref:pending",
+          "local_task_commit_receipt_ref:pending",
+        ],
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    attachWorkspaceWriteAuthority(data);
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+          pendingCancellationItemRefs={[item.item_ref]}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 

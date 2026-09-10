@@ -542,10 +542,12 @@ export function DecisionReviewSurface({
   data,
   onAuthoritativeRefresh,
   onLocalTaskCommitFenceChange,
+  pendingCancellationItemRefs = [],
 }: {
   data: ControlCenterData;
   onAuthoritativeRefresh?: (inbox: FounderLoopActionsInbox) => void;
   onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void;
+  pendingCancellationItemRefs?: readonly string[];
 }) {
   const mutationBinding = useBackendTruthMutationBinding();
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
@@ -554,6 +556,8 @@ export function DecisionReviewSurface({
   const [pendingLocalTaskCommit, setPendingLocalTaskCommit] = useState(false);
   const [decisionReceipts, setDecisionReceipts] = useState<Record<string, FounderLoopActionDecisionReceipt>>({});
   const decisionReceiptRefs = useRef<Record<string, FounderLoopActionDecisionReceipt>>({});
+  const [uncertainLocalTaskCommitItemRefs, setUncertainLocalTaskCommitItemRefs] =
+    useState<string[]>([]);
   const [decisionFeedback, setDecisionFeedback] = useState<Record<string, string>>({});
   const [localTaskReceipts, setLocalTaskReceipts] = useState<Record<string, FounderLoopLocalTaskCommitReceipt>>({});
   const [localTaskFeedback, setLocalTaskFeedback] = useState<Record<string, string>>({});
@@ -584,6 +588,21 @@ export function DecisionReviewSurface({
       && currentProjectedItem.receipt_visibility.local_task_ref
         === currentPendingReceipt.local_task_ref,
     );
+    const stillUncertain = uncertainLocalTaskCommitItemRefs.filter(
+      (uncertainItemRef) => {
+        const projectedItem = data.founderActionsInbox.items.find(
+          (candidate) => candidate.item_ref === uncertainItemRef,
+        );
+        const reconciled = localTaskCommitReceiptProjectionIsBound(projectedItem);
+        if (reconciled) {
+          onLocalTaskCommitFenceChange?.(uncertainItemRef, false);
+        }
+        return !reconciled;
+      },
+    );
+    if (stillUncertain.length !== uncertainLocalTaskCommitItemRefs.length) {
+      setUncertainLocalTaskCommitItemRefs(stillUncertain);
+    }
     setInbox(data.founderActionsInbox);
     const nextSelected = currentItemRef
       ? data.founderActionsInbox.items.findIndex(
@@ -629,7 +648,11 @@ export function DecisionReviewSurface({
     } else if (!currentPendingReceipt && !currentDecisionReceipt) {
       setFeedback("Select an exact backend action envelope to review.");
     }
-  }, [data.founderActionsInbox, onLocalTaskCommitFenceChange]);
+  }, [
+    data.founderActionsInbox,
+    onLocalTaskCommitFenceChange,
+    uncertainLocalTaskCommitItemRefs,
+  ]);
   const authoritative = data.connection.state === "online" && !data.connection.usingMockData && data.routeStates["/actions"]?.state === "backend_owned";
   const items = inbox.items;
   const item = items[selected];
@@ -765,6 +788,8 @@ export function DecisionReviewSurface({
     && decisionLaneItem.safe_disable_ref === (item?.action_safe_disable_ref ?? item?.safe_disable_ref)
     && costApproved
     && item
+    && !pendingCancellationItemRefs.includes(item.item_ref)
+    && !uncertainLocalTaskCommitItemRefs.includes(item.item_ref)
     && localTaskCommitApprovalRef
     && localTaskCommitProjectionStatus === "absent"
     && actionInboxLocalTaskCommitIsEligible(inbox, item),
@@ -806,6 +831,7 @@ export function DecisionReviewSurface({
   const canCommitLocalTask = Boolean(
     localTaskCommitLaneReady
     && itemRef
+    && !pendingCancellationItemRefs.includes(itemRef)
     && currentLocalTaskAuthorityStatus === "ready",
   );
   const displayedRevisionRef =
@@ -953,7 +979,38 @@ export function DecisionReviewSurface({
             ?? "",
         },
       ))) {
-        throw new Error("The local task receipt did not match the exact approved lane.");
+        setUncertainLocalTaskCommitItemRefs((current) =>
+          current.includes(submittedItemRef)
+            ? current
+            : [...current, submittedItemRef],
+        );
+        const invalidReceiptMessage =
+          "The local task response was not safe to display. The commit fence remains active while the authoritative queue is reconciled.";
+        setLocalTaskFeedback((current) => ({
+          ...current,
+          [submittedItemRef]: invalidReceiptMessage,
+        }));
+        if (selectedItemRef.current === submittedItemRef) {
+          setFeedback(invalidReceiptMessage);
+        }
+        try {
+          const refreshed = await fetchNorthStarDecisionsInbox(mutationBinding);
+          setInbox(refreshed);
+          onAuthoritativeRefresh?.(refreshed);
+          const refreshedItem = refreshed.items.find(
+            (candidate) => candidate.item_ref === submittedItemRef,
+          );
+          if (localTaskCommitReceiptProjectionIsBound(refreshedItem)) {
+            setUncertainLocalTaskCommitItemRefs((current) =>
+              current.filter((itemRef) => itemRef !== submittedItemRef),
+            );
+            onLocalTaskCommitFenceChange?.(submittedItemRef, false);
+          }
+        } catch {
+          // A successful POST with an invalid receipt remains fenced until a
+          // later authoritative projection proves the exact terminal record.
+        }
+        return;
       }
       setLocalTaskReceipts((current) => ({
         ...current,

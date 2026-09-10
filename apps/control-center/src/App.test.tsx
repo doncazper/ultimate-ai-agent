@@ -20492,7 +20492,8 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByText("Revision-bound Action review");
+    expect((await screen.findAllByText("Revision-bound Action review")).length)
+      .toBeGreaterThan(0);
     act(() => {
       window.dispatchEvent(
         new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
@@ -20555,7 +20556,8 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/actions");
     render(<App />);
 
-    await screen.findByText("Revision-bound Action review");
+    expect((await screen.findAllByText("Revision-bound Action review")).length)
+      .toBeGreaterThan(0);
     act(() => {
       window.dispatchEvent(
         new CustomEvent(ACTION_INBOX_REVISION_REFRESH_EVENT, {
@@ -20572,7 +20574,8 @@ describe("Web Control Center shell", () => {
     });
 
     await screen.findByText("Action revision refresh unavailable");
-    expect(screen.getByText("Revision-bound Action review")).toBeInTheDocument();
+    expect(screen.getAllByText("Revision-bound Action review").length)
+      .toBeGreaterThan(0);
     expect(inboxReads).toBeGreaterThanOrEqual(2);
 
     act(() => {
@@ -20674,6 +20677,81 @@ describe("Web Control Center shell", () => {
     })).toBeDisabled();
     expect(screen.getByText(/waiting for backend reconciliation/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Cancel exact revision" })).not.toBeInTheDocument();
+  });
+
+  it("raises the cancellation fence before the exact cancellation completes", async () => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel-fence:00000001:11111111111111111111";
+    const resultRevisionRef =
+      "action-revision:founder-action-ui-cancel-fence:00000002:22222222222222222222";
+    const itemRef = "founder-action:ui-cancel-fence";
+    const receiptRef = "receipt:founder-loop-action:ui-cancel-fence:cancel";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+    const refreshedInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef: resultRevisionRef,
+      status: "cancelled",
+      receiptRef,
+    });
+    let releasePost: (() => void) | undefined;
+    const postGate = new Promise<void>((resolve) => {
+      releasePost = resolve;
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (options?.method === "POST" && urlText.endsWith("/cancel")) {
+        await postGate;
+        return new Response(JSON.stringify({
+          ok: true,
+          result: {
+            decision: "cancel",
+            status: "cancelled",
+            receipt_ref: receiptRef,
+            result_revision_ref: resultRevisionRef,
+          },
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: refreshedInbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onCancellationFenceChange = vi.fn();
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={vi.fn()}
+        pendingLocalTaskCommitItemRefs={[]}
+        onCancellationFenceChange={onCancellationFenceChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
+    await waitFor(() => expect(onCancellationFenceChange).toHaveBeenCalledWith(
+      itemRef,
+      true,
+    ));
+    expect(onCancellationFenceChange).not.toHaveBeenCalledWith(itemRef, false);
+
+    if (!releasePost) throw new Error("Expected pending cancellation request");
+    releasePost();
+    await waitFor(() => expect(onCancellationFenceChange).toHaveBeenLastCalledWith(
+      itemRef,
+      false,
+    ));
   });
 
   it("confirms cancellation only after an authoritative refreshed revision", async () => {
@@ -20873,6 +20951,49 @@ function revisionBoundActionInbox({
     work_item_refs: [],
     work_items: [],
   });
+  const decisionLane = actionDecisionLaneReadModelFixture();
+  const decisionLaneItem = decisionLane.items[0];
+  const decisionLaneId = item.action_group_id === "approved_local_task_lane"
+    ? "approved_no_execution"
+    : item.action_group_id === "blocked_by_authority"
+      ? "blocked"
+      : item.action_group_id === "proposal_only_no_execution_path"
+        ? "draft_only"
+        : "needs_approval";
+  const decisionLaneLabel = decisionLane.lanes.find(
+    (lane) => lane.lane_id === decisionLaneId,
+  )?.label ?? "Needs approval";
+  Object.assign(decisionLaneItem, {
+    item_ref: item.item_ref,
+    lane_id: decisionLaneId,
+    lane_label: decisionLaneLabel,
+    title: item.title,
+    status: item.status,
+    priority: item.priority,
+    action_kind: item.action_kind,
+    side_effect_class: item.side_effect_class,
+    safe_summary: item.safe_summary,
+    next_safe_action: item.next_safe_action,
+    authority_boundary: item.authority_boundary,
+    approval_required: item.approval_required,
+    approval_envelope_ref: item.approval_envelope_ref,
+    approval_envelope_status: item.approval_envelope_status,
+    approval_scope_ref:
+      item.action_scope_ref ?? item.approval_envelope?.exact_scope,
+    expected_receipt_refs:
+      item.action_expected_receipt_refs
+      ?? item.approval_envelope?.expected_receipt_refs
+      ?? [],
+    evidence_refs: item.evidence_refs,
+    receipt_refs: item.receipt_refs,
+    rollback_ref: item.rollback_ref,
+    safe_disable_ref: item.safe_disable_ref,
+  });
+  decisionLane.lanes = decisionLane.lanes.map((lane) => ({
+    ...lane,
+    count: lane.lane_id === decisionLaneId ? 1 : 0,
+    item_refs: lane.lane_id === decisionLaneId ? [item.item_ref] : [],
+  }));
   Object.assign(inbox, {
     action_revision_contract_ref:
       "contract-ref:founder-loop-action-revision-lifecycle:v1",
@@ -20884,8 +21005,7 @@ function revisionBoundActionInbox({
     decision_actions: ["approve", "edit", "reject", "defer", "cancel"],
     action_inbox_decision_lane_contract_ref:
       "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
-    action_inbox_decision_lane_read_model:
-      actionDecisionLaneReadModelFixture(),
+    action_inbox_decision_lane_read_model: decisionLane,
     action_inbox_work_queue_contract_ref:
       "contract-ref:usable-authority-action-inbox-work-queue:v1",
     action_inbox_work_queue_read_model: {
