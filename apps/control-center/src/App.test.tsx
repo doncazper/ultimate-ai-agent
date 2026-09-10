@@ -5599,35 +5599,59 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("drops incomplete Action Inbox decision groups instead of crashing the route", async () => {
+    const unsafeInbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      action_inbox_decision_lane_contract_ref:
+        "contract-ref:action-inbox-decision-lanes:v1",
+      action_inbox_decision_lane_read_model: {
+        ...actionDecisionLaneReadModelFixture(),
+        items: actionDecisionLaneReadModelFixture().items.map(
+          (item, index) => {
+            if (index !== 0) {
+              return item;
+            }
+            const unsafeItem = { ...item } as Record<string, unknown>;
+            delete unsafeItem.estimated_cost_usd;
+            delete unsafeItem.max_approved_cost_usd;
+            return unsafeItem;
+          },
+        ),
+      },
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.founderActionsInbox]: unsafeInbox,
+    });
+    window.history.pushState({}, "", "/actions");
+    const view = render(<App />);
+
+    try {
+      expect(
+        await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Loading local Action Inbox")).not.toBeInTheDocument();
+      expect(
+        screen.getByText("backend decision groups missing"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/will not backfill cost, authority, approval, or receipt groups/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it.each([
-    [
-      "missing cost fields",
-      (unsafeItem: Record<string, unknown>) => {
-        delete unsafeItem.estimated_cost_usd;
-        delete unsafeItem.max_approved_cost_usd;
-      },
-    ],
-    [
-      "unsafe nested display text",
-      (unsafeItem: Record<string, unknown>) => {
-        unsafeItem.lane_label = "raw_prompt: private backend content";
-      },
-    ],
-    [
-      "unsafe nested ref array",
-      (unsafeItem: Record<string, unknown>) => {
-        unsafeItem.evidence_refs = ["raw_prompt: private backend content"];
-      },
-    ],
-    [
-      "unsafe optional ref",
-      (unsafeItem: Record<string, unknown>) => {
-        unsafeItem.provider_ref = "raw_prompt: private backend content";
-      },
-    ],
-  ])("drops unsafe Action Inbox decision groups for %s", async (
-    _,
-    mutateItem,
+    "unsafe nested display text",
+    "unsafe nested ref array",
+    "unsafe optional ref",
+  ] as const)("drops unsafe Action Inbox decision groups for %s", async (
+    unsafeCase,
   ) => {
     const unsafeInbox = {
       ...mockControlCenterData.founderActionsInbox,
@@ -5641,7 +5665,13 @@ describe("Web Control Center shell", () => {
               return item;
             }
             const unsafeItem = { ...item } as Record<string, unknown>;
-            mutateItem(unsafeItem);
+            if (unsafeCase === "unsafe nested display text") {
+              unsafeItem.lane_label = "raw_prompt: private backend content";
+            } else if (unsafeCase === "unsafe nested ref array") {
+              unsafeItem.evidence_refs = ["raw_prompt: private backend content"];
+            } else {
+              unsafeItem.provider_ref = "raw_prompt: private backend content";
+            }
             return unsafeItem;
           },
         ),
@@ -7203,49 +7233,69 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("fails closed when the Plans-to-Actions bridge is missing or unsafe", async () => {
+    const unsafeBridge = plansToActionsBridgeFixture({
+      action_execution_enabled: true,
+    });
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
-    [
-      "execution authority",
-      () => plansToActionsBridgeFixture({ action_execution_enabled: true }),
-    ],
-    [
-      "unsafe nested display text",
-      () => {
-        const bridge = plansToActionsBridgeFixture() as {
-          items: Array<Record<string, unknown>>;
-        };
-        bridge.items[0].plan_title = "raw_prompt: private backend content";
-        return bridge;
-      },
-    ],
-    [
-      "unsafe nested ref array",
-      () => {
-        const bridge = plansToActionsBridgeFixture() as {
-          items: Array<Record<string, unknown>>;
-        };
-        bridge.items[0].risk_refs = ["raw_prompt: private backend content"];
-        return bridge;
-      },
-    ],
-    [
-      "unsafe nested routing metadata",
-      () => {
-        const bridge = plansToActionsBridgeFixture() as {
-          items: Array<Record<string, unknown>>;
-        };
-        bridge.items[0].delegation_proposal = {
-          ...fusionDelegationFixture(),
-          proposed_delegate_kind: "raw_prompt: private backend content",
-        };
-        return bridge;
-      },
-    ],
-  ])("fails closed when the Plans-to-Actions bridge has %s", async (
-    _,
-    buildUnsafeBridge,
+    "unsafe nested display text",
+    "unsafe nested ref array",
+    "unsafe nested routing metadata",
+  ] as const)("fails closed when the Plans-to-Actions bridge has %s", async (
+    unsafeCase,
   ) => {
-    const unsafeBridge = buildUnsafeBridge();
+    const unsafeBridge = plansToActionsBridgeFixture() as {
+      items: Array<Record<string, unknown>>;
+    };
+    if (unsafeCase === "unsafe nested display text") {
+      unsafeBridge.items[0].plan_title = "raw_prompt: private backend content";
+    } else if (unsafeCase === "unsafe nested ref array") {
+      unsafeBridge.items[0].risk_refs = ["raw_prompt: private backend content"];
+    } else {
+      unsafeBridge.items[0].delegation_proposal = {
+        ...fusionDelegationFixture(),
+        proposed_delegate_kind: "raw_prompt: private backend content",
+      };
+    }
     const inbox = {
       ...mockControlCenterData.founderActionsInbox,
       plans_to_actions_bridge_contract_ref:
