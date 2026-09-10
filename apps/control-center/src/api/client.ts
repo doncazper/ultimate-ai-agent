@@ -5863,9 +5863,16 @@ export function validateNorthStarDecisionsInbox(
 
 function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
   if (!isPlainRecord(value)) return false;
-  const isStringArray = (candidate: unknown): candidate is string[] =>
+  const approvalEnvelope = value.approval_envelope;
+  const receiptVisibility = value.receipt_visibility;
+  const isSafeDisplayArray = (candidate: unknown, maxLength = 240): candidate is string[] =>
     Array.isArray(candidate)
-    && candidate.every((entry) => typeof entry === "string");
+    && candidate.every((entry) =>
+      isSafeLocalTaskReceiptDisplayValue(entry as string | undefined, maxLength));
+  const isSafeRefArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every((entry) =>
+      isSafeLocalTaskReceiptRef(entry as string | undefined));
   const safeDisplayFields: Array<[string, number]> = [
     ["title", 160],
     ["safe_summary", 500],
@@ -5876,10 +5883,31 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     ["side_effect_class", 120],
     ["authority_boundary", 500],
     ["next_safe_action", 500],
+    ["stale_state", 120],
   ];
-  const requiredArrayFields = ["evidence_refs", "receipt_refs", "audit_refs"];
-  const optionalArrayFields = [
-    "action_review_actions",
+  const renderedOptionalDisplayFields: Array<[string, number]> = [
+    ["action_expires_at", 120],
+    ["expires_at", 120],
+  ];
+  const actionGroupLabelsById = new Map([
+    ["ready_for_decision", "Ready for decision"],
+    ["approved_local_task_lane", "Approved local-task create lane"],
+    ["blocked_by_authority", "Blocked by authority"],
+    ["expired_stale", "Expired/stale"],
+    ["receipt_recorded", "Receipt recorded"],
+    ["proposal_only_no_execution_path", "Proposal-only / no execution path"],
+  ]);
+  const actionGroupLabels = new Set(actionGroupLabelsById.values());
+  const renderedOptionalRefFields = [
+    "action_scope_ref",
+    "action_envelope_ref",
+    "approval_envelope_ref",
+    "action_rollback_ref",
+    "rollback_ref",
+    "action_safe_disable_ref",
+    "safe_disable_ref",
+  ];
+  const optionalRefArrayFields = [
     "action_expected_receipt_refs",
     "action_blocked_state_refs",
     "local_task_commit_blocked_reasons",
@@ -5890,28 +5918,94 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
         value[field] as string | undefined,
         maxLength,
       ))
-    && typeof value.approval_required === "boolean"
-    && requiredArrayFields.every((field) => isStringArray(value[field]))
-    && optionalArrayFields.every((field) =>
-      value[field] === undefined || isStringArray(value[field]))
-    && (value.approval_envelope === undefined
-      || (
-        isPlainRecord(value.approval_envelope)
-        && isStringArray(value.approval_envelope.missing_field_states)
-        && isStringArray(value.approval_envelope.expected_receipt_refs)
+    && renderedOptionalDisplayFields.every(([field, maxLength]) =>
+      value[field] === undefined
+      || value[field] === null
+      || isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
       ))
-    && (value.receipt_visibility === undefined
+    && (value.action_group_label === undefined
       || (
-        isPlainRecord(value.receipt_visibility)
-        && typeof value.receipt_visibility.decision_receipt_ref === "string"
-        && typeof value.receipt_visibility.local_task_ref === "string"
-        && typeof value.receipt_visibility.local_task_commit_receipt_ref
-          === "string"
-        && typeof value.receipt_visibility.evidence_timeline_event_ref
-          === "string"
-        && typeof value.receipt_visibility.replay_posture === "string"
-        && typeof value.receipt_visibility.conflict_posture === "string"
-        && isStringArray(value.receipt_visibility.missing_field_states)
+        typeof value.action_group_label === "string"
+        && actionGroupLabels.has(value.action_group_label)
+      ))
+    && (value.action_group_id === undefined
+      || (
+        typeof value.action_group_id === "string"
+        && actionGroupLabelsById.has(value.action_group_id)
+      ))
+    && (
+      typeof value.action_group_id !== "string"
+      || typeof value.action_group_label !== "string"
+      || actionGroupLabelsById.get(value.action_group_id)
+        === value.action_group_label
+    )
+    && renderedOptionalRefFields.every((field) =>
+      value[field] === undefined
+      || value[field] === null
+      || isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+      ))
+    && typeof value.approval_required === "boolean"
+    && ["evidence_refs", "receipt_refs", "audit_refs"].every((field) =>
+      isSafeRefArray(value[field]))
+    && (value.action_review_actions === undefined
+      || isSafeDisplayArray(value.action_review_actions, 80))
+    && optionalRefArrayFields.every((field) =>
+      value[field] === undefined || isSafeDisplayArray(value[field]))
+    && (approvalEnvelope === undefined
+      || (
+        isPlainRecord(approvalEnvelope)
+        && isSafeLocalTaskReceiptDisplayValue(
+          approvalEnvelope.exact_scope as string | undefined,
+        )
+        && isSafeDisplayArray(
+          approvalEnvelope.missing_field_states,
+          120,
+        )
+        && isSafeDisplayArray(approvalEnvelope.expected_receipt_refs)
+      ))
+    && (receiptVisibility === undefined
+      || (
+        isPlainRecord(receiptVisibility)
+        && [
+          "decision_receipt_ref",
+          "local_task_ref",
+          "local_task_commit_receipt_ref",
+          "evidence_timeline_event_ref",
+        ].every((field) => isSafeLocalTaskReceiptDisplayValue(
+          receiptVisibility[field] as string | undefined,
+        ))
+        && (
+          String(receiptVisibility.local_task_commit_receipt_ref).startsWith(
+            "receipt:founder-loop-local-task:",
+          )
+            ? isSafeLocalTaskReceiptRef(
+              receiptVisibility.local_task_commit_idempotency_key_ref as
+                string | undefined,
+            )
+            : (
+              receiptVisibility.local_task_commit_idempotency_key_ref
+                === undefined
+              || isSafeLocalTaskReceiptDisplayValue(
+                receiptVisibility.local_task_commit_idempotency_key_ref as
+                  string | undefined,
+              )
+            )
+        )
+        && isSafeLocalTaskReceiptDisplayValue(
+          receiptVisibility.replay_posture as string | undefined,
+          120,
+        )
+        && isSafeLocalTaskReceiptDisplayValue(
+          receiptVisibility.conflict_posture as string | undefined,
+          120,
+        )
+        && isSafeDisplayArray(
+          receiptVisibility.missing_field_states,
+          120,
+        )
       ));
 }
 
@@ -7702,7 +7796,17 @@ export function localTaskCommitReceiptRef(
   itemRef: string,
   request: FounderLoopLocalTaskCommitRequest,
 ): string {
-  return `receipt:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(localTaskCommitIdempotencyRef(itemRef, request))}`;
+  return localTaskCommitReceiptRefForIdempotency(
+    itemRef,
+    localTaskCommitIdempotencyRef(itemRef, request),
+  );
+}
+
+export function localTaskCommitReceiptRefForIdempotency(
+  itemRef: string,
+  idempotencyRef: string,
+): string {
+  return `receipt:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(idempotencyRef)}`;
 }
 
 export function buildLocalTaskCommitRequest(
@@ -7878,6 +7982,7 @@ export async function localTaskCommitReceiptIsSafe(
 ): Promise<boolean> {
   if (
     !Array.isArray(receipt?.approval_reason_refs)
+    || receipt.approval_reason_refs.length === 0
     || !Array.isArray(receipt.evidence_refs)
     || !Array.isArray(receipt.blocked_state_refs)
     || !Array.isArray(receipt.rollback_blocker_refs)

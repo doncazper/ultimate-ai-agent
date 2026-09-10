@@ -263,12 +263,61 @@ describe("loadNorthStarDecisionsData", () => {
     ["title", `credential: ${"x".repeat(20)}`],
     ["safe_summary", "raw_prompt: private backend content"],
     ["next_safe_action", "Review /Users/operator/private.log"],
+    ["action_group_label", "Assigned to operator@example.com"],
+    ["action_group_id", "group:/Users/operator/private"],
+    ["action_scope_ref", "scope-ref:/Users/operator/private"],
+    ["action_envelope_ref", "envelope-ref:hostname=private.local"],
   ])("rejects unsafe refreshed inbox %s text", async (field, unsafeText) => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
       items: Array<Record<string, unknown>>;
     };
     inbox.items[0][field] = unsafeText;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("accepts the backend-defined expired Action Inbox group", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].action_group_id = "expired_stale";
+    inbox.items[0].action_group_label = "Expired/stale";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).resolves.toEqual(
+      expect.objectContaining({ items: expect.any(Array) }),
+    );
+  });
+
+  it("rejects a mismatched Action Inbox group label", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].action_group_id = "receipt_recorded";
+    inbox.items[0].action_group_label = "Ready for decision";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects unsafe refreshed nested approval-envelope text", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<{ approval_envelope?: { exact_scope: string } }>;
+    };
+    if (!inbox.items[0].approval_envelope) {
+      throw new Error("Expected bounded approval envelope fixture");
+    }
+    inbox.items[0].approval_envelope.exact_scope =
+      "scope-ref:/Users/operator/private";
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
@@ -410,6 +459,10 @@ describe("local task commit boundary", () => {
       ...receipt,
       safe_disable_posture_ref:
         "safe-disable-posture:founder-loop:local-task-create:substituted",
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      approval_reason_refs: [],
     }, binding)).toBe(false);
     expect(await localTaskCommitReceiptIsSafe({
       ...receipt,

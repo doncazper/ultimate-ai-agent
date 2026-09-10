@@ -473,6 +473,7 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
         assert visibility["decision_receipt_ref"]
         assert visibility["local_task_ref"]
         assert visibility["local_task_commit_receipt_ref"]
+        assert visibility["local_task_commit_idempotency_key_ref"]
         assert visibility["evidence_timeline_event_ref"]
         assert visibility["replay_posture"]
         assert visibility["conflict_posture"]
@@ -983,6 +984,10 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert visibility["decision_receipt_ref"].startswith("receipt:founder-loop-action:")
     assert visibility["local_task_ref"] == receipt["local_task_ref"]
     assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert (
+        visibility["local_task_commit_idempotency_key_ref"]
+        == receipt["idempotency_key_ref"]
+    )
     assert (
         visibility["evidence_timeline_event_ref"]
         == receipt["evidence_timeline_event_ref"]

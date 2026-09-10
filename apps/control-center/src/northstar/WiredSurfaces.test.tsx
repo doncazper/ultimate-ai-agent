@@ -857,6 +857,8 @@ describe("North Star backend wiring", () => {
         ...committedItem.receipt_visibility,
         local_task_ref: localTaskReceipt.local_task_ref,
         local_task_commit_receipt_ref: localTaskReceipt.receipt_ref,
+        local_task_commit_idempotency_key_ref:
+          localTaskReceipt.idempotency_key_ref,
         missing_field_states: ["none"],
       },
     });
@@ -1226,6 +1228,51 @@ describe("North Star backend wiring", () => {
     expect(screen.queryByText(
       "The exact local task receipt is recorded in the backend review loop.",
     )).not.toBeInTheDocument();
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it("accepts a terminal projection bound to a CLI-supplied idempotency ref", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    const projectedTaskRef =
+      "local-task:founder-loop:founder-action-mock-local-task-review";
+    const cliIdempotencyRef = "idempotency-ref:cli:founder-loop-task:one";
+    const projectedReceiptRef =
+      "receipt:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-cli-founder-loop-task-one";
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    Object.assign(item, {
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
+      action_group_label: "Receipt recorded",
+      local_task_commit_eligible: false,
+      local_task_ref: projectedTaskRef,
+      local_task_commit_receipt_ref: projectedReceiptRef,
+      receipt_refs: [...item.receipt_refs, projectedReceiptRef],
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+        local_task_ref: projectedTaskRef,
+        local_task_commit_receipt_ref: projectedReceiptRef,
+        local_task_commit_idempotency_key_ref: cliIdempotencyRef,
+        missing_field_states: ["none"],
+      },
+    });
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(screen.getByText(
+      "The exact local task receipt is recorded in the backend review loop.",
+    )).toBeVisible();
+    expect(screen.queryByRole("button", {
+      name: "Create local task record",
+    })).not.toBeInTheDocument();
     expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });

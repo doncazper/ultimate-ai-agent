@@ -5884,6 +5884,11 @@ def _action_receipt_visibility_read_model(
         if local_task_receipt and local_task_receipt.get("receipt_ref")
         else ("pending" if local_task_is_relevant else "not_applicable")
     )
+    local_task_commit_idempotency_key_ref = (
+        str(local_task_receipt["idempotency_key_ref"])
+        if local_task_receipt and local_task_receipt.get("idempotency_key_ref")
+        else ("pending" if local_task_is_relevant else "not_applicable")
+    )
     evidence_timeline_event_ref = (
         str(local_task_receipt["evidence_timeline_event_ref"])
         if local_task_receipt and local_task_receipt.get("evidence_timeline_event_ref")
@@ -5915,6 +5920,9 @@ def _action_receipt_visibility_read_model(
         "decision_receipt_ref": decision_receipt_ref,
         "local_task_ref": local_task_ref,
         "local_task_commit_receipt_ref": local_task_commit_receipt_ref,
+        "local_task_commit_idempotency_key_ref": (
+            local_task_commit_idempotency_key_ref
+        ),
         "evidence_timeline_event_ref": evidence_timeline_event_ref,
         "replay_posture": replay_posture,
         "conflict_posture": conflict_posture,

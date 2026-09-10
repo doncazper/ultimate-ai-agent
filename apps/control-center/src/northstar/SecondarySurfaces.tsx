@@ -9,7 +9,7 @@ import {
   founderLoopLocalTaskRef,
   localTaskCommitAuthorityPreviewIsSafe,
   localTaskCommitIdempotencyRef,
-  localTaskCommitReceiptRef,
+  localTaskCommitReceiptRefForIdempotency,
   localTaskCommitReceiptIsSafe,
   previewAuthorityDecision,
   recordManualMemoryCandidate,
@@ -1040,12 +1040,14 @@ function localTaskCommitReceiptProjectionState(
   if (!projection) return commitLaneClaimed ? "invalid" : "unavailable";
   const receiptRef = projection.local_task_commit_receipt_ref;
   const localTaskRef = founderLoopLocalTaskRef(item.item_ref);
-  const approvalRef = item.local_task_commit_approval_ref;
+  const commitIdempotencyRef =
+    projection.local_task_commit_idempotency_key_ref;
   const expectedReceiptRef =
-    typeof approvalRef === "string" && isSafeNorthStarRef(approvalRef)
-      ? localTaskCommitReceiptRef(
+    typeof commitIdempotencyRef === "string"
+      && isSafeNorthStarRef(commitIdempotencyRef)
+      ? localTaskCommitReceiptRefForIdempotency(
           item.item_ref,
-          buildLocalTaskCommitRequest(item.item_ref, approvalRef),
+          commitIdempotencyRef,
         )
       : undefined;
   const baseProjectionIsValid =
