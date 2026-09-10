@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildLocalTaskCommitAuthorityRequest,
   buildLocalTaskCommitRequest,
+  fetchNorthStarDecisionsInbox,
   localTaskAuthorityProofRefs,
+  localTaskCommitDerivedRefs,
   localTaskCommitIdempotencyRef,
   localTaskCommitReceiptIsSafe,
   loadNorthStarDecisionsData,
@@ -38,6 +40,10 @@ async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceip
     authorityProof.authorityAuditRef,
     authorityProof.authorityPolicyReceiptRef,
   ] as const;
+  const derivedRefs = await localTaskCommitDerivedRefs(
+    localTaskItemRef,
+    request,
+  );
   return {
     contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
     item_ref: localTaskItemRef,
@@ -45,17 +51,15 @@ async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceip
     local_task_ref:
       "local-task:founder-loop:founder-action-mock-local-task-review",
     status: "local_task_created",
-    receipt_ref: "receipt:founder-loop-local-task:northstar-review",
-    audit_ref: "audit:founder-loop-local-task:northstar-review",
+    receipt_ref: derivedRefs.receiptRef,
+    audit_ref: derivedRefs.auditRef,
     idempotency_key_ref: localTaskCommitIdempotencyRef(
       localTaskItemRef,
       request,
     ),
-    payload_fingerprint_ref:
-      "payload-fingerprint-ref:northstar-local-task:test",
+    payload_fingerprint_ref: derivedRefs.payloadFingerprintRef,
     run_ref: "run-ref:founder-loop-v1:governed-local-loop",
-    evidence_timeline_event_ref:
-      "evidence-timeline-event:local-task:northstar-review",
+    evidence_timeline_event_ref: derivedRefs.evidenceTimelineEventRef,
     approval_ref: localTaskApprovalRef,
     approval_status: "approved",
     approval_reason_refs: ["approval-reason-ref:northstar:test"],
@@ -86,7 +90,7 @@ async function validLocalTaskReceipt(): Promise<FounderLoopLocalTaskCommitReceip
     safe_summary: "Exact local task state was recorded with safe refs only.",
     evidence_refs: [
       "evidence-ref:northstar-local-task:test",
-      "evidence-timeline-event:local-task:northstar-review",
+      derivedRefs.evidenceTimelineEventRef,
       ...authorityProofRefs,
     ],
     blocked_state_refs: [
@@ -238,6 +242,22 @@ describe("loadNorthStarDecisionsData", () => {
       "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
     );
   });
+
+  it.each([
+    ["missing", undefined],
+    ["incompatible", { item_ref: "founder-action:invalid-items-shape" }],
+  ])("fails closed when a refreshed inbox has %s items", async (_label, items) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as
+      Record<string, unknown>;
+    if (items === undefined) delete inbox.items;
+    else inbox.items = items;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
 });
 
 describe("local task commit boundary", () => {
@@ -285,14 +305,32 @@ describe("local task commit boundary", () => {
       authorityPolicyReceiptRef:
         "receipt-ref:authority-policy:sha256:c67344a7b22a5b5c27497c81",
     });
+    await expect(localTaskCommitDerivedRefs(
+      localTaskItemRef,
+      request,
+    )).resolves.toEqual({
+      receiptRef:
+        "receipt:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-control-center-local-task-mock-local-task-review-approval-ref-northstar-local-task-approved",
+      auditRef:
+        "audit:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-control-center-local-task-mock-local-task-review-approval-ref-northstar-local-task-approved",
+      evidenceTimelineEventRef:
+        "evidence-timeline:local-task/founder-action-mock-local-task-review",
+      payloadFingerprintRef:
+        "payload-fingerprint:founder-loop-local-task:d1213b519d8182dbbd2d198ec7a3d1f457713d28e83c3b4bfe850515d0e8775b",
+    });
   });
 
   it("rejects receipts without the exact authority proof or with unsafe display data", async () => {
     const receipt = await validLocalTaskReceipt();
+    const request = buildLocalTaskCommitRequest(
+      localTaskItemRef,
+      localTaskApprovalRef,
+    );
     const binding = {
       itemRef: localTaskItemRef,
       approvalRef: localTaskApprovalRef,
       idempotencyRef: receipt.idempotency_key_ref,
+      request,
       safeDisableRef: receipt.safe_disable_ref ?? "",
       rollbackRef: receipt.rollback_ref ?? "",
     };
@@ -323,6 +361,44 @@ describe("local task commit boundary", () => {
         if (ref === receipt.authority_policy_receipt_ref) return substitutedProofRefs[3];
         return ref;
       }),
+    }, binding)).toBe(false);
+    const substitutedDerivedRefs = {
+      receiptRef: "receipt:founder-loop-local-task:substituted",
+      auditRef: "audit:founder-loop-local-task:substituted",
+      eventRef: "evidence-timeline:local-task/substituted",
+      payloadRef:
+        `payload-fingerprint:founder-loop-local-task:${"1".repeat(64)}`,
+    };
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      receipt_ref: substitutedDerivedRefs.receiptRef,
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      audit_ref: substitutedDerivedRefs.auditRef,
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      evidence_timeline_event_ref: substitutedDerivedRefs.eventRef,
+      evidence_refs: receipt.evidence_refs.map((ref) =>
+        ref === receipt.evidence_timeline_event_ref
+          ? substitutedDerivedRefs.eventRef
+          : ref),
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      payload_fingerprint_ref: substitutedDerivedRefs.payloadRef,
+    }, binding)).toBe(false);
+    expect(await localTaskCommitReceiptIsSafe({
+      ...receipt,
+      receipt_ref: substitutedDerivedRefs.receiptRef,
+      audit_ref: substitutedDerivedRefs.auditRef,
+      evidence_timeline_event_ref: substitutedDerivedRefs.eventRef,
+      payload_fingerprint_ref: substitutedDerivedRefs.payloadRef,
+      evidence_refs: receipt.evidence_refs.map((ref) =>
+        ref === receipt.evidence_timeline_event_ref
+          ? substitutedDerivedRefs.eventRef
+          : ref),
     }, binding)).toBe(false);
     for (const unsafeSummary of [
       `credential: ${"x".repeat(20)}`,

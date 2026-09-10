@@ -4,7 +4,7 @@ import {
   buildLocalTaskCommitRequest,
   commitLocalTask,
   fetchControlCenterSettingsStatus,
-  fetchFounderActionsInbox,
+  fetchNorthStarDecisionsInbox,
   fetchFounderMemoryReview,
   founderLoopLocalTaskRef,
   localTaskCommitAuthorityPreviewIsSafe,
@@ -617,6 +617,8 @@ export function DecisionReviewSurface({
   const itemRef = item?.item_ref;
   selectedItemRef.current = itemRef;
   const localTaskReceipt = itemRef ? localTaskReceipts[itemRef] : undefined;
+  const localTaskCommitProjectionStatus =
+    localTaskCommitReceiptProjectionState(item);
   useEffect(() => {
     const storedFeedback = itemRef ? localTaskFeedback[itemRef] : undefined;
     if (storedFeedback) setFeedback(storedFeedback);
@@ -631,6 +633,11 @@ export function DecisionReviewSurface({
     && hasNoMissingFieldStates(item.approval_envelope.missing_field_states)
     && item.receipt_visibility?.backend_owned
     && item.receipt_visibility.source === "python_core_action_inbox_read_model"
+    && (
+      hasNoMissingFieldStates(item.receipt_visibility.missing_field_states)
+      || localTaskCommitProjectionStatus === "pending"
+      || localTaskCommitProjectionStatus === "absent"
+    )
     && exactActionEnvelopeRef
     && exactApprovalEnvelopeRef
     && exactScopeRef
@@ -717,7 +724,8 @@ export function DecisionReviewSurface({
       ? buildLocalTaskCommitRequest(itemRef, localTaskCommitApprovalRef)
       : undefined
   ), [itemRef, localTaskCommitApprovalRef]);
-  const localTaskCommitAlreadyRecorded = localTaskCommitReceiptProjectionIsBound(item);
+  const localTaskCommitAlreadyRecorded =
+    localTaskCommitProjectionStatus === "bound";
   const localTaskCommitLaneReady = Boolean(
     authoritative
     && mutationBinding
@@ -734,7 +742,7 @@ export function DecisionReviewSurface({
     && costApproved
     && item
     && localTaskCommitApprovalRef
-    && !localTaskCommitAlreadyRecorded
+    && localTaskCommitProjectionStatus === "absent"
     && actionInboxLocalTaskCommitIsEligible(inbox, item),
   );
   useEffect(() => {
@@ -818,7 +826,7 @@ export function DecisionReviewSurface({
       setReceipt(recorded);
       setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}. Refreshing backend queue.`);
       try {
-        const refreshed = await fetchFounderActionsInbox(mutationBinding);
+        const refreshed = await fetchNorthStarDecisionsInbox(mutationBinding);
         setInbox(refreshed);
         onAuthoritativeRefresh?.(refreshed);
         const nextIndex = refreshed.items.findIndex((candidate) => candidate.item_ref === item.item_ref);
@@ -863,10 +871,13 @@ export function DecisionReviewSurface({
             submittedItemRef,
             submittedRequest,
           ),
-          safeDisableRef: submittedItem.action_safe_disable_ref
+          request: submittedRequest,
+          safeDisableRef: submittedItem.local_task_safe_disable_ref
+            ?? submittedItem.action_safe_disable_ref
             ?? submittedItem.safe_disable_ref
             ?? "",
-          rollbackRef: submittedItem.action_rollback_ref
+          rollbackRef: submittedItem.local_task_rollback_ref
+            ?? submittedItem.action_rollback_ref
             ?? submittedItem.rollback_ref
             ?? "",
         },
@@ -886,7 +897,7 @@ export function DecisionReviewSurface({
         setFeedback(recordedMessage);
       }
       try {
-        const refreshed = await fetchFounderActionsInbox(mutationBinding);
+        const refreshed = await fetchNorthStarDecisionsInbox(mutationBinding);
         setInbox(refreshed);
         onAuthoritativeRefresh?.(refreshed);
         const nextIndex = refreshed.items.findIndex(
@@ -1013,25 +1024,77 @@ function actionInboxLocalTaskCommitIsEligible(
   return ACTION_WORK_QUEUE_DENIED_FLAGS.every((flag) => readModel[flag] === false);
 }
 
-function localTaskCommitReceiptProjectionIsBound(
+function localTaskCommitReceiptProjectionState(
   item: FounderLoopActionItem | undefined,
-): boolean {
+): "unavailable" | "pending" | "absent" | "bound" | "invalid" {
   const projection = item?.receipt_visibility;
-  if (!item || !projection) return false;
+  if (!item) return "unavailable";
+  const commitLaneClaimed =
+    item.action_kind === "local_task_create"
+    && item.status === "approved"
+    && item.action_group_id === "approved_local_task_lane"
+    && item.local_task_commit_approval_status
+      === "backend_owned_approval_ready"
+    && item.local_task_commit_eligible === true;
+  if (!projection) return commitLaneClaimed ? "invalid" : "unavailable";
   const receiptRef = projection.local_task_commit_receipt_ref;
   const localTaskRef = founderLoopLocalTaskRef(item.item_ref);
-  return projection.schema_version === "founder_loop_action_receipt_visibility.v1"
+  const baseProjectionIsValid =
+    projection.schema_version === "founder_loop_action_receipt_visibility.v1"
     && projection.contract_ref === "contract-ref:founder-loop-action-receipt-visibility:v1"
     && projection.source === "python_core_action_inbox_read_model"
     && projection.backend_owned
+    && Array.isArray(projection.missing_field_states)
+    && Array.isArray(item.receipt_refs);
+  if (
+    baseProjectionIsValid
+    && item.local_task_ref === localTaskRef
     && hasNoMissingFieldStates(projection.missing_field_states)
     && projection.local_task_ref === localTaskRef
-    && item.local_task_ref === localTaskRef
     && typeof receiptRef === "string"
     && receiptRef.startsWith("receipt:founder-loop-local-task:")
     && isSafeNorthStarRef(receiptRef)
     && item.local_task_commit_receipt_ref === receiptRef
-    && item.receipt_refs.includes(receiptRef);
+    && item.receipt_refs.includes(receiptRef)
+  ) {
+    return "bound";
+  }
+  const pendingStateRefs = new Set([
+    "decision_receipt_ref:pending",
+    "local_task_ref:pending",
+    "local_task_commit_receipt_ref:pending",
+    "evidence_timeline_event_ref:pending",
+    "replay_posture:pending",
+    "conflict_posture:pending",
+  ]);
+  const pendingProjectionIsValid =
+    baseProjectionIsValid
+    && item.action_kind === "local_task_create"
+    && item.local_task_ref === localTaskRef
+    && item.local_task_commit_receipt_ref == null
+    && projection.local_task_ref === "pending"
+    && receiptRef === "pending"
+    && projection.missing_field_states.includes("local_task_ref:pending")
+    && projection.missing_field_states.includes(
+      "local_task_commit_receipt_ref:pending",
+    )
+    && projection.missing_field_states.every((state) =>
+      pendingStateRefs.has(state));
+  if (pendingProjectionIsValid) {
+    if (!commitLaneClaimed) return "pending";
+    return sameSafeRefs(projection.missing_field_states, [
+      "local_task_ref:pending",
+      "local_task_commit_receipt_ref:pending",
+    ]) ? "absent" : "invalid";
+  }
+  if (!commitLaneClaimed) return "unavailable";
+  return "invalid";
+}
+
+function localTaskCommitReceiptProjectionIsBound(
+  item: FounderLoopActionItem | undefined,
+): boolean {
+  return localTaskCommitReceiptProjectionState(item) === "bound";
 }
 
 function isSafeNorthStarRef(value: string | null | undefined): value is string {

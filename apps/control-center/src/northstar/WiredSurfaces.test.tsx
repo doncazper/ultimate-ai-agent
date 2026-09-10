@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import { buildLocalTaskCommitRequest, localTaskCommitIdempotencyRef } from "../api/client";
+import { buildLocalTaskCommitRequest, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef } from "../api/client";
 import type { AuthorityDecisionPreview, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
@@ -9,7 +9,7 @@ import { NorthStarControlCenter } from "./NorthStarControlCenter";
 const apiMocks = vi.hoisted(() => ({
   commitLocalTask: vi.fn(),
   submitActionDecision: vi.fn(),
-  fetchFounderActionsInbox: vi.fn(),
+  fetchNorthStarDecisionsInbox: vi.fn(),
   recordMemoryReviewDecision: vi.fn(),
   fetchFounderMemoryReview: vi.fn(),
   recordManualMemoryCandidate: vi.fn(),
@@ -63,6 +63,11 @@ function attachExactDecisionLane(
   const capturedUsageRef = `usage-capture-ref:test:${itemRef}`;
   const budgetDecisionRef = `budget-decision-ref:test:${itemRef}`;
   const costReceiptRefs = [costEstimateRef, capturedUsageRef, budgetDecisionRef];
+  const localTaskRef = `local-task:founder-loop:${itemRef
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-+|-+$/g, "")}`;
+  const approvedLane = laneId === "approved_no_execution";
   Object.assign(actionItem, {
     action_envelope_ref: actionEnvelopeRef,
     approval_envelope_ref: approvalEnvelopeRef,
@@ -88,6 +93,10 @@ function attachExactDecisionLane(
     action_envelope_cost_blocked_state_refs: [],
     action_envelope_unknown_paid_cost_requires_explicit_approval: true,
     action_envelope_frontier_usage_claimed: false,
+    ...(actionItem.action_kind === "local_task_create" ? {
+      local_task_ref: localTaskRef,
+      local_task_commit_receipt_ref: null,
+    } : {}),
     approval_envelope: {
       ...actionItem.approval_envelope,
       source: "python_core_action_inbox_read_model",
@@ -115,7 +124,33 @@ function attachExactDecisionLane(
       ...actionItem.receipt_visibility,
       source: "python_core_action_inbox_read_model",
       backend_owned: true,
-      missing_field_states: ["decision_receipt_ref:pending"],
+      decision_receipt_ref: approvedLane
+        ? `receipt:action-decision:test:${itemRef.replaceAll(":", "-")}`
+        : "pending",
+      local_task_ref: "pending",
+      local_task_commit_receipt_ref: "pending",
+      evidence_timeline_event_ref: approvedLane
+        ? `evidence-timeline:action-decision/${itemRef.replaceAll(":", "-")}`
+        : "pending",
+      replay_posture: approvedLane
+        ? "decision_idempotency_replay_available"
+        : "pending",
+      conflict_posture: approvedLane
+        ? "decision_conflicting_idempotency_payload_rejected"
+        : "pending",
+      missing_field_states: approvedLane
+        ? [
+            "local_task_ref:pending",
+            "local_task_commit_receipt_ref:pending",
+          ]
+        : [
+            "decision_receipt_ref:pending",
+            "local_task_ref:pending",
+            "local_task_commit_receipt_ref:pending",
+            "evidence_timeline_event_ref:pending",
+            "replay_posture:pending",
+            "conflict_posture:pending",
+          ],
     },
   });
   const laneItem: FounderLoopActionInboxDecisionLaneReadModel["items"][number] = {
@@ -359,11 +394,12 @@ function safeLocalTaskAuthorityPreview(): AuthorityDecisionPreview {
   };
 }
 
-function localTaskReceiptFixture(
+async function localTaskReceiptFixture(
   item: FounderLoopActionItem,
   approvalRef: string,
-): FounderLoopLocalTaskCommitReceipt {
+): Promise<FounderLoopLocalTaskCommitReceipt> {
   const request = buildLocalTaskCommitRequest(item.item_ref, approvalRef);
+  const derivedRefs = await localTaskCommitDerivedRefs(item.item_ref, request);
   const authorityProofRefs = [
     "authority-policy-decision-ref:sha256:06aa4ea47021558fd62b7da8",
     "authority-lease-ref:northstar-workspace-write",
@@ -379,12 +415,12 @@ function localTaskReceiptFixture(
       .replace(/[^a-z0-9_.@-]+/g, "-")
       .replace(/^-+|-+$/g, "")}`,
     status: "local_task_created",
-    receipt_ref: `receipt:founder-loop-local-task:${item.item_ref.replaceAll(":", "-")}`,
-    audit_ref: `audit:founder-loop-local-task:${item.item_ref.replaceAll(":", "-")}`,
+    receipt_ref: derivedRefs.receiptRef,
+    audit_ref: derivedRefs.auditRef,
     idempotency_key_ref: localTaskCommitIdempotencyRef(item.item_ref, request),
-    payload_fingerprint_ref: "payload-fingerprint-ref:northstar-local-task:test",
+    payload_fingerprint_ref: derivedRefs.payloadFingerprintRef,
     run_ref: "run-ref:founder-loop-v1:governed-local-loop",
-    evidence_timeline_event_ref: `evidence-timeline-event:local-task:${item.item_ref.replaceAll(":", "-")}`,
+    evidence_timeline_event_ref: derivedRefs.evidenceTimelineEventRef,
     approval_ref: approvalRef,
     approval_status: "approved",
     approval_reason_refs: ["approval-reason-ref:northstar:test"],
@@ -416,7 +452,7 @@ function localTaskReceiptFixture(
     safe_summary: "Exact local task state was recorded with safe refs only.",
     evidence_refs: [
       `evidence-ref:northstar-local-task:${item.item_ref.replaceAll(":", "-")}`,
-      `evidence-timeline-event:local-task:${item.item_ref.replaceAll(":", "-")}`,
+      derivedRefs.evidenceTimelineEventRef,
       ...authorityProofRefs,
     ],
     blocked_state_refs: [
@@ -655,7 +691,7 @@ describe("North Star backend wiring", () => {
       replayed: false,
       action_executed: false,
     });
-    apiMocks.fetchFounderActionsInbox.mockResolvedValue(data.founderActionsInbox);
+    apiMocks.fetchNorthStarDecisionsInbox.mockResolvedValue(data.founderActionsInbox);
 
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
@@ -674,7 +710,7 @@ describe("North Star backend wiring", () => {
       mutationBinding,
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
-    expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
+    expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(1);
   });
 
   it("continues an exact approval and keeps its receipt while parent state reconciles", async () => {
@@ -716,12 +752,19 @@ describe("North Star backend wiring", () => {
       local_task_commit_approval_status: "backend_owned_approval_ready",
       local_task_commit_eligible: true,
       local_task_commit_blocked_reasons: [],
+      local_task_ref:
+        "local-task:founder-loop:founder-action-mock-local-task-review",
+      local_task_commit_receipt_ref: null,
       receipt_refs: [approvalReceipt.receipt_ref],
       receipt_visibility: {
         ...approvedItem.receipt_visibility,
         decision_receipt_ref: approvalReceipt.receipt_ref,
         local_task_ref: "pending",
         local_task_commit_receipt_ref: "pending",
+        missing_field_states: [
+          "local_task_ref:pending",
+          "local_task_commit_receipt_ref:pending",
+        ],
       },
     });
     attachExactDecisionLane(approvedData, item.item_ref, "approved_no_execution");
@@ -732,13 +775,17 @@ describe("North Star backend wiring", () => {
       action_kind: "local_task_create",
       local_task_ref: "local-task:founder-loop:founder-action-mock-local-task-review",
       status: "local_task_created",
-      receipt_ref: "receipt:founder-loop-local-task:northstar-review",
-      audit_ref: "audit:founder-loop-local-task:northstar-review",
+      receipt_ref:
+        "receipt:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-control-center-local-task-mock-local-task-review-approval-ref-northstar-local-task-approved",
+      audit_ref:
+        "audit:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-control-center-local-task-mock-local-task-review-approval-ref-northstar-local-task-approved",
       idempotency_key_ref:
         "idempotency-ref:control-center-local-task:mock-local-task-review:approval-ref-northstar-local-task-approved",
-      payload_fingerprint_ref: "payload-fingerprint-ref:northstar-local-task:test",
+      payload_fingerprint_ref:
+        "payload-fingerprint:founder-loop-local-task:d1213b519d8182dbbd2d198ec7a3d1f457713d28e83c3b4bfe850515d0e8775b",
       run_ref: "run-ref:founder-loop-v1:governed-local-loop",
-      evidence_timeline_event_ref: "evidence-timeline-event:local-task:northstar-review",
+      evidence_timeline_event_ref:
+        "evidence-timeline:local-task/founder-action-mock-local-task-review",
       approval_ref: approvalReceipt.approval_ref,
       approval_status: "approved",
       approval_reason_refs: ["approval-reason-ref:northstar:test"],
@@ -774,7 +821,7 @@ describe("North Star backend wiring", () => {
       safe_summary: "Exact local task state was recorded with safe refs only.",
       evidence_refs: [
         "evidence-ref:northstar-local-task:test",
-        "evidence-timeline-event:local-task:northstar-review",
+        "evidence-timeline:local-task/founder-action-mock-local-task-review",
         "authority-policy-decision-ref:sha256:06aa4ea47021558fd62b7da8",
         "authority-lease-ref:northstar-workspace-write",
         "audit-ref:authority-policy:sha256:06aa4ea47021558fd62b7da8",
@@ -824,7 +871,7 @@ describe("North Star backend wiring", () => {
         idempotency_key_ref: "idempotency-ref:substituted-receipt",
       })
       .mockResolvedValueOnce(localTaskReceipt);
-    apiMocks.fetchFounderActionsInbox
+    apiMocks.fetchNorthStarDecisionsInbox
       .mockResolvedValueOnce(approvedData.founderActionsInbox)
       .mockResolvedValueOnce(approvedData.founderActionsInbox);
 
@@ -849,7 +896,7 @@ describe("North Star backend wiring", () => {
         /local task receipt did not match the exact approved lane/i,
       )).length,
     ).toBeGreaterThan(0);
-    expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
+    expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(1);
     commitButton = screen.getByRole("button", { name: "Create local task record" });
     fireEvent.click(commitButton);
 
@@ -878,7 +925,7 @@ describe("North Star backend wiring", () => {
     expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
     expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Backend reconciliation is still pending/).length).toBeGreaterThan(0);
-    expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(2);
+    expect(apiMocks.fetchNorthStarDecisionsInbox).toHaveBeenCalledTimes(2);
     expect(onActionInboxRefresh).toHaveBeenLastCalledWith(approvedData.founderActionsInbox);
 
     const propagatedData = structuredClone(approvedData);
@@ -940,10 +987,19 @@ describe("North Star backend wiring", () => {
         local_task_commit_approval_status: "backend_owned_approval_ready",
         local_task_commit_eligible: true,
         local_task_commit_blocked_reasons: [],
-        local_task_commit_receipt_ref: "pending",
+        local_task_ref: `local-task:founder-loop:${candidate.item_ref
+          .toLowerCase()
+          .replace(/[^a-z0-9_.@-]+/g, "-")
+          .replace(/^-+|-+$/g, "")}`,
+        local_task_commit_receipt_ref: null,
         receipt_visibility: {
           ...candidate.receipt_visibility,
+          local_task_ref: "pending",
           local_task_commit_receipt_ref: "pending",
+          missing_field_states: [
+            "local_task_ref:pending",
+            "local_task_commit_receipt_ref:pending",
+          ],
         },
       });
     }
@@ -964,12 +1020,12 @@ describe("North Star backend wiring", () => {
     attachExactLocalTaskWorkQueue(data, secondItem.item_ref);
     const firstApprovalRef = firstItem.local_task_commit_approval_ref;
     if (!firstApprovalRef) throw new Error("Expected first local task approval");
-    const firstReceipt = localTaskReceiptFixture(firstItem, firstApprovalRef);
+    const firstReceipt = await localTaskReceiptFixture(firstItem, firstApprovalRef);
     let resolveCommit: ((receipt: FounderLoopLocalTaskCommitReceipt) => void) | undefined;
     apiMocks.commitLocalTask.mockImplementationOnce(() => new Promise((resolve) => {
       resolveCommit = resolve;
     }));
-    apiMocks.fetchFounderActionsInbox.mockRejectedValue(
+    apiMocks.fetchNorthStarDecisionsInbox.mockRejectedValue(
       new Error("temporary refresh failure"),
     );
 
@@ -1050,10 +1106,17 @@ describe("North Star backend wiring", () => {
       local_task_commit_approval_status: "backend_owned_approval_ready",
       local_task_commit_eligible: true,
       local_task_commit_blocked_reasons: [],
-      local_task_commit_receipt_ref: "pending",
+      local_task_ref:
+        "local-task:founder-loop:founder-action-mock-local-task-review",
+      local_task_commit_receipt_ref: null,
       receipt_visibility: {
         ...item.receipt_visibility,
+        local_task_ref: "pending",
         local_task_commit_receipt_ref: "pending",
+        missing_field_states: [
+          "local_task_ref:pending",
+          "local_task_commit_receipt_ref:pending",
+        ],
       },
     });
     attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
@@ -1105,7 +1168,7 @@ describe("North Star backend wiring", () => {
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
-  it("does not treat a rebound local task receipt projection as recorded", async () => {
+  it("blocks recommit when a local task receipt projection is rebound", async () => {
     apiMocks.previewAuthorityDecision.mockResolvedValue(
       safeLocalTaskAuthorityPreview(),
     );
@@ -1115,6 +1178,7 @@ describe("North Star backend wiring", () => {
     const reboundTaskRef = "local-task:founder-loop:another-action";
     const reboundReceiptRef =
       "receipt:founder-loop-local-task:rebound-receipt";
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     Object.assign(item, {
       status: "approved",
       action_group_id: "approved_local_task_lane",
@@ -1136,7 +1200,6 @@ describe("North Star backend wiring", () => {
         missing_field_states: ["none"],
       },
     });
-    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     attachExactLocalTaskWorkQueue(data, item.item_ref);
 
     render(
@@ -1145,12 +1208,14 @@ describe("North Star backend wiring", () => {
       </BackendTruthMutationBindingProvider>,
     );
 
-    expect(await screen.findByRole("button", {
+    expect(screen.queryByRole("button", {
       name: "Create local task record",
-    })).toBeEnabled();
+    })).not.toBeInTheDocument();
     expect(screen.queryByText(
       "The exact local task receipt is recorded in the backend review loop.",
     )).not.toBeInTheDocument();
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1169,6 +1234,7 @@ describe("North Star backend wiring", () => {
     const localTaskRef =
       "local-task:founder-loop:founder-action-mock-local-task-review";
     const receiptRef = "receipt:founder-loop-local-task:northstar-review";
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     Object.assign(item, {
       status: "approved",
       action_group_id: "approved_local_task_lane",
@@ -1192,7 +1258,6 @@ describe("North Star backend wiring", () => {
         missing_field_states: ["none"],
       },
     });
-    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     attachExactLocalTaskWorkQueue(data, item.item_ref);
 
     expect(() => render(
@@ -1200,12 +1265,14 @@ describe("North Star backend wiring", () => {
         <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
       </BackendTruthMutationBindingProvider>,
     )).not.toThrow();
-    expect(await screen.findByRole("button", {
+    expect(screen.queryByRole("button", {
       name: "Create local task record",
-    })).toBeEnabled();
+    })).not.toBeInTheDocument();
     expect(screen.queryByText(
       "The exact local task receipt is recorded in the backend review loop.",
     )).not.toBeInTheDocument();
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
   it("renders the backend-owned plan, action, decision, receipt, and blocked-state review path", () => {
@@ -1523,7 +1590,7 @@ describe("North Star backend wiring", () => {
     });
     attachExactDecisionLane(data, item.item_ref);
     apiMocks.submitActionDecision.mockResolvedValue({ decision: "reject", receipt_ref: "receipt:refresh-failure:test", replayed: false, action_executed: false });
-    apiMocks.fetchFounderActionsInbox.mockRejectedValue(new Error("temporary refresh failure"));
+    apiMocks.fetchNorthStarDecisionsInbox.mockRejectedValue(new Error("temporary refresh failure"));
 
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
     fireEvent.click(screen.getByRole("button", { name: "Record reject" }));

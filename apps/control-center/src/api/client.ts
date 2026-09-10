@@ -5835,6 +5835,90 @@ export async function fetchFounderActionsInbox(
   return inbox;
 }
 
+export function validateNorthStarDecisionsInbox(
+  inbox: FounderLoopActionsInbox,
+): FounderLoopActionsInbox {
+  const normalized = normalizeFounderActionsInbox(inbox);
+  const normalizedRecord = normalized.value as unknown as
+    Record<string, unknown>;
+  const items = normalizedRecord.items;
+  const decisionLane = normalized.value.action_inbox_decision_lane_read_model;
+  const workQueue = normalized.value.action_inbox_work_queue_read_model;
+  if (
+    normalized.usedFallback
+    || !Array.isArray(items)
+    || items.length > 50
+    || !items.every(isSafeNorthStarDecisionInboxItem)
+    || !decisionLane
+    || !workQueue
+    || decisionLane.source !== "python_core_action_inbox_decision_lane_read_model"
+    || !decisionLane.backend_owned
+    || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
+    || !workQueue.backend_owned
+  ) {
+    throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
+  }
+  return normalized.value;
+}
+
+function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const isStringArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every((entry) => typeof entry === "string");
+  const requiredTextFields = [
+    "item_ref",
+    "title",
+    "safe_summary",
+    "surface",
+    "priority",
+    "risk_class",
+    "status",
+    "side_effect_class",
+    "authority_boundary",
+    "next_safe_action",
+  ];
+  const requiredArrayFields = ["evidence_refs", "receipt_refs", "audit_refs"];
+  const optionalArrayFields = [
+    "action_review_actions",
+    "action_expected_receipt_refs",
+    "action_blocked_state_refs",
+    "local_task_commit_blocked_reasons",
+  ];
+  return requiredTextFields.every((field) => typeof value[field] === "string")
+    && typeof value.approval_required === "boolean"
+    && requiredArrayFields.every((field) => isStringArray(value[field]))
+    && optionalArrayFields.every((field) =>
+      value[field] === undefined || isStringArray(value[field]))
+    && (value.approval_envelope === undefined
+      || (
+        isPlainRecord(value.approval_envelope)
+        && isStringArray(value.approval_envelope.missing_field_states)
+        && isStringArray(value.approval_envelope.expected_receipt_refs)
+      ))
+    && (value.receipt_visibility === undefined
+      || (
+        isPlainRecord(value.receipt_visibility)
+        && typeof value.receipt_visibility.decision_receipt_ref === "string"
+        && typeof value.receipt_visibility.local_task_ref === "string"
+        && typeof value.receipt_visibility.local_task_commit_receipt_ref
+          === "string"
+        && typeof value.receipt_visibility.evidence_timeline_event_ref
+          === "string"
+        && typeof value.receipt_visibility.replay_posture === "string"
+        && typeof value.receipt_visibility.conflict_posture === "string"
+        && isStringArray(value.receipt_visibility.missing_field_states)
+      ));
+}
+
+export async function fetchNorthStarDecisionsInbox(
+  binding: BackendTruthReadBinding | null,
+): Promise<FounderLoopActionsInbox> {
+  return validateNorthStarDecisionsInbox(
+    await fetchFounderActionsInbox(binding),
+  );
+}
+
 export async function loadNorthStarDecisionsData(
   binding: BackendTruthReadBinding | null,
 ): Promise<ControlCenterData> {
@@ -5853,18 +5937,9 @@ export async function loadNorthStarDecisionsData(
       binding,
     ),
   ]);
-  const normalized = normalizeFounderActionsInbox(inbox);
-  const decisionLane = normalized.value.action_inbox_decision_lane_read_model;
-  const workQueue = normalized.value.action_inbox_work_queue_read_model;
+  const validatedInbox = validateNorthStarDecisionsInbox(inbox);
   if (
-    normalized.usedFallback
-    || !isSafeControlCenterSettingsStatus(settingsStatus)
-    || !decisionLane
-    || !workQueue
-    || decisionLane.source !== "python_core_action_inbox_decision_lane_read_model"
-    || !decisionLane.backend_owned
-    || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
-    || !workQueue.backend_owned
+    !isSafeControlCenterSettingsStatus(settingsStatus)
   ) {
     throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
   }
@@ -5889,7 +5964,7 @@ export async function loadNorthStarDecisionsData(
     {
       ...mockControlCenterData,
       source: "api",
-      founderActionsInbox: normalized.value,
+      founderActionsInbox: validatedInbox,
       settingsStatus,
       routeStates,
     },
@@ -7600,16 +7675,21 @@ export interface LocalTaskCommitReceiptBinding {
   itemRef: string;
   approvalRef: string;
   idempotencyRef: string;
+  request: FounderLoopLocalTaskCommitRequest;
   safeDisableRef: string;
   rollbackRef: string;
 }
 
-export function founderLoopLocalTaskRef(itemRef: string): string {
-  const suffix = itemRef
+function localTaskCommitSafeSuffix(value: string): string {
+  const suffix = value
     .toLowerCase()
     .replace(/[^a-z0-9_.@-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `local-task:founder-loop:${suffix || "missing"}`;
+  return suffix || "missing";
+}
+
+export function founderLoopLocalTaskRef(itemRef: string): string {
+  return `local-task:founder-loop:${localTaskCommitSafeSuffix(itemRef)}`;
 }
 
 export function buildLocalTaskCommitRequest(
@@ -7747,6 +7827,39 @@ export async function localTaskAuthorityProofRefs(
   };
 }
 
+export async function localTaskCommitDerivedRefs(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): Promise<{
+  receiptRef: string;
+  auditRef: string;
+  evidenceTimelineEventRef: string;
+  payloadFingerprintRef: string;
+}> {
+  const idempotencyRef = localTaskCommitIdempotencyRef(itemRef, request);
+  const itemSuffix = localTaskCommitSafeSuffix(itemRef);
+  const idempotencySuffix = localTaskCommitSafeSuffix(idempotencyRef);
+  const payload = {
+    contract_ref: LOCAL_TASK_COMMIT_CONTRACT_REF,
+    item_ref: itemRef,
+    action_kind: "local_task_create",
+    actor_id: "local_operator",
+    approval_ref: request.approval_ref,
+    decision_reason_ref: request.decision_reason_ref,
+    metadata_refs: [...(request.metadata_refs ?? [])].sort(),
+  };
+  const digest = await sha256Hex(portableCanonicalJson(payload));
+  return {
+    receiptRef:
+      `receipt:founder-loop-local-task:${itemSuffix}:${idempotencySuffix}`,
+    auditRef:
+      `audit:founder-loop-local-task:${itemSuffix}:${idempotencySuffix}`,
+    evidenceTimelineEventRef: `evidence-timeline:local-task/${itemSuffix}`,
+    payloadFingerprintRef:
+      `payload-fingerprint:founder-loop-local-task:${digest}`,
+  };
+}
+
 export async function localTaskCommitReceiptIsSafe(
   receipt: FounderLoopLocalTaskCommitReceipt,
   binding: LocalTaskCommitReceiptBinding,
@@ -7762,14 +7875,20 @@ export async function localTaskCommitReceiptIsSafe(
     || (receipt.authority_decision_outcome !== "allow"
       && receipt.authority_decision_outcome !== "ask")
   ) return false;
-  let expectedAuthorityProofRefs: Awaited<
-    ReturnType<typeof localTaskAuthorityProofRefs>
-  >;
+  let expectedAuthorityProofRefs: Awaited<ReturnType<
+    typeof localTaskAuthorityProofRefs
+  >>;
+  let expectedDerivedRefs: Awaited<ReturnType<
+    typeof localTaskCommitDerivedRefs
+  >>;
   try {
-    expectedAuthorityProofRefs = await localTaskAuthorityProofRefs(
-      receipt.authority_lease_ref,
-      receipt.authority_decision_outcome,
-    );
+    [expectedAuthorityProofRefs, expectedDerivedRefs] = await Promise.all([
+      localTaskAuthorityProofRefs(
+        receipt.authority_lease_ref,
+        receipt.authority_decision_outcome,
+      ),
+      localTaskCommitDerivedRefs(binding.itemRef, binding.request),
+    ]);
   } catch {
     return false;
   }
@@ -7807,8 +7926,17 @@ export async function localTaskCommitReceiptIsSafe(
     && receipt.status === "local_task_created"
     && receipt.local_task_ref === founderLoopLocalTaskRef(binding.itemRef)
     && receipt.approval_ref === binding.approvalRef
+    && binding.request.approval_ref === binding.approvalRef
     && receipt.approval_status === "approved"
     && receipt.idempotency_key_ref === binding.idempotencyRef
+    && binding.idempotencyRef
+      === localTaskCommitIdempotencyRef(binding.itemRef, binding.request)
+    && receipt.receipt_ref === expectedDerivedRefs.receiptRef
+    && receipt.audit_ref === expectedDerivedRefs.auditRef
+    && receipt.evidence_timeline_event_ref
+      === expectedDerivedRefs.evidenceTimelineEventRef
+    && receipt.payload_fingerprint_ref
+      === expectedDerivedRefs.payloadFingerprintRef
     && receipt.run_ref === "run-ref:founder-loop-v1:governed-local-loop"
     && receipt.safe_disable_ref === binding.safeDisableRef
     && receipt.rollback_ref === binding.rollbackRef
