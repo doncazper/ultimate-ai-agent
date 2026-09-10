@@ -5327,6 +5327,7 @@ async function submitActionLifecycleDecision(
       body: JSON.stringify(boundRequest),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
@@ -5437,6 +5438,7 @@ export async function commitLocalTask(
       body: JSON.stringify(request),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<FounderLoopLocalTaskCommitReceipt>;

@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildLocalTaskCommitRequest,
+  commitLocalTask,
   fetchFounderActionsInbox,
   previewAuthorityDecision,
+  submitActionDecision,
   validateBackendResponseBinding,
   withBackendTruthMutationHeaders,
   type BackendTruthReadBinding,
@@ -188,5 +191,98 @@ describe("backend response provenance binding", () => {
       rollback_ref: "rollback-ref:test",
       safe_disable_ref: "safe-disable-ref:test",
     }, binding)).rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
+  });
+
+  it("admits local-task and decision receipts from the exact backend process", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        result: { receipt_ref: "receipt:local-task:bound" },
+      }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+          "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+        },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        result: { receipt_ref: "receipt:decision:bound" },
+      }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+          "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+        },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(commitLocalTask(
+      "founder-action:bound",
+      buildLocalTaskCommitRequest(
+        "founder-action:bound",
+        "approval-ref:bound",
+      ),
+      binding,
+    )).resolves.toMatchObject({ receipt_ref: "receipt:local-task:bound" });
+    await expect(submitActionDecision(
+      "founder-action:bound",
+      "defer",
+      {
+        expected_revision_ref: "action-revision:bound",
+        decision_reason_ref: "decision-reason-ref:bound",
+        metadata_refs: ["metadata-ref:bound"],
+      },
+      binding,
+    )).resolves.toMatchObject({ receipt_ref: "receipt:decision:bound" });
+  });
+
+  it.each([
+    [
+      "local-task commit",
+      () => commitLocalTask(
+        "founder-action:replacement",
+        buildLocalTaskCommitRequest(
+          "founder-action:replacement",
+          "approval-ref:replacement",
+        ),
+        binding,
+      ),
+    ],
+    [
+      "action decision",
+      () => submitActionDecision(
+        "founder-action:replacement",
+        "defer",
+        {
+          expected_revision_ref: "action-revision:replacement",
+          decision_reason_ref: "decision-reason-ref:replacement",
+          metadata_refs: ["metadata-ref:replacement"],
+        },
+        binding,
+      ),
+    ],
+  ])("rejects a %s response from a replacement backend before body admission", async (
+    _label,
+    submitMutation,
+  ) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not-json", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+          "X-UAA-Backend-Instance-Ref":
+            "backend-instance-ref:control-center:44444444444444444444444444444444",
+        },
+      })),
+    );
+
+    await expect(submitMutation()).rejects.toThrow(
+      "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
+    );
   });
 });
