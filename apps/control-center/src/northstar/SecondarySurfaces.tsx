@@ -531,6 +531,59 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
   return <div className="ns-surface ns-terminal"><Toolbar title="Developer Tools · Terminal" subtitle="Reference-only command lanes with visible scope"><Button disabled icon="plus" title="No governed terminal-session create contract is wired">New governed session unavailable</Button><a className="ns-button primary" href={`${WORKSPACE_PREFIX}/decisions`}>Review decisions</a></Toolbar><Tabs active="Sessions" items={["Sessions"]} /><div className="ns-terminal-layout"><aside className="ns-session-list"><header><strong>Reference sessions</strong></header>{["UI verification", "Docs checks", "Frontend tests"].map((item, index) => <button className={index === 0 ? "active" : ""} disabled key={item} title="Reference fixture; no selectable terminal session exists" type="button"><strong>{item}</strong><small>Render fixture</small></button>)}</aside><section><div className="ns-terminal-console"><header><strong>UI verification · reference lane</strong><span>No command authority</span></header><code>&gt; npm run typecheck</code><p>Reference output only · no command executed from this surface.</p><code>&gt; docs:verify</code><p>Reference output only · use the canonical CLI inspection path.</p><code>&gt; playwright test --project=desktop</code><p>Reference output only · no test process was started.</p><footer><Icon name="lock" size={14} /> Terminal execution is not wired. Use an approved CLI lane outside this representation.</footer></div><Panel title="Allowed command references" icon="info"><div className="ns-grid-actions"><Button disabled icon="code-2">Typecheck</Button><Button disabled icon="play">Focused tests</Button><Button disabled icon="book-open">Docs verifier</Button><Button disabled icon="git-branch">Git diff check</Button></div></Panel></section><aside><Panel title="Session authority"><MetaRow icon="shield" label="Lane" value="Reference only" /><MetaRow icon="wifi-off" label="Network" value="Denied" /><MetaRow icon="terminal" label="Arbitrary shell" value="Blocked" tone="red" /><MetaRow icon="lock" label="Environment" value="Redacted" /><div className="ns-stack-actions"><Button disabled tone="primary">Review command unavailable</Button><Button tone="quiet" onClick={onBack}>Back to Runtime</Button></div></Panel></aside></div><div className="ns-receipt-band"><Icon name="lock" size={18} /> Not backend-wired · No command executed · No receipt claimed</div></div>;
 }
 
+function activeWorkspaceWriteAuthorityIsAvailable(
+  data: ControlCenterData,
+): boolean {
+  const settings = data.settingsStatus;
+  const authority = settings.authority_lease_state;
+  if (
+    data.routeStates["/settings"]?.state !== "backend_owned"
+    || settings.schema_version !== "uaa-control-center-settings-status.v1"
+    || settings.route_ref !== "GET /control-center/settings/status"
+    || settings.settings_toggle_grants_authority
+    || settings.production_authority_enabled
+    || authority.schema_version !== "uaa-authority-state.v1"
+    || authority.contract_ref !== "contract-ref:authority-modes-mission-leases:v1"
+    || !authority.backend_owned
+    || authority.api_ref !== "GET /api/runtime/authority-state"
+    || authority.settings_route_ref !== "GET /control-center/settings/status#authority_lease_state"
+    || authority.cli_ref !== "repo-local-command:uaa-runtime-inspect-authority-state"
+    || authority.unknown_authority_default !== "deny"
+    || !authority.kill_switch_visible
+    || authority.kill_switch_engaged
+    || !authority.receipts_required
+    || !authority.audit_required
+    || !authority.redaction_required
+    || authority.unsupported_adapters_claimed_execution
+  ) return false;
+  const now = Date.now();
+  return authority.active_leases.some((lease) => {
+    const issuedAt = Date.parse(lease.issued_at);
+    const expiresAt = Date.parse(lease.expires_at);
+    return lease.status === "active"
+      && Array.isArray(lease.domains.workspace)
+      && lease.domains.workspace.includes("write")
+      && Number.isFinite(issuedAt)
+      && Number.isFinite(expiresAt)
+      && issuedAt <= now
+      && expiresAt > now
+      && lease.receipts_required
+      && lease.audit_required
+      && lease.redaction_required
+      && lease.rollback_required
+      && lease.safe_disable_required
+      && lease.kill_switch_required
+      && [
+        lease.lease_ref,
+        lease.safe_disable_ref,
+        lease.rollback_ref,
+        lease.kill_switch_ref,
+        lease.audit_ref,
+        lease.receipt_sink_ref,
+      ].every(isSafeNorthStarRef);
+  });
+}
+
 export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
   const mutationBinding = useBackendTruthMutationBinding();
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
@@ -644,13 +697,13 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
   const localTaskCommitReceiptRef = item?.receipt_visibility?.local_task_commit_receipt_ref
     ?? item?.local_task_commit_receipt_ref;
   const localTaskCommitAlreadyRecorded = isRecordedReceiptRef(localTaskCommitReceiptRef);
-  const canCommitLocalTask = Boolean(
+  const localTaskCommitLaneReady = Boolean(
     authoritative
     && backendEnvelope
     && decisionLaneReadable
     && decisionLaneItem?.lane_id === "approved_no_execution"
     && decisionLaneItem.status === "approved"
-    && !decisionLaneItem.approval_required
+    && decisionLaneItem.approval_required
     && decisionLaneItem.approval_envelope_ref === exactApprovalEnvelopeRef
     && decisionLaneItem.approval_scope_ref === exactScopeRef
     && sameSafeRefs(decisionLaneItem.expected_receipt_refs, expectedReceiptRefs)
@@ -662,6 +715,8 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     && !localTaskCommitAlreadyRecorded
     && actionInboxLocalTaskCommitIsEligible(inbox, item),
   );
+  const workspaceWriteAuthorityReady = activeWorkspaceWriteAuthorityIsAvailable(data);
+  const canCommitLocalTask = localTaskCommitLaneReady && workspaceWriteAuthorityReady;
   const displayedRevisionRef =
     item?.action_revision_ref ?? item?.expected_revision_ref;
   const existingReceiptRefs = Array.from(new Set([
@@ -828,7 +883,13 @@ function actionInboxLocalTaskCommitIsEligible(
     || workItem.exact_scope_ref !== (item.action_scope_ref ?? item.approval_envelope?.exact_scope)
     || workItem.rollback_ref !== (item.action_rollback_ref ?? item.rollback_ref)
     || workItem.safe_disable_ref !== (item.action_safe_disable_ref ?? item.safe_disable_ref)
-    || !sameSafeRefs(workItem.expected_receipt_refs, item.action_expected_receipt_refs ?? item.approval_envelope?.expected_receipt_refs ?? [])
+    || !sameSafeRefs(
+      workItem.expected_receipt_refs,
+      Array.from(new Set([
+        ...(item.action_expected_receipt_refs ?? item.approval_envelope?.expected_receipt_refs ?? []),
+        ...item.receipt_refs,
+      ])),
+    )
     || workItem.idempotency_ref !== item.idempotency_key_ref
     || item.status !== "approved"
     || item.action_group_id !== "approved_local_task_lane"
@@ -901,13 +962,13 @@ function localTaskCommitReceiptIsSafe(
     && receipt.safe_summary.length <= 320
     && !/[\u0000-\u001f\u007f]/.test(receipt.safe_summary)
     && receipt.local_task_created
-    && !receipt.connector_write_performed
-    && !receipt.shell_subprocess_execution_performed
-    && !receipt.model_provider_authority_used
-    && !receipt.memory_write_performed
-    && !receipt.context_injection_performed
-    && !receipt.external_side_effect_performed
-    && !receipt.raw_content_stored;
+    && receipt.connector_write_performed === false
+    && receipt.shell_subprocess_execution_performed === false
+    && receipt.model_provider_authority_used === false
+    && receipt.memory_write_performed === false
+    && receipt.context_injection_performed === false
+    && receipt.external_side_effect_performed === false
+    && receipt.raw_content_stored === false;
 }
 
 function isRecordedReceiptRef(value: string | null | undefined): value is string {

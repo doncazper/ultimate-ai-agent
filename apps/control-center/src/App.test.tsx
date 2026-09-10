@@ -22403,8 +22403,13 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
       mockControlCenterData.modelProviderControlPlane,
-    [API_ENDPOINTS.controlCenterSettingsStatus]:
-      mockControlCenterData.settingsStatus,
+    [API_ENDPOINTS.controlCenterSettingsStatus]: {
+      ...mockControlCenterData.settingsStatus,
+      authority_lease_state: {
+        ...mockControlCenterData.settingsStatus.authority_lease_state,
+        backend_owned: true,
+      },
+    },
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,

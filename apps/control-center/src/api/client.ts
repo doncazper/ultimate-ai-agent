@@ -5820,16 +5820,24 @@ export async function loadNorthStarDecisionsData(
   if (!API_BASE_POLICY.allowed || !binding) {
     throw new StrictBackendDataError();
   }
-  const inbox = await readEnvelope<FounderLoopActionsInbox>(
-    API_ENDPOINTS.founderActionsInbox,
-    defaultControlCenterReadLimiter,
-    binding,
-  );
+  const [inbox, settingsStatus] = await Promise.all([
+    readEnvelope<FounderLoopActionsInbox>(
+      API_ENDPOINTS.founderActionsInbox,
+      defaultControlCenterReadLimiter,
+      binding,
+    ),
+    readEnvelope<ControlCenterSettingsStatus>(
+      API_ENDPOINTS.controlCenterSettingsStatus,
+      defaultControlCenterReadLimiter,
+      binding,
+    ),
+  ]);
   const normalized = normalizeFounderActionsInbox(inbox);
   const decisionLane = normalized.value.action_inbox_decision_lane_read_model;
   const workQueue = normalized.value.action_inbox_work_queue_read_model;
   if (
     normalized.usedFallback
+    || !isSafeControlCenterSettingsStatus(settingsStatus)
     || !decisionLane
     || !workQueue
     || decisionLane.source !== "python_core_action_inbox_decision_lane_read_model"
@@ -5848,17 +5856,25 @@ export async function loadNorthStarDecisionsData(
       endpointReturned: true,
       usedFallback: false,
     }),
+    "/settings": buildRouteReadState({
+      route: "/settings",
+      surfaceLabel: "Settings",
+      backendRouteRef: "GET /control-center/settings/status",
+      endpointReturned: true,
+      usedFallback: false,
+    }),
   };
   return withConnection(
     {
       ...mockControlCenterData,
       source: "api",
       founderActionsInbox: normalized.value,
+      settingsStatus,
       routeStates,
     },
     {
       state: "online",
-      safeMessage: "Decisions loaded from the bounded local Action Inbox contract.",
+      safeMessage: "Decisions and authority state loaded from bounded local backend contracts.",
       usingMockData: false,
       warnings: [],
     },
