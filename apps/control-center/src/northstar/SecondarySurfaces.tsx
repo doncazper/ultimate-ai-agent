@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  commitLocalTask,
   fetchControlCenterSettingsStatus,
   fetchFounderActionsInbox,
   fetchFounderMemoryReview,
+  localTaskCommitIdempotencyRef,
   recordManualMemoryCandidate,
   recordMemoryReviewDecision,
   revokeAuthorityLease,
@@ -14,6 +16,8 @@ import type {
   ControlCenterSettingsStatus,
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
+  FounderLoopActionItem,
+  FounderLoopLocalTaskCommitReceipt,
   FounderLoopActionsInbox,
   FounderLoopMemoryReview,
   FounderLoopPlansToActionsBridgeReadModel,
@@ -532,12 +536,15 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
   const [selected, setSelected] = useState(0);
   const [pending, setPending] = useState<FounderLoopActionDecisionKind>();
+  const [pendingLocalTaskCommit, setPendingLocalTaskCommit] = useState(false);
   const [receipt, setReceipt] = useState<FounderLoopActionDecisionReceipt>();
+  const [localTaskReceipt, setLocalTaskReceipt] = useState<FounderLoopLocalTaskCommitReceipt>();
   const [feedback, setFeedback] = useState("Select an exact backend action envelope to review.");
   useEffect(() => {
     setInbox(data.founderActionsInbox);
     setSelected(0);
     setReceipt(undefined);
+    setLocalTaskReceipt(undefined);
     setFeedback("Select an exact backend action envelope to review.");
   }, [data.founderActionsInbox]);
   const authoritative = data.connection.state === "online" && !data.connection.usingMockData && data.routeStates["/actions"]?.state === "backend_owned";
@@ -633,6 +640,28 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     return allowed.filter((decision): decision is FounderLoopActionDecisionKind => ["approve", "edit", "reject", "defer"].includes(decision));
   }, [item]);
   const costApproved = item ? actionApprovalCostIsReady(item, decisionLaneItem) : false;
+  const localTaskCommitApprovalRef = item?.local_task_commit_approval_ref;
+  const localTaskCommitReceiptRef = item?.receipt_visibility?.local_task_commit_receipt_ref
+    ?? item?.local_task_commit_receipt_ref;
+  const localTaskCommitAlreadyRecorded = isRecordedReceiptRef(localTaskCommitReceiptRef);
+  const canCommitLocalTask = Boolean(
+    authoritative
+    && backendEnvelope
+    && decisionLaneReadable
+    && decisionLaneItem?.lane_id === "approved_no_execution"
+    && decisionLaneItem.status === "approved"
+    && !decisionLaneItem.approval_required
+    && decisionLaneItem.approval_envelope_ref === exactApprovalEnvelopeRef
+    && decisionLaneItem.approval_scope_ref === exactScopeRef
+    && sameSafeRefs(decisionLaneItem.expected_receipt_refs, expectedReceiptRefs)
+    && decisionLaneItem.rollback_ref === (item?.action_rollback_ref ?? item?.rollback_ref)
+    && decisionLaneItem.safe_disable_ref === (item?.action_safe_disable_ref ?? item?.safe_disable_ref)
+    && costApproved
+    && item
+    && localTaskCommitApprovalRef
+    && !localTaskCommitAlreadyRecorded
+    && actionInboxLocalTaskCommitIsEligible(inbox, item),
+  );
   const displayedRevisionRef =
     item?.action_revision_ref ?? item?.expected_revision_ref;
   const existingReceiptRefs = Array.from(new Set([
@@ -692,7 +721,208 @@ export function DecisionReviewSurface({ data }: { data: ControlCenterData }) {
     }
   }
 
-  return <div className="ns-surface ns-decisions"><Toolbar title={`Review ${items.length} decisions`} subtitle="Follow the plan through review, then record only the exact decision you intend"><Badge tone={authoritative ? "green" : "orange"}>{authoritative ? "Backend-owned" : "Preview"}</Badge><Button disabled>Filter: All</Button><Button disabled>Sort: Backend order</Button></Toolbar><div className="ns-decision-layout"><aside className="ns-decision-list"><header><h2>Action inbox ({items.length})</h2><p>Backend-classified review queue</p></header>{items.map((candidate, index) => <button className={selected === index ? "active" : ""} key={candidate.item_ref} onClick={() => { setSelected(index); setReceipt(undefined); setFeedback(candidate.next_safe_action); }} type="button"><Icon name={candidate.surface.toLowerCase().includes("memory") ? "book-open" : candidate.surface.toLowerCase().includes("plan") ? "table-2" : "scale"} size={18} /><span><small>{candidate.action_group_label ?? candidate.surface}</small><strong>{candidate.title}</strong><span><Badge tone={candidate.priority === "high" || candidate.priority === "critical" ? "red" : "orange"}>{candidate.priority}</Badge><Badge tone={candidate.risk_class === "low" ? "green" : candidate.risk_class === "high" ? "red" : "orange"}>{candidate.risk_class}</Badge></span><em>{candidate.status.replaceAll("_", " ")}</em></span><Icon name="chevron-right" size={15} /></button>)}{items.length === 0 ? <p className="ns-help-copy">No backend action item is waiting for review.</p> : null}</aside><section className="ns-decision-detail">{item ? <><header><Icon name="scale" size={22} /><h2>{item.title}</h2><Badge tone={item.approval_required ? "orange" : "neutral"}>{item.approval_required ? "Approval required" : "Review only"}</Badge></header><div className="ns-source-line">{item.surface} · {item.item_ref}</div><section aria-label="Review path" className="ns-review-path"><header><h3>Review path</h3><Badge tone={plansBridgeReadable && decisionLaneReadable ? "green" : "orange"}>{plansBridgeReadable && decisionLaneReadable ? "Backend-linked" : "Partially linked"}</Badge></header><div><article className={plansBridgeReadable ? "ready" : "unavailable"}><span><Icon name="table-2" size={16} /> Plan</span><strong>{plansBridgeReadable ? plansBridgeItem?.plan_title : "Plan link unavailable"}</strong><small>{plansBridgeReadable ? plansBridgeItem?.plan_status.replaceAll("_", " ") : "No authoritative plan-to-action link"}</small></article><Icon name="chevron-right" size={15} /><article className="ready"><span><Icon name="file-text" size={16} /> Action</span><strong>{item.title}</strong><small>{item.status.replaceAll("_", " ")}</small></article><Icon name="chevron-right" size={15} /><article className={decisionLaneReadable ? "ready" : "unavailable"}><span><Icon name="scale" size={16} /> Decision</span><strong>{decisionLaneReadable ? decisionLaneItem?.lane_label : "Lane unavailable"}</strong><small>{decisionLaneReadable ? decisionLaneItem?.status.replaceAll("_", " ") : "Read-only until backend-linked"}</small></article><Icon name="chevron-right" size={15} /><article className={receipt || existingReceiptRefs.length > 0 ? "complete" : "pending"}><span><Icon name="receipt-text" size={16} /> Receipt</span><strong>{receipt || existingReceiptRefs.length > 0 ? "Receipt recorded" : expectedReceiptRefs.length > 0 ? `${expectedReceiptRefs.length} receipt${expectedReceiptRefs.length === 1 ? "" : "s"} expected` : "Receipt posture unavailable"}</strong><small>{receipt ? receipt.decision : existingReceiptRefs.length > 0 ? "Visible in backend state" : "Recorded after a supported decision"}</small></article></div><footer><Icon name="lock" size={15} /><span>{blockedAuthorityRefs.length > 0 ? `${blockedAuthorityRefs.length} authority limit${blockedAuthorityRefs.length === 1 ? "" : "s"} enforced` : "Action execution remains blocked"} · Approval alone does not execute</span></footer></section><Panel title="Safe summary"><p>{item.safe_summary}</p></Panel><div className="ns-decision-facts"><MetaRow icon="target" label="Exact scope" value={item.action_scope_ref ?? item.approval_envelope?.exact_scope ?? "Missing"} /><MetaRow icon="shield-check" label="Authority boundary" value={item.authority_boundary} /><MetaRow icon="activity" label="Side effects" value={item.side_effect_class} /><MetaRow icon="receipt-text" label="Expected receipts" value={item.action_expected_receipt_refs?.length ?? item.receipt_refs.length} /></div><Panel title="Backend action envelope"><MetaRow icon="file-text" label="Envelope" value={item.action_envelope_ref ?? item.approval_envelope_ref ?? "Missing"} /><MetaRow icon="clock" label="Expiry / stale" value={item.action_expires_at ?? item.expires_at ?? item.stale_state} /><MetaRow icon="rotate-ccw" label="Rollback" value={item.action_rollback_ref ?? item.rollback_ref ?? "Missing"} /><MetaRow icon="shield-check" label="Safe disable" value={item.action_safe_disable_ref ?? item.safe_disable_ref ?? "Missing"} /></Panel><Panel title="Decision effect"><p>These controls record a decision receipt through Python Core. Approval alone does not execute the action unless the returned receipt explicitly reports execution.</p></Panel><div className="ns-decision-actions">{(["reject", "defer", "edit", "approve"] as FounderLoopActionDecisionKind[]).map((decision) => <Button disabled={!canRecord || !availableDecisions.includes(decision) || Boolean(pending) || (decision === "approve" && !costApproved)} icon={decision === "approve" ? "shield-check" : decision === "reject" ? "shield-alert" : decision === "defer" ? "clock" : "pencil"} key={decision} onClick={() => void recordDecision(decision)} title={decision === "approve" && !costApproved ? "Approval is blocked by the backend cost posture" : !canRecord ? "Authoritative backend envelope and decision lane required" : undefined} tone={decision === "approve" ? "primary" : decision === "reject" ? "danger" : "secondary"}>{pending === decision ? "Recording…" : `Record ${decision}`}</Button>)}</div></> : <div className="ns-empty-lease"><Icon name="circle-check" size={34} tone="success" /><h3>Action inbox is clear</h3><p>No exact decision is selected.</p></div>}</section><aside className="ns-decision-inspector"><Panel title="Authority & consequences" icon="shield-check">{item ? <><MetaRow icon="target" label="Queue group" value={item.action_group_label ?? item.action_group_id ?? "Unclassified"} /><MetaRow icon="lock" label="Backend envelope" value={backendEnvelope ? "Verified" : "Unavailable"} tone={backendEnvelope ? "green" : "red"} /><MetaRow icon="activity" label="Decision lane" value={decisionLane ? "Eligible" : "Read-only"} tone={decisionLane ? "green" : "orange"} /><MetaRow icon="receipt-text" label="Receipt required" value={inbox.decision_receipts_required ? "Yes" : "No"} /><MetaRow icon="badge-dollar-sign" label="Cost gate" value={costApproved ? "Cost approved" : "Approval blocked"} tone={costApproved ? "green" : "orange"} /><div className="ns-info-callout"><Icon name="info" size={17} /><span>{item.next_safe_action}</span></div></> : <p>No item selected.</p>}</Panel><Panel title="Activity" icon="activity"><p>{feedback}</p>{receipt ? <><MetaRow icon="receipt-text" label="Receipt" value={receipt.receipt_ref} /><MetaRow icon="shield-check" label="Decision" value={receipt.decision} /><MetaRow icon="activity" label="Action executed" value={receipt.action_executed ? "Yes" : "No"} tone={receipt.action_executed ? "orange" : "green"} /></> : null}</Panel><Panel title="Receipts" icon="receipt-text"><p>{receipt ? receipt.safe_summary : "A backend receipt appears here after a supported decision is recorded."}</p></Panel></aside></div><div aria-live="polite" className="ns-receipt-band"><Icon name={receipt ? "receipt-text" : "shield-check"} size={18} /> {feedback}</div></div>;
+  async function recordLocalTaskCommit() {
+    if (!item || !localTaskCommitApprovalRef || !canCommitLocalTask) return;
+    setPendingLocalTaskCommit(true);
+    try {
+      const request = {
+        approval_ref: localTaskCommitApprovalRef,
+        decision_reason_ref: "decision-reason-ref:northstar-action:commit-local-task",
+        metadata_refs: [
+          "metadata-ref:northstar-action:commit-local-task",
+          item.item_ref,
+        ],
+      };
+      const recorded = await commitLocalTask(
+        item.item_ref,
+        request,
+        mutationBinding,
+      );
+      if (!localTaskCommitReceiptIsSafe(
+        recorded,
+        item,
+        localTaskCommitApprovalRef,
+        localTaskCommitIdempotencyRef(item.item_ref, request),
+      )) {
+        throw new Error("The local task receipt did not match the exact approved lane.");
+      }
+      setLocalTaskReceipt(recorded);
+      setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} local task receipt · ${recorded.receipt_ref}. Refreshing backend queue.`);
+      try {
+        const refreshed = await fetchFounderActionsInbox(mutationBinding);
+        setInbox(refreshed);
+        const nextIndex = refreshed.items.findIndex((candidate) => candidate.item_ref === item.item_ref);
+        const refreshedItem = nextIndex >= 0 ? refreshed.items[nextIndex] : undefined;
+        const reconciled = Boolean(
+          refreshedItem?.receipt_visibility?.backend_owned
+          && refreshedItem.receipt_visibility.source === "python_core_action_inbox_read_model"
+          && (
+            refreshedItem.receipt_visibility.local_task_commit_receipt_ref === recorded.receipt_ref
+            || refreshedItem.local_task_commit_receipt_ref === recorded.receipt_ref
+          )
+          && (
+            refreshedItem.receipt_visibility.local_task_ref === recorded.local_task_ref
+            || refreshedItem.local_task_ref === recorded.local_task_ref
+          ),
+        );
+        setSelected(nextIndex >= 0 ? nextIndex : 0);
+        setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} local task receipt · ${recorded.receipt_ref}. ${reconciled ? "Backend read model reconciled." : "Backend reconciliation is still pending."}`);
+      } catch (refreshError) {
+        setFeedback(`${recorded.replayed ? "Replayed" : "Recorded"} local task receipt · ${recorded.receipt_ref}. Refresh pending: ${refreshError instanceof Error ? refreshError.message : "backend queue unavailable"}`);
+      }
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Local task receipt was not recorded safely.");
+    } finally {
+      setPendingLocalTaskCommit(false);
+    }
+  }
+
+  return <div className="ns-surface ns-decisions"><Toolbar title={`Review ${items.length} decisions`} subtitle="Follow the plan through review, then record only the exact decision you intend"><Badge tone={authoritative ? "green" : "orange"}>{authoritative ? "Backend-owned" : "Preview"}</Badge><Button disabled>Filter: All</Button><Button disabled>Sort: Backend order</Button></Toolbar><div className="ns-decision-layout"><aside className="ns-decision-list"><header><h2>Action inbox ({items.length})</h2><p>Backend-classified review queue</p></header>{items.map((candidate, index) => <button className={selected === index ? "active" : ""} key={candidate.item_ref} onClick={() => { setSelected(index); setReceipt(undefined); setLocalTaskReceipt(undefined); setFeedback(candidate.next_safe_action); }} type="button"><Icon name={candidate.surface.toLowerCase().includes("memory") ? "book-open" : candidate.surface.toLowerCase().includes("plan") ? "table-2" : "scale"} size={18} /><span><small>{candidate.action_group_label ?? candidate.surface}</small><strong>{candidate.title}</strong><span><Badge tone={candidate.priority === "high" || candidate.priority === "critical" ? "red" : "orange"}>{candidate.priority}</Badge><Badge tone={candidate.risk_class === "low" ? "green" : candidate.risk_class === "high" ? "red" : "orange"}>{candidate.risk_class}</Badge></span><em>{candidate.status.replaceAll("_", " ")}</em></span><Icon name="chevron-right" size={15} /></button>)}{items.length === 0 ? <p className="ns-help-copy">No backend action item is waiting for review.</p> : null}</aside><section className="ns-decision-detail">{item ? <><header><Icon name="scale" size={22} /><h2>{item.title}</h2><Badge tone={item.approval_required ? "orange" : "neutral"}>{item.approval_required ? "Approval required" : "Review only"}</Badge></header><div className="ns-source-line">{item.surface} · {item.item_ref}</div><section aria-label="Review path" className="ns-review-path"><header><h3>Review path</h3><Badge tone={plansBridgeReadable && decisionLaneReadable ? "green" : "orange"}>{plansBridgeReadable && decisionLaneReadable ? "Backend-linked" : "Partially linked"}</Badge></header><div><article className={plansBridgeReadable ? "ready" : "unavailable"}><span><Icon name="table-2" size={16} /> Plan</span><strong>{plansBridgeReadable ? plansBridgeItem?.plan_title : "Plan link unavailable"}</strong><small>{plansBridgeReadable ? plansBridgeItem?.plan_status.replaceAll("_", " ") : "No authoritative plan-to-action link"}</small></article><Icon name="chevron-right" size={15} /><article className="ready"><span><Icon name="file-text" size={16} /> Action</span><strong>{item.title}</strong><small>{item.status.replaceAll("_", " ")}</small></article><Icon name="chevron-right" size={15} /><article className={decisionLaneReadable ? "ready" : "unavailable"}><span><Icon name="scale" size={16} /> Decision</span><strong>{decisionLaneReadable ? decisionLaneItem?.lane_label : "Lane unavailable"}</strong><small>{decisionLaneReadable ? decisionLaneItem?.status.replaceAll("_", " ") : "Read-only until backend-linked"}</small></article><Icon name="chevron-right" size={15} /><article className={receipt || existingReceiptRefs.length > 0 ? "complete" : "pending"}><span><Icon name="receipt-text" size={16} /> Receipt</span><strong>{receipt || existingReceiptRefs.length > 0 ? "Receipt recorded" : expectedReceiptRefs.length > 0 ? `${expectedReceiptRefs.length} receipt${expectedReceiptRefs.length === 1 ? "" : "s"} expected` : "Receipt posture unavailable"}</strong><small>{receipt ? receipt.decision : existingReceiptRefs.length > 0 ? "Visible in backend state" : "Recorded after a supported decision"}</small></article></div><footer><Icon name="lock" size={15} /><span>{blockedAuthorityRefs.length > 0 ? `${blockedAuthorityRefs.length} authority limit${blockedAuthorityRefs.length === 1 ? "" : "s"} enforced` : "Action execution remains blocked"} · Approval alone does not execute</span></footer></section><Panel title="Safe summary"><p>{item.safe_summary}</p></Panel><div className="ns-decision-facts"><MetaRow icon="target" label="Exact scope" value={item.action_scope_ref ?? item.approval_envelope?.exact_scope ?? "Missing"} /><MetaRow icon="shield-check" label="Authority boundary" value={item.authority_boundary} /><MetaRow icon="activity" label="Side effects" value={item.side_effect_class} /><MetaRow icon="receipt-text" label="Expected receipts" value={item.action_expected_receipt_refs?.length ?? item.receipt_refs.length} /></div><Panel title="Backend action envelope"><MetaRow icon="file-text" label="Envelope" value={item.action_envelope_ref ?? item.approval_envelope_ref ?? "Missing"} /><MetaRow icon="clock" label="Expiry / stale" value={item.action_expires_at ?? item.expires_at ?? item.stale_state} /><MetaRow icon="rotate-ccw" label="Rollback" value={item.action_rollback_ref ?? item.rollback_ref ?? "Missing"} /><MetaRow icon="shield-check" label="Safe disable" value={item.action_safe_disable_ref ?? item.safe_disable_ref ?? "Missing"} /></Panel><Panel title="Decision effect"><p>These controls record a decision receipt through Python Core. Approval alone does not execute the action unless the returned receipt explicitly reports execution.</p></Panel><div className="ns-decision-actions">{(["reject", "defer", "edit", "approve"] as FounderLoopActionDecisionKind[]).map((decision) => <Button disabled={!canRecord || !availableDecisions.includes(decision) || Boolean(pending) || (decision === "approve" && !costApproved)} icon={decision === "approve" ? "shield-check" : decision === "reject" ? "shield-alert" : decision === "defer" ? "clock" : "pencil"} key={decision} onClick={() => void recordDecision(decision)} title={decision === "approve" && !costApproved ? "Approval is blocked by the backend cost posture" : !canRecord ? "Authoritative backend envelope and decision lane required" : undefined} tone={decision === "approve" ? "primary" : decision === "reject" ? "danger" : "secondary"}>{pending === decision ? "Recording…" : `Record ${decision}`}</Button>)}</div>{canCommitLocalTask || localTaskCommitAlreadyRecorded || localTaskReceipt ? <Panel title="Approved local task"><p>{localTaskCommitAlreadyRecorded || localTaskReceipt ? "The exact local task receipt is recorded in the backend review loop." : "Approval is backend-confirmed. Create only this exact local task record; all external authority remains blocked."}</p><div className="ns-decision-actions">{!localTaskCommitAlreadyRecorded && !localTaskReceipt ? <Button disabled={pendingLocalTaskCommit} icon="circle-check" onClick={() => void recordLocalTaskCommit()} tone="primary">{pendingLocalTaskCommit ? "Creating local task record…" : "Create local task record"}</Button> : null}</div></Panel> : null}</> : <div className="ns-empty-lease"><Icon name="circle-check" size={34} tone="success" /><h3>Action inbox is clear</h3><p>No exact decision is selected.</p></div>}</section><aside className="ns-decision-inspector"><Panel title="Authority & consequences" icon="shield-check">{item ? <><MetaRow icon="target" label="Queue group" value={item.action_group_label ?? item.action_group_id ?? "Unclassified"} /><MetaRow icon="lock" label="Backend envelope" value={backendEnvelope ? "Verified" : "Unavailable"} tone={backendEnvelope ? "green" : "red"} /><MetaRow icon="activity" label="Decision lane" value={decisionLane ? "Eligible" : "Read-only"} tone={decisionLane ? "green" : "orange"} /><MetaRow icon="receipt-text" label="Receipt required" value={inbox.decision_receipts_required ? "Yes" : "No"} /><MetaRow icon="badge-dollar-sign" label="Cost gate" value={costApproved ? "Cost approved" : "Approval blocked"} tone={costApproved ? "green" : "orange"} /><div className="ns-info-callout"><Icon name="info" size={17} /><span>{item.next_safe_action}</span></div></> : <p>No item selected.</p>}</Panel><Panel title="Activity" icon="activity"><p>{feedback}</p>{receipt ? <><MetaRow icon="receipt-text" label="Receipt" value={receipt.receipt_ref} /><MetaRow icon="shield-check" label="Decision" value={receipt.decision} /><MetaRow icon="activity" label="Action executed" value={receipt.action_executed ? "Yes" : "No"} tone={receipt.action_executed ? "orange" : "green"} /></> : null}{localTaskReceipt ? <><MetaRow icon="circle-check" label="Local task" value={localTaskReceipt.local_task_ref} /><MetaRow icon="receipt-text" label="Task receipt" value={localTaskReceipt.receipt_ref} /><MetaRow icon="activity" label="External side effect" value={localTaskReceipt.external_side_effect_performed ? "Yes" : "No"} tone={localTaskReceipt.external_side_effect_performed ? "red" : "green"} /></> : null}</Panel><Panel title="Receipts" icon="receipt-text"><p>{localTaskReceipt?.safe_summary ?? receipt?.safe_summary ?? "A backend receipt appears here after a supported decision is recorded."}</p></Panel></aside></div><div aria-live="polite" className="ns-receipt-band"><Icon name={receipt || localTaskReceipt ? "receipt-text" : "shield-check"} size={18} /> {feedback}</div></div>;
+}
+
+const ACTION_WORK_QUEUE_DENIED_FLAGS = [
+  "action_execution_enabled",
+  "connector_write_enabled",
+  "connector_send_enabled",
+  "provider_model_call_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "memory_write_enabled",
+  "context_injection_authorized",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+function actionInboxLocalTaskCommitIsEligible(
+  inbox: FounderLoopActionsInbox,
+  item: FounderLoopActionItem,
+): boolean {
+  const readModel = inbox.action_inbox_work_queue_read_model;
+  const matchingWorkItems = readModel?.work_items.filter((candidate) => candidate.item_ref === item.item_ref) ?? [];
+  const workItem = matchingWorkItems[0];
+  if (
+    inbox.action_inbox_work_queue_contract_ref !== "contract-ref:usable-authority-action-inbox-work-queue:v1"
+    || readModel?.schema_version !== "action-inbox-work-queue.v1"
+    || readModel.contract_ref !== inbox.action_inbox_work_queue_contract_ref
+    || readModel.source !== "python_core_action_inbox_work_queue_read_model"
+    || !readModel.backend_owned
+    || !readModel.local_read_model_only
+    || !readModel.safe_refs_only
+    || readModel.raw_content_included
+    || readModel.fake_mutation_controls_exposed
+    || !readModel.tier_3_exact_local_task_commit_available
+    || readModel.work_item_count !== readModel.work_items.length
+    || !sameSafeRefs(readModel.work_item_refs, readModel.work_items.map((candidate) => candidate.item_ref))
+    || new Set(readModel.work_item_refs).size !== readModel.work_item_refs.length
+    || matchingWorkItems.length !== 1
+    || !workItem
+    || workItem.lane_id !== "approved_local_task_lane"
+    || !workItem.operator_actionable
+    || !workItem.local_task_commit_eligible
+    || workItem.fake_mutation_control_exposed
+    || workItem.action_kind !== "local_task_create"
+    || workItem.approval_posture !== "backend_owned_approval_ready"
+    || workItem.mutation_control_posture !== "exact_local_task_commit_route_only"
+    || workItem.local_task_commit_route_ref !== "POST /control-center/actions/{action_id}/local-task/commit"
+    || workItem.approval_envelope_ref !== item.approval_envelope_ref
+    || workItem.exact_scope_ref !== (item.action_scope_ref ?? item.approval_envelope?.exact_scope)
+    || workItem.rollback_ref !== (item.action_rollback_ref ?? item.rollback_ref)
+    || workItem.safe_disable_ref !== (item.action_safe_disable_ref ?? item.safe_disable_ref)
+    || !sameSafeRefs(workItem.expected_receipt_refs, item.action_expected_receipt_refs ?? item.approval_envelope?.expected_receipt_refs ?? [])
+    || workItem.idempotency_ref !== item.idempotency_key_ref
+    || item.status !== "approved"
+    || item.action_group_id !== "approved_local_task_lane"
+    || item.approval_envelope_status !== "approved_receipt_recorded"
+    || item.action_kind !== "local_task_create"
+    || item.local_task_commit_contract_ref !== "contract-ref:founder-loop-local-task-commit:v1"
+    || item.local_task_commit_route_ref !== "POST /control-center/actions/{action_id}/local-task/commit"
+    || item.local_task_commit_approval_status !== "backend_owned_approval_ready"
+    || item.local_task_commit_eligible !== true
+    || (item.local_task_commit_blocked_reasons?.length ?? 0) > 0
+  ) return false;
+  return ACTION_WORK_QUEUE_DENIED_FLAGS.every((flag) => readModel[flag] === false);
+}
+
+function localTaskCommitReceiptIsSafe(
+  receipt: FounderLoopLocalTaskCommitReceipt,
+  item: FounderLoopActionItem,
+  approvalRef: string,
+  expectedIdempotencyRef: string,
+): boolean {
+  const expectedLocalTaskRef = `local-task:founder-loop:${item.item_ref
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "missing"}`;
+  const requiredRefs = [
+    receipt.item_ref,
+    receipt.local_task_ref,
+    receipt.receipt_ref,
+    receipt.audit_ref,
+    receipt.idempotency_key_ref,
+    receipt.payload_fingerprint_ref,
+    receipt.run_ref,
+    receipt.evidence_timeline_event_ref,
+    receipt.approval_ref,
+    receipt.safe_disable_ref,
+    receipt.rollback_ref,
+    receipt.safe_disable_posture_ref,
+    ...receipt.approval_reason_refs,
+    ...receipt.evidence_refs,
+    ...receipt.blocked_state_refs,
+    ...(receipt.rollback_blocker_refs ?? []),
+  ];
+  const requiredBlockedRefs = [
+    "blocked-state:no-connector-write",
+    "blocked-state:no-shell-subprocess-execution",
+    "blocked-state:no-model-provider-authority",
+    "blocked-state:no-memory-write",
+    "blocked-state:no-context-injection",
+    "blocked-state:no-external-side-effect",
+    "blocked-state:no-production-authority",
+  ];
+  return receipt.contract_ref === "contract-ref:founder-loop-local-task-commit:v1"
+    && receipt.item_ref === item.item_ref
+    && receipt.action_kind === "local_task_create"
+    && receipt.status === "local_task_created"
+    && receipt.local_task_ref === expectedLocalTaskRef
+    && receipt.approval_ref === approvalRef
+    && receipt.approval_status === "approved"
+    && receipt.idempotency_key_ref === expectedIdempotencyRef
+    && receipt.run_ref === "run-ref:founder-loop-v1:governed-local-loop"
+    && receipt.safe_disable_ref === (item.action_safe_disable_ref ?? item.safe_disable_ref)
+    && receipt.rollback_ref === (item.action_rollback_ref ?? item.rollback_ref)
+    && receipt.safe_disable_enabled === true
+    && receipt.rollback_execution_enabled === false
+    && receipt.rollback_blocker_refs?.includes("blocked-state:rollback-execution-not-scoped") === true
+    && receipt.evidence_refs.includes(receipt.evidence_timeline_event_ref)
+    && requiredBlockedRefs.every((ref) => receipt.blocked_state_refs.includes(ref))
+    && requiredRefs.every(isSafeNorthStarRef)
+    && receipt.safe_summary.length > 0
+    && receipt.safe_summary.length <= 320
+    && !/[\u0000-\u001f\u007f]/.test(receipt.safe_summary)
+    && receipt.local_task_created
+    && !receipt.connector_write_performed
+    && !receipt.shell_subprocess_execution_performed
+    && !receipt.model_provider_authority_used
+    && !receipt.memory_write_performed
+    && !receipt.context_injection_performed
+    && !receipt.external_side_effect_performed
+    && !receipt.raw_content_stored;
+}
+
+function isRecordedReceiptRef(value: string | null | undefined): value is string {
+  return Boolean(value && isSafeNorthStarRef(value) && value !== "pending" && value !== "not_applicable" && !value.endsWith(":pending"));
+}
+
+function isSafeNorthStarRef(value: string | null | undefined): value is string {
+  if (!value || !/^[A-Za-z0-9][A-Za-z0-9:_./#=@-]{0,239}$/.test(value)) return false;
+  const lowered = value.toLowerCase();
+  return !lowered.includes("/users/")
+    && !lowered.includes("raw_prompt")
+    && !lowered.includes("raw_response")
+    && !lowered.includes("provider_payload")
+    && !lowered.includes("credential")
+    && !lowered.includes("secret");
 }
 
 function sameSafeRefs(left: string[], right: string[]): boolean {

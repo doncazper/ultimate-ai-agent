@@ -3902,6 +3902,7 @@ export interface FounderLoopLocalTaskCommitReceipt {
   audit_ref: string;
   idempotency_key_ref: string;
   payload_fingerprint_ref: string;
+  run_ref: string;
   evidence_timeline_event_ref: string;
   approval_ref: string;
   approval_status: string;

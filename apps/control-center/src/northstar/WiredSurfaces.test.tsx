@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import type { FounderLoopActionInboxDecisionLaneReadModel, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
+import type { FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
 const apiMocks = vi.hoisted(() => ({
+  commitLocalTask: vi.fn(),
   submitActionDecision: vi.fn(),
   fetchFounderActionsInbox: vi.fn(),
   recordMemoryReviewDecision: vi.fn(),
@@ -46,7 +47,7 @@ function markLiveBackend(data: ReturnType<typeof cloneData>, ...routes: string[]
 function attachExactDecisionLane(
   data: ReturnType<typeof cloneData>,
   itemRef: string,
-  laneId: "needs_approval" | "blocked" = "needs_approval",
+  laneId: "needs_approval" | "blocked" | "approved_no_execution" = "needs_approval",
 ) {
   const actionItem = data.founderActionsInbox.items.find((candidate) => candidate.item_ref === itemRef);
   if (!actionItem) throw new Error(`Missing test Action Inbox item ${itemRef}`);
@@ -118,9 +119,9 @@ function attachExactDecisionLane(
   const laneItem: FounderLoopActionInboxDecisionLaneReadModel["items"][number] = {
     item_ref: itemRef,
     lane_id: laneId,
-    lane_label: laneId === "needs_approval" ? "Needs approval" : "Blocked",
+    lane_label: laneId === "needs_approval" ? "Needs approval" : laneId === "blocked" ? "Blocked" : "Approved · no execution",
     title: actionItem.title,
-    status: laneId === "needs_approval" ? "review_ready" : "blocked",
+    status: laneId === "needs_approval" ? "review_ready" : laneId === "blocked" ? "blocked" : "approved",
     priority: actionItem.priority,
     action_kind: actionItem.action_kind ?? "review_only",
     side_effect_class: actionItem.side_effect_class,
@@ -128,7 +129,7 @@ function attachExactDecisionLane(
     why_shown: "Exact test decision lane binding.",
     next_safe_action: actionItem.next_safe_action,
     authority_boundary: actionItem.authority_boundary,
-    approval_required: true,
+    approval_required: laneId !== "approved_no_execution",
     approval_envelope_ref: approvalEnvelopeRef,
     approval_envelope_status: "review_ready_exact_scope_required",
     approval_scope_ref: scopeRef,
@@ -187,8 +188,8 @@ function attachExactDecisionLane(
     lane_order: ["needs_approval", "blocked", "draft_only", "cost_blocked", "no_authority", "approved_no_execution", "rejected", "deferred", "receipt_recorded"],
     lanes: [{
       lane_id: laneId,
-      label: laneId === "needs_approval" ? "Needs approval" : "Blocked",
-      status: laneId === "needs_approval" ? "review_ready" : "blocked",
+      label: laneId === "needs_approval" ? "Needs approval" : laneId === "blocked" ? "Blocked" : "Approved · no execution",
+      status: laneId === "needs_approval" ? "review_ready" : laneId === "blocked" ? "blocked" : "approved",
       safe_summary: "Exact test decision lane.",
       count: 1,
       item_refs: [itemRef],
@@ -217,6 +218,61 @@ function attachExactDecisionLane(
   };
   data.founderActionsInbox.action_inbox_decision_lane_contract_ref = readModel.contract_ref;
   data.founderActionsInbox.action_inbox_decision_lane_read_model = readModel;
+}
+
+function attachExactLocalTaskWorkQueue(
+  data: ReturnType<typeof cloneData>,
+  itemRef: string,
+) {
+  const inbox = data.founderActionsInbox;
+  const actionItem = inbox.items.find((candidate) => candidate.item_ref === itemRef);
+  const readModel = inbox.action_inbox_work_queue_read_model;
+  const workItem = readModel?.work_items.find((candidate) => candidate.item_ref === itemRef);
+  if (!actionItem || !readModel || !workItem) {
+    throw new Error(`Missing test Action Inbox work queue item ${itemRef}`);
+  }
+  const exactReadModel: FounderLoopActionInboxWorkQueueReadModel = {
+    ...readModel,
+    source: "python_core_action_inbox_work_queue_read_model",
+    status: "implemented_backend_owned_work_queue_summary",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    tier_3_exact_local_task_commit_available: true,
+    fake_mutation_controls_exposed: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    connector_send_enabled: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    memory_write_enabled: false,
+    context_injection_authorized: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    work_items: readModel.work_items.map((candidate) => candidate.item_ref === itemRef ? {
+      ...candidate,
+      lane_id: "approved_local_task_lane",
+      lane_label: "Approved local-task create lane",
+      status: "approved",
+      action_kind: "local_task_create",
+      approval_posture: "backend_owned_approval_ready",
+      mutation_control_posture: "exact_local_task_commit_route_only",
+      operator_actionable: true,
+      local_task_commit_eligible: true,
+      fake_mutation_control_exposed: false,
+      approval_envelope_ref: actionItem.approval_envelope_ref,
+      exact_scope_ref: actionItem.action_scope_ref,
+      idempotency_ref: actionItem.idempotency_key_ref,
+      local_task_commit_route_ref: "POST /control-center/actions/{action_id}/local-task/commit",
+      rollback_ref: actionItem.action_rollback_ref ?? actionItem.rollback_ref,
+      safe_disable_ref: actionItem.action_safe_disable_ref ?? actionItem.safe_disable_ref,
+      expected_receipt_refs: actionItem.action_expected_receipt_refs ?? [],
+    } : candidate),
+  };
+  inbox.action_inbox_work_queue_contract_ref = exactReadModel.contract_ref;
+  inbox.action_inbox_work_queue_read_model = exactReadModel;
 }
 
 function attachExactPlansBridge(
@@ -462,6 +518,198 @@ describe("North Star backend wiring", () => {
     ));
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
+  });
+
+  it("continues an exact approval into a backend-confirmed local task receipt", async () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
+    Object.assign(item, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
+      action_review_actions: ["approve", "edit", "reject", "defer"],
+    });
+    attachExactDecisionLane(data, item.item_ref);
+    const approvalReceipt = {
+      decision: "approve",
+      receipt_ref: "receipt:action-decision:local-task-approved",
+      approval_ref: "approval-ref:northstar:local-task-approved",
+      safe_summary: "Exact approval receipt recorded without action execution.",
+      replayed: false,
+      action_executed: false,
+    };
+    const approvedData = structuredClone(data);
+    const approvedItem = approvedData.founderActionsInbox.items.find(
+      (candidate) => candidate.item_ref === item.item_ref,
+    );
+    if (!approvedItem) throw new Error("Expected approved Action Inbox item");
+    Object.assign(approvedItem, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref: approvalReceipt.approval_ref,
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      receipt_refs: [approvalReceipt.receipt_ref],
+      receipt_visibility: {
+        ...approvedItem.receipt_visibility,
+        decision_receipt_ref: approvalReceipt.receipt_ref,
+        local_task_ref: "pending",
+        local_task_commit_receipt_ref: "pending",
+      },
+    });
+    attachExactDecisionLane(approvedData, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(approvedData, item.item_ref);
+    const localTaskReceipt = {
+      contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+      item_ref: item.item_ref,
+      action_kind: "local_task_create",
+      local_task_ref: "local-task:founder-loop:founder-action-mock-local-task-review",
+      status: "local_task_created",
+      receipt_ref: "receipt:founder-loop-local-task:northstar-review",
+      audit_ref: "audit:founder-loop-local-task:northstar-review",
+      idempotency_key_ref:
+        "idempotency-ref:control-center-local-task:mock-local-task-review:approval-ref-northstar-local-task-approved",
+      payload_fingerprint_ref: "payload-fingerprint-ref:northstar-local-task:test",
+      run_ref: "run-ref:founder-loop-v1:governed-local-loop",
+      evidence_timeline_event_ref: "evidence-timeline-event:local-task:northstar-review",
+      approval_ref: approvalReceipt.approval_ref,
+      approval_status: "approved",
+      approval_reason_refs: ["approval-reason-ref:northstar:test"],
+      local_task_created: true,
+      safe_disable_ref: approvedItem.action_safe_disable_ref ?? approvedItem.safe_disable_ref,
+      rollback_ref: approvedItem.action_rollback_ref ?? approvedItem.rollback_ref,
+      safe_disable_posture_ref:
+        "safe-disable-posture:founder-loop:local-task-create:enabled",
+      safe_disable_enabled: true,
+      rollback_execution_enabled: false,
+      rollback_blocker_refs: ["blocked-state:rollback-execution-not-scoped"],
+      connector_write_performed: false,
+      shell_subprocess_execution_performed: false,
+      model_provider_authority_used: false,
+      memory_write_performed: false,
+      context_injection_performed: false,
+      external_side_effect_performed: false,
+      raw_content_stored: false,
+      replayed: false,
+      safe_summary: "Exact local task state was recorded with safe refs only.",
+      evidence_refs: [
+        "evidence-ref:northstar-local-task:test",
+        "evidence-timeline-event:local-task:northstar-review",
+      ],
+      blocked_state_refs: [
+        "blocked-state:no-connector-write",
+        "blocked-state:no-shell-subprocess-execution",
+        "blocked-state:no-model-provider-authority",
+        "blocked-state:no-memory-write",
+        "blocked-state:no-context-injection",
+        "blocked-state:no-external-side-effect",
+        "blocked-state:no-production-authority",
+      ],
+      created_at: "2026-09-09T00:00:00Z",
+    };
+    const committedInbox = structuredClone(approvedData.founderActionsInbox);
+    const committedItem = committedInbox.items.find(
+      (candidate) => candidate.item_ref === item.item_ref,
+    );
+    if (!committedItem?.receipt_visibility) {
+      throw new Error("Expected committed Action Inbox receipt visibility");
+    }
+    Object.assign(committedItem, {
+      status: "receipt_recorded",
+      action_group_id: "receipt_recorded",
+      action_group_label: "Receipt recorded",
+      local_task_commit_eligible: false,
+      local_task_ref: localTaskReceipt.local_task_ref,
+      local_task_commit_receipt_ref: localTaskReceipt.receipt_ref,
+      receipt_refs: [...committedItem.receipt_refs, localTaskReceipt.receipt_ref],
+      receipt_visibility: {
+        ...committedItem.receipt_visibility,
+        local_task_ref: localTaskReceipt.local_task_ref,
+        local_task_commit_receipt_ref: localTaskReceipt.receipt_ref,
+        missing_field_states: ["none"],
+      },
+    });
+    apiMocks.submitActionDecision.mockResolvedValue(approvalReceipt);
+    apiMocks.commitLocalTask
+      .mockResolvedValueOnce({
+        ...localTaskReceipt,
+        idempotency_key_ref: "idempotency-ref:substituted-receipt",
+      })
+      .mockResolvedValueOnce(localTaskReceipt);
+    apiMocks.fetchFounderActionsInbox
+      .mockResolvedValueOnce(approvedData.founderActionsInbox)
+      .mockResolvedValueOnce(committedInbox);
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter activePath="/workspace/decisions" data={data} />
+      </BackendTruthMutationBindingProvider>,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Record approve" }));
+    let commitButton = await screen.findByRole("button", { name: "Create local task record" });
+    fireEvent.click(commitButton);
+
+    expect(
+      (await screen.findAllByText(
+        /local task receipt did not match the exact approved lane/i,
+      )).length,
+    ).toBeGreaterThan(0);
+    expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(1);
+    commitButton = screen.getByRole("button", { name: "Create local task record" });
+    fireEvent.click(commitButton);
+
+    await waitFor(() => expect(apiMocks.commitLocalTask).toHaveBeenCalledWith(
+      item.item_ref,
+      {
+        approval_ref: approvalReceipt.approval_ref,
+        decision_reason_ref: "decision-reason-ref:northstar-action:commit-local-task",
+        metadata_refs: [
+          "metadata-ref:northstar-action:commit-local-task",
+          item.item_ref,
+        ],
+      },
+      mutationBinding,
+    ));
+    expect(apiMocks.commitLocalTask).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(localTaskReceipt.local_task_ref)).toBeVisible();
+    expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
+    expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails the local task commit control closed when the queue claims action execution", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref: "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    if (!data.founderActionsInbox.action_inbox_work_queue_read_model) {
+      throw new Error("Expected exact Action Inbox work queue");
+    }
+    data.founderActionsInbox.action_inbox_work_queue_read_model.action_execution_enabled = true;
+
+    render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
+
+    expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
   it("renders the backend-owned plan, action, decision, receipt, and blocked-state review path", () => {

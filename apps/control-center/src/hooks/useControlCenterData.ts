@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   loadControlCenterData,
+  loadNorthStarDecisionsData,
   type BackendTruthReadBinding,
 } from "../api/client";
 import type { ControlCenterData } from "../api/types";
@@ -25,14 +26,17 @@ type InternalLoadState =
       snapshotRef: string | null;
       backendRevisionRef: string | null;
       backendInstanceRef: string | null;
+      scope: ControlCenterDataScope;
     }
   | { status: "error"; data: null; error: string; snapshotRef: null };
 
 const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
+export type ControlCenterDataScope = "full" | "north-star-decisions";
 
 export function useControlCenterData(
   enabled = true,
   binding: BackendTruthReadBinding | null = null,
+  scope: ControlCenterDataScope = "full",
 ): ControlCenterDataLoadState {
   const snapshotRef = binding?.snapshotRef ?? null;
   const backendRevisionRef = binding?.backendRevisionRef ?? null;
@@ -55,7 +59,8 @@ export function useControlCenterData(
     setState((current) =>
       current.status === "ready" &&
       current.backendRevisionRef === backendRevisionRef &&
-      current.backendInstanceRef === backendInstanceRef
+      current.backendInstanceRef === backendInstanceRef &&
+      current.scope === scope
         ? current
         : { status: "loading", data: null, error: null, snapshotRef: null },
     );
@@ -69,7 +74,9 @@ export function useControlCenterData(
             backendInstanceRef,
           }
         : null;
-    const load = () => loadControlCenterData(expectedBinding);
+    const load = () => scope === "north-star-decisions"
+      ? loadNorthStarDecisionsData(expectedBinding)
+      : loadControlCenterData(expectedBinding);
     const scheduleMockFallbackRetry = (attemptIndex: number) => {
       if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
         return;
@@ -88,6 +95,7 @@ export function useControlCenterData(
                 snapshotRef: latestSnapshotRef.current,
                 backendRevisionRef,
                 backendInstanceRef,
+                scope,
               });
               return;
             }
@@ -110,6 +118,7 @@ export function useControlCenterData(
             snapshotRef: latestSnapshotRef.current,
             backendRevisionRef,
             backendInstanceRef,
+            scope,
           });
         }
         if (active && shouldRetryMockFallback(data)) {
@@ -138,13 +147,15 @@ export function useControlCenterData(
     backendRevisionRef,
     enabled,
     reloadGeneration,
+    scope,
   ]);
 
   if (
     enabled &&
     state.status === "ready" &&
     (state.backendRevisionRef !== backendRevisionRef ||
-      state.backendInstanceRef !== backendInstanceRef)
+      state.backendInstanceRef !== backendInstanceRef ||
+      state.scope !== scope)
   ) {
     return {
       status: "loading",
@@ -158,6 +169,7 @@ export function useControlCenterData(
     const {
       backendRevisionRef: _backendRevisionRef,
       backendInstanceRef: _backendInstanceRef,
+      scope: _scope,
       ...visibleState
     } = state;
     return { ...visibleState, retry };

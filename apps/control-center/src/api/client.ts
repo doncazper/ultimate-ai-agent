@@ -5814,6 +5814,57 @@ export async function fetchFounderActionsInbox(
   return inbox;
 }
 
+export async function loadNorthStarDecisionsData(
+  binding: BackendTruthReadBinding | null,
+): Promise<ControlCenterData> {
+  if (!API_BASE_POLICY.allowed || !binding) {
+    throw new StrictBackendDataError();
+  }
+  const inbox = await readEnvelope<FounderLoopActionsInbox>(
+    API_ENDPOINTS.founderActionsInbox,
+    defaultControlCenterReadLimiter,
+    binding,
+  );
+  const normalized = normalizeFounderActionsInbox(inbox);
+  const decisionLane = normalized.value.action_inbox_decision_lane_read_model;
+  const workQueue = normalized.value.action_inbox_work_queue_read_model;
+  if (
+    normalized.usedFallback
+    || !decisionLane
+    || !workQueue
+    || decisionLane.source !== "python_core_action_inbox_decision_lane_read_model"
+    || !decisionLane.backend_owned
+    || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
+    || !workQueue.backend_owned
+  ) {
+    throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
+  }
+  const routeStates = {
+    ...mockControlCenterData.routeStates,
+    "/actions": buildRouteReadState({
+      route: "/actions",
+      surfaceLabel: "Action Inbox",
+      backendRouteRef: "GET /control-center/actions/inbox",
+      endpointReturned: true,
+      usedFallback: false,
+    }),
+  };
+  return withConnection(
+    {
+      ...mockControlCenterData,
+      source: "api",
+      founderActionsInbox: normalized.value,
+      routeStates,
+    },
+    {
+      state: "online",
+      safeMessage: "Decisions loaded from the bounded local Action Inbox contract.",
+      usingMockData: false,
+      warnings: [],
+    },
+  );
+}
+
 export type GovernedRuntimeCommandIntent =
   | "git_status"
   | "focused_pytest"
@@ -7464,7 +7515,7 @@ function actionDecisionIdempotencyRef(
   return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}:${safeHashSuffix(request?.expected_revision_ref ?? "revision-missing")}`;
 }
 
-function localTaskCommitIdempotencyRef(
+export function localTaskCommitIdempotencyRef(
   actionId: string,
   request?: FounderLoopLocalTaskCommitRequest,
 ): string {

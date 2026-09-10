@@ -2422,6 +2422,17 @@ function actionToolCodeLaneCatalogFixture(
 function actionDecisionLaneReadModelFixture(
   overrides: Record<string, unknown> = {},
 ) {
+  const laneIds = [
+    "needs_approval",
+    "blocked",
+    "draft_only",
+    "cost_blocked",
+    "no_authority",
+    "approved_no_execution",
+    "rejected",
+    "deferred",
+    "receipt_recorded",
+  ] as const;
   const item = {
     item_ref: "founder-action:test-cost-blocked",
     lane_id: "cost_blocked",
@@ -2493,28 +2504,36 @@ function actionDecisionLaneReadModelFixture(
     production_authority_enabled: false,
   };
   return {
-    contract_ref: "contract-ref:action-inbox-decision-lanes:v1",
+    contract_ref:
+      "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
     status: "implemented_backend_owned_decision_lanes",
     source: "python_core_action_inbox_decision_lane_read_model",
     backend_owned: true,
     local_read_model_only: true,
     safe_refs_only: true,
     raw_content_included: false,
-    lane_order: ["cost_blocked"],
-    lanes: [
-      {
-        lane_id: "cost_blocked",
-        label: "Cost blocked",
-        status: "review_ready",
-        safe_summary: "Cost posture blocks receipt capture.",
-        count: 1,
-        item_refs: [item.item_ref],
-        blocked_state_refs: ["blocked-state:frontier-provider-model-ref-missing"],
-        next_safe_action: "Resolve exact cost posture.",
-        approval_alone_executes: false,
-        action_execution_enabled: false,
-      },
-    ],
+    lane_order: laneIds,
+    lanes: laneIds.map((laneId) => ({
+      lane_id: laneId,
+      label: laneId === "cost_blocked" ? "Cost blocked" : laneId,
+      status: laneId === "cost_blocked" ? "review_ready" : "empty",
+      safe_summary:
+        laneId === "cost_blocked"
+          ? "Cost posture blocks receipt capture."
+          : "No backend-owned items are currently in this lane.",
+      count: laneId === "cost_blocked" ? 1 : 0,
+      item_refs: laneId === "cost_blocked" ? [item.item_ref] : [],
+      blocked_state_refs:
+        laneId === "cost_blocked"
+          ? ["blocked-state:frontier-provider-model-ref-missing"]
+          : [],
+      next_safe_action:
+        laneId === "cost_blocked"
+          ? "Resolve exact cost posture."
+          : "Wait for a backend-owned item.",
+      approval_alone_executes: false,
+      action_execution_enabled: false,
+    })),
     items: [item],
     blocked_state_refs: ["blocked-state:action-inbox-no-action-execution"],
     missing_envelope_fields_fail_safe: true,
@@ -17141,6 +17160,24 @@ describe("Web Control Center shell", () => {
     ).toBe(false);
   });
 
+  it("admits North Star Decisions from its bounded backend Action Inbox contract", () => {
+    const data = structuredClone(mockControlCenterData);
+    data.routeStates["/actions"] = {
+      ...data.routeStates["/actions"],
+      state: "backend_owned",
+    };
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/decisions", data),
+    ).toBe(true);
+    data.routeStates["/actions"] = {
+      ...data.routeStates["/actions"],
+      state: "degraded",
+    };
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/decisions", data),
+    ).toBe(false);
+  });
+
   it("fails closed without backend reads when the workspace module cannot load", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -20649,6 +20686,21 @@ function revisionBoundActionInbox({
     cancel_decision_enabled: true,
     cancel_invalidates_prior_approvals: true,
     decision_actions: ["approve", "edit", "reject", "defer", "cancel"],
+    action_inbox_decision_lane_contract_ref:
+      "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+    action_inbox_decision_lane_read_model:
+      actionDecisionLaneReadModelFixture(),
+    action_inbox_work_queue_contract_ref:
+      "contract-ref:usable-authority-action-inbox-work-queue:v1",
+    action_inbox_work_queue_read_model: {
+      ...cloneForTest(
+        mockControlCenterData.founderActionsInbox
+          .action_inbox_work_queue_read_model,
+      ),
+      source: "python_core_action_inbox_work_queue_read_model",
+      backend_owned: true,
+      status: "implemented_backend_owned_action_inbox_work_queue",
+    },
   });
   return inbox;
 }

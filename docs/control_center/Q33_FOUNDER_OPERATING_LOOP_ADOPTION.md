@@ -85,6 +85,29 @@ Malformed or fallback-derived Setup responses fail closed. Opening or expanding
 the surface performs no checks, probes, installs, downloads, provider/model
 calls, credential work, settings changes, or lifecycle mutations.
 
+## Implemented review-to-local-task slice
+
+The North Star `/workspace/decisions` surface now continues an exact
+`local_task_create` approval into the existing governed local-task commit lane.
+The route loads only the backend-truth envelope and bounded Action Inbox
+contract needed for this surface, instead of waiting for the unrelated full
+Control Center read fan-out. Unrelated shell posture stays visibly unverified.
+The control appears only after the refreshed Python Core Action Inbox proves
+the exact item is in `approved_local_task_lane`, binds the approval envelope,
+scope, idempotency, rollback, safe-disable, route, and approved cost posture,
+and reports every broader authority flag disabled.
+
+The UI validates the returned receipt against the exact item and approval,
+requires the content-free local-task contract, and rejects any receipt that
+claims connector, shell, provider/model, memory, context-injection, raw-content,
+or external side effects. It then refreshes the backend Action Inbox and does
+not claim reconciliation until the backend-owned receipt visibility binds both
+the task ref and receipt ref.
+
+This completes the bounded Decision -> approved local Task handoff on the
+North Star surface. It does not add broad action execution or make the Work
+Board and Calendar adoption work terminal.
+
 ## Verification
 
 - `tests/test_q33_chat_content_free_workspace.py`
@@ -92,6 +115,7 @@ calls, credential work, settings changes, or lifecycle mutations.
 - `apps/control-center/src/components/ChatWorkspacePanel.test.tsx`
 - `apps/control-center/src/api/client.setupRoute.test.ts`
 - `apps/control-center/src/components/MacOSSetupAssistantPanel.test.tsx`
+- `apps/control-center/src/northstar/WiredSurfaces.test.tsx`
 - `apps/control-center/src/App.backendTruth.test.tsx`
 - `python scripts/inspect_chat_workspace.py --state-dir <local-state-dir>`
 - OpenAPI/API manifest snapshot and documentation-integrity verification

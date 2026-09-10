@@ -247,9 +247,13 @@ export function NorthStarRoute({
       truthState.truth?.backend_instance_ref,
     ],
   );
+  const dataScope = canonicalizeControlCenterPath(activePath) === "/workspace/decisions"
+    ? "north-star-decisions"
+    : "full";
   const state = useControlCenterData(
     moduleStatus === "ready" && truthAdmitted,
     truthReadBinding,
+    dataScope,
   );
   const loadedActionInbox =
     state.status === "ready" ? state.data.founderActionsInbox : null;
@@ -929,8 +933,6 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
   "/workspace/today": ["/today", ...NORTH_STAR_SHELL_ROUTE_KEYS],
   "/workspace/decisions": [
     "/actions",
-    "/approvals",
-    ...NORTH_STAR_SHELL_ROUTE_KEYS,
   ],
   "/workspace/work-board": [
     "/work-board",
