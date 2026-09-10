@@ -7543,6 +7543,256 @@ export function localTaskCommitIdempotencyRef(
   return `idempotency-ref:control-center-local-task:${safeActionId || "missing"}:${safeChatSuffix(request?.approval_ref ?? "approval")}`;
 }
 
+const LOCAL_TASK_COMMIT_CONTRACT_REF =
+  "contract-ref:founder-loop-local-task-commit:v1";
+const LOCAL_TASK_COMMIT_ROUTE_REF =
+  "POST /control-center/actions/{action_id}/local-task/commit";
+const LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF =
+  "authority-action-ref:founder-loop-local-task-commit";
+const LOCAL_TASK_COMMIT_AUTHORITY_LANE_REF =
+  "lane-ref:action-inbox-local-task-commit";
+const LOCAL_TASK_COMMIT_SAFE_DISABLE_REF =
+  "safe-disable:founder-loop:local-task-create-scorecard";
+const LOCAL_TASK_COMMIT_ROLLBACK_REF =
+  "rollback-not-applicable:local-task-safe-disable";
+const LOCAL_TASK_COMMIT_BLOCKED_REFS = [
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-model-provider-authority",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-external-side-effect",
+  "blocked-state:no-production-authority",
+] as const;
+const LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS = [
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
+  /\bAIza[A-Za-z0-9_-]{20,}\b/,
+  /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{16,}\b/,
+  /\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
+] as const;
+
+export interface LocalTaskCommitReceiptBinding {
+  itemRef: string;
+  approvalRef: string;
+  idempotencyRef: string;
+  safeDisableRef: string;
+  rollbackRef: string;
+}
+
+export function founderLoopLocalTaskRef(itemRef: string): string {
+  const suffix = itemRef
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `local-task:founder-loop:${suffix || "missing"}`;
+}
+
+export function buildLocalTaskCommitRequest(
+  itemRef: string,
+  approvalRef: string,
+): FounderLoopLocalTaskCommitRequest {
+  return {
+    approval_ref: approvalRef,
+    decision_reason_ref: "decision-reason-ref:control-center:local-task-commit",
+    metadata_refs: [
+      "metadata-ref:control-center-local-task-commit",
+      itemRef,
+    ],
+  };
+}
+
+export function buildLocalTaskCommitAuthorityRequest(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): AuthorityActionRequest {
+  return {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    domain: "workspace",
+    capability: "write",
+    safe_summary:
+      "Evaluate Workspace write authority for exact Action Inbox local task commit.",
+    resource_refs: [
+      itemRef,
+      founderLoopLocalTaskRef(itemRef),
+      LOCAL_TASK_COMMIT_CONTRACT_REF,
+      localTaskCommitIdempotencyRef(itemRef, request),
+    ],
+    route_ref: LOCAL_TASK_COMMIT_ROUTE_REF,
+    lane_ref: LOCAL_TASK_COMMIT_AUTHORITY_LANE_REF,
+    requested_mode: "ask_before_changes",
+    draft_fallback_available: true,
+    rollback_ref: LOCAL_TASK_COMMIT_ROLLBACK_REF,
+    safe_disable_ref: LOCAL_TASK_COMMIT_SAFE_DISABLE_REF,
+  };
+}
+
+export function localTaskCommitAuthorityPreviewIsSafe(
+  preview: AuthorityDecisionPreview,
+  request: AuthorityActionRequest,
+): boolean {
+  const decision = preview?.decision;
+  if (!decision || !Array.isArray(preview.active_lease_refs)) return false;
+  const requiredRefs = [
+    preview.preview_ref,
+    preview.preview_receipt_ref,
+    preview.audit_record_ref,
+    decision.decision_ref,
+    decision.lease_ref,
+    decision.receipt_ref,
+    decision.audit_record_ref,
+    decision.rollback_ref,
+    decision.safe_disable_ref,
+    decision.kill_switch_ref,
+    ...preview.active_lease_refs,
+    ...(Array.isArray(decision.required_domain_refs)
+      ? decision.required_domain_refs
+      : []),
+    ...(Array.isArray(decision.required_capability_refs)
+      ? decision.required_capability_refs
+      : []),
+    ...(Array.isArray(decision.reason_refs) ? decision.reason_refs : []),
+    ...(Array.isArray(preview.redactions_applied)
+      ? preview.redactions_applied
+      : []),
+  ];
+  return preview.schema_version === "uaa-authority-decision-preview.v1"
+    && preview.execution_performed === false
+    && preview.mutation_performed === false
+    && preview.safe_refs_only === true
+    && preview.raw_paths_included === false
+    && preview.raw_prompt_included === false
+    && preview.raw_response_included === false
+    && preview.raw_provider_payload_included === false
+    && preview.unknown_authority_default === "deny"
+    && preview.unsupported_adapters_claimed_execution === false
+    && preview.receipts_required === true
+    && preview.audit_required === true
+    && preview.redaction_required === true
+    && decision.action_ref === request.action_ref
+    && decision.domain === "workspace"
+    && decision.capability === "write"
+    && decision.required_mode === "ask_before_changes"
+    && (decision.outcome === "allow" || decision.outcome === "ask")
+    && decision.known_authority === true
+    && decision.unsupported_adapter === false
+    && decision.receipts_required === true
+    && decision.audit_required === true
+    && decision.redaction_required === true
+    && decision.lease_ref !== null
+    && preview.active_lease_refs.includes(decision.lease_ref)
+    && Array.isArray(decision.required_domain_refs)
+    && decision.required_domain_refs.includes("authority-domain-ref:workspace")
+    && Array.isArray(decision.required_capability_refs)
+    && decision.required_capability_refs.includes("authority-capability-ref:write")
+    && new Set(preview.active_lease_refs).size === preview.active_lease_refs.length
+    && requiredRefs.every((ref) =>
+      isSafeLocalTaskReceiptDisplayValue(ref));
+}
+
+export function localTaskCommitReceiptIsSafe(
+  receipt: FounderLoopLocalTaskCommitReceipt,
+  binding: LocalTaskCommitReceiptBinding,
+): boolean {
+  if (
+    !Array.isArray(receipt?.approval_reason_refs)
+    || !Array.isArray(receipt.evidence_refs)
+    || !Array.isArray(receipt.blocked_state_refs)
+    || !Array.isArray(receipt.rollback_blocker_refs)
+  ) return false;
+  const authorityProofRefs = [
+    receipt.authority_decision_ref,
+    receipt.authority_lease_ref,
+    receipt.authority_audit_ref,
+    receipt.authority_policy_receipt_ref,
+  ];
+  const requiredRefs = [
+    receipt.item_ref,
+    receipt.local_task_ref,
+    receipt.receipt_ref,
+    receipt.audit_ref,
+    receipt.idempotency_key_ref,
+    receipt.payload_fingerprint_ref,
+    receipt.run_ref,
+    receipt.evidence_timeline_event_ref,
+    receipt.approval_ref,
+    receipt.safe_disable_ref,
+    receipt.rollback_ref,
+    receipt.safe_disable_posture_ref,
+    receipt.authority_domain_ref,
+    receipt.authority_capability_ref,
+    receipt.authority_required_mode_ref,
+    ...authorityProofRefs,
+    ...receipt.approval_reason_refs,
+    ...receipt.evidence_refs,
+    ...receipt.blocked_state_refs,
+    ...receipt.rollback_blocker_refs,
+  ];
+  return receipt.contract_ref === LOCAL_TASK_COMMIT_CONTRACT_REF
+    && receipt.item_ref === binding.itemRef
+    && receipt.action_kind === "local_task_create"
+    && receipt.status === "local_task_created"
+    && receipt.local_task_ref === founderLoopLocalTaskRef(binding.itemRef)
+    && receipt.approval_ref === binding.approvalRef
+    && receipt.approval_status === "approved"
+    && receipt.idempotency_key_ref === binding.idempotencyRef
+    && receipt.run_ref === "run-ref:founder-loop-v1:governed-local-loop"
+    && receipt.safe_disable_ref === binding.safeDisableRef
+    && receipt.rollback_ref === binding.rollbackRef
+    && receipt.authority_domain_ref === "authority-domain-ref:workspace"
+    && receipt.authority_capability_ref === "authority-capability-ref:write"
+    && receipt.authority_required_mode_ref === "authority-mode-ref:ask-before-changes"
+    && (receipt.authority_decision_outcome === "allow"
+      || receipt.authority_decision_outcome === "ask")
+    && authorityProofRefs.every((ref) => receipt.evidence_refs.includes(ref))
+    && receipt.safe_disable_enabled === true
+    && receipt.rollback_execution_enabled === false
+    && receipt.rollback_blocker_refs.includes(
+      "blocked-state:rollback-execution-not-scoped",
+    )
+    && receipt.evidence_refs.includes(receipt.evidence_timeline_event_ref)
+    && LOCAL_TASK_COMMIT_BLOCKED_REFS.every((ref) =>
+      receipt.blocked_state_refs.includes(ref))
+    && requiredRefs.every((ref) =>
+      isSafeLocalTaskReceiptDisplayValue(ref))
+    && isSafeLocalTaskReceiptDisplayValue(receipt.safe_summary, 320)
+    && Number.isFinite(Date.parse(receipt.created_at))
+    && receipt.local_task_created === true
+    && receipt.connector_write_performed === false
+    && receipt.shell_subprocess_execution_performed === false
+    && receipt.model_provider_authority_used === false
+    && receipt.memory_write_performed === false
+    && receipt.context_injection_performed === false
+    && receipt.external_side_effect_performed === false
+    && receipt.raw_content_stored === false;
+}
+
+function isSafeLocalTaskReceiptDisplayValue(
+  value: string | null | undefined,
+  maxLength = 240,
+): value is string {
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > maxLength
+    || /[\u0000-\u001f\u007f]/.test(value)
+    || containsSecretLike(value)
+    || sanitizeForDisplay(value) !== value
+  ) return false;
+  const pathDetectionValue = value.replace(/\/ +/g, "/");
+  return !/(^|[^A-Za-z0-9])(?:~\/?|\/[^\s/]+(?:\/[^\s/]+)*\/?|[A-Za-z]:[\\/]|\\\\)/.test(pathDetectionValue)
+    && !/\b(?:file|https?):\/\//i.test(value)
+    && !/\b(?:user(?:name)?|host(?:name)?|serial(?:_?number)?)\s*[:=]\s*\S+/i.test(value)
+    && !/\bhost\s+[A-Za-z0-9][A-Za-z0-9.-]{2,}/i.test(value)
+    && !/\b[A-Za-z0-9][A-Za-z0-9-]{1,62}\.(?:local|lan|internal)\b/i.test(value)
+    && !/\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/i.test(value)
+    && !LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
+      pattern.test(value));
+}
+
 function todayActionEnvelopeIdempotencyRef(
   todayItemRef: string,
   request?: FounderLoopActionEnvelopePromotionRequest,

@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import type { FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
+import { buildLocalTaskCommitRequest, localTaskCommitIdempotencyRef } from "../api/client";
+import type { AuthorityDecisionPreview, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
 
@@ -14,6 +15,7 @@ const apiMocks = vi.hoisted(() => ({
   recordManualMemoryCandidate: vi.fn(),
   revokeAuthorityLease: vi.fn(),
   fetchControlCenterSettingsStatus: vi.fn(),
+  previewAuthorityDecision: vi.fn(),
 }));
 
 const mutationBinding = {
@@ -305,6 +307,131 @@ function attachWorkspaceWriteAuthority(data: ReturnType<typeof cloneData>) {
   }];
 }
 
+function safeLocalTaskAuthorityPreview(): AuthorityDecisionPreview {
+  return {
+    schema_version: "uaa-authority-decision-preview.v1",
+    preview_ref: "authority-decision-preview-ref:northstar-local-task",
+    decision: {
+      schema_version: "uaa-authority-state.v1",
+      decision_ref: "authority-policy-decision-ref:northstar-local-task",
+      action_ref: "authority-action-ref:founder-loop-local-task-commit",
+      outcome: "ask",
+      domain: "workspace",
+      capability: "write",
+      capability_ref: null,
+      lease_ref: "authority-lease-ref:northstar-workspace-write",
+      matched_mode: "ask_before_changes",
+      required_mode: "ask_before_changes",
+      required_domain_refs: ["authority-domain-ref:workspace"],
+      required_capability_refs: ["authority-capability-ref:write"],
+      reason_refs: ["reason-ref:authority:ask-before-changes-mode"],
+      operator_message: "Exact local task commit requires the bound approval.",
+      known_authority: true,
+      unsupported_adapter: false,
+      receipts_required: true,
+      audit_required: true,
+      redaction_required: true,
+      rollback_ref: "rollback-ref:authority-lease-revoke",
+      safe_disable_ref: "safe-disable-ref:authority-lease-session",
+      kill_switch_ref: "kill-switch-ref:authority-lease-local",
+      receipt_ref: "receipt-ref:authority-policy:northstar-local-task",
+      audit_record_ref: "audit-ref:authority-policy:northstar-local-task",
+      redactions_applied: ["safe_refs_only"],
+      decided_at: "2026-09-09T00:00:00Z",
+    },
+    active_lease_refs: ["authority-lease-ref:northstar-workspace-write"],
+    preview_receipt_ref: "receipt-ref:authority-preview:northstar-local-task",
+    audit_record_ref: "audit-ref:authority-preview:northstar-local-task",
+    operator_summary: "Exact local task commit authority was evaluated.",
+    execution_performed: false,
+    mutation_performed: false,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_prompt_included: false,
+    raw_response_included: false,
+    raw_provider_payload_included: false,
+    unknown_authority_default: "deny",
+    unsupported_adapters_claimed_execution: false,
+    receipts_required: true,
+    audit_required: true,
+    redaction_required: true,
+    redactions_applied: ["safe_refs_only"],
+  };
+}
+
+function localTaskReceiptFixture(
+  item: FounderLoopActionItem,
+  approvalRef: string,
+): FounderLoopLocalTaskCommitReceipt {
+  const request = buildLocalTaskCommitRequest(item.item_ref, approvalRef);
+  const authorityProofRefs = [
+    "authority-policy-decision-ref:northstar-local-task",
+    "authority-lease-ref:northstar-workspace-write",
+    "audit-ref:authority-policy:northstar-local-task",
+    "receipt-ref:authority-policy:northstar-local-task",
+  ] as const;
+  return {
+    contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
+    item_ref: item.item_ref,
+    action_kind: "local_task_create",
+    local_task_ref: `local-task:founder-loop:${item.item_ref
+      .toLowerCase()
+      .replace(/[^a-z0-9_.@-]+/g, "-")
+      .replace(/^-+|-+$/g, "")}`,
+    status: "local_task_created",
+    receipt_ref: `receipt:founder-loop-local-task:${item.item_ref.replaceAll(":", "-")}`,
+    audit_ref: `audit:founder-loop-local-task:${item.item_ref.replaceAll(":", "-")}`,
+    idempotency_key_ref: localTaskCommitIdempotencyRef(item.item_ref, request),
+    payload_fingerprint_ref: "payload-fingerprint-ref:northstar-local-task:test",
+    run_ref: "run-ref:founder-loop-v1:governed-local-loop",
+    evidence_timeline_event_ref: `evidence-timeline-event:local-task:${item.item_ref.replaceAll(":", "-")}`,
+    approval_ref: approvalRef,
+    approval_status: "approved",
+    approval_reason_refs: ["approval-reason-ref:northstar:test"],
+    authority_decision_ref: authorityProofRefs[0],
+    authority_decision_outcome: "ask",
+    authority_lease_ref: authorityProofRefs[1],
+    authority_audit_ref: authorityProofRefs[2],
+    authority_policy_receipt_ref: authorityProofRefs[3],
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:write",
+    authority_required_mode_ref: "authority-mode-ref:ask-before-changes",
+    local_task_created: true,
+    safe_disable_ref:
+      item.action_safe_disable_ref ?? item.safe_disable_ref ?? undefined,
+    rollback_ref: item.action_rollback_ref ?? item.rollback_ref ?? undefined,
+    safe_disable_posture_ref:
+      "safe-disable-posture:founder-loop:local-task-create:enabled",
+    safe_disable_enabled: true,
+    rollback_execution_enabled: false,
+    rollback_blocker_refs: ["blocked-state:rollback-execution-not-scoped"],
+    connector_write_performed: false,
+    shell_subprocess_execution_performed: false,
+    model_provider_authority_used: false,
+    memory_write_performed: false,
+    context_injection_performed: false,
+    external_side_effect_performed: false,
+    raw_content_stored: false,
+    replayed: false,
+    safe_summary: "Exact local task state was recorded with safe refs only.",
+    evidence_refs: [
+      `evidence-ref:northstar-local-task:${item.item_ref.replaceAll(":", "-")}`,
+      `evidence-timeline-event:local-task:${item.item_ref.replaceAll(":", "-")}`,
+      ...authorityProofRefs,
+    ],
+    blocked_state_refs: [
+      "blocked-state:no-connector-write",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-model-provider-authority",
+      "blocked-state:no-memory-write",
+      "blocked-state:no-context-injection",
+      "blocked-state:no-external-side-effect",
+      "blocked-state:no-production-authority",
+    ],
+    created_at: "2026-09-09T00:00:00Z",
+  };
+}
+
 function attachExactPlansBridge(
   data: ReturnType<typeof cloneData>,
   itemRef: string,
@@ -435,6 +562,9 @@ function attachExactPlansBridge(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  apiMocks.previewAuthorityDecision.mockResolvedValue(
+    safeLocalTaskAuthorityPreview(),
+  );
 });
 
 afterEach(() => {
@@ -611,6 +741,19 @@ describe("North Star backend wiring", () => {
       approval_ref: approvalReceipt.approval_ref,
       approval_status: "approved",
       approval_reason_refs: ["approval-reason-ref:northstar:test"],
+      authority_decision_ref:
+        "authority-policy-decision-ref:northstar-local-task",
+      authority_decision_outcome: "ask",
+      authority_lease_ref:
+        "authority-lease-ref:northstar-workspace-write",
+      authority_audit_ref:
+        "audit-ref:authority-policy:northstar-local-task",
+      authority_policy_receipt_ref:
+        "receipt-ref:authority-policy:northstar-local-task",
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:write",
+      authority_required_mode_ref:
+        "authority-mode-ref:ask-before-changes",
       local_task_created: true,
       safe_disable_ref: approvedItem.action_safe_disable_ref ?? approvedItem.safe_disable_ref,
       rollback_ref: approvedItem.action_rollback_ref ?? approvedItem.rollback_ref,
@@ -631,6 +774,10 @@ describe("North Star backend wiring", () => {
       evidence_refs: [
         "evidence-ref:northstar-local-task:test",
         "evidence-timeline-event:local-task:northstar-review",
+        "authority-policy-decision-ref:northstar-local-task",
+        "authority-lease-ref:northstar-workspace-write",
+        "audit-ref:authority-policy:northstar-local-task",
+        "receipt-ref:authority-policy:northstar-local-task",
       ],
       blocked_state_refs: [
         "blocked-state:no-connector-write",
@@ -709,9 +856,9 @@ describe("North Star backend wiring", () => {
       item.item_ref,
       {
         approval_ref: approvalReceipt.approval_ref,
-        decision_reason_ref: "decision-reason-ref:northstar-action:commit-local-task",
+        decision_reason_ref: "decision-reason-ref:control-center:local-task-commit",
         metadata_refs: [
-          "metadata-ref:northstar-action:commit-local-task",
+          "metadata-ref:control-center-local-task-commit",
           item.item_ref,
         ],
       },
@@ -722,6 +869,89 @@ describe("North Star backend wiring", () => {
     expect((await screen.findAllByText(localTaskReceipt.receipt_ref)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Backend read model reconciled/).length).toBeGreaterThan(0);
     expect(apiMocks.fetchFounderActionsInbox).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps an asynchronous local task receipt bound to its submitted item", async () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const [firstItem, secondItem] = data.founderActionsInbox.items;
+    if (!firstItem || !secondItem) {
+      throw new Error("Expected two Action Inbox items");
+    }
+    secondItem.item_ref = "founder-action:mock-approved-local-task";
+    for (const [index, candidate] of [firstItem, secondItem].entries()) {
+      const approvalRef = `approval-ref:northstar:local-task-${index + 1}`;
+      Object.assign(candidate, {
+        status: "approved",
+        action_group_id: "approved_local_task_lane",
+        action_group_label: "Approved local-task create lane",
+        approval_envelope_status: "approved_receipt_recorded",
+        local_task_commit_approval_ref: approvalRef,
+        local_task_commit_approval_status: "backend_owned_approval_ready",
+        local_task_commit_eligible: true,
+        local_task_commit_blocked_reasons: [],
+        local_task_commit_receipt_ref: "pending",
+        receipt_visibility: {
+          ...candidate.receipt_visibility,
+          local_task_commit_receipt_ref: "pending",
+        },
+      });
+    }
+    attachExactDecisionLane(data, firstItem.item_ref, "approved_no_execution");
+    const firstLane = structuredClone(
+      data.founderActionsInbox.action_inbox_decision_lane_read_model,
+    );
+    attachExactLocalTaskWorkQueue(data, firstItem.item_ref);
+    attachExactDecisionLane(data, secondItem.item_ref, "approved_no_execution");
+    const secondLane = data.founderActionsInbox.action_inbox_decision_lane_read_model;
+    if (!firstLane || !secondLane) {
+      throw new Error("Expected exact decision lane fixtures");
+    }
+    data.founderActionsInbox.action_inbox_decision_lane_read_model = {
+      ...secondLane,
+      items: [...firstLane.items, ...secondLane.items],
+    };
+    attachExactLocalTaskWorkQueue(data, secondItem.item_ref);
+    const firstApprovalRef = firstItem.local_task_commit_approval_ref;
+    if (!firstApprovalRef) throw new Error("Expected first local task approval");
+    const firstReceipt = localTaskReceiptFixture(firstItem, firstApprovalRef);
+    let resolveCommit: ((receipt: FounderLoopLocalTaskCommitReceipt) => void) | undefined;
+    apiMocks.commitLocalTask.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveCommit = resolve;
+    }));
+    apiMocks.fetchFounderActionsInbox.mockRejectedValue(
+      new Error("temporary refresh failure"),
+    );
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", {
+      name: "Create local task record",
+    }));
+    fireEvent.click(screen.getByRole("button", {
+      name: new RegExp(secondItem.title),
+    }));
+    expect(screen.getByRole("heading", { name: secondItem.title })).toBeVisible();
+
+    if (!resolveCommit) throw new Error("Expected pending local task commit");
+    await act(async () => resolveCommit?.(firstReceipt));
+    await waitFor(() => expect(apiMocks.commitLocalTask).toHaveBeenCalledWith(
+      firstItem.item_ref,
+      buildLocalTaskCommitRequest(firstItem.item_ref, firstApprovalRef),
+      mutationBinding,
+    ));
+    expect(screen.queryByText(firstReceipt.local_task_ref)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {
+      name: new RegExp(firstItem.title),
+    }));
+    expect((await screen.findAllByText(firstReceipt.local_task_ref)).length).toBeGreaterThan(0);
   });
 
   it("fails the local task commit control closed when the queue claims action execution", () => {
@@ -737,6 +967,11 @@ describe("North Star backend wiring", () => {
       local_task_commit_approval_status: "backend_owned_approval_ready",
       local_task_commit_eligible: true,
       local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
     });
     attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     attachExactLocalTaskWorkQueue(data, item.item_ref);
@@ -752,9 +987,9 @@ describe("North Star backend wiring", () => {
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });
 
-  it("does not offer local task commit without an active workspace write lease", () => {
+  it("does not offer local task commit when exact backend authority evaluation denies the bound item", async () => {
     const data = cloneData();
-    markLiveBackend(data, "/actions", "/settings");
+    markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
     Object.assign(item, {
       status: "approved",
@@ -765,13 +1000,40 @@ describe("North Star backend wiring", () => {
       local_task_commit_approval_status: "backend_owned_approval_ready",
       local_task_commit_eligible: true,
       local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
     });
     attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
     attachExactLocalTaskWorkQueue(data, item.item_ref);
-    data.settingsStatus.authority_lease_state.backend_owned = true;
+    const deniedPreview = safeLocalTaskAuthorityPreview();
+    deniedPreview.decision.outcome = "deny";
+    deniedPreview.decision.lease_ref = null;
+    deniedPreview.active_lease_refs = [];
+    apiMocks.previewAuthorityDecision.mockResolvedValue(deniedPreview);
 
     render(<NorthStarControlCenter activePath="/workspace/decisions" data={data} />);
 
+    await waitFor(() => expect(apiMocks.previewAuthorityDecision).toHaveBeenCalledWith({
+      action_ref: "authority-action-ref:founder-loop-local-task-commit",
+      domain: "workspace",
+      capability: "write",
+      safe_summary: "Evaluate Workspace write authority for exact Action Inbox local task commit.",
+      resource_refs: [
+        item.item_ref,
+        "local-task:founder-loop:founder-action-mock-local-task-review",
+        "contract-ref:founder-loop-local-task-commit:v1",
+        "idempotency-ref:control-center-local-task:mock-local-task-review:approval-ref-northstar-local-task-approved",
+      ],
+      route_ref: "POST /control-center/actions/{action_id}/local-task/commit",
+      lane_ref: "lane-ref:action-inbox-local-task-commit",
+      requested_mode: "ask_before_changes",
+      draft_fallback_available: true,
+      rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+      safe_disable_ref: "safe-disable:founder-loop:local-task-create-scorecard",
+    }));
     expect(screen.queryByRole("button", { name: "Create local task record" })).not.toBeInTheDocument();
     expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
   });

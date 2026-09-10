@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  buildLocalTaskCommitRequest,
   commitLocalTask,
   decideGovernedRuntimeInvocation,
   executeGovernedRuntimeInvocation,
@@ -13080,15 +13081,7 @@ function LocalTaskCommitControls({
     try {
       const receipt = await commitLocalTask(
         item.item_ref,
-        {
-          approval_ref: commitApprovalRef,
-          decision_reason_ref:
-            "decision-reason-ref:control-center:local-task-commit",
-          metadata_refs: [
-            "metadata-ref:control-center-local-task-commit",
-            item.item_ref,
-          ],
-        },
+        buildLocalTaskCommitRequest(item.item_ref, commitApprovalRef),
         mutationBinding,
       );
       await refreshCommittedActionItem(receipt);

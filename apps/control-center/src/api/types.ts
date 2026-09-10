@@ -3907,6 +3907,14 @@ export interface FounderLoopLocalTaskCommitReceipt {
   approval_ref: string;
   approval_status: string;
   approval_reason_refs: string[];
+  authority_decision_ref: string;
+  authority_decision_outcome: "allow" | "ask";
+  authority_lease_ref: string;
+  authority_audit_ref: string;
+  authority_policy_receipt_ref: string;
+  authority_domain_ref: "authority-domain-ref:workspace";
+  authority_capability_ref: "authority-capability-ref:write";
+  authority_required_mode_ref: "authority-mode-ref:ask-before-changes";
   local_task_created: boolean;
   safe_disable_ref?: string;
   rollback_ref?: string;
