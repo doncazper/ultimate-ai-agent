@@ -9,6 +9,8 @@ import {
   localTaskAuthorityProofRefs,
   localTaskCommitDerivedRefs,
   localTaskCommitIdempotencyRef,
+  localTaskCommitProjectionBindingRef,
+  localTaskCommitReceiptRefForIdempotency,
   localTaskCommitReceiptIsSafe,
   loadNorthStarDecisionsData,
   submitActionCancellation,
@@ -46,19 +48,25 @@ function validActionDecisionReceipt(
   };
   const advanced = resultRevisionRef !== expectedRevisionRef;
   const resultGeneration = advanced ? 2 : 1;
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    itemRef,
+    decision,
+    request,
+  );
+  const lifecycleSuffix = [itemRef, decision, idempotencyRef]
+    .map((value) => value.toLowerCase()
+      .replace(/[^a-z0-9_.@-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "missing")
+    .join(":");
   return {
     contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
-    decision_ref: `decision-ref:test:${decision}`,
+    decision_ref: `action-decision:${lifecycleSuffix}`,
     item_ref: itemRef,
     decision,
     status: decision === "cancel" ? "cancelled" : "deferred",
-    receipt_ref: `receipt:founder-loop-action:test:${decision}`,
-    audit_ref: `audit:founder-loop-action:test:${decision}`,
-    idempotency_key_ref: actionDecisionIdempotencyRef(
-      itemRef,
-      decision,
-      request,
-    ),
+    receipt_ref: `receipt:founder-loop-action:${lifecycleSuffix}`,
+    audit_ref: `audit:founder-loop-action:${lifecycleSuffix}`,
+    idempotency_key_ref: idempotencyRef,
     payload_fingerprint_ref: `payload-fingerprint-ref:test:${decision}`,
     expected_revision_ref: expectedRevisionRef,
     generation: 1,
@@ -193,12 +201,44 @@ function boundedDecisionFixtures() {
   if (!workQueue) throw new Error("Missing Action Inbox work queue fixture");
   for (const [index, item] of inbox.items.entries()) {
     const generation = index + 1;
+    const generationRef =
+      `action-generation:bounded-decision-${generation}:00000001`;
     const revisionRef =
       `action-revision:bounded-decision-${generation}:00000001:${String(generation).repeat(20).slice(0, 20)}`;
+    const revisionFingerprintRef =
+      `revision-fingerprint:action-inbox:${String(generation).repeat(20).slice(0, 20)}`;
+    const sourceFingerprintRef =
+      `source-fingerprint:action-inbox:${String(generation).repeat(20).slice(0, 20)}`;
+    const transitionRef =
+      `action-transition:bounded-decision-${generation}:projected`;
     Object.assign(item, {
+      action_revision_contract_ref:
+        "contract-ref:founder-loop-action-revision-lifecycle:v1",
+      action_generation: generation,
+      action_generation_ref: generationRef,
       action_revision_ref: revisionRef,
+      action_revision_fingerprint_ref: revisionFingerprintRef,
+      action_revision_source_fingerprint_ref: sourceFingerprintRef,
+      action_revision_transition_ref: transitionRef,
       expected_revision_ref: revisionRef,
       action_revision_decision_eligible: true,
+      action_revision_state: {
+        revision_contract_ref:
+          "contract-ref:founder-loop-action-revision-lifecycle:v1",
+        item_ref: item.item_ref,
+        generation,
+        generation_ref: generationRef,
+        revision_ref: revisionRef,
+        revision_fingerprint_ref: revisionFingerprintRef,
+        source_fingerprint_ref: sourceFingerprintRef,
+        previous_revision_ref: null,
+        transition_ref: transitionRef,
+        backend_owned: true,
+        safe_refs_only: true,
+        expected_revision_required: true,
+        stale_conflict_code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+        refresh_route_ref: "GET /control-center/actions/inbox",
+      },
     });
     if (item.approval_envelope) {
       Object.assign(item.approval_envelope, {
@@ -215,6 +255,8 @@ function boundedDecisionFixtures() {
           "contract-ref:founder-loop-action-receipt-visibility:v1",
         source: "python_core_action_inbox_read_model",
         backend_owned: true,
+        local_task_commit_approval_ref: "pending",
+        local_task_commit_request_binding_ref: "pending",
       });
     }
   }
@@ -557,6 +599,49 @@ describe("loadNorthStarDecisionsData", () => {
     );
   });
 
+  it.each([
+    [
+      "action_revision_contract_ref",
+      "contract-ref:founder-loop-action-revision-lifecycle:v2",
+    ],
+    ["action_generation", 99],
+    ["action_generation_ref", "action-generation:substituted:00000099"],
+    [
+      "action_revision_ref",
+      `action-revision:substituted:00000099:${"9".repeat(20)}`,
+    ],
+    [
+      "action_revision_fingerprint_ref",
+      `revision-fingerprint:action-inbox:${"9".repeat(20)}`,
+    ],
+    [
+      "action_revision_source_fingerprint_ref",
+      `source-fingerprint:action-inbox:${"9".repeat(20)}`,
+    ],
+    [
+      "action_revision_transition_ref",
+      "revision-transition:action-inbox:substituted",
+    ],
+    [
+      "expected_revision_ref",
+      `action-revision:substituted:00000099:${"9".repeat(20)}`,
+    ],
+  ])("rejects a safe top-level %s rebound from its revision envelope", async (
+    field,
+    substitutedValue,
+  ) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0][field] = substitutedValue;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
   it("rejects an unbound projected local-task receipt", async () => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
@@ -580,6 +665,46 @@ describe("loadNorthStarDecisionsData", () => {
       Record<string, unknown>;
     receiptVisibility.local_task_commit_receipt_ref =
       "receipt:founder-loop-local-task:substituted";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects a coherent terminal receipt pair not bound to the approved commit", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    const item = inbox.items[0];
+    const itemRef = String(item.item_ref);
+    const approvalRef = "approval-ref:bounded-terminal-commit";
+    const substitutedIdempotencyRef =
+      "idempotency-ref:caller-supplied:substituted-terminal-commit";
+    const substitutedReceiptRef = localTaskCommitReceiptRefForIdempotency(
+      itemRef,
+      substitutedIdempotencyRef,
+    );
+    const receiptVisibility = item.receipt_visibility as Record<string, unknown>;
+    Object.assign(item, {
+      local_task_commit_approval_ref: approvalRef,
+      local_task_commit_receipt_ref: substitutedReceiptRef,
+      receipt_refs: [substitutedReceiptRef],
+    });
+    Object.assign(receiptVisibility, {
+      local_task_ref: item.local_task_ref,
+      local_task_commit_receipt_ref: substitutedReceiptRef,
+      local_task_commit_idempotency_key_ref: substitutedIdempotencyRef,
+      local_task_commit_approval_ref: approvalRef,
+      local_task_commit_request_binding_ref:
+        localTaskCommitProjectionBindingRef(
+          itemRef,
+          "approval-ref:different-approved-commit",
+          substitutedIdempotencyRef,
+        ),
+      missing_field_states: ["none"],
+    });
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
@@ -807,12 +932,50 @@ describe("loadNorthStarDecisionsData", () => {
     if (!sourceItem || !sourceWorkItem) {
       throw new Error("Expected bounded Action Inbox fixtures");
     }
-    inbox.items = Array.from({ length: 9 }, (_, index) => ({
-      ...structuredClone(sourceItem),
-      item_ref: `founder-action:bounded-lane-${index + 1}`,
-      action_group_id: "ready_for_decision",
-      action_group_label: "Ready for decision",
-    }));
+    inbox.items = Array.from({ length: 9 }, (_, index) => {
+      const itemRef = `founder-action:bounded-lane-${index + 1}`;
+      const generation = index + 1;
+      const generationRef =
+        `action-generation:bounded-lane-${index + 1}:00000001`;
+      const revisionRef =
+        `action-revision:bounded-lane-${index + 1}:00000001:${String(index + 1).repeat(20).slice(0, 20)}`;
+      const revisionFingerprintRef =
+        `revision-fingerprint:action-inbox:${String(index + 1).repeat(20).slice(0, 20)}`;
+      const sourceFingerprintRef =
+        `source-fingerprint:action-inbox:${String(index + 1).repeat(20).slice(0, 20)}`;
+      const transitionRef =
+        `revision-transition:action-inbox:bounded-lane-${index + 1}`;
+      return {
+        ...structuredClone(sourceItem),
+        item_ref: itemRef,
+        action_group_id: "ready_for_decision",
+        action_group_label: "Ready for decision",
+        action_generation: generation,
+        action_generation_ref: generationRef,
+        action_revision_ref: revisionRef,
+        action_revision_fingerprint_ref: revisionFingerprintRef,
+        action_revision_source_fingerprint_ref: sourceFingerprintRef,
+        action_revision_transition_ref: transitionRef,
+        expected_revision_ref: revisionRef,
+        action_revision_state: {
+          revision_contract_ref:
+            "contract-ref:founder-loop-action-revision-lifecycle:v1",
+          item_ref: itemRef,
+          generation,
+          generation_ref: generationRef,
+          revision_ref: revisionRef,
+          revision_fingerprint_ref: revisionFingerprintRef,
+          source_fingerprint_ref: sourceFingerprintRef,
+          previous_revision_ref: null,
+          transition_ref: transitionRef,
+          backend_owned: true,
+          safe_refs_only: true,
+          expected_revision_required: true,
+          stale_conflict_code: "FOUNDER_LOOP_ACTION_STALE_REVISION",
+          refresh_route_ref: "GET /control-center/actions/inbox",
+        },
+      };
+    });
     for (const lane of workQueue.lanes) {
       const matchingRefs = inbox.items
         .filter((item) => item.action_group_id === lane.lane_id)
@@ -1015,6 +1178,9 @@ describe("action decision receipt boundary", () => {
       { ...receipt, decision: "approve" },
       { ...receipt, expected_revision_ref: "action-revision:substituted" },
       { ...receipt, idempotency_key_ref: "idempotency-ref:substituted" },
+      { ...receipt, decision_ref: "action-decision:substituted" },
+      { ...receipt, receipt_ref: "receipt:founder-loop-action:substituted" },
+      { ...receipt, audit_ref: "audit:founder-loop-action:substituted" },
       { ...receipt, safe_summary: "raw_prompt: private backend content" },
       { ...receipt, replayed: "false" },
       { ...receipt, action_executed: true },

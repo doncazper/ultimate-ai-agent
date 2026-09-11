@@ -5373,6 +5373,14 @@ function actionDecisionReceiptIsSafe(
   request: FounderLoopActionDecisionRequest,
 ): value is FounderLoopActionDecisionReceipt {
   if (!isPlainRecord(value)) return false;
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    actionId,
+    decision,
+    request,
+  );
+  const lifecycleSuffix = [actionId, decision, idempotencyRef]
+    .map(localTaskCommitSafeSuffix)
+    .join(":");
   const refFields = [
     "contract_ref",
     "decision_ref",
@@ -5416,8 +5424,10 @@ function actionDecisionReceiptIsSafe(
     && value.decision === decision
     && value.expected_revision_ref === request.expected_revision_ref
     && value.revision_ref === request.expected_revision_ref
-    && value.idempotency_key_ref
-      === actionDecisionIdempotencyRef(actionId, decision, request)
+    && value.idempotency_key_ref === idempotencyRef
+    && value.decision_ref === `action-decision:${lifecycleSuffix}`
+    && value.receipt_ref === `receipt:founder-loop-action:${lifecycleSuffix}`
+    && value.audit_ref === `audit:founder-loop-action:${lifecycleSuffix}`
     && value.decision_route_ref
       === `POST /control-center/actions/{action_id}/${decision}`
     && value.decision_route_binding_ref
@@ -6165,6 +6175,7 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     "local_task_commit_blocked_reasons",
   ];
   return isSafeLocalTaskReceiptRef(value.item_ref as string | undefined)
+    && actionRevisionProjectionIsBound(value)
     && isSafeActionRevisionRef(actionRevisionRef)
     && isSafeActionRevisionRef(expectedRevisionRef)
     && actionRevisionRef === expectedRevisionRef
@@ -6241,6 +6252,8 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
           "decision_receipt_ref",
           "local_task_ref",
           "local_task_commit_receipt_ref",
+          "local_task_commit_approval_ref",
+          "local_task_commit_request_binding_ref",
           "evidence_timeline_event_ref",
         ].every((field) =>
           isSafeNorthStarStructuredRef(receiptVisibility[field]))
@@ -6295,12 +6308,70 @@ function localTaskCommitProjectionIsBound(
       && visibleReceiptRef.startsWith("receipt:")
   );
   if (!terminalProjected) return true;
+  const idempotencyRef = isPlainRecord(receiptVisibility)
+    ? receiptVisibility.local_task_commit_idempotency_key_ref
+    : undefined;
+  const approvalRef = item.local_task_commit_approval_ref;
   return typeof itemReceiptRef === "string"
     && itemReceiptRef.startsWith("receipt:founder-loop-local-task:")
     && isPlainRecord(receiptVisibility)
     && visibleReceiptRef === itemReceiptRef
+    && typeof approvalRef === "string"
+    && receiptVisibility.local_task_commit_approval_ref === approvalRef
+    && typeof idempotencyRef === "string"
+    && itemReceiptRef === localTaskCommitReceiptRefForIdempotency(
+      String(item.item_ref),
+      idempotencyRef,
+    )
+    && receiptVisibility.local_task_commit_request_binding_ref
+      === localTaskCommitProjectionBindingRef(
+        String(item.item_ref),
+        approvalRef,
+        idempotencyRef,
+      )
     && typeof item.local_task_ref === "string"
     && receiptVisibility.local_task_ref === item.local_task_ref;
+}
+
+export function actionRevisionProjectionIsBound(
+  item: Record<string, unknown>,
+): boolean {
+  const state = item.action_revision_state;
+  const contractRef =
+    "contract-ref:founder-loop-action-revision-lifecycle:v1";
+  return isPlainRecord(state)
+    && item.action_revision_contract_ref === contractRef
+    && state.revision_contract_ref === contractRef
+    && state.item_ref === item.item_ref
+    && Number.isInteger(item.action_generation)
+    && Number(item.action_generation) >= 1
+    && state.generation === item.action_generation
+    && state.generation_ref === item.action_generation_ref
+    && state.revision_ref === item.action_revision_ref
+    && state.revision_ref === item.expected_revision_ref
+    && state.revision_fingerprint_ref === item.action_revision_fingerprint_ref
+    && state.source_fingerprint_ref
+      === item.action_revision_source_fingerprint_ref
+    && state.transition_ref === item.action_revision_transition_ref
+    && state.backend_owned === true
+    && state.safe_refs_only === true
+    && state.expected_revision_required === true
+    && state.stale_conflict_code === "FOUNDER_LOOP_ACTION_STALE_REVISION"
+    && state.refresh_route_ref === "GET /control-center/actions/inbox"
+    && [
+      state.revision_contract_ref,
+      state.item_ref,
+      state.generation_ref,
+      state.revision_ref,
+      state.revision_fingerprint_ref,
+      state.source_fingerprint_ref,
+      state.transition_ref,
+    ].every(isSafeNorthStarStructuredRef)
+    && (
+      state.previous_revision_ref === undefined
+      || state.previous_revision_ref === null
+      || isSafeNorthStarStructuredRef(state.previous_revision_ref)
+    );
 }
 
 function isSafeActionRevisionRef(value: unknown): value is string {
@@ -8129,6 +8200,22 @@ export function actionDecisionIdempotencyRef(
   return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}:${safeHashSuffix(request?.expected_revision_ref ?? "revision-missing")}`;
 }
 
+export function actionDecisionReceiptRef(
+  actionId: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  request: FounderLoopActionDecisionRequest,
+): string {
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    actionId,
+    decision,
+    request,
+  );
+  const lifecycleSuffix = [actionId, decision, idempotencyRef]
+    .map(localTaskCommitSafeSuffix)
+    .join(":");
+  return `receipt:founder-loop-action:${lifecycleSuffix}`;
+}
+
 export function localTaskCommitIdempotencyRef(
   actionId: string,
   request?: FounderLoopLocalTaskCommitRequest,
@@ -8211,6 +8298,14 @@ export function localTaskCommitReceiptRefForIdempotency(
   idempotencyRef: string,
 ): string {
   return `receipt:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(idempotencyRef)}`;
+}
+
+export function localTaskCommitProjectionBindingRef(
+  itemRef: string,
+  approvalRef: string,
+  idempotencyRef: string,
+): string {
+  return `request-binding:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(approvalRef)}:${localTaskCommitSafeSuffix(idempotencyRef)}`;
 }
 
 export function buildLocalTaskCommitRequest(

@@ -296,6 +296,18 @@ def local_task_commit_receipt_ref(item_ref: str, idempotency_key_ref: str) -> st
     )
 
 
+def local_task_commit_request_binding_ref(
+    item_ref: str,
+    approval_ref: str,
+    idempotency_key_ref: str,
+) -> str:
+    return (
+        "request-binding:founder-loop-local-task:"
+        f"{_safe_suffix(item_ref)}:{_safe_suffix(approval_ref)}:"
+        f"{_safe_suffix(idempotency_key_ref)}"
+    )
+
+
 def local_task_commit_audit_ref(item_ref: str, idempotency_key_ref: str) -> str:
     return (
         "audit:founder-loop-local-task:"

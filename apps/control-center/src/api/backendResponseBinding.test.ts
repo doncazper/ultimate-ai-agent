@@ -35,19 +35,25 @@ function boundDecisionReceipt(): FounderLoopActionDecisionReceipt {
     decision_reason_ref: "decision-reason-ref:bound",
     metadata_refs: ["metadata-ref:bound"],
   };
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    itemRef,
+    "defer",
+    request,
+  );
+  const lifecycleSuffix = [itemRef, "defer", idempotencyRef]
+    .map((value) => value.toLowerCase()
+      .replace(/[^a-z0-9_.@-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "missing")
+    .join(":");
   return {
     contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
-    decision_ref: "decision-ref:bound:defer",
+    decision_ref: `action-decision:${lifecycleSuffix}`,
     item_ref: itemRef,
     decision: "defer",
     status: "deferred",
-    receipt_ref: "receipt:decision:bound",
-    audit_ref: "audit:decision:bound",
-    idempotency_key_ref: actionDecisionIdempotencyRef(
-      itemRef,
-      "defer",
-      request,
-    ),
+    receipt_ref: `receipt:founder-loop-action:${lifecycleSuffix}`,
+    audit_ref: `audit:founder-loop-action:${lifecycleSuffix}`,
+    idempotency_key_ref: idempotencyRef,
     payload_fingerprint_ref: "payload-fingerprint-ref:decision:bound",
     expected_revision_ref: revisionRef,
     generation: 1,
@@ -300,7 +306,9 @@ describe("backend response provenance binding", () => {
         metadata_refs: ["metadata-ref:bound"],
       },
       binding,
-    )).resolves.toMatchObject({ receipt_ref: "receipt:decision:bound" });
+    )).resolves.toMatchObject({
+      receipt_ref: boundDecisionReceipt().receipt_ref,
+    });
   });
 
   it.each([

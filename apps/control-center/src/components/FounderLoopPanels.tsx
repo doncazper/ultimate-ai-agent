@@ -11635,6 +11635,8 @@ const missingReceiptVisibility: NonNullable<
   decision_receipt_ref: "missing",
   local_task_ref: "missing",
   local_task_commit_receipt_ref: "missing",
+  local_task_commit_approval_ref: "missing",
+  local_task_commit_request_binding_ref: "missing",
   evidence_timeline_event_ref: "missing",
   replay_posture: "missing",
   conflict_posture: "missing",

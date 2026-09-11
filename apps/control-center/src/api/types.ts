@@ -2305,6 +2305,8 @@ export interface FounderLoopActionReceiptVisibility {
   local_task_ref: string;
   local_task_commit_receipt_ref: string;
   local_task_commit_idempotency_key_ref?: string;
+  local_task_commit_approval_ref: string;
+  local_task_commit_request_binding_ref: string;
   evidence_timeline_event_ref: string;
   replay_posture: string;
   conflict_posture: string;

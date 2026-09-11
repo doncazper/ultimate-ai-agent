@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockControlCenterData } from "../mocks/controlCenterData";
-import { buildLocalTaskCommitAuthorityRequest, buildLocalTaskCommitRequest, localTaskCommitAuthorityPreviewIsSafe, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef } from "../api/client";
+import { buildLocalTaskCommitAuthorityRequest, buildLocalTaskCommitRequest, localTaskCommitAuthorityPreviewIsSafe, localTaskCommitDerivedRefs, localTaskCommitIdempotencyRef, localTaskCommitProjectionBindingRef } from "../api/client";
 import type { AuthorityDecisionPreview, FounderLoopActionDecisionReceipt, FounderLoopActionInboxDecisionLaneReadModel, FounderLoopActionInboxWorkQueueReadModel, FounderLoopActionItem, FounderLoopLocalTaskCommitReceipt, FounderLoopPlansToActionsBridgeReadModel } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { NorthStarControlCenter } from "./NorthStarControlCenter";
@@ -792,7 +792,7 @@ describe("North Star backend wiring", () => {
     expect(screen.getByText("reject", { selector: "strong" })).toBeVisible();
   });
 
-  it("raises the exact decision fence while a decision request is pending", async () => {
+  it("retains the exact decision fence until a refreshed snapshot proves the outcome", async () => {
     const data = cloneData();
     markLiveBackend(data, "/actions");
     const item = data.founderActionsInbox.items[0];
@@ -822,20 +822,27 @@ describe("North Star backend wiring", () => {
     apiMocks.fetchNorthStarDecisionsInbox.mockResolvedValue(
       data.founderActionsInbox,
     );
-    const onDecisionFenceChange = vi.fn();
+    const onDecisionAttemptChange = vi.fn();
 
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <NorthStarControlCenter
           activePath="/workspace/decisions"
           data={data}
-          onDecisionFenceChange={onDecisionFenceChange}
+          onDecisionAttemptChange={onDecisionAttemptChange}
         />
       </BackendTruthMutationBindingProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
 
-    expect(onDecisionFenceChange).toHaveBeenCalledWith(item.item_ref, true);
+    expect(onDecisionAttemptChange).toHaveBeenCalledWith(
+      item.item_ref,
+      expect.objectContaining({
+        itemRef: item.item_ref,
+        submittedRevisionRef: displayedRevisionRef,
+        decision: "reject",
+      }),
+    );
     expect(screen.getByRole("button", { name: "Record approve" })).toBeDisabled();
     if (!resolveDecision) throw new Error("Expected pending decision request");
     await act(async () => resolveDecision?.({
@@ -845,10 +852,17 @@ describe("North Star backend wiring", () => {
       replayed: false,
       action_executed: false,
     } as FounderLoopActionDecisionReceipt));
-    await waitFor(() => expect(onDecisionFenceChange).toHaveBeenLastCalledWith(
+    await waitFor(() => expect(onDecisionAttemptChange).toHaveBeenLastCalledWith(
       item.item_ref,
-      false,
+      expect.objectContaining({
+        itemRef: item.item_ref,
+        receiptRef: "receipt:action-decision:pending-fence",
+      }),
     ));
+    expect(onDecisionAttemptChange).not.toHaveBeenCalledWith(
+      item.item_ref,
+      null,
+    );
   });
 
   it("disables every decision control while exact-item cancellation is pending", () => {
@@ -1653,6 +1667,7 @@ describe("North Star backend wiring", () => {
     const projectedTaskRef =
       "local-task:founder-loop:founder-action-mock-local-task-review";
     const cliIdempotencyRef = "idempotency-ref:cli:founder-loop-task:one";
+    const approvalRef = "approval-ref:northstar:cli-local-task-approved";
     const projectedReceiptRef =
       "receipt:founder-loop-local-task:founder-action-mock-local-task-review:idempotency-ref-cli-founder-loop-task-one";
     attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
@@ -1661,6 +1676,7 @@ describe("North Star backend wiring", () => {
       action_group_id: "receipt_recorded",
       action_group_label: "Receipt recorded",
       local_task_commit_eligible: false,
+      local_task_commit_approval_ref: approvalRef,
       local_task_ref: projectedTaskRef,
       local_task_commit_receipt_ref: projectedReceiptRef,
       receipt_refs: [...item.receipt_refs, projectedReceiptRef],
@@ -1671,6 +1687,13 @@ describe("North Star backend wiring", () => {
         local_task_ref: projectedTaskRef,
         local_task_commit_receipt_ref: projectedReceiptRef,
         local_task_commit_idempotency_key_ref: cliIdempotencyRef,
+        local_task_commit_approval_ref: approvalRef,
+        local_task_commit_request_binding_ref:
+          localTaskCommitProjectionBindingRef(
+            item.item_ref,
+            approvalRef,
+            cliIdempotencyRef,
+          ),
         missing_field_states: ["none"],
       },
     });

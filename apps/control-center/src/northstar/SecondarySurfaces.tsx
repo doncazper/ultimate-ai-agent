@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   buildLocalTaskCommitAuthorityRequest,
   buildLocalTaskCommitRequest,
+  actionDecisionReceiptRef,
   commitLocalTask,
   fetchControlCenterSettingsStatus,
   fetchNorthStarDecisionsInbox,
@@ -9,6 +10,7 @@ import {
   founderLoopLocalTaskRef,
   localTaskCommitAuthorityPreviewIsSafe,
   localTaskCommitIdempotencyRef,
+  localTaskCommitProjectionBindingRef,
   localTaskCommitReceiptRefForIdempotency,
   localTaskCommitReceiptIsSafe,
   previewAuthorityDecision,
@@ -541,15 +543,26 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
 export function DecisionReviewSurface({
   data,
   onAuthoritativeRefresh,
-  onDecisionFenceChange,
+  onDecisionAttemptChange,
   onLocalTaskCommitFenceChange,
   pendingCancellationItemRefs = [],
+  pendingDecisionItemRefs = [],
 }: {
   data: ControlCenterData;
   onAuthoritativeRefresh?: (inbox: FounderLoopActionsInbox) => void;
-  onDecisionFenceChange?: (itemRef: string, pending: boolean) => void;
+  onDecisionAttemptChange?: (
+    itemRef: string,
+    attempt: {
+      itemRef: string;
+      submittedRevisionRef: string;
+      decision: FounderLoopActionDecisionKind;
+      receiptRef?: string;
+      resultRevisionRef?: string;
+    } | null,
+  ) => void;
   onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void;
   pendingCancellationItemRefs?: readonly string[];
+  pendingDecisionItemRefs?: readonly string[];
 }) {
   const mutationBinding = useBackendTruthMutationBinding();
   const [inbox, setInbox] = useState<FounderLoopActionsInbox>(data.founderActionsInbox);
@@ -767,6 +780,7 @@ export function DecisionReviewSurface({
     && decisionLane
     && item
     && !pendingCancellationItemRefs.includes(item.item_ref)
+    && !pendingDecisionItemRefs.includes(item.item_ref)
   );
   const availableDecisions = useMemo(() => {
     const allowed = item?.action_review_actions ?? [];
@@ -893,34 +907,51 @@ export function DecisionReviewSurface({
   async function recordDecision(decision: FounderLoopActionDecisionKind) {
     if (!item || !displayedRevisionRef || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
     const submittedItemRef = item.item_ref;
+    const decisionRequest = {
+      expected_revision_ref: displayedRevisionRef,
+      decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
+      edited_envelope_ref:
+        decision === "edit"
+          ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
+          : undefined,
+      defer_until_ref:
+        decision === "defer"
+          ? "defer-until-ref:operator-selected-later"
+          : undefined,
+      metadata_refs: [
+        `metadata-ref:northstar-action-decision:${decision}`,
+        submittedItemRef,
+      ],
+    };
+    const submittedAttempt = {
+      itemRef: submittedItemRef,
+      submittedRevisionRef: displayedRevisionRef,
+      decision,
+      receiptRef: actionDecisionReceiptRef(
+        submittedItemRef,
+        decision,
+        decisionRequest,
+      ),
+    };
     setPending(decision);
-    onDecisionFenceChange?.(submittedItemRef, true);
+    onDecisionAttemptChange?.(submittedItemRef, submittedAttempt);
     try {
       const recorded = await submitActionDecision(
         submittedItemRef,
         decision,
-        {
-          expected_revision_ref: displayedRevisionRef,
-          decision_reason_ref: `decision-reason-ref:northstar-action:${decision}`,
-          edited_envelope_ref:
-            decision === "edit"
-              ? (item.action_envelope_ref ?? item.approval_envelope_ref ?? null)
-              : undefined,
-          defer_until_ref:
-            decision === "defer"
-              ? "defer-until-ref:operator-selected-later"
-              : undefined,
-          metadata_refs: [
-            `metadata-ref:northstar-action-decision:${decision}`,
-            submittedItemRef,
-          ],
-        },
+        decisionRequest,
         mutationBinding,
       );
       decisionReceiptRefs.current = {
         ...decisionReceiptRefs.current,
         [submittedItemRef]: recorded,
       };
+      const receiptedAttempt = {
+        ...submittedAttempt,
+        receiptRef: recorded.receipt_ref,
+        resultRevisionRef: recorded.result_revision_ref,
+      };
+      onDecisionAttemptChange?.(submittedItemRef, receiptedAttempt);
       setDecisionReceipts((current) => ({
         ...current,
         [submittedItemRef]: recorded,
@@ -957,6 +988,15 @@ export function DecisionReviewSurface({
         if (selectedItemRef.current === submittedItemRef) {
           setFeedback(reconciledMessage);
         }
+        if (
+          reconciled
+          || Boolean(
+            refreshedItem
+            && refreshedItem.action_revision_ref !== displayedRevisionRef,
+          )
+        ) {
+          onDecisionAttemptChange?.(submittedItemRef, null);
+        }
       } catch (refreshError) {
         const refreshMessage = `${recorded.replayed ? "Replayed" : "Recorded"} ${decision} receipt · ${recorded.receipt_ref}. Refresh pending: ${refreshError instanceof Error ? refreshError.message : "backend queue unavailable"}`;
         setDecisionFeedback((current) => ({
@@ -971,15 +1011,46 @@ export function DecisionReviewSurface({
       const failureMessage = error instanceof Error
         ? error.message
         : "Action decision receipt was not recorded safely.";
-      setDecisionFeedback((current) => ({
-        ...current,
-        [submittedItemRef]: failureMessage,
-      }));
-      if (selectedItemRef.current === submittedItemRef) {
-        setFeedback(failureMessage);
+      try {
+        const refreshed = await fetchNorthStarDecisionsInbox(mutationBinding);
+        const refreshedItem = refreshed.items.find(
+          (candidate) => candidate.item_ref === submittedItemRef,
+        );
+        onAuthoritativeRefresh?.(refreshed);
+        if (
+          refreshedItem
+          && refreshedItem.action_revision_ref !== displayedRevisionRef
+        ) {
+          onDecisionAttemptChange?.(submittedItemRef, null);
+          const recoveredMessage = `${failureMessage} The authoritative recovery refresh advanced beyond the submitted revision and released the decision fence.`;
+          setDecisionFeedback((current) => ({
+            ...current,
+            [submittedItemRef]: recoveredMessage,
+          }));
+          if (selectedItemRef.current === submittedItemRef) {
+            setFeedback(recoveredMessage);
+          }
+        } else {
+          const uncertainMessage = `${failureMessage} Decision outcome is uncertain; the mutation fence remains active until a validated authoritative refresh proves the exact receipt or a newer revision.`;
+          setDecisionFeedback((current) => ({
+            ...current,
+            [submittedItemRef]: uncertainMessage,
+          }));
+          if (selectedItemRef.current === submittedItemRef) {
+            setFeedback(uncertainMessage);
+          }
+        }
+      } catch {
+        const uncertainMessage = `${failureMessage} Decision outcome is uncertain; the mutation fence remains active until a validated authoritative refresh succeeds.`;
+        setDecisionFeedback((current) => ({
+          ...current,
+          [submittedItemRef]: uncertainMessage,
+        }));
+        if (selectedItemRef.current === submittedItemRef) {
+          setFeedback(uncertainMessage);
+        }
       }
     } finally {
-      onDecisionFenceChange?.(submittedItemRef, false);
       setPending(undefined);
     }
   }
@@ -1255,6 +1326,7 @@ function localTaskCommitReceiptProjectionState(
   const localTaskRef = founderLoopLocalTaskRef(item.item_ref);
   const commitIdempotencyRef =
     projection.local_task_commit_idempotency_key_ref;
+  const commitApprovalRef = projection.local_task_commit_approval_ref;
   const expectedReceiptRef =
     typeof commitIdempotencyRef === "string"
       && isSafeNorthStarRef(commitIdempotencyRef)
@@ -1275,6 +1347,15 @@ function localTaskCommitReceiptProjectionState(
     && item.local_task_ref === localTaskRef
     && hasNoMissingFieldStates(projection.missing_field_states)
     && projection.local_task_ref === localTaskRef
+    && typeof item.local_task_commit_approval_ref === "string"
+    && commitApprovalRef === item.local_task_commit_approval_ref
+    && typeof commitIdempotencyRef === "string"
+    && projection.local_task_commit_request_binding_ref
+      === localTaskCommitProjectionBindingRef(
+        item.item_ref,
+        item.local_task_commit_approval_ref,
+        commitIdempotencyRef,
+      )
     && typeof receiptRef === "string"
     && receiptRef.startsWith("receipt:founder-loop-local-task:")
     && isSafeNorthStarRef(receiptRef)

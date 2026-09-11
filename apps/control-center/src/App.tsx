@@ -34,6 +34,7 @@ import {
   fetchFounderActionsInbox,
   fetchNorthStarDecisionsInbox,
   founderLoopLocalTaskRef,
+  localTaskCommitProjectionBindingRef,
   localTaskCommitReceiptRefForIdempotency,
   submitActionCancellation,
   type BackendTruthReadBinding,
@@ -273,8 +274,12 @@ export function NorthStarRoute({
   const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
   const [pendingLocalTaskCommitItemRefs, setPendingLocalTaskCommitItemRefs] =
     useState<string[]>([]);
-  const [pendingDecisionItemRefs, setPendingDecisionItemRefs] =
-    useState<string[]>([]);
+  const [pendingDecisionAttempts, setPendingDecisionAttempts] =
+    useState<PendingActionDecision[]>([]);
+  const pendingDecisionItemRefs = useMemo(
+    () => pendingDecisionAttempts.map((attempt) => attempt.itemRef),
+    [pendingDecisionAttempts],
+  );
   const [pendingCancellationAttempts, setPendingCancellationAttempts] =
     useState<PendingActionCancellation[]>([]);
   const pendingCancellationItemRefs = useMemo(
@@ -295,16 +300,21 @@ export function NorthStarRoute({
     },
     [],
   );
-  const updateDecisionFence = useCallback(
-    (itemRef: string, pending: boolean) => {
-      setPendingDecisionItemRefs((current) => {
-        const next = pending
-          ? Array.from(new Set([...current, itemRef]))
-          : current.filter((candidate) => candidate !== itemRef);
-        return next.length === current.length
-          && next.every((candidate, index) => candidate === current[index])
-          ? current
-          : next;
+  const updateDecisionAttempt = useCallback(
+    (itemRef: string, attempt: PendingActionDecision | null) => {
+      setPendingDecisionAttempts((current) => {
+        if (!attempt) {
+          const next = current.filter(
+            (candidate) => candidate.itemRef !== itemRef,
+          );
+          return next.length === current.length ? current : next;
+        }
+        return [
+          ...current.filter(
+            (candidate) => candidate.itemRef !== attempt.itemRef,
+          ),
+          attempt,
+        ];
       });
     },
     [],
@@ -337,6 +347,14 @@ export function NorthStarRoute({
     },
     [],
   );
+  const reconcileDecisionAttempts = useCallback(
+    (inbox: FounderLoopActionsInbox) => {
+      setPendingDecisionAttempts((current) =>
+        reconcilePendingActionDecisions(current, inbox),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     setActionInboxOverride(null);
@@ -346,8 +364,13 @@ export function NorthStarRoute({
         reconcilePendingLocalTaskCommitItemRefs(current, loadedActionInbox),
       );
       reconcileCancellationAttempts(loadedActionInbox);
+      reconcileDecisionAttempts(loadedActionInbox);
     }
-  }, [loadedActionInboxSnapshotKey, reconcileCancellationAttempts]);
+  }, [
+    loadedActionInboxSnapshotKey,
+    reconcileCancellationAttempts,
+    reconcileDecisionAttempts,
+  ]);
 
   useEffect(() => {
     const canonicalPath = canonicalizeControlCenterPath(activePath);
@@ -367,6 +390,7 @@ export function NorthStarRoute({
           if (active) {
             setActionInboxOverride(inbox);
             reconcileCancellationAttempts(inbox);
+            reconcileDecisionAttempts(inbox);
           }
         })
         .catch(() => {
@@ -384,7 +408,12 @@ export function NorthStarRoute({
         refreshAfterConflict as EventListener,
       );
     };
-  }, [activePath, reconcileCancellationAttempts, truthReadBinding]);
+  }, [
+    activePath,
+    reconcileCancellationAttempts,
+    reconcileDecisionAttempts,
+    truthReadBinding,
+  ]);
   const retryCriticalRoute = async () => {
     await truthState.retry();
     state.retry();
@@ -542,6 +571,7 @@ export function NorthStarRoute({
                 reconcilePendingLocalTaskCommitItemRefs(current, inbox),
               );
               reconcileCancellationAttempts(inbox);
+              reconcileDecisionAttempts(inbox);
               setRevisionRefreshFailed(false);
             }}
           />
@@ -550,7 +580,8 @@ export function NorthStarRoute({
           activePath={activePath}
           data={visibleData}
           pendingCancellationItemRefs={pendingCancellationItemRefs}
-          onDecisionFenceChange={updateDecisionFence}
+          pendingDecisionItemRefs={pendingDecisionItemRefs}
+          onDecisionAttemptChange={updateDecisionAttempt}
           onLocalTaskCommitFenceChange={updateLocalTaskCommitFence}
           onActionInboxRefresh={(inbox) => {
             setActionInboxOverride(inbox);
@@ -558,6 +589,7 @@ export function NorthStarRoute({
               reconcilePendingLocalTaskCommitItemRefs(current, inbox),
             );
             reconcileCancellationAttempts(inbox);
+            reconcileDecisionAttempts(inbox);
             setRevisionRefreshFailed(false);
           }}
         />
@@ -830,6 +862,56 @@ export interface PendingActionCancellation {
   resultRevisionRef?: string;
 }
 
+export interface PendingActionDecision {
+  itemRef: string;
+  submittedRevisionRef: string;
+  decision: "approve" | "edit" | "reject" | "defer";
+  receiptRef?: string;
+  resultRevisionRef?: string;
+}
+
+function actionDecisionSnapshotProvesSafe(
+  attempt: PendingActionDecision,
+  inbox: FounderLoopActionsInbox,
+): boolean {
+  const item = inbox.items.find(
+    (candidate) => candidate.item_ref === attempt.itemRef,
+  );
+  if (!item) return false;
+  const currentRevisionRef =
+    item.action_revision_ref ?? item.expected_revision_ref;
+  const exactDecisionReceiptBound = Boolean(
+    attempt.receiptRef
+      && (
+        !attempt.resultRevisionRef
+        || currentRevisionRef === attempt.resultRevisionRef
+      )
+      && (
+        item.receipt_refs.includes(attempt.receiptRef)
+        || item.receipt_visibility?.decision_receipt_ref === attempt.receiptRef
+      ),
+  );
+  return exactDecisionReceiptBound
+    || localTaskCommitProjectionIsExactlyBound(item)
+    || Boolean(
+      currentRevisionRef
+        && currentRevisionRef !== attempt.submittedRevisionRef,
+    );
+}
+
+export function reconcilePendingActionDecisions(
+  current: readonly PendingActionDecision[],
+  inbox: FounderLoopActionsInbox,
+): PendingActionDecision[] {
+  const next = current.filter(
+    (attempt) => !actionDecisionSnapshotProvesSafe(attempt, inbox),
+  );
+  return next.length === current.length
+    && next.every((candidate, index) => candidate === current[index])
+    ? current as PendingActionDecision[]
+    : next;
+}
+
 function actionCancellationSnapshotProvesSafe(
   attempt: PendingActionCancellation,
   inbox: FounderLoopActionsInbox,
@@ -894,6 +976,15 @@ function localTaskCommitProjectionIsExactlyBound(
     && missingStatesAreClear
     && item.local_task_ref === localTaskRef
     && projection.local_task_ref === localTaskRef
+    && typeof item.local_task_commit_approval_ref === "string"
+    && projection.local_task_commit_approval_ref
+      === item.local_task_commit_approval_ref
+    && projection.local_task_commit_request_binding_ref
+      === localTaskCommitProjectionBindingRef(
+        item.item_ref,
+        item.local_task_commit_approval_ref,
+        idempotencyRef,
+      )
     && item.local_task_commit_receipt_ref === receiptRef
     && projection.local_task_commit_receipt_ref === receiptRef
     && item.receipt_refs.includes(receiptRef);

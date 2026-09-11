@@ -12118,6 +12118,12 @@ function actionEnvelopeFields(
       decision_receipt_ref: decisionReceiptRef,
       local_task_ref: localTaskRef,
       local_task_commit_receipt_ref: localTaskCommitReceiptRef,
+      local_task_commit_approval_ref: localTaskRelevant
+        ? unavailableRef
+        : "not_applicable",
+      local_task_commit_request_binding_ref: localTaskRelevant
+        ? unavailableRef
+        : "not_applicable",
       evidence_timeline_event_ref: evidenceTimelineEventRef,
       replay_posture: replayPosture,
       conflict_posture: conflictPosture,

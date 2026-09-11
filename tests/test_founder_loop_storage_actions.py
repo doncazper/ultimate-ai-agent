@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF,
     FounderLoopLocalTaskCommitRequest,
+    local_task_commit_request_binding_ref,
 )
 from ultimate_ai_agent.core.memory import MemoryReviewDecisionRequest
 from ultimate_ai_agent.core.storage import (
@@ -292,6 +293,14 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
     )
     assert receipt_visibility["local_task_ref"] == receipt["local_task_ref"]
     assert receipt_visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert receipt_visibility["local_task_commit_approval_ref"] == receipt["approval_ref"]
+    assert receipt_visibility["local_task_commit_request_binding_ref"] == (
+        local_task_commit_request_binding_ref(
+            committed_action["item_ref"],
+            receipt["approval_ref"],
+            receipt["idempotency_key_ref"],
+        )
+    )
     assert (
         receipt_visibility["evidence_timeline_event_ref"]
         == receipt["evidence_timeline_event_ref"]

@@ -139,6 +139,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     local_task_commit_event_ref,
     local_task_commit_payload_fingerprint_ref,
     local_task_commit_payload_for_fingerprint,
+    local_task_commit_request_binding_ref,
     local_task_commit_receipt_ref,
     local_task_authority_proof_refs,
     local_task_ref_for_action,
@@ -5889,6 +5890,20 @@ def _action_receipt_visibility_read_model(
         if local_task_receipt and local_task_receipt.get("idempotency_key_ref")
         else ("pending" if local_task_is_relevant else "not_applicable")
     )
+    local_task_commit_approval_ref = (
+        str(local_task_receipt["approval_ref"])
+        if local_task_receipt and local_task_receipt.get("approval_ref")
+        else ("pending" if local_task_is_relevant else "not_applicable")
+    )
+    local_task_commit_request_binding = (
+        local_task_commit_request_binding_ref(
+            item_ref,
+            local_task_commit_approval_ref,
+            local_task_commit_idempotency_key_ref,
+        )
+        if local_task_receipt
+        else ("pending" if local_task_is_relevant else "not_applicable")
+    )
     evidence_timeline_event_ref = (
         str(local_task_receipt["evidence_timeline_event_ref"])
         if local_task_receipt and local_task_receipt.get("evidence_timeline_event_ref")
@@ -5922,6 +5937,10 @@ def _action_receipt_visibility_read_model(
         "local_task_commit_receipt_ref": local_task_commit_receipt_ref,
         "local_task_commit_idempotency_key_ref": (
             local_task_commit_idempotency_key_ref
+        ),
+        "local_task_commit_approval_ref": local_task_commit_approval_ref,
+        "local_task_commit_request_binding_ref": (
+            local_task_commit_request_binding
         ),
         "evidence_timeline_event_ref": evidence_timeline_event_ref,
         "replay_posture": replay_posture,
