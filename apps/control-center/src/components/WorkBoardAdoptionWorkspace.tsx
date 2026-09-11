@@ -109,6 +109,19 @@ function mutationReviewDetail(pending: PendingMutation): string {
   return `Undo the most recent local board change. ${revision}`;
 }
 
+export function restoreReviewDetail(
+  preview: WorkBoardAdoptionRestorePreview,
+): string {
+  const cards = `${preview.card_count} card${preview.card_count === 1 ? "" : "s"}`;
+  if (preview.rollback_available) {
+    return `${cards}; undo will be available.`;
+  }
+  if (preview.impact_status === "unknown_current_state") {
+    return `${cards}; current state is unreadable, so rollback is unavailable.`;
+  }
+  return `${cards}; the current workspace is empty, so there is no prior state to undo.`;
+}
+
 function cardToken(card: WorkBoardAdoptionCard): string {
   return JSON.stringify([
     card.card_ref,
@@ -801,7 +814,7 @@ export function WorkBoardAdoptionWorkspace() {
         <ConfirmationDialog
           title="Review this encrypted restore"
           summary={pendingRestore.preview.safe_summary}
-          detail={`${pendingRestore.preview.card_count} card${pendingRestore.preview.card_count === 1 ? "" : "s"}; ${pendingRestore.preview.rollback_available ? "undo will be available" : "current state is unreadable, so rollback is unavailable"}.`}
+          detail={restoreReviewDetail(pendingRestore.preview)}
           confirmLabel="Confirm and restore locally"
           busy={busy}
           onCancel={() => setPendingRestore(null)}

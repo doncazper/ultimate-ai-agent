@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 import ultimate_ai_agent.core.control_center.work_board_adoption as work_board_adoption
+import ultimate_ai_agent.core.single_writer_lock as single_writer_lock
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.control_center.work_board_adoption import (
     WORK_BOARD_ADOPTION_RESTORE_ROUTE_REF,
@@ -22,8 +23,10 @@ from ultimate_ai_agent.core.control_center.work_board_adoption import (
     WorkBoardAdoptionPortableRestoreRequest,
     WorkBoardAdoptionRestoreApprovalCaptureRequest,
     WorkBoardAdoptionRestoreCommitRequest,
+    WorkBoardAdoptionState,
     WorkBoardAdoptionStore,
 )
+from ultimate_ai_agent.core.single_writer_lock import FileSingleWriterLockManager
 
 
 def _idempotency(suffix: str) -> str:
@@ -325,6 +328,148 @@ def test_exact_idempotent_replay_and_payload_conflict(tmp_path: Path) -> None:
             ),
             idempotency_ref=idempotency_ref,
         )
+
+    for substituted in (
+        commit.model_copy(
+            update={"preview_ref": "preview-ref:work-board-adoption:substituted"}
+        ),
+        commit.model_copy(
+            update={"approval_ref": "approval-ref:work-board-adoption:substituted"}
+        ),
+    ):
+        with pytest.raises(
+            WorkBoardAdoptionConflict,
+            match="WORK_BOARD_ADOPTION_IDEMPOTENCY_CONFLICT",
+        ):
+            store.commit_mutation(
+                substituted,
+                idempotency_ref=idempotency_ref,
+            )
+
+
+def test_restore_rejects_nonidentical_receipt_collision(tmp_path: Path) -> None:
+    store = WorkBoardAdoptionStore(tmp_path)
+    _, _, receipt = _commit(
+        store,
+        WorkBoardAdoptionMutationRequest(
+            action="create",
+            expected_revision=0,
+            draft=_draft(),
+        ),
+        suffix="receipt-collision",
+    )
+    current = store._read_state()
+    restored = WorkBoardAdoptionState(
+        revision=current.revision,
+        cards=current.cards,
+        undo_stack=current.undo_stack,
+        receipts=(
+            receipt.model_copy(
+                update={
+                    "approval_ref": "approval-ref:work-board-adoption:forked"
+                }
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        WorkBoardAdoptionConflict,
+        match="WORK_BOARD_ADOPTION_RESTORE_RECEIPT_CONFLICT",
+    ):
+        store._merged_restore_receipts(
+            current=current,
+            restored=restored,
+            receipt=receipt,
+        )
+
+
+def test_state_write_failures_are_redacted_and_publication_aware(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    mutation = WorkBoardAdoptionMutationRequest(
+        action="create",
+        expected_revision=0,
+        draft=_draft(),
+    )
+
+    def approved_commit(
+        store: WorkBoardAdoptionStore,
+        suffix: str,
+    ) -> tuple[str, WorkBoardAdoptionCommitRequest]:
+        idempotency_ref = _idempotency(suffix)
+        preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+        approval = store.capture_approval(
+            WorkBoardAdoptionApprovalCaptureRequest(
+                mutation=mutation,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+        return idempotency_ref, WorkBoardAdoptionCommitRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=approval.approval_ref,
+        )
+
+    before_store = WorkBoardAdoptionStore(tmp_path / "before")
+    before_ref, before_commit = approved_commit(before_store, "write-failed")
+
+    def fail_before_publication(*_args: object, **_kwargs: object) -> tuple[int, str]:
+        raise OSError("private path must not escape")
+
+    monkeypatch.setattr(work_board_adoption.tempfile, "mkstemp", fail_before_publication)
+    with pytest.raises(
+        WorkBoardAdoptionError,
+        match="WORK_BOARD_ADOPTION_STATE_WRITE_FAILED",
+    ):
+        before_store.commit_mutation(before_commit, idempotency_ref=before_ref)
+    assert not before_store.state_path.exists()
+
+    monkeypatch.undo()
+    after_store = WorkBoardAdoptionStore(tmp_path / "after")
+    after_ref, after_commit = approved_commit(after_store, "publication-uncertain")
+
+    def fail_after_publication(_path: Path) -> None:
+        raise OSError("private path must not escape")
+
+    monkeypatch.setattr(work_board_adoption, "_fsync_directory", fail_after_publication)
+    with pytest.raises(
+        WorkBoardAdoptionError,
+        match="WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN",
+    ):
+        after_store.commit_mutation(after_commit, idempotency_ref=after_ref)
+    assert after_store.read_view().revision == 1
+
+
+def test_file_writer_lock_uses_windows_interprocess_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    class FakeMsvcrt:
+        LK_LOCK = 1
+        LK_UNLCK = 2
+
+        def __init__(self) -> None:
+            self.calls: list[tuple[int, int]] = []
+
+        def locking(self, _descriptor: int, mode: int, byte_count: int) -> None:
+            self.calls.append((mode, byte_count))
+
+    fake_msvcrt = FakeMsvcrt()
+    monkeypatch.setattr(single_writer_lock, "_fcntl", None)
+    monkeypatch.setattr(single_writer_lock, "_msvcrt", fake_msvcrt)
+    monkeypatch.setattr(single_writer_lock.os, "fchmod", None)
+
+    lock_manager = FileSingleWriterLockManager(tmp_path / "locks")
+    with lock_manager.acquire("work-board"):
+        pass
+
+    assert fake_msvcrt.calls == [
+        (fake_msvcrt.LK_LOCK, 1),
+        (fake_msvcrt.LK_UNLCK, 1),
+    ]
 
 
 def test_malformed_or_symlinked_state_requires_recovery(tmp_path: Path) -> None:

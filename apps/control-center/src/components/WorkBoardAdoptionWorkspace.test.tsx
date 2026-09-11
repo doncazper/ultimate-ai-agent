@@ -4,12 +4,16 @@ import type { BackendTruthReadBinding } from "../api/client";
 import type {
   WorkBoardAdoptionMutationPreview,
   WorkBoardAdoptionMutationReceipt,
+  WorkBoardAdoptionRestorePreview,
   WorkBoardAdoptionWorkspaceView,
 } from "../api/types";
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import { WorkBoardSurface } from "../northstar/PrimarySurfaces";
-import { WorkBoardAdoptionWorkspace } from "./WorkBoardAdoptionWorkspace";
+import {
+  restoreReviewDetail,
+  WorkBoardAdoptionWorkspace,
+} from "./WorkBoardAdoptionWorkspace";
 
 const apiMocks = vi.hoisted(() => ({
   captureWorkBoardAdoptionApproval: vi.fn(),
@@ -129,6 +133,27 @@ describe("WorkBoardAdoptionWorkspace", () => {
     apiMocks.previewWorkBoardAdoptionMutation.mockResolvedValue(preview);
     apiMocks.captureWorkBoardAdoptionApproval.mockResolvedValue({});
     apiMocks.commitWorkBoardAdoptionMutation.mockResolvedValue(receipt);
+  });
+
+  it("distinguishes an empty restore target from unreadable current state", () => {
+    const restorePreview = {
+      action: "restore_backup" as const,
+      card_count: 1,
+      rollback_available: false,
+      impact_status: "exact" as const,
+    } as WorkBoardAdoptionRestorePreview;
+
+    expect(restoreReviewDetail(restorePreview)).toBe(
+      "1 card; the current workspace is empty, so there is no prior state to undo.",
+    );
+    expect(
+      restoreReviewDetail({
+        ...restorePreview,
+        impact_status: "unknown_current_state",
+      }),
+    ).toBe(
+      "1 card; current state is unreadable, so rollback is unavailable.",
+    );
   });
 
   it("mounts the writable private workspace before the legacy board", async () => {

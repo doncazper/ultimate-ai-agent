@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import ultimate_ai_agent.api.control_center as control_center_api
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.control_center import (
     WORK_BOARD_ADOPTION_MAX_REQUEST_BODY_BYTES,
@@ -250,3 +251,85 @@ def test_work_board_body_limit_is_published_for_every_json_route() -> None:
             "application/json"
         ]["schema"]
         assert schema["$ref"].endswith("/WorkBoardAdoptionBodyLimitResponse")
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected_code"),
+    [
+        (
+            {
+                "X-UAA-Idempotency-Key": "idempotency-ref:work-board-api:first",
+                "X-UAA-Idempotency-Ref": "idempotency-ref:work-board-api:second",
+            },
+            "API_IDEMPOTENCY_CONFLICT",
+        ),
+        (
+            {"X-UAA-Idempotency-Key": "invalid!"},
+            "API_IDEMPOTENCY_INVALID",
+        ),
+    ],
+)
+def test_work_board_adoption_api_rejects_ambiguous_or_invalid_idempotency(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    headers: dict[str, str],
+    expected_code: str,
+) -> None:
+    state_dir = tmp_path / "work-board"
+    monkeypatch.setenv("UAA_WORK_BOARD_STATE_DIR", str(state_dir))
+    response = TestClient(app).post(
+        "/control-center/work-board/adoption/preview",
+        json=_create_mutation(),
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == expected_code
+    assert not state_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("code", "expected_message"),
+    [
+        (
+            "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED",
+            "was not published",
+        ),
+        (
+            "WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN",
+            "Refresh before retrying",
+        ),
+    ],
+)
+def test_work_board_adoption_api_redacts_storage_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    code: str,
+    expected_message: str,
+) -> None:
+    class FailingStore:
+        def commit_mutation(self, *_args: object, **_kwargs: object) -> None:
+            raise control_center_api.WorkBoardAdoptionError(code) from OSError(
+                "/private/operator/work-board.json"
+            )
+
+    monkeypatch.setattr(
+        control_center_api.WorkBoardAdoptionStore,
+        "from_env",
+        lambda: FailingStore(),
+    )
+    request = {
+        "mutation": _create_mutation(),
+        "preview_ref": "preview-ref:work-board-adoption:test",
+        "approval_ref": "approval-ref:work-board-adoption:test",
+    }
+    response = TestClient(app).post(
+        "/control-center/work-board/adoption/commit",
+        json=request,
+        headers=_headers("storage-error", confirmed=True),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == code
+    safe_message = response.json()["detail"]["safe_message"]
+    assert expected_message in safe_message
+    assert "/private/operator" not in response.text

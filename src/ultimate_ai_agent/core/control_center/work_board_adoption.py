@@ -775,7 +775,11 @@ class WorkBoardAdoptionStore:
                 None,
             )
             if replay is not None:
-                if replay.payload_fingerprint_ref != payload_fingerprint_ref:
+                if (
+                    replay.payload_fingerprint_ref != payload_fingerprint_ref
+                    or replay.preview_ref != request.preview_ref
+                    or replay.approval_ref != request.approval_ref
+                ):
                     raise WorkBoardAdoptionConflict(
                         "WORK_BOARD_ADOPTION_IDEMPOTENCY_CONFLICT"
                     )
@@ -1726,9 +1730,7 @@ class WorkBoardAdoptionStore:
         merged: dict[str, WorkBoardAdoptionMutationReceipt] = {}
         for candidate in [*restored.receipts, *current.receipts, receipt]:
             prior = merged.get(candidate.idempotency_ref)
-            if prior is not None and (
-                prior.payload_fingerprint_ref != candidate.payload_fingerprint_ref
-            ):
+            if prior is not None and prior != candidate:
                 raise WorkBoardAdoptionConflict(
                     "WORK_BOARD_ADOPTION_RESTORE_RECEIPT_CONFLICT"
                 )
@@ -1771,18 +1773,23 @@ class WorkBoardAdoptionStore:
         payload = _canonical_json(state.model_dump(mode="json"))
         if len(payload) > WORK_BOARD_ADOPTION_MAX_STATE_BYTES:
             raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_STATE_SIZE_LIMIT")
-        self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(self.state_dir, 0o700)
         descriptor = -1
         temporary: Path | None = None
+        published = False
         try:
+            self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(self.state_dir, 0o700)
             descriptor, temporary_name = tempfile.mkstemp(
                 dir=self.state_dir,
                 prefix=".work_board_adoption.",
                 suffix=".tmp",
             )
             temporary = Path(temporary_name)
-            os.fchmod(descriptor, 0o600)
+            fchmod = getattr(os, "fchmod", None)
+            if fchmod is not None:
+                fchmod(descriptor, 0o600)
+            else:
+                os.chmod(temporary, 0o600)
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
                 handle.write(payload)
@@ -1790,15 +1797,23 @@ class WorkBoardAdoptionStore:
                 os.fsync(handle.fileno())
             os.replace(temporary, self.state_path)
             temporary = None
+            published = True
             os.chmod(self.state_path, 0o600)
             _fsync_directory(self.state_dir)
+        except OSError as exc:
+            code = (
+                "WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN"
+                if published
+                else "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED"
+            )
+            raise WorkBoardAdoptionError(code) from exc
         finally:
             if descriptor >= 0:
                 os.close(descriptor)
             if temporary is not None:
                 try:
                     temporary.unlink()
-                except FileNotFoundError:
+                except OSError:
                     pass
 
     @staticmethod

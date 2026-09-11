@@ -1157,7 +1157,7 @@ def post_control_center_work_board_adoption_preview(
         alias=IDEMPOTENCY_REF_HEADER,
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -1204,7 +1204,7 @@ def post_control_center_work_board_adoption_approval(
     ),
 ) -> ResultEnvelope:
     _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -1251,7 +1251,7 @@ def post_control_center_work_board_adoption_commit(
     ),
 ) -> ResultEnvelope:
     _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -1320,7 +1320,7 @@ def post_control_center_work_board_adoption_restore_preview(
         alias=IDEMPOTENCY_REF_HEADER,
     ),
 ) -> ResultEnvelope:
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -1367,7 +1367,7 @@ def post_control_center_work_board_adoption_restore_approval(
     ),
 ) -> ResultEnvelope:
     _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -1414,7 +1414,7 @@ def post_control_center_work_board_adoption_restore_commit(
     ),
 ) -> ResultEnvelope:
     _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
-    idempotency_ref = _work_board_idempotency_ref(
+    idempotency_ref = _work_board_adoption_idempotency_ref(
         x_uaa_idempotency_key,
         x_uaa_idempotency_ref,
     )
@@ -2017,6 +2017,10 @@ def _require_work_board_operator_confirmation(confirmed: bool) -> None:
 def _raise_work_board_adoption_http_error(exc: WorkBoardAdoptionError) -> None:
     code = str(exc) or "WORK_BOARD_ADOPTION_ERROR"
     status_code = 409 if isinstance(exc, WorkBoardAdoptionConflict) else 403
+    safe_message = (
+        "The private Work Board request could not be completed safely. "
+        "Refresh the board or use the encrypted recovery path."
+    )
     if code in {
         "WORK_BOARD_ADOPTION_BACKUP_UNLOCK_FAILED",
         "WORK_BOARD_ADOPTION_BACKUP_FINGERPRINT_INVALID",
@@ -2025,23 +2029,64 @@ def _raise_work_board_adoption_http_error(exc: WorkBoardAdoptionError) -> None:
         "WORK_BOARD_ADOPTION_STATE_READ_FAILED",
     }:
         status_code = 422
+    elif code == "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED":
+        status_code = 503
+        safe_message = (
+            "The private Work Board change was not published. Check local storage "
+            "and retry the exact approved request."
+        )
+    elif code == "WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN":
+        status_code = 503
+        safe_message = (
+            "The private Work Board change may have been published, but local "
+            "durability confirmation failed. Refresh before retrying."
+        )
     raise HTTPException(
         status_code=status_code,
         detail={
             "code": code,
-            "safe_message": (
-                "The private Work Board request could not be completed safely. "
-                "Refresh the board or use the encrypted recovery path."
-            ),
+            "safe_message": safe_message,
         },
     ) from exc
 
 
-def _work_board_idempotency_ref(
+def _work_board_adoption_idempotency_ref(
     idempotency_key: str | None,
     idempotency_ref: str | None,
 ) -> str:
-    return _crm_idempotency_ref(idempotency_key, idempotency_ref)
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "Private Work Board requests require an idempotency key or "
+                    "scoped ref."
+                ),
+            },
+        )
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _raise_crm_adoption_http_error(exc: CrmAdoptionError) -> None:
