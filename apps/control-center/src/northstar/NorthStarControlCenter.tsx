@@ -15,12 +15,14 @@ export function NorthStarControlCenter({
   activePath,
   data,
   onActionInboxRefresh,
+  onDecisionFenceChange,
   onLocalTaskCommitFenceChange,
   pendingCancellationItemRefs,
 }: {
   activePath: string;
   data: ControlCenterData;
   onActionInboxRefresh?: (inbox: FounderLoopActionsInbox) => void;
+  onDecisionFenceChange?: (itemRef: string, pending: boolean) => void;
   onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void;
   pendingCancellationItemRefs?: readonly string[];
 }) {
@@ -30,7 +32,7 @@ export function NorthStarControlCenter({
   if (surface === "studio") return <StudioSurface data={data} />;
   if (surface === "messenger") return <MessengerShell />;
   if (surface === "onboarding") return <OnboardingSurface data={data} />;
-  return <NorthStarShell activeSurface={surface} data={data}>{renderSurface(surface, data, onActionInboxRefresh, onLocalTaskCommitFenceChange, pendingCancellationItemRefs)}</NorthStarShell>;
+  return <NorthStarShell activeSurface={surface} data={data}>{renderSurface(surface, data, onActionInboxRefresh, onDecisionFenceChange, onLocalTaskCommitFenceChange, pendingCancellationItemRefs)}</NorthStarShell>;
 }
 
 function UnknownWorkspaceRoute({ activePath }: { activePath: string }) {
@@ -41,6 +43,7 @@ function renderSurface(
   surface: WorkspaceSurfaceId,
   data: ControlCenterData,
   onActionInboxRefresh?: (inbox: FounderLoopActionsInbox) => void,
+  onDecisionFenceChange?: (itemRef: string, pending: boolean) => void,
   onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void,
   pendingCancellationItemRefs?: readonly string[],
 ) {
@@ -55,7 +58,7 @@ function renderSurface(
     case "customize": return <CustomizeSurface />;
     case "settings": return <SettingsSurface data={data} />;
     case "developer-tools": return <DeveloperToolsSurface data={data} />;
-    case "decisions": return <DecisionReviewSurface data={data} onAuthoritativeRefresh={onActionInboxRefresh} onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange} pendingCancellationItemRefs={pendingCancellationItemRefs} />;
+    case "decisions": return <DecisionReviewSurface data={data} onAuthoritativeRefresh={onActionInboxRefresh} onDecisionFenceChange={onDecisionFenceChange} onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange} pendingCancellationItemRefs={pendingCancellationItemRefs} />;
     case "today":
     default: return <TodaySurface data={data} />;
   }

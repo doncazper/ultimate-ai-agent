@@ -370,20 +370,21 @@ function attachWorkspaceWriteAuthority(data: ReturnType<typeof cloneData>) {
 }
 
 function safeLocalTaskAuthorityPreview(
-  request = buildLocalTaskCommitAuthorityRequest(
+  request?: ReturnType<typeof buildLocalTaskCommitAuthorityRequest>,
+): AuthorityDecisionPreview {
+  const boundRequest = request ?? buildLocalTaskCommitAuthorityRequest(
     "founder-action:mock-local-task-review",
     buildLocalTaskCommitRequest(
       "founder-action:mock-local-task-review",
       "approval-ref:northstar:local-task-approved",
     ),
-  ),
-): AuthorityDecisionPreview {
+  );
   return {
     schema_version: "uaa-authority-decision-preview.v1",
     preview_ref: "authority-decision-preview-ref:northstar-local-task",
-    request_resource_refs: request.resource_refs ?? [],
-    request_route_ref: request.route_ref ?? null,
-    request_lane_ref: request.lane_ref ?? null,
+    request_resource_refs: boundRequest.resource_refs ?? [],
+    request_route_ref: boundRequest.route_ref ?? null,
+    request_lane_ref: boundRequest.lane_ref ?? null,
     decision: {
       schema_version: "uaa-authority-state.v1",
       decision_ref: "authority-policy-decision-ref:northstar-local-task",
@@ -789,6 +790,106 @@ describe("North Star backend wiring", () => {
     );
     expect((await screen.findAllByText(/receipt:action-decision:test/)).length).toBeGreaterThan(0);
     expect(screen.getByText("reject", { selector: "strong" })).toBeVisible();
+  });
+
+  it("raises the exact decision fence while a decision request is pending", async () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
+    Object.assign(item, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
+      action_review_actions: ["approve", "edit", "reject", "defer"],
+      approval_envelope: {
+        ...item.approval_envelope,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref);
+    let resolveDecision: ((receipt: FounderLoopActionDecisionReceipt) => void)
+      | undefined;
+    apiMocks.submitActionDecision.mockReturnValue(new Promise((resolve) => {
+      resolveDecision = resolve;
+    }));
+    apiMocks.fetchNorthStarDecisionsInbox.mockResolvedValue(
+      data.founderActionsInbox,
+    );
+    const onDecisionFenceChange = vi.fn();
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+          onDecisionFenceChange={onDecisionFenceChange}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Record reject" }));
+
+    expect(onDecisionFenceChange).toHaveBeenCalledWith(item.item_ref, true);
+    expect(screen.getByRole("button", { name: "Record approve" })).toBeDisabled();
+    if (!resolveDecision) throw new Error("Expected pending decision request");
+    await act(async () => resolveDecision?.({
+      decision: "reject",
+      receipt_ref: "receipt:action-decision:pending-fence",
+      safe_summary: "Exact rejection receipt recorded.",
+      replayed: false,
+      action_executed: false,
+    } as FounderLoopActionDecisionReceipt));
+    await waitFor(() => expect(onDecisionFenceChange).toHaveBeenLastCalledWith(
+      item.item_ref,
+      false,
+    ));
+  });
+
+  it("disables every decision control while exact-item cancellation is pending", () => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    const displayedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000001:11111111111111111111";
+    Object.assign(item, {
+      action_revision_ref: displayedRevisionRef,
+      expected_revision_ref: displayedRevisionRef,
+      action_review_actions: ["approve", "edit", "reject", "defer"],
+      approval_envelope: {
+        ...item.approval_envelope,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        source: "python_core_action_inbox_read_model",
+        backend_owned: true,
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref);
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+          pendingCancellationItemRefs={[item.item_ref]}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    for (const decision of ["approve", "edit", "reject", "defer"]) {
+      expect(screen.getByRole("button", {
+        name: `Record ${decision}`,
+      })).toBeDisabled();
+    }
+    expect(apiMocks.submitActionDecision).not.toHaveBeenCalled();
   });
 
   it("retains the exact commit fence after an invalid successful response", async () => {

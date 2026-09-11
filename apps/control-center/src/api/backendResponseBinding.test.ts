@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  actionDecisionIdempotencyRef,
   buildLocalTaskCommitRequest,
   commitLocalTask,
   fetchFounderActionsInbox,
@@ -9,6 +10,7 @@ import {
   withBackendTruthMutationHeaders,
   type BackendTruthReadBinding,
 } from "./client";
+import type { FounderLoopActionDecisionReceipt } from "./types";
 
 const binding: BackendTruthReadBinding = {
   snapshotRef: "proof-ref:backend-truth-envelope:sha256:current",
@@ -23,6 +25,68 @@ function headers(overrides: Record<string, string> = {}): Headers {
     "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
     ...overrides,
   });
+}
+
+function boundDecisionReceipt(): FounderLoopActionDecisionReceipt {
+  const itemRef = "founder-action:bound";
+  const revisionRef = "action-revision:bound";
+  const request = {
+    expected_revision_ref: revisionRef,
+    decision_reason_ref: "decision-reason-ref:bound",
+    metadata_refs: ["metadata-ref:bound"],
+  };
+  return {
+    contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_ref: "decision-ref:bound:defer",
+    item_ref: itemRef,
+    decision: "defer",
+    status: "deferred",
+    receipt_ref: "receipt:decision:bound",
+    audit_ref: "audit:decision:bound",
+    idempotency_key_ref: actionDecisionIdempotencyRef(
+      itemRef,
+      "defer",
+      request,
+    ),
+    payload_fingerprint_ref: "payload-fingerprint-ref:decision:bound",
+    expected_revision_ref: revisionRef,
+    generation: 1,
+    generation_ref: "action-generation:bound:00000001",
+    revision_ref: revisionRef,
+    revision_fingerprint_ref: "revision-fingerprint:bound:11111111111111111111",
+    result_generation: 1,
+    result_generation_ref: "action-generation:bound:00000001",
+    result_revision_ref: revisionRef,
+    result_revision_fingerprint_ref:
+      "revision-fingerprint:bound:11111111111111111111",
+    revision_advanced: false,
+    approval_scope_ref: "approval-scope:bound",
+    decision_route_ref: "POST /control-center/actions/{action_id}/defer",
+    decision_route_binding_ref:
+      "route-ref:control-center:action-decision:defer",
+    decision_adapter_ref:
+      "adapter-ref:python-core:founder-loop-action-decisions",
+    decision_deadline_ref: "deadline-ref:action-inbox-decision:bound:00000001",
+    authority_input_refs: ["authority-action-ref:action-inbox-decision-receipt"],
+    invalidated_approval_refs: [],
+    invalidated_approval_count: 0,
+    approval_ref: null,
+    approval_status: "not_required_for_decision",
+    approval_reason_refs: [],
+    action_executed: false,
+    approval_grants_execution: false,
+    connector_write_performed: false,
+    memory_write_performed: false,
+    raw_content_stored: false,
+    replayed: false,
+    safe_summary: "Exact deferred receipt recorded without execution.",
+    evidence_refs: ["evidence-ref:decision:bound"],
+    blocked_state_refs: ["blocked-state:no-action-execution"],
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:write",
+    authority_required_mode_ref: "authority-mode-ref:ask-before-changes",
+    created_at: "2026-09-10T00:00:00Z",
+  };
 }
 
 describe("backend response provenance binding", () => {
@@ -208,7 +272,7 @@ describe("backend response provenance binding", () => {
       }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         ok: true,
-        result: { receipt_ref: "receipt:decision:bound" },
+        result: boundDecisionReceipt(),
       }), {
         status: 200,
         headers: {

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  actionDecisionIdempotencyRef,
   buildLocalTaskCommitAuthorityRequest,
   buildLocalTaskCommitRequest,
   fetchNorthStarDecisionsInbox,
@@ -10,11 +11,15 @@ import {
   localTaskCommitIdempotencyRef,
   localTaskCommitReceiptIsSafe,
   loadNorthStarDecisionsData,
+  submitActionCancellation,
+  submitActionDecision,
 } from "./client";
 import { API_ENDPOINTS } from "./endpoints";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   FounderLoopActionInboxDecisionLaneId,
+  FounderLoopActionDecisionReceipt,
+  FounderLoopActionLifecycleDecisionKind,
   FounderLoopActionsInbox,
   FounderLoopLocalTaskCommitReceipt,
 } from "./types";
@@ -28,6 +33,75 @@ const binding = {
 
 const localTaskItemRef = "founder-action:mock-local-task-review";
 const localTaskApprovalRef = "approval-ref:northstar:local-task-approved";
+
+function validActionDecisionReceipt(
+  itemRef: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  expectedRevisionRef: string,
+  resultRevisionRef = expectedRevisionRef,
+): FounderLoopActionDecisionReceipt {
+  const request = {
+    expected_revision_ref: expectedRevisionRef,
+    decision_reason_ref: `decision-reason-ref:test:${decision}`,
+  };
+  const advanced = resultRevisionRef !== expectedRevisionRef;
+  const resultGeneration = advanced ? 2 : 1;
+  return {
+    contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_ref: `decision-ref:test:${decision}`,
+    item_ref: itemRef,
+    decision,
+    status: decision === "cancel" ? "cancelled" : "deferred",
+    receipt_ref: `receipt:founder-loop-action:test:${decision}`,
+    audit_ref: `audit:founder-loop-action:test:${decision}`,
+    idempotency_key_ref: actionDecisionIdempotencyRef(
+      itemRef,
+      decision,
+      request,
+    ),
+    payload_fingerprint_ref: `payload-fingerprint-ref:test:${decision}`,
+    expected_revision_ref: expectedRevisionRef,
+    generation: 1,
+    generation_ref: "action-generation:test:00000001",
+    revision_ref: expectedRevisionRef,
+    revision_fingerprint_ref:
+      "revision-fingerprint:action-inbox:11111111111111111111",
+    result_generation: resultGeneration,
+    result_generation_ref: `action-generation:test:${String(resultGeneration).padStart(8, "0")}`,
+    result_revision_ref: resultRevisionRef,
+    result_revision_fingerprint_ref:
+      `revision-fingerprint:action-inbox:${(advanced ? "2" : "1").repeat(20)}`,
+    revision_advanced: advanced,
+    approval_scope_ref:
+      "approval-scope:action-inbox-revision:11111111111111111111",
+    decision_route_ref:
+      `POST /control-center/actions/{action_id}/${decision}`,
+    decision_route_binding_ref:
+      `route-ref:control-center:action-decision:${decision}`,
+    decision_adapter_ref:
+      "adapter-ref:python-core:founder-loop-action-decisions",
+    decision_deadline_ref: "deadline-ref:action-inbox-decision:test:00000001",
+    authority_input_refs: ["authority-action-ref:action-inbox-decision-receipt"],
+    invalidated_approval_refs: [],
+    invalidated_approval_count: 0,
+    approval_ref: null,
+    approval_status: "not_required_for_decision",
+    approval_reason_refs: [],
+    action_executed: false,
+    approval_grants_execution: false,
+    connector_write_performed: false,
+    memory_write_performed: false,
+    raw_content_stored: false,
+    replayed: false,
+    safe_summary: "Exact Action decision receipt recorded without execution.",
+    evidence_refs: ["evidence-ref:test:action-decision"],
+    blocked_state_refs: ["blocked-state:no-action-execution"],
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:write",
+    authority_required_mode_ref: "authority-mode-ref:ask-before-changes",
+    created_at: "2026-09-10T00:00:00Z",
+  };
+}
 
 async function validLocalTaskReceipt(
   itemRef = localTaskItemRef,
@@ -117,7 +191,15 @@ function boundedDecisionFixtures() {
   const inbox = structuredClone(mockControlCenterData.founderActionsInbox);
   const workQueue = inbox.action_inbox_work_queue_read_model;
   if (!workQueue) throw new Error("Missing Action Inbox work queue fixture");
-  for (const item of inbox.items) {
+  for (const [index, item] of inbox.items.entries()) {
+    const generation = index + 1;
+    const revisionRef =
+      `action-revision:bounded-decision-${generation}:00000001:${String(generation).repeat(20).slice(0, 20)}`;
+    Object.assign(item, {
+      action_revision_ref: revisionRef,
+      expected_revision_ref: revisionRef,
+      action_revision_decision_eligible: true,
+    });
     if (item.approval_envelope) {
       Object.assign(item.approval_envelope, {
         schema_version: "founder_loop_action_approval_envelope.v1",
@@ -452,6 +534,65 @@ describe("loadNorthStarDecisionsData", () => {
       items: Array<Record<string, unknown>>;
     };
     inbox.items[0].local_task_commit_approval_ref = 42;
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it.each([
+    "action_revision_ref",
+    "expected_revision_ref",
+  ] as const)("rejects an unsafe %s before enabling Decisions", async (field) => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0][field] = { unsafe: "revision" };
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects an unbound projected local-task receipt", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].local_task_commit_receipt_ref =
+      "receipt:founder-loop-local-task:substituted";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects a terminal receipt visible only in the nested projection", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    const receiptVisibility = inbox.items[0].receipt_visibility as
+      Record<string, unknown>;
+    receiptVisibility.local_task_commit_receipt_ref =
+      "receipt:founder-loop-local-task:substituted";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
+  it("rejects a non-string projected local-task receipt", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      items: Array<Record<string, unknown>>;
+    };
+    inbox.items[0].local_task_commit_receipt_ref = { unsafe: "receipt" };
     stubBoundedFetch(fixtures);
 
     await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
@@ -817,6 +958,88 @@ describe("loadNorthStarDecisionsData", () => {
     );
   });
 });
+
+describe("action decision receipt boundary", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("admits only receipts bound to the exact decision and cancellation requests", async () => {
+    const itemRef = "founder-action:receipt-binding";
+    const revisionRef =
+      "action-revision:receipt-binding:00000001:11111111111111111111";
+    const resultRevisionRef =
+      "action-revision:receipt-binding:00000002:22222222222222222222";
+    const deferReceipt = validActionDecisionReceipt(
+      itemRef,
+      "defer",
+      revisionRef,
+    );
+    const cancelReceipt = validActionDecisionReceipt(
+      itemRef,
+      "cancel",
+      revisionRef,
+      resultRevisionRef,
+    );
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        result: deferReceipt,
+      }), { status: 200, headers: headersForBinding() }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        result: cancelReceipt,
+      }), { status: 200, headers: headersForBinding() })));
+
+    await expect(submitActionDecision(itemRef, "defer", {
+      expected_revision_ref: revisionRef,
+      decision_reason_ref: "decision-reason-ref:test:defer",
+    }, binding)).resolves.toEqual(deferReceipt);
+    await expect(submitActionCancellation(itemRef, {
+      expected_revision_ref: revisionRef,
+      decision_reason_ref: "decision-reason-ref:test:cancel",
+    }, binding)).resolves.toEqual(cancelReceipt);
+  });
+
+  it("rejects substituted or unsafe decision receipt evidence", async () => {
+    const itemRef = "founder-action:receipt-rejection";
+    const revisionRef =
+      "action-revision:receipt-rejection:00000001:11111111111111111111";
+    const request = {
+      expected_revision_ref: revisionRef,
+      decision_reason_ref: "decision-reason-ref:test:defer",
+    };
+    const receipt = validActionDecisionReceipt(itemRef, "defer", revisionRef);
+    for (const unsafeReceipt of [
+      { ...receipt, item_ref: "founder-action:substituted" },
+      { ...receipt, decision: "approve" },
+      { ...receipt, expected_revision_ref: "action-revision:substituted" },
+      { ...receipt, idempotency_key_ref: "idempotency-ref:substituted" },
+      { ...receipt, safe_summary: "raw_prompt: private backend content" },
+      { ...receipt, replayed: "false" },
+      { ...receipt, action_executed: true },
+    ]) {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+        ok: true,
+        result: unsafeReceipt,
+      }), { status: 200, headers: headersForBinding() })));
+      await expect(submitActionDecision(
+        itemRef,
+        "defer",
+        request,
+        binding,
+      )).rejects.toThrow("Action decision receipt was not recorded safely.");
+    }
+  });
+});
+
+function headersForBinding(): Headers {
+  return new Headers({
+    "Content-Type": "application/json",
+    "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+    "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+  });
+}
 
 describe("local task commit boundary", () => {
   it("accepts exact Core-derived receipt refs longer than the display-text cap", async () => {

@@ -273,6 +273,8 @@ export function NorthStarRoute({
   const [revisionRefreshFailed, setRevisionRefreshFailed] = useState(false);
   const [pendingLocalTaskCommitItemRefs, setPendingLocalTaskCommitItemRefs] =
     useState<string[]>([]);
+  const [pendingDecisionItemRefs, setPendingDecisionItemRefs] =
+    useState<string[]>([]);
   const [pendingCancellationAttempts, setPendingCancellationAttempts] =
     useState<PendingActionCancellation[]>([]);
   const pendingCancellationItemRefs = useMemo(
@@ -282,6 +284,20 @@ export function NorthStarRoute({
   const updateLocalTaskCommitFence = useCallback(
     (itemRef: string, pending: boolean) => {
       setPendingLocalTaskCommitItemRefs((current) => {
+        const next = pending
+          ? Array.from(new Set([...current, itemRef]))
+          : current.filter((candidate) => candidate !== itemRef);
+        return next.length === current.length
+          && next.every((candidate, index) => candidate === current[index])
+          ? current
+          : next;
+      });
+    },
+    [],
+  );
+  const updateDecisionFence = useCallback(
+    (itemRef: string, pending: boolean) => {
+      setPendingDecisionItemRefs((current) => {
         const next = pending
           ? Array.from(new Set([...current, itemRef]))
           : current.filter((candidate) => candidate !== itemRef);
@@ -517,6 +533,7 @@ export function NorthStarRoute({
             binding={truthReadBinding}
             data={visibleData}
             pendingCancellationAttempts={pendingCancellationAttempts}
+            pendingDecisionItemRefs={pendingDecisionItemRefs}
             pendingLocalTaskCommitItemRefs={pendingLocalTaskCommitItemRefs}
             onCancellationAttemptChange={updateCancellationAttempt}
             onAuthoritativeRefresh={(inbox) => {
@@ -533,6 +550,7 @@ export function NorthStarRoute({
           activePath={activePath}
           data={visibleData}
           pendingCancellationItemRefs={pendingCancellationItemRefs}
+          onDecisionFenceChange={updateDecisionFence}
           onLocalTaskCommitFenceChange={updateLocalTaskCommitFence}
           onActionInboxRefresh={(inbox) => {
             setActionInboxOverride(inbox);
@@ -552,6 +570,7 @@ export function ActionInboxCancellationControl({
   binding,
   data,
   pendingCancellationAttempts,
+  pendingDecisionItemRefs = [],
   pendingLocalTaskCommitItemRefs,
   onCancellationAttemptChange,
   onCancellationFenceChange,
@@ -560,6 +579,7 @@ export function ActionInboxCancellationControl({
   binding: BackendTruthReadBinding | null;
   data: ControlCenterData;
   pendingCancellationAttempts?: readonly PendingActionCancellation[];
+  pendingDecisionItemRefs?: readonly string[];
   pendingLocalTaskCommitItemRefs: readonly string[];
   onCancellationAttemptChange?: (
     itemRef: string,
@@ -596,18 +616,27 @@ export function ActionInboxCancellationControl({
   const pendingCancellationAttempt =
     pendingCancellationAttempts?.find(
       (attempt) => attempt.itemRef === selectedItem?.item_ref,
-    ) ?? localPendingCancellationAttempt;
+    ) ?? (
+      localPendingCancellationAttempt?.itemRef === selectedItem?.item_ref
+        ? localPendingCancellationAttempt
+        : null
+    );
+  const decisionPending = Boolean(
+    selectedItem && pendingDecisionItemRefs.includes(selectedItem.item_ref),
+  );
   const canCancel = Boolean(
     authoritative &&
       binding &&
       inbox.mutating_controls_enabled &&
       inbox.expected_revision_required &&
+      inbox.decision_receipts_required &&
       inbox.cancel_decision_enabled &&
       selectedItem &&
       selectedItem.action_revision_decision_eligible === true &&
       selectedItem.status !== "cancelled" &&
       !localTaskCommitted &&
       !localTaskCommitPending &&
+      !decisionPending &&
       !pendingCancellationAttempt &&
       expectedRevisionRef,
   );

@@ -541,11 +541,13 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
 export function DecisionReviewSurface({
   data,
   onAuthoritativeRefresh,
+  onDecisionFenceChange,
   onLocalTaskCommitFenceChange,
   pendingCancellationItemRefs = [],
 }: {
   data: ControlCenterData;
   onAuthoritativeRefresh?: (inbox: FounderLoopActionsInbox) => void;
+  onDecisionFenceChange?: (itemRef: string, pending: boolean) => void;
   onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void;
   pendingCancellationItemRefs?: readonly string[];
 }) {
@@ -757,7 +759,15 @@ export function DecisionReviewSurface({
     && plansBridgeItem.action_scope_ref === exactScopeRef
     && sameSafeRefs(plansBridgeItem.expected_receipt_refs, expectedReceiptRefs)
   );
-  const canRecord = Boolean(authoritative && inbox.mutating_controls_enabled && inbox.decision_receipts_required && backendEnvelope && decisionLane);
+  const canRecord = Boolean(
+    authoritative
+    && inbox.mutating_controls_enabled
+    && inbox.decision_receipts_required
+    && backendEnvelope
+    && decisionLane
+    && item
+    && !pendingCancellationItemRefs.includes(item.item_ref)
+  );
   const availableDecisions = useMemo(() => {
     const allowed = item?.action_review_actions ?? [];
     return allowed.filter((decision): decision is FounderLoopActionDecisionKind => ["approve", "edit", "reject", "defer"].includes(decision));
@@ -884,6 +894,7 @@ export function DecisionReviewSurface({
     if (!item || !displayedRevisionRef || !canRecord || !availableDecisions.includes(decision) || (decision === "approve" && !costApproved)) return;
     const submittedItemRef = item.item_ref;
     setPending(decision);
+    onDecisionFenceChange?.(submittedItemRef, true);
     try {
       const recorded = await submitActionDecision(
         submittedItemRef,
@@ -968,6 +979,7 @@ export function DecisionReviewSurface({
         setFeedback(failureMessage);
       }
     } finally {
+      onDecisionFenceChange?.(submittedItemRef, false);
       setPending(undefined);
     }
   }

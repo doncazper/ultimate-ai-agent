@@ -5347,7 +5347,15 @@ async function submitActionLifecycleDecision(
     throw new ActionInboxRevisionConflictError(revisionConflict);
   }
   const receipt = data.result ?? data.data;
-  if (!response.ok || !receipt) {
+  if (
+    !response.ok
+    || !actionDecisionReceiptIsSafe(
+      receipt,
+      actionId,
+      decision,
+      boundRequest,
+    )
+  ) {
     throw new Error(
       safeApiErrorMessage(
         data,
@@ -5356,6 +5364,95 @@ async function submitActionLifecycleDecision(
     );
   }
   return receipt;
+}
+
+function actionDecisionReceiptIsSafe(
+  value: unknown,
+  actionId: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  request: FounderLoopActionDecisionRequest,
+): value is FounderLoopActionDecisionReceipt {
+  if (!isPlainRecord(value)) return false;
+  const refFields = [
+    "contract_ref",
+    "decision_ref",
+    "item_ref",
+    "receipt_ref",
+    "audit_ref",
+    "idempotency_key_ref",
+    "payload_fingerprint_ref",
+    "expected_revision_ref",
+    "generation_ref",
+    "revision_ref",
+    "revision_fingerprint_ref",
+    "result_generation_ref",
+    "result_revision_ref",
+    "result_revision_fingerprint_ref",
+    "approval_scope_ref",
+    "decision_route_binding_ref",
+    "decision_adapter_ref",
+    "decision_deadline_ref",
+  ] as const;
+  const refArrayFields = [
+    "authority_input_refs",
+    "invalidated_approval_refs",
+    "approval_reason_refs",
+    "evidence_refs",
+    "blocked_state_refs",
+  ] as const;
+  const optionalRefFields = [
+    "approval_ref",
+    "authority_decision_ref",
+    "authority_lease_ref",
+    "authority_audit_ref",
+    "authority_receipt_ref",
+    "authority_domain_ref",
+    "authority_capability_ref",
+    "authority_required_mode_ref",
+  ] as const;
+  return value.contract_ref
+      === "contract-ref:founder-loop-action-state-machine:v1"
+    && value.item_ref === actionId
+    && value.decision === decision
+    && value.expected_revision_ref === request.expected_revision_ref
+    && value.revision_ref === request.expected_revision_ref
+    && value.idempotency_key_ref
+      === actionDecisionIdempotencyRef(actionId, decision, request)
+    && value.decision_route_ref
+      === `POST /control-center/actions/{action_id}/${decision}`
+    && value.decision_route_binding_ref
+      === `route-ref:control-center:action-decision:${decision}`
+    && refFields.every((field) => isSafeLocalTaskReceiptRef(value[field] as string))
+    && refArrayFields.every((field) =>
+      Array.isArray(value[field])
+      && (value[field] as unknown[]).every(isSafeNorthStarStructuredRef))
+    && optionalRefFields.every((field) =>
+      value[field] === null
+      || value[field] === undefined
+      || isSafeNorthStarStructuredRef(value[field]))
+    && isSafeLocalTaskReceiptDisplayValue(value.status as string, 80)
+    && isSafeLocalTaskReceiptDisplayValue(value.approval_status as string, 120)
+    && isSafeLocalTaskReceiptDisplayValue(value.safe_summary as string, 320)
+    && Number.isInteger(value.generation)
+    && Number(value.generation) >= 1
+    && Number.isInteger(value.result_generation)
+    && Number(value.result_generation) >= 1
+    && Number.isInteger(value.invalidated_approval_count)
+    && Number(value.invalidated_approval_count)
+      === (value.invalidated_approval_refs as unknown[]).length
+    && typeof value.revision_advanced === "boolean"
+    && value.revision_advanced
+      === (value.expected_revision_ref !== value.result_revision_ref)
+    && value.revision_advanced
+      === (Number(value.result_generation) > Number(value.generation))
+    && value.action_executed === false
+    && value.approval_grants_execution === false
+    && value.connector_write_performed === false
+    && value.memory_write_performed === false
+    && value.raw_content_stored === false
+    && typeof value.replayed === "boolean"
+    && typeof value.created_at === "string"
+    && Number.isFinite(Date.parse(value.created_at));
 }
 
 function actionInboxRevisionConflictDetail(
@@ -6019,6 +6116,9 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
   if (!isPlainRecord(value)) return false;
   const approvalEnvelope = value.approval_envelope;
   const receiptVisibility = value.receipt_visibility;
+  const actionRevisionRef = value.action_revision_ref;
+  const expectedRevisionRef = value.expected_revision_ref;
+  const localTaskCommitReceiptRef = value.local_task_commit_receipt_ref;
   const isSafeDisplayArray = (candidate: unknown, maxLength = 240): candidate is string[] =>
     Array.isArray(candidate)
     && candidate.every((entry) =>
@@ -6065,6 +6165,14 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
     "local_task_commit_blocked_reasons",
   ];
   return isSafeLocalTaskReceiptRef(value.item_ref as string | undefined)
+    && isSafeActionRevisionRef(actionRevisionRef)
+    && isSafeActionRevisionRef(expectedRevisionRef)
+    && actionRevisionRef === expectedRevisionRef
+    && (
+      localTaskCommitReceiptRef === undefined
+      || localTaskCommitReceiptRef === null
+      || isSafeNorthStarStructuredRef(localTaskCommitReceiptRef)
+    )
     && safeDisplayFields.every(([field, maxLength]) =>
       isSafeLocalTaskReceiptDisplayValue(
         value[field] as string | undefined,
@@ -6164,7 +6272,41 @@ function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
           receiptVisibility.missing_field_states,
           120,
         )
-      ));
+      ))
+    && localTaskCommitProjectionIsBound(
+      value,
+      receiptVisibility,
+      localTaskCommitReceiptRef,
+    );
+}
+
+function localTaskCommitProjectionIsBound(
+  item: Record<string, unknown>,
+  receiptVisibility: unknown,
+  itemReceiptRef: unknown,
+): boolean {
+  const visibleReceiptRef = isPlainRecord(receiptVisibility)
+    ? receiptVisibility.local_task_commit_receipt_ref
+    : undefined;
+  const terminalProjected = (
+    typeof itemReceiptRef === "string" && itemReceiptRef.startsWith("receipt:")
+  ) || (
+    typeof visibleReceiptRef === "string"
+      && visibleReceiptRef.startsWith("receipt:")
+  );
+  if (!terminalProjected) return true;
+  return typeof itemReceiptRef === "string"
+    && itemReceiptRef.startsWith("receipt:founder-loop-local-task:")
+    && isPlainRecord(receiptVisibility)
+    && visibleReceiptRef === itemReceiptRef
+    && typeof item.local_task_ref === "string"
+    && receiptVisibility.local_task_ref === item.local_task_ref;
+}
+
+function isSafeActionRevisionRef(value: unknown): value is string {
+  return typeof value === "string"
+    && value.startsWith("action-revision:")
+    && isSafeLocalTaskReceiptRef(value);
 }
 
 function actionInboxGroupsMatchWorkQueue(
@@ -7974,7 +8116,7 @@ export async function fetchMemoryReviewDecisionReceipt(
   );
 }
 
-function actionDecisionIdempotencyRef(
+export function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionLifecycleDecisionKind,
   request?: FounderLoopActionDecisionRequest,

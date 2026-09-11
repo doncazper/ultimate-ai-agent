@@ -56,6 +56,7 @@ import {
   ActionInboxRevisionConflictError,
   CONTROL_CENTER_MAX_CONCURRENT_READS,
   CONTROL_CENTER_READ_TIMEOUT_MS,
+  actionDecisionIdempotencyRef,
   fetchFounderActionsInbox,
   fetchMemoryReviewDecisionReceipt,
   founderLoopLocalTaskRef,
@@ -75,6 +76,7 @@ import type {
   AuthorityLeaseReceipt,
   AuthorityMissionPlan,
   ControlCenterData,
+  FounderLoopActionDecisionReceipt,
   FounderLoopActionsInbox,
   RuntimeGoalCreateRequest,
   RuntimeGoalMutationApprovalRequestSpec,
@@ -13043,7 +13045,19 @@ describe("Web Control Center shell", () => {
       status: "approved",
       receipt_ref: "receipt:founder-loop-action:mock-local-task-create:approve",
       audit_ref: "audit:founder-loop-action:mock-local-task-create:approve",
-      idempotency_key_ref: "idempotency-ref:control-center-action:approve",
+      idempotency_key_ref: actionDecisionIdempotencyRef(
+        "founder-action:mock-local-task-create",
+        "approve",
+        {
+          expected_revision_ref:
+            "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
+          decision_reason_ref: "decision-reason-ref:control-center:approve",
+          metadata_refs: [
+            "metadata-ref:northstar-action-decision:approve",
+            "founder-action:mock-local-task-create",
+          ],
+        },
+      ),
       payload_fingerprint_ref: "payload-fingerprint-ref:action:approve",
       expected_revision_ref:
         "action-revision:founder-action-mock-local-task-create:00000001:11111111111111111111",
@@ -20677,8 +20691,17 @@ describe("Web Control Center shell", () => {
       status: "receipt_recorded",
     });
     Object.assign(inbox.items[0], {
+      local_task_ref: "local-task:founder-loop:ui-committed",
       local_task_commit_receipt_ref:
         "receipt:founder-loop-local-task:ui-committed",
+      receipt_visibility: {
+        ...inbox.items[0].receipt_visibility,
+        local_task_ref: "local-task:founder-loop:ui-committed",
+        local_task_commit_receipt_ref:
+          "receipt:founder-loop-local-task:ui-committed",
+        local_task_commit_idempotency_key_ref:
+          "idempotency-ref:control-center-local-task:ui-committed",
+      },
     });
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
@@ -20745,6 +20768,90 @@ describe("Web Control Center shell", () => {
     })).toBeDisabled();
     expect(screen.getByText(/waiting for backend reconciliation/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Cancel exact revision" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "decision request pending",
+    "receipt posture disabled",
+  ] as const)("keeps cancellation unavailable when %s", (blockedState) => {
+    const revisionRef =
+      "action-revision:founder-action-ui-cancel-blocked:00000001:11111111111111111111";
+    const itemRef = "founder-action:ui-cancel-blocked";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    data.founderActionsInbox = revisionBoundActionInbox({
+      itemRef,
+      revisionRef,
+    }) as unknown as ControlCenterData["founderActionsInbox"];
+    if (blockedState === "receipt posture disabled") {
+      data.founderActionsInbox.decision_receipts_required = false;
+    }
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={vi.fn()}
+        pendingDecisionItemRefs={
+          blockedState === "decision request pending" ? [itemRef] : []
+        }
+        pendingLocalTaskCommitItemRefs={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", {
+      name: "Cancel exact revision",
+    })).toBeDisabled();
+  });
+
+  it("scopes an uncertain local cancellation attempt to its exact item", async () => {
+    const firstItemRef = "founder-action:ui-cancel-first";
+    const secondItemRef = "founder-action:ui-cancel-second";
+    const firstRevisionRef =
+      "action-revision:founder-action-ui-cancel-first:00000001:11111111111111111111";
+    const secondRevisionRef =
+      "action-revision:founder-action-ui-cancel-second:00000001:22222222222222222222";
+    const data = cloneForTest(mockControlCenterData);
+    data.connection.state = "online";
+    data.connection.usingMockData = false;
+    data.routeStates["/actions"].state = "backend_owned";
+    const inbox = revisionBoundActionInbox({
+      itemRef: firstItemRef,
+      revisionRef: firstRevisionRef,
+    });
+    const secondItem = structuredClone(inbox.items[0]) as unknown as
+      Record<string, unknown>;
+    Object.assign(secondItem, {
+      item_ref: secondItemRef,
+      title: "Second revision-bound Action review",
+      action_revision_ref: secondRevisionRef,
+      expected_revision_ref: secondRevisionRef,
+    });
+    inbox.items.push(secondItem as unknown as (typeof inbox.items)[number]);
+    data.founderActionsInbox = inbox as unknown as ControlCenterData["founderActionsInbox"];
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("authoritative cancellation result unavailable");
+    }));
+
+    render(
+      <ActionInboxCancellationControl
+        binding={TEST_MUTATION_BINDING}
+        data={data}
+        onAuthoritativeRefresh={vi.fn()}
+        pendingLocalTaskCommitItemRefs={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel exact revision" }));
+    await screen.findByText(/mutation fence remains active/i);
+    fireEvent.change(screen.getByRole("combobox", { name: "Action to cancel" }), {
+      target: { value: secondItemRef },
+    });
+
+    expect(screen.getByRole("button", {
+      name: "Cancel exact revision",
+    })).toBeEnabled();
   });
 
   it("retains the shared task fence until the exact terminal receipt projection is bound", () => {
@@ -20827,12 +20934,11 @@ describe("Web Control Center shell", () => {
         await postGate;
         return new Response(JSON.stringify({
           ok: true,
-          result: {
-            decision: "cancel",
-            status: "cancelled",
-            receipt_ref: receiptRef,
-            result_revision_ref: resultRevisionRef,
-          },
+          result: revisionBoundActionDecisionReceipt({
+            itemRef,
+            revisionRef,
+            resultRevisionRef,
+          }),
         }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
@@ -21003,12 +21109,11 @@ describe("Web Control Center shell", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            result: {
-              decision: "cancel",
-              status: "cancelled",
-              receipt_ref: receiptRef,
-              result_revision_ref: resultRevisionRef,
-            },
+            result: revisionBoundActionDecisionReceipt({
+              itemRef,
+              revisionRef,
+              resultRevisionRef,
+            }),
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
@@ -21083,12 +21188,11 @@ describe("Web Control Center shell", () => {
       if (options?.method === "POST" && String(url).endsWith("/cancel")) {
         return new Response(JSON.stringify({
           ok: true,
-          result: {
-            decision: "cancel",
-            status: "cancelled",
-            receipt_ref: receiptRef,
-            result_revision_ref: resultRevisionRef,
-          },
+          result: revisionBoundActionDecisionReceipt({
+            itemRef,
+            revisionRef,
+            resultRevisionRef,
+          }),
         }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ ok: true, result: invalidRefresh }), {
@@ -21132,13 +21236,11 @@ describe("Web Control Center shell", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            result: {
-              decision: "cancel",
-              status: "cancelled",
-              receipt_ref:
-                "receipt:founder-loop-action:ui-refresh-failure:cancel",
-              result_revision_ref: resultRevisionRef,
-            },
+            result: revisionBoundActionDecisionReceipt({
+              itemRef,
+              revisionRef,
+              resultRevisionRef,
+            }),
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
@@ -21179,6 +21281,84 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+function revisionBoundActionDecisionReceipt({
+  itemRef,
+  revisionRef,
+  resultRevisionRef,
+  decision = "cancel",
+}: {
+  itemRef: string;
+  revisionRef: string;
+  resultRevisionRef: string;
+  decision?: "approve" | "edit" | "reject" | "defer" | "cancel";
+}): FounderLoopActionDecisionReceipt {
+  const advanced = resultRevisionRef !== revisionRef;
+  const resultGeneration = advanced ? 2 : 1;
+  const request = {
+    expected_revision_ref: revisionRef,
+    decision_reason_ref: decision === "cancel"
+      ? "decision-reason-ref:control-center:action-inbox-cancel"
+      : `decision-reason-ref:northstar-action:${decision}`,
+  };
+  return {
+    contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_ref: `decision-ref:test:${decision}`,
+    item_ref: itemRef,
+    decision,
+    status: decision === "cancel" ? "cancelled" : "approved",
+    receipt_ref: `receipt:founder-loop-action:${itemRef.replace(/^founder-action:/, "")}:${decision}`,
+    audit_ref: `audit:founder-loop-action:${itemRef.replace(/^founder-action:/, "")}:${decision}`,
+    idempotency_key_ref: actionDecisionIdempotencyRef(
+      itemRef,
+      decision,
+      request,
+    ),
+    payload_fingerprint_ref: `payload-fingerprint-ref:action:${decision}`,
+    expected_revision_ref: revisionRef,
+    generation: 1,
+    generation_ref: `action-generation:${itemRef}:00000001`,
+    revision_ref: revisionRef,
+    revision_fingerprint_ref:
+      "revision-fingerprint:action-inbox:11111111111111111111",
+    result_generation: resultGeneration,
+    result_generation_ref:
+      `action-generation:${itemRef}:${String(resultGeneration).padStart(8, "0")}`,
+    result_revision_ref: resultRevisionRef,
+    result_revision_fingerprint_ref:
+      `revision-fingerprint:action-inbox:${(advanced ? "2" : "1").repeat(20)}`,
+    revision_advanced: advanced,
+    approval_scope_ref:
+      "approval-scope:action-inbox-revision:11111111111111111111",
+    decision_route_ref:
+      `POST /control-center/actions/{action_id}/${decision}`,
+    decision_route_binding_ref:
+      `route-ref:control-center:action-decision:${decision}`,
+    decision_adapter_ref:
+      "adapter-ref:python-core:founder-loop-action-decisions",
+    decision_deadline_ref:
+      `deadline-ref:action-inbox-decision:${itemRef}:00000001`,
+    authority_input_refs: ["authority-action-ref:action-inbox-decision-receipt"],
+    invalidated_approval_refs: [],
+    invalidated_approval_count: 0,
+    approval_ref: null,
+    approval_status: "not_required_for_decision",
+    approval_reason_refs: [],
+    action_executed: false,
+    approval_grants_execution: false,
+    connector_write_performed: false,
+    memory_write_performed: false,
+    raw_content_stored: false,
+    replayed: false,
+    safe_summary: "Action decision receipt recorded; action execution remains blocked.",
+    evidence_refs: ["evidence-ref:founder-loop:action-decision"],
+    blocked_state_refs: ["blocked-state:no-action-execution"],
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:write",
+    authority_required_mode_ref: "authority-mode-ref:ask-before-changes",
+    created_at: "2026-09-10T00:00:30Z",
+  };
+}
 
 function revisionBoundActionInbox({
   itemRef,
