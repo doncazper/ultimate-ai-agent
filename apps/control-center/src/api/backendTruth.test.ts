@@ -91,7 +91,20 @@ const crmSurface = {
 function withCrmSurface(value: ReturnType<typeof fixture>) {
   return {
     ...value,
-    critical_surfaces: [...value.critical_surfaces, crmSurface],
+    critical_surfaces: [
+      ...value.critical_surfaces.map((surface) =>
+        surface.surface_ref === "critical-surface:work-board"
+          ? {
+              ...surface,
+              backend_route_refs: [
+                ...surface.backend_route_refs,
+                "GET /control-center/work-board/adoption",
+              ],
+            }
+          : surface,
+      ),
+      crmSurface,
+    ],
   };
 }
 
@@ -249,6 +262,25 @@ describe("backend truth validation", () => {
         now: (nowOverride as Date | undefined) ?? options.now,
       }),
     ).rejects.toMatchObject({ code });
+  });
+
+  it("rejects Work Board truth that omits the adoption read contract", async () => {
+    const current = withCrmSurface(fixture());
+    const value = {
+      ...current,
+      critical_surfaces: current.critical_surfaces.map((surface) =>
+        surface.surface_ref === "critical-surface:work-board"
+          ? {
+              ...surface,
+              backend_route_refs: ["GET /control-center/work-board"],
+            }
+          : surface,
+      ),
+    };
+
+    await expect(
+      validateControlCenterBackendTruth(value, options),
+    ).rejects.toMatchObject({ code: "BACKEND_TRUTH_CRITICAL_SURFACE_INVALID" });
   });
 
   it("uses stable key ordering for the cross-language integrity input", () => {

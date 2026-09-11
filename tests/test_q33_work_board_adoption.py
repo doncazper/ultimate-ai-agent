@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.authority.approval_validation as approval_validation
 import ultimate_ai_agent.core.control_center.work_board_adoption as work_board_adoption
 import ultimate_ai_agent.core.single_writer_lock as single_writer_lock
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
@@ -14,6 +15,7 @@ from ultimate_ai_agent.core.control_center.work_board_adoption import (
     WORK_BOARD_ADOPTION_RESTORE_ROUTE_REF,
     WORK_BOARD_ADOPTION_STATE_FILE,
     WorkBoardAdoptionApprovalCaptureRequest,
+    WorkBoardAdoptionCard,
     WorkBoardAdoptionCardDraft,
     WorkBoardAdoptionCommitRequest,
     WorkBoardAdoptionConflict,
@@ -23,6 +25,7 @@ from ultimate_ai_agent.core.control_center.work_board_adoption import (
     WorkBoardAdoptionPortableRestoreRequest,
     WorkBoardAdoptionRestoreApprovalCaptureRequest,
     WorkBoardAdoptionRestoreCommitRequest,
+    WorkBoardAdoptionSnapshot,
     WorkBoardAdoptionState,
     WorkBoardAdoptionStore,
 )
@@ -625,6 +628,120 @@ def test_malformed_or_symlinked_state_requires_recovery(tmp_path: Path) -> None:
             idempotency_ref=_idempotency("dangling-state"),
         )
     assert dangling_state.is_symlink()
+
+
+def test_read_setup_failure_returns_recovery_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = WorkBoardAdoptionStore(tmp_path / "unsafe-read")
+    store._write_state(WorkBoardAdoptionState())
+    lock_target = tmp_path / "lock-target"
+    lock_target.mkdir()
+    store.lock_manager.lock_dir.symlink_to(lock_target, target_is_directory=True)
+
+    view = store.read_view()
+
+    assert view.status == "recovery_required"
+    assert view.active_cards == ()
+    assert "Restore a verified local Work Board backup" in view.next_safe_action
+
+
+def test_preview_evicts_oldest_undo_snapshots_to_fit_serialized_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(work_board_adoption, "WORK_BOARD_ADOPTION_MAX_STATE_BYTES", 48_000)
+    monkeypatch.setattr(
+        work_board_adoption,
+        "WORK_BOARD_ADOPTION_RECEIPT_SIZE_RESERVE_BYTES",
+        4_000,
+    )
+    card = WorkBoardAdoptionCard(
+        card_ref="work-board-card-ref:bounded-history",
+        title="Bounded history",
+        description="x" * 4_000,
+        lane_ref="work-board-lane:inbox",
+    )
+    state = WorkBoardAdoptionState(
+        revision=20,
+        cards=(card,),
+        undo_stack=tuple(
+            WorkBoardAdoptionSnapshot(cards=(card,)) for _ in range(10)
+        ),
+    )
+    request = WorkBoardAdoptionMutationRequest(
+        action="move",
+        expected_revision=20,
+        target_ref=card.card_ref,
+        lane_ref="work-board-lane:planned",
+    )
+    store = WorkBoardAdoptionStore(tmp_path / "bounded-history")
+
+    preview = store._preview(
+        state,
+        request,
+        idempotency_ref=_idempotency("bounded-history"),
+    )
+    cards, bounded_history = store._apply_mutation(
+        state,
+        request,
+        preview=preview,
+    )
+    projected = WorkBoardAdoptionState(
+        revision=preview.resulting_revision,
+        cards=cards,
+        undo_stack=bounded_history,
+    )
+
+    assert len(bounded_history) < 10
+    assert (
+        len(work_board_adoption._canonical_json(projected.model_dump(mode="json")))
+        + work_board_adoption.WORK_BOARD_ADOPTION_RECEIPT_SIZE_RESERVE_BYTES
+        <= work_board_adoption.WORK_BOARD_ADOPTION_MAX_STATE_BYTES
+    )
+
+
+def test_windows_approval_persistence_uses_private_acl_without_directory_fsync(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    secured: list[tuple[Path, bool]] = []
+
+    def secure(path: Path, *, directory: bool) -> None:
+        secured.append((path, directory))
+
+    monkeypatch.setattr(approval_validation, "_IS_WINDOWS", True)
+    monkeypatch.setattr(
+        approval_validation,
+        "_set_windows_private_acl",
+        secure,
+    )
+    store = WorkBoardAdoptionStore(tmp_path / "windows-approval")
+    mutation = WorkBoardAdoptionMutationRequest(
+        action="create",
+        expected_revision=0,
+        draft=_draft(),
+    )
+    idempotency_ref = _idempotency("windows-approval")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+
+    approval = store.capture_approval(
+        WorkBoardAdoptionApprovalCaptureRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+
+    approval_state_dir = store.state_dir / "authority"
+    signing_key_dir = store.state_dir / approval_validation.AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR
+    assert approval.approval_ref == preview.approval_ref
+    assert (approval_state_dir, True) in secured
+    assert (signing_key_dir, True) in secured
+    assert any(path.parent == signing_key_dir and not directory for path, directory in secured)
+    assert (approval_state_dir / approval_validation.AUTHORITY_LEASE_APPROVALS_FILE, False) in secured
 
 
 def test_windows_private_acl_is_applied_to_existing_private_tree(

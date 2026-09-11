@@ -73,6 +73,7 @@ WORK_BOARD_ADOPTION_MAX_CARDS = 1_000
 WORK_BOARD_ADOPTION_MAX_UNDO = 20
 WORK_BOARD_ADOPTION_MAX_RECEIPTS = 2_000
 WORK_BOARD_ADOPTION_MAX_STATE_BYTES = 16 * 1024 * 1024
+WORK_BOARD_ADOPTION_RECEIPT_SIZE_RESERVE_BYTES = 16 * 1024
 WORK_BOARD_ADOPTION_MAX_BACKUP_BYTES = WORK_BOARD_ADOPTION_MAX_STATE_BYTES + 16
 WORK_BOARD_ADOPTION_MAX_BACKUP_B64_CHARS = (
     (WORK_BOARD_ADOPTION_MAX_BACKUP_BYTES + 2) // 3
@@ -843,13 +844,13 @@ class WorkBoardAdoptionStore:
             return self._read_model(WorkBoardAdoptionState())
         except OSError:
             return self._recovery_read_model()
-        self._ensure_private_state_directory()
-        with self.lock_manager.acquire(_LOCK_KEY):
-            try:
+        try:
+            self._ensure_private_state_directory()
+            with self.lock_manager.acquire(_LOCK_KEY):
                 state = self._read_state()
-            except (OSError, ValueError, WorkBoardAdoptionError):
-                return self._recovery_read_model()
-            return self._read_model(state)
+                return self._read_model(state)
+        except (OSError, ValueError, WorkBoardAdoptionError):
+            return self._recovery_read_model()
 
     def _ensure_private_state_directory(self) -> None:
         try:
@@ -1325,6 +1326,13 @@ class WorkBoardAdoptionStore:
                     restored=restored,
                     receipt=provisional,
                 )
+                undo_stack = self._bounded_undo_stack(
+                    revision=preview.resulting_revision,
+                    cards=restored.cards,
+                    undo_stack=undo_stack,
+                    receipts=merged_receipts,
+                    reserve_bytes=256,
+                )
                 next_state = WorkBoardAdoptionState(
                     revision=preview.resulting_revision,
                     cards=restored.cards,
@@ -1415,7 +1423,7 @@ class WorkBoardAdoptionStore:
             "recover": "Recover the selected archived Work Board item.",
             "undo": "Undo the most recent local Work Board change.",
         }
-        return WorkBoardAdoptionMutationPreview(
+        preview = WorkBoardAdoptionMutationPreview(
             action=request.action,
             expected_revision=state.revision,
             resulting_revision=state.revision + 1,
@@ -1426,6 +1434,10 @@ class WorkBoardAdoptionStore:
             approval_ref=approval_ref,
             safe_summary=summaries[request.action],
         )
+        # Admission must prove the resulting state can be persisted. The same
+        # deterministic projection is recomputed during commit.
+        self._apply_mutation(state, request, preview=preview)
+        return preview
 
     def _preview_restore(
         self,
@@ -1458,6 +1470,21 @@ class WorkBoardAdoptionStore:
                 "WORK_BOARD_ADOPTION_REVISION_CAPACITY_EXHAUSTED"
             )
         current_state_ref = self._current_state_ref()
+        rollback_available = current_readable and self._state_path_is_present()
+        projected_undo = (
+            (WorkBoardAdoptionSnapshot(cards=current.cards),)
+            if rollback_available
+            else ()
+        )
+        self._bounded_undo_stack(
+            revision=base_revision + 1,
+            cards=restored.cards,
+            undo_stack=projected_undo,
+            receipts=self._merged_existing_restore_receipts(
+                current=current,
+                restored=restored,
+            ),
+        )
         payload_fingerprint_ref = _hash_ref(
             "payload-fingerprint-ref:work-board-adoption-restore",
             {
@@ -1487,7 +1514,7 @@ class WorkBoardAdoptionStore:
             current_state_ref=current_state_ref,
             backup_revision=restored.revision,
             card_count=len(restored.cards),
-            rollback_available=current_readable and self.state_path.exists(),
+            rollback_available=rollback_available,
             impact_status=("exact" if current_readable else "unknown_current_state"),
             payload_fingerprint_ref=payload_fingerprint_ref,
             preview_ref=preview_ref,
@@ -1630,40 +1657,90 @@ class WorkBoardAdoptionStore:
     ) -> tuple[tuple[WorkBoardAdoptionCard, ...], tuple[WorkBoardAdoptionSnapshot, ...]]:
         if request.action == "undo":
             snapshot = state.undo_stack[-1]
-            return snapshot.cards, state.undo_stack[:-1]
-        history = tuple(
-            [
-                *state.undo_stack[-(WORK_BOARD_ADOPTION_MAX_UNDO - 1) :],
-                WorkBoardAdoptionSnapshot(cards=state.cards),
-            ]
-        )
-        if request.action == "create":
-            assert request.draft is not None and preview.card_ref is not None
-            added = WorkBoardAdoptionCard(
-                card_ref=preview.card_ref,
-                **request.draft.model_dump(mode="python"),
-            )
-            return tuple([*state.cards, added]), history
-        assert request.target_ref is not None
-        target = self._card(state, request.target_ref)
-        if target is None:
-            raise WorkBoardAdoptionConflict("WORK_BOARD_ADOPTION_CARD_NOT_FOUND")
-        if request.action == "update":
-            assert request.draft is not None
-            replacement = target.model_copy(
-                update={**request.draft.model_dump(mode="python"), "archived": False}
-            )
-        elif request.action == "move":
-            assert request.lane_ref is not None
-            replacement = target.model_copy(update={"lane_ref": request.lane_ref})
-        elif request.action == "archive":
-            replacement = target.model_copy(update={"archived": True})
+            cards = snapshot.cards
+            history = state.undo_stack[:-1]
         else:
-            replacement = target.model_copy(update={"archived": False})
-        return tuple(
-            replacement if card.card_ref == request.target_ref else card
-            for card in state.cards
-        ), history
+            history = tuple(
+                [
+                    *state.undo_stack[-(WORK_BOARD_ADOPTION_MAX_UNDO - 1) :],
+                    WorkBoardAdoptionSnapshot(cards=state.cards),
+                ]
+            )
+            if request.action == "create":
+                assert request.draft is not None and preview.card_ref is not None
+                added = WorkBoardAdoptionCard(
+                    card_ref=preview.card_ref,
+                    **request.draft.model_dump(mode="python"),
+                )
+                cards = tuple([*state.cards, added])
+            else:
+                assert request.target_ref is not None
+                target = self._card(state, request.target_ref)
+                if target is None:
+                    raise WorkBoardAdoptionConflict(
+                        "WORK_BOARD_ADOPTION_CARD_NOT_FOUND"
+                    )
+                if request.action == "update":
+                    assert request.draft is not None
+                    replacement = target.model_copy(
+                        update={
+                            **request.draft.model_dump(mode="python"),
+                            "archived": False,
+                        }
+                    )
+                elif request.action == "move":
+                    assert request.lane_ref is not None
+                    replacement = target.model_copy(
+                        update={"lane_ref": request.lane_ref}
+                    )
+                elif request.action == "archive":
+                    replacement = target.model_copy(update={"archived": True})
+                else:
+                    replacement = target.model_copy(update={"archived": False})
+                cards = tuple(
+                    replacement if card.card_ref == request.target_ref else card
+                    for card in state.cards
+                )
+        bounded_history = self._bounded_undo_stack(
+            revision=preview.resulting_revision,
+            cards=cards,
+            undo_stack=history,
+            receipts=state.receipts,
+        )
+        return cards, bounded_history
+
+    @staticmethod
+    def _bounded_undo_stack(
+        *,
+        revision: int,
+        cards: tuple[WorkBoardAdoptionCard, ...],
+        undo_stack: tuple[WorkBoardAdoptionSnapshot, ...],
+        receipts: tuple[WorkBoardAdoptionMutationReceipt, ...],
+        reserve_bytes: int | None = None,
+    ) -> tuple[WorkBoardAdoptionSnapshot, ...]:
+        if reserve_bytes is None:
+            reserve_bytes = WORK_BOARD_ADOPTION_RECEIPT_SIZE_RESERVE_BYTES
+        bounded = undo_stack
+        while True:
+            projected = WorkBoardAdoptionState(
+                revision=revision,
+                cards=cards,
+                undo_stack=bounded,
+                receipts=receipts[-(WORK_BOARD_ADOPTION_MAX_RECEIPTS - 1) :],
+            )
+            projected_size = len(
+                _canonical_json(projected.model_dump(mode="json"))
+            )
+            if (
+                projected_size + reserve_bytes
+                <= WORK_BOARD_ADOPTION_MAX_STATE_BYTES
+            ):
+                return bounded
+            if not bounded:
+                raise WorkBoardAdoptionError(
+                    "WORK_BOARD_ADOPTION_STATE_SIZE_LIMIT"
+                )
+            bounded = bounded[1:]
 
     def _lease_context(
         self,
@@ -1998,20 +2075,42 @@ class WorkBoardAdoptionStore:
         )
 
     @staticmethod
-    def _merged_restore_receipts(
+    def _merged_existing_restore_receipts(
         *,
         current: WorkBoardAdoptionState,
         restored: WorkBoardAdoptionState,
-        receipt: WorkBoardAdoptionMutationReceipt,
     ) -> tuple[WorkBoardAdoptionMutationReceipt, ...]:
         merged: dict[str, WorkBoardAdoptionMutationReceipt] = {}
-        for candidate in [*restored.receipts, *current.receipts, receipt]:
+        for candidate in [*restored.receipts, *current.receipts]:
             prior = merged.get(candidate.idempotency_ref)
             if prior is not None and prior != candidate:
                 raise WorkBoardAdoptionConflict(
                     "WORK_BOARD_ADOPTION_RESTORE_RECEIPT_CONFLICT"
                 )
             merged[candidate.idempotency_ref] = candidate
+        return tuple(list(merged.values())[-(WORK_BOARD_ADOPTION_MAX_RECEIPTS - 1) :])
+
+    @classmethod
+    def _merged_restore_receipts(
+        cls,
+        *,
+        current: WorkBoardAdoptionState,
+        restored: WorkBoardAdoptionState,
+        receipt: WorkBoardAdoptionMutationReceipt,
+    ) -> tuple[WorkBoardAdoptionMutationReceipt, ...]:
+        merged = {
+            candidate.idempotency_ref: candidate
+            for candidate in cls._merged_existing_restore_receipts(
+                current=current,
+                restored=restored,
+            )
+        }
+        prior = merged.get(receipt.idempotency_ref)
+        if prior is not None and prior != receipt:
+            raise WorkBoardAdoptionConflict(
+                "WORK_BOARD_ADOPTION_RESTORE_RECEIPT_CONFLICT"
+            )
+        merged[receipt.idempotency_ref] = receipt
         return tuple(list(merged.values())[-WORK_BOARD_ADOPTION_MAX_RECEIPTS:])
 
     def _read_state(self) -> WorkBoardAdoptionState:
