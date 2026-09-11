@@ -15,7 +15,14 @@ const backendSourceCommit = resolveBackendSourceCommit();
 let backend: ChildProcess | null = null;
 
 const foundationVisualSurfaces = [
-  ["work-board", "/work-board", ["/control-center/work-board"]],
+  [
+    "work-board",
+    "/work-board",
+    [
+      "/control-center/work-board/adoption",
+      "/control-center/work-board",
+    ],
+  ],
   ["setup", "/setup", ["/control-center/setup-assistant/summary"]],
   [
     "crm",
@@ -188,10 +195,40 @@ test("foundation visual baselines stay backend-owned", async ({
       ).toHaveCount(0, { timeout: 30_000 });
       await expect(page.getByText("Mock fallback active")).toHaveCount(0);
       if (name === "work-board") {
-        await expect(page.getByTestId("work-board")).toBeVisible({
+        await expect(
+          page.getByRole("heading", { name: "Your Work Board", exact: true }),
+        ).toBeVisible({
           timeout: 30_000,
         });
-        await expect(page.getByText("Backend-owned Work Board")).toBeVisible();
+        await expect(
+          page.getByText("Founder-private workspace", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("Legacy Work Board compatibility cockpit", {
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          page.locator("details.crm-foundation-details"),
+        ).not.toHaveAttribute("open", "");
+        const adoptionBounds = await page
+          .locator(".work-board-adoption")
+          .evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              left: rect.left,
+              right: rect.right,
+              viewportWidth: window.innerWidth,
+              documentScrollWidth: document.documentElement.scrollWidth,
+            };
+          });
+        expect(adoptionBounds.left).toBeGreaterThanOrEqual(0);
+        expect(adoptionBounds.right).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
+        expect(adoptionBounds.documentScrollWidth).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
       } else if (name === "setup") {
         await expect(
           page.getByRole("heading", { name: "macOS Setup Assistant" }),

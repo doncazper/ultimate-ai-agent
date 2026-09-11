@@ -105,6 +105,14 @@ by the server. Ordinary send/model calls and all broader authority remain
 blocked. Q33 is not terminal until its remaining cross-surface acceptance scope
 is implemented and qualified.
 
+The bounded Work Board slice now adds the backend-owned founder-private
+create/edit/move/archive/recover/undo lifecycle, readable primary UI,
+safe-default CLI inspection, exact approval and `workspace/write` lease binding,
+and encrypted portable backup/restore recovery. It adds no task execution,
+assignment, issue-tracker sync, connector/provider/model call, automatic sync,
+or production authority. Calendar and final cross-surface acceptance remain
+before Q33 can become terminal.
+
 ### Q34 — News And Source Intelligence Functional Adoption
 
 Turn authorized sources into useful, provenance-bound and freshness-aware

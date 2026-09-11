@@ -272,6 +272,15 @@ remains available in a collapsed technical disclosure; invalid or
 fallback-derived data fails closed. No setup action or authority was added, and
 this remains a bounded Q33 slice rather than terminal Q33 acceptance.
 
+**Q33 Work Board Adoption Slice:** `/work-board` now starts with a Python/API-
+owned founder-private lifecycle for create, edit, move, archive, recover, undo,
+and encrypted portable backup/restore. Every mutation is exact-preview,
+approval, idempotency, revision, receipt, and `workspace/write` AuthorityLease
+bound. The safe-default CLI omits private values. Cards remain planning state;
+task execution, assignment, issue-tracker sync, connectors, provider/model
+calls, automatic sync, and production authority remain blocked. Calendar and
+final cross-surface proof keep Q33 active.
+
 **Authority Boundary:** No backend route changes unless separately scoped, no
 React-owned product truth, no new mutation controls, and no authority expansion.
 

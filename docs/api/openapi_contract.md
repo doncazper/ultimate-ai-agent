@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `368` OpenAPI paths and `370` manifest route operations.
+Current generated contract snapshot: `376` OpenAPI paths and `378` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -570,6 +570,15 @@ Contract rules:
   imports are bounded and duplicate-aware, and receipts/audit remain
   content-free. These routes grant no connector, send, external CRM write,
   provider/model call, remote sync, public release, or production authority.
+- Q33 adds eight founder-private Work Board adoption routes under
+  `/control-center/work-board/adoption*`. Read, preview, encrypted backup, and
+  restore preview remain local-sensitive. Approval and commit routes require
+  exact idempotency, operator confirmation, backend-truth binding, a captured
+  preview-bound approval, and one short-lived `workspace/write` AuthorityLease.
+  The contract supports local create, update, move, archive, recover, undo, and
+  encrypted portable restore with exact replay and conflict handling. It grants
+  no task execution, connector write, provider/model call, shell/browser
+  execution, automatic sync, public release, or production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

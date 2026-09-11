@@ -57,6 +57,13 @@ import type {
   CrmAdoptionWorkspaceView,
   CrmPortableBackup,
   CrmPortableRestorePreview,
+  WorkBoardAdoptionApprovalReceipt,
+  WorkBoardAdoptionMutationPreview,
+  WorkBoardAdoptionMutationReceipt,
+  WorkBoardAdoptionMutationRequest,
+  WorkBoardAdoptionPortableBackup,
+  WorkBoardAdoptionRestorePreview,
+  WorkBoardAdoptionWorkspaceView,
   TrustAuthorityMatrix,
   TurnHarnessBindingReadModel,
   TurnRouterPreviewReadModel,
@@ -746,6 +753,181 @@ export async function commitCrmPortableRestore(
 ): Promise<CrmAdoptionMutationReceipt> {
   return postCrmAdoptionEnvelope(
     API_ENDPOINTS.crmAdoptionRestore,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function loadWorkBoardAdoptionWorkspace(): Promise<WorkBoardAdoptionWorkspaceView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const value = await readEnvelope<WorkBoardAdoptionWorkspaceView>(
+    API_ENDPOINTS.workBoardAdoption,
+  );
+  if (
+    value.schema_version !== "uaa-work-board-adoption-read-model.v1" ||
+    typeof value.current_state_ref !== "string" ||
+    !value.current_state_ref.startsWith("state-ref:work-board-adoption") ||
+    value.backend_owned !== true ||
+    value.local_only !== true ||
+    value.exact_approval_required !== true ||
+    value.task_execution_enabled !== false ||
+    value.connector_write_enabled !== false ||
+    value.provider_model_call_enabled !== false ||
+    !Array.isArray(value.active_cards) ||
+    !Array.isArray(value.archived_cards)
+  ) {
+    throw new Error("WORK_BOARD_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+async function postWorkBoardAdoptionEnvelope<T>(
+  endpoint: string,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
+): Promise<T> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
+    body: JSON.stringify(body),
+  });
+  if (operatorConfirmed) {
+    validateBackendResponseBinding(response.headers, mutationBinding);
+  }
+  const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private Work Board request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewWorkBoardAdoptionMutation(
+  request: WorkBoardAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<WorkBoardAdoptionMutationPreview> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionPreview,
+    request,
+    idempotencyRef,
+  );
+}
+
+export async function captureWorkBoardAdoptionApproval(
+  request: WorkBoardAdoptionMutationRequest,
+  preview: WorkBoardAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<WorkBoardAdoptionApprovalReceipt> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionApproval,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitWorkBoardAdoptionMutation(
+  request: WorkBoardAdoptionMutationRequest,
+  preview: WorkBoardAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<WorkBoardAdoptionMutationReceipt> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionCommit,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function createWorkBoardAdoptionBackup(
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<WorkBoardAdoptionPortableBackup> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionBackup,
+    { passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function previewWorkBoardAdoptionRestore(
+  backup: WorkBoardAdoptionPortableBackup,
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<WorkBoardAdoptionRestorePreview> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionRestorePreview,
+    { backup, passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function captureWorkBoardAdoptionRestoreApproval(
+  backup: WorkBoardAdoptionPortableBackup,
+  passphrase: string,
+  preview: WorkBoardAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<WorkBoardAdoptionApprovalReceipt> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionRestoreApproval,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitWorkBoardAdoptionRestore(
+  backup: WorkBoardAdoptionPortableBackup,
+  passphrase: string,
+  preview: WorkBoardAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<WorkBoardAdoptionMutationReceipt> {
+  return postWorkBoardAdoptionEnvelope(
+    API_ENDPOINTS.workBoardAdoptionRestoreCommit,
     {
       backup,
       passphrase,

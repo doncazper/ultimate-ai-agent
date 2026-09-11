@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES,
     CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES,
     CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES,
+    CONTROL_CENTER_WORK_BOARD_ADOPTION_ROUTES,
     CONTROL_CENTER_WORK_BOARD_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
@@ -240,6 +241,16 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/work-board/reorder",
         "/control-center/work-board/tasks",
     }
+    assert CONTROL_CENTER_WORK_BOARD_ADOPTION_ROUTES == {
+        "/control-center/work-board/adoption",
+        "/control-center/work-board/adoption/approval",
+        "/control-center/work-board/adoption/backup",
+        "/control-center/work-board/adoption/commit",
+        "/control-center/work-board/adoption/preview",
+        "/control-center/work-board/adoption/restore-approval",
+        "/control-center/work-board/adoption/restore-commit",
+        "/control-center/work-board/adoption/restore-preview",
+    }
     assert CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES == {
         "/control-center/crm/follow-ups",
         "/control-center/crm/local-mutations",
@@ -326,6 +337,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_crm_command_center",
         "control_center_runtime_cockpit",
         "control_center_work_board",
+        "control_center_work_board_adoption",
         "control_center_work_board_commands",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",

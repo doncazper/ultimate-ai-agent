@@ -58,6 +58,7 @@ import {
 } from "./components/SummaryPanels";
 import { TrustAuthorityPanel } from "./components/TrustAuthorityPanel";
 import { WorkBoardPanel } from "./components/WorkBoardPanel";
+import { WorkBoardAdoptionWorkspace } from "./components/WorkBoardAdoptionWorkspace";
 
 export type NavGroup =
   | "Founder Loop"
@@ -521,10 +522,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
       );
     case "/work-board":
       return (
-        <WorkBoardPanel
-          authoritative={isAuthoritativeRoute(data, "/work-board")}
-          board={data.workBoard}
-        />
+        <>
+          <WorkBoardAdoptionWorkspace />
+          <details className="crm-foundation-details">
+            <summary>Legacy Work Board compatibility cockpit</summary>
+            <WorkBoardPanel
+              authoritative={isAuthoritativeRoute(data, "/work-board")}
+              board={data.workBoard}
+            />
+          </details>
+        </>
       );
     case "/models":
       return <ModelsOperatorPanel data={data} />;

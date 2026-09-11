@@ -826,6 +826,18 @@ CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS = {
     "/control-center/crm/adoption/commit",
     "/control-center/crm/adoption/restore",
 }
+CONTROL_CENTER_WORK_BOARD_ADOPTION_SENSITIVE_PATHS = {
+    "/control-center/work-board/adoption",
+    "/control-center/work-board/adoption/preview",
+    "/control-center/work-board/adoption/backup",
+    "/control-center/work-board/adoption/restore-preview",
+}
+CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS = {
+    "/control-center/work-board/adoption/approval",
+    "/control-center/work-board/adoption/commit",
+    "/control-center/work-board/adoption/restore-approval",
+    "/control-center/work-board/adoption/restore-commit",
+}
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
 }
@@ -1590,6 +1602,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Founder-private CRM exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact LocalApprovalAuthority validation, one exact operation-budget-one contacts/write AuthorityLease, idempotency, encrypted local persistence, content-free audit receipts, and undo or restore recovery are required while external writes remain blocked.",
+        )
+    if path in CONTROL_CENTER_WORK_BOARD_ADOPTION_SENSITIVE_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Founder-private Work Board read, exact preview, or encrypted backup preparation route; private values remain confined to the authenticated local response and no task execution, connector, provider, model, browser, shell, background, external-write, or production authority is granted.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Founder-private Work Board exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact local approval validation, one operation-budget-one Workspace/write AuthorityLease, idempotency, local persistence, content-free receipts, and undo or encrypted restore recovery are required while task execution and external authority remain blocked.",
         )
     if (
         normalized_method == "POST"

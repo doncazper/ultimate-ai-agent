@@ -38,7 +38,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 89,
     "none": 18,
-    "local_dev_workspace_only": 208,
+    "local_dev_workspace_only": 216,
     "governed_network_read_only": 6,
     "authenticated_connector_mutation": 25,
     "destructive_local_sensitive": 4,
@@ -141,6 +141,22 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/control-center/work-board/cards"): "mutating_requires_authority",
     ("POST", "/control-center/work-board/reorder"): "mutating_requires_authority",
     ("POST", "/control-center/work-board/tasks"): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/work-board/adoption/approval",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/work-board/adoption/commit",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/work-board/adoption/restore-approval",
+    ): "mutating_requires_authority",
+    (
+        "POST",
+        "/control-center/work-board/adoption/restore-commit",
+    ): "mutating_requires_authority",
     ("POST", "/extensions/disabled-install-records"): "mutating_requires_authority",
     (
         "POST",

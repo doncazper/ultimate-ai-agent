@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 368,
+  "openapi_path_count": 376,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -1589,12 +1589,12 @@
     {
       "surface": "Work Board",
       "owner": "founder-loop",
-      "auth_posture": "protected_local_work_board_read_plus_exact_reorder_card_and_task_create",
+      "auth_posture": "protected_local_work_board_read_plus_exact_approval_bound_adoption_mutations",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board inspection or local preview drag/drop. Persisted reorder, local card create, and local task-record create require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Archive, assign, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
-      "evidence_audit_output": "Backend-owned Work Board card, column, local task-record, proof, evidence, blocker, drag/drop posture, promotion-path, CLI inspection refs, exact approved reorder receipt refs, exact approved local-card-create receipt refs, and exact approved local-task-create receipt refs only. Local drag/drop and keyboard moves are presentation preview until persisted through approval-bound routes.",
+      "approval_requirement": "None for read-only Work Board inspection, mutation preview, or encrypted portable-backup creation. Founder-private create, update, move, archive, recover, undo, and restore commits require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, and rollback/safe-disable posture. Assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
+      "evidence_audit_output": "Backend-owned founder-private task lifecycle state, semantic state refs, exact mutation and restore preview refs, approval refs, receipt refs, encrypted portable-backup refs, recovery and undo receipts, and explicit blocked-authority flags only. The shell cannot mint approval or execution authority, and no task execution, connector write, or external side effect is recorded.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -1602,6 +1602,62 @@
           "operation_id": "get_control_center_work_board",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/work-board/adoption",
+          "operation_id": "get_control_center_work_board_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/preview",
+          "operation_id": "preview_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/approval",
+          "operation_id": "capture_control_center_work_board_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/commit",
+          "operation_id": "commit_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/backup",
+          "operation_id": "create_control_center_work_board_adoption_backup",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-preview",
+          "operation_id": "preview_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-approval",
+          "operation_id": "capture_control_center_work_board_adoption_restore_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-commit",
+          "operation_id": "commit_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "POST",
@@ -1626,9 +1682,8 @@
         }
       ],
       "missing_backend_routes": [
-        "work-board-card-archive-assignment-route",
-        "work-board-issue-tracker-sync-route",
-        "work-board-rollback-route"
+        "work-board-assignment-route",
+        "work-board-issue-tracker-sync-route"
       ]
     },
     {
@@ -2700,12 +2755,12 @@
       "ui_surface": "Work Board",
       "frontend_route": "/work-board",
       "owner": "founder-loop",
-      "auth_posture": "protected_local_work_board_read_plus_exact_reorder_and_card_create",
+      "auth_posture": "protected_local_work_board_read_plus_exact_approval_bound_adoption_mutations",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board navigation or local preview drag/drop; persisted reorder, local card create, and local task-record create require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Card archive/assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked until later exact-scoped AuthorityLease capabilities.",
-      "evidence_audit_output": "Work Board navigation renders backend-owned safe refs, proof refs, local preview posture, exact approved reorder receipt refs, exact approved local-card-create receipt refs, and exact approved local-task-create receipt refs when persisted; no task execution, archive/assignment, issue tracker write, connector write, or external side effect is recorded.",
+      "approval_requirement": "None for read-only Work Board navigation, mutation preview, or encrypted portable-backup creation. Founder-private create, update, move, archive, recover, undo, and restore commits require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, and rollback/safe-disable posture. Assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked.",
+      "evidence_audit_output": "Work Board navigation renders backend-owned founder-private lifecycle state, semantic state refs, exact preview refs, approval refs, receipt refs, encrypted backup refs, and recovery/undo posture; no task execution, assignment, issue-tracker write, connector write, or external side effect is recorded.",
       "backend_routes": [
         {
           "method": "GET",
@@ -2713,6 +2768,62 @@
           "operation_id": "get_control_center_work_board",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/work-board/adoption",
+          "operation_id": "get_control_center_work_board_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/preview",
+          "operation_id": "preview_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/approval",
+          "operation_id": "capture_control_center_work_board_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/commit",
+          "operation_id": "commit_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/backup",
+          "operation_id": "create_control_center_work_board_adoption_backup",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-preview",
+          "operation_id": "preview_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-approval",
+          "operation_id": "capture_control_center_work_board_adoption_restore_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-commit",
+          "operation_id": "commit_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         },
         {
           "method": "POST",
@@ -2737,7 +2848,7 @@
         }
       ],
       "missing_backend_routes": [
-        "work-board-card-archive-assignment-route",
+        "work-board-assignment-route",
         "work-board-issue-tracker-sync-route"
       ]
     },

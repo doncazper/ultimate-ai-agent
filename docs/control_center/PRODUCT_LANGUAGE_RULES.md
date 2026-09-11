@@ -135,9 +135,10 @@ Mission-scoped leases must be described as bounded to actions carrying the
 matching safe mission ref; a mission lease is not a standing session grant for
 the same domain/capability outside that mission.
 
-Work Board persisted reorder and local-card-create copy must say the action
-requires `Ask before changes` or stronger with the `workspace/write` domain
-capability plus exact approval, idempotency, redacted receipts, audit refs, and
+Work Board persisted reorder and founder-private create, update, move, archive,
+recover, undo, or restore copy must say the action requires `Ask before changes`
+or stronger with the `workspace/write` domain capability plus exact approval,
+idempotency, redacted receipts, audit refs, and
 rollback/safe-disable posture. Under Read-only mode, copy should say the action
 requires Workspace write authority rather than using opaque blocked-lane
 language.

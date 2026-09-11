@@ -2997,6 +2997,8 @@ export interface CrmAdoptionMutationReceipt {
   target_ref?: string | null;
   idempotency_ref: string;
   payload_fingerprint_ref: string;
+  backup_fingerprint_ref?: string | null;
+  backup_revision?: number | null;
   preview_ref: string;
   approval_ref: string;
   approval_validation_ref: string;
@@ -3054,6 +3056,156 @@ export interface CrmPortableRestorePreview {
   fresh_lineage_migration: boolean;
   counts: Record<string, number>;
   integrity_status: "ok";
+  private_values_included: false;
+  restore_performed: false;
+}
+
+export type WorkBoardAdoptionLaneRef =
+  | "work-board-lane:inbox"
+  | "work-board-lane:planned"
+  | "work-board-lane:doing"
+  | "work-board-lane:done";
+
+export type WorkBoardAdoptionPriority = "critical" | "high" | "medium" | "low";
+
+export interface WorkBoardAdoptionCard {
+  card_ref: string;
+  title: string;
+  description?: string | null;
+  priority: WorkBoardAdoptionPriority;
+  lane_ref: WorkBoardAdoptionLaneRef;
+  tag_refs: string[];
+  archived: boolean;
+}
+
+export interface WorkBoardAdoptionCardDraft {
+  title: string;
+  description?: string | null;
+  priority: WorkBoardAdoptionPriority;
+  lane_ref: WorkBoardAdoptionLaneRef;
+  tag_refs: string[];
+}
+
+export interface WorkBoardAdoptionWorkspaceView {
+  schema_version: "uaa-work-board-adoption-read-model.v1";
+  contract_ref: string;
+  board_ref: string;
+  status: "ready" | "recovery_required";
+  revision: number;
+  current_state_ref: string;
+  active_cards: WorkBoardAdoptionCard[];
+  archived_cards: WorkBoardAdoptionCard[];
+  lane_refs: WorkBoardAdoptionLaneRef[];
+  can_undo: boolean;
+  latest_receipt_ref?: string | null;
+  next_safe_action: string;
+  backend_owned: true;
+  local_only: true;
+  exact_approval_required: true;
+  backup_restore_available: true;
+  task_execution_enabled: false;
+  connector_write_enabled: false;
+  provider_model_call_enabled: false;
+  shell_subprocess_execution_enabled: false;
+  browser_automation_enabled: false;
+  background_autonomy_enabled: false;
+  production_authority_enabled: false;
+}
+
+export interface WorkBoardAdoptionMutationRequest {
+  action: "create" | "update" | "move" | "archive" | "recover" | "undo";
+  expected_revision: number;
+  target_ref?: string | null;
+  draft?: WorkBoardAdoptionCardDraft | null;
+  lane_ref?: WorkBoardAdoptionLaneRef | null;
+}
+
+export interface WorkBoardAdoptionMutationPreview {
+  schema_version: "uaa-work-board-adoption-mutation-preview.v1";
+  contract_ref: string;
+  action: string;
+  expected_revision: number;
+  resulting_revision: number;
+  target_ref?: string | null;
+  card_ref?: string | null;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  safe_summary: string;
+  mutation_performed: false;
+  external_write_performed: false;
+}
+
+export interface WorkBoardAdoptionApprovalReceipt {
+  schema_version: "uaa-work-board-adoption-approval-receipt.v1";
+  contract_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  preview_ref: string;
+  idempotency_ref: string;
+  expires_at: string;
+  backend_owned: true;
+  mutation_performed: false;
+}
+
+export interface WorkBoardAdoptionMutationReceipt {
+  schema_version: "uaa-work-board-adoption-mutation-receipt.v1";
+  contract_ref: string;
+  action: string;
+  target_ref?: string | null;
+  card_ref?: string | null;
+  before_revision: number;
+  after_revision: number;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  authority_decision_ref: string;
+  authority_lease_ref: string;
+  receipt_ref: string;
+  state_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  safe_summary: string;
+  replayed: boolean;
+  task_execution_performed: false;
+  connector_write_performed: false;
+  provider_model_call_performed: false;
+  shell_subprocess_execution_performed: false;
+  browser_automation_performed: false;
+  background_autonomy_performed: false;
+  production_authority_enabled: false;
+}
+
+export interface WorkBoardAdoptionPortableBackup {
+  schema_version: "uaa-work-board-adoption-portable-backup.v1";
+  contract_ref: string;
+  salt: string;
+  nonce: string;
+  ciphertext: string;
+  ciphertext_fingerprint_ref: string;
+  created_at: string;
+  private_values_encrypted: true;
+  key_material_included: false;
+  raw_paths_included: false;
+}
+
+export interface WorkBoardAdoptionRestorePreview {
+  schema_version: "uaa-work-board-adoption-restore-preview.v1";
+  contract_ref: string;
+  action: "restore_backup";
+  expected_revision: number;
+  resulting_revision: number;
+  current_state_ref: string;
+  backup_revision: number;
+  card_count: number;
+  rollback_available: boolean;
+  impact_status: "exact" | "unknown_current_state";
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  safe_summary: string;
   private_values_included: false;
   restore_performed: false;
 }

@@ -1,9 +1,9 @@
 {
-  "control_center_route_count": 193,
-  "fingerprint": "api-contract-fingerprint:sha256:a259baec5729dfcb007d9cea6f3b1e8b6addc3fd2c65be73b2c39418e65b0111",
+  "control_center_route_count": 201,
+  "fingerprint": "api-contract-fingerprint:sha256:9346c750c35d371356b57b168c2be8d76acdae22bedd78fb44b1278a7cc42f9b",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "mutating_route_count": 126,
-  "openapi_path_count": 368,
+  "mutating_route_count": 130,
+  "openapi_path_count": 376,
   "projection_fields": [
     "path",
     "method",
@@ -24,17 +24,17 @@
   ],
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 244,
-    "required_before_mutation_authority": 126
+    "not_required_for_route_classification": 248,
+    "required_before_mutation_authority": 130
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 367,
+    "protected_local_bearer_required": 375,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 31,
-    "local_sensitive": 210,
-    "mutating_requires_authority": 126,
+    "local_sensitive": 214,
+    "mutating_requires_authority": 130,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -43,15 +43,15 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 370,
+  "route_count": 378,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 244,
-    "required_before_mutation_authority": 126
+    "not_required_for_route_classification": 248,
+    "required_before_mutation_authority": 130
   },
-  "route_operation_count": 370,
+  "route_operation_count": 378,
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 212,
-    "targeted_local_fixed_window": 158
+    "not_targeted_for_route": 213,
+    "targeted_local_fixed_window": 165
   },
   "routes": [
     {
@@ -5555,6 +5555,166 @@
       ]
     },
     {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_control_center_work_board_adoption_workspace",
+      "path": "/control-center/work-board/adoption",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Read the founder-private local Work Board workspace",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "capture_control_center_work_board_adoption_approval",
+      "path": "/control-center/work-board/adoption/approval",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Capture one exact local Work Board approval",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "create_control_center_work_board_adoption_backup",
+      "path": "/control-center/work-board/adoption/backup",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Create a passphrase-encrypted portable Work Board backup",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "commit_control_center_work_board_adoption_mutation",
+      "path": "/control-center/work-board/adoption/commit",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Commit one approved local Work Board lifecycle change",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "preview_control_center_work_board_adoption_mutation",
+      "path": "/control-center/work-board/adoption/preview",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Preview one exact local Work Board lifecycle change",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "capture_control_center_work_board_adoption_restore_approval",
+      "path": "/control-center/work-board/adoption/restore-approval",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Capture one exact encrypted Work Board restore approval",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "commit_control_center_work_board_adoption_restore",
+      "path": "/control-center/work-board/adoption/restore-commit",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Restore one approved encrypted Work Board backup",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "POST",
+      "operation_id": "preview_control_center_work_board_adoption_restore",
+      "path": "/control-center/work-board/adoption/restore-preview",
+      "rate_limit_group": "work_board_adoption",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Verify and preview an encrypted Work Board restore",
+      "tags": [
+        "control-center"
+      ]
+    },
+    {
       "approval_posture": "required_before_mutation_authority",
       "auth_posture": "protected_local_bearer_required",
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
@@ -7460,5 +7620,5 @@
   "schema_version": "uaa-api-route-inventory.v5",
   "source_ref": "source-ref:fastapi-openapi-and-api-manifest",
   "static_declaration_only": true,
-  "targeted_rate_limit_route_count": 158
+  "targeted_rate_limit_route_count": 165
 }
