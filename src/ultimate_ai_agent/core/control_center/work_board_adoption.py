@@ -630,12 +630,25 @@ class WorkBoardAdoptionStore:
             return self._read_model(WorkBoardAdoptionState())
         except OSError:
             return self._recovery_read_model()
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             try:
                 state = self._read_state()
             except (OSError, ValueError, WorkBoardAdoptionError):
                 return self._recovery_read_model()
             return self._read_model(state)
+
+    def _ensure_private_state_directory(self) -> None:
+        try:
+            self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            metadata = os.lstat(self.state_dir)
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise OSError("unsafe Work Board state directory")
+            os.chmod(self.state_dir, 0o700)
+        except OSError as exc:
+            raise WorkBoardAdoptionError(
+                "WORK_BOARD_ADOPTION_STATE_DIRECTORY_UNSAFE"
+            ) from exc
 
     def _read_model(
         self,
@@ -686,6 +699,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionMutationPreview:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             state = self._read_state()
             return self._preview(state, request, idempotency_ref=idempotency_ref)
@@ -697,6 +711,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionApprovalReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             state = self._read_state()
             payload_fingerprint_ref = self._payload_fingerprint(
@@ -744,6 +759,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionMutationReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             state = self._read_state()
             payload_fingerprint_ref = self._payload_fingerprint(
@@ -847,6 +863,7 @@ class WorkBoardAdoptionStore:
         self,
         request: WorkBoardAdoptionPortableBackupRequest,
     ) -> WorkBoardAdoptionPortableBackup:
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             if not self.state_path.exists():
                 raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_BACKUP_EMPTY")
@@ -879,6 +896,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionPortableRestorePreview:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             return self._preview_restore(request, idempotency_ref=idempotency_ref)
 
@@ -889,6 +907,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionApprovalReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             current, current_readable = self._read_current_for_restore()
             restored = self._open_portable_backup(request)
@@ -938,6 +957,7 @@ class WorkBoardAdoptionStore:
         idempotency_ref: str,
     ) -> WorkBoardAdoptionMutationReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
+        self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
             current, current_readable = self._read_current_for_restore()
             restored = self._open_portable_backup(request)

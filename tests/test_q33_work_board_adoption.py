@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -103,6 +105,28 @@ def test_preview_is_non_mutating_and_exact_scope_bound(tmp_path: Path) -> None:
     assert preview.card_ref is not None
     assert store.read_view().revision == 0
     assert not (tmp_path / WORK_BOARD_ADOPTION_STATE_FILE).exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission-mode contract")
+def test_preview_repairs_private_state_directory_mode_before_locking(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "work_board"
+    state_dir.mkdir(mode=0o755)
+    os.chmod(state_dir, 0o755)
+    store = WorkBoardAdoptionStore(state_dir)
+
+    store.preview_mutation(
+        WorkBoardAdoptionMutationRequest(
+            action="create",
+            expected_revision=0,
+            draft=_draft(),
+        ),
+        idempotency_ref=_idempotency("private-directory-mode"),
+    )
+
+    assert stat.S_IMODE(state_dir.stat().st_mode) == 0o700
+    assert not (state_dir / WORK_BOARD_ADOPTION_STATE_FILE).exists()
 
 
 def test_commit_requires_captured_exact_approval(tmp_path: Path) -> None:
