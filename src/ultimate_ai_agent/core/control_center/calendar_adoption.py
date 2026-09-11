@@ -44,6 +44,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLease,
     AuthorityLeaseConflictError,
     AuthorityLeaseIssueRequest,
+    AuthorityLeaseRevokeRequest,
     AuthorityLeaseScope,
     AuthorityLeaseStore,
     TrustMode,
@@ -1778,6 +1779,22 @@ class CalendarAdoptionStore:
             AuthorityDecisionOutcome.allow.value,
             AuthorityDecisionOutcome.ask.value,
         }:
+            lease_store.revoke_lease(
+                AuthorityLeaseRevokeRequest(
+                    lease_ref=lease.lease_ref,
+                    decision_reason_ref=(
+                        "decision-reason-ref:calendar-adoption:authority-denied"
+                    ),
+                    safe_summary=(
+                        "Revoke the exact Calendar lease after final authority "
+                        "evaluation denied the operation."
+                    ),
+                ),
+                idempotency_ref=_hash_ref(
+                    "idempotency-ref:calendar-adoption-lease-revoke",
+                    {"lease_ref": lease.lease_ref},
+                ),
+            )
             raise CalendarAdoptionError("CALENDAR_ADOPTION_AUTHORITY_DENIED")
         return (
             lease,
@@ -2177,7 +2194,10 @@ class CalendarAdoptionStore:
             )
             checkpoints = self._read_receipt_checkpoints()
             checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
-            repository, _platform, authority = self._repository()
+            repository: CalendarRepository | None = None
+            authority: LocalApprovalAuthority | None = None
+            if self._database_present():
+                repository, _platform, authority = self._repository()
             replay: UnitOfWorkReceipt | None = None
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
@@ -2190,20 +2210,21 @@ class CalendarAdoptionStore:
                     approval_ref=request.approval_ref,
                     operation_ref=operation_ref,
                 )
-                try:
-                    replay = self._recover_existing_receipt(
-                        repository,
-                        request.mutation,
-                        operation_ref=operation_ref,
-                        idempotency_ref=idempotency_ref,
-                    )
-                except EcosystemLocalDataError as exc:
-                    if str(exc) not in {
-                        "ECO_WORKSPACE_NOT_FOUND",
-                        "ECO_RECORD_NOT_FOUND",
-                    }:
-                        raise
-                    replay = None
+                if repository is not None:
+                    try:
+                        replay = self._recover_existing_receipt(
+                            repository,
+                            request.mutation,
+                            operation_ref=operation_ref,
+                            idempotency_ref=idempotency_ref,
+                        )
+                    except EcosystemLocalDataError as exc:
+                        if str(exc) not in {
+                            "ECO_WORKSPACE_NOT_FOUND",
+                            "ECO_RECORD_NOT_FOUND",
+                        }:
+                            raise
+                        replay = None
                 if replay is not None:
                     if checkpoint.receipt is not None:
                         self._assert_checkpoint_receipt_matches_unit(
@@ -2227,7 +2248,7 @@ class CalendarAdoptionStore:
                 raise CalendarAdoptionConflict(
                     "CALENDAR_ADOPTION_COMMIT_SCOPE_MISMATCH"
                 )
-            if checkpoint is None:
+            if checkpoint is None and repository is not None:
                 try:
                     replay = self._recover_existing_receipt(
                         repository,
@@ -2259,6 +2280,8 @@ class CalendarAdoptionStore:
                 operation_ref=preview.operation_ref,
                 idempotency_ref=idempotency_ref,
             )
+            if repository is None or authority is None:
+                repository, _platform, authority = self._repository()
             if checkpoint is None:
                 checkpoint = _CalendarAdoptionReceiptCheckpoint(
                     action=preview.action,
@@ -2414,7 +2437,13 @@ class CalendarAdoptionStore:
                     workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
                     calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
                 )
-            except (OSError, CalendarError, EcosystemLocalDataError):
+            except EcosystemLocalDataError as exc:
+                if str(exc) not in {
+                    "ECO_WORKSPACE_NOT_FOUND",
+                    "ECO_RECORD_NOT_FOUND",
+                }:
+                    current_readable = False
+            except (OSError, CalendarError):
                 current_readable = False
         if not current_readable:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE")

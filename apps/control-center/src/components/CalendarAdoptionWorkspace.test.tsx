@@ -9,7 +9,10 @@ import type {
 import { BackendTruthMutationBindingProvider } from "../backendTruthMutationBinding";
 import { mockControlCenterData } from "../mocks/controlCenterData";
 import { CalendarSurface } from "../northstar/PrimarySurfaces";
-import { CalendarAdoptionWorkspace } from "./CalendarAdoptionWorkspace";
+import {
+  CalendarAdoptionWorkspace,
+  shiftCalendarAnchor,
+} from "./CalendarAdoptionWorkspace";
 
 const apiMocks = vi.hoisted(() => ({
   captureCalendarAdoptionApproval: vi.fn(),
@@ -164,35 +167,238 @@ describe("CalendarAdoptionWorkspace", () => {
     apiMocks.previewCalendarAdoptionMutation.mockResolvedValue(preview);
     apiMocks.captureCalendarAdoptionApproval.mockResolvedValue({});
     apiMocks.commitCalendarAdoptionMutation.mockResolvedValue(receipt);
+    apiMocks.previewCalendarAdoptionRestore.mockResolvedValue({
+      expected_revision: 0,
+      resulting_revision: 1,
+      calendar_count: 1,
+      event_count: 1,
+      rollback_available: false,
+      preview_ref: "preview-ref:calendar-adoption-restore:test",
+      approval_ref: "approval-ref:calendar-adoption-restore:test",
+    });
+    apiMocks.captureCalendarAdoptionRestoreApproval.mockResolvedValue({});
+    apiMocks.commitCalendarAdoptionRestore.mockResolvedValue({
+      ...receipt,
+      action: "restore_backup",
+      after_revision: 1,
+    });
   });
 
   it("mounts the private Calendar before the legacy synthetic reference", async () => {
     render(<CalendarSurface data={structuredClone(mockControlCenterData)} />);
 
-    expect(await screen.findByRole("heading", { name: "Your Calendar" })).toBeVisible();
-    expect(screen.getByText("Legacy synthetic Calendar layout reference").closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByText(/No account, connector, notification, or external calendar is touched/i)).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: "Your Calendar" }),
+    ).toBeVisible();
+    expect(
+      screen
+        .getByText("Legacy synthetic Calendar layout reference")
+        .closest("details"),
+    ).not.toHaveAttribute("open");
+    expect(
+      screen.getByText(
+        /No account, connector, notification, or external calendar is touched/i,
+      ),
+    ).toBeVisible();
   });
 
   it("switches readable views using backend-owned projections", async () => {
     render(<CalendarAdoptionWorkspace />);
     await screen.findAllByText("Founder briefing");
     fireEvent.click(screen.getByRole("button", { name: "month" }));
-    await waitFor(() => expect(apiMocks.loadCalendarAdoptionWorkspace).toHaveBeenLastCalledWith("month", expect.any(String), expect.any(String)));
+    await waitFor(() =>
+      expect(apiMocks.loadCalendarAdoptionWorkspace).toHaveBeenLastCalledWith(
+        "month",
+        expect.any(String),
+        expect.any(String),
+      ),
+    );
   });
 
   it("previews and confirms one exact local event change", async () => {
-    render(<BackendTruthMutationBindingProvider binding={binding}><CalendarAdoptionWorkspace /></BackendTruthMutationBindingProvider>);
+    render(
+      <BackendTruthMutationBindingProvider binding={binding}>
+        <CalendarAdoptionWorkspace />
+      </BackendTruthMutationBindingProvider>,
+    );
     await screen.findAllByText("Founder briefing");
-    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Review acquisition pipeline" } });
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Review acquisition pipeline" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Review new event" }));
-    expect(await screen.findByRole("dialog", { name: "Review this Calendar change" })).toBeVisible();
-    expect(screen.getByText(/Only the encrypted local Calendar will change/i)).toBeVisible();
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Review this Calendar change",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Only the encrypted local Calendar will change/i),
+    ).toBeVisible();
 
     const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
-    expect(request).toMatchObject({ action: "create_event", expected_revision: 4, event: { title: "Review acquisition pipeline", calendar_ref: "calendar-ref:q33:personal" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm one local change" }));
-    await waitFor(() => expect(apiMocks.commitCalendarAdoptionMutation).toHaveBeenCalledTimes(1));
-    expect(apiMocks.captureCalendarAdoptionApproval).toHaveBeenCalledWith(request, preview, expect.stringMatching(/^idempotency-ref:calendar-adoption-ui:create-event:/), binding);
+    expect(request).toMatchObject({
+      action: "create_event",
+      expected_revision: 4,
+      event: {
+        title: "Review acquisition pipeline",
+        calendar_ref: "calendar-ref:q33:personal",
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm one local change" }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.commitCalendarAdoptionMutation).toHaveBeenCalledTimes(1),
+    );
+    expect(apiMocks.captureCalendarAdoptionApproval).toHaveBeenCalledWith(
+      request,
+      preview,
+      expect.stringMatching(
+        /^idempotency-ref:calendar-adoption-ui:create-event:/,
+      ),
+      binding,
+    );
+  });
+
+  it("preserves all-day and event-timezone values during an edit", async () => {
+    const tokyo = structuredClone(workspace);
+    tokyo.occurrence_items[0].event.timezone = "Asia/Tokyo";
+    tokyo.occurrence_items[0].event.starts_at = "2026-09-14T00:00:00Z";
+    tokyo.occurrence_items[0].event.ends_at = "2026-09-14T01:00:00Z";
+    tokyo.occurrence_items[0].event.all_day = true;
+    tokyo.occurrence_items[0].occurrence.starts_at = "2026-09-14T00:00:00Z";
+    tokyo.occurrence_items[0].occurrence.ends_at = "2026-09-14T01:00:00Z";
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(tokyo);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Starts")).toHaveValue("2026-09-14T09:00");
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Updated founder briefing" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.event).toMatchObject({
+      all_day: true,
+      timezone: "Asia/Tokyo",
+      starts_at: "2026-09-14T00:00:00.000Z",
+      ends_at: "2026-09-14T01:00:00.000Z",
+    });
+  });
+
+  it("keeps the clicked recurrence occurrence in the inspector", async () => {
+    const recurring = structuredClone(workspace);
+    recurring.occurrence_items.push({
+      ...structuredClone(recurring.occurrence_items[0]),
+      occurrence: {
+        ...structuredClone(recurring.occurrence_items[0].occurrence),
+        occurrence_ref: "calendar-occurrence-ref:q33:briefing:second",
+        starts_at: "2026-09-21T16:00:00Z",
+        ends_at: "2026-09-21T17:00:00Z",
+      },
+    });
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(recurring);
+
+    render(<CalendarAdoptionWorkspace />);
+    const occurrences = await screen.findAllByRole("button", {
+      name: /Founder briefing/,
+    });
+    fireEvent.click(occurrences[1]);
+
+    expect(screen.getByText(/Sep 21, 2026/)).toBeVisible();
+  });
+
+  it("labels the final included date and clamps month navigation", async () => {
+    render(<CalendarAdoptionWorkspace />);
+
+    expect(await screen.findByText(/through Sep 20/)).toBeVisible();
+    expect(
+      shiftCalendarAnchor(
+        "2026-01-31T20:00:00Z",
+        "month",
+        1,
+        "America/Los_Angeles",
+      ),
+    ).toBe("2026-02-28T20:00:00.000Z");
+    expect(
+      shiftCalendarAnchor(
+        "2026-03-31T19:00:00Z",
+        "month",
+        -1,
+        "America/Los_Angeles",
+      ),
+    ).toBe("2026-02-28T20:00:00.000Z");
+  });
+
+  it.each(["onboarding", "setup_incomplete"] as const)(
+    "offers encrypted restore while the workspace is %s",
+    async (status) => {
+      apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
+        ...structuredClone(workspace),
+        status,
+        calendars: [],
+        occurrence_items: [],
+      });
+
+      render(<CalendarAdoptionWorkspace />);
+
+      expect(await screen.findByLabelText("Open backup")).toBeVisible();
+      expect(
+        screen.queryByRole("button", { name: "Download encrypted backup" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("resets a stale event draft after restore replaces its calendar", async () => {
+    const restored = structuredClone(workspace);
+    restored.revision = 1;
+    restored.calendars[0].calendar_ref = "calendar-ref:q33:restored";
+    restored.occurrence_items[0].event.calendar_ref =
+      "calendar-ref:q33:restored";
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce(restored);
+
+    render(<CalendarAdoptionWorkspace />);
+    await screen.findAllByText("Founder briefing");
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Stale draft" },
+    });
+    const file = new File(
+      [JSON.stringify({ encrypted: true })],
+      "calendar.json",
+      {
+        type: "application/json",
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Open backup"), {
+      target: { files: [file] },
+    });
+    fireEvent.change(screen.getByLabelText("Backup or restore passphrase"), {
+      target: { value: "a safe test passphrase" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Preview restore" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Confirm private restore" }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.commitCalendarAdoptionRestore).toHaveBeenCalled(),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Calendar")).toHaveValue(
+        "calendar-ref:q33:restored",
+      ),
+    );
+    expect(screen.getByLabelText("Title")).toHaveValue("");
   });
 });

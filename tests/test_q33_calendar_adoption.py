@@ -8,6 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+from ultimate_ai_agent.core.authority.contracts import (
+    evaluate_authority_request as evaluate_authority_request_contract,
+)
+from ultimate_ai_agent.core.control_center import (
+    calendar_adoption as calendar_adoption_module,
+)
 from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CALENDAR_ADOPTION_DATABASE_FILE,
     CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE,
@@ -141,7 +148,44 @@ def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:
             idempotency_ref=_idempotency("missing-approval"),
         )
 
-    assert store.read_view().status == "setup_incomplete"
+    assert store.read_view().status == "onboarding"
+    assert not (tmp_path / CALENDAR_ADOPTION_DATABASE_FILE).exists()
+
+
+def test_final_authority_denial_revokes_issued_calendar_lease(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency("final-authority-denial")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    request = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(request, idempotency_ref=idempotency_ref)
+
+    def deny_final_evaluation(action_request, _leases):
+        return evaluate_authority_request_contract(action_request, [])
+
+    monkeypatch.setattr(
+        calendar_adoption_module,
+        "evaluate_authority_request",
+        deny_final_evaluation,
+    )
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_AUTHORITY_DENIED"
+    ):
+        store.commit_mutation(
+            CalendarAdoptionCommitRequest(**request.model_dump()),
+            idempotency_ref=idempotency_ref,
+        )
+
+    assert not AuthorityLeaseStore(tmp_path / "authority").list_leases(active_only=True)
+    assert not (tmp_path / CALENDAR_ADOPTION_DATABASE_FILE).exists()
 
 
 def test_calendar_lifecycle_views_conflicts_and_undo_survive_restart(
@@ -579,6 +623,44 @@ def test_encrypted_backup_restores_to_new_computer_and_replays(tmp_path: Path) -
             ),
             idempotency_ref=_idempotency("forged-backup-metadata"),
         )
+
+
+def test_encrypted_backup_restores_from_setup_incomplete_state(tmp_path: Path) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source)
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private setup recovery calendar"
+        )
+    )
+    target = CalendarAdoptionStore(tmp_path / "target")
+    target._repository()
+    assert target.read_view().status == "setup_incomplete"
+
+    idempotency_ref = _idempotency("setup-incomplete-restore")
+    restore = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private setup recovery calendar",
+        backup=backup,
+    )
+    preview = target.preview_restore(restore, idempotency_ref=idempotency_ref)
+    approval = target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **restore.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    target.commit_restore(
+        CalendarAdoptionRestoreCommitRequest(
+            **restore.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=approval.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert target.read_view().status == "ready"
 
 
 def test_invalid_timezone_fails_closed_before_reading_state(tmp_path: Path) -> None:

@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CalendarAdoptionRestoreCommitRequest,
     CalendarAdoptionStore,
 )
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarConflict, CalendarError
 from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_local_models_status,
     build_control_center_settings_status,
@@ -1580,7 +1581,7 @@ def get_control_center_calendar_adoption(
             anchor=anchor,
             timezone_name=timezone_name,
         )
-    except CalendarAdoptionError as exc:
+    except (CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption",
@@ -1618,7 +1619,7 @@ def post_control_center_calendar_adoption_preview(
         preview = CalendarAdoptionStore.from_env().preview_mutation(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_preview",
@@ -1660,7 +1661,7 @@ def post_control_center_calendar_adoption_approval(
         receipt = CalendarAdoptionStore.from_env().capture_approval(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_approval",
@@ -1702,7 +1703,7 @@ def post_control_center_calendar_adoption_commit(
         receipt = CalendarAdoptionStore.from_env().commit_mutation(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_commit",
@@ -1729,7 +1730,7 @@ def post_control_center_calendar_adoption_backup(
 ) -> ResultEnvelope:
     try:
         backup = CalendarAdoptionStore.from_env().create_portable_backup(request)
-    except CalendarAdoptionError as exc:
+    except (CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_backup",
@@ -1767,7 +1768,7 @@ def post_control_center_calendar_adoption_restore_preview(
         preview = CalendarAdoptionStore.from_env().preview_restore(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_restore_preview",
@@ -1809,7 +1810,7 @@ def post_control_center_calendar_adoption_restore_approval(
         receipt = CalendarAdoptionStore.from_env().capture_restore_approval(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_restore_approval",
@@ -1851,7 +1852,7 @@ def post_control_center_calendar_adoption_restore_commit(
         receipt = CalendarAdoptionStore.from_env().commit_restore(
             request, idempotency_ref=idempotency_ref
         )
-    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+    except (CalendarAdoptionConflict, CalendarAdoptionError, CalendarError) as exc:
         _raise_calendar_adoption_http_error(exc)
     return _calendar_adoption_result_envelope(
         operation="control_center_calendar_adoption_restore_commit",
@@ -2467,9 +2468,13 @@ def _require_calendar_operator_confirmation(confirmed: bool) -> None:
         )
 
 
-def _raise_calendar_adoption_http_error(exc: CalendarAdoptionError) -> None:
+def _raise_calendar_adoption_http_error(
+    exc: CalendarAdoptionError | CalendarError,
+) -> None:
     code = str(exc) or "CALENDAR_ADOPTION_ERROR"
-    status_code = 409 if isinstance(exc, CalendarAdoptionConflict) else 403
+    status_code = (
+        409 if isinstance(exc, (CalendarAdoptionConflict, CalendarConflict)) else 403
+    )
     safe_message = (
         "The private Calendar request could not be completed safely. Refresh "
         "the calendar or use the encrypted recovery path."

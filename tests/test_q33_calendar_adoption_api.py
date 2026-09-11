@@ -10,6 +10,10 @@ from ultimate_ai_agent.api.control_center import (
     CALENDAR_ADOPTION_MAX_REQUEST_BODY_BYTES,
     CALENDAR_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
 )
+from ultimate_ai_agent.core.control_center.calendar_adoption import (
+    CalendarAdoptionStore,
+)
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarConflict
 
 
 def _headers(suffix: str, *, confirmed: bool = False) -> dict[str, str]:
@@ -184,3 +188,28 @@ def test_calendar_adoption_api_rejects_bad_idempotency(
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == expected_code
     assert not state_dir.exists()
+
+
+def test_calendar_adoption_api_translates_canonical_repository_conflicts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(tmp_path / "calendar"))
+
+    def raise_canonical_conflict(*_args, **_kwargs):
+        raise CalendarConflict("ECO_CALENDAR_EVENT_CALENDAR_NOT_FOUND")
+
+    monkeypatch.setattr(
+        CalendarAdoptionStore,
+        "preview_mutation",
+        raise_canonical_conflict,
+    )
+    response = TestClient(app).post(
+        "/control-center/calendar/adoption/preview",
+        json=_initialize_mutation(),
+        headers=_headers("canonical-conflict"),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == (
+        "ECO_CALENDAR_EVENT_CALENDAR_NOT_FOUND"
+    )
