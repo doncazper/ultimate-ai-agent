@@ -160,6 +160,18 @@ def _decode_b64(value: str) -> bytes:
         raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_BACKUP_INVALID") from exc
 
 
+def _fsync_directory(path: Path) -> None:
+    """Persist a published rename where directory descriptors are supported."""
+
+    if os.name == "nt":
+        return
+    directory_fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
 class WorkBoardAdoptionCard(_WorkBoardAdoptionModel):
     card_ref: str
     title: str = Field(..., repr=False)
@@ -372,6 +384,7 @@ class WorkBoardAdoptionMutationReceipt(_WorkBoardAdoptionModel):
     preview_ref: str
     approval_ref: str
     approval_validation_ref: str
+    approval_expires_at: datetime
     authority_decision_ref: str
     authority_lease_ref: str
     receipt_ref: str
@@ -421,6 +434,11 @@ class WorkBoardAdoptionMutationReceipt(_WorkBoardAdoptionModel):
             )
         ):
             raise ValueError("WORK_BOARD_ADOPTION_APPROVAL_VALIDATION_REF_INVALID")
+        if (
+            self.approval_expires_at.tzinfo is None
+            or self.approval_expires_at.utcoffset() is None
+        ):
+            raise ValueError("WORK_BOARD_ADOPTION_TIMESTAMP_TIMEZONE_REQUIRED")
         if self.action == "restore_backup":
             revision_valid = (
                 self.backup_revision is not None
@@ -606,44 +624,60 @@ class WorkBoardAdoptionStore:
         return cls()
 
     def read_view(self) -> WorkBoardAdoptionReadModel:
+        try:
+            os.lstat(self.state_path)
+        except FileNotFoundError:
+            return self._read_model(WorkBoardAdoptionState())
+        except OSError:
+            return self._recovery_read_model()
         with self.lock_manager.acquire(_LOCK_KEY):
             try:
                 state = self._read_state()
             except (OSError, ValueError, WorkBoardAdoptionError):
-                return WorkBoardAdoptionReadModel(
-                    status="recovery_required",
-                    revision=0,
-                    current_state_ref=_hash_ref(
-                        "state-ref:work-board-adoption", {"status": "unreadable"}
-                    ),
-                    active_cards=(),
-                    archived_cards=(),
-                    can_undo=False,
-                    latest_receipt_ref=None,
-                    next_safe_action=(
-                        "Restore a verified local Work Board backup or inspect the "
-                        "private state directory before making another change."
-                    ),
-                )
-            active = tuple(card for card in state.cards if not card.archived)
-            archived = tuple(card for card in state.cards if card.archived)
-            return WorkBoardAdoptionReadModel(
-                status="ready",
-                revision=state.revision,
-                current_state_ref=self._state_ref(state),
-                active_cards=active,
-                archived_cards=archived,
-                can_undo=bool(state.undo_stack),
-                latest_receipt_ref=(
-                    state.receipts[-1].receipt_ref if state.receipts else None
-                ),
-                next_safe_action=(
-                    "Create a private board item, or select one to edit, move, archive, "
-                    "or recover after exact confirmation."
-                    if active or archived
-                    else "Create the first private Work Board item."
-                ),
-            )
+                return self._recovery_read_model()
+            return self._read_model(state)
+
+    def _read_model(
+        self,
+        state: WorkBoardAdoptionState,
+    ) -> WorkBoardAdoptionReadModel:
+        active = tuple(card for card in state.cards if not card.archived)
+        archived = tuple(card for card in state.cards if card.archived)
+        return WorkBoardAdoptionReadModel(
+            status="ready",
+            revision=state.revision,
+            current_state_ref=self._state_ref(state),
+            active_cards=active,
+            archived_cards=archived,
+            can_undo=bool(state.undo_stack),
+            latest_receipt_ref=(
+                state.receipts[-1].receipt_ref if state.receipts else None
+            ),
+            next_safe_action=(
+                "Create a private board item, or select one to edit, move, archive, "
+                "or recover after exact confirmation."
+                if active or archived
+                else "Create the first private Work Board item."
+            ),
+        )
+
+    @staticmethod
+    def _recovery_read_model() -> WorkBoardAdoptionReadModel:
+        return WorkBoardAdoptionReadModel(
+            status="recovery_required",
+            revision=0,
+            current_state_ref=_hash_ref(
+                "state-ref:work-board-adoption", {"status": "unreadable"}
+            ),
+            active_cards=(),
+            archived_cards=(),
+            can_undo=False,
+            latest_receipt_ref=None,
+            next_safe_action=(
+                "Restore a verified local Work Board backup or inspect the "
+                "private state directory before making another change."
+            ),
+        )
 
     def preview_mutation(
         self,
@@ -665,6 +699,27 @@ class WorkBoardAdoptionStore:
         _validate_ref(idempotency_ref, "idempotency_ref")
         with self.lock_manager.acquire(_LOCK_KEY):
             state = self._read_state()
+            payload_fingerprint_ref = self._payload_fingerprint(
+                request.mutation,
+                idempotency_ref=idempotency_ref,
+            )
+            prior = next(
+                (
+                    receipt
+                    for receipt in state.receipts
+                    if receipt.idempotency_ref == idempotency_ref
+                ),
+                None,
+            )
+            if prior is not None:
+                return self._replay_captured_approval(
+                    prior,
+                    action=request.mutation.action,
+                    payload_fingerprint_ref=payload_fingerprint_ref,
+                    preview_ref=request.preview_ref,
+                    approval_ref=request.approval_ref,
+                    idempotency_ref=idempotency_ref,
+                )
             preview = self._preview(
                 state,
                 request.mutation,
@@ -721,9 +776,13 @@ class WorkBoardAdoptionStore:
                 raise WorkBoardAdoptionConflict(
                     "WORK_BOARD_ADOPTION_COMMIT_SCOPE_MISMATCH"
                 )
-            lease_store, lease, authority_decision_ref, approval_validation_ref = (
-                self._authorize(preview, idempotency_ref=idempotency_ref)
-            )
+            (
+                lease_store,
+                lease,
+                authority_decision_ref,
+                approval_validation_ref,
+                approval_expires_at,
+            ) = self._authorize(preview, idempotency_ref=idempotency_ref)
             try:
                 updated_cards, updated_undo = self._apply_mutation(
                     state,
@@ -749,6 +808,7 @@ class WorkBoardAdoptionStore:
                     preview_ref=preview.preview_ref,
                     approval_ref=preview.approval_ref,
                     approval_validation_ref=approval_validation_ref,
+                    approval_expires_at=approval_expires_at,
                     authority_decision_ref=authority_decision_ref,
                     authority_lease_ref=lease.lease_ref,
                     receipt_ref=receipt_ref,
@@ -830,7 +890,35 @@ class WorkBoardAdoptionStore:
     ) -> WorkBoardAdoptionApprovalReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
         with self.lock_manager.acquire(_LOCK_KEY):
-            preview = self._preview_restore(request, idempotency_ref=idempotency_ref)
+            current, current_readable = self._read_current_for_restore()
+            restored = self._open_portable_backup(request)
+            prior = next(
+                (
+                    receipt
+                    for receipt in current.receipts
+                    if receipt.idempotency_ref == idempotency_ref
+                ),
+                None,
+            )
+            if prior is not None:
+                return self._replay_captured_approval(
+                    prior,
+                    action="restore_backup",
+                    payload_fingerprint_ref=prior.payload_fingerprint_ref,
+                    preview_ref=request.preview_ref,
+                    approval_ref=request.approval_ref,
+                    idempotency_ref=idempotency_ref,
+                    backup_fingerprint_ref=(
+                        request.backup.ciphertext_fingerprint_ref
+                    ),
+                )
+            preview = self._build_restore_preview(
+                request,
+                restored=restored,
+                current=current,
+                current_readable=current_readable,
+                idempotency_ref=idempotency_ref,
+            )
             if (
                 request.preview_ref != preview.preview_ref
                 or request.approval_ref != preview.approval_ref
@@ -894,9 +982,13 @@ class WorkBoardAdoptionStore:
                 raise WorkBoardAdoptionConflict(
                     "WORK_BOARD_ADOPTION_IDEMPOTENCY_CONFLICT"
                 )
-            lease_store, lease, authority_decision_ref, approval_validation_ref = (
-                self._authorize(preview, idempotency_ref=idempotency_ref)
-            )
+            (
+                lease_store,
+                lease,
+                authority_decision_ref,
+                approval_validation_ref,
+                approval_expires_at,
+            ) = self._authorize(preview, idempotency_ref=idempotency_ref)
             try:
                 receipt_ref = _hash_ref(
                     "receipt-ref:work-board-adoption-restore",
@@ -920,6 +1012,7 @@ class WorkBoardAdoptionStore:
                     preview_ref=preview.preview_ref,
                     approval_ref=preview.approval_ref,
                     approval_validation_ref=approval_validation_ref,
+                    approval_expires_at=approval_expires_at,
                     authority_decision_ref=authority_decision_ref,
                     authority_lease_ref=lease.lease_ref,
                     receipt_ref=receipt_ref,
@@ -1183,6 +1276,35 @@ class WorkBoardAdoptionStore:
         )
 
     @staticmethod
+    def _replay_captured_approval(
+        prior: WorkBoardAdoptionMutationReceipt,
+        *,
+        action: str,
+        payload_fingerprint_ref: str,
+        preview_ref: str,
+        approval_ref: str,
+        idempotency_ref: str,
+        backup_fingerprint_ref: str | None = None,
+    ) -> WorkBoardAdoptionApprovalReceipt:
+        if (
+            prior.action != action
+            or prior.payload_fingerprint_ref != payload_fingerprint_ref
+            or prior.preview_ref != preview_ref
+            or prior.approval_ref != approval_ref
+            or prior.backup_fingerprint_ref != backup_fingerprint_ref
+        ):
+            raise WorkBoardAdoptionConflict(
+                "WORK_BOARD_ADOPTION_IDEMPOTENCY_CONFLICT"
+            )
+        return WorkBoardAdoptionApprovalReceipt(
+            approval_ref=prior.approval_ref,
+            approval_validation_ref=prior.approval_validation_ref,
+            preview_ref=prior.preview_ref,
+            idempotency_ref=idempotency_ref,
+            expires_at=prior.approval_expires_at,
+        )
+
+    @staticmethod
     def _card(
         state: WorkBoardAdoptionState,
         target_ref: str | None,
@@ -1368,7 +1490,7 @@ class WorkBoardAdoptionStore:
         ),
         *,
         idempotency_ref: str,
-    ) -> tuple[AuthorityLeaseStore, AuthorityLease, str, str]:
+    ) -> tuple[AuthorityLeaseStore, AuthorityLease, str, str, datetime]:
         (
             lease_store,
             lease_request,
@@ -1461,6 +1583,7 @@ class WorkBoardAdoptionStore:
             lease,
             decision.decision_ref,
             approval_decision.decision_id,
+            grant.expires_at,
         )
 
     @staticmethod
@@ -1648,11 +1771,7 @@ class WorkBoardAdoptionStore:
             os.replace(temporary, self.state_path)
             temporary = None
             os.chmod(self.state_path, 0o600)
-            directory_fd = os.open(self.state_dir, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            _fsync_directory(self.state_dir)
         finally:
             if descriptor >= 0:
                 os.close(descriptor)

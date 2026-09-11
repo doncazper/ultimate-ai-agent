@@ -216,7 +216,10 @@ export function WorkBoardSurface({ data }: { data: ControlCenterData }) {
   return (
     <div className="ns-surface ns-work-board">
       <WorkBoardAdoptionWorkspace />
-      <details className="crm-foundation-details ns-crm-compatibility">
+      <details
+        className="crm-foundation-details ns-crm-compatibility"
+        open={board.local_card_create_enabled && board.local_task_create_enabled}
+      >
         <summary>Legacy Work Board compatibility cockpit</summary>
         <div className="ns-crm-compatibility-content">
       <Toolbar title={board.title} subtitle="Backend-owned plans and exact local task records">

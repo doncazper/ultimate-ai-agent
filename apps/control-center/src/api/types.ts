@@ -3161,6 +3161,7 @@ export interface WorkBoardAdoptionMutationReceipt {
   preview_ref: string;
   approval_ref: string;
   approval_validation_ref: string;
+  approval_expires_at: string;
   authority_decision_ref: string;
   authority_lease_ref: string;
   receipt_ref: string;

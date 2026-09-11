@@ -58,23 +58,55 @@ function newIdempotencyRef(action: string): string {
 }
 
 function displayTag(ref: string): string {
-  return ref.replace(/^tag-ref:work-board:/, "").replaceAll("-", " ");
+  const prefix = "tag-ref:work-board:";
+  return ref.startsWith(prefix)
+    ? ref.slice(prefix.length).replaceAll("-", " ")
+    : ref;
 }
 
 function tagRefs(value: string): string[] {
   return value
     .split(",")
-    .map((item) =>
-      item
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_.:-]+/g, "-")
-        .replace(/^-+|-+$/g, ""),
-    )
+    .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 16)
-    .map((item) => `tag-ref:work-board:${item}`)
+    .map((item) => {
+      if (/^tag-ref:[A-Za-z0-9_.:-]+$/.test(item) && item.length <= 191) {
+        return item;
+      }
+      const shorthand = item
+        .toLowerCase()
+        .replace(/[^a-z0-9_.:-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return shorthand ? `tag-ref:work-board:${shorthand}` : "";
+    })
+    .filter(Boolean)
     .filter((item, index, all) => all.indexOf(item) === index);
+}
+
+function laneLabel(ref: WorkBoardAdoptionLaneRef): string {
+  return LANES.find((lane) => lane.ref === ref)?.label ?? ref;
+}
+
+function mutationReviewDetail(pending: PendingMutation): string {
+  const { request, preview } = pending;
+  const revision = `Revision ${preview.expected_revision} → ${preview.resulting_revision}.`;
+  if (request.action === "create" || request.action === "update") {
+    const draft = request.draft;
+    if (!draft) return revision;
+    const identity =
+      request.action === "create"
+        ? `new card ${preview.card_ref ?? "pending card"}`
+        : `card ${request.target_ref ?? "unknown"}`;
+    return `${request.action === "create" ? "Create" : "Update"} ${identity}. Title: “${draft.title}”. Description: ${draft.description ? `“${draft.description}”` : "none"}. Priority: ${draft.priority}. Lane: ${laneLabel(draft.lane_ref)}. Tags: ${draft.tag_refs.length > 0 ? draft.tag_refs.join(", ") : "none"}. ${revision}`;
+  }
+  if (request.action === "move") {
+    return `Move card ${request.target_ref ?? "unknown"} to ${request.lane_ref ? laneLabel(request.lane_ref) : "unknown lane"}. ${revision}`;
+  }
+  if (request.action === "archive" || request.action === "recover") {
+    return `${request.action === "archive" ? "Archive" : "Recover"} card ${request.target_ref ?? "unknown"}. ${revision}`;
+  }
+  return `Undo the most recent local board change. ${revision}`;
 }
 
 function cardToken(card: WorkBoardAdoptionCard): string {
@@ -758,7 +790,7 @@ export function WorkBoardAdoptionWorkspace() {
         <ConfirmationDialog
           title="Review this Work Board change"
           summary={pending.preview.safe_summary}
-          detail={`Revision ${pending.preview.expected_revision} → ${pending.preview.resulting_revision}`}
+          detail={mutationReviewDetail(pending)}
           confirmLabel="Confirm and save locally"
           busy={busy}
           onCancel={() => setPending(null)}

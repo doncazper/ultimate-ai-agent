@@ -97,6 +97,7 @@ const receipt: WorkBoardAdoptionMutationReceipt = {
   preview_ref: preview.preview_ref,
   approval_ref: preview.approval_ref,
   approval_validation_ref: "approval-decision-ref:work-board:test",
+  approval_expires_at: "2026-09-11T10:00:00Z",
   authority_decision_ref: "authority-decision-ref:work-board:test",
   authority_lease_ref: "authority-lease-ref:work-board:test",
   receipt_ref: "receipt-ref:work-board-adoption:new",
@@ -163,6 +164,12 @@ describe("WorkBoardAdoptionWorkspace", () => {
     await screen.findByRole("dialog", {
       name: "Review this Work Board change",
     });
+    expect(
+      screen.getByText(/Create new card .* Title: “Plan customer interviews”/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Priority: medium\. Lane: Inbox\. Tags: tag-ref:work-board:research, tag-ref:work-board:founder/),
+    ).toBeVisible();
     const [request, idempotencyRef] =
       apiMocks.previewWorkBoardAdoptionMutation.mock.calls[0];
     expect(request).toMatchObject({
@@ -219,6 +226,53 @@ describe("WorkBoardAdoptionWorkspace", () => {
     expect(
       screen.getByRole("dialog", { name: "Review this Work Board change" }),
     ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Move card work-board-card-ref:founder-private:test to Doing\. Revision 3 → 4\./,
+      ),
+    ).toBeVisible();
+  });
+
+  it("preserves backend-owned tag refs while editing another field", async () => {
+    apiMocks.loadWorkBoardAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      active_cards: [
+        {
+          ...workspace.active_cards[0],
+          tag_refs: ["tag-ref:founder"],
+        },
+      ],
+    });
+    apiMocks.previewWorkBoardAdoptionMutation.mockResolvedValue({
+      ...preview,
+      action: "update",
+      target_ref: workspace.active_cards[0].card_ref,
+      card_ref: workspace.active_cards[0].card_ref,
+    });
+    render(<WorkBoardAdoptionWorkspace />);
+    await screen.findAllByText("Prepare founder briefing");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Tags, separated by commas")).toHaveValue(
+      "tag-ref:founder",
+    );
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Prepare revised founder briefing" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review before saving" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewWorkBoardAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update",
+          draft: expect.objectContaining({
+            title: "Prepare revised founder briefing",
+            tag_refs: ["tag-ref:founder"],
+          }),
+        }),
+        expect.stringMatching(/^idempotency-ref:work-board-adoption-ui:update:/),
+      ),
+    );
   });
 
   it("blocks ordinary edits while preserving the recovery controls", async () => {

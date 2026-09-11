@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import ultimate_ai_agent.core.control_center.work_board_adoption as work_board_adoption
 from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.control_center.work_board_adoption import (
     WORK_BOARD_ADOPTION_RESTORE_ROUTE_REF,
@@ -82,6 +83,7 @@ def test_empty_work_board_is_backend_owned_and_ready(tmp_path: Path) -> None:
     assert view.task_execution_enabled is False
     assert view.connector_write_enabled is False
     assert view.provider_model_call_enabled is False
+    assert not (tmp_path / ".locks").exists()
 
 
 def test_preview_is_non_mutating_and_exact_scope_bound(tmp_path: Path) -> None:
@@ -264,9 +266,20 @@ def test_exact_idempotent_replay_and_payload_conflict(tmp_path: Path) -> None:
         approval_ref=preview.approval_ref,
     )
     first = store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+    replayed_approval = store.capture_approval(
+        WorkBoardAdoptionApprovalCaptureRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
     replay = store.commit_mutation(commit, idempotency_ref=idempotency_ref)
 
     assert first.replayed is False
+    assert replayed_approval.approval_ref == first.approval_ref
+    assert replayed_approval.approval_validation_ref == first.approval_validation_ref
+    assert replayed_approval.expires_at == first.approval_expires_at
     assert replay.replayed is True
     assert replay.receipt_ref == first.receipt_ref
     assert store.read_view().revision == 1
@@ -385,6 +398,14 @@ def test_encrypted_backup_restores_into_fresh_workspace(tmp_path: Path) -> None:
         commit_request,
         idempotency_ref=idempotency_ref,
     )
+    replayed_approval = restored.capture_restore_approval(
+        WorkBoardAdoptionRestoreApprovalCaptureRequest(
+            **restore_request.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=approval.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
     replay = restored.commit_restore(
         commit_request,
         idempotency_ref=idempotency_ref,
@@ -396,6 +417,8 @@ def test_encrypted_backup_restores_into_fresh_workspace(tmp_path: Path) -> None:
     assert view.revision == 2
     assert view.active_cards[0].title == "Private launch plan"
     assert view.can_undo is False
+    assert replayed_approval.approval_validation_ref == receipt.approval_validation_ref
+    assert replayed_approval.expires_at == receipt.approval_expires_at
     assert replay.replayed is True
     assert replay.receipt_ref == receipt.receipt_ref
     assert view.revision == 2
@@ -587,3 +610,17 @@ def test_restore_can_recover_unreadable_state_with_exact_preview(tmp_path: Path)
     )
 
     assert target.read_view().active_cards[0].title == "Recovery copy"
+
+
+def test_windows_directory_sync_skips_unsupported_directory_open(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(work_board_adoption.os, "name", "nt")
+
+    def unexpected_open(*_args: object, **_kwargs: object) -> int:
+        raise AssertionError("Windows durability must not open a directory descriptor")
+
+    monkeypatch.setattr(work_board_adoption.os, "open", unexpected_open)
+
+    work_board_adoption._fsync_directory(tmp_path)

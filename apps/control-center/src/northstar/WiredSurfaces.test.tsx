@@ -705,7 +705,7 @@ describe("North Star backend wiring", () => {
     expect(screen.getByRole("button", { name: "Ask UAA" })).toBeDisabled();
   });
 
-  it("keeps legacy Work Board mutations unavailable without an exact prepared envelope", () => {
+  it("keeps Work Board mutations unavailable without an exact prepared envelope", () => {
     const data = cloneData();
     data.routeStates["/work-board"].state = "backend_owned";
     Object.assign(data.workBoard, {
@@ -721,8 +721,6 @@ describe("North Star backend wiring", () => {
       task_create_route_available: true,
     });
     render(<NorthStarControlCenter activePath="/workspace/work-board" data={data} />);
-
-    fireEvent.click(screen.getByText("Legacy Work Board compatibility cockpit"));
 
     for (const button of screen.getAllByRole("button", { name: /Create card unavailable/ })) {
       expect(button).toBeDisabled();
