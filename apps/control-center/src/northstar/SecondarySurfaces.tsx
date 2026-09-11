@@ -540,6 +540,11 @@ function TerminalSurface({ onBack }: { onBack: () => void }) {
   return <div className="ns-surface ns-terminal"><Toolbar title="Developer Tools · Terminal" subtitle="Reference-only command lanes with visible scope"><Button disabled icon="plus" title="No governed terminal-session create contract is wired">New governed session unavailable</Button><a className="ns-button primary" href={`${WORKSPACE_PREFIX}/decisions`}>Review decisions</a></Toolbar><Tabs active="Sessions" items={["Sessions"]} /><div className="ns-terminal-layout"><aside className="ns-session-list"><header><strong>Reference sessions</strong></header>{["UI verification", "Docs checks", "Frontend tests"].map((item, index) => <button className={index === 0 ? "active" : ""} disabled key={item} title="Reference fixture; no selectable terminal session exists" type="button"><strong>{item}</strong><small>Render fixture</small></button>)}</aside><section><div className="ns-terminal-console"><header><strong>UI verification · reference lane</strong><span>No command authority</span></header><code>&gt; npm run typecheck</code><p>Reference output only · no command executed from this surface.</p><code>&gt; docs:verify</code><p>Reference output only · use the canonical CLI inspection path.</p><code>&gt; playwright test --project=desktop</code><p>Reference output only · no test process was started.</p><footer><Icon name="lock" size={14} /> Terminal execution is not wired. Use an approved CLI lane outside this representation.</footer></div><Panel title="Allowed command references" icon="info"><div className="ns-grid-actions"><Button disabled icon="code-2">Typecheck</Button><Button disabled icon="play">Focused tests</Button><Button disabled icon="book-open">Docs verifier</Button><Button disabled icon="git-branch">Git diff check</Button></div></Panel></section><aside><Panel title="Session authority"><MetaRow icon="shield" label="Lane" value="Reference only" /><MetaRow icon="wifi-off" label="Network" value="Denied" /><MetaRow icon="terminal" label="Arbitrary shell" value="Blocked" tone="red" /><MetaRow icon="lock" label="Environment" value="Redacted" /><div className="ns-stack-actions"><Button disabled tone="primary">Review command unavailable</Button><Button tone="quiet" onClick={onBack}>Back to Runtime</Button></div></Panel></aside></div><div className="ns-receipt-band"><Icon name="lock" size={18} /> Not backend-wired · No command executed · No receipt claimed</div></div>;
 }
 
+interface PendingLocalTaskCommitAttempt {
+  itemRef: string;
+  submittedRevisionRef: string;
+}
+
 export function DecisionReviewSurface({
   data,
   onAuthoritativeRefresh,
@@ -571,8 +576,8 @@ export function DecisionReviewSurface({
   const [pendingLocalTaskCommit, setPendingLocalTaskCommit] = useState(false);
   const [decisionReceipts, setDecisionReceipts] = useState<Record<string, FounderLoopActionDecisionReceipt>>({});
   const decisionReceiptRefs = useRef<Record<string, FounderLoopActionDecisionReceipt>>({});
-  const [uncertainLocalTaskCommitItemRefs, setUncertainLocalTaskCommitItemRefs] =
-    useState<string[]>([]);
+  const [uncertainLocalTaskCommitAttempts, setUncertainLocalTaskCommitAttempts] =
+    useState<PendingLocalTaskCommitAttempt[]>([]);
   const [decisionFeedback, setDecisionFeedback] = useState<Record<string, string>>({});
   const [localTaskReceipts, setLocalTaskReceipts] = useState<Record<string, FounderLoopLocalTaskCommitReceipt>>({});
   const [localTaskFeedback, setLocalTaskFeedback] = useState<Record<string, string>>({});
@@ -603,20 +608,23 @@ export function DecisionReviewSurface({
       && currentProjectedItem.receipt_visibility.local_task_ref
         === currentPendingReceipt.local_task_ref,
     );
-    const stillUncertain = uncertainLocalTaskCommitItemRefs.filter(
-      (uncertainItemRef) => {
+    const stillUncertain = uncertainLocalTaskCommitAttempts.filter(
+      (attempt) => {
         const projectedItem = data.founderActionsInbox.items.find(
-          (candidate) => candidate.item_ref === uncertainItemRef,
+          (candidate) => candidate.item_ref === attempt.itemRef,
         );
-        const reconciled = localTaskCommitReceiptProjectionIsBound(projectedItem);
+        const reconciled = localTaskCommitAttemptSnapshotProvesSafe(
+          attempt,
+          projectedItem,
+        );
         if (reconciled) {
-          onLocalTaskCommitFenceChange?.(uncertainItemRef, false);
+          onLocalTaskCommitFenceChange?.(attempt.itemRef, false);
         }
         return !reconciled;
       },
     );
-    if (stillUncertain.length !== uncertainLocalTaskCommitItemRefs.length) {
-      setUncertainLocalTaskCommitItemRefs(stillUncertain);
+    if (stillUncertain.length !== uncertainLocalTaskCommitAttempts.length) {
+      setUncertainLocalTaskCommitAttempts(stillUncertain);
     }
     setInbox(data.founderActionsInbox);
     const nextSelected = currentItemRef
@@ -666,7 +674,7 @@ export function DecisionReviewSurface({
   }, [
     data.founderActionsInbox,
     onLocalTaskCommitFenceChange,
-    uncertainLocalTaskCommitItemRefs,
+    uncertainLocalTaskCommitAttempts,
   ]);
   const authoritative = data.connection.state === "online" && !data.connection.usingMockData && data.routeStates["/actions"]?.state === "backend_owned";
   const items = inbox.items;
@@ -844,7 +852,9 @@ export function DecisionReviewSurface({
     && costApproved
     && item
     && !pendingCancellationItemRefs.includes(item.item_ref)
-    && !uncertainLocalTaskCommitItemRefs.includes(item.item_ref)
+    && !uncertainLocalTaskCommitAttempts.some(
+      (attempt) => attempt.itemRef === item.item_ref,
+    )
     && localTaskCommitApprovalRef
     && localTaskCommitProjectionStatus === "absent"
     && localTaskSafeDisablePostureReady
@@ -1064,6 +1074,13 @@ export function DecisionReviewSurface({
     ) return;
     const submittedItem = item;
     const submittedItemRef = item.item_ref;
+    const submittedRevisionRef =
+      item.action_revision_ref ?? item.expected_revision_ref;
+    if (!isSafeNorthStarRef(submittedRevisionRef)) return;
+    const submittedAttempt = {
+      itemRef: submittedItemRef,
+      submittedRevisionRef,
+    };
     const submittedApprovalRef = localTaskCommitApprovalRef;
     const submittedRequest = localTaskCommitRequest;
     setPendingLocalTaskCommit(true);
@@ -1094,10 +1111,10 @@ export function DecisionReviewSurface({
             ?? "",
         },
       ))) {
-        setUncertainLocalTaskCommitItemRefs((current) =>
-          current.includes(submittedItemRef)
+        setUncertainLocalTaskCommitAttempts((current) =>
+          current.some((attempt) => attempt.itemRef === submittedItemRef)
             ? current
-            : [...current, submittedItemRef],
+            : [...current, submittedAttempt],
         );
         const invalidReceiptMessage =
           "The local task response was not safe to display. The commit fence remains active while the authoritative queue is reconciled.";
@@ -1115,9 +1132,12 @@ export function DecisionReviewSurface({
           const refreshedItem = refreshed.items.find(
             (candidate) => candidate.item_ref === submittedItemRef,
           );
-          if (localTaskCommitReceiptProjectionIsBound(refreshedItem)) {
-            setUncertainLocalTaskCommitItemRefs((current) =>
-              current.filter((itemRef) => itemRef !== submittedItemRef),
+          if (localTaskCommitAttemptSnapshotProvesSafe(
+            submittedAttempt,
+            refreshedItem,
+          )) {
+            setUncertainLocalTaskCommitAttempts((current) =>
+              current.filter((attempt) => attempt.itemRef !== submittedItemRef),
             );
             onLocalTaskCommitFenceChange?.(submittedItemRef, false);
           }
@@ -1183,10 +1203,10 @@ export function DecisionReviewSurface({
         }
       }
     } catch (error) {
-      setUncertainLocalTaskCommitItemRefs((current) =>
-        current.includes(submittedItemRef)
+      setUncertainLocalTaskCommitAttempts((current) =>
+        current.some((attempt) => attempt.itemRef === submittedItemRef)
           ? current
-          : [...current, submittedItemRef],
+          : [...current, submittedAttempt],
       );
       const failureDetail = error instanceof Error
         ? error.message
@@ -1207,19 +1227,19 @@ export function DecisionReviewSurface({
         const refreshedItem = refreshed.items.find(
           (candidate) => candidate.item_ref === submittedItemRef,
         );
-        const refreshedProjectionState =
-          localTaskCommitReceiptProjectionState(refreshedItem);
-        if (
-          refreshedProjectionState === "bound"
-          || refreshedProjectionState === "absent"
-        ) {
-          setUncertainLocalTaskCommitItemRefs((current) =>
-            current.filter((itemRef) => itemRef !== submittedItemRef),
+        if (localTaskCommitAttemptSnapshotProvesSafe(
+          submittedAttempt,
+          refreshedItem,
+        )) {
+          const refreshedProjectionState =
+            localTaskCommitReceiptProjectionState(refreshedItem);
+          setUncertainLocalTaskCommitAttempts((current) =>
+            current.filter((attempt) => attempt.itemRef !== submittedItemRef),
           );
           onLocalTaskCommitFenceChange?.(submittedItemRef, false);
           const reconciledMessage = refreshedProjectionState === "bound"
             ? "The authoritative queue confirms the exact local task receipt. The commit fence is cleared."
-            : "The authoritative queue confirms no local task record was created. The commit fence is cleared and the exact action may be retried.";
+            : "The authoritative queue advanced beyond the submitted action revision. The commit fence is cleared because that exact revision can no longer mutate.";
           setLocalTaskFeedback((current) => ({
             ...current,
             [submittedItemRef]: reconciledMessage,
@@ -1270,7 +1290,7 @@ function actionInboxLocalTaskCommitIsEligible(
     || !readModel.safe_refs_only
     || readModel.raw_content_included
     || readModel.fake_mutation_controls_exposed
-    || !readModel.tier_3_exact_local_task_commit_available
+    || readModel.tier_3_exact_local_task_commit_available !== true
     || readModel.work_item_count !== readModel.work_items.length
     || !sameSafeRefs(readModel.work_item_refs, readModel.work_items.map((candidate) => candidate.item_ref))
     || new Set(readModel.work_item_refs).size !== readModel.work_item_refs.length
@@ -1401,6 +1421,20 @@ function localTaskCommitReceiptProjectionIsBound(
   item: FounderLoopActionItem | undefined,
 ): boolean {
   return localTaskCommitReceiptProjectionState(item) === "bound";
+}
+
+function localTaskCommitAttemptSnapshotProvesSafe(
+  attempt: PendingLocalTaskCommitAttempt,
+  item: FounderLoopActionItem | undefined,
+): boolean {
+  if (!item) return false;
+  const currentRevisionRef =
+    item.action_revision_ref ?? item.expected_revision_ref;
+  return localTaskCommitReceiptProjectionIsBound(item)
+    || Boolean(
+      isSafeNorthStarRef(currentRevisionRef)
+        && currentRevisionRef !== attempt.submittedRevisionRef,
+    );
 }
 
 function isSafeNorthStarRef(value: unknown): value is string {

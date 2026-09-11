@@ -21848,6 +21848,7 @@ function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
     value.local_read_model_only !== true ||
     value.safe_refs_only !== true ||
     value.raw_content_included !== false ||
+    typeof value.tier_3_exact_local_task_commit_available !== "boolean" ||
     !hasDeniedFlagsFalse(value, ACTION_WORK_QUEUE_DENIED_FLAGS)
   ) {
     return false;

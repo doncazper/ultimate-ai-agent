@@ -744,6 +744,20 @@ describe("loadNorthStarDecisionsData", () => {
     );
   });
 
+  it("rejects a non-boolean exact local-task availability gate", async () => {
+    const fixtures = boundedDecisionFixtures();
+    const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {
+      action_inbox_work_queue_read_model: Record<string, unknown>;
+    };
+    inbox.action_inbox_work_queue_read_model
+      .tier_3_exact_local_task_commit_available = "false";
+    stubBoundedFetch(fixtures);
+
+    await expect(fetchNorthStarDecisionsInbox(binding)).rejects.toThrow(
+      "NORTH_STAR_DECISIONS_RESPONSE_INVALID",
+    );
+  });
+
   it("rejects unsafe nested decision-lane display text", async () => {
     const fixtures = boundedDecisionFixtures();
     const inbox = fixtures[API_ENDPOINTS.founderActionsInbox] as unknown as {

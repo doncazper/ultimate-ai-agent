@@ -295,6 +295,10 @@ function attachExactLocalTaskWorkQueue(
   if (!actionItem || !readModel || !workItem) {
     throw new Error(`Missing test Action Inbox work queue item ${itemRef}`);
   }
+  const revisionRef = actionItem.action_revision_ref
+    ?? `action-revision:${itemRef.replace(/^founder-action:/, "")}:00000001:${"1".repeat(20)}`;
+  actionItem.action_revision_ref = revisionRef;
+  actionItem.expected_revision_ref = revisionRef;
   const exactReadModel: FounderLoopActionInboxWorkQueueReadModel = {
     ...readModel,
     source: "python_core_action_inbox_work_queue_read_model",
@@ -1152,7 +1156,7 @@ describe("North Star backend wiring", () => {
       data.founderActionsInbox,
     );
 
-    render(
+    const view = render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>
         <NorthStarControlCenter
           activePath="/workspace/decisions"
@@ -1166,12 +1170,36 @@ describe("North Star backend wiring", () => {
     }));
 
     expect(
-      (await screen.findAllByText(/confirms no local task record was created/i))
-        .length,
+      (await screen.findAllByText(/local task outcome is uncertain/i)).length,
     ).toBeGreaterThan(0);
     expect(onLocalTaskCommitFenceChange).toHaveBeenLastCalledWith(
       item.item_ref,
-      false,
+      true,
+    );
+
+    const advancedData = structuredClone(data);
+    const advancedItem = advancedData.founderActionsInbox.items.find(
+      (candidate) => candidate.item_ref === item.item_ref,
+    );
+    if (!advancedItem) throw new Error("Expected advanced Action Inbox item");
+    const advancedRevisionRef =
+      "action-revision:founder-action-mock-local-task-review:00000002:22222222222222222222";
+    advancedItem.action_revision_ref = advancedRevisionRef;
+    advancedItem.expected_revision_ref = advancedRevisionRef;
+    view.rerender(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={advancedData}
+          onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+    await waitFor(() =>
+      expect(onLocalTaskCommitFenceChange).toHaveBeenLastCalledWith(
+        item.item_ref,
+        false,
+      ),
     );
   });
 
