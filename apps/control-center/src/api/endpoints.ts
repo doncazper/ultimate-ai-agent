@@ -56,6 +56,17 @@ export const API_ENDPOINTS = {
   controlCenterWorkBoardCards: "/control-center/work-board/cards",
   controlCenterWorkBoardReorder: "/control-center/work-board/reorder",
   controlCenterWorkBoardTasks: "/control-center/work-board/tasks",
+  workBoardAdoption: "/control-center/work-board/adoption",
+  workBoardAdoptionPreview: "/control-center/work-board/adoption/preview",
+  workBoardAdoptionApproval: "/control-center/work-board/adoption/approval",
+  workBoardAdoptionCommit: "/control-center/work-board/adoption/commit",
+  workBoardAdoptionBackup: "/control-center/work-board/adoption/backup",
+  workBoardAdoptionRestorePreview:
+    "/control-center/work-board/adoption/restore-preview",
+  workBoardAdoptionRestoreApproval:
+    "/control-center/work-board/adoption/restore-approval",
+  workBoardAdoptionRestoreCommit:
+    "/control-center/work-board/adoption/restore-commit",
   socialPublishingProposal: "/control-center/social-publishing/proposal",
   autocorrectStatus: "/control-center/autocorrect/status",
   autocorrectProposalPreview: "/control-center/autocorrect/proposals/preview",

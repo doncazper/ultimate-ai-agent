@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `368`.
+Current OpenAPI path count: `376`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `370`
-- OpenAPI paths: `368`
+- Manifest route operations: `378`
+- OpenAPI paths: `376`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -24,7 +24,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 193 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:96, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 201 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:104, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -342,6 +342,14 @@ an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/control-center/turn-router/preview` | `post_control_center_turn_router_preview` | `validation_only` | yes | future | yes |
 | POST | `/control-center/web-evidence/attach` | `post_control_center_web_evidence_attach` | `governed_network_read_only` | no | future | yes |
 | GET | `/control-center/work-board` | `get_control_center_work_board` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/work-board/adoption` | `get_control_center_work_board_adoption_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/approval` | `capture_control_center_work_board_adoption_approval` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/backup` | `create_control_center_work_board_adoption_backup` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/commit` | `commit_control_center_work_board_adoption_mutation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/preview` | `preview_control_center_work_board_adoption_mutation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/restore-approval` | `capture_control_center_work_board_adoption_restore_approval` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/restore-commit` | `commit_control_center_work_board_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/adoption/restore-preview` | `preview_control_center_work_board_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/cards` | `post_control_center_work_board_cards` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/reorder` | `post_control_center_work_board_reorder` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/tasks` | `post_control_center_work_board_tasks` | `local_dev_workspace_only` | no | future | yes |

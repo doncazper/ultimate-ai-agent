@@ -45,6 +45,19 @@ from ultimate_ai_agent.core.control_center.work_board import (
     prepare_work_board_reorder_approval,
     prepare_work_board_task_create_approval,
 )
+from ultimate_ai_agent.core.control_center.work_board_adoption import (
+    WORK_BOARD_ADOPTION_CONTRACT_REF,
+    WorkBoardAdoptionApprovalCaptureRequest,
+    WorkBoardAdoptionCommitRequest,
+    WorkBoardAdoptionConflict,
+    WorkBoardAdoptionError,
+    WorkBoardAdoptionMutationRequest,
+    WorkBoardAdoptionPortableBackupRequest,
+    WorkBoardAdoptionPortableRestoreRequest,
+    WorkBoardAdoptionRestoreApprovalCaptureRequest,
+    WorkBoardAdoptionRestoreCommitRequest,
+    WorkBoardAdoptionStore,
+)
 from ultimate_ai_agent.core.code import (
     build_coding_cockpit_session_seed,
     build_coding_git_review,
@@ -95,6 +108,8 @@ _REGISTERED_ATTR = "_uaa_control_center_routes_registered"
 _OPERATOR_CONFIRMATION_HEADER = "X-UAA-Operator-Confirmed"
 CRM_ADOPTION_MAX_REQUEST_BODY_BYTES = 48 * 1024 * 1024
 CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
+WORK_BOARD_ADOPTION_MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024
+WORK_BOARD_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
 _CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
     {
         "/control-center/crm/adoption/query",
@@ -104,6 +119,17 @@ _CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
         "/control-center/crm/adoption/backup",
         "/control-center/crm/adoption/restore-preview",
         "/control-center/crm/adoption/restore",
+    }
+)
+_WORK_BOARD_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
+    {
+        "/control-center/work-board/adoption/preview",
+        "/control-center/work-board/adoption/approval",
+        "/control-center/work-board/adoption/commit",
+        "/control-center/work-board/adoption/backup",
+        "/control-center/work-board/adoption/restore-preview",
+        "/control-center/work-board/adoption/restore-approval",
+        "/control-center/work-board/adoption/restore-commit",
     }
 )
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
@@ -117,6 +143,18 @@ class CrmAdoptionBodyLimitResponse(BaseModel):
     code: Literal["CRM_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
     contract_ref: Literal["contract-ref:queue-v2-q32-crm-adoption:v1"]
     maximum_body_bytes: Literal[50331648]
+    maximum_json_nesting_depth: Literal[64]
+
+
+class WorkBoardAdoptionBodyLimitResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    detail: Literal[
+        "The private Work Board request body exceeds the permitted local bound."
+    ]
+    code: Literal["WORK_BOARD_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
+    contract_ref: Literal["contract-ref:queue-v2-q33-work-board-adoption:v1"]
+    maximum_body_bytes: Literal[25165824]
     maximum_json_nesting_depth: Literal[64]
 
 
@@ -259,6 +297,94 @@ class CrmAdoptionBodyLimitMiddleware:
         await response(scope, receive, send)
 
 
+class WorkBoardAdoptionBodyLimitMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        maximum_body_bytes: int = WORK_BOARD_ADOPTION_MAX_REQUEST_BODY_BYTES,
+    ) -> None:
+        self.app = app
+        self.maximum_body_bytes = maximum_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() != "POST"
+            or scope.get("path") not in _WORK_BOARD_ADOPTION_BOUNDED_BODY_ROUTES
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        send = _crm_no_store_send(send)
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            try:
+                content_length = int(value)
+            except ValueError:
+                break
+            if content_length > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        buffered_body = bytearray()
+        received_bytes = 0
+        disconnected = False
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            received_bytes += len(chunk)
+            if received_bytes > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+            buffered_body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = bytes(buffered_body)
+        if _crm_json_nesting_exceeds_limit(body):
+            await self._reject(scope, receive, send)
+            return
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                if disconnected:
+                    return {"type": "http.disconnect"}
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.disconnect"}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    "The private Work Board request body exceeds the permitted "
+                    "local bound."
+                ),
+                "code": "WORK_BOARD_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED",
+                "contract_ref": WORK_BOARD_ADOPTION_CONTRACT_REF,
+                "maximum_body_bytes": self.maximum_body_bytes,
+                "maximum_json_nesting_depth": (
+                    WORK_BOARD_ADOPTION_MAX_REQUEST_NESTING_DEPTH
+                ),
+            },
+        )
+        apply_loopback_cors_response_headers(response, _crm_request_origin(scope))
+        await response(scope, receive, send)
+
+
 class CrmAdoptionPrivateResponseMiddleware:
     """Prevent authenticated founder-private CRM responses from being cached."""
 
@@ -267,7 +393,10 @@ class CrmAdoptionPrivateResponseMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not scope.get("path", "").startswith(
-            "/control-center/crm/adoption"
+            (
+                "/control-center/crm/adoption",
+                "/control-center/work-board/adoption",
+            )
         ):
             await self.app(scope, receive, send)
             return
@@ -284,6 +413,7 @@ def register_control_center_routes(
     _task_decomposition_service_getter = task_decomposition_service_getter
     if not getattr(app.state, _REGISTERED_ATTR, False):
         app.add_middleware(CrmAdoptionBodyLimitMiddleware)
+        app.add_middleware(WorkBoardAdoptionBodyLimitMiddleware)
         app.add_middleware(CrmAdoptionPrivateResponseMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
@@ -988,6 +1118,321 @@ def post_control_center_crm_local_mutation(
     )
 
 
+@router.get(
+    "/work-board/adoption",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_work_board_adoption_workspace",
+    summary="Read the founder-private local Work Board workspace",
+)
+def get_control_center_work_board_adoption() -> ResultEnvelope:
+    view = WorkBoardAdoptionStore.from_env().read_view()
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption",
+        trace_id=f"work-board-adoption-revision-ref:{view.revision}",
+        data=view.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-private-read",
+    )
+
+
+@router.post(
+    "/work-board/adoption/preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_work_board_adoption_mutation",
+    summary="Preview one exact local Work Board lifecycle change",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_preview(
+    request: WorkBoardAdoptionMutationRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        preview = WorkBoardAdoptionStore.from_env().preview_mutation(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-exact-preview",
+    )
+
+
+@router.post(
+    "/work-board/adoption/approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_work_board_adoption_approval",
+    summary="Capture one exact local Work Board approval",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_approval(
+    request: WorkBoardAdoptionApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        receipt = WorkBoardAdoptionStore.from_env().capture_approval(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-exact-approval",
+    )
+
+
+@router.post(
+    "/work-board/adoption/commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_work_board_adoption_mutation",
+    summary="Commit one approved local Work Board lifecycle change",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_commit(
+    request: WorkBoardAdoptionCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        receipt = WorkBoardAdoptionStore.from_env().commit_mutation(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-exact-receipt",
+    )
+
+
+@router.post(
+    "/work-board/adoption/backup",
+    response_model=ResultEnvelope,
+    operation_id="create_control_center_work_board_adoption_backup",
+    summary="Create a passphrase-encrypted portable Work Board backup",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_backup(
+    request: WorkBoardAdoptionPortableBackupRequest,
+) -> ResultEnvelope:
+    try:
+        backup = WorkBoardAdoptionStore.from_env().create_portable_backup(request)
+    except WorkBoardAdoptionError as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_backup",
+        trace_id=backup.ciphertext_fingerprint_ref,
+        data=backup.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-encrypted-backup",
+    )
+
+
+@router.post(
+    "/work-board/adoption/restore-preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_work_board_adoption_restore",
+    summary="Verify and preview an encrypted Work Board restore",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_restore_preview(
+    request: WorkBoardAdoptionPortableRestoreRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        preview = WorkBoardAdoptionStore.from_env().preview_restore(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_restore_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-restore-preview",
+    )
+
+
+@router.post(
+    "/work-board/adoption/restore-approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_work_board_adoption_restore_approval",
+    summary="Capture one exact encrypted Work Board restore approval",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_restore_approval(
+    request: WorkBoardAdoptionRestoreApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        receipt = WorkBoardAdoptionStore.from_env().capture_restore_approval(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_restore_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-restore-approval",
+    )
+
+
+@router.post(
+    "/work-board/adoption/restore-commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_work_board_adoption_restore",
+    summary="Restore one approved encrypted Work Board backup",
+    responses={
+        413: {
+            "model": WorkBoardAdoptionBodyLimitResponse,
+            "description": "Private Work Board request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_work_board_adoption_restore_commit(
+    request: WorkBoardAdoptionRestoreCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False,
+        alias=_OPERATOR_CONFIRMATION_HEADER,
+    ),
+) -> ResultEnvelope:
+    _require_work_board_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _work_board_adoption_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        receipt = WorkBoardAdoptionStore.from_env().commit_restore(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except (WorkBoardAdoptionConflict, WorkBoardAdoptionError) as exc:
+        _raise_work_board_adoption_http_error(exc)
+    return _work_board_adoption_result_envelope(
+        operation="control_center_work_board_adoption_restore_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:work-board-restore-receipt",
+    )
+
+
 @router.get("/work-board", response_model=ResultEnvelope)
 def get_control_center_work_board() -> ResultEnvelope:
     board = build_work_board_read_model()
@@ -1524,6 +1969,124 @@ def _crm_private_result_envelope(
             "provider_payloads_omitted",
         ],
     )
+
+
+def _work_board_adoption_result_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    data: object,
+    evidence_ref: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterWorkBoardAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": WORK_BOARD_ADOPTION_CONTRACT_REF,
+            }
+        ],
+        redactions_applied=[
+            "private_values_confined_to_authenticated_local_response",
+            "private_values_omitted_from_receipts",
+            "raw_paths_omitted",
+            "key_material_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _require_work_board_operator_confirmation(confirmed: bool) -> None:
+    if not confirmed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED",
+                "safe_message": (
+                    "Review the exact Work Board preview and confirm this one "
+                    "local change."
+                ),
+            },
+        )
+
+
+def _raise_work_board_adoption_http_error(exc: WorkBoardAdoptionError) -> None:
+    code = str(exc) or "WORK_BOARD_ADOPTION_ERROR"
+    status_code = 409 if isinstance(exc, WorkBoardAdoptionConflict) else 403
+    safe_message = (
+        "The private Work Board request could not be completed safely. "
+        "Refresh the board or use the encrypted recovery path."
+    )
+    if code in {
+        "WORK_BOARD_ADOPTION_BACKUP_UNLOCK_FAILED",
+        "WORK_BOARD_ADOPTION_BACKUP_FINGERPRINT_INVALID",
+        "WORK_BOARD_ADOPTION_BACKUP_INVALID",
+        "WORK_BOARD_ADOPTION_STATE_INVALID",
+        "WORK_BOARD_ADOPTION_STATE_READ_FAILED",
+    }:
+        status_code = 422
+    elif code == "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED":
+        status_code = 503
+        safe_message = (
+            "The private Work Board change was not published. Check local storage "
+            "and retry the exact approved request."
+        )
+    elif code == "WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN":
+        status_code = 503
+        safe_message = (
+            "The private Work Board change may have been published, but local "
+            "durability confirmation failed. Refresh before retrying."
+        )
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "code": code,
+            "safe_message": safe_message,
+        },
+    ) from exc
+
+
+def _work_board_adoption_idempotency_ref(
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> str:
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "Private Work Board requests require an idempotency key or "
+                    "scoped ref."
+                ),
+            },
+        )
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _raise_crm_adoption_http_error(exc: CrmAdoptionError) -> None:

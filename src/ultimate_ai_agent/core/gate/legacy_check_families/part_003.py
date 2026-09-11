@@ -999,15 +999,30 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.blocked_from_production
             )
             is_work_board_read_model = (
-                path in CONTROL_CENTER_WORK_BOARD_ROUTES
-                and route.method == "GET"
+                path
+                in (
+                    CONTROL_CENTER_WORK_BOARD_ROUTES
+                    | CONTROL_CENTER_WORK_BOARD_ADOPTION_SENSITIVE_PATHS
+                )
+                and route.method in {"GET", "POST"}
                 and route.side_effect_class == "local_dev_workspace_only"
                 and route.route_classification == "local_sensitive"
                 and route.protected_route
                 and route.approval_posture == "not_required_for_route_classification"
                 and not route.idempotency_required
-                and not route.rate_limit_targeted
-                and route.rate_limit_group is None
+                and (
+                    (
+                        route.method == "GET"
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        path in CONTROL_CENTER_WORK_BOARD_ADOPTION_SENSITIVE_PATHS
+                        and route.method == "POST"
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "work_board_adoption"
+                    )
+                )
                 and route.blocked_from_production
             )
             is_control_center_runtime_cockpit_read_model = (
@@ -1167,6 +1182,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                     CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS
                     | CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
                     | CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES
+                    | CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
                 )
                 and route.method == "POST"
                 and route.side_effect_class == "local_dev_workspace_only"
@@ -1181,7 +1197,16 @@ class FoundationGateLegacyChecksPart003Mixin:
                         and route.rate_limit_group == "crm_adoption"
                     )
                     or (
-                        path not in CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+                        path in CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "work_board_adoption"
+                    )
+                    or (
+                        path
+                        not in (
+                            CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
+                            | CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
+                        )
                         and not route.rate_limit_targeted
                         and route.rate_limit_group is None
                     )
@@ -1485,6 +1510,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "decideRuntimeGoalMutationApproval",
             "revokeRuntimeGoalMutationApproval",
             "postCrmAdoptionEnvelope",
+            "postWorkBoardAdoptionEnvelope",
             "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
         }

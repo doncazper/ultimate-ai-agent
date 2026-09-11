@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 370,
+    "api_manifest_route_count": 378,
     "release_surface_route_count": 44,
     "visible_action_count": 47,
     "human_capability_count": 32,
@@ -489,6 +489,78 @@
           "route_classification": "mutating_requires_authority",
           "approval_posture": "required_before_mutation_authority",
           "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/work-board/adoption",
+          "operation_id": "get_control_center_work_board_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/preview",
+          "operation_id": "preview_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/approval",
+          "operation_id": "capture_control_center_work_board_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/commit",
+          "operation_id": "commit_control_center_work_board_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/backup",
+          "operation_id": "create_control_center_work_board_adoption_backup",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-preview",
+          "operation_id": "preview_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-approval",
+          "operation_id": "capture_control_center_work_board_adoption_restore_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/adoption/restore-commit",
+          "operation_id": "commit_control_center_work_board_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
         }
       ],
       "ui_routes": [
@@ -499,8 +571,8 @@
           "ui_status": "backend-owned kanban",
           "release_status": "partial",
           "owner": "founder-loop",
-          "backend_route_count": 4,
-          "blocked_capability_count": 12,
+          "backend_route_count": 12,
+          "blocked_capability_count": 11,
           "visual_proof_status": "checked_in_baseline",
           "source_truth_status": "current"
         }
@@ -514,7 +586,7 @@
           "release_status": "partial_backend_not_product_ready",
           "side_effect_class": "local_dev_workspace_only",
           "risk_class": "medium",
-          "backend_route_count": 4,
+          "backend_route_count": 12,
           "missing_backend_route_count": 2,
           "source_truth_status": "current"
         },
@@ -544,6 +616,102 @@
         },
         {
           "action_id": "ui-control:work-board.create-task",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-create",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-edit",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-move",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-archive",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-recover",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-undo",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-backup",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:work-board.adoption-restore",
           "source": "human_capability_ui_control_ref",
           "frontend_route": "manual_ui_control",
           "ui_surface": "manual_ui_control",

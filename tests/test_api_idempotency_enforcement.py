@@ -27,10 +27,14 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
             "/api/runtime/goals/approval-requests/revoke",
             "/control-center/crm/adoption/approval",
             "/control-center/crm/adoption/commit",
-                "/control-center/crm/adoption/restore",
-                "/control-center/chat/threads/{thread_ref}/approval",
-                "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
+            "/control-center/crm/adoption/restore",
+            "/control-center/chat/threads/{thread_ref}/approval",
+            "/control-center/chat/threads/{thread_ref}/draft-checkpoint",
             "/control-center/chat/threads/{thread_ref}/lifecycle",
+            "/control-center/work-board/adoption/approval",
+            "/control-center/work-board/adoption/commit",
+            "/control-center/work-board/adoption/restore-approval",
+            "/control-center/work-board/adoption/restore-commit",
         }
     ]
     assert all(
@@ -144,6 +148,54 @@ def test_crm_adoption_approval_reports_durable_authority_store_owner() -> None:
     assert route["idempotency_enforcement"] == "route_owned_durable_replay"
     assert route["durable_idempotency_owner_ref"] == (
         "idempotency-owner:crm-adoption-authority-approval-store:v1"
+    )
+
+
+def test_work_board_adoption_commits_report_durable_receipt_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    expected_paths = {
+        "/control-center/work-board/adoption/commit",
+        "/control-center/work-board/adoption/restore-commit",
+    }
+    routes = [
+        route
+        for route in manifest["routes"]
+        if route["path"] in expected_paths and route["method"] == "POST"
+    ]
+
+    assert {route["path"] for route in routes} == expected_paths
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes
+    )
+    assert all(
+        route["durable_idempotency_owner_ref"]
+        == "idempotency-owner:work-board-adoption-state-receipts:v1"
+        for route in routes
+    )
+
+
+def test_work_board_adoption_approvals_report_durable_authority_owner() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    expected_paths = {
+        "/control-center/work-board/adoption/approval",
+        "/control-center/work-board/adoption/restore-approval",
+    }
+    routes = [
+        route
+        for route in manifest["routes"]
+        if route["path"] in expected_paths and route["method"] == "POST"
+    ]
+
+    assert {route["path"] for route in routes} == expected_paths
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes
+    )
+    assert all(
+        route["durable_idempotency_owner_ref"]
+        == "idempotency-owner:work-board-adoption-authority-approval-store:v1"
+        for route in routes
     )
 
 

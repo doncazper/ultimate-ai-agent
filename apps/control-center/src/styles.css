@@ -1497,6 +1497,180 @@ main {
   padding-left: 20px;
 }
 
+.work-board-adoption-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.work-board-adoption-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.work-board-adoption-lane {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 240px;
+  padding: 12px;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.work-board-adoption-lane > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.work-board-adoption-lane > header span {
+  display: grid;
+  min-width: 28px;
+  min-height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e6edf3;
+  color: #486581;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.work-board-adoption-lane > p {
+  margin: 20px 0;
+  color: #829ab1;
+  text-align: center;
+}
+
+.work-board-adoption-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #bcccdc;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.work-board-adoption-card.selected {
+  border-color: #2f80ed;
+  box-shadow: 0 0 0 2px rgba(47, 128, 237, 0.14);
+}
+
+.work-board-adoption-card > button {
+  display: grid;
+  gap: 5px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.work-board-adoption-card > button:hover:not(:disabled) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.work-board-adoption-card > button small {
+  color: #627d98;
+  text-transform: capitalize;
+}
+
+.work-board-adoption-card > button span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #486581;
+  font-size: 0.85rem;
+  font-weight: 500;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.work-board-adoption-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.work-board-adoption-tags span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #e6f6ff;
+  color: #0b69a3;
+  font-size: 0.72rem;
+}
+
+.work-board-adoption-card label {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.work-board-adoption-card select {
+  padding-block: 6px;
+}
+
+.work-board-adoption-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.work-board-adoption-editor fieldset {
+  display: grid;
+  gap: 12px;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+}
+
+.work-board-adoption-editor textarea {
+  min-height: 100px;
+}
+
+.work-board-adoption-editor-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.work-board-adoption-archive-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.work-board-adoption-archive-list button {
+  text-align: left;
+}
+
+@media (max-width: 980px) {
+  .work-board-adoption-columns {
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+  }
+
+  .work-board-adoption-lower-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .work-board-adoption-toolbar,
+  .work-board-adoption-editor-row,
+  .crm-adoption-recovery-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .crm-foundation-details {
   margin-top: 18px;
   border: 1px solid #d9e2ec;

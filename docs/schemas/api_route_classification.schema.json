@@ -385,6 +385,7 @@
               "today_to_action_envelope",
               "task_decomposition",
               "web_evidence_product_slice",
+              "work_board_adoption",
               null
             ]
           }

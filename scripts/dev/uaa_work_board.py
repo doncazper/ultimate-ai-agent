@@ -15,6 +15,9 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
     WorkBoardStateStore,
     build_work_board_read_model,
 )
+from ultimate_ai_agent.core.control_center.work_board_adoption import (  # noqa: E402
+    WorkBoardAdoptionStore,
+)
 
 
 def inspect_board(args: argparse.Namespace) -> int:
@@ -79,6 +82,48 @@ def inspect_task_create_receipt(args: argparse.Namespace) -> int:
     return 0
 
 
+def inspect_adoption(args: argparse.Namespace) -> int:
+    view = WorkBoardAdoptionStore(args.state_dir).read_view()
+    if args.include_private:
+        payload = {
+            **view.model_dump(mode="json"),
+            "private_values_included": True,
+            "raw_paths_included": False,
+        }
+    else:
+        payload = {
+            "schema_version": "uaa-work-board-adoption-cli-inspection.v1",
+            "contract_ref": view.contract_ref,
+            "board_ref": view.board_ref,
+            "status": view.status,
+            "revision": view.revision,
+            "current_state_ref": view.current_state_ref,
+            "active_card_count": len(view.active_cards),
+            "archived_card_count": len(view.archived_cards),
+            "lane_refs": view.lane_refs,
+            "can_undo": view.can_undo,
+            "latest_receipt_ref": view.latest_receipt_ref,
+            "next_safe_action": view.next_safe_action,
+            "backend_owned": view.backend_owned,
+            "local_only": view.local_only,
+            "exact_approval_required": view.exact_approval_required,
+            "backup_restore_available": view.backup_restore_available,
+            "task_execution_enabled": view.task_execution_enabled,
+            "connector_write_enabled": view.connector_write_enabled,
+            "provider_model_call_enabled": view.provider_model_call_enabled,
+            "shell_subprocess_execution_enabled": (
+                view.shell_subprocess_execution_enabled
+            ),
+            "browser_automation_enabled": view.browser_automation_enabled,
+            "background_autonomy_enabled": view.background_autonomy_enabled,
+            "production_authority_enabled": view.production_authority_enabled,
+            "private_values_included": False,
+            "raw_paths_included": False,
+        }
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Inspect UAA Work Board read-only Kanban state."
@@ -124,6 +169,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON receipt.",
     )
     task_receipt.set_defaults(func=inspect_task_create_receipt)
+    adoption = subparsers.add_parser(
+        "inspect-adoption",
+        help="Inspect founder-private Work Board lifecycle state without changing it.",
+    )
+    adoption.add_argument(
+        "--state-dir",
+        type=Path,
+        default=None,
+        help="Use an explicit local Work Board state directory.",
+    )
+    adoption.add_argument(
+        "--include-private",
+        action="store_true",
+        help="Include local card titles and descriptions in terminal output.",
+    )
+    adoption.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the JSON inspection result.",
+    )
+    adoption.set_defaults(func=inspect_adoption)
     return parser
 
 

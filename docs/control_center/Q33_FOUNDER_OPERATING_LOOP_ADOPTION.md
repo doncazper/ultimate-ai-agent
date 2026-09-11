@@ -114,9 +114,58 @@ This completes the bounded Decision -> approved local Task handoff on the
 North Star surface. It does not add broad action execution or make the Work
 Board and Calendar adoption work terminal.
 
+## Implemented Work Board adoption slice
+
+The primary `/work-board` surface now starts with a Python/API-owned
+founder-private workspace for normal create, inspect, edit, move, archive,
+recover, and undo work. The browser presents readable lanes, private item
+detail, explicit preview, confirmation, receipt, backup, restore, and recovery
+states. The earlier diagnostic Kanban remains available as supporting detail;
+it is no longer the primary operator workflow.
+
+Python Agent Core owns the durable product state through:
+
+- `GET /control-center/work-board/adoption`
+- `POST /control-center/work-board/adoption/preview`
+- `POST /control-center/work-board/adoption/approval`
+- `POST /control-center/work-board/adoption/commit`
+- `POST /control-center/work-board/adoption/backup`
+- `POST /control-center/work-board/adoption/restore-preview`
+- `POST /control-center/work-board/adoption/restore-approval`
+- `POST /control-center/work-board/adoption/restore-commit`
+
+Every state change is revision-bound, exact-preview-bound, exact-approval-bound,
+idempotent, receipt-producing, and limited to one `workspace/write` operation by
+a short-lived AuthorityLease. Reusing an idempotency ref with a different
+payload fails closed. Restore replay is bound to the exact encrypted backup,
+preview, and approval. Corrupt, malformed, oversized, duplicate-identity, and
+symlinked state fails into an explicit recovery posture rather than being
+treated as an empty board.
+
+Local board state is founder-private JSON restricted to the current account by
+directory mode `0700` and file mode `0600`; it is not claimed to be encrypted at
+rest, so host disk encryption remains the device boundary. Portable backups use
+Scrypt-derived AES-GCM encryption and never include key material or raw paths.
+Moving an encrypted backup between the founder's computers provides manual
+continuity. Automatic sync, concurrent multi-device merging, connector storage,
+and cloud authority are not included.
+
+`python scripts/dev/uaa_work_board.py inspect-adoption` inspects the same state
+through the Core contract. Its safe default returns counts, refs, readiness, and
+blocked-authority flags without private titles or descriptions; the operator
+must explicitly pass `--include-private` to print local private values.
+
+The Work Board remains planning state only. A card does not execute a task or
+grant provider/model, connector, shell, browser, background, public-release, or
+production authority.
+
 ## Verification
 
 - `tests/test_q33_chat_content_free_workspace.py`
+- `tests/test_q33_work_board_adoption.py`
+- `tests/test_q33_work_board_adoption_api.py`
+- `tests/test_q33_work_board_adoption_cli.py`
+- `tests/test_queue_v2_q33_work_board_adoption.py`
 - `tests/test_control_center_mutation_backend_truth_binding.py`
 - `apps/control-center/src/components/ChatWorkspacePanel.test.tsx`
 - `apps/control-center/src/api/client.setupRoute.test.ts`
@@ -124,7 +173,9 @@ Board and Calendar adoption work terminal.
 - `apps/control-center/src/northstar/WiredSurfaces.test.tsx`
 - `apps/control-center/src/App.backendTruth.test.tsx`
 - `python scripts/inspect_chat_workspace.py --state-dir <local-state-dir>`
+- `python scripts/dev/uaa_work_board.py inspect-adoption --state-dir <local-state-dir>`
+- `python scripts/verify_queue_v2_q33_work_board_adoption.py`
 - OpenAPI/API manifest snapshot and documentation-integrity verification
 
-This is the first Q33 slice, not terminal evidence for the full Founder
-Operating Loop adoption item.
+These are bounded Q33 slices, not terminal evidence for the full Founder
+Operating Loop adoption item. Calendar and final cross-surface acceptance remain.

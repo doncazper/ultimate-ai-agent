@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-import threading
-import uuid
 import os
 import stat
+import threading
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - Windows
+    _fcntl = None
+
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # pragma: no cover - POSIX
+    _msvcrt = None
 
 
 class SingleWriterLockManager:
@@ -67,21 +77,15 @@ class FileSingleWriterLockManager:
                     != (path_metadata.st_dev, path_metadata.st_ino)
                 ):
                     raise OSError("single-writer lock must be a regular file")
-                os.fchmod(descriptor, 0o600)
-                try:
-                    import fcntl
-                except ImportError:
-                    fcntl = None
-                if fcntl is not None:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX)
+                _set_owner_only_mode(descriptor, lock_path)
+                lock_backend = _acquire_interprocess_lock(descriptor)
                 depths[global_key] = 1
                 _FILE_LOCK_DEPTHS.values = depths
                 try:
                     yield f"file_lease_{uuid.uuid4().hex[:16]}"
                 finally:
                     depths.pop(global_key, None)
-                    if fcntl is not None:
-                        fcntl.flock(descriptor, fcntl.LOCK_UN)
+                    _release_interprocess_lock(descriptor, lock_backend)
             finally:
                 os.close(descriptor)
 
@@ -180,21 +184,18 @@ class FileSingleWriterLockManager:
                         != (path_metadata.st_dev, path_metadata.st_ino)
                     ):
                         raise OSError("single-writer lock must be a regular file")
-                    os.fchmod(descriptor, 0o600)
-                    try:
-                        import fcntl
-                    except ImportError:
-                        fcntl = None
-                    if fcntl is not None:
-                        fcntl.flock(descriptor, fcntl.LOCK_EX)
+                    _set_owner_only_mode(
+                        descriptor,
+                        self.lock_dir / lock_name,
+                    )
+                    lock_backend = _acquire_interprocess_lock(descriptor)
                     depths[global_key] = 1
                     _FILE_LOCK_DEPTHS.values = depths
                     try:
                         yield f"file_lease_{uuid.uuid4().hex[:16]}"
                     finally:
                         depths.pop(global_key, None)
-                        if fcntl is not None:
-                            fcntl.flock(descriptor, fcntl.LOCK_UN)
+                        _release_interprocess_lock(descriptor, lock_backend)
                 finally:
                     os.close(descriptor)
         finally:
@@ -203,6 +204,38 @@ class FileSingleWriterLockManager:
 
 _FILE_LOCAL_LOCKS = SingleWriterLockManager()
 _FILE_LOCK_DEPTHS = threading.local()
+
+
+def _set_owner_only_mode(descriptor: int, path: Path) -> None:
+    fchmod = getattr(os, "fchmod", None)
+    if fchmod is not None:
+        fchmod(descriptor, 0o600)
+        return
+    os.chmod(path, 0o600)
+
+
+def _acquire_interprocess_lock(descriptor: int) -> str | None:
+    if _fcntl is not None:
+        _fcntl.flock(descriptor, _fcntl.LOCK_EX)
+        return "fcntl"
+    if _msvcrt is None:
+        return None
+    if os.fstat(descriptor).st_size == 0:
+        os.write(descriptor, b"\0")
+        os.fsync(descriptor)
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    _msvcrt.locking(descriptor, _msvcrt.LK_LOCK, 1)
+    return "msvcrt"
+
+
+def _release_interprocess_lock(descriptor: int, backend: str | None) -> None:
+    if backend == "fcntl":
+        assert _fcntl is not None
+        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+    elif backend == "msvcrt":
+        assert _msvcrt is not None
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_UNLCK, 1)
 
 
 def _file_local_lock_key(directory_metadata: os.stat_result, safe_name: str) -> str:

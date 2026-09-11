@@ -48,15 +48,16 @@
           "today_to_action_envelope",
           "action_decision",
           "task_decomposition",
-          "web_evidence_product_slice"
+          "web_evidence_product_slice",
+          "work_board_adoption"
         ]
       },
-      "minItems": 24,
-      "maxItems": 24,
+      "minItems": 25,
+      "maxItems": 25,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 158
+      "const": 165
     },
     "posture_field": {
       "const": "rate_limit_posture"

@@ -78,15 +78,16 @@ visibly distinct. The grouping is read-only metadata from Python core storage;
 it adds no generic execute button, connector write, shell/subprocess execution,
 provider/model authority, memory write, context injection, or production
 authority.
-`/work-board` renders the backend-owned Work Board Kanban read model from
-`GET /control-center/work-board`, persists exact approved local reorder through
-`POST /control-center/work-board/reorder`, and exposes exact approved local
-card create through `POST /control-center/work-board/cards`. It shows card,
-column, proof, evidence, blocker, promotion-path, drag/drop posture, reorder
-and local-card-create receipt posture, and CLI inspection refs with local
-drag/drop and keyboard preview. It does not archive or assign cards, create
-tasks, sync issue trackers, call providers, run shell/browser work, write
-connectors, launch background autonomy, or grant production authority.
+`/work-board` starts with the backend-owned founder-private adoption workspace
+from `GET /control-center/work-board/adoption`. Exact preview, approval, and
+commit routes support create, edit, move, archive, recover, and undo; separate
+backup and restore routes provide encrypted manual continuity and fail-closed
+recovery. The UI shows readable lanes, item detail, confirmation, receipt, and
+recovery states. The earlier `GET /control-center/work-board` diagnostic Kanban
+and its scoped reorder/card/task routes remain reachable as supporting detail.
+Neither surface executes tasks, assigns work, syncs issue trackers, calls
+providers, runs shell/browser work, writes connectors, launches background
+autonomy, or grants production authority.
 `/crm` renders the backend-owned CRM Local Command Center M2 read model from
 `GET /control-center/crm/summary` and companion CRM read routes. It shows
 relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
@@ -193,6 +194,14 @@ Backend API endpoints consumed:
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
 - `GET /control-center/work-board`
+- `GET /control-center/work-board/adoption`
+- `POST /control-center/work-board/adoption/preview`
+- `POST /control-center/work-board/adoption/approval`
+- `POST /control-center/work-board/adoption/commit`
+- `POST /control-center/work-board/adoption/backup`
+- `POST /control-center/work-board/adoption/restore-preview`
+- `POST /control-center/work-board/adoption/restore-approval`
+- `POST /control-center/work-board/adoption/restore-commit`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
@@ -277,8 +286,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `368`
-with `370` manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `376`
+with `378` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

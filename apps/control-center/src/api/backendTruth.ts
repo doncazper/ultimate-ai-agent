@@ -13,7 +13,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:plans", "Plans", ["/plans"], ["GET /control-center/today/summary"]],
   ["critical-surface:action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
   ["critical-surface:approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
-  ["critical-surface:work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board"]],
+  ["critical-surface:work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board", "GET /control-center/work-board/adoption"]],
   ["critical-surface:morning-briefing", "Morning Briefing", ["/briefing", "/morning-briefing", "/workspace", "/workspace/today"], ["GET /control-center/morning-briefing/summary"]],
   ["critical-surface:memory", "Memory", ["/memory", "/workspace/knowledge"], ["GET /control-center/memory/review"]],
   ["critical-surface:evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index", "GET /control-center/evidence/timeline", "GET /control-center/runs/observability"]],
@@ -113,6 +113,15 @@ export async function validateControlCenterBackendTruth(
   if (generatedAt > now + 5_000) fail("BACKEND_TRUTH_FROM_FUTURE");
   if (validUntil <= now) fail("BACKEND_TRUTH_STALE");
 
+  validateEvidence(value.evidence_binding);
+  validateAuthority(value.authority_posture);
+  if (!safeString(value.cli_ref) || !safeString(value.envelope_integrity_ref)) {
+    fail("BACKEND_TRUTH_PROVENANCE_INVALID");
+  }
+  if (!/^proof-ref:backend-truth-envelope:sha256:[0-9a-f]{64}$/.test(value.envelope_integrity_ref)) {
+    fail("BACKEND_TRUTH_INTEGRITY_MISMATCH");
+  }
+
   if (
     !Array.isArray(value.critical_surfaces) ||
     value.critical_surfaces.length !== EXPECTED_SURFACES.length
@@ -133,11 +142,6 @@ export async function validateControlCenterBackendTruth(
     }
   });
 
-  validateEvidence(value.evidence_binding);
-  validateAuthority(value.authority_posture);
-  if (!safeString(value.cli_ref) || !safeString(value.envelope_integrity_ref)) {
-    fail("BACKEND_TRUTH_PROVENANCE_INVALID");
-  }
   const { envelope_integrity_ref: claimedIntegrity, ...unsigned } = value;
   const expectedIntegrity = await backendTruthIntegrityRef(
     unsigned,

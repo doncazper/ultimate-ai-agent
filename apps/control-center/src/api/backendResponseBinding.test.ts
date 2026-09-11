@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   actionDecisionIdempotencyRef,
   buildLocalTaskCommitRequest,
+  captureWorkBoardAdoptionApproval,
   commitLocalTask,
   fetchFounderActionsInbox,
   previewAuthorityDecision,
@@ -11,6 +12,10 @@ import {
   type BackendTruthReadBinding,
 } from "./client";
 import type { FounderLoopActionDecisionReceipt } from "./types";
+import type {
+  WorkBoardAdoptionMutationPreview,
+  WorkBoardAdoptionMutationRequest,
+} from "./types";
 
 const binding: BackendTruthReadBinding = {
   snapshotRef: "proof-ref:backend-truth-envelope:sha256:current",
@@ -356,5 +361,50 @@ describe("backend response provenance binding", () => {
     await expect(submitMutation()).rejects.toThrow(
       "BACKEND_RESPONSE_PROVENANCE_MISMATCH",
     );
+  });
+
+  it("rejects a Work Board approval response from a replacement backend before body admission", async () => {
+    const mutation: WorkBoardAdoptionMutationRequest = {
+      action: "create",
+      expected_revision: 0,
+      draft: {
+        title: "Private board item",
+        description: null,
+        priority: "medium",
+        lane_ref: "work-board-lane:inbox",
+        tag_refs: [],
+      },
+    };
+    const preview: WorkBoardAdoptionMutationPreview = {
+      schema_version: "uaa-work-board-adoption-mutation-preview.v1",
+      contract_ref: "contract-ref:queue-v2-q33-work-board-adoption:v1",
+      action: "create",
+      expected_revision: 0,
+      resulting_revision: 1,
+      target_ref: null,
+      card_ref: "work-board-card-ref:founder-private:test",
+      payload_fingerprint_ref: "payload-fingerprint-ref:work-board-adoption:test",
+      preview_ref: "preview-ref:work-board-adoption:test",
+      approval_ref: "approval-ref:work-board-adoption:test",
+      safe_summary: "Create one founder-private local Work Board item.",
+      mutation_performed: false,
+      external_write_performed: false,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("not-json", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+          "X-UAA-Backend-Instance-Ref":
+            "backend-instance-ref:control-center:44444444444444444444444444444444",
+        },
+      })),
+    );
+
+    await expect(
+      captureWorkBoardAdoptionApproval(mutation, preview, "idempotency-ref:work-board:test", binding),
+    ).rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
   });
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ControlCenterData } from "../api/types";
 import { CrmAdoptionWorkspace } from "../components/CrmAdoptionWorkspace";
+import { WorkBoardAdoptionWorkspace } from "../components/WorkBoardAdoptionWorkspace";
 import { Avatar, Badge, Button, Icon, MetaRow, Panel, SearchField, Tabs, Toolbar } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
@@ -214,6 +215,13 @@ export function WorkBoardSurface({ data }: { data: ControlCenterData }) {
 
   return (
     <div className="ns-surface ns-work-board">
+      <WorkBoardAdoptionWorkspace />
+      <details
+        className="crm-foundation-details ns-crm-compatibility"
+        open={board.local_card_create_enabled && board.local_task_create_enabled}
+      >
+        <summary>Legacy Work Board compatibility cockpit</summary>
+        <div className="ns-crm-compatibility-content">
       <Toolbar title={board.title} subtitle="Backend-owned plans and exact local task records">
         <label className="ns-search"><span className="sr-only">Search Work Board</span><Icon name="search" size={16} /><input aria-label="Search Work Board" onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks" type="search" value={query} /></label>
         <Button disabled title="Grouping is presentation-only and is not implemented in this representation">Group: Status</Button>
@@ -259,6 +267,8 @@ export function WorkBoardSurface({ data }: { data: ControlCenterData }) {
         </aside>
       </div>
       <div aria-live="polite" className="ns-receipt-band"><Icon name={backendOwned ? "receipt-text" : "triangle-alert"} size={18} tone={backendOwned ? "success" : "warning"} /> {board.safe_summary} · Mutations unavailable without an exact approval envelope</div>
+        </div>
+      </details>
     </div>
   );
 }

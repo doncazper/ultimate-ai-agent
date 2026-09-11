@@ -296,7 +296,10 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         surface_ref="critical-surface:work-board",
         label="Work Board",
         frontend_paths=["/work-board", "/workspace/work-board"],
-        backend_route_refs=["GET /control-center/work-board"],
+        backend_route_refs=[
+            "GET /control-center/work-board",
+            "GET /control-center/work-board/adoption",
+        ],
     ),
     CriticalSurfaceBinding(
         surface_ref="critical-surface:morning-briefing",

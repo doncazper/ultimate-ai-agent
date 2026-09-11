@@ -61,10 +61,11 @@ completed final GoatCitadel comparison. Q31 directly exercised comparable chat
 and operator-surface behavior and routed evidence-ranked UAA-native adaptations
 without copying competitor code or branding. The active Wave 6 order is:
 
-1. Q32 CRM functional adoption — implementation candidate ready for exact-head
-   verification, protected merge, post-merge qualification, and terminal queue
-   disposition.
-2. Q33 founder operating loop and chat usability adoption — blocked by Q32.
+1. Q32 CRM functional adoption — terminal after protected merge and post-merge
+   qualification.
+2. Q33 founder operating loop and chat usability adoption — active; Chat,
+   Setup, Decision-to-local-Task, and Work Board slices are implemented while
+   Calendar and final cross-surface acceptance remain.
 3. Q34 News and source intelligence functional adoption — blocked by Q33.
 4. Q35 vertical modules functional adoption — blocked by Q26 and Q34.
 5. Q36 cross-module founder adoption closure — blocked by Q32 through Q35.

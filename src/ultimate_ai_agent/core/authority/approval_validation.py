@@ -67,6 +67,234 @@ AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR = ".uaa-authority-approval-secrets"
 AUTHORITY_LEASE_APPROVAL_RECORD_LIMIT = 512
 AUTHORITY_LEASE_APPROVAL_STORE_MAX_BYTES = 8 * 1024 * 1024
 AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES = 32
+_IS_WINDOWS = os.name == "nt"
+
+
+def _windows_current_user_sid() -> str:
+    """Return the current Windows token SID without retaining identity text."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    token_query = 0x0008
+    token_user_class = 1
+    error_insufficient_buffer = 122
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel32.LocalFree.restype = wintypes.LPVOID
+    advapi32.OpenProcessToken.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    ]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.GetTokenInformation.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetTokenInformation.restype = wintypes.BOOL
+    advapi32.ConvertSidToStringSidW.argtypes = [
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.LPWSTR),
+    ]
+    advapi32.ConvertSidToStringSidW.restype = wintypes.BOOL
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), token_query, ctypes.byref(token)
+    ):
+        raise OSError("Windows private ACL identity lookup failed")
+    try:
+        required = wintypes.DWORD()
+        advapi32.GetTokenInformation(
+            token, token_user_class, None, 0, ctypes.byref(required)
+        )
+        if ctypes.get_last_error() != error_insufficient_buffer or not required.value:
+            raise OSError("Windows private ACL token lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi32.GetTokenInformation(
+            token,
+            token_user_class,
+            token_buffer,
+            required,
+            ctypes.byref(required),
+        ):
+            raise OSError("Windows private ACL token lookup failed")
+
+        class _SidAndAttributes(ctypes.Structure):
+            _fields_ = [("sid", wintypes.LPVOID), ("attributes", wintypes.DWORD)]
+
+        token_user = ctypes.cast(
+            token_buffer, ctypes.POINTER(_SidAndAttributes)
+        ).contents
+        sid_text = wintypes.LPWSTR()
+        if not advapi32.ConvertSidToStringSidW(
+            token_user.sid, ctypes.byref(sid_text)
+        ):
+            raise OSError("Windows private ACL SID conversion failed")
+        try:
+            return str(sid_text.value)
+        finally:
+            kernel32.LocalFree(ctypes.cast(sid_text, wintypes.LPVOID))
+    finally:
+        kernel32.CloseHandle(token)
+
+
+def _set_windows_private_acl(path: Path, *, directory: bool) -> None:
+    """Apply and verify a protected current-user-only Windows DACL."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    security_descriptor_revision = 1
+    owner_security_information = 0x00000001
+    dacl_security_information = 0x00000004
+    protected_dacl_security_information = 0x80000000
+    error_insufficient_buffer = 122
+    se_file_object = 1
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel32.LocalFree.restype = wintypes.LPVOID
+    advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.LPVOID),
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = (
+        wintypes.BOOL
+    )
+    advapi32.GetSecurityDescriptorDacl.argtypes = [
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.BOOL),
+        ctypes.POINTER(wintypes.LPVOID),
+        ctypes.POINTER(wintypes.BOOL),
+    ]
+    advapi32.GetSecurityDescriptorDacl.restype = wintypes.BOOL
+    advapi32.SetNamedSecurityInfoW.argtypes = [
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+    ]
+    advapi32.SetNamedSecurityInfoW.restype = wintypes.DWORD
+    advapi32.GetFileSecurityW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetFileSecurityW.restype = wintypes.BOOL
+    advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.LPWSTR),
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW.restype = (
+        wintypes.BOOL
+    )
+    sid = _windows_current_user_sid()
+    inheritance = "OICI" if directory else ""
+    descriptor_text = f"D:P(A;{inheritance};FA;;;{sid})"
+    descriptor = wintypes.LPVOID()
+    if not advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        descriptor_text,
+        security_descriptor_revision,
+        ctypes.byref(descriptor),
+        ctypes.POINTER(wintypes.DWORD)(),
+    ):
+        raise OSError("Windows private ACL descriptor creation failed")
+    try:
+        dacl_present = wintypes.BOOL()
+        dacl = wintypes.LPVOID()
+        dacl_defaulted = wintypes.BOOL()
+        if not advapi32.GetSecurityDescriptorDacl(
+            descriptor,
+            ctypes.byref(dacl_present),
+            ctypes.byref(dacl),
+            ctypes.byref(dacl_defaulted),
+        ) or not dacl_present.value or not dacl:
+            raise OSError("Windows private ACL descriptor creation failed")
+        result = advapi32.SetNamedSecurityInfoW(
+            str(path),
+            se_file_object,
+            dacl_security_information | protected_dacl_security_information,
+            None,
+            None,
+            dacl,
+            None,
+        )
+        if result != 0:
+            raise OSError("Windows private ACL application failed")
+    finally:
+        kernel32.LocalFree(descriptor)
+
+    requested = owner_security_information | dacl_security_information
+    required = wintypes.DWORD()
+    advapi32.GetFileSecurityW(str(path), requested, None, 0, ctypes.byref(required))
+    if ctypes.get_last_error() != error_insufficient_buffer or not required.value:
+        raise OSError("Windows private ACL verification failed")
+    actual_descriptor = ctypes.create_string_buffer(required.value)
+    if not advapi32.GetFileSecurityW(
+        str(path),
+        requested,
+        actual_descriptor,
+        required,
+        ctypes.byref(required),
+    ):
+        raise OSError("Windows private ACL verification failed")
+    actual_text = wintypes.LPWSTR()
+    if not advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+        actual_descriptor,
+        security_descriptor_revision,
+        requested,
+        ctypes.byref(actual_text),
+        ctypes.POINTER(wintypes.DWORD)(),
+    ):
+        raise OSError("Windows private ACL verification failed")
+    try:
+        rendered = str(actual_text.value)
+    finally:
+        kernel32.LocalFree(ctypes.cast(actual_text, wintypes.LPVOID))
+    expected_ace = f"(A;{inheritance};FA;;;{sid})"
+    if (
+        f"O:{sid}" not in rendered
+        or "D:P" not in rendered
+        or expected_ace not in rendered
+        or rendered.count("(") != 1
+    ):
+        raise OSError("Windows private ACL verification failed")
+
+
+def _set_private_permissions(path: Path, *, directory: bool) -> None:
+    if _IS_WINDOWS:
+        _set_windows_private_acl(path, directory=directory)
+        return
+    os.chmod(path, 0o700 if directory else 0o600)
+
+
+def _sync_directory(path: Path) -> None:
+    if _IS_WINDOWS:
+        return
+    directory_descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
 
 
 class AuthorityLeaseApprovalStateError(RuntimeError):
@@ -452,8 +680,28 @@ class AuthorityLeaseApprovalStore:
     def _read_state_unlocked(
         self,
     ) -> tuple[int, list[AuthorityLeaseApprovalRecord]]:
-        if not self.records_path.exists():
+        try:
+            linked_before = os.lstat(self.records_path)
+        except FileNotFoundError:
             return 0, []
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_STATE_OPEN_FAILED"
+            ) from exc
+        if (
+            not stat.S_ISREG(linked_before.st_mode)
+            or linked_before.st_nlink != 1
+        ):
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_STATE_FILE_INVALID"
+            )
+        if _IS_WINDOWS:
+            try:
+                _set_private_permissions(self.records_path, directory=False)
+            except OSError as exc:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_STATE_FILE_INVALID"
+                ) from exc
         flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(
             os,
             "O_NOFOLLOW",
@@ -473,7 +721,10 @@ class AuthorityLeaseApprovalStore:
                 or metadata.st_nlink != 1
                 or (metadata.st_dev, metadata.st_ino)
                 != (linked_metadata.st_dev, linked_metadata.st_ino)
-                or stat.S_IMODE(metadata.st_mode) & 0o077
+                or (
+                    not _IS_WINDOWS
+                    and bool(stat.S_IMODE(metadata.st_mode) & 0o077)
+                )
             ):
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_STATE_FILE_INVALID"
@@ -620,7 +871,6 @@ class AuthorityLeaseApprovalStore:
         *,
         signing_key: bytes,
     ) -> None:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema_version": AUTHORITY_LEASE_APPROVAL_STORE_SCHEMA_VERSION,
             "generation": generation,
@@ -650,19 +900,28 @@ class AuthorityLeaseApprovalStore:
         )
         descriptor = -1
         try:
+            self.state_dir.mkdir(parents=True, exist_ok=True)
+            state_dir_metadata = os.lstat(self.state_dir)
+            if not stat.S_ISDIR(state_dir_metadata.st_mode) or stat.S_ISLNK(
+                state_dir_metadata.st_mode
+            ):
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_STATE_DIRECTORY_INVALID"
+                )
+            _set_private_permissions(self.state_dir, directory=True)
             descriptor = os.open(temp_path, flags, 0o600)
+            if _IS_WINDOWS:
+                _set_private_permissions(temp_path, directory=False)
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
                 descriptor = -1
-                os.fchmod(handle.fileno(), 0o600)
+                if not _IS_WINDOWS:
+                    os.fchmod(handle.fileno(), 0o600)
                 handle.write(serialized_payload)
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temp_path, self.records_path)
-            directory_descriptor = os.open(self.state_dir, os.O_RDONLY)
-            try:
-                os.fsync(directory_descriptor)
-            finally:
-                os.close(directory_descriptor)
+            _set_private_permissions(self.records_path, directory=False)
+            _sync_directory(self.state_dir)
         except OSError as exc:
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_STATE_WRITE_FAILED"
@@ -677,12 +936,29 @@ class AuthorityLeaseApprovalStore:
 
     def _read_signing_key_unlocked(self, *, create: bool) -> bytes:
         self._validate_signing_key_dir_unlocked(create=create)
-        if not self.signing_key_path.exists():
+        try:
+            linked_before = os.lstat(self.signing_key_path)
+        except FileNotFoundError:
             if not create:
                 raise AuthorityLeaseApprovalStateError(
                     "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_MISSING"
                 )
             return self._create_signing_key_unlocked()
+        except OSError as exc:
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+            ) from exc
+        if not stat.S_ISREG(linked_before.st_mode):
+            raise AuthorityLeaseApprovalStateError(
+                "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+            )
+        if _IS_WINDOWS:
+            try:
+                _set_private_permissions(self.signing_key_path, directory=False)
+            except OSError as exc:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_INVALID"
+                ) from exc
         flags = (
             os.O_RDONLY
             | getattr(os, "O_CLOEXEC", 0)
@@ -708,7 +984,10 @@ class AuthorityLeaseApprovalStore:
                 or metadata.st_nlink != 1
                 or (metadata.st_dev, metadata.st_ino)
                 != (linked_metadata.st_dev, linked_metadata.st_ino)
-                or stat.S_IMODE(metadata.st_mode) & 0o077
+                or (
+                    not _IS_WINDOWS
+                    and bool(stat.S_IMODE(metadata.st_mode) & 0o077)
+                )
                 or metadata.st_size != AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_BYTES
             ):
                 raise AuthorityLeaseApprovalStateError(
@@ -759,9 +1038,12 @@ class AuthorityLeaseApprovalStore:
                 | getattr(os, "O_NOFOLLOW", 0),
                 0o600,
             )
+            if _IS_WINDOWS:
+                _set_private_permissions(temp_path, directory=False)
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
-                os.fchmod(handle.fileno(), 0o600)
+                if not _IS_WINDOWS:
+                    os.fchmod(handle.fileno(), 0o600)
                 handle.write(signing_key)
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -770,11 +1052,8 @@ class AuthorityLeaseApprovalStore:
             except FileExistsError:
                 return self._read_signing_key_unlocked(create=False)
             temp_path.unlink()
-            directory_descriptor = os.open(self.signing_key_dir, os.O_RDONLY)
-            try:
-                os.fsync(directory_descriptor)
-            finally:
-                os.close(directory_descriptor)
+            _set_private_permissions(self.signing_key_path, directory=False)
+            _sync_directory(self.signing_key_dir)
             return signing_key
         except AuthorityLeaseApprovalStateError:
             raise
@@ -791,9 +1070,9 @@ class AuthorityLeaseApprovalStore:
                 pass
 
     def _validate_signing_key_dir_unlocked(self, *, create: bool) -> None:
-        if create:
-            self.signing_key_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
         try:
+            if create:
+                self.signing_key_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
             metadata = os.lstat(self.signing_key_dir)
         except OSError as exc:
             raise AuthorityLeaseApprovalStateError(
@@ -802,14 +1081,28 @@ class AuthorityLeaseApprovalStore:
         if (
             not stat.S_ISDIR(metadata.st_mode)
             or stat.S_ISLNK(metadata.st_mode)
-            or stat.S_IMODE(metadata.st_mode) & 0o077
-            or (hasattr(os, "geteuid") and metadata.st_uid != os.geteuid())
+            or (
+                not _IS_WINDOWS
+                and bool(stat.S_IMODE(metadata.st_mode) & 0o077)
+            )
+            or (
+                not _IS_WINDOWS
+                and hasattr(os, "geteuid")
+                and metadata.st_uid != os.geteuid()
+            )
             or self.state_dir.resolve() == self.signing_key_dir
             or self.state_dir.resolve() in self.signing_key_dir.parents
         ):
             raise AuthorityLeaseApprovalStateError(
                 "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR_INVALID"
             )
+        if _IS_WINDOWS:
+            try:
+                _set_private_permissions(self.signing_key_dir, directory=True)
+            except OSError as exc:
+                raise AuthorityLeaseApprovalStateError(
+                    "AUTHORITY_LEASE_APPROVAL_SIGNING_KEY_DIR_INVALID"
+                ) from exc
 
     def _recover_signing_key_links_unlocked(
         self,
@@ -835,11 +1128,7 @@ class AuthorityLeaseApprovalStore:
                 )
             for temp_path in matching_temp_paths:
                 temp_path.unlink()
-            directory_descriptor = os.open(self.signing_key_dir, os.O_RDONLY)
-            try:
-                os.fsync(directory_descriptor)
-            finally:
-                os.close(directory_descriptor)
+            _sync_directory(self.signing_key_dir)
             recovered = os.fstat(descriptor)
             if recovered.st_nlink != 1:
                 raise AuthorityLeaseApprovalStateError(

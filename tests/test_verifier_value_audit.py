@@ -8,6 +8,8 @@ import pytest
 
 from scripts.verification import verifier_value_audit as audit
 
+# Route additions may change this audit's collected dependency graph without
+# changing its behavioral contract; keep that ownership explicit here.
 
 def _artifact_payload() -> dict[str, object]:
     return json.loads(audit.MEASUREMENT_PATH.read_text(encoding="utf-8"))
