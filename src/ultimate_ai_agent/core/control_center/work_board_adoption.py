@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import base64
 import binascii
@@ -89,6 +90,8 @@ _BACKUP_AAD = b"uaa:work-board-adoption:portable-backup:v1"
 _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
+_IS_WINDOWS = os.name == "nt"
+_LOGGER = logging.getLogger(__name__)
 
 
 class WorkBoardAdoptionError(RuntimeError):
@@ -147,6 +150,216 @@ def _private_text(value: str, *, maximum: int, code: str) -> str:
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _windows_current_user_sid() -> str:
+    """Return the current Windows token SID without retaining private identity text."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    token_query = 0x0008
+    token_user_class = 1
+    error_insufficient_buffer = 122
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel32.LocalFree.restype = wintypes.LPVOID
+    advapi32.OpenProcessToken.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    ]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.GetTokenInformation.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetTokenInformation.restype = wintypes.BOOL
+    advapi32.ConvertSidToStringSidW.argtypes = [
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.LPWSTR),
+    ]
+    advapi32.ConvertSidToStringSidW.restype = wintypes.BOOL
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), token_query, ctypes.byref(token)
+    ):
+        raise OSError("Windows private ACL identity lookup failed")
+    try:
+        required = wintypes.DWORD()
+        advapi32.GetTokenInformation(
+            token, token_user_class, None, 0, ctypes.byref(required)
+        )
+        if ctypes.get_last_error() != error_insufficient_buffer or not required.value:
+            raise OSError("Windows private ACL token lookup failed")
+        token_buffer = ctypes.create_string_buffer(required.value)
+        if not advapi32.GetTokenInformation(
+            token,
+            token_user_class,
+            token_buffer,
+            required,
+            ctypes.byref(required),
+        ):
+            raise OSError("Windows private ACL token lookup failed")
+
+        class _SidAndAttributes(ctypes.Structure):
+            _fields_ = [("sid", wintypes.LPVOID), ("attributes", wintypes.DWORD)]
+
+        token_user = ctypes.cast(
+            token_buffer, ctypes.POINTER(_SidAndAttributes)
+        ).contents
+        sid_text = wintypes.LPWSTR()
+        if not advapi32.ConvertSidToStringSidW(
+            token_user.sid, ctypes.byref(sid_text)
+        ):
+            raise OSError("Windows private ACL SID conversion failed")
+        try:
+            return str(sid_text.value)
+        finally:
+            kernel32.LocalFree(ctypes.cast(sid_text, wintypes.LPVOID))
+    finally:
+        kernel32.CloseHandle(token)
+
+
+def _set_windows_private_acl(path: Path, *, directory: bool) -> None:
+    """Apply and verify a protected current-user-only Windows DACL."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    security_descriptor_revision = 1
+    owner_security_information = 0x00000001
+    dacl_security_information = 0x00000004
+    protected_dacl_security_information = 0x80000000
+    error_insufficient_buffer = 122
+    se_file_object = 1
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel32.LocalFree.restype = wintypes.LPVOID
+    advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.LPVOID),
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = (
+        wintypes.BOOL
+    )
+    advapi32.GetSecurityDescriptorDacl.argtypes = [
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.BOOL),
+        ctypes.POINTER(wintypes.LPVOID),
+        ctypes.POINTER(wintypes.BOOL),
+    ]
+    advapi32.GetSecurityDescriptorDacl.restype = wintypes.BOOL
+    advapi32.SetNamedSecurityInfoW.argtypes = [
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+    ]
+    advapi32.SetNamedSecurityInfoW.restype = wintypes.DWORD
+    advapi32.GetFileSecurityW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetFileSecurityW.restype = wintypes.BOOL
+    advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.LPWSTR),
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW.restype = (
+        wintypes.BOOL
+    )
+    sid = _windows_current_user_sid()
+    inheritance = "OICI" if directory else ""
+    descriptor_text = f"D:P(A;{inheritance};FA;;;{sid})"
+    descriptor = wintypes.LPVOID()
+    if not advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        descriptor_text,
+        security_descriptor_revision,
+        ctypes.byref(descriptor),
+        ctypes.POINTER(wintypes.DWORD)(),
+    ):
+        raise OSError("Windows private ACL descriptor creation failed")
+    try:
+        dacl_present = wintypes.BOOL()
+        dacl = wintypes.LPVOID()
+        dacl_defaulted = wintypes.BOOL()
+        if not advapi32.GetSecurityDescriptorDacl(
+            descriptor,
+            ctypes.byref(dacl_present),
+            ctypes.byref(dacl),
+            ctypes.byref(dacl_defaulted),
+        ) or not dacl_present.value or not dacl:
+            raise OSError("Windows private ACL descriptor creation failed")
+        result = advapi32.SetNamedSecurityInfoW(
+            str(path),
+            se_file_object,
+            dacl_security_information | protected_dacl_security_information,
+            None,
+            None,
+            dacl,
+            None,
+        )
+        if result != 0:
+            raise OSError("Windows private ACL application failed")
+    finally:
+        kernel32.LocalFree(descriptor)
+
+    requested = owner_security_information | dacl_security_information
+    required = wintypes.DWORD()
+    advapi32.GetFileSecurityW(str(path), requested, None, 0, ctypes.byref(required))
+    if ctypes.get_last_error() != error_insufficient_buffer or not required.value:
+        raise OSError("Windows private ACL verification failed")
+    actual_descriptor = ctypes.create_string_buffer(required.value)
+    if not advapi32.GetFileSecurityW(
+        str(path),
+        requested,
+        actual_descriptor,
+        required,
+        ctypes.byref(required),
+    ):
+        raise OSError("Windows private ACL verification failed")
+    actual_text = wintypes.LPWSTR()
+    if not advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+        actual_descriptor,
+        security_descriptor_revision,
+        requested,
+        ctypes.byref(actual_text),
+        ctypes.POINTER(wintypes.DWORD)(),
+    ):
+        raise OSError("Windows private ACL verification failed")
+    try:
+        rendered = str(actual_text.value)
+    finally:
+        kernel32.LocalFree(ctypes.cast(actual_text, wintypes.LPVOID))
+    expected_ace = f"(A;{inheritance};FA;;;{sid})"
+    if (
+        f"O:{sid}" not in rendered
+        or "D:P" not in rendered
+        or expected_ace not in rendered
+        or rendered.count("(") != 1
+    ):
+        raise OSError("Windows private ACL verification failed")
 
 
 def _b64(value: bytes) -> str:
@@ -644,11 +857,59 @@ class WorkBoardAdoptionStore:
             metadata = os.lstat(self.state_dir)
             if not stat.S_ISDIR(metadata.st_mode):
                 raise OSError("unsafe Work Board state directory")
-            os.chmod(self.state_dir, 0o700)
+            self._set_private_permissions(self.state_dir, directory=True)
+            if _IS_WINDOWS:
+                for private_directory in (
+                    self.lock_manager.lock_dir,
+                    self.state_dir / "authority",
+                ):
+                    if os.path.lexists(private_directory):
+                        self._secure_existing_tree(private_directory)
+                if os.path.lexists(self.state_path):
+                    state_metadata = os.lstat(self.state_path)
+                    if (
+                        stat.S_ISREG(state_metadata.st_mode)
+                        and state_metadata.st_nlink == 1
+                    ):
+                        self._set_private_permissions(
+                            self.state_path, directory=False
+                        )
         except OSError as exc:
             raise WorkBoardAdoptionError(
                 "WORK_BOARD_ADOPTION_STATE_DIRECTORY_UNSAFE"
             ) from exc
+
+    @staticmethod
+    def _set_private_permissions(path: Path, *, directory: bool) -> None:
+        if _IS_WINDOWS:
+            _set_windows_private_acl(path, directory=directory)
+            return
+        os.chmod(path, 0o700 if directory else 0o600)
+
+    def _secure_existing_tree(self, root: Path) -> None:
+        metadata = os.lstat(root)
+        if stat.S_ISLNK(metadata.st_mode):
+            raise OSError("unsafe Work Board private state object")
+        if stat.S_ISREG(metadata.st_mode):
+            self._set_private_permissions(root, directory=False)
+            return
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise OSError("unsafe Work Board private state object")
+        self._set_private_permissions(root, directory=True)
+        for child in root.iterdir():
+            self._secure_existing_tree(child)
+
+    def _state_path_is_present(self) -> bool:
+        try:
+            metadata = os.lstat(self.state_path)
+        except FileNotFoundError:
+            return False
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise WorkBoardAdoptionError(
+                "WORK_BOARD_ADOPTION_STATE_OBJECT_UNSAFE"
+            )
+        self._set_private_permissions(self.state_path, directory=False)
+        return True
 
     def _read_model(
         self,
@@ -859,6 +1120,10 @@ class WorkBoardAdoptionStore:
                 )
                 self._write_state(next_state)
                 return receipt
+            except WorkBoardAdoptionError as exc:
+                if str(exc) != "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED":
+                    self._revoke_lease(lease_store, lease)
+                raise
             except Exception:
                 self._revoke_lease(lease_store, lease)
                 raise
@@ -869,7 +1134,7 @@ class WorkBoardAdoptionStore:
     ) -> WorkBoardAdoptionPortableBackup:
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
-            if not self.state_path.exists():
+            if not self._state_path_is_present():
                 raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_BACKUP_EMPTY")
             state = self._read_state()
             plaintext = _canonical_json(state.model_dump(mode="json"))
@@ -1052,7 +1317,7 @@ class WorkBoardAdoptionStore:
                 )
                 undo_stack = (
                     (WorkBoardAdoptionSnapshot(cards=current.cards),)
-                    if current_readable and self.state_path.exists()
+                    if current_readable and self._state_path_is_present()
                     else ()
                 )
                 merged_receipts = self._merged_restore_receipts(
@@ -1073,6 +1338,10 @@ class WorkBoardAdoptionStore:
                 )
                 self._write_state(next_state)
                 return receipt
+            except WorkBoardAdoptionError as exc:
+                if str(exc) != "WORK_BOARD_ADOPTION_STATE_WRITE_FAILED":
+                    self._revoke_lease(lease_store, lease)
+                raise
             except Exception:
                 self._revoke_lease(lease_store, lease)
                 raise
@@ -1614,9 +1883,9 @@ class WorkBoardAdoptionStore:
     def _revoke_lease(
         lease_store: AuthorityLeaseStore,
         lease: AuthorityLease,
-    ) -> None:
+    ) -> bool:
         if lease.status == "revoked":
-            return
+            return True
         # Failed writes retain no usable broad capability. The lease is exact,
         # operation-budgeted, and expires after five minutes; revocation failure
         # is therefore reported without masking the original persistence error.
@@ -1638,10 +1907,10 @@ class WorkBoardAdoptionStore:
                     {"lease_ref": lease.lease_ref},
                 ),
             )
-        except Exception as exc:
-            raise WorkBoardAdoptionError(
-                "WORK_BOARD_ADOPTION_LEASE_REVOCATION_FAILED"
-            ) from exc
+        except Exception:
+            _LOGGER.warning("WORK_BOARD_ADOPTION_LEASE_REVOCATION_FAILED")
+            return False
+        return True
 
     @staticmethod
     def _derive_backup_key(passphrase: str, salt: bytes) -> bytes:
@@ -1684,9 +1953,9 @@ class WorkBoardAdoptionStore:
     def _read_current_for_restore(
         self,
     ) -> tuple[WorkBoardAdoptionState, bool]:
-        if not self.state_path.exists():
-            return WorkBoardAdoptionState(), True
         try:
+            if not self._state_path_is_present():
+                return WorkBoardAdoptionState(), True
             return self._read_state(), True
         except (OSError, ValueError, WorkBoardAdoptionError):
             return WorkBoardAdoptionState(), False
@@ -1694,12 +1963,20 @@ class WorkBoardAdoptionStore:
     def _current_state_ref(self) -> str:
         descriptor = -1
         try:
+            if not self._state_path_is_present():
+                return "state-ref:work-board-adoption:empty"
             descriptor = os.open(
                 self.state_path,
                 os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
             )
             metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode):
+            path_metadata = os.lstat(self.state_path)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or metadata.st_nlink != 1
+                or (metadata.st_dev, metadata.st_ino)
+                != (path_metadata.st_dev, path_metadata.st_ino)
+            ):
                 return "state-ref:work-board-adoption:unsafe"
             if metadata.st_size > WORK_BOARD_ADOPTION_MAX_STATE_BYTES:
                 return "state-ref:work-board-adoption:oversize"
@@ -1738,7 +2015,7 @@ class WorkBoardAdoptionStore:
         return tuple(list(merged.values())[-WORK_BOARD_ADOPTION_MAX_RECEIPTS:])
 
     def _read_state(self) -> WorkBoardAdoptionState:
-        if not self.state_path.exists():
+        if not self._state_path_is_present():
             return WorkBoardAdoptionState()
         try:
             descriptor = os.open(
@@ -1747,7 +2024,13 @@ class WorkBoardAdoptionStore:
             )
             with os.fdopen(descriptor, "rb") as handle:
                 metadata = os.fstat(handle.fileno())
-                if not stat.S_ISREG(metadata.st_mode):
+                path_metadata = os.lstat(self.state_path)
+                if (
+                    not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_nlink != 1
+                    or (metadata.st_dev, metadata.st_ino)
+                    != (path_metadata.st_dev, path_metadata.st_ino)
+                ):
                     raise WorkBoardAdoptionError(
                         "WORK_BOARD_ADOPTION_STATE_OBJECT_UNSAFE"
                     )
@@ -1778,18 +2061,21 @@ class WorkBoardAdoptionStore:
         published = False
         try:
             self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-            os.chmod(self.state_dir, 0o700)
+            self._set_private_permissions(self.state_dir, directory=True)
             descriptor, temporary_name = tempfile.mkstemp(
                 dir=self.state_dir,
                 prefix=".work_board_adoption.",
                 suffix=".tmp",
             )
             temporary = Path(temporary_name)
-            fchmod = getattr(os, "fchmod", None)
-            if fchmod is not None:
-                fchmod(descriptor, 0o600)
+            if _IS_WINDOWS:
+                self._set_private_permissions(temporary, directory=False)
             else:
-                os.chmod(temporary, 0o600)
+                fchmod = getattr(os, "fchmod", None)
+                if fchmod is not None:
+                    fchmod(descriptor, 0o600)
+                else:
+                    self._set_private_permissions(temporary, directory=False)
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
                 handle.write(payload)
@@ -1798,7 +2084,7 @@ class WorkBoardAdoptionStore:
             os.replace(temporary, self.state_path)
             temporary = None
             published = True
-            os.chmod(self.state_path, 0o600)
+            self._set_private_permissions(self.state_path, directory=False)
             _fsync_directory(self.state_dir)
         except OSError as exc:
             code = (

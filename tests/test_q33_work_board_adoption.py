@@ -415,9 +415,15 @@ def test_state_write_failures_are_redacted_and_publication_aware(
 
     before_store = WorkBoardAdoptionStore(tmp_path / "before")
     before_ref, before_commit = approved_commit(before_store, "write-failed")
+    original_mkstemp = work_board_adoption.tempfile.mkstemp
+    attempts = 0
 
     def fail_before_publication(*_args: object, **_kwargs: object) -> tuple[int, str]:
-        raise OSError("private path must not escape")
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("private path must not escape")
+        return original_mkstemp(*_args, **_kwargs)
 
     monkeypatch.setattr(work_board_adoption.tempfile, "mkstemp", fail_before_publication)
     with pytest.raises(
@@ -426,6 +432,15 @@ def test_state_write_failures_are_redacted_and_publication_aware(
     ):
         before_store.commit_mutation(before_commit, idempotency_ref=before_ref)
     assert not before_store.state_path.exists()
+    assert [
+        lease.status
+        for lease in AuthorityLeaseStore(
+            before_store.state_dir / "authority"
+        ).list_leases(active_only=True)
+    ] == ["active"]
+    retry = before_store.commit_mutation(before_commit, idempotency_ref=before_ref)
+    assert retry.after_revision == 1
+    assert before_store.read_view().revision == 1
 
     monkeypatch.undo()
     after_store = WorkBoardAdoptionStore(tmp_path / "after")
@@ -441,6 +456,112 @@ def test_state_write_failures_are_redacted_and_publication_aware(
     ):
         after_store.commit_mutation(after_commit, idempotency_ref=after_ref)
     assert after_store.read_view().revision == 1
+
+
+def test_restore_transient_write_failure_keeps_exact_retry_usable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = WorkBoardAdoptionStore(tmp_path / "source")
+    _commit(
+        source,
+        WorkBoardAdoptionMutationRequest(
+            action="create",
+            expected_revision=0,
+            draft=_draft(),
+        ),
+        suffix="restore-retry-source",
+    )
+    backup = source.create_portable_backup(
+        WorkBoardAdoptionPortableBackupRequest(
+            passphrase="restore retry passphrase value"
+        )
+    )
+    target = WorkBoardAdoptionStore(tmp_path / "target")
+    idempotency_ref = _idempotency("restore-retry")
+    request = WorkBoardAdoptionPortableRestoreRequest(
+        passphrase="restore retry passphrase value",
+        backup=backup,
+    )
+    preview = target.preview_restore(request, idempotency_ref=idempotency_ref)
+    approval = target.capture_restore_approval(
+        WorkBoardAdoptionRestoreApprovalCaptureRequest(
+            **request.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    commit = WorkBoardAdoptionRestoreCommitRequest(
+        **request.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=approval.approval_ref,
+    )
+    original_write = target._write_state
+    attempts = 0
+
+    def transient_write_failure(state: WorkBoardAdoptionState) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_STATE_WRITE_FAILED")
+        original_write(state)
+
+    monkeypatch.setattr(target, "_write_state", transient_write_failure)
+    with pytest.raises(
+        WorkBoardAdoptionError,
+        match="WORK_BOARD_ADOPTION_STATE_WRITE_FAILED",
+    ):
+        target.commit_restore(commit, idempotency_ref=idempotency_ref)
+
+    receipt = target.commit_restore(commit, idempotency_ref=idempotency_ref)
+    assert receipt.after_revision == 2
+    assert target.read_view().revision == 2
+
+
+def test_revocation_failure_does_not_mask_publication_outcome(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = WorkBoardAdoptionStore(tmp_path)
+    mutation = WorkBoardAdoptionMutationRequest(
+        action="create",
+        expected_revision=0,
+        draft=_draft(),
+    )
+    idempotency_ref = _idempotency("revocation-failure")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    approval = store.capture_approval(
+        WorkBoardAdoptionApprovalCaptureRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+
+    def publication_uncertain(_state: WorkBoardAdoptionState) -> None:
+        raise WorkBoardAdoptionError("WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN")
+
+    def revocation_failed(*_args: object, **_kwargs: object) -> None:
+        raise OSError("private path must not escape")
+
+    monkeypatch.setattr(store, "_write_state", publication_uncertain)
+    monkeypatch.setattr(AuthorityLeaseStore, "revoke_lease", revocation_failed)
+    with pytest.raises(
+        WorkBoardAdoptionError,
+        match="WORK_BOARD_ADOPTION_PUBLICATION_UNCERTAIN",
+    ):
+        store.commit_mutation(
+            WorkBoardAdoptionCommitRequest(
+                mutation=mutation,
+                preview_ref=preview.preview_ref,
+                approval_ref=approval.approval_ref,
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+    assert "WORK_BOARD_ADOPTION_LEASE_REVOCATION_FAILED" in caplog.text
 
 
 def test_file_writer_lock_uses_windows_interprocess_fallback(
@@ -484,6 +605,57 @@ def test_malformed_or_symlinked_state_requires_recovery(tmp_path: Path) -> None:
     linked.mkdir()
     (linked / WORK_BOARD_ADOPTION_STATE_FILE).symlink_to(target)
     assert WorkBoardAdoptionStore(linked).read_view().status == "recovery_required"
+
+    dangling = tmp_path / "dangling"
+    dangling.mkdir()
+    dangling_state = dangling / WORK_BOARD_ADOPTION_STATE_FILE
+    dangling_state.symlink_to(tmp_path / "missing-state.json")
+    dangling_store = WorkBoardAdoptionStore(dangling)
+    assert dangling_store.read_view().status == "recovery_required"
+    with pytest.raises(
+        WorkBoardAdoptionError,
+        match="WORK_BOARD_ADOPTION_STATE_OBJECT_UNSAFE",
+    ):
+        dangling_store.preview_mutation(
+            WorkBoardAdoptionMutationRequest(
+                action="create",
+                expected_revision=0,
+                draft=_draft(),
+            ),
+            idempotency_ref=_idempotency("dangling-state"),
+        )
+    assert dangling_state.is_symlink()
+
+
+def test_windows_private_acl_is_applied_to_existing_private_tree(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = WorkBoardAdoptionStore(tmp_path / "windows-private")
+    store.state_dir.mkdir()
+    store.lock_manager.lock_dir.mkdir()
+    lock_file = store.lock_manager.lock_dir / "work-board-adoption-state.lock"
+    lock_file.write_bytes(b"")
+    authority_dir = store.state_dir / "authority"
+    authority_dir.mkdir()
+    authority_file = authority_dir / "authority-leases.json"
+    authority_file.write_text("{}", encoding="utf-8")
+    store.state_path.write_text("{}", encoding="utf-8")
+    secured: list[tuple[Path, bool]] = []
+
+    def secure(path: Path, *, directory: bool) -> None:
+        secured.append((path, directory))
+
+    monkeypatch.setattr(work_board_adoption, "_IS_WINDOWS", True)
+    monkeypatch.setattr(work_board_adoption, "_set_windows_private_acl", secure)
+    store._ensure_private_state_directory()
+
+    assert (store.state_dir, True) in secured
+    assert (store.lock_manager.lock_dir, True) in secured
+    assert (lock_file, False) in secured
+    assert (authority_dir, True) in secured
+    assert (authority_file, False) in secured
+    assert (store.state_path, False) in secured
 
 
 def test_forged_receipt_identity_requires_recovery(tmp_path: Path) -> None:
