@@ -1756,7 +1756,10 @@ export function SettingsOperatorPanel({
     setAuthorityPreviewPendingKey(option.key);
     setAuthorityPreviewError(undefined);
     try {
-      const result = await previewAuthorityDecision(option.request);
+      const result = await previewAuthorityDecision(
+        option.request,
+        mutationBinding,
+      );
       setAuthorityPreview(result);
     } catch (error) {
       setAuthorityPreviewError(

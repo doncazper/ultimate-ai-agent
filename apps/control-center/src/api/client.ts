@@ -493,8 +493,17 @@ export function withBackendTruthMutationHeaders(
     throw new Error("BACKEND_TRUTH_MUTATION_BINDING_REQUIRED");
   }
   return {
-    ...headers,
+    ...withBackendTruthExpectedHeaders(headers, binding),
     "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+  };
+}
+
+function withBackendTruthExpectedHeaders(
+  headers: Record<string, string>,
+  binding: BackendTruthReadBinding,
+): Record<string, string> {
+  return {
+    ...headers,
     "X-UAA-Expected-Backend-Revision-Ref": binding.backendRevisionRef,
     "X-UAA-Expected-Backend-Instance-Ref": binding.backendInstanceRef,
     "X-UAA-Expected-Backend-Truth-Ref": binding.snapshotRef,
@@ -5318,6 +5327,7 @@ async function submitActionLifecycleDecision(
       body: JSON.stringify(boundRequest),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
@@ -5337,7 +5347,15 @@ async function submitActionLifecycleDecision(
     throw new ActionInboxRevisionConflictError(revisionConflict);
   }
   const receipt = data.result ?? data.data;
-  if (!response.ok || !receipt) {
+  if (
+    !response.ok
+    || !actionDecisionReceiptIsSafe(
+      receipt,
+      actionId,
+      decision,
+      boundRequest,
+    )
+  ) {
     throw new Error(
       safeApiErrorMessage(
         data,
@@ -5346,6 +5364,105 @@ async function submitActionLifecycleDecision(
     );
   }
   return receipt;
+}
+
+function actionDecisionReceiptIsSafe(
+  value: unknown,
+  actionId: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  request: FounderLoopActionDecisionRequest,
+): value is FounderLoopActionDecisionReceipt {
+  if (!isPlainRecord(value)) return false;
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    actionId,
+    decision,
+    request,
+  );
+  const lifecycleSuffix = [actionId, decision, idempotencyRef]
+    .map(localTaskCommitSafeSuffix)
+    .join(":");
+  const refFields = [
+    "contract_ref",
+    "decision_ref",
+    "item_ref",
+    "receipt_ref",
+    "audit_ref",
+    "idempotency_key_ref",
+    "payload_fingerprint_ref",
+    "expected_revision_ref",
+    "generation_ref",
+    "revision_ref",
+    "revision_fingerprint_ref",
+    "result_generation_ref",
+    "result_revision_ref",
+    "result_revision_fingerprint_ref",
+    "approval_scope_ref",
+    "decision_route_binding_ref",
+    "decision_adapter_ref",
+    "decision_deadline_ref",
+  ] as const;
+  const refArrayFields = [
+    "authority_input_refs",
+    "invalidated_approval_refs",
+    "approval_reason_refs",
+    "evidence_refs",
+    "blocked_state_refs",
+  ] as const;
+  const optionalRefFields = [
+    "approval_ref",
+    "authority_decision_ref",
+    "authority_lease_ref",
+    "authority_audit_ref",
+    "authority_receipt_ref",
+    "authority_domain_ref",
+    "authority_capability_ref",
+    "authority_required_mode_ref",
+  ] as const;
+  return value.contract_ref
+      === "contract-ref:founder-loop-action-state-machine:v1"
+    && value.item_ref === actionId
+    && value.decision === decision
+    && value.expected_revision_ref === request.expected_revision_ref
+    && value.revision_ref === request.expected_revision_ref
+    && value.idempotency_key_ref === idempotencyRef
+    && value.decision_ref === `action-decision:${lifecycleSuffix}`
+    && value.receipt_ref === `receipt:founder-loop-action:${lifecycleSuffix}`
+    && value.audit_ref === `audit:founder-loop-action:${lifecycleSuffix}`
+    && value.decision_route_ref
+      === `POST /control-center/actions/{action_id}/${decision}`
+    && value.decision_route_binding_ref
+      === `route-ref:control-center:action-decision:${decision}`
+    && refFields.every((field) => isSafeLocalTaskReceiptRef(value[field] as string))
+    && refArrayFields.every((field) =>
+      Array.isArray(value[field])
+      && (value[field] as unknown[]).every(isSafeNorthStarStructuredRef))
+    && optionalRefFields.every((field) =>
+      value[field] === null
+      || value[field] === undefined
+      || isSafeNorthStarStructuredRef(value[field]))
+    && isSafeLocalTaskReceiptDisplayValue(value.status as string, 80)
+    && isSafeLocalTaskReceiptDisplayValue(value.approval_status as string, 120)
+    && isSafeLocalTaskReceiptDisplayValue(value.safe_summary as string, 320)
+    && Number.isInteger(value.generation)
+    && Number(value.generation) >= 1
+    && Number.isInteger(value.result_generation)
+    && Number(value.result_generation) >= 1
+    && Number.isInteger(value.invalidated_approval_count)
+    && Number(value.invalidated_approval_count)
+      === (value.invalidated_approval_refs as unknown[]).length
+    && typeof value.revision_advanced === "boolean"
+    && value.revision_advanced
+      === (value.expected_revision_ref !== value.result_revision_ref)
+    && value.revision_advanced
+      === (Number(value.result_generation) > Number(value.generation))
+    && value.action_executed === false
+    && value.approval_grants_execution === false
+    && value.connector_write_performed === false
+    && value.memory_write_performed === false
+    && value.raw_content_stored === false
+    && typeof value.replayed === "boolean"
+    && typeof value.created_at === "string"
+    && Number.isFinite(Date.parse(value.created_at));
 }
 
 function actionInboxRevisionConflictDetail(
@@ -5428,6 +5545,7 @@ export async function commitLocalTask(
       body: JSON.stringify(request),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<FounderLoopLocalTaskCommitReceipt>;
@@ -5607,6 +5725,7 @@ export async function fetchAuthorityMissionCompletions(): Promise<AuthorityMissi
 
 export async function previewAuthorityDecision(
   request: AuthorityActionRequest,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<AuthorityDecisionPreview> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -5615,13 +5734,24 @@ export async function previewAuthorityDecision(
     `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityDecisionPreview}`,
     {
       method: "POST",
-      headers: withLocalApiAuthHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      }),
+      headers: withLocalApiAuthHeaders(
+        binding === null
+          ? {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            }
+          : withBackendTruthExpectedHeaders(
+              {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              binding,
+            ),
+      ),
       body: JSON.stringify(request),
     },
   );
+  validateBackendResponseBinding(response.headers, binding);
   const data = (await readJsonSafely(
     response,
   )) as ResultEnvelope<AuthorityDecisionPreview>;
@@ -5812,6 +5942,612 @@ export async function fetchFounderActionsInbox(
     binding,
   );
   return inbox;
+}
+
+const NORTH_STAR_ACTION_GROUP_LABELS_BY_ID = new Map([
+  ["ready_for_decision", "Ready for decision"],
+  ["approved_local_task_lane", "Approved local-task create lane"],
+  ["blocked_by_authority", "Blocked by authority"],
+  ["expired_stale", "Expired/stale"],
+  ["receipt_recorded", "Receipt recorded"],
+  ["proposal_only_no_execution_path", "Proposal-only / no execution path"],
+]);
+
+const NORTH_STAR_DECISION_LANE_LABELS_BY_ID = new Map([
+  ["needs_approval", "Needs approval"],
+  ["blocked", "Blocked"],
+  ["draft_only", "Draft-only"],
+  ["cost_blocked", "Cost blocked"],
+  ["no_authority", "No authority"],
+  ["approved_no_execution", "Approved / no execution"],
+  ["rejected", "Rejected"],
+  ["deferred", "Deferred"],
+  ["receipt_recorded", "Receipt recorded"],
+]);
+
+export function validateNorthStarDecisionsInbox(
+  inbox: FounderLoopActionsInbox,
+): FounderLoopActionsInbox {
+  const inboxRecord = inbox as unknown as Record<string, unknown>;
+  const normalized = normalizeFounderActionsInbox(inbox);
+  const normalizedRecord = normalized.value as unknown as
+    Record<string, unknown>;
+  const items = normalizedRecord.items;
+  const decisionLane = normalized.value.action_inbox_decision_lane_read_model;
+  const workQueue = normalized.value.action_inbox_work_queue_read_model;
+  if (
+    normalized.usedFallback
+    || inboxRecord.approval_required_before_mutation !== true
+    || typeof inboxRecord.mutating_controls_enabled !== "boolean"
+    || inboxRecord.action_execution_enabled !== false
+    || inboxRecord.expected_revision_required !== true
+    || inboxRecord.cancel_decision_enabled !== true
+    || typeof inboxRecord.decision_receipts_required !== "boolean"
+    || !Array.isArray(items)
+    || items.length > 50
+    || !items.every(isSafeNorthStarDecisionInboxItem)
+    || !decisionLane
+    || !workQueue
+    || decisionLane.source !== "python_core_action_inbox_decision_lane_read_model"
+    || !decisionLane.backend_owned
+    || workQueue.source !== "python_core_action_inbox_work_queue_read_model"
+    || !workQueue.backend_owned
+    || !actionInboxGroupsMatchWorkQueue(items, workQueue)
+    || !decisionLanesMatchActionInbox(items, decisionLane)
+  ) {
+    throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
+  }
+  return normalized.value;
+}
+
+function decisionLanesMatchActionInbox(
+  items: unknown[],
+  decisionLane: NonNullable<
+    FounderLoopActionsInbox["action_inbox_decision_lane_read_model"]
+  >,
+): boolean {
+  const itemRecords = items.filter(isPlainRecord);
+  const decisionItems = decisionLane.items as unknown[];
+  const decisionItemRecords = decisionItems.filter(isPlainRecord);
+  const itemRefs = itemRecords
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  const decisionItemRefs = decisionItemRecords
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    itemRecords.length !== items.length
+    || decisionItemRecords.length !== decisionItems.length
+    || !hasExactStringSet(decisionItemRefs, itemRefs)
+    || decisionLane.lanes.length !== NORTH_STAR_DECISION_LANE_LABELS_BY_ID.size
+  ) return false;
+
+  if (decisionLane.lanes.some((lane) => {
+    const expectedRefs = decisionItemRecords
+      .filter((item) => item.lane_id === lane.lane_id)
+      .map((item) => item.item_ref)
+      .filter((itemRef): itemRef is string => typeof itemRef === "string");
+    return lane.label !== NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(lane.lane_id)
+      || lane.count !== expectedRefs.length
+      || !hasExactStringSet(lane.item_refs, expectedRefs);
+  })) return false;
+
+  return itemRecords.every((item) => {
+    const matches = decisionItemRecords.filter(
+      (candidate) => candidate.item_ref === item.item_ref,
+    );
+    if (matches.length !== 1) return false;
+    const laneItem = matches[0];
+    const expectedReceiptRefs = Array.isArray(item.action_expected_receipt_refs)
+      ? item.action_expected_receipt_refs
+      : isPlainRecord(item.approval_envelope)
+          && Array.isArray(item.approval_envelope.expected_receipt_refs)
+        ? item.approval_envelope.expected_receipt_refs
+        : [];
+    const boundScalarFields = [
+      "title",
+      "status",
+      "priority",
+      "side_effect_class",
+      "safe_summary",
+      "next_safe_action",
+      "authority_boundary",
+      "approval_required",
+    ];
+    return decisionLaneIdMatchesActionGroup(item, laneItem)
+      && boundScalarFields.every((field) => laneItem[field] === item[field])
+      && laneItem.action_kind === (item.action_kind ?? "review_only")
+      && laneItem.approval_envelope_ref === item.approval_envelope_ref
+      && laneItem.approval_scope_ref === (
+        item.action_scope_ref
+        ?? (isPlainRecord(item.approval_envelope)
+          ? item.approval_envelope.exact_scope
+          : undefined)
+      )
+      && laneItem.rollback_ref === (item.action_rollback_ref ?? item.rollback_ref)
+      && laneItem.safe_disable_ref === (
+        item.action_safe_disable_ref ?? item.safe_disable_ref
+      )
+      && hasExactStringSet(
+        laneItem.expected_receipt_refs as unknown[],
+        expectedReceiptRefs.filter(
+          (value): value is string => typeof value === "string",
+        ),
+      )
+      && hasExactStringSet(
+        laneItem.evidence_refs as unknown[],
+        Array.isArray(item.evidence_refs)
+          ? item.evidence_refs.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      )
+      && hasExactStringSet(
+        laneItem.receipt_refs as unknown[],
+        Array.isArray(item.receipt_refs)
+          ? item.receipt_refs.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      );
+  });
+}
+
+function decisionLaneIdMatchesActionGroup(
+  item: Record<string, unknown>,
+  laneItem: Record<string, unknown>,
+): boolean {
+  const groupId = item.action_group_id;
+  const status = String(item.status ?? "").toLowerCase();
+  const laneId = laneItem.lane_id;
+  if (groupId === "blocked_by_authority") return laneId === "blocked";
+  if (groupId === "expired_stale") return laneId === "deferred";
+  if (groupId === "proposal_only_no_execution_path") {
+    return laneId === "draft_only";
+  }
+  if (groupId === "approved_local_task_lane") {
+    return laneId === "approved_no_execution";
+  }
+  if (groupId === "receipt_recorded") {
+    if (status === "rejected") return laneId === "rejected";
+    if (["deferred", "expired", "stale", "superseded"].includes(status)) {
+      return laneId === "deferred";
+    }
+    if (status === "approved") return laneId === "approved_no_execution";
+    return laneId === "receipt_recorded";
+  }
+  return groupId === "ready_for_decision"
+    && ["needs_approval", "cost_blocked", "no_authority"].includes(
+      String(laneId),
+    );
+}
+
+function isSafeNorthStarDecisionInboxItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  const approvalEnvelope = value.approval_envelope;
+  const receiptVisibility = value.receipt_visibility;
+  const actionRevisionRef = value.action_revision_ref;
+  const expectedRevisionRef = value.expected_revision_ref;
+  const localTaskCommitReceiptRef = value.local_task_commit_receipt_ref;
+  const isSafeDisplayArray = (candidate: unknown, maxLength = 240): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every((entry) =>
+      isSafeLocalTaskReceiptDisplayValue(entry as string | undefined, maxLength));
+  const isSafeRefArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every((entry) =>
+      isSafeLocalTaskReceiptRef(entry as string | undefined));
+  const isSafeStructuredRefArray = (candidate: unknown): candidate is string[] =>
+    Array.isArray(candidate)
+    && candidate.every(isSafeNorthStarStructuredRef);
+  const safeDisplayFields: Array<[string, number]> = [
+    ["title", 160],
+    ["safe_summary", 500],
+    ["surface", 120],
+    ["priority", 80],
+    ["risk_class", 80],
+    ["status", 120],
+    ["side_effect_class", 120],
+    ["authority_boundary", 500],
+    ["next_safe_action", 500],
+    ["stale_state", 120],
+  ];
+  const renderedOptionalDisplayFields: Array<[string, number]> = [
+    ["action_expires_at", 120],
+    ["expires_at", 120],
+  ];
+  const actionGroupLabels = new Set(
+    NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.values(),
+  );
+  const renderedOptionalRefFields = [
+    "action_scope_ref",
+    "action_envelope_ref",
+    "approval_envelope_ref",
+    "local_task_commit_approval_ref",
+    "action_rollback_ref",
+    "rollback_ref",
+    "action_safe_disable_ref",
+    "safe_disable_ref",
+  ];
+  const optionalRefArrayFields = [
+    "action_expected_receipt_refs",
+    "action_blocked_state_refs",
+    "local_task_commit_blocked_reasons",
+  ];
+  return isSafeLocalTaskReceiptRef(value.item_ref as string | undefined)
+    && actionRevisionProjectionIsBound(value)
+    && isSafeActionRevisionRef(actionRevisionRef)
+    && isSafeActionRevisionRef(expectedRevisionRef)
+    && actionRevisionRef === expectedRevisionRef
+    && (
+      localTaskCommitReceiptRef === undefined
+      || localTaskCommitReceiptRef === null
+      || isSafeNorthStarStructuredRef(localTaskCommitReceiptRef)
+    )
+    && safeDisplayFields.every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      ))
+    && renderedOptionalDisplayFields.every(([field, maxLength]) =>
+      value[field] === undefined
+      || value[field] === null
+      || isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      ))
+    && (value.action_group_label === undefined
+      || (
+        typeof value.action_group_label === "string"
+        && actionGroupLabels.has(value.action_group_label)
+      ))
+    && (value.action_group_id === undefined
+      || (
+        typeof value.action_group_id === "string"
+        && NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.has(value.action_group_id)
+      ))
+    && (
+      typeof value.action_group_id !== "string"
+      || typeof value.action_group_label !== "string"
+      || NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.get(value.action_group_id)
+        === value.action_group_label
+    )
+    && renderedOptionalRefFields.every((field) =>
+      value[field] === undefined
+      || value[field] === null
+      || isSafeNorthStarStructuredRef(value[field]))
+    && typeof value.approval_required === "boolean"
+    && ["evidence_refs", "receipt_refs", "audit_refs"].every((field) =>
+      isSafeRefArray(value[field]))
+    && (value.action_review_actions === undefined
+      || isSafeDisplayArray(value.action_review_actions, 80))
+    && optionalRefArrayFields.every((field) =>
+      value[field] === undefined || isSafeStructuredRefArray(value[field]))
+    && (approvalEnvelope === undefined
+      || (
+        isPlainRecord(approvalEnvelope)
+        && approvalEnvelope.schema_version
+          === "founder_loop_action_approval_envelope.v1"
+        && approvalEnvelope.contract_ref
+          === "contract-ref:founder-loop-action-approval-envelope:v1"
+        && approvalEnvelope.source === "python_core_action_inbox_read_model"
+        && approvalEnvelope.backend_owned === true
+        && isSafeNorthStarStructuredRef(approvalEnvelope.exact_scope)
+        && isSafeDisplayArray(
+          approvalEnvelope.missing_field_states,
+          120,
+        )
+        && isSafeStructuredRefArray(approvalEnvelope.expected_receipt_refs)
+      ))
+    && (receiptVisibility === undefined
+      || (
+        isPlainRecord(receiptVisibility)
+        && receiptVisibility.schema_version
+          === "founder_loop_action_receipt_visibility.v1"
+        && receiptVisibility.contract_ref
+          === "contract-ref:founder-loop-action-receipt-visibility:v1"
+        && receiptVisibility.source === "python_core_action_inbox_read_model"
+        && receiptVisibility.backend_owned === true
+        && [
+          "decision_receipt_ref",
+          "local_task_ref",
+          "local_task_commit_receipt_ref",
+          "local_task_commit_approval_ref",
+          "local_task_commit_request_binding_ref",
+          "evidence_timeline_event_ref",
+        ].every((field) =>
+          isSafeNorthStarStructuredRef(receiptVisibility[field]))
+        && (
+          String(receiptVisibility.local_task_commit_receipt_ref).startsWith(
+            "receipt:founder-loop-local-task:",
+          )
+            ? isSafeLocalTaskReceiptRef(
+              receiptVisibility.local_task_commit_idempotency_key_ref as
+                string | undefined,
+            )
+            : (
+              receiptVisibility.local_task_commit_idempotency_key_ref
+                === undefined
+              || isSafeNorthStarStructuredRef(
+                receiptVisibility.local_task_commit_idempotency_key_ref,
+              )
+            )
+        )
+        && isSafeLocalTaskReceiptDisplayValue(
+          receiptVisibility.replay_posture as string | undefined,
+          120,
+        )
+        && isSafeLocalTaskReceiptDisplayValue(
+          receiptVisibility.conflict_posture as string | undefined,
+          120,
+        )
+        && isSafeDisplayArray(
+          receiptVisibility.missing_field_states,
+          120,
+        )
+      ))
+    && localTaskCommitProjectionIsBound(
+      value,
+      receiptVisibility,
+      localTaskCommitReceiptRef,
+    );
+}
+
+function localTaskCommitProjectionIsBound(
+  item: Record<string, unknown>,
+  receiptVisibility: unknown,
+  itemReceiptRef: unknown,
+): boolean {
+  const visibleReceiptRef = isPlainRecord(receiptVisibility)
+    ? receiptVisibility.local_task_commit_receipt_ref
+    : undefined;
+  const terminalProjected = (
+    typeof itemReceiptRef === "string" && itemReceiptRef.startsWith("receipt:")
+  ) || (
+    typeof visibleReceiptRef === "string"
+      && visibleReceiptRef.startsWith("receipt:")
+  );
+  if (!terminalProjected) return true;
+  const idempotencyRef = isPlainRecord(receiptVisibility)
+    ? receiptVisibility.local_task_commit_idempotency_key_ref
+    : undefined;
+  const approvalRef = item.local_task_commit_approval_ref;
+  return typeof itemReceiptRef === "string"
+    && itemReceiptRef.startsWith("receipt:founder-loop-local-task:")
+    && isPlainRecord(receiptVisibility)
+    && visibleReceiptRef === itemReceiptRef
+    && typeof approvalRef === "string"
+    && receiptVisibility.local_task_commit_approval_ref === approvalRef
+    && typeof idempotencyRef === "string"
+    && itemReceiptRef === localTaskCommitReceiptRefForIdempotency(
+      String(item.item_ref),
+      idempotencyRef,
+    )
+    && receiptVisibility.local_task_commit_request_binding_ref
+      === localTaskCommitProjectionBindingRef(
+        String(item.item_ref),
+        approvalRef,
+        idempotencyRef,
+      )
+    && typeof item.local_task_ref === "string"
+    && receiptVisibility.local_task_ref === item.local_task_ref;
+}
+
+export function actionRevisionProjectionIsBound(
+  item: Record<string, unknown>,
+): boolean {
+  const state = item.action_revision_state;
+  const contractRef =
+    "contract-ref:founder-loop-action-revision-lifecycle:v1";
+  return isPlainRecord(state)
+    && item.action_revision_contract_ref === contractRef
+    && state.revision_contract_ref === contractRef
+    && state.item_ref === item.item_ref
+    && Number.isInteger(item.action_generation)
+    && Number(item.action_generation) >= 1
+    && state.generation === item.action_generation
+    && state.generation_ref === item.action_generation_ref
+    && state.revision_ref === item.action_revision_ref
+    && state.revision_ref === item.expected_revision_ref
+    && state.revision_fingerprint_ref === item.action_revision_fingerprint_ref
+    && state.source_fingerprint_ref
+      === item.action_revision_source_fingerprint_ref
+    && state.transition_ref === item.action_revision_transition_ref
+    && state.backend_owned === true
+    && state.safe_refs_only === true
+    && state.expected_revision_required === true
+    && state.stale_conflict_code === "FOUNDER_LOOP_ACTION_STALE_REVISION"
+    && state.refresh_route_ref === "GET /control-center/actions/inbox"
+    && [
+      state.revision_contract_ref,
+      state.item_ref,
+      state.generation_ref,
+      state.revision_ref,
+      state.revision_fingerprint_ref,
+      state.source_fingerprint_ref,
+      state.transition_ref,
+    ].every(isSafeNorthStarStructuredRef)
+    && (
+      state.previous_revision_ref === undefined
+      || state.previous_revision_ref === null
+      || isSafeNorthStarStructuredRef(state.previous_revision_ref)
+    );
+}
+
+function isSafeActionRevisionRef(value: unknown): value is string {
+  return typeof value === "string"
+    && value.startsWith("action-revision:")
+    && isSafeLocalTaskReceiptRef(value);
+}
+
+function actionInboxGroupsMatchWorkQueue(
+  items: unknown[],
+  workQueue: unknown,
+): boolean {
+  if (!isPlainRecord(workQueue)
+    || !Array.isArray(workQueue.lanes)
+    || !Array.isArray(workQueue.work_items)) return false;
+  const lanes = workQueue.lanes as unknown[];
+  const workItems = workQueue.work_items as unknown[];
+  const itemRefs = items
+    .filter(isPlainRecord)
+    .map((item) => item.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    itemRefs.length !== items.length
+    || new Set(itemRefs).size !== itemRefs.length
+    || workQueue.item_count !== items.length
+    || workQueue.lane_count !== lanes.length
+    || workQueue.work_item_count !== workItems.length
+    || !Array.isArray(workQueue.work_item_refs)
+  ) return false;
+  const laneRecords = lanes.filter(isPlainRecord);
+  if (laneRecords.length !== lanes.length) return false;
+  const laneIds = laneRecords
+    .map((lane) => lane.lane_id)
+    .filter((laneId): laneId is string => typeof laneId === "string");
+  if (
+    !hasExactStringSet(
+      laneIds,
+      Array.from(NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.keys()),
+    )
+    || laneRecords.some((lane) => {
+      if (
+        typeof lane.lane_id !== "string"
+        || !Array.isArray(lane.item_refs)
+        || lane.label !== NORTH_STAR_ACTION_GROUP_LABELS_BY_ID.get(lane.lane_id)
+      ) return true;
+      const expectedLaneItemRefs = items
+        .filter(isPlainRecord)
+        .filter((item) => item.action_group_id === lane.lane_id)
+        .map((item) => item.item_ref)
+        .filter((itemRef): itemRef is string => typeof itemRef === "string");
+      return lane.count !== expectedLaneItemRefs.length
+        || lane.item_refs.length > 8
+        || !hasExactStringSet(
+          lane.item_refs,
+          expectedLaneItemRefs.slice(0, 8),
+        );
+    })
+  ) return false;
+  const countForLane = (laneId: string) => laneRecords
+    .filter((lane) => lane.lane_id === laneId)
+    .reduce((total, lane) => total + Number(lane.count), 0);
+  if (
+    workQueue.ready_for_decision_count !== countForLane("ready_for_decision")
+    || workQueue.approved_local_task_count !== countForLane("approved_local_task_lane")
+    || workQueue.proposal_only_count !== countForLane("proposal_only_no_execution_path")
+    || workQueue.blocked_count !== countForLane("blocked_by_authority")
+    || workQueue.receipt_recorded_count !== countForLane("receipt_recorded")
+    || workQueue.operator_actionable_count !== (
+      countForLane("ready_for_decision")
+      + countForLane("approved_local_task_lane")
+    )
+  ) return false;
+  const workItemRecords = workItems.filter(isPlainRecord);
+  const workItemRefs = workItemRecords
+    .map((workItem) => workItem.item_ref)
+    .filter((itemRef): itemRef is string => typeof itemRef === "string");
+  if (
+    workItemRecords.length !== workItems.length
+    || workItemRefs.length !== workItems.length
+    || !hasExactStringSet(workQueue.work_item_refs, workItemRefs)
+    || workItemRefs.some((itemRef) => !itemRefs.includes(itemRef))
+  ) return false;
+  return items.every((item) => {
+    if (!isPlainRecord(item)
+      || typeof item.item_ref !== "string"
+      || typeof item.action_group_id !== "string"
+      || typeof item.action_group_label !== "string") return false;
+    const laneMatches = lanes.filter((lane) =>
+      isPlainRecord(lane)
+      && lane.lane_id === item.action_group_id);
+    if (laneMatches.length !== 1) return false;
+    const lane = laneMatches[0] as Record<string, unknown>;
+    if (lane.lane_id !== item.action_group_id
+      || lane.label !== item.action_group_label) return false;
+    const workItemMatches = workItems.filter((workItem) =>
+      isPlainRecord(workItem) && workItem.item_ref === item.item_ref);
+    if (workItemMatches.length > 1) return false;
+    if (workItemMatches.length === 0) return true;
+    const workItem = workItemMatches[0] as Record<string, unknown>;
+    return workItem.lane_id === item.action_group_id
+      && workItem.lane_label === item.action_group_label;
+  }) && workItemRecords.every((workItem) => {
+    const item = items.find((candidate) =>
+      isPlainRecord(candidate) && candidate.item_ref === workItem.item_ref);
+    return Boolean(
+      isPlainRecord(item)
+      && workItem.lane_id === item.action_group_id
+      && workItem.lane_label === item.action_group_label,
+    );
+  });
+}
+
+export async function fetchNorthStarDecisionsInbox(
+  binding: BackendTruthReadBinding | null,
+): Promise<FounderLoopActionsInbox> {
+  return validateNorthStarDecisionsInbox(
+    await fetchFounderActionsInbox(binding),
+  );
+}
+
+export async function loadNorthStarDecisionsData(
+  binding: BackendTruthReadBinding | null,
+): Promise<ControlCenterData> {
+  if (!API_BASE_POLICY.allowed || !binding) {
+    throw new StrictBackendDataError();
+  }
+  const [inbox, settingsStatus] = await Promise.all([
+    readEnvelope<FounderLoopActionsInbox>(
+      API_ENDPOINTS.founderActionsInbox,
+      defaultControlCenterReadLimiter,
+      binding,
+    ),
+    readEnvelope<ControlCenterSettingsStatus>(
+      API_ENDPOINTS.controlCenterSettingsStatus,
+      defaultControlCenterReadLimiter,
+      binding,
+    ),
+  ]);
+  const validatedInbox = validateNorthStarDecisionsInbox(inbox);
+  if (
+    !isSafeControlCenterSettingsStatus(settingsStatus)
+  ) {
+    throw new Error("NORTH_STAR_DECISIONS_RESPONSE_INVALID");
+  }
+  const routeStates = {
+    ...mockControlCenterData.routeStates,
+    "/actions": buildRouteReadState({
+      route: "/actions",
+      surfaceLabel: "Action Inbox",
+      backendRouteRef: "GET /control-center/actions/inbox",
+      endpointReturned: true,
+      usedFallback: false,
+    }),
+    "/settings": buildRouteReadState({
+      route: "/settings",
+      surfaceLabel: "Settings",
+      backendRouteRef: "GET /control-center/settings/status",
+      endpointReturned: true,
+      usedFallback: false,
+    }),
+  };
+  return withConnection(
+    {
+      ...mockControlCenterData,
+      source: "api",
+      founderActionsInbox: validatedInbox,
+      settingsStatus,
+      routeStates,
+    },
+    {
+      state: "online",
+      safeMessage: "Decisions and authority state loaded from bounded local backend contracts.",
+      usingMockData: false,
+      warnings: [],
+    },
+  );
 }
 
 export type GovernedRuntimeCommandIntent =
@@ -7451,7 +8187,7 @@ export async function fetchMemoryReviewDecisionReceipt(
   );
 }
 
-function actionDecisionIdempotencyRef(
+export function actionDecisionIdempotencyRef(
   actionId: string,
   decision: FounderLoopActionLifecycleDecisionKind,
   request?: FounderLoopActionDecisionRequest,
@@ -7464,7 +8200,23 @@ function actionDecisionIdempotencyRef(
   return `idempotency-ref:control-center-action:${decision}:${safeActionId || "missing"}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}:${safeHashSuffix(request?.expected_revision_ref ?? "revision-missing")}`;
 }
 
-function localTaskCommitIdempotencyRef(
+export function actionDecisionReceiptRef(
+  actionId: string,
+  decision: FounderLoopActionLifecycleDecisionKind,
+  request: FounderLoopActionDecisionRequest,
+): string {
+  const idempotencyRef = actionDecisionIdempotencyRef(
+    actionId,
+    decision,
+    request,
+  );
+  const lifecycleSuffix = [actionId, decision, idempotencyRef]
+    .map(localTaskCommitSafeSuffix)
+    .join(":");
+  return `receipt:founder-loop-action:${lifecycleSuffix}`;
+}
+
+export function localTaskCommitIdempotencyRef(
   actionId: string,
   request?: FounderLoopLocalTaskCommitRequest,
 ): string {
@@ -7474,6 +8226,467 @@ function localTaskCommitIdempotencyRef(
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `idempotency-ref:control-center-local-task:${safeActionId || "missing"}:${safeChatSuffix(request?.approval_ref ?? "approval")}`;
+}
+
+const LOCAL_TASK_COMMIT_CONTRACT_REF =
+  "contract-ref:founder-loop-local-task-commit:v1";
+const LOCAL_TASK_COMMIT_ROUTE_REF =
+  "POST /control-center/actions/{action_id}/local-task/commit";
+const LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF =
+  "authority-action-ref:founder-loop-local-task-commit";
+const LOCAL_TASK_COMMIT_AUTHORITY_LANE_REF =
+  "lane-ref:action-inbox-local-task-commit";
+const LOCAL_TASK_COMMIT_SAFE_DISABLE_REF =
+  "safe-disable:founder-loop:local-task-create-scorecard";
+const LOCAL_TASK_COMMIT_ROLLBACK_REF =
+  "rollback-not-applicable:local-task-safe-disable";
+const LOCAL_TASK_COMMIT_SAFE_DISABLE_POSTURE_REF =
+  "safe-disable-posture:founder-loop:local-task-create:enabled";
+const LOCAL_TASK_COMMIT_BLOCKED_REFS = [
+  "blocked-state:no-connector-write",
+  "blocked-state:no-shell-subprocess-execution",
+  "blocked-state:no-model-provider-authority",
+  "blocked-state:no-memory-write",
+  "blocked-state:no-context-injection",
+  "blocked-state:no-external-side-effect",
+  "blocked-state:no-production-authority",
+] as const;
+const LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS = [
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
+  /\bAIza[A-Za-z0-9_-]{20,}\b/,
+  /\bsk-[A-Za-z0-9_-]{16,}\b/,
+  /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{16,}\b/,
+  /\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/,
+] as const;
+
+export interface LocalTaskCommitReceiptBinding {
+  itemRef: string;
+  approvalRef: string;
+  idempotencyRef: string;
+  request: FounderLoopLocalTaskCommitRequest;
+  safeDisableRef: string;
+  rollbackRef: string;
+}
+
+function localTaskCommitSafeSuffix(value: string): string {
+  const suffix = value
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return suffix || "missing";
+}
+
+export function founderLoopLocalTaskRef(itemRef: string): string {
+  return `local-task:founder-loop:${localTaskCommitSafeSuffix(itemRef)}`;
+}
+
+export function localTaskCommitReceiptRef(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): string {
+  return localTaskCommitReceiptRefForIdempotency(
+    itemRef,
+    localTaskCommitIdempotencyRef(itemRef, request),
+  );
+}
+
+export function localTaskCommitReceiptRefForIdempotency(
+  itemRef: string,
+  idempotencyRef: string,
+): string {
+  return `receipt:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(idempotencyRef)}`;
+}
+
+export function localTaskCommitProjectionBindingRef(
+  itemRef: string,
+  approvalRef: string,
+  idempotencyRef: string,
+): string {
+  return `request-binding:founder-loop-local-task:${localTaskCommitSafeSuffix(itemRef)}:${localTaskCommitSafeSuffix(approvalRef)}:${localTaskCommitSafeSuffix(idempotencyRef)}`;
+}
+
+export function buildLocalTaskCommitRequest(
+  itemRef: string,
+  approvalRef: string,
+): FounderLoopLocalTaskCommitRequest {
+  return {
+    approval_ref: approvalRef,
+    decision_reason_ref: "decision-reason-ref:control-center:local-task-commit",
+    metadata_refs: [
+      "metadata-ref:control-center-local-task-commit",
+      itemRef,
+    ],
+  };
+}
+
+export function buildLocalTaskCommitAuthorityRequest(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): AuthorityActionRequest {
+  return {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    domain: "workspace",
+    capability: "write",
+    safe_summary:
+      "Evaluate Workspace write authority for exact Action Inbox local task commit.",
+    resource_refs: [
+      itemRef,
+      founderLoopLocalTaskRef(itemRef),
+      LOCAL_TASK_COMMIT_CONTRACT_REF,
+      localTaskCommitIdempotencyRef(itemRef, request),
+    ],
+    route_ref: LOCAL_TASK_COMMIT_ROUTE_REF,
+    lane_ref: LOCAL_TASK_COMMIT_AUTHORITY_LANE_REF,
+    requested_mode: "ask_before_changes",
+    draft_fallback_available: true,
+    rollback_ref: LOCAL_TASK_COMMIT_ROLLBACK_REF,
+    safe_disable_ref: LOCAL_TASK_COMMIT_SAFE_DISABLE_REF,
+  };
+}
+
+export function localTaskCommitAuthorityPreviewIsSafe(
+  preview: AuthorityDecisionPreview,
+  request: AuthorityActionRequest,
+): boolean {
+  const decision = preview?.decision;
+  if (
+    !decision
+    || !Array.isArray(preview.active_lease_refs)
+    || !Array.isArray(preview.request_resource_refs)
+  ) return false;
+  const requiredRefs = [
+    preview.preview_ref,
+    preview.preview_receipt_ref,
+    preview.audit_record_ref,
+    decision.decision_ref,
+    decision.lease_ref,
+    decision.receipt_ref,
+    decision.audit_record_ref,
+    decision.rollback_ref,
+    decision.safe_disable_ref,
+    decision.kill_switch_ref,
+    ...preview.request_resource_refs,
+    ...preview.active_lease_refs,
+    ...(Array.isArray(decision.required_domain_refs)
+      ? decision.required_domain_refs
+      : []),
+    ...(Array.isArray(decision.required_capability_refs)
+      ? decision.required_capability_refs
+      : []),
+    ...(Array.isArray(decision.reason_refs) ? decision.reason_refs : []),
+  ];
+  return preview.schema_version === "uaa-authority-decision-preview.v1"
+    && preview.execution_performed === false
+    && preview.mutation_performed === false
+    && preview.safe_refs_only === true
+    && preview.raw_paths_included === false
+    && preview.raw_prompt_included === false
+    && preview.raw_response_included === false
+    && preview.raw_provider_payload_included === false
+    && preview.unknown_authority_default === "deny"
+    && preview.unsupported_adapters_claimed_execution === false
+    && preview.receipts_required === true
+    && preview.audit_required === true
+    && preview.redaction_required === true
+    && decision.action_ref === request.action_ref
+    && sameSafeLocalTaskAuthorityRefs(
+      preview.request_resource_refs,
+      request.resource_refs ?? [],
+    )
+    && preview.request_route_ref === (request.route_ref ?? null)
+    && preview.request_lane_ref === (request.lane_ref ?? null)
+    && isSafeLocalTaskReceiptRef(preview.request_lane_ref)
+    && decision.domain === "workspace"
+    && decision.capability === "write"
+    && decision.required_mode === "ask_before_changes"
+    && (decision.outcome === "allow" || decision.outcome === "ask")
+    && decision.known_authority === true
+    && decision.unsupported_adapter === false
+    && decision.receipts_required === true
+    && decision.audit_required === true
+    && decision.redaction_required === true
+    && decision.lease_ref !== null
+    && preview.active_lease_refs.includes(decision.lease_ref)
+    && Array.isArray(decision.required_domain_refs)
+    && decision.required_domain_refs.includes("authority-domain-ref:workspace")
+    && Array.isArray(decision.required_capability_refs)
+    && decision.required_capability_refs.includes("authority-capability-ref:write")
+    && new Set(preview.active_lease_refs).size === preview.active_lease_refs.length
+    && requiredRefs.every(isSafeLocalTaskReceiptRef)
+    && Array.isArray(preview.redactions_applied)
+    && preview.redactions_applied.every((value) =>
+      isSafeLocalTaskReceiptDisplayValue(value));
+}
+
+function sameSafeLocalTaskAuthorityRefs(
+  left: unknown,
+  right: readonly string[],
+): left is string[] {
+  return Array.isArray(left)
+    && left.length === right.length
+    && left.every(
+      (value, index) =>
+        value === right[index] && isSafeLocalTaskReceiptRef(value),
+    );
+}
+
+export async function localTaskAuthorityProofRefs(
+  authorityLeaseRef: string,
+  authorityDecisionOutcome: "allow" | "ask",
+): Promise<{
+  authorityDecisionRef: string;
+  authorityAuditRef: string;
+  authorityPolicyReceiptRef: string;
+}> {
+  const payload = {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    domain: "workspace",
+    capability: "write",
+    lease_ref: authorityLeaseRef,
+    outcome: authorityDecisionOutcome,
+  };
+  const receiptPayload = {
+    action_ref: LOCAL_TASK_COMMIT_AUTHORITY_ACTION_REF,
+    lease_ref: authorityLeaseRef,
+    outcome: authorityDecisionOutcome,
+  };
+  const [proofDigest, receiptDigest] = await Promise.all([
+    sha256Hex(portableCanonicalJson(payload)),
+    sha256Hex(portableCanonicalJson(receiptPayload)),
+  ]);
+  return {
+    authorityDecisionRef:
+      `authority-policy-decision-ref:sha256:${proofDigest.slice(0, 24)}`,
+    authorityAuditRef:
+      `audit-ref:authority-policy:sha256:${proofDigest.slice(0, 24)}`,
+    authorityPolicyReceiptRef:
+      `receipt-ref:authority-policy:sha256:${receiptDigest.slice(0, 24)}`,
+  };
+}
+
+export async function localTaskCommitDerivedRefs(
+  itemRef: string,
+  request: FounderLoopLocalTaskCommitRequest,
+): Promise<{
+  receiptRef: string;
+  auditRef: string;
+  evidenceTimelineEventRef: string;
+  payloadFingerprintRef: string;
+}> {
+  const idempotencyRef = localTaskCommitIdempotencyRef(itemRef, request);
+  const itemSuffix = localTaskCommitSafeSuffix(itemRef);
+  const idempotencySuffix = localTaskCommitSafeSuffix(idempotencyRef);
+  const payload = {
+    contract_ref: LOCAL_TASK_COMMIT_CONTRACT_REF,
+    item_ref: itemRef,
+    action_kind: "local_task_create",
+    actor_id: "local_operator",
+    approval_ref: request.approval_ref,
+    decision_reason_ref: request.decision_reason_ref,
+    metadata_refs: [...(request.metadata_refs ?? [])].sort(),
+  };
+  const digest = await sha256Hex(portableCanonicalJson(payload));
+  return {
+    receiptRef: localTaskCommitReceiptRef(itemRef, request),
+    auditRef:
+      `audit:founder-loop-local-task:${itemSuffix}:${idempotencySuffix}`,
+    evidenceTimelineEventRef: `evidence-timeline:local-task/${itemSuffix}`,
+    payloadFingerprintRef:
+      `payload-fingerprint:founder-loop-local-task:${digest}`,
+  };
+}
+
+export async function localTaskCommitReceiptIsSafe(
+  receipt: FounderLoopLocalTaskCommitReceipt,
+  binding: LocalTaskCommitReceiptBinding,
+): Promise<boolean> {
+  if (
+    !Array.isArray(receipt?.approval_reason_refs)
+    || receipt.approval_reason_refs.length === 0
+    || !Array.isArray(receipt.evidence_refs)
+    || !Array.isArray(receipt.blocked_state_refs)
+    || !Array.isArray(receipt.rollback_blocker_refs)
+    || typeof receipt.replayed !== "boolean"
+  ) return false;
+  if (
+    typeof receipt.authority_lease_ref !== "string"
+    || (receipt.authority_decision_outcome !== "allow"
+      && receipt.authority_decision_outcome !== "ask")
+  ) return false;
+  let expectedAuthorityProofRefs: Awaited<ReturnType<
+    typeof localTaskAuthorityProofRefs
+  >>;
+  let expectedDerivedRefs: Awaited<ReturnType<
+    typeof localTaskCommitDerivedRefs
+  >>;
+  try {
+    [expectedAuthorityProofRefs, expectedDerivedRefs] = await Promise.all([
+      localTaskAuthorityProofRefs(
+        receipt.authority_lease_ref,
+        receipt.authority_decision_outcome,
+      ),
+      localTaskCommitDerivedRefs(binding.itemRef, binding.request),
+    ]);
+  } catch {
+    return false;
+  }
+  const authorityProofRefs = [
+    receipt.authority_decision_ref,
+    receipt.authority_lease_ref,
+    receipt.authority_audit_ref,
+    receipt.authority_policy_receipt_ref,
+  ];
+  const requiredRefs = [
+    receipt.item_ref,
+    receipt.local_task_ref,
+    receipt.receipt_ref,
+    receipt.audit_ref,
+    receipt.idempotency_key_ref,
+    receipt.payload_fingerprint_ref,
+    receipt.run_ref,
+    receipt.evidence_timeline_event_ref,
+    receipt.approval_ref,
+    receipt.safe_disable_ref,
+    receipt.rollback_ref,
+    receipt.safe_disable_posture_ref,
+    receipt.authority_domain_ref,
+    receipt.authority_capability_ref,
+    receipt.authority_required_mode_ref,
+    ...authorityProofRefs,
+    ...receipt.approval_reason_refs,
+    ...receipt.evidence_refs,
+    ...receipt.blocked_state_refs,
+    ...receipt.rollback_blocker_refs,
+  ];
+  return receipt.contract_ref === LOCAL_TASK_COMMIT_CONTRACT_REF
+    && receipt.item_ref === binding.itemRef
+    && receipt.action_kind === "local_task_create"
+    && receipt.status === "local_task_created"
+    && receipt.local_task_ref === founderLoopLocalTaskRef(binding.itemRef)
+    && receipt.approval_ref === binding.approvalRef
+    && binding.request.approval_ref === binding.approvalRef
+    && receipt.approval_status === "approved"
+    && receipt.idempotency_key_ref === binding.idempotencyRef
+    && binding.idempotencyRef
+      === localTaskCommitIdempotencyRef(binding.itemRef, binding.request)
+    && receipt.receipt_ref === expectedDerivedRefs.receiptRef
+    && receipt.audit_ref === expectedDerivedRefs.auditRef
+    && receipt.evidence_timeline_event_ref
+      === expectedDerivedRefs.evidenceTimelineEventRef
+    && receipt.payload_fingerprint_ref
+      === expectedDerivedRefs.payloadFingerprintRef
+    && receipt.run_ref === "run-ref:founder-loop-v1:governed-local-loop"
+    && receipt.safe_disable_ref === binding.safeDisableRef
+    && receipt.rollback_ref === binding.rollbackRef
+    && receipt.safe_disable_posture_ref
+      === LOCAL_TASK_COMMIT_SAFE_DISABLE_POSTURE_REF
+    && receipt.authority_domain_ref === "authority-domain-ref:workspace"
+    && receipt.authority_capability_ref === "authority-capability-ref:write"
+    && receipt.authority_required_mode_ref === "authority-mode-ref:ask-before-changes"
+    && (receipt.authority_decision_outcome === "allow"
+      || receipt.authority_decision_outcome === "ask")
+    && receipt.authority_decision_ref
+      === expectedAuthorityProofRefs.authorityDecisionRef
+    && receipt.authority_audit_ref
+      === expectedAuthorityProofRefs.authorityAuditRef
+    && receipt.authority_policy_receipt_ref
+      === expectedAuthorityProofRefs.authorityPolicyReceiptRef
+    && authorityProofRefs.every((ref) => receipt.evidence_refs.includes(ref))
+    && receipt.safe_disable_enabled === true
+    && receipt.rollback_execution_enabled === false
+    && receipt.rollback_blocker_refs.includes(
+      "blocked-state:rollback-execution-not-scoped",
+    )
+    && receipt.evidence_refs.includes(receipt.evidence_timeline_event_ref)
+    && LOCAL_TASK_COMMIT_BLOCKED_REFS.every((ref) =>
+      receipt.blocked_state_refs.includes(ref))
+    && requiredRefs.every(isSafeLocalTaskReceiptRef)
+    && isSafeLocalTaskReceiptDisplayValue(receipt.safe_summary, 320)
+    && Number.isFinite(Date.parse(receipt.created_at))
+    && receipt.local_task_created === true
+    && receipt.connector_write_performed === false
+    && receipt.shell_subprocess_execution_performed === false
+    && receipt.model_provider_authority_used === false
+    && receipt.memory_write_performed === false
+    && receipt.context_injection_performed === false
+    && receipt.external_side_effect_performed === false
+    && receipt.raw_content_stored === false;
+}
+
+function isSafeLocalTaskReceiptDisplayValue(
+  value: string | null | undefined,
+  maxLength = 240,
+  detectHostname = true,
+): value is string {
+  if (
+    typeof value !== "string"
+    || value.length === 0
+    || value.length > maxLength
+    || /[\u0000-\u001f\u007f]/.test(value)
+    || containsSecretLike(value)
+    || sanitizeForDisplay(value) !== value
+  ) return false;
+  const pathDetectionValue = value.replace(/\/ +/g, "/");
+  return !/(^|[^A-Za-z0-9])(?:~\/?|\/[^\s/]+(?:\/[^\s/]+)*\/?|[A-Za-z]:[\\/]|\\\\)/.test(pathDetectionValue)
+    && !/\b(?:file|https?):\/\//i.test(value)
+    && !/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(value)
+    && !/\b(?:raw[ _-]?(?:prompt|response|provider(?:[ _-]?payload)?|log)|prompt|response|provider[ _-]?(?:payload|response|content)|log)[ _-]?(?:body|content)?\s*[:=]/i.test(value)
+    && !/\bprivate\s+(?:prompt|response|model\s+output|provider\s+payload|log)\b/i.test(value)
+    && !/\b(?:user(?:name)?|host(?:name)?|serial(?:_?number)?)\s*[:=]\s*\S+/i.test(value)
+    && !/\bhost\s+[A-Za-z0-9][A-Za-z0-9.-]{2,}/i.test(value)
+    && (!detectHostname || !/\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\b/i.test(value))
+    && !/\bbearer\s+[A-Za-z0-9._~+/=-]{8,}/i.test(value)
+    && !LOCAL_TASK_COMMIT_STANDALONE_CREDENTIAL_PATTERNS.some((pattern) =>
+      pattern.test(value));
+}
+
+function isSafeLocalTaskReceiptRef(
+  value: string | null | undefined,
+): value is string {
+  return typeof value === "string"
+    && /^[a-zA-Z][a-zA-Z0-9_.-]*:[a-zA-Z0-9][a-zA-Z0-9_.:/@-]*$/.test(value)
+    && isSafeLocalTaskReceiptDisplayValue(value, 256 * 1024, false);
+}
+
+const NORTH_STAR_STRUCTURED_REF_SENTINELS = new Set([
+  "backend_read_model_unavailable",
+  "missing",
+  "mock_only_backend_read_model_unavailable",
+  "none",
+  "not_applicable",
+  "pending",
+  "planned",
+  "unknown",
+]);
+
+function isSafeNorthStarStructuredRef(value: unknown): value is string {
+  return typeof value === "string"
+    && (
+      NORTH_STAR_STRUCTURED_REF_SENTINELS.has(value)
+      || isSafeLocalTaskReceiptRef(value)
+    );
+}
+
+function hasSafeNorthStarStructuredRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) =>
+    Array.isArray(record[field])
+    && (record[field] as unknown[]).every(isSafeNorthStarStructuredRef));
+}
+
+function hasSafeNorthStarOptionalStructuredRefs(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) =>
+    record[field] === null
+    || record[field] === undefined
+    || isSafeNorthStarStructuredRef(record[field]));
 }
 
 function todayActionEnvelopeIdempotencyRef(
@@ -14051,6 +15264,12 @@ function isSafeControlCenterSettingsStatus(
     "full_machine_access_session",
     "delegated_mission_autonomous_window",
   ]);
+  const authorityLeaseStatuses = new Set([
+    "active",
+    "expired",
+    "revoked",
+    "planned",
+  ]);
   return (
     value.schema_version === "uaa-control-center-settings-status.v1" &&
     value.module_id === "settings" &&
@@ -14064,6 +15283,15 @@ function isSafeControlCenterSettingsStatus(
     Array.isArray(value.redactions_applied) &&
     authority.schema_version === "uaa-authority-state.v1" &&
     authority.backend_owned === true &&
+    Array.isArray(authority.active_leases) &&
+    authority.active_leases.every((lease) =>
+      isPlainRecord(lease)
+      && typeof lease.lease_ref === "string"
+      && lease.lease_ref.length > 0
+      && typeof lease.mode === "string"
+      && authorityModes.has(lease.mode)
+      && typeof lease.status === "string"
+      && authorityLeaseStatuses.has(lease.status)) &&
     typeof authority.active_mode === "string" &&
     authorityModes.has(authority.active_mode) &&
     authority.unknown_authority_default === "deny" &&
@@ -19739,7 +20967,11 @@ function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {
     !hasTrueFlags(value, PLANS_TO_ACTIONS_BRIDGE_TRUE_FLAGS) ||
     value.raw_content_included !== false ||
     !hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) ||
-    !hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS)
+    !hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS) ||
+    !hasSafeNorthStarStructuredRefArrays(
+      value,
+      PLANS_TO_ACTIONS_BRIDGE_REQUIRED_ARRAYS,
+    )
   ) {
     return false;
   }
@@ -19753,8 +20985,9 @@ function isSafePlansToActionsBridgeReadModel(value: unknown): boolean {
     return false;
   }
   return (
-    typeof value.next_safe_action === "string" &&
-    typeof value.authority_boundary === "string"
+    isSafeLocalTaskReceiptDisplayValue(value.status as string, 120) &&
+    isSafeLocalTaskReceiptDisplayValue(value.next_safe_action as string, 500) &&
+    isSafeLocalTaskReceiptDisplayValue(value.authority_boundary as string, 500)
   );
 }
 
@@ -19780,6 +21013,31 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
   if (!requiredTextFields.every((field) => typeof value[field] === "string")) {
     return false;
   }
+  if (![
+    "item_ref",
+    "source_plan_ref",
+    "action_envelope_ref",
+    "action_scope_ref",
+    "approval_requirement_ref",
+    "rollback_ref",
+    "safe_disable_ref",
+  ].every((field) => isSafeNorthStarStructuredRef(value[field]))) {
+    return false;
+  }
+  if (!([
+    ["plan_title", 160],
+    ["plan_status", 120],
+    ["safe_summary", 500],
+    ["why_proposed", 500],
+    ["risk_class", 80],
+    ["next_safe_action", 500],
+  ] as const).every(([field, maxLength]) =>
+    isSafeLocalTaskReceiptDisplayValue(
+      value[field] as string | undefined,
+      maxLength,
+    ))) {
+    return false;
+  }
   for (const field of [
     "linked_action_item_ref",
     "task_decomposition_proposal_ref",
@@ -19789,7 +21047,7 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     if (
       value[field] !== null &&
       value[field] !== undefined &&
-      typeof value[field] !== "string"
+      !isSafeNorthStarStructuredRef(value[field])
     ) {
       return false;
     }
@@ -19799,6 +21057,16 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     value.raw_content_included === false &&
     hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) &&
     hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_ITEM_REQUIRED_ARRAYS) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "expected_receipt_refs",
+      "receipt_refs",
+      "evidence_refs",
+      "step_refs",
+      "risk_refs",
+      "ambiguity_refs",
+      "missing_evidence_refs",
+      "blocked_authority_refs",
+    ]) &&
     hasRequiredReviewReceiptLabels(value.review_receipt_labels) &&
     isOptionalSafeFusionMetadata(value) &&
     (value.expected_receipt_refs as unknown[]).length > 0 &&
@@ -19861,12 +21129,36 @@ function isSafeFusionWorkClassification(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_work_classification.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    [
+      "judgment_required",
+      "mechanical",
+      "validation",
+      "bookkeeping",
+      "ambiguous",
+      "blocked",
+    ].includes(String(value.classification)) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.confidence_posture as string,
+      120,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.ambiguity_posture as string,
+      240,
+    ) &&
+    typeof value.human_review_required === "boolean" &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "reviewed_at_ref",
+      "expiry_posture_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "reason_refs",
+      "blocked_authority_refs",
+      "source_refs",
+      "evidence_refs",
+    ]) &&
     value.review_aid_only === true &&
     value.execution_authorized === false &&
-    value.action_execution_enabled === false &&
-    Array.isArray(value.reason_refs) &&
-    Array.isArray(value.source_refs) &&
-    Array.isArray(value.evidence_refs)
+    value.action_execution_enabled === false
   );
 }
 
@@ -19875,12 +21167,29 @@ function isSafeFusionDelegation(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_delegation_proposal.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    ["proposed", "rejected", "deferred", "blocked", "future_only"].includes(
+      String(value.proposal_state),
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.proposed_delegate_kind as string,
+      120,
+    ) &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "delegate_scope_ref",
+      "review_required_posture_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "main_owner_responsibility_refs",
+      "delegated_work_refs",
+      "blocked_execution_refs",
+      "expected_receipt_refs",
+      "rollback_safe_disable_posture_refs",
+    ]) &&
     value.future_only === true &&
     value.creates_approval_ref === false &&
     value.creates_execution_ref === false &&
     value.worker_execution_enabled === false &&
     value.background_dispatch_enabled === false &&
-    Array.isArray(value.blocked_execution_refs) &&
     isSafeFusionWorkClassification(value.work_classification)
   );
 }
@@ -19890,9 +21199,30 @@ function isSafeFusionCacheContext(value: unknown): boolean {
     isPlainRecord(value) &&
     value.schema_version === "fcc_fusion_cache_context_economics.v1" &&
     value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "context_budget_ref",
+      "compaction_boundary_ref",
+    ]) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.cache_reuse_posture as string,
+      120,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.reroute_reason as string,
+      500,
+    ) &&
+    isSafeLocalTaskReceiptDisplayValue(
+      value.estimated_context_cost_posture as string,
+      240,
+    ) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "cache_or_context_blocker_refs",
+      "evidence_refs",
+    ]) &&
+    typeof value.cache_miss_expected === "boolean" &&
     value.explanatory_posture_only === true &&
-    value.runtime_model_switch_performed === false &&
-    Array.isArray(value.cache_or_context_blocker_refs)
+    value.measured_provider_event === false &&
+    value.runtime_model_switch_performed === false
   );
 }
 
@@ -20518,6 +21848,7 @@ function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
     value.local_read_model_only !== true ||
     value.safe_refs_only !== true ||
     value.raw_content_included !== false ||
+    typeof value.tier_3_exact_local_task_commit_available !== "boolean" ||
     !hasDeniedFlagsFalse(value, ACTION_WORK_QUEUE_DENIED_FLAGS)
   ) {
     return false;
@@ -20771,6 +22102,8 @@ function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
     value.production_authority_enabled === false &&
     value.approval_alone_executes === false &&
     hasStringArrays(value, ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS) &&
+    isSafeLocalTaskReceiptDisplayValue(value.status as string, 120) &&
+    hasSafeNorthStarStructuredRefArrays(value, ["blocked_state_refs"]) &&
     ACTION_DECISION_LANE_ORDER.length ===
       (value.lane_order as string[]).length &&
     ACTION_DECISION_LANE_ORDER.every(
@@ -20795,8 +22128,23 @@ function isSafeActionInboxDecisionLane(value: unknown): boolean {
       "safe_summary",
       "next_safe_action",
     ]) &&
+    NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(String(value.lane_id))
+      === value.label &&
+    ([
+      ["status", 120],
+      ["safe_summary", 500],
+      ["next_safe_action", 500],
+    ] as const).every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      )) &&
     typeof value.count === "number" &&
     hasStringArrays(value, ["item_refs", "blocked_state_refs"]) &&
+    hasSafeNorthStarStructuredRefArrays(value, [
+      "item_refs",
+      "blocked_state_refs",
+    ]) &&
     value.approval_alone_executes === false &&
     value.action_execution_enabled === false
   );
@@ -20810,6 +22158,44 @@ function isSafeActionInboxDecisionLaneItem(value: unknown): boolean {
     hasStringFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_STRINGS) &&
     hasNumberFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_NUMBERS) &&
     hasStringArrays(value, ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS) &&
+    isSafeNorthStarStructuredRef(value.item_ref) &&
+    hasSafeNorthStarOptionalStructuredRefs(value, [
+      "approval_envelope_ref",
+      "approval_scope_ref",
+      "approval_requirement_ref",
+      "rollback_ref",
+      "safe_disable_ref",
+      "provider_ref",
+      "model_profile_ref",
+      "cost_estimate_ref",
+      "captured_usage_ref",
+      "budget_decision_ref",
+    ]) &&
+    hasSafeNorthStarStructuredRefArrays(
+      value,
+      ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS,
+    ) &&
+    NORTH_STAR_DECISION_LANE_LABELS_BY_ID.get(String(value.lane_id))
+      === value.lane_label &&
+    ([
+      ["title", 160],
+      ["status", 120],
+      ["priority", 80],
+      ["action_kind", 120],
+      ["side_effect_class", 120],
+      ["safe_summary", 500],
+      ["why_shown", 500],
+      ["next_safe_action", 500],
+      ["authority_boundary", 500],
+      ["approval_envelope_status", 120],
+      ["expected_receipt_state", 120],
+      ["cost_state_label", 120],
+      ["provider_authority_state_label", 160],
+    ] as const).every(([field, maxLength]) =>
+      isSafeLocalTaskReceiptDisplayValue(
+        value[field] as string | undefined,
+        maxLength,
+      )) &&
     value.backend_owned === true &&
     value.safe_refs_only === true &&
     value.raw_content_included === false &&

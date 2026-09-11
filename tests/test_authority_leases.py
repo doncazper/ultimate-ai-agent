@@ -2739,7 +2739,9 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
             "capability": "execute",
             "capability_ref": "authority-capability-ref:test-preview-workspace-execute",
             "safe_summary": "Preview workspace execution authority without running anything.",
+            "resource_refs": ["resource-ref:test-preview-workspace-execute"],
             "route_ref": "POST /api/runtime/command/run",
+            "lane_ref": "lane-ref:test-preview-workspace-execute",
             "requested_mode": "approved_safe_local_work_session",
             "draft_fallback_available": True,
         },
@@ -2760,6 +2762,13 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert denied_preview["decision"]["required_capability_refs"] == [
         "authority-capability-ref:execute"
     ]
+    assert denied_preview["request_resource_refs"] == [
+        "resource-ref:test-preview-workspace-execute"
+    ]
+    assert denied_preview["request_route_ref"] == "POST /api/runtime/command/run"
+    assert denied_preview["request_lane_ref"] == (
+        "lane-ref:test-preview-workspace-execute"
+    )
     assert (
         denied_preview["decision"]["capability_ref"]
         == "authority-capability-ref:test-preview-workspace-execute"

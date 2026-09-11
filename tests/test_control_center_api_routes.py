@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FounderLoopLocalTaskCommitRequest,
+    local_task_commit_request_binding_ref,
 )
 from ultimate_ai_agent.core.decision_router import TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS
 from ultimate_ai_agent.core.storage import FounderLoopRepository
@@ -473,6 +474,7 @@ def test_founder_loop_daily_loop_read_routes_expose_safe_product_behavior() -> N
         assert visibility["decision_receipt_ref"]
         assert visibility["local_task_ref"]
         assert visibility["local_task_commit_receipt_ref"]
+        assert visibility["local_task_commit_idempotency_key_ref"]
         assert visibility["evidence_timeline_event_ref"]
         assert visibility["replay_posture"]
         assert visibility["conflict_posture"]
@@ -983,6 +985,18 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     assert visibility["decision_receipt_ref"].startswith("receipt:founder-loop-action:")
     assert visibility["local_task_ref"] == receipt["local_task_ref"]
     assert visibility["local_task_commit_receipt_ref"] == receipt["receipt_ref"]
+    assert (
+        visibility["local_task_commit_idempotency_key_ref"]
+        == receipt["idempotency_key_ref"]
+    )
+    assert visibility["local_task_commit_approval_ref"] == receipt["approval_ref"]
+    assert visibility["local_task_commit_request_binding_ref"] == (
+        local_task_commit_request_binding_ref(
+            committed["item_ref"],
+            receipt["approval_ref"],
+            receipt["idempotency_key_ref"],
+        )
+    )
     assert (
         visibility["evidence_timeline_event_ref"]
         == receipt["evidence_timeline_event_ref"]

@@ -580,6 +580,9 @@ class AuthorityDecisionPreview(_AuthorityModel):
     )
     preview_ref: str = Field(..., min_length=1)
     decision: AuthorityPolicyDecision
+    request_resource_refs: list[str] = Field(default_factory=list)
+    request_route_ref: str | None = None
+    request_lane_ref: str | None = None
     active_lease_refs: list[str] = Field(default_factory=list)
     preview_receipt_ref: str = Field(..., min_length=1)
     audit_record_ref: str = Field(..., min_length=1)
@@ -611,6 +614,20 @@ class AuthorityDecisionPreview(_AuthorityModel):
         _validate_ref_list(
             self.active_lease_refs, "authority_decision_preview_lease_ref"
         )
+        _validate_ref_list(
+            self.request_resource_refs,
+            "authority_decision_preview_request_resource_ref",
+        )
+        if self.request_route_ref is not None:
+            validate_safe_task_text(
+                self.request_route_ref,
+                "authority_decision_preview_request_route_ref",
+            )
+        if self.request_lane_ref is not None:
+            validate_task_ref(
+                self.request_lane_ref,
+                "authority_decision_preview_request_lane_ref",
+            )
         validate_safe_task_text(
             self.operator_summary, "authority_decision_preview_summary"
         )
@@ -2511,6 +2528,9 @@ def build_authority_decision_preview(
     return AuthorityDecisionPreview(
         preview_ref=preview_ref,
         decision=decision,
+        request_resource_refs=list(request.resource_refs),
+        request_route_ref=request.route_ref,
+        request_lane_ref=request.lane_ref,
         active_lease_refs=[lease.lease_ref for lease in active_leases],
         preview_receipt_ref=_stable_ref(
             "receipt-ref:authority-decision-preview",

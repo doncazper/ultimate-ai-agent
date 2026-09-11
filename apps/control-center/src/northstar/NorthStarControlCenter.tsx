@@ -1,4 +1,4 @@
-import type { ControlCenterData } from "../api/types";
+import type { ControlCenterData, FounderLoopActionsInbox } from "../api/types";
 import { MessengerShell } from "../components/messenger/MessengerShell";
 import { NorthStarShell } from "./NorthStarShell";
 import { WORKSPACE_PREFIX, workspaceSurfaceFromPath, type WorkspaceSurfaceId } from "./model";
@@ -11,21 +11,63 @@ import { isLegacyReferencePath } from "./legacyModel";
 import { Icon } from "./primitives";
 import "./northStar.css";
 
-export function NorthStarControlCenter({ activePath, data }: { activePath: string; data: ControlCenterData }) {
+export function NorthStarControlCenter({
+  activePath,
+  data,
+  onActionInboxRefresh,
+  onDecisionAttemptChange,
+  onLocalTaskCommitFenceChange,
+  pendingCancellationItemRefs,
+  pendingDecisionItemRefs,
+}: {
+  activePath: string;
+  data: ControlCenterData;
+  onActionInboxRefresh?: (inbox: FounderLoopActionsInbox) => void;
+  onDecisionAttemptChange?: (
+    itemRef: string,
+    attempt: {
+      itemRef: string;
+      submittedRevisionRef: string;
+      decision: "approve" | "edit" | "reject" | "defer";
+      receiptRef?: string;
+      resultRevisionRef?: string;
+    } | null,
+  ) => void;
+  onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void;
+  pendingCancellationItemRefs?: readonly string[];
+  pendingDecisionItemRefs?: readonly string[];
+}) {
   if (isLegacyReferencePath(activePath)) return <LegacyRenderSurface activePath={activePath} data={data} />;
   const surface = workspaceSurfaceFromPath(activePath);
   if (!surface) return <UnknownWorkspaceRoute activePath={activePath} />;
   if (surface === "studio") return <StudioSurface data={data} />;
   if (surface === "messenger") return <MessengerShell />;
   if (surface === "onboarding") return <OnboardingSurface data={data} />;
-  return <NorthStarShell activeSurface={surface} data={data}>{renderSurface(surface, data)}</NorthStarShell>;
+  return <NorthStarShell activeSurface={surface} data={data}>{renderSurface(surface, data, onActionInboxRefresh, onDecisionAttemptChange, onLocalTaskCommitFenceChange, pendingCancellationItemRefs, pendingDecisionItemRefs)}</NorthStarShell>;
 }
 
 function UnknownWorkspaceRoute({ activePath }: { activePath: string }) {
   return <main className="ns-route-unavailable" role="alert"><Icon name="triangle-alert" size={28} tone="warning" /><h1>Workspace route unavailable</h1><p>No known workspace surface matches this route. No backend state, capability, or authority was inferred.</p><code>{activePath}</code><a className="ns-button primary" href={`${WORKSPACE_PREFIX}/today`}>Open Today</a></main>;
 }
 
-function renderSurface(surface: WorkspaceSurfaceId, data: ControlCenterData) {
+function renderSurface(
+  surface: WorkspaceSurfaceId,
+  data: ControlCenterData,
+  onActionInboxRefresh?: (inbox: FounderLoopActionsInbox) => void,
+  onDecisionAttemptChange?: (
+    itemRef: string,
+    attempt: {
+      itemRef: string;
+      submittedRevisionRef: string;
+      decision: "approve" | "edit" | "reject" | "defer";
+      receiptRef?: string;
+      resultRevisionRef?: string;
+    } | null,
+  ) => void,
+  onLocalTaskCommitFenceChange?: (itemRef: string, pending: boolean) => void,
+  pendingCancellationItemRefs?: readonly string[],
+  pendingDecisionItemRefs?: readonly string[],
+) {
   switch (surface) {
     case "communications": return <CommunicationsSurface data={data} />;
     case "work-board": return <WorkBoardSurface data={data} />;
@@ -37,7 +79,7 @@ function renderSurface(surface: WorkspaceSurfaceId, data: ControlCenterData) {
     case "customize": return <CustomizeSurface />;
     case "settings": return <SettingsSurface data={data} />;
     case "developer-tools": return <DeveloperToolsSurface data={data} />;
-    case "decisions": return <DecisionReviewSurface data={data} />;
+    case "decisions": return <DecisionReviewSurface data={data} onAuthoritativeRefresh={onActionInboxRefresh} onDecisionAttemptChange={onDecisionAttemptChange} onLocalTaskCommitFenceChange={onLocalTaskCommitFenceChange} pendingCancellationItemRefs={pendingCancellationItemRefs} pendingDecisionItemRefs={pendingDecisionItemRefs} />;
     case "today":
     default: return <TodaySurface data={data} />;
   }

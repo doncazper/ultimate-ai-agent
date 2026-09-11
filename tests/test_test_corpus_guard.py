@@ -1,5 +1,6 @@
 import hashlib
 import subprocess
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -5193,12 +5194,29 @@ def test_inventory_fingerprint_is_order_sensitive_and_content_free() -> None:
 
 
 def test_repository_inventory_is_nonempty_and_deterministic() -> None:
-    root = Path(__file__).resolve().parents[1]
-    first = guard.inventory_worktree(root)
-    second = guard.inventory_worktree(root)
+    with tempfile.TemporaryDirectory() as directory:
+        repository = Path(directory)
+        tests_root = repository / "tests"
+        tests_root.mkdir()
+        (tests_root / "test_example.py").write_text(
+            "def test_python_case(): pass\n",
+            encoding="utf-8",
+        )
+        frontend_root = repository / "apps/control-center/src"
+        frontend_root.mkdir(parents=True)
+        (frontend_root / "example.test.ts").write_text(
+            'test("frontend case", () => {});\n',
+            encoding="utf-8",
+        )
+
+        # The canonical static lane validates the full repository inventory once.
+        # Keep repeatability coverage bounded here so the pytest shard does not run
+        # that same whole-repository proof twice on variable hosted Mac hardware.
+        first = guard.inventory_worktree(repository)
+        second = guard.inventory_worktree(repository)
 
     assert first == second
-    assert len(first) > 1000
+    assert len(first) == 2
     assert {item.kind for item in first} == {"python_test", "frontend_test"}
 
 

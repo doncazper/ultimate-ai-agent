@@ -38,6 +38,22 @@ def _bound_headers(tmp_path, *, now=None) -> dict[str, str]:
     }
 
 
+def _authority_preview_payload() -> dict[str, object]:
+    return {
+        "action_ref": "authority-action-ref:backend-truth-preview",
+        "domain": "workspace",
+        "capability": "write",
+        "safe_summary": "Evaluate exact local workspace authority.",
+        "resource_refs": ["resource-ref:backend-truth-preview"],
+        "route_ref": "POST /control-center/actions/example/local-task/commit",
+        "lane_ref": "lane-ref:backend-truth-preview",
+        "requested_mode": "ask_before_changes",
+        "draft_fallback_available": True,
+        "rollback_ref": "rollback-ref:backend-truth-preview",
+        "safe_disable_ref": "safe-disable-ref:backend-truth-preview",
+    }
+
+
 def test_browser_critical_mutation_requires_backend_truth_binding(
     monkeypatch,
 ) -> None:
@@ -239,6 +255,90 @@ def test_well_shaped_but_unissued_truth_ref_is_rejected(
 
     assert response.status_code == 409
     assert response.json()["code"] == ("BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH")
+
+
+def test_browser_authority_preview_requires_exact_backend_truth(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
+
+    response = TestClient(app).post(
+        "/api/runtime/authority-decisions/preview",
+        headers={"Origin": ORIGIN},
+        json=_authority_preview_payload(),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_PREVIEW_PROVENANCE_MISMATCH"
+    )
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+
+
+def test_browser_authority_preview_rejects_unissued_truth_token(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
+    headers = _bound_headers(tmp_path)
+    headers.pop("X-UAA-Control-Center-Mutation-Binding")
+    headers["X-UAA-Expected-Backend-Truth-Ref"] = (
+        "proof-ref:backend-truth-envelope:sha256:" + "8" * 64
+    )
+
+    response = TestClient(app).post(
+        "/api/runtime/authority-decisions/preview",
+        headers=headers,
+        json=_authority_preview_payload(),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_PREVIEW_PROVENANCE_MISMATCH"
+    )
+
+
+def test_browser_authority_preview_rejects_expired_truth_token(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
+    headers = _bound_headers(tmp_path, now=utc_now() - timedelta(minutes=2))
+    headers.pop("X-UAA-Control-Center-Mutation-Binding")
+
+    response = TestClient(app).post(
+        "/api/runtime/authority-decisions/preview",
+        headers=headers,
+        json=_authority_preview_payload(),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_PREVIEW_PROVENANCE_MISMATCH"
+    )
+
+
+def test_browser_authority_preview_accepts_current_truth_without_mutation_header(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+    monkeypatch.setenv("UAA_AUTHORITY_STATE_DIR", str(tmp_path / "authority"))
+    headers = _bound_headers(tmp_path)
+    headers.pop("X-UAA-Control-Center-Mutation-Binding")
+
+    response = TestClient(app).post(
+        "/api/runtime/authority-decisions/preview",
+        headers=headers,
+        json=_authority_preview_payload(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
 
 
 def test_concurrent_reader_truth_envelopes_remain_admitted_until_expiry(

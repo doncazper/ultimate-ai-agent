@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  buildLocalTaskCommitRequest,
   commitLocalTask,
   decideGovernedRuntimeInvocation,
   executeGovernedRuntimeInvocation,
@@ -11634,6 +11635,8 @@ const missingReceiptVisibility: NonNullable<
   decision_receipt_ref: "missing",
   local_task_ref: "missing",
   local_task_commit_receipt_ref: "missing",
+  local_task_commit_approval_ref: "missing",
+  local_task_commit_request_binding_ref: "missing",
   evidence_timeline_event_ref: "missing",
   replay_posture: "missing",
   conflict_posture: "missing",
@@ -13080,15 +13083,7 @@ function LocalTaskCommitControls({
     try {
       const receipt = await commitLocalTask(
         item.item_ref,
-        {
-          approval_ref: commitApprovalRef,
-          decision_reason_ref:
-            "decision-reason-ref:control-center:local-task-commit",
-          metadata_refs: [
-            "metadata-ref:control-center-local-task-commit",
-            item.item_ref,
-          ],
-        },
+        buildLocalTaskCommitRequest(item.item_ref, commitApprovalRef),
         mutationBinding,
       );
       await refreshCommittedActionItem(receipt);

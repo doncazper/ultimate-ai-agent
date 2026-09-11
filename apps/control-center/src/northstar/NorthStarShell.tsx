@@ -37,15 +37,19 @@ export function NorthStarShell({
   const backendRoute = backendRouteBySurface[activeSurface];
   const routeState = backendRoute ? data.routeStates[backendRoute] : undefined;
   const backendReady = data.connection.state === "online" && !data.connection.usingMockData;
+  const runtimeReady = backendReady
+    && data.routeStates["/runtime"]?.state === "backend_owned";
   const routeBacked = routeState?.state === "backend_owned";
   const previewOnly = !routeBacked;
   const fixtureSurface = activeSurface === "communications" || activeSurface === "calendar";
   const mixedSurface = activeSurface === "news" || activeSurface === "studio";
   const representationNonAuthoritative = previewOnly || fixtureSurface || mixedSurface;
-  const safeRefCount = new Set([
-    ...data.founderAgentLoopThread.evidence.evidence_refs,
-    ...data.founderAgentLoopThread.evidence.proof_refs,
-  ]).size;
+  const safeRefCount = data.routeStates["/chat"]?.state === "backend_owned"
+    ? new Set([
+        ...data.founderAgentLoopThread.evidence.evidence_refs,
+        ...data.founderAgentLoopThread.evidence.proof_refs,
+      ]).size
+    : 0;
 
   return (
     <div className={`ns-app ${sidecarOpen ? "sidecar-open" : ""}`}>
@@ -64,10 +68,10 @@ export function NorthStarShell({
         </a>
         <WorkspaceNav activeSurface={activeSurface} />
         <div className="ns-sidebar-runtime">
-          <StatusDot tone={backendReady ? "green" : "orange"} />
+          <StatusDot tone={runtimeReady ? "green" : "orange"} />
           <span>
-            <strong>{backendReady ? "Local ready" : "Preview mode"}</strong>
-            <small>{backendReady ? "Backend connection verified" : "No authority inferred"}</small>
+            <strong>{runtimeReady ? "Local ready" : "Runtime unverified"}</strong>
+            <small>{runtimeReady ? "Backend runtime verified" : "No runtime authority inferred"}</small>
           </span>
         </div>
       </aside>
@@ -152,6 +156,8 @@ function GlobalPostureBar({
   previewOnly: boolean;
 }) {
   const backendReady = data.connection.state === "online" && !data.connection.usingMockData;
+  const runtimeRouteBacked = backendReady
+    && data.routeStates["/runtime"]?.state === "backend_owned";
   const authorityRouteBacked = backendReady && data.routeStates["/settings"]?.state === "backend_owned";
   const mode = authorityRouteBacked
     ? data.settingsStatus.authority_lease_state.active_mode.replaceAll("_", " ")
@@ -161,13 +167,15 @@ function GlobalPostureBar({
     ? authorityState.active_leases.find((lease) => lease.status === "active")
     : undefined;
   const gate = data.dashboard.foundation_gate_summary;
+  const foundationRouteBacked = backendReady
+    && data.routeStates["/critical/dashboard-read-model"]?.state === "backend_owned";
 
   const items = [
-    { icon: "shield-check" as const, label: "Local runtime", value: backendReady ? "Ready" : "Preview", tone: backendReady ? "green" : "orange" },
+    { icon: "shield-check" as const, label: "Local runtime", value: runtimeRouteBacked ? "Ready" : "Unverified", tone: runtimeRouteBacked ? "green" : "blue" },
     { icon: "shield" as const, label: "Authority mode", value: mode, tone: "orange" },
     { icon: "clock" as const, label: "Active lease", value: activeLease ? activeLease.mode.replaceAll("_", " ") : "No active lease", tone: activeLease ? "orange" : "blue" },
-    { icon: "receipt-text" as const, label: "Receipts", value: authorityRouteBacked && authorityState.receipts_required ? "Required" : previewOnly ? "Unverified" : "Not required", tone: "blue" },
-    { icon: "shield-alert" as const, label: "Foundation Gate", value: previewOnly ? "Unverified" : gate.status.replaceAll("_", " "), tone: gate.failed_count > 0 ? "orange" : "green" },
+    { icon: "receipt-text" as const, label: "Receipts", value: authorityRouteBacked && authorityState.receipts_required ? "Required" : "Unverified", tone: "blue" },
+    { icon: "shield-alert" as const, label: "Foundation Gate", value: foundationRouteBacked && !previewOnly ? gate.status.replaceAll("_", " ") : "Unverified", tone: foundationRouteBacked && gate.failed_count > 0 ? "orange" : foundationRouteBacked ? "green" : "blue" },
   ];
   return (
     <header className="ns-posture-bar">
