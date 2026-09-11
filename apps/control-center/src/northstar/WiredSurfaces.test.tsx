@@ -102,6 +102,9 @@ function attachExactDecisionLane(
         "safe-disable-posture:founder-loop:local-task-create",
       local_task_rollback_ref: rollbackRef,
       local_task_rollback_execution_enabled: false,
+      local_task_rollback_blocker_refs: [
+        "blocked-state:rollback-execution-not-scoped",
+      ],
       local_task_safe_disable_posture: {
         schema_version: "founder_loop_local_task_safe_disable_posture.v1",
         source: "python_core_founder_loop_storage",
@@ -118,7 +121,7 @@ function attachExactDecisionLane(
         blocked_state_refs: ["blocked-state:test:no-action-execution"],
         rollback_execution_enabled: false,
         rollback_blocker_refs: [
-          "blocked-state:local-task-rollback-execution-not-scoped",
+          "blocked-state:rollback-execution-not-scoped",
         ],
         next_safe_action:
           "Commit the exact approved local task through Python Core.",
@@ -1438,6 +1441,75 @@ describe("North Star backend wiring", () => {
     item.local_task_safe_disable_posture.safe_disable_ref = malformedRef;
     item.local_task_safe_disable_posture.safe_disable_posture_ref = malformedRef;
     item.local_task_safe_disable_posture.rollback_ref = malformedRef;
+
+    render(
+      <BackendTruthMutationBindingProvider binding={mutationBinding}>
+        <NorthStarControlCenter
+          activePath="/workspace/decisions"
+          data={data}
+        />
+      </BackendTruthMutationBindingProvider>,
+    );
+
+    expect(apiMocks.previewAuthorityDecision).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Create local task record" }),
+    ).not.toBeInTheDocument();
+    expect(apiMocks.commitLocalTask).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["the top-level rollback blocker is missing", undefined, [
+      "blocked-state:rollback-execution-not-scoped",
+    ]],
+    ["the top-level rollback blocker is substituted", [
+      "blocked-state:substituted-rollback-proof",
+    ], ["blocked-state:rollback-execution-not-scoped"]],
+    ["the nested rollback blocker is missing", [
+      "blocked-state:rollback-execution-not-scoped",
+    ], undefined],
+    ["the nested rollback blocker is substituted", [
+      "blocked-state:rollback-execution-not-scoped",
+    ], ["blocked-state:substituted-rollback-proof"]],
+  ] as const)("keeps local task commit unavailable when %s", (
+    _caseLabel,
+    topLevelRollbackBlockerRefs,
+    nestedRollbackBlockerRefs,
+  ) => {
+    const data = cloneData();
+    markLiveBackend(data, "/actions");
+    const item = data.founderActionsInbox.items[0];
+    Object.assign(item, {
+      status: "approved",
+      action_group_id: "approved_local_task_lane",
+      action_group_label: "Approved local-task create lane",
+      approval_envelope_status: "approved_receipt_recorded",
+      local_task_commit_approval_ref:
+        "approval-ref:northstar:local-task-approved",
+      local_task_commit_approval_status: "backend_owned_approval_ready",
+      local_task_commit_eligible: true,
+      local_task_commit_blocked_reasons: [],
+      local_task_commit_receipt_ref: "pending",
+      receipt_visibility: {
+        ...item.receipt_visibility,
+        local_task_commit_receipt_ref: "pending",
+      },
+    });
+    attachExactDecisionLane(data, item.item_ref, "approved_no_execution");
+    attachExactLocalTaskWorkQueue(data, item.item_ref);
+    attachWorkspaceWriteAuthority(data);
+    item.local_task_rollback_blocker_refs = topLevelRollbackBlockerRefs
+      ? [...topLevelRollbackBlockerRefs]
+      : undefined;
+    if (!item.local_task_safe_disable_posture) {
+      throw new Error("Expected local task safe-disable posture");
+    }
+    const posture = item.local_task_safe_disable_posture as unknown as {
+      rollback_blocker_refs?: string[];
+    };
+    posture.rollback_blocker_refs = nestedRollbackBlockerRefs
+      ? [...nestedRollbackBlockerRefs]
+      : undefined;
 
     render(
       <BackendTruthMutationBindingProvider binding={mutationBinding}>

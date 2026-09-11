@@ -804,6 +804,11 @@ export function DecisionReviewSurface({
   const localTaskCommitAlreadyRecorded =
     localTaskCommitProjectionStatus === "bound";
   const localTaskSafeDisablePosture = item?.local_task_safe_disable_posture;
+  const localTaskRollbackBlockerRefs =
+    item?.local_task_rollback_blocker_refs;
+  const canonicalLocalTaskRollbackBlockerRefs = [
+    "blocked-state:rollback-execution-not-scoped",
+  ];
   const localTaskSafeDisablePostureReady = Boolean(
     item
     && item.local_task_safe_disable_active === false
@@ -833,6 +838,16 @@ export function DecisionReviewSurface({
     && localTaskSafeDisablePosture.rollback_ref === item.local_task_rollback_ref
     && Array.isArray(localTaskSafeDisablePosture.disabled_reason_refs)
     && localTaskSafeDisablePosture.disabled_reason_refs.length === 0
+    && Array.isArray(localTaskRollbackBlockerRefs)
+    && sameSafeRefs(
+      localTaskRollbackBlockerRefs,
+      canonicalLocalTaskRollbackBlockerRefs,
+    )
+    && Array.isArray(localTaskSafeDisablePosture.rollback_blocker_refs)
+    && sameSafeRefs(
+      localTaskSafeDisablePosture.rollback_blocker_refs,
+      localTaskRollbackBlockerRefs,
+    )
   );
   const localTaskCommitLaneReady = Boolean(
     authoritative
