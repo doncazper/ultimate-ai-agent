@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1012,
+  "timed_file_count": 1016,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -771,6 +771,21 @@
       "source": "pytest-duration-summary"
     },
     {
+      "path": "tests/test_q33_calendar_adoption.py",
+      "seconds": 1.74,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_q33_calendar_adoption_api.py",
+      "seconds": 1.29,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_q33_calendar_adoption_cli.py",
+      "seconds": 0.14,
+      "source": "pytest-duration-summary"
+    },
+    {
       "path": "tests/test_q33_work_board_adoption_api.py",
       "seconds": 5.71,
       "source": "pytest-duration-summary"
@@ -783,6 +798,11 @@
     {
       "path": "tests/test_queue_v2_q33_work_board_adoption.py",
       "seconds": 2.82,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_queue_v2_q33_calendar_adoption.py",
+      "seconds": 3.06,
       "source": "pytest-duration-summary"
     },
     {

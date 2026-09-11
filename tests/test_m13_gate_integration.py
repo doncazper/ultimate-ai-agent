@@ -81,6 +81,7 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "revokeRuntimeGoalMutationApproval",
         "postCrmAdoptionEnvelope",
         "postWorkBoardAdoptionEnvelope",
+        "postCalendarAdoptionEnvelope",
         "chatThreadApprovalEndpoint(threadRef)",
         "mutateChatThread",
     }

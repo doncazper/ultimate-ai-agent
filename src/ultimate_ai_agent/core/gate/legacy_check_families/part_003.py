@@ -1031,8 +1031,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and route.side_effect_class == "local_dev_workspace_only"
                 and route.route_classification == "local_sensitive"
                 and route.protected_route
-                and route.approval_posture
-                == "not_required_for_route_classification"
+                and route.approval_posture == "not_required_for_route_classification"
                 and not route.idempotency_required
                 and (
                     (
@@ -1542,6 +1541,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "revokeRuntimeGoalMutationApproval",
             "postCrmAdoptionEnvelope",
             "postWorkBoardAdoptionEnvelope",
+            "postCalendarAdoptionEnvelope",
             "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
         }
