@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Request
@@ -28,6 +29,19 @@ from ultimate_ai_agent.core.control_center import (
 )
 from ultimate_ai_agent.core.control_center.capability_surface import (
     build_control_center_capability_surface_read_model,
+)
+from ultimate_ai_agent.core.control_center.calendar_adoption import (
+    CALENDAR_ADOPTION_CONTRACT_REF,
+    CalendarAdoptionApprovalCaptureRequest,
+    CalendarAdoptionCommitRequest,
+    CalendarAdoptionConflict,
+    CalendarAdoptionError,
+    CalendarAdoptionMutationRequest,
+    CalendarAdoptionPortableBackupRequest,
+    CalendarAdoptionPortableRestoreRequest,
+    CalendarAdoptionRestoreApprovalCaptureRequest,
+    CalendarAdoptionRestoreCommitRequest,
+    CalendarAdoptionStore,
 )
 from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_local_models_status,
@@ -93,6 +107,7 @@ from ultimate_ai_agent.core.crm import (
     build_crm_local_command_center_read_model,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarView
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
 )
@@ -110,6 +125,8 @@ CRM_ADOPTION_MAX_REQUEST_BODY_BYTES = 48 * 1024 * 1024
 CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
 WORK_BOARD_ADOPTION_MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024
 WORK_BOARD_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
+CALENDAR_ADOPTION_MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024
+CALENDAR_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
 _CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
     {
         "/control-center/crm/adoption/query",
@@ -130,6 +147,17 @@ _WORK_BOARD_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
         "/control-center/work-board/adoption/restore-preview",
         "/control-center/work-board/adoption/restore-approval",
         "/control-center/work-board/adoption/restore-commit",
+    }
+)
+_CALENDAR_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
+    {
+        "/control-center/calendar/adoption/preview",
+        "/control-center/calendar/adoption/approval",
+        "/control-center/calendar/adoption/commit",
+        "/control-center/calendar/adoption/backup",
+        "/control-center/calendar/adoption/restore-preview",
+        "/control-center/calendar/adoption/restore-approval",
+        "/control-center/calendar/adoption/restore-commit",
     }
 )
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
@@ -154,6 +182,18 @@ class WorkBoardAdoptionBodyLimitResponse(BaseModel):
     ]
     code: Literal["WORK_BOARD_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
     contract_ref: Literal["contract-ref:queue-v2-q33-work-board-adoption:v1"]
+    maximum_body_bytes: Literal[25165824]
+    maximum_json_nesting_depth: Literal[64]
+
+
+class CalendarAdoptionBodyLimitResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    detail: Literal[
+        "The private Calendar request body exceeds the permitted local bound."
+    ]
+    code: Literal["CALENDAR_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
+    contract_ref: Literal["contract-ref:queue-v2-q33-calendar-adoption:v1"]
     maximum_body_bytes: Literal[25165824]
     maximum_json_nesting_depth: Literal[64]
 
@@ -385,6 +425,94 @@ class WorkBoardAdoptionBodyLimitMiddleware:
         await response(scope, receive, send)
 
 
+class CalendarAdoptionBodyLimitMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        maximum_body_bytes: int = CALENDAR_ADOPTION_MAX_REQUEST_BODY_BYTES,
+    ) -> None:
+        self.app = app
+        self.maximum_body_bytes = maximum_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() != "POST"
+            or scope.get("path") not in _CALENDAR_ADOPTION_BOUNDED_BODY_ROUTES
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        send = _crm_no_store_send(send)
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            try:
+                content_length = int(value)
+            except ValueError:
+                break
+            if content_length > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        buffered_body = bytearray()
+        received_bytes = 0
+        disconnected = False
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            received_bytes += len(chunk)
+            if received_bytes > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+            buffered_body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = bytes(buffered_body)
+        if _crm_json_nesting_exceeds_limit(body):
+            await self._reject(scope, receive, send)
+            return
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                if disconnected:
+                    return {"type": "http.disconnect"}
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.disconnect"}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    "The private Calendar request body exceeds the permitted "
+                    "local bound."
+                ),
+                "code": "CALENDAR_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED",
+                "contract_ref": CALENDAR_ADOPTION_CONTRACT_REF,
+                "maximum_body_bytes": self.maximum_body_bytes,
+                "maximum_json_nesting_depth": (
+                    CALENDAR_ADOPTION_MAX_REQUEST_NESTING_DEPTH
+                ),
+            },
+        )
+        apply_loopback_cors_response_headers(response, _crm_request_origin(scope))
+        await response(scope, receive, send)
+
+
 class CrmAdoptionPrivateResponseMiddleware:
     """Prevent authenticated founder-private CRM responses from being cached."""
 
@@ -396,6 +524,7 @@ class CrmAdoptionPrivateResponseMiddleware:
             (
                 "/control-center/crm/adoption",
                 "/control-center/work-board/adoption",
+                "/control-center/calendar/adoption",
             )
         ):
             await self.app(scope, receive, send)
@@ -414,6 +543,7 @@ def register_control_center_routes(
     if not getattr(app.state, _REGISTERED_ATTR, False):
         app.add_middleware(CrmAdoptionBodyLimitMiddleware)
         app.add_middleware(WorkBoardAdoptionBodyLimitMiddleware)
+        app.add_middleware(CalendarAdoptionBodyLimitMiddleware)
         app.add_middleware(CrmAdoptionPrivateResponseMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
@@ -1433,6 +1563,304 @@ def post_control_center_work_board_adoption_restore_commit(
     )
 
 
+@router.get(
+    "/calendar/adoption",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_calendar_adoption_workspace",
+    summary="Read the founder-private local Calendar workspace",
+)
+def get_control_center_calendar_adoption(
+    view: Literal["day", "week", "month", "agenda"] = Query(default="week"),
+    anchor: datetime | None = Query(default=None),
+    timezone_name: str = Query(default="UTC", alias="timezone", max_length=128),
+) -> ResultEnvelope:
+    try:
+        read_model = CalendarAdoptionStore.from_env().read_view(
+            view=CalendarView(view),
+            anchor=anchor,
+            timezone_name=timezone_name,
+        )
+    except CalendarAdoptionError as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption",
+        trace_id=f"calendar-adoption-revision-ref:{read_model.revision}",
+        data=read_model.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-private-read",
+    )
+
+
+@router.post(
+    "/calendar/adoption/preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_calendar_adoption_mutation",
+    summary="Preview one exact local Calendar lifecycle change",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_preview(
+    request: CalendarAdoptionMutationRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        preview = CalendarAdoptionStore.from_env().preview_mutation(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-exact-preview",
+    )
+
+
+@router.post(
+    "/calendar/adoption/approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_calendar_adoption_approval",
+    summary="Capture one exact local Calendar approval",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_approval(
+    request: CalendarAdoptionApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_calendar_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CalendarAdoptionStore.from_env().capture_approval(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-exact-approval",
+    )
+
+
+@router.post(
+    "/calendar/adoption/commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_calendar_adoption_mutation",
+    summary="Commit one approved local Calendar lifecycle change",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_commit(
+    request: CalendarAdoptionCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_calendar_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CalendarAdoptionStore.from_env().commit_mutation(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-exact-receipt",
+    )
+
+
+@router.post(
+    "/calendar/adoption/backup",
+    response_model=ResultEnvelope,
+    operation_id="create_control_center_calendar_adoption_backup",
+    summary="Create a passphrase-encrypted portable Calendar backup",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_backup(
+    request: CalendarAdoptionPortableBackupRequest,
+) -> ResultEnvelope:
+    try:
+        backup = CalendarAdoptionStore.from_env().create_portable_backup(request)
+    except CalendarAdoptionError as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_backup",
+        trace_id=backup.ciphertext_fingerprint_ref,
+        data=backup.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-encrypted-backup",
+    )
+
+
+@router.post(
+    "/calendar/adoption/restore-preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_calendar_adoption_restore",
+    summary="Verify and preview an encrypted Calendar restore",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_restore_preview(
+    request: CalendarAdoptionPortableRestoreRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        preview = CalendarAdoptionStore.from_env().preview_restore(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_restore_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-restore-preview",
+    )
+
+
+@router.post(
+    "/calendar/adoption/restore-approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_calendar_adoption_restore_approval",
+    summary="Capture one exact encrypted Calendar restore approval",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_restore_approval(
+    request: CalendarAdoptionRestoreApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_calendar_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CalendarAdoptionStore.from_env().capture_restore_approval(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_restore_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-restore-approval",
+    )
+
+
+@router.post(
+    "/calendar/adoption/restore-commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_calendar_adoption_restore",
+    summary="Restore one approved encrypted Calendar backup",
+    responses={
+        413: {
+            "model": CalendarAdoptionBodyLimitResponse,
+            "description": "Private Calendar request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_calendar_adoption_restore_commit(
+    request: CalendarAdoptionRestoreCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_calendar_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _calendar_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = CalendarAdoptionStore.from_env().commit_restore(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (CalendarAdoptionConflict, CalendarAdoptionError) as exc:
+        _raise_calendar_adoption_http_error(exc)
+    return _calendar_adoption_result_envelope(
+        operation="control_center_calendar_adoption_restore_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q33:calendar-restore-receipt",
+    )
+
+
 @router.get("/work-board", response_model=ResultEnvelope)
 def get_control_center_work_board() -> ResultEnvelope:
     board = build_work_board_read_model()
@@ -1998,6 +2426,114 @@ def _work_board_adoption_result_envelope(
             "provider_payloads_omitted",
         ],
     )
+
+
+def _calendar_adoption_result_envelope(
+    *, operation: str, trace_id: str, data: object, evidence_ref: str
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterCalendarAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": CALENDAR_ADOPTION_CONTRACT_REF,
+            }
+        ],
+        redactions_applied=[
+            "private_values_confined_to_authenticated_local_response",
+            "private_values_omitted_from_receipts",
+            "raw_paths_omitted",
+            "key_material_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _require_calendar_operator_confirmation(confirmed: bool) -> None:
+    if not confirmed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "CALENDAR_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED",
+                "safe_message": (
+                    "Review the exact Calendar preview and confirm this one "
+                    "local change."
+                ),
+            },
+        )
+
+
+def _raise_calendar_adoption_http_error(exc: CalendarAdoptionError) -> None:
+    code = str(exc) or "CALENDAR_ADOPTION_ERROR"
+    status_code = 409 if isinstance(exc, CalendarAdoptionConflict) else 403
+    safe_message = (
+        "The private Calendar request could not be completed safely. Refresh "
+        "the calendar or use the encrypted recovery path."
+    )
+    if code in {
+        "CALENDAR_ADOPTION_BACKUP_DECRYPT_FAILED",
+        "CALENDAR_ADOPTION_BACKUP_FINGERPRINT_MISMATCH",
+        "CALENDAR_ADOPTION_BACKUP_INVALID",
+        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE",
+        "CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE",
+        "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INVALID",
+    }:
+        status_code = 422
+    elif code in {
+        "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_WRITE_FAILED",
+        "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_MISSING",
+    }:
+        status_code = 503
+        safe_message = (
+            "The local Calendar receipt could not be confirmed. Refresh before "
+            "retrying the exact approved request."
+        )
+    raise HTTPException(
+        status_code=status_code,
+        detail={"code": code, "safe_message": safe_message},
+    ) from exc
+
+
+def _calendar_adoption_idempotency_ref(
+    idempotency_key: str | None, idempotency_ref: str | None
+) -> str:
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "Private Calendar requests require an idempotency key or "
+                    "scoped ref."
+                ),
+            },
+        )
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _require_work_board_operator_confirmation(confirmed: bool) -> None:

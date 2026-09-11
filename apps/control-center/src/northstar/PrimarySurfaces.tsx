@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ControlCenterData } from "../api/types";
 import { CrmAdoptionWorkspace } from "../components/CrmAdoptionWorkspace";
 import { WorkBoardAdoptionWorkspace } from "../components/WorkBoardAdoptionWorkspace";
+import { CalendarAdoptionWorkspace } from "../components/CalendarAdoptionWorkspace";
 import { Avatar, Badge, Button, Icon, MetaRow, Panel, SearchField, Tabs, Toolbar } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
@@ -372,6 +373,10 @@ export function CalendarSurface({ data }: { data: ControlCenterData }) {
   const calendarSource = data.founderSourceReadiness.source_readiness_items.find((item) => item.source_kind.toLowerCase().includes("calendar"));
   return (
     <div className="ns-surface ns-calendar">
+      <CalendarAdoptionWorkspace />
+      <details className="crm-foundation-details ns-crm-compatibility">
+        <summary>Legacy synthetic Calendar layout reference</summary>
+        <div className="ns-crm-compatibility-content">
       <Toolbar title="Calendar" subtitle="Synthetic desktop fixture · no calendar account is connected">
         <Button disabled title="Preview calendar navigation is not connected">Today</Button><Button disabled icon="chevron-left" title="Preview calendar navigation is not connected">Previous</Button><Button disabled icon="chevron-right" title="Preview calendar navigation is not connected">Next</Button><Button disabled tone="primary" title="Only the week preview is implemented">Week</Button><Button disabled icon="calendar-days" title="Calendar writes remain blocked">Propose event</Button><a className="ns-button primary" href={`${WORKSPACE_PREFIX}/decisions`}>Review {data.founderActionsInbox.items.length} decisions</a>
       </Toolbar>
@@ -397,6 +402,8 @@ export function CalendarSurface({ data }: { data: ControlCenterData }) {
         </aside>
       </div>
       <div className="ns-receipt-band"><Icon name="info" size={18} /> Synthetic calendar fixture · Backend source posture: {calendarSource?.status.replaceAll("_", " ") ?? "missing"} · No account read or calendar write performed</div>
+        </div>
+      </details>
     </div>
   );
 }

@@ -42,6 +42,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "communications_matrix_intelligence": {"max_requests": 12, "window_seconds": 60},
     "crm_adoption": {"max_requests": 30, "window_seconds": 60},
     "work_board_adoption": {"max_requests": 30, "window_seconds": 60},
+    "calendar_adoption": {"max_requests": 30, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -259,6 +260,15 @@ WORK_BOARD_ADOPTION_POST_PATHS = {
     "/control-center/work-board/adoption/restore-approval",
     "/control-center/work-board/adoption/restore-commit",
 }
+CALENDAR_ADOPTION_POST_PATHS = {
+    "/control-center/calendar/adoption/preview",
+    "/control-center/calendar/adoption/approval",
+    "/control-center/calendar/adoption/commit",
+    "/control-center/calendar/adoption/backup",
+    "/control-center/calendar/adoption/restore-preview",
+    "/control-center/calendar/adoption/restore-approval",
+    "/control-center/calendar/adoption/restore-commit",
+}
 
 
 @dataclass(frozen=True)
@@ -390,6 +400,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "crm_adoption"
     if normalized_method == "POST" and path in WORK_BOARD_ADOPTION_POST_PATHS:
         return "work_board_adoption"
+    if normalized_method == "POST" and path in CALENDAR_ADOPTION_POST_PATHS:
+        return "calendar_adoption"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

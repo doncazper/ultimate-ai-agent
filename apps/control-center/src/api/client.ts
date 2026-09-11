@@ -57,6 +57,14 @@ import type {
   CrmAdoptionWorkspaceView,
   CrmPortableBackup,
   CrmPortableRestorePreview,
+  CalendarAdoptionApprovalReceipt,
+  CalendarAdoptionMutationPreview,
+  CalendarAdoptionMutationReceipt,
+  CalendarAdoptionMutationRequest,
+  CalendarAdoptionPortableBackup,
+  CalendarAdoptionRestorePreview,
+  CalendarAdoptionView,
+  CalendarAdoptionWorkspaceView,
   WorkBoardAdoptionApprovalReceipt,
   WorkBoardAdoptionMutationPreview,
   WorkBoardAdoptionMutationReceipt,
@@ -928,6 +936,188 @@ export async function commitWorkBoardAdoptionRestore(
 ): Promise<WorkBoardAdoptionMutationReceipt> {
   return postWorkBoardAdoptionEnvelope(
     API_ENDPOINTS.workBoardAdoptionRestoreCommit,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function loadCalendarAdoptionWorkspace(
+  view: CalendarAdoptionView,
+  anchor: string,
+  timezone: string,
+): Promise<CalendarAdoptionWorkspaceView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const query = new URLSearchParams({ view, anchor, timezone });
+  const value = await readEnvelope<CalendarAdoptionWorkspaceView>(
+    `${API_ENDPOINTS.calendarAdoption}?${query.toString()}`,
+  );
+  if (
+    value.schema_version !== "uaa-calendar-adoption-read-model.v1" ||
+    typeof value.current_state_ref !== "string" ||
+    !value.current_state_ref.startsWith("state-ref:calendar-adoption") ||
+    value.backend_owned !== true ||
+    value.local_only !== true ||
+    value.exact_approval_required !== true ||
+    value.external_calendar_write_enabled !== false ||
+    value.connector_write_enabled !== false ||
+    value.provider_model_call_enabled !== false ||
+    !Array.isArray(value.calendars) ||
+    !Array.isArray(value.occurrence_items) ||
+    !Array.isArray(value.archived_events) ||
+    !Array.isArray(value.conflict_items)
+  ) {
+    throw new Error("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+async function postCalendarAdoptionEnvelope<T>(
+  endpoint: string,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
+): Promise<T> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
+    body: JSON.stringify(body),
+  });
+  if (operatorConfirmed) {
+    validateBackendResponseBinding(response.headers, mutationBinding);
+  }
+  const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private Calendar request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewCalendarAdoptionMutation(
+  request: CalendarAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionMutationPreview> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionPreview,
+    request,
+    idempotencyRef,
+  );
+}
+
+export async function captureCalendarAdoptionApproval(
+  request: CalendarAdoptionMutationRequest,
+  preview: CalendarAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionApprovalReceipt> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionApproval,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitCalendarAdoptionMutation(
+  request: CalendarAdoptionMutationRequest,
+  preview: CalendarAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionMutationReceipt> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionCommit,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function createCalendarAdoptionBackup(
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionPortableBackup> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionBackup,
+    { passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function previewCalendarAdoptionRestore(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionRestorePreview> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestorePreview,
+    { backup, passphrase },
+    idempotencyRef,
+  );
+}
+
+export async function captureCalendarAdoptionRestoreApproval(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  preview: CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionApprovalReceipt> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestoreApproval,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+}
+
+export async function commitCalendarAdoptionRestore(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  preview: CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionMutationReceipt> {
+  return postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestoreCommit,
     {
       backup,
       passphrase,
@@ -2737,6 +2927,9 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const calendarAdoptionSettledPromise = Promise.allSettled([
+    read<CalendarAdoptionWorkspaceView>(API_ENDPOINTS.calendarAdoption),
+  ] as const);
   const socialPublishingProposalSettledPromise = Promise.allSettled([
     read<SocialPublishingProposalReadModel>(
       API_ENDPOINTS.socialPublishingProposal,
@@ -3005,6 +3198,7 @@ export async function loadControlCenterData(
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const calendarAdoptionResult = await calendarAdoptionSettledPromise;
   const socialPublishingProposalResult =
     await socialPublishingProposalSettledPromise;
   const communicationsProjectionResult =
@@ -3200,6 +3394,7 @@ export async function loadControlCenterData(
   const codingLivePreview = fulfilledValue(results[41]);
   const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const calendarAdoption = fulfilledValue(calendarAdoptionResult[0]);
   const unsafeSocialPublishingProposal = fulfilledValue(
     socialPublishingProposalResult[0],
   );
@@ -3715,6 +3910,13 @@ export async function loadControlCenterData(
       endpointReturned: workBoard !== undefined,
       warningRefs: workBoardEndpointFallbackWarningRefs,
       usedFallback: workBoardFallbackUsed,
+    }),
+    routeReadStateInput({
+      route: "/calendar",
+      surfaceLabel: "Calendar",
+      backendRouteRef: "GET /control-center/calendar/adoption",
+      endpointReturned: calendarAdoption !== undefined,
+      usedFallback: calendarAdoption === undefined,
     }),
     routeReadStateInput({
       route: "/studio",

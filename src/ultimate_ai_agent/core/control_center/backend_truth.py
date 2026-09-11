@@ -302,6 +302,12 @@ CRITICAL_SURFACES: tuple[CriticalSurfaceBinding, ...] = (
         ],
     ),
     CriticalSurfaceBinding(
+        surface_ref="critical-surface:calendar",
+        label="Calendar",
+        frontend_paths=["/workspace/calendar"],
+        backend_route_refs=["GET /control-center/calendar/adoption"],
+    ),
+    CriticalSurfaceBinding(
         surface_ref="critical-surface:morning-briefing",
         label="Morning Briefing",
         frontend_paths=[

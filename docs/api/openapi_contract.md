@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `376` OpenAPI paths and `378` manifest route operations.
+Current generated contract snapshot: `384` OpenAPI paths and `386` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 Refresh and check this canonical static declaration snapshot with
@@ -579,6 +579,18 @@ Contract rules:
   encrypted portable restore with exact replay and conflict handling. It grants
   no task execution, connector write, provider/model call, shell/browser
   execution, automatic sync, public release, or production authority.
+- Q33 adds eight founder-private Calendar adoption routes under
+  `/control-center/calendar/adoption*`. Read, preview, encrypted backup, and
+  restore preview remain local-sensitive. Approval and commit routes require
+  exact idempotency, operator confirmation, backend-truth binding, a captured
+  preview-bound approval, and one short-lived operation-budget-one
+  `workspace/write` AuthorityLease. The canonical ECO-004 encrypted repository
+  supports multiple local calendars, event lifecycle, day/week/month/agenda
+  projections, recurrence, conflict visibility, undo, durable lost-response
+  receipt recovery, and metadata-bound encrypted portable restore. It grants
+  no account adapter, external calendar read/write, notification, background
+  scheduler, provider/model call, shell/browser execution, automatic sync,
+  public release, or production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

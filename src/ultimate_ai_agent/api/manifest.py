@@ -769,6 +769,7 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/sources",
     "/control-center/storage",
     "/control-center/work-board",
+    "/control-center/calendar",
     "/control-center/crm",
 )
 VALIDATION_HINTS = (
@@ -837,6 +838,18 @@ CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS = {
     "/control-center/work-board/adoption/commit",
     "/control-center/work-board/adoption/restore-approval",
     "/control-center/work-board/adoption/restore-commit",
+}
+CONTROL_CENTER_CALENDAR_ADOPTION_SENSITIVE_PATHS = {
+    "/control-center/calendar/adoption",
+    "/control-center/calendar/adoption/preview",
+    "/control-center/calendar/adoption/backup",
+    "/control-center/calendar/adoption/restore-preview",
+}
+CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS = {
+    "/control-center/calendar/adoption/approval",
+    "/control-center/calendar/adoption/commit",
+    "/control-center/calendar/adoption/restore-approval",
+    "/control-center/calendar/adoption/restore-commit",
 }
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -1615,6 +1628,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Founder-private Work Board exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact local approval validation, one operation-budget-one Workspace/write AuthorityLease, idempotency, local persistence, content-free receipts, and undo or encrypted restore recovery are required while task execution and external authority remain blocked.",
+        )
+    if path in CONTROL_CENTER_CALENDAR_ADOPTION_SENSITIVE_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Founder-private Calendar read, exact preview, or encrypted backup preparation route; private values remain confined to the authenticated local response and no account, connector, provider, model, notification, external-calendar write, automatic sync, or production authority is granted.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Founder-private Calendar exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact local approval validation, one operation-budget-one Workspace/write AuthorityLease, durable idempotency, encrypted local persistence, content-free receipts, and undo or encrypted restore recovery are required while all external calendar and scheduling authority remains blocked.",
         )
     if (
         normalized_method == "POST"

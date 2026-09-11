@@ -33,6 +33,11 @@ const foundationVisualSurfaces = [
       "/control-center/settings/status",
     ],
   ],
+  [
+    "calendar",
+    "/workspace/calendar",
+    ["/control-center/calendar/adoption"],
+  ],
 ] as const;
 
 function resolveBackendSourceCommit(): string {
@@ -62,6 +67,7 @@ function startBackend(): void {
         UAA_BUILD_COMMIT: backendSourceCommit,
         UAA_CRM_STATE_DIR: join(stateDir, "crm"),
         UAA_WORK_BOARD_STATE_DIR: join(stateDir, "work-board"),
+        UAA_CALENDAR_STATE_DIR: join(stateDir, "calendar"),
       },
       stdio: "ignore",
     },
@@ -248,7 +254,7 @@ test("foundation visual baselines stay backend-owned", async ({
           ),
         ).toBeVisible();
         await expect(page.getByText("Unverified in fallback")).toHaveCount(0);
-      } else {
+      } else if (name === "crm") {
         await expect(
           page.getByRole("heading", { name: "Your CRM", exact: true }),
         ).toBeVisible({ timeout: 30_000 });
@@ -268,6 +274,45 @@ test("foundation visual baselines stay backend-owned", async ({
         ).not.toBeVisible();
         const adoptionBounds = await page
           .locator(".crm-adoption")
+          .evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              left: rect.left,
+              right: rect.right,
+              viewportWidth: window.innerWidth,
+              documentScrollWidth: document.documentElement.scrollWidth,
+            };
+          });
+        expect(adoptionBounds.left).toBeGreaterThanOrEqual(0);
+        expect(adoptionBounds.right).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
+        expect(adoptionBounds.documentScrollWidth).toBeLessThanOrEqual(
+          adoptionBounds.viewportWidth,
+        );
+      } else {
+        await expect(
+          page.getByRole("heading", { name: "Your Calendar", exact: true }),
+        ).toBeVisible({ timeout: 30_000 });
+        await expect(
+          page.getByText("Founder-private workspace", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("heading", {
+            name: "Create your first private calendar",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("Legacy synthetic Calendar layout reference", {
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          page.locator("details.ns-crm-compatibility"),
+        ).not.toHaveAttribute("open", "");
+        const adoptionBounds = await page
+          .locator(".calendar-adoption")
           .evaluate((element) => {
             const rect = element.getBoundingClientRect();
             return {

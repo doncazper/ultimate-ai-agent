@@ -97,6 +97,7 @@ export const navItems: NavItem[] = [
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/work-board", label: "Work Board", group: "Founder Loop", status: "backend-owned kanban", releaseStatus: "partial", role: "primary" },
+  { path: "/workspace/calendar", label: "Calendar", group: "Founder Loop", status: "backend-owned founder-private calendar", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
   { path: "/proof", label: "Proof", group: "Founder Loop", status: "backend-owned proof detail", releaseStatus: "partial", role: "primary" },
   { path: "/trust", label: "Trust", group: "Founder Loop", status: "authority map", releaseStatus: "partial", role: "primary" },

@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
+    CONTROL_CENTER_CALENDAR_ADOPTION_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES,
@@ -251,6 +252,16 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/work-board/adoption/restore-commit",
         "/control-center/work-board/adoption/restore-preview",
     }
+    assert CONTROL_CENTER_CALENDAR_ADOPTION_ROUTES == {
+        "/control-center/calendar/adoption",
+        "/control-center/calendar/adoption/approval",
+        "/control-center/calendar/adoption/backup",
+        "/control-center/calendar/adoption/commit",
+        "/control-center/calendar/adoption/preview",
+        "/control-center/calendar/adoption/restore-approval",
+        "/control-center/calendar/adoption/restore-commit",
+        "/control-center/calendar/adoption/restore-preview",
+    }
     assert CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES == {
         "/control-center/crm/follow-ups",
         "/control-center/crm/local-mutations",
@@ -333,8 +344,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
         "control_center_coding_cockpit",
-        "control_center_capability_surface",
-        "control_center_crm_command_center",
+            "control_center_capability_surface",
+            "control_center_calendar_adoption",
+            "control_center_crm_command_center",
         "control_center_runtime_cockpit",
         "control_center_work_board",
         "control_center_work_board_adoption",

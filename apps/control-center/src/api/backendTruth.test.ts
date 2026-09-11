@@ -13,7 +13,7 @@ const integrityRef = `proof-ref:backend-truth-envelope:sha256:${HASH}`;
 function fixture(overrides: Record<string, unknown> = {}) {
   const generatedAt = "2026-07-22T18:00:00Z";
   const validUntil = "2026-07-22T18:00:45Z";
-  const refs = [
+  const refs: Array<[string, string, string[], string[]]> = [
     ["overview", "Overview", ["/"], ["GET /control-center/dashboard", "GET /control-center/settings/status"]],
     ["start-here", "Start Here", ["/start"], ["GET /control-center/start-here/summary"]],
     ["today", "Today", ["/today", "/workspace", "/workspace/today"], ["GET /control-center/today/summary"]],
@@ -28,7 +28,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ["chat-handoff", "Chat handoff", ["/chat"], ["GET /control-center/agent-loop/thread"]],
     ["active-run", "Active run", ["/runs", "/workspace/activity-trust"], ["GET /control-center/runs/observability"]],
     ["settings", "Settings", ["/settings", "/workspace/settings"], ["GET /control-center/settings/status"]],
-  ] as const;
+  ];
   return {
     schema_version: "uaa-control-center-backend-truth.v1",
     source_ref: "source-ref:python-core:control-center-backend-truth",
@@ -86,25 +86,33 @@ const crmSurface = {
     "GET /control-center/crm/adoption",
   ],
   contract_status: "backend_contract_declared",
-} as const;
+};
 
-function withCrmSurface(value: ReturnType<typeof fixture>) {
+const calendarSurface = {
+  surface_ref: "critical-surface:calendar",
+  label: "Calendar",
+  frontend_paths: ["/workspace/calendar"],
+  backend_route_refs: ["GET /control-center/calendar/adoption"],
+  contract_status: "backend_contract_declared",
+};
+
+function withCurrentSurfaces(value: ReturnType<typeof fixture>) {
+  const currentSurfaces = value.critical_surfaces.flatMap((surface) => {
+    if (surface.surface_ref !== "critical-surface:work-board") return [surface];
+    return [
+      {
+        ...surface,
+        backend_route_refs: [
+          ...surface.backend_route_refs,
+          "GET /control-center/work-board/adoption",
+        ],
+      },
+      calendarSurface,
+    ];
+  });
   return {
     ...value,
-    critical_surfaces: [
-      ...value.critical_surfaces.map((surface) =>
-        surface.surface_ref === "critical-surface:work-board"
-          ? {
-              ...surface,
-              backend_route_refs: [
-                ...surface.backend_route_refs,
-                "GET /control-center/work-board/adoption",
-              ],
-            }
-          : surface,
-      ),
-      crmSurface,
-    ],
+    critical_surfaces: [...currentSurfaces, crmSurface],
   };
 }
 
@@ -125,17 +133,17 @@ describe("backend truth validation", () => {
   });
 
   it("accepts the exact current backend-owned envelope", async () => {
-    const value = withCrmSurface(fixture());
+    const value = withCurrentSurfaces(fixture());
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(15);
+    expect(validated.critical_surfaces).toHaveLength(16);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
   it("accepts invalid durable evidence only with bounded issue and receipt refs", async () => {
-    const base = withCrmSurface(fixture());
-    const value = withCrmSurface(fixture({
+    const base = withCurrentSurfaces(fixture());
+    const value = withCurrentSurfaces(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "invalid_evidence",
@@ -149,8 +157,8 @@ describe("backend truth validation", () => {
   });
 
   it("accepts storage-unavailable evidence only without receipt claims", async () => {
-    const base = withCrmSurface(fixture());
-    const value = withCrmSurface(fixture({
+    const base = withCurrentSurfaces(fixture());
+    const value = withCurrentSurfaces(fixture({
       evidence_binding: {
         ...base.evidence_binding,
         status: "storage_unavailable",
@@ -251,10 +259,7 @@ describe("backend truth validation", () => {
       typeof value === "object" &&
       "critical_surfaces" in value &&
       Array.isArray(value.critical_surfaces)
-        ? {
-            ...value,
-            critical_surfaces: [...value.critical_surfaces, crmSurface],
-          }
+        ? withCurrentSurfaces(value as ReturnType<typeof fixture>)
         : value;
     await expect(
       validateControlCenterBackendTruth(candidate, {
@@ -265,7 +270,7 @@ describe("backend truth validation", () => {
   });
 
   it("rejects Work Board truth that omits the adoption read contract", async () => {
-    const current = withCrmSurface(fixture());
+    const current = withCurrentSurfaces(fixture());
     const value = {
       ...current,
       critical_surfaces: current.critical_surfaces.map((surface) =>
@@ -274,6 +279,22 @@ describe("backend truth validation", () => {
               ...surface,
               backend_route_refs: ["GET /control-center/work-board"],
             }
+          : surface,
+      ),
+    };
+
+    await expect(
+      validateControlCenterBackendTruth(value, options),
+    ).rejects.toMatchObject({ code: "BACKEND_TRUTH_CRITICAL_SURFACE_INVALID" });
+  });
+
+  it("rejects Calendar truth that omits the adoption read contract", async () => {
+    const current = withCurrentSurfaces(fixture());
+    const value = {
+      ...current,
+      critical_surfaces: current.critical_surfaces.map((surface) =>
+        surface.surface_ref === "critical-surface:calendar"
+          ? { ...surface, backend_route_refs: [] }
           : surface,
       ),
     };
@@ -295,6 +316,7 @@ describe("backend truth validation", () => {
     expect(isCriticalControlCenterPath("/runtime")).toBe(true);
     expect(isCriticalControlCenterPath("/settings")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/crm")).toBe(true);
+    expect(isCriticalControlCenterPath("/workspace/calendar")).toBe(true);
     expect(isCriticalControlCenterPath("/news")).toBe(false);
   });
 });

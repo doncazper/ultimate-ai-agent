@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `376`.
+Current OpenAPI path count: `384`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `378`
-- OpenAPI paths: `376`
+- Manifest route operations: `386`
+- OpenAPI paths: `384`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -350,6 +350,14 @@ an idempotency conflict and never waits for or executes behind the owner.
 | POST | `/control-center/work-board/adoption/restore-approval` | `capture_control_center_work_board_adoption_restore_approval` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/adoption/restore-commit` | `commit_control_center_work_board_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/adoption/restore-preview` | `preview_control_center_work_board_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/calendar/adoption` | `get_control_center_calendar_adoption_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/approval` | `capture_control_center_calendar_adoption_approval` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/backup` | `create_control_center_calendar_adoption_backup` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/commit` | `commit_control_center_calendar_adoption_mutation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/preview` | `preview_control_center_calendar_adoption_mutation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/restore-approval` | `capture_control_center_calendar_adoption_restore_approval` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/restore-commit` | `commit_control_center_calendar_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/calendar/adoption/restore-preview` | `preview_control_center_calendar_adoption_restore` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/cards` | `post_control_center_work_board_cards` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/reorder` | `post_control_center_work_board_reorder` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/tasks` | `post_control_center_work_board_tasks` | `local_dev_workspace_only` | no | future | yes |

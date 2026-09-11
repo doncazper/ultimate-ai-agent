@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 31
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 32
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -980,6 +980,18 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client must post turn router diagnostics through API_ENDPOINTS")
         if "submitWebEvidenceAttachment" not in text:
             failures.append("frontend client missing scoped web evidence attach helper")
+        for fragment in [
+            "postCalendarAdoptionEnvelope",
+            "API_ENDPOINTS.calendarAdoptionPreview",
+            "API_ENDPOINTS.calendarAdoptionApproval",
+            "API_ENDPOINTS.calendarAdoptionCommit",
+            "API_ENDPOINTS.calendarAdoptionRestoreCommit",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    "frontend client missing scoped Calendar adoption helper: "
+                    f"{fragment}"
+                )
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
         if "chatThreadApprovalEndpoint(threadRef)" not in text:

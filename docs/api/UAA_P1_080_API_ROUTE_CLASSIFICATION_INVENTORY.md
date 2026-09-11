@@ -29,11 +29,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 31 |
-| `local_sensitive` | 214 |
-| `mutating_requires_authority` | 130 |
+| `local_sensitive` | 218 |
+| `mutating_requires_authority` | 134 |
 
-The current OpenAPI path count is `376` and `/api/manifest` currently reports
-`378` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `384` and `/api/manifest` currently reports
+`386` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -54,7 +54,9 @@ readiness route, and blocked multi-agent review readiness route, plus the
 backend-owned Work Board Kanban read-model
 route, exact approved persisted reorder route, and exact approved local
 card-create route, plus the founder-private Work Board adoption read, preview,
-approval, commit, encrypted backup, and exact restore routes, plus the protected
+approval, commit, encrypted backup, and exact restore routes, plus the
+founder-private Calendar adoption read, preview, approval, commit, encrypted
+backup, and exact restore routes, plus the protected
 authority-state lease inspection route
 and AuthorityLease issue, approve-and-issue, and revoke receipt routes, plus the governed runtime
 pilot Phase 08 parity-loop read-only inspection route, Hermes Runtime Adoption

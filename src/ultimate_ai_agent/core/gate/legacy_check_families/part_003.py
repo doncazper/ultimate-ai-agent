@@ -1025,6 +1025,29 @@ class FoundationGateLegacyChecksPart003Mixin:
                 )
                 and route.blocked_from_production
             )
+            is_calendar_read_model = (
+                path in CONTROL_CENTER_CALENDAR_ADOPTION_SENSITIVE_PATHS
+                and route.method in {"GET", "POST"}
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture
+                == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and (
+                    (
+                        route.method == "GET"
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "calendar_adoption"
+                    )
+                )
+                and route.blocked_from_production
+            )
             is_control_center_runtime_cockpit_read_model = (
                 path in CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES
                 and route.method == "GET"
@@ -1176,13 +1199,14 @@ class FoundationGateLegacyChecksPart003Mixin:
                 )
                 and route.blocked_from_production
             )
-            is_crm_or_work_board_command_state = (
+            is_crm_work_board_or_calendar_command_state = (
                 path
                 in (
                     CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS
                     | CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
                     | CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES
                     | CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
+                    | CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS
                 )
                 and route.method == "POST"
                 and route.side_effect_class == "local_dev_workspace_only"
@@ -1202,10 +1226,16 @@ class FoundationGateLegacyChecksPart003Mixin:
                         and route.rate_limit_group == "work_board_adoption"
                     )
                     or (
+                        path in CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "calendar_adoption"
+                    )
+                    or (
                         path
                         not in (
                             CONTROL_CENTER_CRM_ADOPTION_MUTATION_PATHS
                             | CONTROL_CENTER_WORK_BOARD_ADOPTION_MUTATION_PATHS
+                            | CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS
                         )
                         and not route.rate_limit_targeted
                         and route.rate_limit_group is None
@@ -1231,6 +1261,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_web_evidence_product_slice_state
                 and not is_coding_cockpit_read_model
                 and not is_work_board_read_model
+                and not is_calendar_read_model
                 and not is_control_center_runtime_cockpit_read_model
                 and not is_communications_read_model
                 and not is_matrix_harness_read_command
@@ -1242,7 +1273,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_matrix_intelligence_command
                 and not is_crm_read_model
                 and not is_crm_adoption_sensitive_state
-                and not is_crm_or_work_board_command_state
+                and not is_crm_work_board_or_calendar_command_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"

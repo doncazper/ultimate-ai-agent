@@ -1,0 +1,642 @@
+from __future__ import annotations
+
+import json
+import os
+import stat
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from ultimate_ai_agent.core.control_center.calendar_adoption import (
+    CALENDAR_ADOPTION_DATABASE_FILE,
+    CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE,
+    CalendarAdoptionApprovalCaptureRequest,
+    CalendarAdoptionCalendarDraft,
+    CalendarAdoptionCommitRequest,
+    CalendarAdoptionConflict,
+    CalendarAdoptionError,
+    CalendarAdoptionEventDraft,
+    CalendarAdoptionMutationRequest,
+    CalendarAdoptionPortableBackupRequest,
+    CalendarAdoptionPortableRestoreRequest,
+    CalendarAdoptionRestoreApprovalCaptureRequest,
+    CalendarAdoptionRestoreCommitRequest,
+    CalendarAdoptionStore,
+)
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarView
+
+
+def _idempotency(suffix: str) -> str:
+    return f"idempotency-ref:q33-calendar-test:{suffix}"
+
+
+def _calendar(
+    suffix: str = "primary", *, timezone_name: str = "America/Los_Angeles"
+) -> CalendarAdoptionCalendarDraft:
+    return CalendarAdoptionCalendarDraft(
+        calendar_ref=f"calendar-ref:q33:{suffix}",
+        name=suffix.title(),
+        timezone=timezone_name,
+        color_ref=f"color-ref:q33:{suffix}",
+    )
+
+
+def _event(
+    suffix: str,
+    *,
+    calendar_ref: str = "calendar-ref:q33:primary",
+    starts_at: datetime | None = None,
+) -> CalendarAdoptionEventDraft:
+    starts = starts_at or datetime(2026, 9, 14, 16, tzinfo=timezone.utc)
+    return CalendarAdoptionEventDraft(
+        event_ref=f"calendar-event-ref:q33:{suffix}",
+        calendar_ref=calendar_ref,
+        title=f"Private {suffix} event",
+        description="Founder-only planning details",
+        location="Local office",
+        starts_at=starts,
+        ends_at=starts + timedelta(hours=1),
+        timezone="America/Los_Angeles",
+    )
+
+
+def _commit(
+    store: CalendarAdoptionStore,
+    mutation: CalendarAdoptionMutationRequest,
+    *,
+    suffix: str,
+):
+    idempotency_ref = _idempotency(suffix)
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    approval = store.capture_approval(
+        CalendarAdoptionApprovalCaptureRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    receipt = store.commit_mutation(
+        CalendarAdoptionCommitRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    return preview, approval, receipt
+
+
+def _initialize(store: CalendarAdoptionStore, *, suffix: str = "initialize") -> None:
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="initialize",
+            expected_revision=0,
+            calendar=_calendar(),
+        ),
+        suffix=suffix,
+    )
+
+
+def test_empty_calendar_is_read_only_onboarding(tmp_path: Path) -> None:
+    state_dir = tmp_path / "calendar"
+    view = CalendarAdoptionStore(state_dir).read_view(
+        view=CalendarView.week,
+        anchor=datetime(2026, 9, 14, tzinfo=timezone.utc),
+        timezone_name="America/Los_Angeles",
+    )
+
+    assert view.status == "onboarding"
+    assert view.revision == 0
+    assert view.calendars == ()
+    assert view.occurrence_items == ()
+    assert view.backend_owned is True
+    assert view.local_only is True
+    assert view.exact_approval_required is True
+    assert view.external_calendar_write_enabled is False
+    assert view.provider_model_call_enabled is False
+    assert not state_dir.exists()
+
+
+def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    preview = store.preview_mutation(
+        mutation, idempotency_ref=_idempotency("missing-approval")
+    )
+
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_EXACT_APPROVAL_REQUIRED"
+    ):
+        store.commit_mutation(
+            CalendarAdoptionCommitRequest(
+                mutation=mutation,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+            idempotency_ref=_idempotency("missing-approval"),
+        )
+
+    assert store.read_view().status == "setup_incomplete"
+
+
+def test_calendar_lifecycle_views_conflicts_and_undo_survive_restart(
+    tmp_path: Path,
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    _initialize(store)
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="create_calendar",
+            expected_revision=1,
+            calendar=_calendar("work"),
+        ),
+        suffix="create-calendar",
+    )
+    first = _event("briefing")
+    second = _event(
+        "overlap",
+        calendar_ref="calendar-ref:q33:work",
+        starts_at=first.starts_at + timedelta(minutes=30),
+    )
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="create_event", expected_revision=2, event=first
+        ),
+        suffix="create-first",
+    )
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="create_event", expected_revision=3, event=second
+        ),
+        suffix="create-second",
+    )
+
+    restarted = CalendarAdoptionStore(tmp_path)
+    week = restarted.read_view(
+        view=CalendarView.week,
+        anchor=first.starts_at,
+        timezone_name="America/Los_Angeles",
+    )
+    assert week.status == "ready"
+    assert week.revision == 4
+    assert len(week.calendars) == 2
+    assert len(week.occurrence_items) == 2
+    assert len(week.conflict_items) == 1
+
+    _commit(
+        restarted,
+        CalendarAdoptionMutationRequest(
+            action="archive_event",
+            expected_revision=4,
+            target_ref=first.event_ref,
+        ),
+        suffix="archive",
+    )
+    archived = restarted.read_view(anchor=first.starts_at)
+    assert archived.revision == 5
+    assert [event.event_ref for event in archived.archived_events] == [first.event_ref]
+
+    _commit(
+        restarted,
+        CalendarAdoptionMutationRequest(action="undo", expected_revision=5),
+        suffix="undo",
+    )
+    recovered = restarted.read_view(anchor=first.starts_at)
+    assert recovered.revision == 6
+    assert recovered.archived_events == ()
+    assert len(recovered.occurrence_items) == 2
+
+
+def test_exact_idempotent_replay_rejects_substitution(tmp_path: Path) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency("replay")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionCommitRequest(**capture.model_dump())
+    first = store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+    replay = CalendarAdoptionStore(tmp_path).commit_mutation(
+        commit, idempotency_ref=idempotency_ref
+    )
+
+    assert first.replayed is False
+    assert replay.replayed is True
+    assert replay.receipt_ref == first.receipt_ref
+    assert replay.authority_decision_ref == first.authority_decision_ref
+    assert store.read_view().revision == 1
+
+    with pytest.raises(
+        CalendarAdoptionConflict, match="CALENDAR_ADOPTION_IDEMPOTENCY_CONFLICT"
+    ):
+        store.commit_mutation(
+            commit.model_copy(
+                update={"preview_ref": "preview-ref:q33-calendar:substituted"}
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+
+
+def test_replay_rejects_checkpoint_receipt_substitution(tmp_path: Path) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency("forged-checkpoint")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionCommitRequest(**capture.model_dump())
+    store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+
+    checkpoint_path = tmp_path / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    payload[0]["receipt"]["receipt_ref"] = "receipt-ref:forged-checkpoint"
+    checkpoint_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_DURABLE_MISMATCH",
+    ):
+        CalendarAdoptionStore(tmp_path).commit_mutation(
+            commit,
+            idempotency_ref=idempotency_ref,
+        )
+
+
+def test_lost_response_recovers_durable_receipt_without_second_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency("lost-response")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionCommitRequest(**capture.model_dump())
+    original = store._save_checkpoint
+    calls = 0
+
+    def fail_completion(checkpoints: list[object], checkpoint: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_TEST_RESPONSE_LOST")
+        original(checkpoints, checkpoint)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(store, "_save_checkpoint", fail_completion)
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_TEST_RESPONSE_LOST"
+    ):
+        store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+
+    recovered = CalendarAdoptionStore(tmp_path).commit_mutation(
+        commit, idempotency_ref=idempotency_ref
+    )
+    assert recovered.replayed is True
+    assert recovered.after_revision == 1
+    assert CalendarAdoptionStore(tmp_path).read_view().revision == 1
+
+
+def test_lost_response_recovers_archived_event_and_calendar_updates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def commit_with_lost_completion(
+        store: CalendarAdoptionStore,
+        mutation: CalendarAdoptionMutationRequest,
+        *,
+        suffix: str,
+    ):
+        idempotency_ref = _idempotency(suffix)
+        preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+        capture = CalendarAdoptionApprovalCaptureRequest(
+            mutation=mutation,
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        )
+        store.capture_approval(capture, idempotency_ref=idempotency_ref)
+        commit = CalendarAdoptionCommitRequest(**capture.model_dump())
+        original = store._save_checkpoint
+        calls = 0
+
+        def fail_completion(checkpoints: list[object], checkpoint: object) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise CalendarAdoptionError("CALENDAR_ADOPTION_TEST_RESPONSE_LOST")
+            original(checkpoints, checkpoint)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(store, "_save_checkpoint", fail_completion)
+        with pytest.raises(
+            CalendarAdoptionError, match="CALENDAR_ADOPTION_TEST_RESPONSE_LOST"
+        ):
+            store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+        return commit, idempotency_ref
+
+    event_store = CalendarAdoptionStore(tmp_path / "event")
+    _initialize(event_store, suffix="archived-event-initialize")
+    archived_event = _event("lost-archived-update")
+    _commit(
+        event_store,
+        CalendarAdoptionMutationRequest(
+            action="create_event", expected_revision=1, event=archived_event
+        ),
+        suffix="archived-event-create",
+    )
+    _commit(
+        event_store,
+        CalendarAdoptionMutationRequest(
+            action="archive_event",
+            expected_revision=2,
+            target_ref=archived_event.event_ref,
+        ),
+        suffix="archived-event-archive",
+    )
+    event_commit, event_idempotency = commit_with_lost_completion(
+        event_store,
+        CalendarAdoptionMutationRequest(
+            action="update_event",
+            expected_revision=3,
+            target_ref=archived_event.event_ref,
+            event=archived_event.model_copy(update={"title": "Updated while archived"}),
+        ),
+        suffix="archived-event-update",
+    )
+    event_replay = CalendarAdoptionStore(event_store.state_dir).commit_mutation(
+        event_commit,
+        idempotency_ref=event_idempotency,
+    )
+    assert event_replay.replayed is True
+    assert event_replay.after_revision == 4
+    assert CalendarAdoptionStore(event_store.state_dir).read_view().revision == 4
+
+    calendar_store = CalendarAdoptionStore(tmp_path / "calendar")
+    _initialize(calendar_store, suffix="archived-calendar-initialize")
+    archived_calendar = _calendar("archived-update")
+    _commit(
+        calendar_store,
+        CalendarAdoptionMutationRequest(
+            action="create_calendar",
+            expected_revision=1,
+            calendar=archived_calendar,
+        ),
+        suffix="archived-calendar-create",
+    )
+    _commit(
+        calendar_store,
+        CalendarAdoptionMutationRequest(
+            action="archive_calendar",
+            expected_revision=2,
+            target_ref=archived_calendar.calendar_ref,
+        ),
+        suffix="archived-calendar-archive",
+    )
+    calendar_commit, calendar_idempotency = commit_with_lost_completion(
+        calendar_store,
+        CalendarAdoptionMutationRequest(
+            action="update_calendar",
+            expected_revision=3,
+            target_ref=archived_calendar.calendar_ref,
+            calendar=archived_calendar.model_copy(
+                update={"name": "Updated Archived Calendar"}
+            ),
+        ),
+        suffix="archived-calendar-update",
+    )
+    calendar_replay = CalendarAdoptionStore(calendar_store.state_dir).commit_mutation(
+        calendar_commit,
+        idempotency_ref=calendar_idempotency,
+    )
+    assert calendar_replay.replayed is True
+    assert calendar_replay.after_revision == 4
+    assert CalendarAdoptionStore(calendar_store.state_dir).read_view().revision == 4
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("approval_validation_ref", "forged-decision"),
+        ("approval_validation_ref", "appr_dec_deadbeefcafe"),
+        ("approval_expires_at", "2099-01-01T00:00:00"),
+    ],
+)
+def test_tampered_checkpoint_approval_evidence_fails_closed(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency(f"tampered-{field}-{value}")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    store.commit_mutation(
+        CalendarAdoptionCommitRequest(**capture.model_dump()),
+        idempotency_ref=idempotency_ref,
+    )
+    checkpoint_path = tmp_path / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    payload[0][field] = value
+    checkpoint_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INVALID",
+    ):
+        CalendarAdoptionStore(tmp_path).capture_approval(
+            capture,
+            idempotency_ref=idempotency_ref,
+        )
+
+
+def test_private_values_are_encrypted_and_receipts_are_content_free(
+    tmp_path: Path,
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    _initialize(store)
+    private_title = "Private acquisition discussion 7ef245"
+    event = _event("encrypted")
+    event = event.model_copy(update={"title": private_title})
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="create_event", expected_revision=1, event=event
+        ),
+        suffix="encrypted-event",
+    )
+
+    assert (
+        private_title.encode()
+        not in (tmp_path / CALENDAR_ADOPTION_DATABASE_FILE).read_bytes()
+    )
+    assert (
+        private_title.encode()
+        not in (tmp_path / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE).read_bytes()
+    )
+    assert (
+        CalendarAdoptionStore(tmp_path)
+        .read_view(anchor=event.starts_at)
+        .occurrence_items[0]
+        .event.title
+        == private_title
+    )
+
+
+def test_encrypted_backup_restores_to_new_computer_and_replays(tmp_path: Path) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source)
+    event = _event("portable")
+    _commit(
+        source,
+        CalendarAdoptionMutationRequest(
+            action="create_event", expected_revision=1, event=event
+        ),
+        suffix="portable-event",
+    )
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private portable calendar"
+        )
+    )
+    target = CalendarAdoptionStore(tmp_path / "target")
+    idempotency_ref = _idempotency("restore")
+    request = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private portable calendar", backup=backup
+    )
+    preview = target.preview_restore(request, idempotency_ref=idempotency_ref)
+    approval = target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **request.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    commit = CalendarAdoptionRestoreCommitRequest(
+        **request.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=approval.approval_ref,
+    )
+    receipt = target.commit_restore(commit, idempotency_ref=idempotency_ref)
+    replay = target.commit_restore(commit, idempotency_ref=idempotency_ref)
+
+    restored = target.read_view(anchor=event.starts_at)
+    assert receipt.before_revision == 0
+    assert receipt.after_revision == 1
+    assert receipt.backup_fingerprint_ref == backup.ciphertext_fingerprint_ref
+    assert replay.replayed is True
+    assert restored.occurrence_items[0].event.title == event.title
+    assert restored.external_calendar_write_enabled is False
+
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_BACKUP_DECRYPT_FAILED"
+    ):
+        target.preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase="incorrect portable passphrase", backup=backup
+            ),
+            idempotency_ref=_idempotency("wrong-passphrase"),
+        )
+
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_BACKUP_METADATA_MISMATCH"
+    ):
+        target.preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase="founder private portable calendar",
+                backup=backup.model_copy(
+                    update={"source_revision": backup.source_revision + 1}
+                ),
+            ),
+            idempotency_ref=_idempotency("forged-backup-metadata"),
+        )
+
+
+def test_invalid_timezone_fails_closed_before_reading_state(tmp_path: Path) -> None:
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_TIMEZONE_INVALID"
+    ):
+        CalendarAdoptionStore(tmp_path).read_view(
+            timezone_name="Invalid/Founder-Timezone"
+        )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX link contract")
+def test_checkpoint_symlink_and_hardlink_fail_closed(tmp_path: Path) -> None:
+    linked = tmp_path / "linked"
+    linked.mkdir()
+    target = tmp_path / "target.json"
+    target.write_text("[]", encoding="utf-8")
+    (linked / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE).symlink_to(target)
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INVALID"
+    ):
+        CalendarAdoptionStore(linked)._read_receipt_checkpoints()
+
+    hardlinked = tmp_path / "hardlinked"
+    hardlinked.mkdir()
+    os.link(target, hardlinked / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE)
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INVALID"
+    ):
+        CalendarAdoptionStore(hardlinked)._read_receipt_checkpoints()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX link contract")
+def test_state_directory_root_symlink_fails_before_target_permissions_change(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "unrelated"
+    target.mkdir(mode=0o755)
+    marker = target / "user-file.txt"
+    marker.write_text("unrelated", encoding="utf-8")
+    marker.chmod(0o644)
+    linked = tmp_path / "calendar"
+    linked.symlink_to(target, target_is_directory=True)
+
+    store = CalendarAdoptionStore(linked)
+    assert store.state_dir == linked.absolute()
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE",
+    ):
+        store.preview_mutation(
+            CalendarAdoptionMutationRequest(
+                action="initialize",
+                expected_revision=0,
+                calendar=_calendar(),
+            ),
+            idempotency_ref=_idempotency("root-symlink"),
+        )
+
+    assert stat.S_IMODE(target.stat().st_mode) == 0o755
+    assert stat.S_IMODE(marker.stat().st_mode) == 0o644
