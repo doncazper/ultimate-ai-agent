@@ -978,8 +978,7 @@ export async function loadCalendarAdoptionWorkspace(
     !isCalendarAdoptionAwareTimestamp(value.range_starts_at) ||
     !isCalendarAdoptionAwareTimestamp(value.range_ends_at) ||
     Date.parse(value.range_ends_at) <= Date.parse(value.range_starts_at) ||
-    !isCalendarAdoptionSafeRef(value.result_ref) ||
-    !value.result_ref.startsWith("calendar-view-result-ref:adoption:") ||
+    !isCalendarAdoptionResultRef(value.result_ref, String(value.status)) ||
     typeof value.can_undo !== "boolean" ||
     !isCalendarAdoptionPrivateText(value.next_safe_action, 512) ||
     value.backend_owned !== true ||
@@ -1105,12 +1104,23 @@ function isCalendarAdoptionRecurrence(
     Array.isArray(value.weekdays) &&
     value.weekdays.length <= 7 &&
     value.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    new Set(value.weekdays).size === value.weekdays.length &&
+    (value.frequency === "weekly" || value.weekdays.length === 0) &&
     (value.month_day == null ||
       (Number.isInteger(value.month_day) && Number(value.month_day) >= 1 && Number(value.month_day) <= 31)) &&
+    (value.frequency === "monthly" || value.month_day == null) &&
     (value.count == null ||
       (Number.isInteger(value.count) && Number(value.count) >= 1 && Number(value.count) <= 100_000)) &&
     (value.until == null || isCalendarAdoptionAwareTimestamp(value.until))
   );
+}
+
+function isCalendarAdoptionResultRef(value: unknown, status: string): boolean {
+  if (!isCalendarAdoptionSafeRef(value)) return false;
+  return status === "ready"
+    ? value.startsWith("calendar-view-result-ref:sha256:")
+    : ["onboarding", "setup_incomplete", "recovery_required"].includes(status) &&
+        value.startsWith("calendar-view-result-ref:adoption:");
 }
 
 function isCalendarAdoptionEvent(value: unknown): boolean {

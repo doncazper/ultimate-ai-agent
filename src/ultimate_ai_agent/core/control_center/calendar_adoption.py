@@ -496,6 +496,7 @@ class _CalendarAdoptionReceiptCheckpoint(_CalendarAdoptionModel):
     authority_lease_ref: str
     operation_ref: str
     backup_fingerprint_ref: str | None = None
+    mutation_lifecycle_archived: bool | None = None
     approval_pending: bool = False
     receipt: CalendarAdoptionMutationReceipt | None = None
 
@@ -524,6 +525,11 @@ class _CalendarAdoptionReceiptCheckpoint(_CalendarAdoptionModel):
             self.backup_fingerprint_ref is not None
         ):
             raise ValueError("CALENDAR_ADOPTION_CHECKPOINT_BACKUP_BINDING_INVALID")
+        if self.mutation_lifecycle_archived is not None and self.action not in {
+            "update_event",
+            "update_calendar",
+        }:
+            raise ValueError("CALENDAR_ADOPTION_CHECKPOINT_LIFECYCLE_BINDING_INVALID")
         if self.approval_pending and (
             self.approval_validation_ref != _PENDING_APPROVAL_VALIDATION_REF
             or self.authority_decision_ref != _PENDING_AUTHORITY_DECISION_REF
@@ -1456,15 +1462,23 @@ class CalendarAdoptionStore:
         _validate_ref(idempotency_ref, "idempotency_ref")
         current: CalendarSet | None = None
         if self._database_present():
-            repository, _platform, _authority = self._repository()
             try:
+                repository, _platform, _authority = self._repository()
                 current = repository.read(
                     workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
                     calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
                 )
             except EcosystemLocalDataError as exc:
-                if str(exc) not in {"ECO_WORKSPACE_NOT_FOUND", "ECO_RECORD_NOT_FOUND"}:
-                    raise
+                if str(exc) in {"ECO_WORKSPACE_NOT_FOUND", "ECO_RECORD_NOT_FOUND"}:
+                    current = None
+                else:
+                    raise CalendarAdoptionError(
+                        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                    ) from exc
+            except (OSError, ValueError, sqlite3.Error, CalendarError) as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                ) from exc
         if request.action == "initialize":
             if current is not None or request.expected_revision != 0:
                 raise CalendarAdoptionConflict("CALENDAR_ADOPTION_ALREADY_INITIALIZED")
@@ -2089,27 +2103,19 @@ class CalendarAdoptionStore:
         self,
         repository: CalendarRepository,
         request: CalendarAdoptionMutationRequest,
+        *,
+        lifecycle_archived: bool | None = None,
     ) -> tuple[str, dict[str, Any]]:
         if request.action in {"create_event", "update_event"}:
             assert request.event is not None
             kind = "add_event" if request.action == "create_event" else "update_event"
             archived = False
             if request.action == "update_event":
-                current = repository.read(
-                    workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                    calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                archived = (
+                    lifecycle_archived
+                    if lifecycle_archived is not None
+                    else self._mutation_lifecycle_archived(repository, request)
                 )
-                prior = next(
-                    (
-                        item
-                        for item in current.events
-                        if item.event_ref == request.target_ref
-                    ),
-                    None,
-                )
-                if prior is None:
-                    raise CalendarAdoptionConflict("CALENDAR_ADOPTION_EVENT_NOT_FOUND")
-                archived = prior.archived
             return kind, {
                 "event": request.event.to_event(archived=archived).model_dump(
                     mode="json"
@@ -2131,23 +2137,11 @@ class CalendarAdoptionStore:
             )
             archived = False
             if request.action == "update_calendar":
-                current = repository.read(
-                    workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                    calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                archived = (
+                    lifecycle_archived
+                    if lifecycle_archived is not None
+                    else self._mutation_lifecycle_archived(repository, request)
                 )
-                prior = next(
-                    (
-                        item
-                        for item in current.calendars
-                        if item.calendar_ref == request.target_ref
-                    ),
-                    None,
-                )
-                if prior is None:
-                    raise CalendarAdoptionConflict(
-                        "CALENDAR_ADOPTION_CALENDAR_NOT_FOUND"
-                    )
-                archived = prior.archived
             return kind, {
                 "calendar": request.calendar.to_calendar(archived=archived).model_dump(
                     mode="json"
@@ -2162,6 +2156,41 @@ class CalendarAdoptionStore:
             )
         return request.action, {}
 
+    def _mutation_lifecycle_archived(
+        self,
+        repository: CalendarRepository,
+        request: CalendarAdoptionMutationRequest,
+    ) -> bool | None:
+        if request.action not in {"update_event", "update_calendar"}:
+            return None
+        current = repository.read(
+            workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+            calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+        )
+        if request.action == "update_event":
+            prior = next(
+                (
+                    item
+                    for item in current.events
+                    if item.event_ref == request.target_ref
+                ),
+                None,
+            )
+            if prior is None:
+                raise CalendarAdoptionConflict("CALENDAR_ADOPTION_EVENT_NOT_FOUND")
+        else:
+            prior = next(
+                (
+                    item
+                    for item in current.calendars
+                    if item.calendar_ref == request.target_ref
+                ),
+                None,
+            )
+            if prior is None:
+                raise CalendarAdoptionConflict("CALENDAR_ADOPTION_CALENDAR_NOT_FOUND")
+        return prior.archived
+
     def _recover_existing_receipt(
         self,
         repository: CalendarRepository,
@@ -2169,6 +2198,7 @@ class CalendarAdoptionStore:
         *,
         operation_ref: str,
         idempotency_ref: str,
+        lifecycle_archived: bool | None = None,
     ) -> UnitOfWorkReceipt | None:
         if request.action == "undo":
             return repository.recover_undo_receipt(
@@ -2191,7 +2221,11 @@ class CalendarAdoptionStore:
                 operation_ref=operation_ref,
                 idempotency_ref=idempotency_ref,
             )
-        kind, material = self._mutation_material(repository, request)
+        kind, material = self._mutation_material(
+            repository,
+            request,
+            lifecycle_archived=lifecycle_archived,
+        )
         return repository.recover_mutation_receipt(
             workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
             calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
@@ -2437,6 +2471,12 @@ class CalendarAdoptionStore:
     ) -> CalendarAdoptionMutationReceipt:
         if repository is None or authority is None:
             repository, _platform, authority = self._repository()
+        mutation_lifecycle_archived = (
+            checkpoint.mutation_lifecycle_archived
+            if checkpoint is not None
+            and checkpoint.mutation_lifecycle_archived is not None
+            else self._mutation_lifecycle_archived(repository, request.mutation)
+        )
         if checkpoint is None:
             checkpoint = _CalendarAdoptionReceiptCheckpoint(
                 action=preview.action,
@@ -2452,6 +2492,7 @@ class CalendarAdoptionStore:
                 authority_decision_ref=authority_decision_ref,
                 authority_lease_ref=lease.lease_ref,
                 operation_ref=preview.operation_ref,
+                mutation_lifecycle_archived=mutation_lifecycle_archived,
             )
             self._save_checkpoint(checkpoints, checkpoint)
             checkpoints = [*checkpoints, checkpoint]
@@ -2462,6 +2503,7 @@ class CalendarAdoptionStore:
                     "approval_expires_at": approval_expires_at,
                     "authority_decision_ref": authority_decision_ref,
                     "authority_lease_ref": lease.lease_ref,
+                    "mutation_lifecycle_archived": mutation_lifecycle_archived,
                     "approval_pending": False,
                 }
             )
@@ -2476,6 +2518,7 @@ class CalendarAdoptionStore:
                     "approval_expires_at": approval_expires_at,
                     "authority_decision_ref": authority_decision_ref,
                     "authority_lease_ref": lease.lease_ref,
+                    "mutation_lifecycle_archived": mutation_lifecycle_archived,
                 }
             )
             self._save_checkpoint(checkpoints, checkpoint)
@@ -2490,6 +2533,13 @@ class CalendarAdoptionStore:
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_AUTHORITY_MISMATCH"
             )
+        if checkpoint.mutation_lifecycle_archived != mutation_lifecycle_archived:
+            checkpoint = checkpoint.model_copy(
+                update={
+                    "mutation_lifecycle_archived": mutation_lifecycle_archived,
+                }
+            )
+            self._save_checkpoint(checkpoints, checkpoint)
         unit = self._apply_repository_mutation(
             repository,
             authority,
@@ -2546,6 +2596,7 @@ class CalendarAdoptionStore:
                             request.mutation,
                             operation_ref=operation_ref,
                             idempotency_ref=idempotency_ref,
+                            lifecycle_archived=(checkpoint.mutation_lifecycle_archived),
                         )
                     except EcosystemLocalDataError as exc:
                         if str(exc) not in {
@@ -2705,6 +2756,7 @@ class CalendarAdoptionStore:
             InvalidTag,
             UnicodeDecodeError,
             json.JSONDecodeError,
+            RecursionError,
             ValueError,
         ) as exc:
             raise CalendarAdoptionError(

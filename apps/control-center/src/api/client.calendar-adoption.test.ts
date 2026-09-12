@@ -107,7 +107,7 @@ const workspaceView: CalendarAdoptionWorkspaceView = {
   timezone: "UTC",
   range_starts_at: "2026-09-14T00:00:00Z",
   range_ends_at: "2026-09-21T00:00:00Z",
-  result_ref: "calendar-view-result-ref:adoption:test",
+  result_ref: "calendar-view-result-ref:sha256:test",
   can_undo: false,
   next_safe_action: "Create an event.",
   backend_owned: true,
@@ -460,6 +460,42 @@ describe("Calendar adoption response and mutation provenance", () => {
           occurrence: {},
         }],
       },
+      {
+        ...populatedWorkspaceView,
+        occurrence_items: [{
+          ...populatedWorkspaceView.occurrence_items[0],
+          event: {
+            ...populatedWorkspaceView.occurrence_items[0].event,
+            recurrence: {
+              frequency: "weekly",
+              interval: 1,
+              timezone: "UTC",
+              weekdays: [1, 1],
+              month_day: null,
+              count: null,
+              until: null,
+            },
+          },
+        }],
+      },
+      {
+        ...populatedWorkspaceView,
+        occurrence_items: [{
+          ...populatedWorkspaceView.occurrence_items[0],
+          event: {
+            ...populatedWorkspaceView.occurrence_items[0].event,
+            recurrence: {
+              frequency: "daily",
+              interval: 1,
+              timezone: "UTC",
+              weekdays: [1],
+              month_day: 1,
+              count: null,
+              until: null,
+            },
+          },
+        }],
+      },
     ];
     for (const malformed of malformedViews) {
       vi.stubGlobal("fetch", vi.fn(async () => response(malformed)));
@@ -477,6 +513,10 @@ describe("Calendar adoption response and mutation provenance", () => {
     const malformedViews = [
       { ...populatedWorkspaceView, contract_ref: "contract-ref:other" },
       { ...populatedWorkspaceView, revision: -1 },
+      {
+        ...populatedWorkspaceView,
+        result_ref: "calendar-view-result-ref:adoption:forged-ready",
+      },
       { ...populatedWorkspaceView, calendars: tooManyCalendars },
       { ...populatedWorkspaceView, view: "day" },
       {

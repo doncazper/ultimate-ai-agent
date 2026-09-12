@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CalendarAdoptionStore,
 )
 from ultimate_ai_agent.core.ecosystem.calendar import CalendarConflict
+from ultimate_ai_agent.core.ecosystem.local_data import EcosystemKeyUnavailable
 
 
 def _headers(suffix: str, *, confirmed: bool = False) -> dict[str, str]:
@@ -181,6 +182,39 @@ def test_calendar_adoption_api_returns_recovery_for_corrupt_database(
 
     assert response.status_code == 200
     assert response.json()["data"]["status"] == "recovery_required"
+
+
+@pytest.mark.parametrize("failure_mode", ["database", "key"])
+def test_calendar_adoption_preview_translates_damaged_local_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_mode: str,
+) -> None:
+    state_dir = tmp_path / "calendar"
+    state_dir.mkdir()
+    (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+    if failure_mode == "key":
+
+        def unavailable_repository(_store: CalendarAdoptionStore):
+            raise EcosystemKeyUnavailable("ECO_KEY_NOT_FOUND")
+
+        monkeypatch.setattr(
+            CalendarAdoptionStore,
+            "_repository",
+            unavailable_repository,
+        )
+
+    response = TestClient(app).post(
+        "/control-center/calendar/adoption/preview",
+        json=_initialize_mutation(),
+        headers=_headers("damaged-preview"),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+    )
 
 
 def test_calendar_restore_api_recovers_corrupt_database_after_exact_approval(

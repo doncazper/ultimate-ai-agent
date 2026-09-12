@@ -435,6 +435,82 @@ def test_exact_idempotent_replay_rejects_substitution(tmp_path: Path) -> None:
         )
 
 
+@pytest.mark.parametrize("target_kind", ["event", "calendar"])
+def test_update_replay_binds_original_lifecycle_state(
+    tmp_path: Path,
+    target_kind: str,
+) -> None:
+    store = CalendarAdoptionStore(tmp_path / target_kind)
+    _initialize(store, suffix=f"{target_kind}-lifecycle-initialize")
+    if target_kind == "event":
+        draft = _event("lifecycle-replay")
+        _commit(
+            store,
+            CalendarAdoptionMutationRequest(
+                action="create_event",
+                expected_revision=1,
+                event=draft,
+            ),
+            suffix="event-lifecycle-create",
+        )
+        update = CalendarAdoptionMutationRequest(
+            action="update_event",
+            expected_revision=2,
+            target_ref=draft.event_ref,
+            event=draft.model_copy(update={"title": "Updated before archive"}),
+        )
+        lifecycle_action = "archive_event"
+        target_ref = draft.event_ref
+    else:
+        draft = _calendar("lifecycle-replay")
+        _commit(
+            store,
+            CalendarAdoptionMutationRequest(
+                action="create_calendar",
+                expected_revision=1,
+                calendar=draft,
+            ),
+            suffix="calendar-lifecycle-create",
+        )
+        update = CalendarAdoptionMutationRequest(
+            action="update_calendar",
+            expected_revision=2,
+            target_ref=draft.calendar_ref,
+            calendar=draft.model_copy(update={"name": "Updated before archive"}),
+        )
+        lifecycle_action = "archive_calendar"
+        target_ref = draft.calendar_ref
+
+    idempotency_ref = _idempotency(f"{target_kind}-lifecycle-update")
+    preview = store.preview_mutation(update, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=update,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionCommitRequest(**capture.model_dump(mode="python"))
+    first = store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action=lifecycle_action,
+            expected_revision=3,
+            target_ref=target_ref,
+        ),
+        suffix=f"{target_kind}-lifecycle-archive",
+    )
+
+    replay = CalendarAdoptionStore(store.state_dir).commit_mutation(
+        commit,
+        idempotency_ref=idempotency_ref,
+    )
+
+    assert replay.replayed is True
+    assert replay.receipt_ref == first.receipt_ref
+    assert CalendarAdoptionStore(store.state_dir).read_view().revision == 4
+
+
 def test_approval_capture_binds_idempotency_before_commit(tmp_path: Path) -> None:
     store = CalendarAdoptionStore(tmp_path)
     _initialize(store)
@@ -950,6 +1026,34 @@ def test_encrypted_backup_restores_to_new_computer_and_replays(tmp_path: Path) -
                 ),
             ),
             idempotency_ref=_idempotency("forged-backup-metadata"),
+        )
+
+
+def test_restore_translates_decrypted_json_recursion_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source-recursion")
+    _initialize(source, suffix="backup-recursion-initialize")
+    passphrase = "founder private recursive backup"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+
+    def raise_recursion(_value: object) -> object:
+        raise RecursionError("nested payload")
+
+    monkeypatch.setattr(calendar_adoption_module.json, "loads", raise_recursion)
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_BACKUP_DECRYPT_FAILED",
+    ):
+        CalendarAdoptionStore(tmp_path / "target-recursion").preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=backup,
+            ),
+            idempotency_ref=_idempotency("recursive-backup"),
         )
 
 

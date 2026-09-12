@@ -138,26 +138,6 @@ test("foundation visual baselines stay backend-owned", async ({
     await test.step(`capture backend-owned ${name}`, async () => {
       const page = await context.newPage();
       let prioritizedReadCount = 0;
-      const prioritizedResponses = await Promise.all(
-        prioritizedEndpoints.map((endpoint) =>
-          request.get(
-            `${backendBaseUrl}${endpoint}${
-              endpoint === "/control-center/calendar/adoption"
-                ? "?view=week&timezone=America%2FLos_Angeles"
-                : ""
-            }`,
-          ),
-        ),
-      );
-      for (const prioritizedResponse of prioritizedResponses) {
-        expect(prioritizedResponse.ok()).toBe(true);
-        expect(
-          prioritizedResponse.headers()["x-uaa-backend-revision-ref"],
-        ).toBe(`commit-ref:git:${backendSourceCommit}`);
-      }
-      const prioritizedBodies = await Promise.all(
-        prioritizedResponses.map((response) => response.body()),
-      );
       await page.route("**/*", async (backendRoute) => {
         const requestUrl = new URL(backendRoute.request().url());
         if (requestUrl.pathname === "/control-center/backend-truth") {
@@ -173,10 +153,17 @@ test("foundation visual baselines stay backend-owned", async ({
         );
         if (prioritizedIndex >= 0) {
           prioritizedReadCount += 1;
+          const prioritizedResponse = await request.get(
+            `${backendBaseUrl}${requestUrl.pathname}${requestUrl.search}`,
+          );
+          expect(prioritizedResponse.ok()).toBe(true);
+          expect(
+            prioritizedResponse.headers()["x-uaa-backend-revision-ref"],
+          ).toBe(`commit-ref:git:${backendSourceCommit}`);
           await backendRoute.fulfill({
-            body: prioritizedBodies[prioritizedIndex],
-            headers: prioritizedResponses[prioritizedIndex].headers(),
-            status: prioritizedResponses[prioritizedIndex].status(),
+            body: await prioritizedResponse.body(),
+            headers: prioritizedResponse.headers(),
+            status: prioritizedResponse.status(),
           });
           return;
         }
