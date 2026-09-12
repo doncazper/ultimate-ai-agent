@@ -316,25 +316,36 @@ describe("CalendarAdoptionWorkspace", () => {
   });
 
   it("labels the final included date and clamps month navigation", async () => {
-    render(<CalendarAdoptionWorkspace />);
+    const hostOptions = new Intl.DateTimeFormat().resolvedOptions();
+    const timezoneSpy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({
+        ...hostOptions,
+        timeZone: "America/Los_Angeles",
+      });
+    try {
+      render(<CalendarAdoptionWorkspace />);
 
-    expect(await screen.findByText(/through Sep 20/)).toBeVisible();
-    expect(
-      shiftCalendarAnchor(
-        "2026-01-31T20:00:00Z",
-        "month",
-        1,
-        "America/Los_Angeles",
-      ),
-    ).toBe("2026-02-28T20:00:00.000Z");
-    expect(
-      shiftCalendarAnchor(
-        "2026-03-31T19:00:00Z",
-        "month",
-        -1,
-        "America/Los_Angeles",
-      ),
-    ).toBe("2026-02-28T20:00:00.000Z");
+      expect(await screen.findByText(/through Sep 20/)).toBeVisible();
+      expect(
+        shiftCalendarAnchor(
+          "2026-01-31T20:00:00Z",
+          "month",
+          1,
+          "America/Los_Angeles",
+        ),
+      ).toBe("2026-02-28T20:00:00.000Z");
+      expect(
+        shiftCalendarAnchor(
+          "2026-03-31T19:00:00Z",
+          "month",
+          -1,
+          "America/Los_Angeles",
+        ),
+      ).toBe("2026-02-28T20:00:00.000Z");
+    } finally {
+      timezoneSpy.mockRestore();
+    }
   });
 
   it.each(["onboarding", "setup_incomplete"] as const)(
