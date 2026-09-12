@@ -2350,6 +2350,10 @@ CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES = {
 }
 CONTROL_CENTER_NEWS_SIGNALS_ROUTES = frozenset(
     {
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/adoption/approval",
+        "/control-center/news-signals/adoption/commit",
+        "/control-center/news-signals/adoption/preview",
         "/control-center/news-signals/summary",
     }
 )
