@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   captureCalendarAdoptionApproval,
   captureCalendarAdoptionRestoreApproval,
@@ -240,6 +240,7 @@ export function CalendarAdoptionWorkspace() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const loadSequence = useRef(0);
 
   const acceptWorkspace = useCallback((next: CalendarAdoptionWorkspaceView) => {
     setWorkspace(next);
@@ -255,22 +256,26 @@ export function CalendarAdoptionWorkspace() {
   }, []);
 
   const refresh = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setBusy(true); setError("");
     try {
       const next = await loadCalendarAdoptionWorkspace(view, anchor, timezone);
-      acceptWorkspace(next);
+      if (sequence === loadSequence.current) acceptWorkspace(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The private Calendar could not be loaded.");
-    } finally { setBusy(false); }
+      if (sequence === loadSequence.current) setError(reason instanceof Error ? reason.message : "The private Calendar could not be loaded.");
+    } finally {
+      if (sequence === loadSequence.current) setBusy(false);
+    }
   }, [acceptWorkspace, anchor, timezone, view]);
 
   useEffect(() => {
     let cancelled = false;
+    const sequence = ++loadSequence.current;
     setError("");
     loadCalendarAdoptionWorkspace(view, anchor, timezone)
-      .then((next) => { if (!cancelled) acceptWorkspace(next); })
+      .then((next) => { if (!cancelled && sequence === loadSequence.current) acceptWorkspace(next); })
       .catch((reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "The private Calendar could not be loaded.");
+        if (!cancelled && sequence === loadSequence.current) setError(reason instanceof Error ? reason.message : "The private Calendar could not be loaded.");
       });
     return () => { cancelled = true; };
   }, [acceptWorkspace, anchor, timezone, view]);

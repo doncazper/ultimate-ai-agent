@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackendTruthReadBinding } from "../api/client";
 import type {
@@ -215,6 +215,25 @@ describe("CalendarAdoptionWorkspace", () => {
         expect.any(String),
       ),
     );
+  });
+
+  it("ignores an older view response that settles after the current view", async () => {
+    let finishWeek: (value: CalendarAdoptionWorkspaceView) => void = () => {};
+    let finishMonth: (value: CalendarAdoptionWorkspaceView) => void = () => {};
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockReturnValueOnce(new Promise((resolve) => { finishWeek = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { finishMonth = resolve; }));
+    const monthWorkspace = structuredClone(workspace);
+    monthWorkspace.occurrence_items[0].event.title = "Month projection";
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(screen.getByRole("button", { name: "month" }));
+    await act(async () => { finishMonth(monthWorkspace); });
+    expect(await screen.findAllByText("Month projection")).not.toHaveLength(0);
+
+    await act(async () => { finishWeek(workspace); });
+    expect(screen.queryByText("Founder briefing")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Month projection")).not.toHaveLength(0);
   });
 
   it("previews and confirms one exact local event change", async () => {
