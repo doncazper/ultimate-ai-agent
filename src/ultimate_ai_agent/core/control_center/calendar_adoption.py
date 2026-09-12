@@ -930,8 +930,11 @@ class CalendarAdoptionStore:
     def _validate_state_tree_before_permission_change(self) -> None:
         """Reject broad or aliased roots before chmod touches any object."""
 
-        home = Path.home().absolute()
-        if self.state_dir == home or self.state_dir in home.parents:
+        # Refuse filesystem roots and ordinary account roots without consulting
+        # or traversing the user's home directory.  A managed Calendar root
+        # must be nested beneath at least one account- or application-owned
+        # directory (for example ``.../.uaa/calendar``).
+        if len(self.state_dir.parts) < 4:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE")
 
         def validate_object(path: Path) -> None:

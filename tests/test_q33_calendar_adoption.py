@@ -890,3 +890,14 @@ def test_existing_broad_state_root_is_rejected_before_permissions_change(
 
     assert stat.S_IMODE(broad.stat().st_mode) == 0o755
     assert stat.S_IMODE(marker.stat().st_mode) == 0o644
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX root contract")
+def test_shallow_state_root_is_rejected_without_home_directory_access() -> None:
+    store = CalendarAdoptionStore(Path("/"))
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE",
+    ):
+        store._validate_state_tree_before_permission_change()
