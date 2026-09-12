@@ -390,6 +390,70 @@ describe("CalendarAdoptionWorkspace", () => {
     );
   });
 
+  it("preserves an in-progress edit when period navigation hides the event", async () => {
+    const nextPeriod = structuredClone(workspace);
+    nextPeriod.occurrence_items = [];
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce(nextPeriod);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Draft survives navigation" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next period" }));
+
+    await waitFor(() =>
+      expect(apiMocks.loadCalendarAdoptionWorkspace).toHaveBeenCalledTimes(2),
+    );
+    expect(screen.getByLabelText("Title")).toHaveValue(
+      "Draft survives navigation",
+    );
+    expect(
+      screen.getByRole("button", { name: "Cancel edit" }),
+    ).toBeVisible();
+  });
+
+  it("offers calendar recovery before recovering an event it contains", async () => {
+    const archived = structuredClone(workspace);
+    archived.calendars[0].archived = true;
+    archived.archived_events = [
+      { ...structuredClone(workspace.occurrence_items[0].event), archived: true },
+    ];
+    archived.occurrence_items = [];
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(archived);
+
+    render(<CalendarAdoptionWorkspace />);
+    await screen.findByText("Recover this calendar before recovering its events.");
+    expect(
+      screen.queryByRole("button", { name: "Recover event" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Recover calendar" })[0],
+    );
+
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Review this Calendar change",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/Recover calendar calendar-ref:q33:personal/)).toBeVisible();
+    expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalledWith(
+      {
+        action: "recover_calendar",
+        expected_revision: 4,
+        target_ref: "calendar-ref:q33:personal",
+      },
+      expect.stringMatching(
+        /^idempotency-ref:calendar-adoption-ui:recover_calendar:/,
+      ),
+    );
+  });
+
   it("recomputes weekly recurrence after the start date changes", async () => {
     render(<CalendarAdoptionWorkspace />);
     await screen.findAllByText("Founder briefing");

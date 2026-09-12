@@ -12,6 +12,11 @@ from ultimate_ai_agent.api.control_center import (
 )
 from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CALENDAR_ADOPTION_DATABASE_FILE,
+    CalendarAdoptionApprovalCaptureRequest,
+    CalendarAdoptionCalendarDraft,
+    CalendarAdoptionCommitRequest,
+    CalendarAdoptionMutationRequest,
+    CalendarAdoptionPortableBackupRequest,
     CalendarAdoptionStore,
 )
 from ultimate_ai_agent.core.ecosystem.calendar import CalendarConflict
@@ -136,6 +141,53 @@ def test_calendar_adoption_api_returns_recovery_for_corrupt_database(
 
     assert response.status_code == 200
     assert response.json()["data"]["status"] == "recovery_required"
+
+
+def test_calendar_restore_preview_returns_bounded_error_for_corrupt_database(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize",
+        expected_revision=0,
+        calendar=CalendarAdoptionCalendarDraft(
+            calendar_ref="calendar-ref:q33:restore-api-source",
+            name="Personal",
+            timezone="America/Los_Angeles",
+            color_ref="color-ref:q33:restore-api-source",
+        ),
+    )
+    idempotency_ref = "idempotency-ref:calendar-api:restore-corrupt-source"
+    preview = source.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    source.capture_approval(capture, idempotency_ref=idempotency_ref)
+    source.commit_mutation(
+        CalendarAdoptionCommitRequest(**capture.model_dump(mode="python")),
+        idempotency_ref=idempotency_ref,
+    )
+    passphrase = "founder private corrupt restore api"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    state_dir = tmp_path / "target"
+    state_dir.mkdir()
+    (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).post(
+        "/control-center/calendar/adoption/restore-preview",
+        json={"passphrase": passphrase, "backup": backup.model_dump(mode="json")},
+        headers=_headers("restore-corrupt-target"),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+    )
 
 
 def test_calendar_adoption_api_enforces_body_and_structure_bounds(

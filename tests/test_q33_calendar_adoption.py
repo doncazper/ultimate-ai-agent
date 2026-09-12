@@ -574,12 +574,98 @@ def test_lost_response_recovers_durable_receipt_without_second_write(
     ):
         store.commit_mutation(commit, idempotency_ref=idempotency_ref)
 
+    assert not AuthorityLeaseStore(tmp_path / "authority").list_leases(
+        active_only=True
+    )
     recovered = CalendarAdoptionStore(tmp_path).commit_mutation(
         commit, idempotency_ref=idempotency_ref
     )
     assert recovered.replayed is True
     assert recovered.after_revision == 1
     assert CalendarAdoptionStore(tmp_path).read_view().revision == 1
+
+
+def test_lost_restore_response_revokes_lease_and_recovers_receipt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="lost-restore-source")
+    passphrase = "founder private lost restore response"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    target_dir = tmp_path / "target"
+    target = CalendarAdoptionStore(target_dir)
+    idempotency_ref = _idempotency("lost-restore-response")
+    restore = CalendarAdoptionPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=backup,
+    )
+    preview = target.preview_restore(restore, idempotency_ref=idempotency_ref)
+    target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **restore.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    commit = CalendarAdoptionRestoreCommitRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    original = target._save_checkpoint
+    calls = 0
+
+    def fail_completion(checkpoints: list[object], checkpoint: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_TEST_RESPONSE_LOST")
+        original(checkpoints, checkpoint)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(target, "_save_checkpoint", fail_completion)
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_TEST_RESPONSE_LOST"
+    ):
+        target.commit_restore(commit, idempotency_ref=idempotency_ref)
+
+    assert not AuthorityLeaseStore(target_dir / "authority").list_leases(
+        active_only=True
+    )
+    recovered = CalendarAdoptionStore(target_dir).commit_restore(
+        commit, idempotency_ref=idempotency_ref
+    )
+    assert recovered.replayed is True
+    assert recovered.after_revision == 1
+    assert CalendarAdoptionStore(target_dir).read_view().revision == 1
+
+
+def test_restore_preview_fails_bounded_for_corrupt_current_database(
+    tmp_path: Path,
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="corrupt-restore-source")
+    passphrase = "founder private corrupt restore response"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE",
+    ):
+        CalendarAdoptionStore(target_dir).preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=backup,
+            ),
+            idempotency_ref=_idempotency("corrupt-restore-target"),
+        )
 
 
 def test_lost_response_recovers_archived_event_and_calendar_updates(

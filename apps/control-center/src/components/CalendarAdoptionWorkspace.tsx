@@ -10,6 +10,7 @@ import {
   previewCalendarAdoptionRestore,
 } from "../api/client";
 import type {
+  CalendarAdoptionCalendar,
   CalendarAdoptionCalendarDraft,
   CalendarAdoptionEvent,
   CalendarAdoptionEventDraft,
@@ -207,6 +208,9 @@ function reviewDetail(pending: PendingMutation): string {
   if (request.action === "archive_event" || request.action === "recover_event") {
     return `${request.action === "archive_event" ? "Archive" : "Recover"} ${request.target_ref}. ${revision}`;
   }
+  if (request.action === "archive_calendar" || request.action === "recover_calendar") {
+    return `${request.action === "archive_calendar" ? "Archive" : "Recover"} calendar ${request.target_ref}. ${revision}`;
+  }
   return `Undo the latest local Calendar change. ${revision}`;
 }
 
@@ -277,7 +281,7 @@ export function CalendarAdoptionWorkspace() {
   useEffect(() => {
     if (!editing || !workspace) return;
     const current = events.find((event) => event.event_ref === editing.event_ref);
-    if (!current || JSON.stringify(current) !== JSON.stringify(editing)) {
+    if (current && JSON.stringify(current) !== JSON.stringify(editing)) {
       setEditing(null);
       setDraft(eventDraft(workspace.calendars.find((item) => !item.archived)?.calendar_ref ?? ""));
       setNotice("The selected event changed. Review the refreshed event before editing again.");
@@ -391,6 +395,15 @@ export function CalendarAdoptionWorkspace() {
     void runPreview({ action, expected_revision: workspace.revision, target_ref: event.event_ref }, action);
   }, [runPreview, workspace]);
 
+  const calendarLifecycle = useCallback((action: "archive_calendar" | "recover_calendar", calendar: CalendarAdoptionCalendar) => {
+    if (!workspace) return;
+    void runPreview({ action, expected_revision: workspace.revision, target_ref: calendar.calendar_ref }, action);
+  }, [runPreview, workspace]);
+
+  const selectedCalendar = selected
+    ? workspace?.calendars.find((item) => item.calendar_ref === selected.calendar_ref) ?? null
+    : null;
+
   const downloadBackup = useCallback(async () => {
     if (passphrase.length < 12) { setError("Use a backup passphrase with at least 12 characters."); return; }
     setBusy(true); setError("");
@@ -465,13 +478,13 @@ export function CalendarAdoptionWorkspace() {
           return <button className={`calendar-adoption-event${selectedRef === item.occurrence.occurrence_ref ? " selected" : ""}${conflicted ? " conflict" : ""}`} key={item.occurrence.occurrence_ref} type="button" onClick={() => setSelectedRef(item.occurrence.occurrence_ref)}><span>{formatDate(item.occurrence.starts_at, timezone, { hour: "numeric", minute: "2-digit" })}–{formatDate(item.occurrence.ends_at, timezone, { hour: "numeric", minute: "2-digit" })}</span><strong>{item.event.title}</strong><small>{workspace.calendars.find((calendar) => calendar.calendar_ref === item.event.calendar_ref)?.name ?? "Calendar"}{conflicted ? " · Conflict" : ""}</small></button>;
         })}</section>)}{!grouped.length ? <div className="calendar-adoption-empty"><strong>No events in this view</strong><p>Create one below or move to another period.</p></div> : null}</div>
       </section>
-      <aside className="calendar-adoption-inspector"><h3>{selected?.title ?? "Event details"}</h3>{selected ? <><p>{selected.description || "No notes yet."}</p><dl><div><dt>When</dt><dd>{formatDate(selectedOccurrence?.occurrence.starts_at ?? selected.starts_at, selected.timezone, { dateStyle: "medium", timeStyle: "short" })} – {formatDate(selectedOccurrence?.occurrence.ends_at ?? selected.ends_at, selected.timezone, { dateStyle: "medium", timeStyle: "short" })}</dd></div><div><dt>Location</dt><dd>{selected.location || "None"}</dd></div><div><dt>Calendar</dt><dd>{workspace.calendars.find((item) => item.calendar_ref === selected.calendar_ref)?.name ?? "Unknown"}</dd></div></dl><div className="calendar-adoption-actions">{selected.archived ? <button type="button" disabled={busy} onClick={() => lifecycle("recover_event", selected)}>Recover event</button> : <><button type="button" disabled={busy} onClick={() => startEdit(selected)}>Edit</button><button type="button" disabled={busy} onClick={() => lifecycle("archive_event", selected)}>Archive</button></>}</div></> : <p>Select an event to inspect it.</p>}
+      <aside className="calendar-adoption-inspector"><h3>{selected?.title ?? "Event details"}</h3>{selected ? <><p>{selected.description || "No notes yet."}</p><dl><div><dt>When</dt><dd>{formatDate(selectedOccurrence?.occurrence.starts_at ?? selected.starts_at, selected.timezone, { dateStyle: "medium", timeStyle: "short" })} – {formatDate(selectedOccurrence?.occurrence.ends_at ?? selected.ends_at, selected.timezone, { dateStyle: "medium", timeStyle: "short" })}</dd></div><div><dt>Location</dt><dd>{selected.location || "None"}</dd></div><div><dt>Calendar</dt><dd>{selectedCalendar?.name ?? "Unknown"}</dd></div></dl><div className="calendar-adoption-actions">{selected.archived ? selectedCalendar?.archived ? <><p>Recover this calendar before recovering its events.</p><button type="button" disabled={busy} onClick={() => calendarLifecycle("recover_calendar", selectedCalendar)}>Recover calendar</button></> : <button type="button" disabled={busy} onClick={() => lifecycle("recover_event", selected)}>Recover event</button> : <><button type="button" disabled={busy} onClick={() => startEdit(selected)}>Edit</button><button type="button" disabled={busy} onClick={() => lifecycle("archive_event", selected)}>Archive</button></>}</div></> : <p>Select an event to inspect it.</p>}
         <div className="calendar-adoption-archive"><h4>Archive</h4>{workspace.archived_events.map((event) => <button key={event.event_ref} type="button" onClick={() => setSelectedRef(event.event_ref)}>{event.title}</button>)}{!workspace.archived_events.length ? <p>No archived events.</p> : null}</div>
       </aside>
     </div> : null}
 
     {workspace?.status === "ready" ? <div className="calendar-adoption-editor-grid"><section className="panel calendar-adoption-editor"><div className="panel-heading"><div><p className="eyebrow">{editing ? "Edit event" : "New event"}</p><h3>{editing ? editing.title : "Add to your calendar"}</h3></div>{editing ? <button type="button" onClick={() => { setEditing(null); setDraft(eventDraft(workspace.calendars.find((item) => !item.archived)?.calendar_ref ?? "")); }}>Cancel edit</button> : null}</div><div className="calendar-adoption-fields"><label>Title<input value={draft.title} onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))} /></label><label>Calendar<select value={draft.calendar_ref} onChange={(event) => setDraft((value) => ({ ...value, calendar_ref: event.target.value }))}>{workspace.calendars.filter((item) => !item.archived).map((item) => <option key={item.calendar_ref} value={item.calendar_ref}>{item.name}</option>)}</select></label><label>Starts<input type="datetime-local" value={draft.starts_at} onChange={(event) => setDraft((value) => ({ ...value, starts_at: event.target.value }))} /></label><label>Ends<input type="datetime-local" value={draft.ends_at} onChange={(event) => setDraft((value) => ({ ...value, ends_at: event.target.value }))} /></label><label>Location<input value={draft.location ?? ""} onChange={(event) => setDraft((value) => ({ ...value, location: event.target.value }))} /></label><label>Repeats<select value={draft.recurrence?.frequency ?? "none"} onChange={(event) => setDraft((value) => ({ ...value, recurrence: event.target.value === "none" ? null : { frequency: event.target.value as "daily" | "weekly" | "monthly", interval: 1, timezone: value.timezone, weekdays: event.target.value === "weekly" ? [weekdayForLocalInput(value.starts_at)] : [] } }))}><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label><label className="calendar-adoption-wide">Notes<textarea value={draft.description ?? ""} onChange={(event) => setDraft((value) => ({ ...value, description: event.target.value }))} /></label></div><button type="button" disabled={busy || !draft.title.trim() || !draft.calendar_ref} onClick={submitEvent}>Review {editing ? "update" : "new event"}</button></section>
-      <section className="panel calendar-adoption-calendars"><h3>Calendars</h3>{workspace.calendars.map((item) => <div key={item.calendar_ref}><span className="calendar-adoption-dot" /><strong>{item.name}</strong><small>{item.timezone}</small></div>)}<label>Add another calendar<input placeholder="Calendar name" value={calendarDraft.name} onChange={(event) => setCalendarDraft((value) => ({ ...value, name: event.target.value }))} /></label><button type="button" disabled={busy || !calendarDraft.name.trim()} onClick={submitCalendar}>Review new calendar</button><button type="button" disabled={busy || !workspace.can_undo} onClick={() => void runPreview({ action: "undo", expected_revision: workspace.revision }, "undo")}>Undo last change</button></section>
+      <section className="panel calendar-adoption-calendars"><h3>Calendars</h3>{workspace.calendars.map((item) => <div key={item.calendar_ref}><span className="calendar-adoption-dot" /><strong>{item.name}</strong><small>{item.timezone}{item.archived ? " · Archived" : ""}</small>{item.archived ? <button type="button" disabled={busy} onClick={() => calendarLifecycle("recover_calendar", item)}>Recover calendar</button> : null}</div>)}<label>Add another calendar<input placeholder="Calendar name" value={calendarDraft.name} onChange={(event) => setCalendarDraft((value) => ({ ...value, name: event.target.value }))} /></label><button type="button" disabled={busy || !calendarDraft.name.trim()} onClick={submitCalendar}>Review new calendar</button><button type="button" disabled={busy || !workspace.can_undo} onClick={() => void runPreview({ action: "undo", expected_revision: workspace.revision }, "undo")}>Undo last change</button></section>
       <section className="panel calendar-adoption-recovery"><h3>Encrypted continuity</h3><p>Move this private calendar between your own computers with a passphrase-encrypted file. There is no automatic sync.</p><label>Backup or restore passphrase<input type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} /></label><div><button type="button" disabled={busy || passphrase.length < 12} onClick={() => void downloadBackup()}>Download encrypted backup</button><label className="calendar-adoption-file">Open backup<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openBackup(file); }} /></label></div>{restoreBackup ? <button type="button" disabled={busy || passphrase.length < 12} onClick={() => void prepareRestore()}>Preview restore</button> : null}</section></div> : null}
 
     {pending ? <div className="calendar-adoption-confirm" role="dialog" aria-modal="true" aria-labelledby="calendar-change-review"><div className="panel warning"><p className="eyebrow">Exact local approval</p><h3 id="calendar-change-review">Review this Calendar change</h3><p>{reviewDetail(pending)}</p><p><strong>Only the encrypted local Calendar will change.</strong> No account, connector, model, notification, or external calendar write will occur.</p><div><button type="button" onClick={() => setPending(null)} disabled={busy}>Cancel</button><button type="button" onClick={() => void confirmMutation()} disabled={busy}>Confirm one local change</button></div></div></div> : null}
