@@ -1252,6 +1252,24 @@ class CalendarAdoptionStore:
         )
         return CalendarRepository(platform), platform, authority
 
+    def _repository_for_commit(
+        self,
+    ) -> tuple[CalendarRepository, EcosystemLocalDataPlatform, LocalApprovalAuthority]:
+        """Open live state while preserving the governed recovery envelope."""
+
+        try:
+            return self._repository()
+        except (
+            OSError,
+            ValueError,
+            sqlite3.Error,
+            CalendarError,
+            EcosystemLocalDataError,
+        ) as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+            ) from exc
+
     @staticmethod
     def _empty_range(
         *, view: CalendarView, anchor: datetime, timezone_name: str
@@ -2470,7 +2488,7 @@ class CalendarAdoptionStore:
         approval_expires_at: datetime,
     ) -> CalendarAdoptionMutationReceipt:
         if repository is None or authority is None:
-            repository, _platform, authority = self._repository()
+            repository, _platform, authority = self._repository_for_commit()
         mutation_lifecycle_archived = (
             checkpoint.mutation_lifecycle_archived
             if checkpoint is not None
@@ -2540,15 +2558,20 @@ class CalendarAdoptionStore:
                 }
             )
             self._save_checkpoint(checkpoints, checkpoint)
-        unit = self._apply_repository_mutation(
-            repository,
-            authority,
-            request.mutation,
-            operation_ref=preview.operation_ref,
-            idempotency_ref=idempotency_ref,
-            outer_approval_ref=preview.approval_ref,
-            approval_expires_at=approval_expires_at,
-        )
+        try:
+            unit = self._apply_repository_mutation(
+                repository,
+                authority,
+                request.mutation,
+                operation_ref=preview.operation_ref,
+                idempotency_ref=idempotency_ref,
+                outer_approval_ref=preview.approval_ref,
+                approval_expires_at=approval_expires_at,
+            )
+        except (OSError, sqlite3.Error, EcosystemKeyUnavailable) as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+            ) from exc
         self._secure_tree(self.state_dir)
         completed = self._complete_checkpoint(checkpoint, unit)
         self._save_checkpoint(checkpoints, completed)
@@ -2576,7 +2599,7 @@ class CalendarAdoptionStore:
             repository: CalendarRepository | None = None
             authority: LocalApprovalAuthority | None = None
             if self._database_present():
-                repository, _platform, authority = self._repository()
+                repository, _platform, authority = self._repository_for_commit()
             replay: UnitOfWorkReceipt | None = None
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
@@ -2603,7 +2626,9 @@ class CalendarAdoptionStore:
                             "ECO_WORKSPACE_NOT_FOUND",
                             "ECO_RECORD_NOT_FOUND",
                         }:
-                            raise
+                            raise CalendarAdoptionError(
+                                "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                            ) from exc
                         replay = None
                 if replay is not None:
                     if checkpoint.receipt is not None:
@@ -2641,7 +2666,9 @@ class CalendarAdoptionStore:
                         "ECO_WORKSPACE_NOT_FOUND",
                         "ECO_RECORD_NOT_FOUND",
                     }:
-                        raise
+                        raise CalendarAdoptionError(
+                            "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                        ) from exc
                 if replay is not None:
                     raise CalendarAdoptionError(
                         "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_MISSING"
@@ -3047,16 +3074,21 @@ class CalendarAdoptionStore:
             )
         else:
             if repository is None or authority is None:
-                repository, _platform, authority = self._repository()
-            unit = self._apply_repository_restore(
-                repository=repository,
-                authority=authority,
-                bundle=bundle,
-                preview=preview,
-                idempotency_ref=idempotency_ref,
-                outer_approval_ref=preview.approval_ref,
-                approval_expires_at=approval_expires_at,
-            )
+                repository, _platform, authority = self._repository_for_commit()
+            try:
+                unit = self._apply_repository_restore(
+                    repository=repository,
+                    authority=authority,
+                    bundle=bundle,
+                    preview=preview,
+                    idempotency_ref=idempotency_ref,
+                    outer_approval_ref=preview.approval_ref,
+                    approval_expires_at=approval_expires_at,
+                )
+            except (OSError, sqlite3.Error, EcosystemKeyUnavailable) as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                ) from exc
         self._secure_tree(self.state_dir)
         completed = self._complete_checkpoint(checkpoint, unit)
         self._save_checkpoint(checkpoints, completed)
@@ -3288,7 +3320,9 @@ class CalendarAdoptionStore:
                             "ECO_WORKSPACE_NOT_FOUND",
                             "ECO_RECORD_NOT_FOUND",
                         }:
-                            raise
+                            raise CalendarAdoptionError(
+                                "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                            ) from exc
                         replay = None
                 if replay is not None:
                     if checkpoint.receipt is not None:

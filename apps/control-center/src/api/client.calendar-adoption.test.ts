@@ -107,7 +107,7 @@ const workspaceView: CalendarAdoptionWorkspaceView = {
   timezone: "UTC",
   range_starts_at: "2026-09-14T00:00:00Z",
   range_ends_at: "2026-09-21T00:00:00Z",
-  result_ref: "calendar-view-result-ref:sha256:test",
+  result_ref: `calendar-view-result-ref:sha256:${"6".repeat(64)}`,
   can_undo: false,
   next_safe_action: "Create an event.",
   backend_owned: true,
@@ -516,6 +516,10 @@ describe("Calendar adoption response and mutation provenance", () => {
       {
         ...populatedWorkspaceView,
         result_ref: "calendar-view-result-ref:adoption:forged-ready",
+      },
+      {
+        ...populatedWorkspaceView,
+        result_ref: "calendar-view-result-ref:sha256:test",
       },
       { ...populatedWorkspaceView, calendars: tooManyCalendars },
       { ...populatedWorkspaceView, view: "day" },

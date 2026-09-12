@@ -1118,7 +1118,7 @@ function isCalendarAdoptionRecurrence(
 function isCalendarAdoptionResultRef(value: unknown, status: string): boolean {
   if (!isCalendarAdoptionSafeRef(value)) return false;
   return status === "ready"
-    ? value.startsWith("calendar-view-result-ref:sha256:")
+    ? /^calendar-view-result-ref:sha256:[0-9a-f]{64}$/.test(value)
     : ["onboarding", "setup_incomplete", "recovery_required"].includes(status) &&
         value.startsWith("calendar-view-result-ref:adoption:");
 }

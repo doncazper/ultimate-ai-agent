@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CalendarAdoptionStore,
 )
 from ultimate_ai_agent.core.ecosystem.calendar import CalendarRepository, CalendarView
+from ultimate_ai_agent.core.ecosystem.local_data import EcosystemKeyUnavailable
 
 
 def _idempotency(suffix: str) -> str:
@@ -435,6 +436,39 @@ def test_exact_idempotent_replay_rejects_substitution(tmp_path: Path) -> None:
         )
 
 
+def test_mutation_commit_translates_damaged_checkpoint_recovery(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    idempotency_ref = _idempotency("damaged-mutation-recovery")
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionCommitRequest(**capture.model_dump(mode="python"))
+    store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+
+    def unavailable_receipt(_repository: CalendarRepository, **_kwargs: object):
+        raise EcosystemKeyUnavailable("ECO_KEY_NOT_FOUND")
+
+    monkeypatch.setattr(
+        CalendarRepository,
+        "recover_create_receipt",
+        unavailable_receipt,
+    )
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE",
+    ):
+        store.commit_mutation(commit, idempotency_ref=idempotency_ref)
+
+
 @pytest.mark.parametrize("target_kind", ["event", "calendar"])
 def test_update_replay_binds_original_lifecycle_state(
     tmp_path: Path,
@@ -768,6 +802,48 @@ def test_restore_replaces_corrupt_current_database_after_exact_approval(
     replay = target.commit_restore(commit, idempotency_ref=idempotency_ref)
     assert replay.replayed is True
     assert replay.receipt_ref == receipt.receipt_ref
+
+
+def test_restore_commit_translates_damaged_checkpoint_recovery(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="damaged-recovery-source")
+    passphrase = "founder private damaged checkpoint recovery"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CalendarAdoptionStore(tmp_path / "target")
+    _initialize(target, suffix="damaged-recovery-target")
+    restore = CalendarAdoptionPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=backup,
+    )
+    idempotency_ref = _idempotency("damaged-restore-recovery")
+    preview = target.preview_restore(restore, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionRestoreApprovalCaptureRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    target.capture_restore_approval(capture, idempotency_ref=idempotency_ref)
+
+    def unavailable_receipt(_repository: CalendarRepository, **_kwargs: object):
+        raise EcosystemKeyUnavailable("ECO_KEY_NOT_FOUND")
+
+    monkeypatch.setattr(
+        CalendarRepository,
+        "recover_mutation_receipt",
+        unavailable_receipt,
+    )
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE",
+    ):
+        target.commit_restore(
+            CalendarAdoptionRestoreCommitRequest(**capture.model_dump(mode="python")),
+            idempotency_ref=idempotency_ref,
+        )
 
 
 def test_lost_response_recovers_archived_event_and_calendar_updates(

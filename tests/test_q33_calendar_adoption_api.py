@@ -217,6 +217,51 @@ def test_calendar_adoption_preview_translates_damaged_local_state(
     )
 
 
+def test_calendar_adoption_commit_translates_post_approval_storage_damage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_dir = tmp_path / "calendar"
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+    client = TestClient(app)
+    mutation = _initialize_mutation()
+    headers = _headers("damaged-commit", confirmed=True)
+    preview_response = client.post(
+        "/control-center/calendar/adoption/preview",
+        json=mutation,
+        headers=headers,
+    )
+    preview = preview_response.json()["data"]
+    scope = {
+        "mutation": mutation,
+        "preview_ref": preview["preview_ref"],
+        "approval_ref": preview["approval_ref"],
+    }
+    approval = client.post(
+        "/control-center/calendar/adoption/approval", json=scope, headers=headers
+    )
+    assert approval.status_code == 200
+
+    def unavailable_repository(
+        _store: CalendarAdoptionStore, *, database_path: Path | None = None
+    ):
+        del database_path
+        raise EcosystemKeyUnavailable("ECO_KEY_NOT_FOUND")
+
+    monkeypatch.setattr(
+        CalendarAdoptionStore,
+        "_repository",
+        unavailable_repository,
+    )
+    committed = client.post(
+        "/control-center/calendar/adoption/commit", json=scope, headers=headers
+    )
+
+    assert committed.status_code == 422
+    assert committed.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+    )
+
+
 def test_calendar_restore_api_recovers_corrupt_database_after_exact_approval(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
