@@ -15,6 +15,7 @@ export default defineConfig({
   use: {
     baseURL: visualBaseUrl,
     colorScheme: "light",
+    timezoneId: "America/Los_Angeles",
     trace: "retain-on-failure",
   },
   expect: {
