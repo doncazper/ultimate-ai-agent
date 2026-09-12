@@ -130,6 +130,7 @@ CALENDAR_ADOPTION_MAX_BACKUP_B64_CHARS = (
 CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES = 64 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_REVISION = 9_007_199_254_740_991
 CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS = 256
+CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES = 8_192
 CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES = 2 * 1024 * 1024
 _DEFAULT_CALENDAR_REF = "calendar-ref:founder-private:primary"
 _DEFAULT_KEY_VERSION_REF = "key-version-ref:v1"
@@ -565,6 +566,27 @@ class _CalendarAdoptionReceiptCheckpoint(_CalendarAdoptionModel):
         return self
 
 
+class _CalendarAdoptionIdempotencyTombstone(_CalendarAdoptionModel):
+    """Compact permanent binding for a reclaimed idempotency identity."""
+
+    schema_version: Literal["uaa-calendar-adoption-idempotency-tombstone.v1"] = (
+        "uaa-calendar-adoption-idempotency-tombstone.v1"
+    )
+    idempotency_ref: str
+    payload_fingerprint_ref: str
+
+    @model_validator(mode="after")
+    def validate_tombstone(self) -> "_CalendarAdoptionIdempotencyTombstone":
+        _validate_ref(self.idempotency_ref, "tombstone_idempotency_ref")
+        _validate_ref(self.payload_fingerprint_ref, "tombstone_payload_ref")
+        return self
+
+
+_CalendarAdoptionCheckpointEntry = (
+    _CalendarAdoptionReceiptCheckpoint | _CalendarAdoptionIdempotencyTombstone
+)
+
+
 class CalendarAdoptionPortableBackupRequest(_CalendarAdoptionModel):
     passphrase: str = Field(..., min_length=12, max_length=1_024, repr=False)
 
@@ -995,7 +1017,7 @@ class CalendarAdoptionStore:
                 "CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE"
             ) from exc
 
-    def _read_receipt_checkpoints(self) -> list[_CalendarAdoptionReceiptCheckpoint]:
+    def _read_receipt_checkpoints(self) -> list[_CalendarAdoptionCheckpointEntry]:
         try:
             linked = os.lstat(self.receipt_checkpoint_path)
         except FileNotFoundError:
@@ -1036,19 +1058,44 @@ class CalendarAdoptionStore:
             payload = json.loads(raw)
             if not isinstance(payload, list):
                 raise ValueError("checkpoint payload must be a list")
-            checkpoints = [
-                _CalendarAdoptionReceiptCheckpoint.model_validate(item)
-                for item in payload
-            ]
-            if len(checkpoints) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS or len(
-                {item.idempotency_ref for item in checkpoints}
-            ) != len(checkpoints):
+            checkpoints: list[_CalendarAdoptionCheckpointEntry] = []
+            for item in payload:
+                if not isinstance(item, dict):
+                    raise ValueError("checkpoint entry must be an object")
+                if (
+                    item.get("schema_version")
+                    == "uaa-calendar-adoption-idempotency-tombstone.v1"
+                ):
+                    checkpoints.append(
+                        _CalendarAdoptionIdempotencyTombstone.model_validate(item)
+                    )
+                else:
+                    checkpoints.append(
+                        _CalendarAdoptionReceiptCheckpoint.model_validate(item)
+                    )
+            full_count = sum(
+                isinstance(item, _CalendarAdoptionReceiptCheckpoint)
+                for item in checkpoints
+            )
+            tombstone_count = len(checkpoints) - full_count
+            if (
+                full_count > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS
+                or tombstone_count > CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES
+                or len({item.idempotency_ref for item in checkpoints})
+                != len(checkpoints)
+            ):
                 raise ValueError("checkpoint bounds or identity invalid")
             self._set_private_permissions(self.receipt_checkpoint_path, directory=False)
             return checkpoints
         except CalendarAdoptionError:
             raise
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            RecursionError,
+            ValueError,
+        ) as exc:
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INVALID"
             ) from exc
@@ -1057,22 +1104,32 @@ class CalendarAdoptionStore:
                 os.close(descriptor)
 
     def _write_receipt_checkpoints(
-        self, checkpoints: list[_CalendarAdoptionReceiptCheckpoint]
+        self, checkpoints: list[_CalendarAdoptionCheckpointEntry]
     ) -> None:
         if len({item.idempotency_ref for item in checkpoints}) != len(checkpoints):
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_IDENTITY_CONFLICT"
             )
-        if len(checkpoints) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
+        tombstones = [
+            item
+            for item in checkpoints
+            if isinstance(item, _CalendarAdoptionIdempotencyTombstone)
+        ]
+        full_checkpoints = [
+            item
+            for item in checkpoints
+            if isinstance(item, _CalendarAdoptionReceiptCheckpoint)
+        ]
+        if len(full_checkpoints) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
             now = utc_now()
             pending = [
                 item
-                for item in checkpoints
+                for item in full_checkpoints
                 if item.receipt is None and item.approval_expires_at > now
             ]
             reclaimable = [
                 item
-                for item in checkpoints
+                for item in full_checkpoints
                 if item.receipt is not None or item.approval_expires_at <= now
             ]
             if len(pending) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
@@ -1080,10 +1137,25 @@ class CalendarAdoptionStore:
                     "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_CAPACITY_EXHAUSTED"
                 )
             reclaimable_slots = CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS - len(pending)
-            checkpoints = [
+            retained = [
                 *pending,
                 *(reclaimable[-reclaimable_slots:] if reclaimable_slots else []),
             ]
+            retained_refs = {item.idempotency_ref for item in retained}
+            tombstones.extend(
+                _CalendarAdoptionIdempotencyTombstone(
+                    idempotency_ref=item.idempotency_ref,
+                    payload_fingerprint_ref=item.payload_fingerprint_ref,
+                )
+                for item in reclaimable
+                if item.idempotency_ref not in retained_refs
+            )
+            full_checkpoints = retained
+        if len(tombstones) > CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_CAPACITY_EXHAUSTED"
+            )
+        checkpoints = [*tombstones, *full_checkpoints]
         raw = _canonical_json([item.model_dump(mode="json") for item in checkpoints])
         if len(raw) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES:
             raise CalendarAdoptionError(
@@ -1126,19 +1198,60 @@ class CalendarAdoptionStore:
 
     @staticmethod
     def _checkpoint_for(
-        checkpoints: list[_CalendarAdoptionReceiptCheckpoint],
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
         idempotency_ref: str,
     ) -> _CalendarAdoptionReceiptCheckpoint | None:
         return next(
-            (item for item in checkpoints if item.idempotency_ref == idempotency_ref),
+            (
+                item
+                for item in checkpoints
+                if isinstance(item, _CalendarAdoptionReceiptCheckpoint)
+                and item.idempotency_ref == idempotency_ref
+            ),
             None,
         )
 
+    @staticmethod
+    def _tombstone_for(
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
+        idempotency_ref: str,
+    ) -> _CalendarAdoptionIdempotencyTombstone | None:
+        return next(
+            (
+                item
+                for item in checkpoints
+                if isinstance(item, _CalendarAdoptionIdempotencyTombstone)
+                and item.idempotency_ref == idempotency_ref
+            ),
+            None,
+        )
+
+    def _assert_idempotency_not_retired(
+        self,
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> None:
+        tombstone = self._tombstone_for(checkpoints, idempotency_ref)
+        if tombstone is None:
+            return
+        if not hmac.compare_digest(
+            tombstone.payload_fingerprint_ref, payload_fingerprint_ref
+        ):
+            raise CalendarAdoptionConflict("CALENDAR_ADOPTION_IDEMPOTENCY_CONFLICT")
+        raise CalendarAdoptionError("CALENDAR_ADOPTION_IDEMPOTENCY_RETIRED")
+
     def _save_checkpoint(
         self,
-        checkpoints: list[_CalendarAdoptionReceiptCheckpoint],
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
         checkpoint: _CalendarAdoptionReceiptCheckpoint,
     ) -> None:
+        self._assert_idempotency_not_retired(
+            checkpoints,
+            idempotency_ref=checkpoint.idempotency_ref,
+            payload_fingerprint_ref=checkpoint.payload_fingerprint_ref,
+        )
         retained = [
             item
             for item in checkpoints
@@ -1270,6 +1383,33 @@ class CalendarAdoptionStore:
                 "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
             ) from exc
 
+    def _probe_existing_live_key(self) -> None:
+        """Validate an existing workspace key before replacing unreadable state."""
+
+        backend = _FileCalendarKeyBackend(self.state_dir)
+        key_item_ref = (
+            "key-item-ref:ecosystem:"
+            f"{hashlib.sha256(_canonical_json(CALENDAR_ADOPTION_WORKSPACE_REF)).hexdigest()}"
+        )
+        key_path = backend._path(key_item_ref, _DEFAULT_KEY_VERSION_REF)
+        try:
+            os.lstat(key_path)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+            ) from exc
+        try:
+            backend.probe(
+                key_item_ref=key_item_ref,
+                key_version_ref=_DEFAULT_KEY_VERSION_REF,
+            )
+        except (OSError, EcosystemKeyUnavailable) as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+            ) from exc
+
     @staticmethod
     def _empty_range(
         *, view: CalendarView, anchor: datetime, timezone_name: str
@@ -1290,9 +1430,7 @@ class CalendarAdoptionStore:
                 )
                 end = start + timedelta(days=7)
             elif view == CalendarView.month:
-                start = local.replace(
-                    day=1, hour=0, minute=0, second=0, microsecond=0
-                )
+                start = local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
                 if start.month == 12:
                     end = start.replace(year=start.year + 1, month=1)
                 else:
@@ -1685,6 +1823,14 @@ class CalendarAdoptionStore:
     ) -> CalendarAdoptionMutationPreview:
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
+            payload_fingerprint_ref = self._payload_fingerprint(
+                request, idempotency_ref=idempotency_ref
+            )
+            self._assert_idempotency_not_retired(
+                self._read_receipt_checkpoints(),
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
             return self._preview(request, idempotency_ref=idempotency_ref)
 
     def _lease_context(
@@ -1870,6 +2016,11 @@ class CalendarAdoptionStore:
                 {"payload_fingerprint_ref": payload_fingerprint_ref},
             )
             checkpoints = self._read_receipt_checkpoints()
+            self._assert_idempotency_not_retired(
+                checkpoints,
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
             checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
@@ -2478,7 +2629,7 @@ class CalendarAdoptionStore:
         request: CalendarAdoptionCommitRequest,
         preview: CalendarAdoptionMutationPreview,
         idempotency_ref: str,
-        checkpoints: list[_CalendarAdoptionReceiptCheckpoint],
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
         checkpoint: _CalendarAdoptionReceiptCheckpoint | None,
         repository: CalendarRepository | None,
         authority: LocalApprovalAuthority | None,
@@ -2595,6 +2746,11 @@ class CalendarAdoptionStore:
                 {"payload_fingerprint_ref": payload_fingerprint_ref},
             )
             checkpoints = self._read_receipt_checkpoints()
+            self._assert_idempotency_not_retired(
+                checkpoints,
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
             checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
             repository: CalendarRepository | None = None
             authority: LocalApprovalAuthority | None = None
@@ -2719,15 +2875,26 @@ class CalendarAdoptionStore:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_BACKUP_EMPTY")
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
-            repository, _platform, _authority = self._repository()
-            calendar_set = repository.read(
-                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
-            )
-            bundle = repository.export_bundle(
-                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
-            )
+            try:
+                repository, _platform, _authority = self._repository()
+                calendar_set = repository.read(
+                    workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+                    calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                )
+                bundle = repository.export_bundle(
+                    workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+                    calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                )
+            except (
+                OSError,
+                ValueError,
+                sqlite3.Error,
+                CalendarError,
+                EcosystemLocalDataError,
+            ) as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                ) from exc
             created_at = datetime.now(timezone.utc)
             payload = _CalendarAdoptionBackupPayload(
                 source_revision=calendar_set.version,
@@ -2830,6 +2997,8 @@ class CalendarAdoptionStore:
                     current_readable = False
             except (OSError, sqlite3.Error, CalendarError):
                 current_readable = False
+            if not current_readable:
+                self._probe_existing_live_key()
         expected_revision = current.version if current is not None else 0
         resulting_revision = expected_revision + 1
         rollback_available = False
@@ -2913,7 +3082,13 @@ class CalendarAdoptionStore:
     ) -> CalendarAdoptionRestorePreview:
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
-            return self._restore_preview(request, idempotency_ref=idempotency_ref)[0]
+            preview = self._restore_preview(request, idempotency_ref=idempotency_ref)[0]
+            self._assert_idempotency_not_retired(
+                self._read_receipt_checkpoints(),
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=preview.payload_fingerprint_ref,
+            )
+            return preview
 
     def capture_restore_approval(
         self,
@@ -2947,6 +3122,11 @@ class CalendarAdoptionStore:
                     )
             preview, _bundle = self._restore_preview(
                 request, idempotency_ref=idempotency_ref
+            )
+            self._assert_idempotency_not_retired(
+                checkpoints,
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=preview.payload_fingerprint_ref,
             )
             if (
                 request.preview_ref != preview.preview_ref
@@ -3001,7 +3181,7 @@ class CalendarAdoptionStore:
         preview: CalendarAdoptionRestorePreview,
         bundle: CalendarPortableBundle,
         idempotency_ref: str,
-        checkpoints: list[_CalendarAdoptionReceiptCheckpoint],
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
         checkpoint: _CalendarAdoptionReceiptCheckpoint | None,
         repository: CalendarRepository | None,
         authority: LocalApprovalAuthority | None,
@@ -3192,31 +3372,48 @@ class CalendarAdoptionStore:
             stage_dir = Path(directory)
             self._set_private_permissions(stage_dir, directory=True)
             stage_database = stage_dir / CALENDAR_ADOPTION_DATABASE_FILE
-            repository, _platform, authority = self._repository(
-                database_path=stage_database
-            )
-            unit = self._apply_repository_restore(
-                repository=repository,
-                authority=authority,
-                bundle=bundle,
-                preview=preview,
-                idempotency_ref=idempotency_ref,
-                outer_approval_ref=outer_approval_ref,
-                approval_expires_at=approval_expires_at,
-            )
-            connection = sqlite3.connect(stage_database)
             try:
-                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                journal_mode = connection.execute(
-                    "PRAGMA journal_mode = DELETE"
-                ).fetchone()[0]
-                integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-                if str(journal_mode).lower() != "delete" or integrity != "ok":
-                    raise CalendarAdoptionError(
-                        "CALENDAR_ADOPTION_REPLACEMENT_DATABASE_INVALID"
-                    )
-            finally:
-                connection.close()
+                repository, _platform, authority = self._repository(
+                    database_path=stage_database
+                )
+                unit = self._apply_repository_restore(
+                    repository=repository,
+                    authority=authority,
+                    bundle=bundle,
+                    preview=preview,
+                    idempotency_ref=idempotency_ref,
+                    outer_approval_ref=outer_approval_ref,
+                    approval_expires_at=approval_expires_at,
+                )
+                connection = sqlite3.connect(stage_database)
+                try:
+                    connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    journal_mode = connection.execute(
+                        "PRAGMA journal_mode = DELETE"
+                    ).fetchone()[0]
+                    integrity = connection.execute("PRAGMA integrity_check").fetchone()[
+                        0
+                    ]
+                    if str(journal_mode).lower() != "delete" or integrity != "ok":
+                        raise CalendarAdoptionError(
+                            "CALENDAR_ADOPTION_REPLACEMENT_DATABASE_INVALID"
+                        )
+                finally:
+                    connection.close()
+            except EcosystemKeyUnavailable as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+                ) from exc
+            except (
+                OSError,
+                ValueError,
+                sqlite3.Error,
+                CalendarError,
+                EcosystemLocalDataError,
+            ) as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_REPLACEMENT_DATABASE_FAILED"
+                ) from exc
             if self._database_cluster_state_ref() != preview.current_state_ref:
                 raise CalendarAdoptionConflict(
                     "CALENDAR_ADOPTION_CURRENT_STATE_CHANGED"
@@ -3341,6 +3538,11 @@ class CalendarAdoptionStore:
                     )
             preview, bundle = self._restore_preview(
                 request, idempotency_ref=idempotency_ref
+            )
+            self._assert_idempotency_not_retired(
+                checkpoints,
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=preview.payload_fingerprint_ref,
             )
             if (
                 request.preview_ref != preview.preview_ref

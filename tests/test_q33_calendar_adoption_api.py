@@ -358,9 +358,7 @@ def test_calendar_restore_api_blocks_malformed_live_key_recovery(
         preview_ref=source_preview.preview_ref,
         approval_ref=source_preview.approval_ref,
     )
-    source.capture_approval(
-        source_capture, idempotency_ref=source_idempotency_ref
-    )
+    source.capture_approval(source_capture, idempotency_ref=source_idempotency_ref)
     source.commit_mutation(
         CalendarAdoptionCommitRequest(**source_capture.model_dump(mode="python")),
         idempotency_ref=source_idempotency_ref,
@@ -391,9 +389,7 @@ def test_calendar_restore_api_blocks_malformed_live_key_recovery(
         preview_ref=target_preview.preview_ref,
         approval_ref=target_preview.approval_ref,
     )
-    target.capture_approval(
-        target_capture, idempotency_ref=target_idempotency_ref
-    )
+    target.capture_approval(target_capture, idempotency_ref=target_idempotency_ref)
     target.commit_mutation(
         CalendarAdoptionCommitRequest(**target_capture.model_dump(mode="python")),
         idempotency_ref=target_idempotency_ref,
@@ -401,6 +397,7 @@ def test_calendar_restore_api_blocks_malformed_live_key_recovery(
     key_files = list((target_dir / "keys").glob("*.key"))
     assert len(key_files) == 1
     key_files[0].write_bytes(b"malformed")
+    (target_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
     monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(target_dir))
 
     response = TestClient(app).post(
@@ -412,6 +409,56 @@ def test_calendar_restore_api_blocks_malformed_live_key_recovery(
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == (
         "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+    )
+
+
+@pytest.mark.parametrize("failure_mode", ["database", "key"])
+def test_calendar_backup_api_translates_damaged_storage(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_mode: str,
+) -> None:
+    state_dir = tmp_path / "calendar"
+    store = CalendarAdoptionStore(state_dir)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize",
+        expected_revision=0,
+        calendar=CalendarAdoptionCalendarDraft(
+            calendar_ref="calendar-ref:q33:backup-damage",
+            name="Personal",
+            timezone="UTC",
+            color_ref="color-ref:q33:backup-damage",
+        ),
+    )
+    idempotency_ref = "idempotency-ref:calendar-api:backup-damage"
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(capture, idempotency_ref=idempotency_ref)
+    store.commit_mutation(
+        CalendarAdoptionCommitRequest(**capture.model_dump(mode="python")),
+        idempotency_ref=idempotency_ref,
+    )
+    if failure_mode == "database":
+        (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+    else:
+        key_files = list((state_dir / "keys").glob("*.key"))
+        assert len(key_files) == 1
+        key_files[0].write_bytes(b"malformed")
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).post(
+        "/control-center/calendar/adoption/backup",
+        json={"passphrase": "founder private damaged backup"},
+        headers=_headers(f"backup-{failure_mode}"),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
     )
 
 

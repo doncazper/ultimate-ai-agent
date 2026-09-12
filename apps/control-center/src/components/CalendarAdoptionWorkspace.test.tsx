@@ -11,6 +11,7 @@ import { mockControlCenterData } from "../mocks/controlCenterData";
 import { CalendarSurface } from "../northstar/PrimarySurfaces";
 import {
   CalendarAdoptionWorkspace,
+  localInputToIso,
   shiftCalendarAnchor,
 } from "./CalendarAdoptionWorkspace";
 
@@ -634,6 +635,12 @@ describe("CalendarAdoptionWorkspace", () => {
     ).toBe("2026-03-08T19:00:00.000Z");
   });
 
+  it("rejects ambiguous fall-back wall times instead of choosing an offset", () => {
+    expect(() =>
+      localInputToIso("2026-11-01T01:30", "America/Los_Angeles"),
+    ).toThrow("That local time occurs twice in the selected timezone.");
+  });
+
   it("clears a stale load error after a successful refresh", async () => {
     apiMocks.loadCalendarAdoptionWorkspace
       .mockRejectedValueOnce(new Error("Calendar load failed safely."))
@@ -649,6 +656,30 @@ describe("CalendarAdoptionWorkspace", () => {
     expect(
       screen.queryByText("Calendar load failed safely."),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps view controls disabled while a manual refresh is in flight", async () => {
+    let finishRefresh: (value: CalendarAdoptionWorkspaceView) => void = () => {};
+    const refreshResult = new Promise<CalendarAdoptionWorkspaceView>((resolve) => {
+      finishRefresh = resolve;
+    });
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockRejectedValueOnce(new Error("Calendar load failed safely."))
+      .mockReturnValueOnce(refreshResult);
+
+    render(<CalendarAdoptionWorkspace />);
+    expect(
+      await screen.findByText("Calendar load failed safely."),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    const month = screen.getByRole("button", { name: "month" });
+    expect(month).toBeDisabled();
+    fireEvent.click(month);
+    expect(apiMocks.loadCalendarAdoptionWorkspace).toHaveBeenCalledTimes(2);
+
+    finishRefresh(workspace);
+    expect(await screen.findAllByText("Founder briefing")).not.toHaveLength(0);
   });
 
   it.each(["onboarding", "setup_incomplete", "recovery_required"] as const)(

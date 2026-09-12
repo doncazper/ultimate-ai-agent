@@ -166,7 +166,9 @@ def test_unreadable_database_cluster_hashing_is_size_bounded(
         CalendarAdoptionStore(state_dir)._database_cluster_state_ref()
 
 
-def test_expired_uncommitted_checkpoints_are_reclaimable(tmp_path: Path) -> None:
+def test_expired_uncommitted_checkpoints_leave_idempotency_tombstones(
+    tmp_path: Path,
+) -> None:
     store = CalendarAdoptionStore(tmp_path)
     store._ensure_private_state_directory()
     expired_at = datetime(2026, 9, 1, tzinfo=timezone.utc)
@@ -206,12 +208,58 @@ def test_expired_uncommitted_checkpoints_are_reclaimable(tmp_path: Path) -> None
 
     retained = store._read_receipt_checkpoints()
     assert (
-        len(retained)
+        sum(
+            isinstance(
+                item,
+                calendar_adoption_module._CalendarAdoptionReceiptCheckpoint,
+            )
+            for item in retained
+        )
         == calendar_adoption_module.CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS
     )
     assert store._checkpoint_for(retained, current.idempotency_ref) == current
     assert store._checkpoint_for(retained, expired[0].idempotency_ref) is None
+    assert store._tombstone_for(
+        retained, expired[0].idempotency_ref
+    ) == calendar_adoption_module._CalendarAdoptionIdempotencyTombstone(
+        idempotency_ref=expired[0].idempotency_ref,
+        payload_fingerprint_ref=expired[0].payload_fingerprint_ref,
+    )
     assert store._checkpoint_for(retained, expired[1].idempotency_ref) == expired[1]
+
+
+def test_reclaimed_checkpoint_identity_cannot_be_reused_for_a_new_payload(
+    tmp_path: Path,
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    store._ensure_private_state_directory()
+    idempotency_ref = _idempotency("retired")
+    original = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+    original_fingerprint = store._payload_fingerprint(
+        original, idempotency_ref=idempotency_ref
+    )
+    tombstone = calendar_adoption_module._CalendarAdoptionIdempotencyTombstone(
+        idempotency_ref=idempotency_ref,
+        payload_fingerprint_ref=original_fingerprint,
+    )
+    store._write_receipt_checkpoints([tombstone])
+
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_IDEMPOTENCY_RETIRED"
+    ):
+        store.preview_mutation(original, idempotency_ref=idempotency_ref)
+
+    substituted = original.model_copy(
+        update={
+            "calendar": original.calendar.model_copy(update={"name": "Substituted"})
+        }
+    )
+    with pytest.raises(
+        CalendarAdoptionConflict, match="CALENDAR_ADOPTION_IDEMPOTENCY_CONFLICT"
+    ):
+        store.preview_mutation(substituted, idempotency_ref=idempotency_ref)
 
 
 def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:

@@ -75,20 +75,25 @@ function localInput(iso: string, timezone: string): string {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
-function localInputToIso(value: string, timezone: string): string {
+export function localInputToIso(value: string, timezone: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
   if (!match) throw new Error("Enter a valid local date and time.");
   const [, year, month, day, hour, minute] = match;
   const desired = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-  let instant = desired;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const parts = zonedParts(new Date(instant).toISOString(), timezone);
-    const observed = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
-    instant += desired - observed;
+  const offsets = new Set<number>();
+  for (let hours = -48; hours <= 48; hours += 6) {
+    const sampled = desired + hours * 60 * 60 * 1_000;
+    const parts = zonedParts(new Date(sampled).toISOString(), timezone);
+    const observed = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+    offsets.add(observed - sampled);
   }
-  const iso = new Date(instant).toISOString();
-  if (localInput(iso, timezone) !== value) throw new Error("That local time does not exist in the selected timezone.");
-  return iso;
+  const candidates = [...offsets]
+    .map((offset) => new Date(desired - offset).toISOString())
+    .filter((candidate) => localInput(candidate, timezone) === value);
+  const unique = [...new Set(candidates)];
+  if (!unique.length) throw new Error("That local time does not exist in the selected timezone.");
+  if (unique.length > 1) throw new Error("That local time occurs twice in the selected timezone. Keep the original offset when editing, or choose a time outside the repeated hour.");
+  return unique[0];
 }
 
 function initialTimes(timezone: string): { starts_at: string; ends_at: string } {
@@ -460,14 +465,14 @@ export function CalendarAdoptionWorkspace() {
   return <section className="page-section calendar-adoption" aria-labelledby="calendar-adoption-title">
     <div className="section-heading"><div><p className="eyebrow">Founder-private workspace</p><h2 id="calendar-adoption-title">Your Calendar</h2></div><span className="status-pill compact">{workspace?.status ?? "loading"}</span></div>
     <p className="section-copy">Plan local events across day, week, month, and agenda views. Every change is previewed and confirmed. No account, connector, notification, or external calendar is touched.</p>
-    {error ? <div className="panel danger" role="alert"><strong>Calendar needs attention</strong><p>{error}</p><button type="button" onClick={() => void refresh()}>Refresh</button></div> : null}
+    {error ? <div className="panel danger" role="alert"><strong>Calendar needs attention</strong><p>{error}</p><button type="button" disabled={busy} onClick={() => void refresh()}>Refresh</button></div> : null}
     {notice ? <div className="panel success" role="status">{notice}</div> : null}
 
     <div className="calendar-adoption-toolbar">
       <button type="button" disabled={busy} onClick={() => setAnchor(new Date().toISOString())}>Today</button>
       <button type="button" aria-label="Previous period" disabled={busy} onClick={() => setAnchor((value) => shiftCalendarAnchor(value, view, -1, timezone))}>←</button>
       <button type="button" aria-label="Next period" disabled={busy} onClick={() => setAnchor((value) => shiftCalendarAnchor(value, view, 1, timezone))}>→</button>
-      <div className="calendar-adoption-view-switcher" aria-label="Calendar view">{VIEWS.map((item) => <button className={item === view ? "active" : ""} key={item} type="button" onClick={() => setView(item)}>{item}</button>)}</div>
+      <div className="calendar-adoption-view-switcher" aria-label="Calendar view">{VIEWS.map((item) => <button className={item === view ? "active" : ""} disabled={busy} key={item} type="button" onClick={() => setView(item)}>{item}</button>)}</div>
       <label><span className="sr-only">Calendar timezone</span><input aria-label="Calendar timezone" value={timezoneDraft} onChange={(event) => setTimezoneDraft(event.target.value)} /></label>
       <button type="button" disabled={busy || timezoneDraft.trim() === timezone} onClick={applyTimezone}>Apply timezone</button>
       <span className="status-pill compact">revision {workspace?.revision ?? 0}</span>
