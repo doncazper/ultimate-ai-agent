@@ -127,6 +127,10 @@ function weekdayForLocalInput(value: string): number {
 
 function networkEventDraft(draft: CalendarAdoptionEventDraft, original: CalendarAdoptionEvent | null = null): CalendarAdoptionEventDraft {
   const preserveOriginalOffset = original?.timezone === draft.timezone;
+  const originalStartDate = original
+    ? localInput(original.starts_at, draft.timezone).slice(0, 10)
+    : null;
+  const weeklyStartDateChanged = originalStartDate !== draft.starts_at.slice(0, 10);
   const startsAt = preserveOriginalOffset && localInput(original.starts_at, draft.timezone) === draft.starts_at
     ? original.starts_at
     : localInputToIso(draft.starts_at, draft.timezone);
@@ -141,7 +145,12 @@ function networkEventDraft(draft: CalendarAdoptionEventDraft, original: Calendar
     starts_at: startsAt,
     ends_at: endsAt,
     recurrence: draft.recurrence?.frequency === "weekly"
-      ? { ...draft.recurrence, weekdays: [weekdayForLocalInput(draft.starts_at)] }
+      ? {
+          ...draft.recurrence,
+          weekdays: weeklyStartDateChanged
+            ? [weekdayForLocalInput(draft.starts_at)]
+            : draft.recurrence.weekdays,
+        }
       : draft.recurrence,
   };
 }
@@ -182,7 +191,7 @@ function reviewDetail(pending: PendingMutation): string {
     const recurrence = event.recurrence
       ? `${event.recurrence.frequency} every ${event.recurrence.interval} interval(s) in ${event.recurrence.timezone}`
       : "none";
-    return `${request.action === "create_event" ? "Create" : "Update"} “${event.title}”. Event: ${event.event_ref}; Calendar: ${event.calendar_ref}; Starts: ${new Date(event.starts_at).toLocaleString()} (${event.timezone}); Ends: ${new Date(event.ends_at).toLocaleString()} (${event.timezone}); All day: ${event.all_day ? "yes" : "no"}; Location: ${event.location || "none"}; Notes: ${event.description || "none"}; Repeats: ${recurrence}; Participants: ${event.participant_items.length}; Reminders: ${event.reminder_items.length}. ${revision}`;
+    return `${request.action === "create_event" ? "Create" : "Update"} “${event.title}”. Event: ${event.event_ref}; Calendar: ${event.calendar_ref}; Starts: ${formatDate(event.starts_at, event.timezone, { dateStyle: "medium", timeStyle: "short" })} (${event.timezone}); Ends: ${formatDate(event.ends_at, event.timezone, { dateStyle: "medium", timeStyle: "short" })} (${event.timezone}); All day: ${event.all_day ? "yes" : "no"}; Location: ${event.location || "none"}; Notes: ${event.description || "none"}; Repeats: ${recurrence}; Participants: ${event.participant_items.length}; Reminders: ${event.reminder_items.length}. ${revision}`;
   }
   if (request.action === "initialize" || request.action === "create_calendar") {
     return `${request.action === "initialize" ? "Initialize Calendar with" : "Add"} “${request.calendar?.name ?? "calendar"}”. ${revision}`;
@@ -437,7 +446,7 @@ export function CalendarAdoptionWorkspace() {
 
     {workspace?.status === "onboarding" || workspace?.status === "setup_incomplete" ? <section className="panel calendar-adoption-onboarding"><h3>{workspace.status === "setup_incomplete" ? "Finish your private calendar setup" : "Create your first private calendar"}</h3><p>This stays encrypted on this computer until you export an encrypted backup.</p><label>Name<input value={calendarDraft.name} onChange={(event) => setCalendarDraft((value) => ({ ...value, name: event.target.value }))} /></label><button type="button" disabled={busy || !calendarDraft.name.trim()} onClick={submitCalendar}>Review setup</button></section> : null}
 
-    {workspace?.status === "onboarding" || workspace?.status === "setup_incomplete" ? <section className="panel calendar-adoption-recovery"><h3>Restore encrypted Calendar</h3><p>Open a passphrase-encrypted backup from another one of your computers. There is no automatic sync.</p><label>Backup or restore passphrase<input type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} /></label><label className="calendar-adoption-file">Open backup<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openBackup(file); }} /></label>{restoreBackup ? <button type="button" disabled={busy || passphrase.length < 12} onClick={() => void prepareRestore()}>Preview restore</button> : null}</section> : null}
+    {workspace?.status === "onboarding" || workspace?.status === "setup_incomplete" || workspace?.status === "recovery_required" ? <section className="panel calendar-adoption-recovery"><h3>Restore encrypted Calendar</h3><p>Open a passphrase-encrypted backup from another one of your computers. There is no automatic sync.</p><label>Backup or restore passphrase<input type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} /></label><label className="calendar-adoption-file">Open backup<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openBackup(file); }} /></label>{restoreBackup ? <button type="button" disabled={busy || passphrase.length < 12} onClick={() => void prepareRestore()}>Preview restore</button> : null}</section> : null}
 
     {workspace?.status === "ready" ? <div className="calendar-adoption-layout">
       <section className="calendar-adoption-main">
@@ -458,7 +467,7 @@ export function CalendarAdoptionWorkspace() {
       <section className="panel calendar-adoption-recovery"><h3>Encrypted continuity</h3><p>Move this private calendar between your own computers with a passphrase-encrypted file. There is no automatic sync.</p><label>Backup or restore passphrase<input type="password" autoComplete="new-password" value={passphrase} onChange={(event) => setPassphrase(event.target.value)} /></label><div><button type="button" disabled={busy || passphrase.length < 12} onClick={() => void downloadBackup()}>Download encrypted backup</button><label className="calendar-adoption-file">Open backup<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void openBackup(file); }} /></label></div>{restoreBackup ? <button type="button" disabled={busy || passphrase.length < 12} onClick={() => void prepareRestore()}>Preview restore</button> : null}</section></div> : null}
 
     {pending ? <div className="calendar-adoption-confirm" role="dialog" aria-modal="true" aria-labelledby="calendar-change-review"><div className="panel warning"><p className="eyebrow">Exact local approval</p><h3 id="calendar-change-review">Review this Calendar change</h3><p>{reviewDetail(pending)}</p><p><strong>Only the encrypted local Calendar will change.</strong> No account, connector, model, notification, or external calendar write will occur.</p><div><button type="button" onClick={() => setPending(null)} disabled={busy}>Cancel</button><button type="button" onClick={() => void confirmMutation()} disabled={busy}>Confirm one local change</button></div></div></div> : null}
-    {pendingRestore ? <div className="calendar-adoption-confirm" role="dialog" aria-modal="true" aria-labelledby="calendar-restore-review"><div className="panel warning"><p className="eyebrow">Exact restore approval</p><h3 id="calendar-restore-review">Review encrypted restore</h3><p>Restore {pendingRestore.preview.calendar_count} calendar{pendingRestore.preview.calendar_count === 1 ? "" : "s"} and {pendingRestore.preview.event_count} event{pendingRestore.preview.event_count === 1 ? "" : "s"}. {pendingRestore.preview.rollback_available ? "Undo will remain available." : "The target is empty, so there is no earlier local state to undo."}</p><div><button type="button" onClick={() => setPendingRestore(null)} disabled={busy}>Cancel</button><button type="button" onClick={() => void confirmRestore()} disabled={busy}>Confirm private restore</button></div></div></div> : null}
+    {pendingRestore ? <div className="calendar-adoption-confirm" role="dialog" aria-modal="true" aria-labelledby="calendar-restore-review"><div className="panel warning"><p className="eyebrow">Exact restore approval</p><h3 id="calendar-restore-review">Review encrypted restore</h3><p>Restore {pendingRestore.preview.calendar_count} calendar{pendingRestore.preview.calendar_count === 1 ? "" : "s"} and {pendingRestore.preview.event_count} event{pendingRestore.preview.event_count === 1 ? "" : "s"}. {pendingRestore.preview.rollback_available ? "Undo will remain available." : pendingRestore.preview.impact_status === "empty_target" ? "The target is empty, so there is no earlier local state to undo." : "This will replace existing local Calendar state, and undo will not be available."}</p><div><button type="button" onClick={() => setPendingRestore(null)} disabled={busy}>Cancel</button><button type="button" onClick={() => void confirmRestore()} disabled={busy}>Confirm private restore</button></div></div></div> : null}
     <div className="calendar-adoption-receipt" aria-live="polite">Backend-owned encrypted Calendar · local-only manual changes · external reads, writes, sync, notifications, and scheduling remain blocked</div>
   </section>;
 }

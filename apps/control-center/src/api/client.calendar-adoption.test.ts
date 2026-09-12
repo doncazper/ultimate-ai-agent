@@ -5,6 +5,7 @@ import {
   commitCalendarAdoptionMutation,
   commitCalendarAdoptionRestore,
   createCalendarAdoptionBackup,
+  loadCalendarAdoptionWorkspace,
   previewCalendarAdoptionMutation,
   previewCalendarAdoptionRestore,
   type BackendTruthReadBinding,
@@ -17,6 +18,7 @@ import type {
   CalendarAdoptionMutationRequest,
   CalendarAdoptionPortableBackup,
   CalendarAdoptionRestorePreview,
+  CalendarAdoptionWorkspaceView,
 } from "./types";
 
 const contractRef = "contract-ref:queue-v2-q33-calendar-adoption:v1";
@@ -86,6 +88,41 @@ const restorePreview: CalendarAdoptionRestorePreview = {
   impact_status: "exact",
   restore_performed: false,
   private_values_included: false,
+};
+
+const workspaceView: CalendarAdoptionWorkspaceView = {
+  schema_version: "uaa-calendar-adoption-read-model.v1",
+  contract_ref: contractRef,
+  status: "ready",
+  workspace_ref: "workspace-ref:founder-private-calendar",
+  calendar_set_ref: "calendar-set-ref:founder-private",
+  revision: 4,
+  current_state_ref: "state-ref:calendar-adoption:sha256:current",
+  calendar_set_name: "My Calendar",
+  calendars: [],
+  occurrence_items: [],
+  archived_events: [],
+  conflict_items: [],
+  view: "week",
+  timezone: "UTC",
+  range_starts_at: "2026-09-14T00:00:00Z",
+  range_ends_at: "2026-09-21T00:00:00Z",
+  result_ref: "calendar-view-result-ref:adoption:test",
+  can_undo: false,
+  next_safe_action: "Create an event.",
+  backend_owned: true,
+  local_only: true,
+  exact_approval_required: true,
+  backup_restore_available: true,
+  external_calendar_write_enabled: false,
+  connector_read_enabled: false,
+  connector_write_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  background_scheduling_enabled: false,
+  notification_delivery_enabled: false,
+  production_authority_enabled: false,
 };
 
 function approvalReceipt(
@@ -292,6 +329,48 @@ describe("Calendar adoption response and mutation provenance", () => {
         backup,
         "correct horse battery staple",
         restoreIdempotencyRef,
+      ),
+    ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  });
+
+  it("rejects Calendar reads with broadened authority boundaries", async () => {
+    const blockedFlags = [
+      "external_calendar_write_enabled",
+      "connector_read_enabled",
+      "connector_write_enabled",
+      "provider_model_call_enabled",
+      "browser_automation_enabled",
+      "shell_subprocess_execution_enabled",
+      "background_scheduling_enabled",
+      "notification_delivery_enabled",
+      "production_authority_enabled",
+    ] as const;
+
+    for (const flag of blockedFlags) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => response({ ...workspaceView, [flag]: true })),
+      );
+      await expect(
+        loadCalendarAdoptionWorkspace(
+          "week",
+          "2026-09-14T00:00:00Z",
+          "UTC",
+        ),
+      ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        response({ ...workspaceView, backup_restore_available: false }),
+      ),
+    );
+    await expect(
+      loadCalendarAdoptionWorkspace(
+        "week",
+        "2026-09-14T00:00:00Z",
+        "UTC",
       ),
     ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
   });

@@ -967,9 +967,16 @@ export async function loadCalendarAdoptionWorkspace(
     value.backend_owned !== true ||
     value.local_only !== true ||
     value.exact_approval_required !== true ||
+    value.backup_restore_available !== true ||
     value.external_calendar_write_enabled !== false ||
+    value.connector_read_enabled !== false ||
     value.connector_write_enabled !== false ||
     value.provider_model_call_enabled !== false ||
+    value.browser_automation_enabled !== false ||
+    value.shell_subprocess_execution_enabled !== false ||
+    value.background_scheduling_enabled !== false ||
+    value.notification_delivery_enabled !== false ||
+    value.production_authority_enabled !== false ||
     !Array.isArray(value.calendars) ||
     !Array.isArray(value.occurrence_items) ||
     !Array.isArray(value.archived_events) ||

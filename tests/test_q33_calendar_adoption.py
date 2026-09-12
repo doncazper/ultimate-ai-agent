@@ -188,6 +188,60 @@ def test_final_authority_denial_revokes_issued_calendar_lease(
     assert not (tmp_path / CALENDAR_ADOPTION_DATABASE_FILE).exists()
 
 
+def test_restore_authority_denial_does_not_create_database(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="restore-denial-source")
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private restore denial calendar"
+        )
+    )
+    target_dir = tmp_path / "target"
+    target = CalendarAdoptionStore(target_dir)
+    idempotency_ref = _idempotency("restore-final-authority-denial")
+    restore = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private restore denial calendar",
+        backup=backup,
+    )
+    preview = target.preview_restore(restore, idempotency_ref=idempotency_ref)
+    approval = target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **restore.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+
+    def deny_final_evaluation(action_request, _leases):
+        return evaluate_authority_request_contract(action_request, [])
+
+    monkeypatch.setattr(
+        calendar_adoption_module,
+        "evaluate_authority_request",
+        deny_final_evaluation,
+    )
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_AUTHORITY_DENIED"
+    ):
+        target.commit_restore(
+            CalendarAdoptionRestoreCommitRequest(
+                **restore.model_dump(mode="python"),
+                preview_ref=preview.preview_ref,
+                approval_ref=approval.approval_ref,
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+
+    assert not AuthorityLeaseStore(target_dir / "authority").list_leases(
+        active_only=True
+    )
+    assert not (target_dir / CALENDAR_ADOPTION_DATABASE_FILE).exists()
+    assert target.read_view().status == "onboarding"
+
+
 def test_calendar_lifecycle_views_conflicts_and_undo_survive_restart(
     tmp_path: Path,
 ) -> None:
@@ -811,6 +865,26 @@ def test_invalid_timezone_fails_closed_before_reading_state(tmp_path: Path) -> N
         CalendarAdoptionStore(tmp_path).read_view(
             timezone_name="Invalid/Founder-Timezone"
         )
+
+
+def test_database_metadata_access_failure_uses_calendar_safe_code(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = CalendarAdoptionStore(tmp_path / "calendar")
+    store.state_dir.mkdir(parents=True)
+    real_lstat = os.lstat
+
+    def fail_database_lstat(path):
+        if Path(path) == store.database_path:
+            raise PermissionError("calendar database metadata unavailable")
+        return real_lstat(path)
+
+    monkeypatch.setattr(os, "lstat", fail_database_lstat)
+
+    with pytest.raises(
+        CalendarAdoptionError, match="CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE"
+    ):
+        store.read_view()
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX link contract")

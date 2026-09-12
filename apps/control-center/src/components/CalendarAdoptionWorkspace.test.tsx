@@ -173,6 +173,7 @@ describe("CalendarAdoptionWorkspace", () => {
       calendar_count: 1,
       event_count: 1,
       rollback_available: false,
+      impact_status: "empty_target",
       preview_ref: "preview-ref:calendar-adoption-restore:test",
       approval_ref: "approval-ref:calendar-adoption-restore:test",
     });
@@ -287,6 +288,12 @@ describe("CalendarAdoptionWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Review update" }));
 
+    expect(
+      await screen.findByText(
+        /Starts: Sep 14, 2026, 9:00 AM \(Asia\/Tokyo\); Ends: Sep 14, 2026, 10:00 AM \(Asia\/Tokyo\)/,
+      ),
+    ).toBeVisible();
+
     await waitFor(() =>
       expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
     );
@@ -324,6 +331,33 @@ describe("CalendarAdoptionWorkspace", () => {
     const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
     expect(request.event.starts_at).toBe("2026-11-01T09:30:00Z");
     expect(request.event.ends_at).toBe("2026-11-01T10:30:00Z");
+  });
+
+  it("preserves multi-day weekly recurrence on unrelated edits", async () => {
+    const recurring = structuredClone(workspace);
+    recurring.occurrence_items[0].event.recurrence = {
+      frequency: "weekly",
+      interval: 1,
+      weekdays: [0, 2],
+      timezone: "America/Los_Angeles",
+    };
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(recurring);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Updated multi-day series" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.event.recurrence.weekdays).toEqual([0, 2]);
   });
 
   it("recomputes weekly recurrence after the start date changes", async () => {
@@ -470,7 +504,7 @@ describe("CalendarAdoptionWorkspace", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each(["onboarding", "setup_incomplete"] as const)(
+  it.each(["onboarding", "setup_incomplete", "recovery_required"] as const)(
     "offers encrypted restore while the workspace is %s",
     async (status) => {
       apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
@@ -559,5 +593,43 @@ describe("CalendarAdoptionWorkspace", () => {
       ),
     );
     expect(screen.getByLabelText("Title")).toHaveValue("");
+  });
+
+  it("warns when restore replaces state without retaining undo", async () => {
+    apiMocks.previewCalendarAdoptionRestore.mockResolvedValue({
+      expected_revision: 4,
+      resulting_revision: 5,
+      calendar_count: 1,
+      event_count: 1,
+      rollback_available: false,
+      impact_status: "exact",
+      preview_ref: "preview-ref:calendar-adoption-restore:test",
+      approval_ref: "approval-ref:calendar-adoption-restore:test",
+    });
+
+    render(<CalendarAdoptionWorkspace />);
+    await screen.findAllByText("Founder briefing");
+    const file = new File(
+      [JSON.stringify({ encrypted: true })],
+      "calendar.json",
+      { type: "application/json" },
+    );
+    fireEvent.change(screen.getByLabelText("Open backup"), {
+      target: { files: [file] },
+    });
+    fireEvent.change(screen.getByLabelText("Backup or restore passphrase"), {
+      target: { value: "a safe test passphrase" },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Preview restore" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "This will replace existing local Calendar state, and undo will not be available.",
+        { exact: false },
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/The target is empty/)).not.toBeInTheDocument();
   });
 });

@@ -1128,6 +1128,10 @@ class CalendarAdoptionStore:
             metadata = os.lstat(self.database_path)
         except FileNotFoundError:
             return False
+        except OSError as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE"
+            ) from exc
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
         return True
@@ -2751,6 +2755,10 @@ class CalendarAdoptionStore:
             _validate_ref(idempotency_ref, "idempotency_ref")
             checkpoints = self._read_receipt_checkpoints()
             checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
+            repository: CalendarRepository | None = None
+            authority: LocalApprovalAuthority | None = None
+            if self._database_present():
+                repository, _platform, authority = self._repository()
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
                     checkpoint,
@@ -2764,40 +2772,41 @@ class CalendarAdoptionStore:
                     backup_fingerprint_ref=(request.backup.ciphertext_fingerprint_ref),
                 )
                 bundle = self._open_backup(request)
-                repository, _platform, authority = self._repository()
-                try:
-                    if checkpoint.before_revision == 0:
-                        calendar_set = CalendarSet(
-                            workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                            calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
-                            name=bundle.name,
-                            calendars=bundle.calendars,
-                            events=bundle.events,
-                        )
-                        replay = repository.recover_create_receipt(
-                            calendar_set=calendar_set,
-                            operation_ref=checkpoint.operation_ref,
-                            idempotency_ref=idempotency_ref,
-                        )
-                    else:
-                        replay = repository.recover_mutation_receipt(
-                            workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                            calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
-                            expected_version=checkpoint.before_revision,
-                            operation_ref=checkpoint.operation_ref,
-                            idempotency_ref=idempotency_ref,
-                            mutation_kind="restore_bundle",
-                            mutation_material={
-                                "bundle": bundle.model_dump(mode="json")
-                            },
-                        )
-                except EcosystemLocalDataError as exc:
-                    if str(exc) not in {
-                        "ECO_WORKSPACE_NOT_FOUND",
-                        "ECO_RECORD_NOT_FOUND",
-                    }:
-                        raise
-                    replay = None
+                replay: UnitOfWorkReceipt | None = None
+                if repository is not None:
+                    try:
+                        if checkpoint.before_revision == 0:
+                            calendar_set = CalendarSet(
+                                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+                                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                                name=bundle.name,
+                                calendars=bundle.calendars,
+                                events=bundle.events,
+                            )
+                            replay = repository.recover_create_receipt(
+                                calendar_set=calendar_set,
+                                operation_ref=checkpoint.operation_ref,
+                                idempotency_ref=idempotency_ref,
+                            )
+                        else:
+                            replay = repository.recover_mutation_receipt(
+                                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+                                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                                expected_version=checkpoint.before_revision,
+                                operation_ref=checkpoint.operation_ref,
+                                idempotency_ref=idempotency_ref,
+                                mutation_kind="restore_bundle",
+                                mutation_material={
+                                    "bundle": bundle.model_dump(mode="json")
+                                },
+                            )
+                    except EcosystemLocalDataError as exc:
+                        if str(exc) not in {
+                            "ECO_WORKSPACE_NOT_FOUND",
+                            "ECO_RECORD_NOT_FOUND",
+                        }:
+                            raise
+                        replay = None
                 if replay is not None:
                     if checkpoint.receipt is not None:
                         self._assert_checkpoint_receipt_matches_unit(
@@ -2850,7 +2859,8 @@ class CalendarAdoptionStore:
                 idempotency_ref=idempotency_ref,
                 restore=True,
             )
-            repository, _platform, authority = self._repository()
+            if repository is None or authority is None:
+                repository, _platform, authority = self._repository()
             if checkpoint is None:
                 checkpoint = _CalendarAdoptionReceiptCheckpoint(
                     action="restore_backup",
