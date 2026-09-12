@@ -1203,7 +1203,8 @@ function isCalendarAdoptionRestorePreview(
     typeof value.rollback_available === "boolean" &&
     (expected === 0
       ? value.rollback_available === false &&
-        value.impact_status === "empty_target"
+        (value.impact_status === "empty_target" ||
+          value.impact_status === "unknown_current_state")
       : value.impact_status === "exact") &&
     value.restore_performed === false &&
     value.private_values_included === false

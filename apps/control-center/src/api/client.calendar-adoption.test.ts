@@ -333,6 +333,27 @@ describe("Calendar adoption response and mutation provenance", () => {
     ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
   });
 
+  it("accepts an exact corrupt-target recovery preview without claiming an empty target", async () => {
+    const recoveryPreview: CalendarAdoptionRestorePreview = {
+      ...restorePreview,
+      expected_revision: 0,
+      resulting_revision: 1,
+      current_state_ref:
+        "state-ref:calendar-adoption-unreadable:sha256:current",
+      rollback_available: false,
+      impact_status: "unknown_current_state",
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => response(recoveryPreview)));
+
+    await expect(
+      previewCalendarAdoptionRestore(
+        backup,
+        "correct horse battery staple",
+        restoreIdempotencyRef,
+      ),
+    ).resolves.toEqual(recoveryPreview);
+  });
+
   it("rejects Calendar reads with broadened authority boundaries", async () => {
     const blockedFlags = [
       "external_calendar_write_enabled",
