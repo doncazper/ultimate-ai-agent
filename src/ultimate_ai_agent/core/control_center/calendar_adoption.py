@@ -123,6 +123,9 @@ CALENDAR_ADOPTION_SAFE_DISABLE_REF = (
 CALENDAR_ADOPTION_STATE_DIR_ENV = "UAA_CALENDAR_STATE_DIR"
 CALENDAR_ADOPTION_DATABASE_FILE = "calendar.sqlite3"
 CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE = "adoption-receipts.json"
+CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF = (
+    "idempotency-generation-ref:calendar-adoption"
+)
 CALENDAR_ADOPTION_APPROVAL_TTL_MINUTES = 5
 CALENDAR_ADOPTION_MAX_BACKUP_BYTES = 2 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_BACKUP_B64_CHARS = (
@@ -1372,6 +1375,10 @@ class CalendarAdoptionStore:
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> None:
+        if idempotency_ref == CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_IDEMPOTENCY_REF_RESERVED"
+            )
         checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
         if checkpoint is None and not self._idempotency_matches_generation(
             idempotency_ref,
@@ -1658,11 +1665,18 @@ class CalendarAdoptionStore:
             timezone_name=timezone_name,
         )
         if not self._database_present():
+            checkpoint_entries = self._read_receipt_checkpoints()
             return self._empty_view(
                 status="onboarding",
                 view=view,
                 anchor=selected_anchor,
                 timezone_name=timezone_name,
+                idempotency_generation=self._checkpoint_generation(
+                    checkpoint_entries
+                ),
+                idempotency_generation_ref=self._checkpoint_generation_ref(
+                    checkpoint_entries
+                ),
             )
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
@@ -1681,19 +1695,21 @@ class CalendarAdoptionStore:
     ) -> CalendarAdoptionReadModel:
         selected_anchor = anchor or utc_now()
         try:
+            checkpoint_entries = self._read_receipt_checkpoints()
+            idempotency_generation = self._checkpoint_generation(checkpoint_entries)
+            idempotency_generation_ref = self._checkpoint_generation_ref(
+                checkpoint_entries
+            )
             if not self._database_present():
                 return self._empty_view(
                     status="onboarding",
                     view=view,
                     anchor=selected_anchor,
                     timezone_name=timezone_name,
+                    idempotency_generation=idempotency_generation,
+                    idempotency_generation_ref=idempotency_generation_ref,
                 )
             self._secure_tree(self.state_dir)
-            checkpoint_entries = self._read_receipt_checkpoints()
-            idempotency_generation = self._checkpoint_generation(checkpoint_entries)
-            idempotency_generation_ref = self._checkpoint_generation_ref(
-                checkpoint_entries
-            )
             repository, _platform, _authority = self._repository()
             try:
                 calendar_set = repository.read(

@@ -294,6 +294,11 @@ def test_tombstone_capacity_rotates_a_bounded_idempotency_generation(
     read_model = store.read_view()
     assert read_model.idempotency_generation == 1
     assert read_model.idempotency_generation_ref == generation_ref
+    store.database_path.unlink()
+    recovery_model = store.read_view()
+    assert recovery_model.status == "onboarding"
+    assert recovery_model.idempotency_generation == 1
+    assert recovery_model.idempotency_generation_ref == generation_ref
     assert store._tombstone_for(retained, tombstones[0].idempotency_ref) is None
     with pytest.raises(
         CalendarAdoptionError,
@@ -311,6 +316,26 @@ def test_tombstone_capacity_rotates_a_bounded_idempotency_generation(
         ),
         payload_fingerprint_ref="payload-fingerprint-ref:q33:generation-1:new",
     )
+
+
+def test_generation_marker_identity_is_reserved_from_api_callers(
+    tmp_path: Path,
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    mutation = CalendarAdoptionMutationRequest(
+        action="initialize", expected_revision=0, calendar=_calendar()
+    )
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_IDEMPOTENCY_REF_RESERVED",
+    ):
+        store.preview_mutation(
+            mutation,
+            idempotency_ref="idempotency-generation-ref:calendar-adoption",
+        )
+
+    assert store._read_receipt_checkpoints() == []
 
 
 def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:

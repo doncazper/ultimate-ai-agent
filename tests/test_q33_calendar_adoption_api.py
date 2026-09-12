@@ -530,6 +530,14 @@ def test_calendar_body_limit_is_published_for_every_json_route() -> None:
             "API_IDEMPOTENCY_CONFLICT",
         ),
         ({"X-UAA-Idempotency-Key": "invalid!"}, "API_IDEMPOTENCY_INVALID"),
+        (
+            {
+                "X-UAA-Idempotency-Key": (
+                    "idempotency-generation-ref:calendar-adoption"
+                )
+            },
+            "API_IDEMPOTENCY_RESERVED",
+        ),
     ],
 )
 def test_calendar_adoption_api_rejects_bad_idempotency(
