@@ -57,6 +57,14 @@ import type {
   CrmAdoptionWorkspaceView,
   CrmPortableBackup,
   CrmPortableRestorePreview,
+  CalendarAdoptionApprovalReceipt,
+  CalendarAdoptionMutationPreview,
+  CalendarAdoptionMutationReceipt,
+  CalendarAdoptionMutationRequest,
+  CalendarAdoptionPortableBackup,
+  CalendarAdoptionRestorePreview,
+  CalendarAdoptionView,
+  CalendarAdoptionWorkspaceView,
   WorkBoardAdoptionApprovalReceipt,
   WorkBoardAdoptionMutationPreview,
   WorkBoardAdoptionMutationReceipt,
@@ -937,6 +945,654 @@ export async function commitWorkBoardAdoptionRestore(
     idempotencyRef,
     true,
     mutationBinding,
+  );
+}
+
+export async function loadCalendarAdoptionWorkspace(
+  view: CalendarAdoptionView,
+  anchor: string,
+  timezone: string,
+): Promise<CalendarAdoptionWorkspaceView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const query = new URLSearchParams({ view, anchor, timezone });
+  const value = await readEnvelope<CalendarAdoptionWorkspaceView>(
+    `${API_ENDPOINTS.calendarAdoption}?${query.toString()}`,
+  );
+  if (
+    value.schema_version !== "uaa-calendar-adoption-read-model.v1" ||
+    value.contract_ref !== CALENDAR_ADOPTION_CONTRACT_REF ||
+    ![
+      "onboarding",
+      "ready",
+      "setup_incomplete",
+      "projection_limited",
+      "recovery_required",
+    ].includes(
+      String(value.status),
+    ) ||
+    value.workspace_ref !== "workspace-ref:founder-private-calendar" ||
+    value.calendar_set_ref !== "calendar-set-ref:founder-private" ||
+    !isCalendarAdoptionRevision(value.revision) ||
+    typeof value.current_state_ref !== "string" ||
+    !value.current_state_ref.startsWith("state-ref:calendar-adoption") ||
+    !isCalendarAdoptionRevision(value.idempotency_generation) ||
+    typeof value.idempotency_generation_ref !== "string" ||
+    !CALENDAR_ADOPTION_GENERATION_REF.test(value.idempotency_generation_ref) ||
+    (value.calendar_set_name !== null &&
+      !isCalendarAdoptionPrivateText(value.calendar_set_name, 512)) ||
+    value.view !== view ||
+    value.timezone !== timezone ||
+    !isCalendarAdoptionAwareTimestamp(value.range_starts_at) ||
+    !isCalendarAdoptionAwareTimestamp(value.range_ends_at) ||
+    Date.parse(value.range_ends_at) <= Date.parse(value.range_starts_at) ||
+    !isCalendarAdoptionResultRef(value.result_ref, String(value.status)) ||
+    typeof value.can_undo !== "boolean" ||
+    !isCalendarAdoptionPrivateText(value.next_safe_action, 512) ||
+    value.backend_owned !== true ||
+    value.local_only !== true ||
+    value.exact_approval_required !== true ||
+    value.backup_restore_available !== true ||
+    value.external_calendar_write_enabled !== false ||
+    value.connector_read_enabled !== false ||
+    value.connector_write_enabled !== false ||
+    value.provider_model_call_enabled !== false ||
+    value.browser_automation_enabled !== false ||
+    value.shell_subprocess_execution_enabled !== false ||
+    value.background_scheduling_enabled !== false ||
+    value.notification_delivery_enabled !== false ||
+    value.production_authority_enabled !== false ||
+    !Array.isArray(value.calendars) ||
+    value.calendars.length > 256 ||
+    !value.calendars.every(isCalendarAdoptionCalendar) ||
+    !Array.isArray(value.active_events) ||
+    value.active_events.length > 10_000 ||
+    !value.active_events.every(isCalendarAdoptionEvent) ||
+    !Array.isArray(value.occurrence_items) ||
+    value.occurrence_items.length > 25_000 ||
+    !value.occurrence_items.every(isCalendarAdoptionOccurrenceProjection) ||
+    !Array.isArray(value.archived_events) ||
+    value.archived_events.length > 10_000 ||
+    !value.archived_events.every(isCalendarAdoptionEvent) ||
+    !Array.isArray(value.conflict_items) ||
+    value.conflict_items.length > 10_000 ||
+    !value.conflict_items.every(isCalendarAdoptionConflictItem)
+  ) {
+    throw new Error("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+const CALENDAR_ADOPTION_CONTRACT_REF =
+  "contract-ref:queue-v2-q33-calendar-adoption:v1";
+const CALENDAR_ADOPTION_SAFE_DISABLE_REF =
+  "safe-disable-ref:calendar-adoption-local-write:deny";
+const CALENDAR_ADOPTION_MAX_REVISION = 9_007_199_254_740_991;
+const CALENDAR_ADOPTION_SAFE_REF = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
+const CALENDAR_ADOPTION_AWARE_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const CALENDAR_ADOPTION_GENERATION_REF =
+  /^idempotency-generation-ref:calendar-adoption:[a-f0-9]{32}$/;
+const CALENDAR_ADOPTION_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function isCalendarAdoptionRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCalendarAdoptionSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    CALENDAR_ADOPTION_SAFE_REF.test(value) &&
+    !containsSecretLike(value)
+  );
+}
+
+function isCalendarAdoptionRevision(
+  value: unknown,
+  minimum = 0,
+): value is number {
+  return (
+    Number.isSafeInteger(value) &&
+    (value as number) >= minimum &&
+    (value as number) <= CALENDAR_ADOPTION_MAX_REVISION
+  );
+}
+
+function isCalendarAdoptionAwareTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    CALENDAR_ADOPTION_AWARE_TIMESTAMP.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+
+function isCalendarAdoptionPrivateText(
+  value: unknown,
+  maximumBytes: number,
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    new TextEncoder().encode(value).byteLength <= maximumBytes &&
+    !Array.from(value).some(
+      (character) =>
+        character.charCodeAt(0) < 32 && character !== "\n" && character !== "\t",
+    )
+  );
+}
+
+function isCalendarAdoptionTimezone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 255) return false;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isCalendarAdoptionCalendar(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.calendar_ref) &&
+    isCalendarAdoptionPrivateText(value.name, 512) &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    (value.color_ref == null || isCalendarAdoptionSafeRef(value.color_ref)) &&
+    typeof value.archived === "boolean"
+  );
+}
+
+function isCalendarAdoptionRecurrence(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    ["daily", "weekly", "monthly"].includes(String(value.frequency)) &&
+    Number.isInteger(value.interval) &&
+    Number(value.interval) >= 1 &&
+    Number(value.interval) <= 365 &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    Array.isArray(value.weekdays) &&
+    value.weekdays.length <= 7 &&
+    value.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    new Set(value.weekdays).size === value.weekdays.length &&
+    (value.frequency === "weekly" || value.weekdays.length === 0) &&
+    (value.month_day == null ||
+      (Number.isInteger(value.month_day) && Number(value.month_day) >= 1 && Number(value.month_day) <= 31)) &&
+    (value.frequency === "monthly" || value.month_day == null) &&
+    (value.count == null ||
+      (Number.isInteger(value.count) && Number(value.count) >= 1 && Number(value.count) <= 100_000)) &&
+    (value.until == null || isCalendarAdoptionAwareTimestamp(value.until))
+  );
+}
+
+function isCalendarAdoptionResultRef(value: unknown, status: string): boolean {
+  if (!isCalendarAdoptionSafeRef(value)) return false;
+  return status === "ready"
+    ? /^calendar-view-result-ref:sha256:[0-9a-f]{64}$/.test(value)
+    : [
+        "onboarding",
+        "setup_incomplete",
+        "projection_limited",
+        "recovery_required",
+      ].includes(status) &&
+        value.startsWith("calendar-view-result-ref:adoption:");
+}
+
+function isCalendarAdoptionEvent(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.event_ref) &&
+    isCalendarAdoptionSafeRef(value.calendar_ref) &&
+    (value.task_ref == null
+      ? isCalendarAdoptionPrivateText(value.title, 2_048)
+      : isCalendarAdoptionSafeRef(value.task_ref) && value.title === null && value.description === null) &&
+    (value.description == null || isCalendarAdoptionPrivateText(value.description, 65_536)) &&
+    (value.location == null || isCalendarAdoptionPrivateText(value.location, 8_192)) &&
+    isCalendarAdoptionAwareTimestamp(value.starts_at) &&
+    isCalendarAdoptionAwareTimestamp(value.ends_at) &&
+    Date.parse(value.ends_at) > Date.parse(value.starts_at) &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    typeof value.all_day === "boolean" &&
+    typeof value.archived === "boolean" &&
+    Array.isArray(value.participant_items) &&
+    value.participant_items.length <= 1_000 &&
+    value.participant_items.every(
+      (item) =>
+        isCalendarAdoptionRecord(item) &&
+        isCalendarAdoptionSafeRef(item.participant_ref) &&
+        isCalendarAdoptionPrivateText(item.display_name, 512) &&
+        (item.address == null || isCalendarAdoptionPrivateText(item.address, 2_048)) &&
+        ["needs_action", "accepted", "declined", "tentative"].includes(String(item.status)),
+    ) &&
+    Array.isArray(value.reminder_items) &&
+    value.reminder_items.length <= 64 &&
+    value.reminder_items.every(
+      (item) =>
+        isCalendarAdoptionRecord(item) &&
+        isCalendarAdoptionSafeRef(item.reminder_ref) &&
+        Number.isInteger(item.minutes_before) &&
+        Number(item.minutes_before) >= 0 &&
+        Number(item.minutes_before) <= 525_600 &&
+        item.delivery_posture === "intent_only",
+    ) &&
+    (value.recurrence == null ||
+      (isCalendarAdoptionRecurrence(value.recurrence) &&
+        value.recurrence.timezone === value.timezone))
+  );
+}
+
+function isCalendarAdoptionOccurrenceProjection(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value) || !isCalendarAdoptionRecord(value.occurrence)) return false;
+  const event = value.event;
+  const occurrence = value.occurrence;
+  return (
+    isCalendarAdoptionRecord(event) &&
+    isCalendarAdoptionEvent(event) &&
+    isCalendarAdoptionSafeRef(occurrence.occurrence_ref) &&
+    occurrence.event_ref === event.event_ref &&
+    occurrence.calendar_ref === event.calendar_ref &&
+    isCalendarAdoptionAwareTimestamp(occurrence.starts_at) &&
+    isCalendarAdoptionAwareTimestamp(occurrence.ends_at) &&
+    Date.parse(occurrence.ends_at) > Date.parse(occurrence.starts_at) &&
+    isCalendarAdoptionTimezone(occurrence.timezone) &&
+    isCalendarAdoptionSafeRef(value.canonical_owner_ref) &&
+    Array.isArray(value.field_provenance_refs) &&
+    value.field_provenance_refs.every(isCalendarAdoptionSafeRef) &&
+    ["current", "archived", "missing"].includes(String(value.projection_state))
+  );
+}
+
+function isCalendarAdoptionConflictItem(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.first_occurrence_ref) &&
+    isCalendarAdoptionSafeRef(value.second_occurrence_ref) &&
+    isCalendarAdoptionAwareTimestamp(value.overlap_starts_at) &&
+    isCalendarAdoptionAwareTimestamp(value.overlap_ends_at) &&
+    Date.parse(value.overlap_ends_at) > Date.parse(value.overlap_starts_at)
+  );
+}
+
+function requireCalendarAdoptionResponse<T>(
+  value: unknown,
+  validator: (candidate: unknown) => candidate is T,
+): T {
+  if (!validator(value)) {
+    throw new Error("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+function isCalendarAdoptionMutationPreview(
+  value: unknown,
+  request: CalendarAdoptionMutationRequest,
+): value is CalendarAdoptionMutationPreview {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-mutation-preview.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === request.action &&
+    value.expected_revision === request.expected_revision &&
+    value.resulting_revision === request.expected_revision + 1 &&
+    value.target_ref === (request.target_ref ?? null) &&
+    isCalendarAdoptionSafeRef(value.payload_fingerprint_ref) &&
+    value.payload_fingerprint_ref.startsWith(
+      "payload-fingerprint-ref:calendar-adoption:",
+    ) &&
+    isCalendarAdoptionSafeRef(value.preview_ref) &&
+    value.preview_ref.startsWith("preview-ref:calendar-adoption:") &&
+    isCalendarAdoptionSafeRef(value.approval_ref) &&
+    value.approval_ref.startsWith("approval-ref:calendar-adoption:") &&
+    isCalendarAdoptionSafeRef(value.operation_ref) &&
+    value.operation_ref.startsWith("operation-ref:calendar-adoption:") &&
+    typeof value.safe_summary === "string" &&
+    value.safe_summary.length > 0 &&
+    value.safe_summary.length <= 320 &&
+    !containsSecretLike(value.safe_summary) &&
+    value.mutation_performed === false &&
+    value.external_write_performed === false
+  );
+}
+
+function isCalendarAdoptionApprovalReceipt(
+  value: unknown,
+  preview: CalendarAdoptionMutationPreview | CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+): value is CalendarAdoptionApprovalReceipt {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-approval-receipt.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.approval_ref === preview.approval_ref &&
+    typeof value.approval_validation_ref === "string" &&
+    /^appr_dec_[0-9a-f]{12}$/.test(value.approval_validation_ref) &&
+    value.preview_ref === preview.preview_ref &&
+    value.idempotency_ref === idempotencyRef &&
+    isCalendarAdoptionAwareTimestamp(value.expires_at) &&
+    value.backend_owned === true &&
+    value.mutation_performed === false
+  );
+}
+
+function isCalendarAdoptionMutationReceipt(
+  value: unknown,
+  action: CalendarAdoptionMutationReceipt["action"],
+  targetRef: string | null,
+  preview: CalendarAdoptionMutationPreview | CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  backupFingerprintRef: string | null,
+): value is CalendarAdoptionMutationReceipt {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-mutation-receipt.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === action &&
+    value.target_ref === targetRef &&
+    value.before_revision === preview.expected_revision &&
+    value.after_revision === preview.resulting_revision &&
+    value.idempotency_ref === idempotencyRef &&
+    value.payload_fingerprint_ref === preview.payload_fingerprint_ref &&
+    value.preview_ref === preview.preview_ref &&
+    value.approval_ref === preview.approval_ref &&
+    typeof value.approval_validation_ref === "string" &&
+    /^appr_dec_[0-9a-f]{12}$/.test(value.approval_validation_ref) &&
+    isCalendarAdoptionAwareTimestamp(value.approval_expires_at) &&
+    isCalendarAdoptionSafeRef(value.authority_decision_ref) &&
+    isCalendarAdoptionSafeRef(value.authority_lease_ref) &&
+    value.operation_ref === preview.operation_ref &&
+    isCalendarAdoptionSafeRef(value.receipt_ref) &&
+    Array.isArray(value.operation_receipt_refs) &&
+    value.operation_receipt_refs.length > 0 &&
+    value.operation_receipt_refs.length <= 64 &&
+    value.operation_receipt_refs.every(isCalendarAdoptionSafeRef) &&
+    new Set(value.operation_receipt_refs).size ===
+      value.operation_receipt_refs.length &&
+    value.backup_fingerprint_ref === backupFingerprintRef &&
+    isCalendarAdoptionSafeRef(value.state_ref) &&
+    isCalendarAdoptionSafeRef(value.rollback_ref) &&
+    value.safe_disable_ref === CALENDAR_ADOPTION_SAFE_DISABLE_REF &&
+    typeof value.replayed === "boolean" &&
+    value.local_calendar_write_performed === true &&
+    value.external_calendar_write_performed === false &&
+    value.connector_write_performed === false &&
+    value.provider_model_call_performed === false &&
+    value.shell_subprocess_execution_performed === false &&
+    value.browser_automation_performed === false &&
+    value.background_scheduling_performed === false &&
+    value.notification_delivery_performed === false &&
+    value.production_authority_enabled === false
+  );
+}
+
+function isCalendarAdoptionPortableBackup(
+  value: unknown,
+): value is CalendarAdoptionPortableBackup {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-portable-backup.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    typeof value.salt === "string" &&
+    value.salt.length === 24 &&
+    CALENDAR_ADOPTION_BASE64.test(value.salt) &&
+    typeof value.nonce === "string" &&
+    value.nonce.length === 16 &&
+    CALENDAR_ADOPTION_BASE64.test(value.nonce) &&
+    typeof value.ciphertext === "string" &&
+    value.ciphertext.length >= 24 &&
+    value.ciphertext.length <= 2_796_204 &&
+    CALENDAR_ADOPTION_BASE64.test(value.ciphertext) &&
+    typeof value.ciphertext_fingerprint_ref === "string" &&
+    /^ciphertext-fingerprint-ref:sha256:[0-9a-f]{64}$/.test(
+      value.ciphertext_fingerprint_ref,
+    ) &&
+    isCalendarAdoptionRevision(value.source_revision, 1) &&
+    isCalendarAdoptionAwareTimestamp(value.created_at) &&
+    value.private_values_encrypted === true &&
+    value.key_material_included === false &&
+    value.raw_paths_included === false
+  );
+}
+
+function isCalendarAdoptionRestorePreview(
+  value: unknown,
+  backup: CalendarAdoptionPortableBackup,
+): value is CalendarAdoptionRestorePreview {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  const expected = value.expected_revision;
+  return (
+    value.schema_version === "uaa-calendar-adoption-restore-preview.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === "restore_backup" &&
+    isCalendarAdoptionRevision(expected) &&
+    value.resulting_revision === (expected as number) + 1 &&
+    value.backup_revision === backup.source_revision &&
+    Number.isInteger(value.calendar_count) &&
+    (value.calendar_count as number) >= 1 &&
+    (value.calendar_count as number) <= 256 &&
+    Number.isInteger(value.event_count) &&
+    (value.event_count as number) >= 0 &&
+    (value.event_count as number) <= 10_000 &&
+    isCalendarAdoptionSafeRef(value.current_state_ref) &&
+    isCalendarAdoptionSafeRef(value.payload_fingerprint_ref) &&
+    value.payload_fingerprint_ref.startsWith(
+      "payload-fingerprint-ref:calendar-adoption-restore:",
+    ) &&
+    isCalendarAdoptionSafeRef(value.preview_ref) &&
+    value.preview_ref.startsWith("preview-ref:calendar-adoption-restore:") &&
+    isCalendarAdoptionSafeRef(value.approval_ref) &&
+    value.approval_ref.startsWith("approval-ref:calendar-adoption-restore:") &&
+    isCalendarAdoptionSafeRef(value.operation_ref) &&
+    value.operation_ref.startsWith("operation-ref:calendar-adoption-restore:") &&
+    typeof value.rollback_available === "boolean" &&
+    (expected === 0
+      ? value.rollback_available === false &&
+        (value.impact_status === "empty_target" ||
+          value.impact_status === "unknown_current_state")
+      : value.impact_status === "exact") &&
+    value.restore_performed === false &&
+    value.private_values_included === false
+  );
+}
+
+async function postCalendarAdoptionEnvelope(
+  endpoint: string,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
+): Promise<unknown> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
+    body: JSON.stringify(body),
+  });
+  if (operatorConfirmed) {
+    validateBackendResponseBinding(response.headers, mutationBinding);
+  }
+  const data = (await readJsonSafely(response)) as ResultEnvelope<unknown>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private Calendar request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewCalendarAdoptionMutation(
+  request: CalendarAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionMutationPreview> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionPreview,
+    request,
+    idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationPreview =>
+      isCalendarAdoptionMutationPreview(candidate, request),
+  );
+}
+
+export async function captureCalendarAdoptionApproval(
+  request: CalendarAdoptionMutationRequest,
+  preview: CalendarAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionApprovalReceipt> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionApproval,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionApprovalReceipt =>
+      isCalendarAdoptionApprovalReceipt(candidate, preview, idempotencyRef),
+  );
+}
+
+export async function commitCalendarAdoptionMutation(
+  request: CalendarAdoptionMutationRequest,
+  preview: CalendarAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionMutationReceipt> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionCommit,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationReceipt =>
+      isCalendarAdoptionMutationReceipt(
+        candidate,
+        request.action,
+        request.target_ref ?? null,
+        preview,
+        idempotencyRef,
+        null,
+      ),
+  );
+}
+
+export async function createCalendarAdoptionBackup(
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionPortableBackup> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionBackup,
+    { passphrase },
+    idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    isCalendarAdoptionPortableBackup,
+  );
+}
+
+export async function previewCalendarAdoptionRestore(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  idempotencyRef: string,
+): Promise<CalendarAdoptionRestorePreview> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestorePreview,
+    { backup, passphrase },
+    idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionRestorePreview =>
+      isCalendarAdoptionRestorePreview(candidate, backup),
+  );
+}
+
+export async function captureCalendarAdoptionRestoreApproval(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  preview: CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionApprovalReceipt> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestoreApproval,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionApprovalReceipt =>
+      isCalendarAdoptionApprovalReceipt(candidate, preview, idempotencyRef),
+  );
+}
+
+export async function commitCalendarAdoptionRestore(
+  backup: CalendarAdoptionPortableBackup,
+  passphrase: string,
+  preview: CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<CalendarAdoptionMutationReceipt> {
+  const value = await postCalendarAdoptionEnvelope(
+    API_ENDPOINTS.calendarAdoptionRestoreCommit,
+    {
+      backup,
+      passphrase,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationReceipt =>
+      isCalendarAdoptionMutationReceipt(
+        candidate,
+        "restore_backup",
+        "calendar-set-ref:founder-private",
+        preview,
+        idempotencyRef,
+        backup.ciphertext_fingerprint_ref,
+      ),
   );
 }
 
@@ -2737,6 +3393,9 @@ export async function loadControlCenterData(
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const calendarAdoptionSettledPromise = Promise.allSettled([
+    read<CalendarAdoptionWorkspaceView>(API_ENDPOINTS.calendarAdoption),
+  ] as const);
   const socialPublishingProposalSettledPromise = Promise.allSettled([
     read<SocialPublishingProposalReadModel>(
       API_ENDPOINTS.socialPublishingProposal,
@@ -3005,6 +3664,7 @@ export async function loadControlCenterData(
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const calendarAdoptionResult = await calendarAdoptionSettledPromise;
   const socialPublishingProposalResult =
     await socialPublishingProposalSettledPromise;
   const communicationsProjectionResult =
@@ -3200,6 +3860,7 @@ export async function loadControlCenterData(
   const codingLivePreview = fulfilledValue(results[41]);
   const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const calendarAdoption = fulfilledValue(calendarAdoptionResult[0]);
   const unsafeSocialPublishingProposal = fulfilledValue(
     socialPublishingProposalResult[0],
   );
@@ -3715,6 +4376,13 @@ export async function loadControlCenterData(
       endpointReturned: workBoard !== undefined,
       warningRefs: workBoardEndpointFallbackWarningRefs,
       usedFallback: workBoardFallbackUsed,
+    }),
+    routeReadStateInput({
+      route: "/calendar",
+      surfaceLabel: "Calendar",
+      backendRouteRef: "GET /control-center/calendar/adoption",
+      endpointReturned: calendarAdoption !== undefined,
+      usedFallback: calendarAdoption === undefined,
     }),
     routeReadStateInput({
       route: "/studio",

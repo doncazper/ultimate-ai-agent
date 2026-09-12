@@ -88,6 +88,16 @@ and its scoped reorder/card/task routes remain reachable as supporting detail.
 Neither surface executes tasks, assigns work, syncs issue trackers, calls
 providers, runs shell/browser work, writes connectors, launches background
 autonomy, or grants production authority.
+`/workspace/calendar` now starts with the backend-owned founder-private Calendar
+from `GET /control-center/calendar/adoption`. Its exact preview, approval, and
+commit routes support multiple local calendars, event create/edit/archive/
+recover, recurrence, and undo; separate backup and restore routes provide
+encrypted manual continuity and fail-closed recovery. The UI shows readable
+day, week, month, and agenda projections, conflict state, exact confirmation,
+receipts, and recovery. The previous synthetic fixture is retained only as
+collapsed supporting detail. No account adapter, external calendar read/write,
+automatic sync, background scheduling, notification delivery, provider/model
+call, shell/browser execution, public release, or production authority is added.
 `/crm` renders the backend-owned CRM Local Command Center M2 read model from
 `GET /control-center/crm/summary` and companion CRM read routes. It shows
 relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
@@ -202,6 +212,14 @@ Backend API endpoints consumed:
 - `POST /control-center/work-board/adoption/restore-preview`
 - `POST /control-center/work-board/adoption/restore-approval`
 - `POST /control-center/work-board/adoption/restore-commit`
+- `GET /control-center/calendar/adoption`
+- `POST /control-center/calendar/adoption/preview`
+- `POST /control-center/calendar/adoption/approval`
+- `POST /control-center/calendar/adoption/commit`
+- `POST /control-center/calendar/adoption/backup`
+- `POST /control-center/calendar/adoption/restore-preview`
+- `POST /control-center/calendar/adoption/restore-approval`
+- `POST /control-center/calendar/adoption/restore-commit`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
@@ -286,8 +304,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `376`
-with `378` manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `384`
+with `386` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

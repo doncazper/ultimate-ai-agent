@@ -14,6 +14,7 @@ const EXPECTED_SURFACES = [
   ["critical-surface:action-inbox", "Action Inbox", ["/actions", "/workspace/decisions"], ["GET /control-center/actions/inbox"]],
   ["critical-surface:approvals", "Approvals", ["/approvals", "/workspace/decisions"], ["GET /control-center/approvals/queue"]],
   ["critical-surface:work-board", "Work Board", ["/work-board", "/workspace/work-board"], ["GET /control-center/work-board", "GET /control-center/work-board/adoption"]],
+  ["critical-surface:calendar", "Calendar", ["/workspace/calendar"], ["GET /control-center/calendar/adoption"]],
   ["critical-surface:morning-briefing", "Morning Briefing", ["/briefing", "/morning-briefing", "/workspace", "/workspace/today"], ["GET /control-center/morning-briefing/summary"]],
   ["critical-surface:memory", "Memory", ["/memory", "/workspace/knowledge"], ["GET /control-center/memory/review"]],
   ["critical-surface:evidence-proof", "Evidence and Proof", ["/proof", "/evidence", "/workspace/activity-trust"], ["GET /control-center/proof/index", "GET /control-center/evidence/timeline", "GET /control-center/runs/observability"]],
@@ -47,6 +48,7 @@ const CRITICAL_FRONTEND_PATHS = new Set([
   "/workspace/today",
   "/workspace/decisions",
   "/workspace/work-board",
+  "/workspace/calendar",
   "/workspace/knowledge",
   "/workspace/activity-trust",
   "/workspace/onboarding",
@@ -122,10 +124,23 @@ export async function validateControlCenterBackendTruth(
     fail("BACKEND_TRUTH_INTEGRITY_MISMATCH");
   }
 
+  if (!Array.isArray(value.critical_surfaces)) {
+    fail("BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE");
+  }
+  const suppliedOrder = value.critical_surfaces.map((surface) =>
+    isRecord(surface)
+      ? EXPECTED_SURFACES.findIndex((expected) => surface.surface_ref === expected[0])
+      : -1,
+  );
   if (
-    !Array.isArray(value.critical_surfaces) ||
-    value.critical_surfaces.length !== EXPECTED_SURFACES.length
+    suppliedOrder.some(
+      (expectedIndex, index) =>
+        expectedIndex < 0 || (index > 0 && expectedIndex <= suppliedOrder[index - 1]),
+    )
   ) {
+    fail("BACKEND_TRUTH_CRITICAL_SURFACE_INVALID");
+  }
+  if (value.critical_surfaces.length !== EXPECTED_SURFACES.length) {
     fail("BACKEND_TRUTH_CRITICAL_SURFACES_INCOMPLETE");
   }
   value.critical_surfaces.forEach((surface, index) => {

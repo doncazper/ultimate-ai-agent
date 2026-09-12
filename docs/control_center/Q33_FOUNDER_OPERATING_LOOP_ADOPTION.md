@@ -159,6 +159,59 @@ The Work Board remains planning state only. A card does not execute a task or
 grant provider/model, connector, shell, browser, background, public-release, or
 production authority.
 
+## Implemented Calendar adoption slice
+
+The primary `/workspace/calendar` surface now starts with a Python/API-owned,
+founder-private Calendar for ordinary local event planning. It supports
+multiple local calendars, readable day, week, month, and agenda views, search,
+conflict visibility, create, edit, archive, recover, recurrence, undo, encrypted
+backup, and exact restore. The earlier synthetic Calendar fixture remains
+collapsed as supporting diagnostics and is not product truth.
+
+Python Agent Core owns the durable product state through:
+
+- `GET /control-center/calendar/adoption`
+- `POST /control-center/calendar/adoption/preview`
+- `POST /control-center/calendar/adoption/approval`
+- `POST /control-center/calendar/adoption/commit`
+- `POST /control-center/calendar/adoption/backup`
+- `POST /control-center/calendar/adoption/restore-preview`
+- `POST /control-center/calendar/adoption/restore-approval`
+- `POST /control-center/calendar/adoption/restore-commit`
+
+Every local change binds the current revision, exact payload fingerprint,
+preview, approval, backend-truth envelope, idempotency ref, authority decision,
+short-lived operation-budget-one `workspace/write` AuthorityLease, durable
+receipt, and rollback ref. A durable content-free checkpoint is recorded before
+the canonical Calendar transaction so an interrupted response can recover the
+exact receipt without a duplicate event write. A completed checkpoint is
+revalidated against the encrypted repository transaction before replay.
+
+Calendar state uses the canonical ECO-004 encrypted local repository. Portable
+backups use Scrypt-derived AES-GCM encryption and bind the encrypted bundle to
+its exact source revision and creation timestamp. Restore is bounded,
+fingerprint-checked, revision-aware, exact-idempotent, and fail-closed for a
+wrong passphrase, substituted metadata, corrupt state, unsafe links, or an
+ambiguous current target. Manual encrypted export/import provides continuity
+between the founder's own computers; automatic or concurrent sync is not
+included.
+
+When the current SQLite database is corrupt but remains an exact, readable,
+owner-only regular file, restore binds the database and SQLite sidecar bytes to
+the reviewed preview, builds and integrity-checks a complete replacement in a
+private staging directory, then atomically publishes it only after the same
+approval and AuthorityLease checks. The confirmation reports unknown current
+impact and no rollback rather than calling the damaged target empty. Unsafe,
+changed, or unbindable state remains blocked.
+
+`python scripts/dev/uaa_calendar.py inspect-adoption` reads the same Core
+contract. Its safe default prints only counts, refs, readiness, and blocked
+authority flags; `--include-private` is required to print event values.
+
+This slice adds no account adapter, external calendar read/write, connector,
+background scheduler, notification delivery, provider/model call, browser or
+shell execution, automatic sync, public release, or production authority.
+
 ## Verification
 
 - `tests/test_q33_chat_content_free_workspace.py`
@@ -166,16 +219,25 @@ production authority.
 - `tests/test_q33_work_board_adoption_api.py`
 - `tests/test_q33_work_board_adoption_cli.py`
 - `tests/test_queue_v2_q33_work_board_adoption.py`
+- `tests/test_q33_calendar_adoption.py`
+- `tests/test_q33_calendar_adoption_api.py`
+- `tests/test_q33_calendar_adoption_cli.py`
+- `tests/test_queue_v2_q33_calendar_adoption.py`
 - `tests/test_control_center_mutation_backend_truth_binding.py`
 - `apps/control-center/src/components/ChatWorkspacePanel.test.tsx`
 - `apps/control-center/src/api/client.setupRoute.test.ts`
 - `apps/control-center/src/components/MacOSSetupAssistantPanel.test.tsx`
 - `apps/control-center/src/northstar/WiredSurfaces.test.tsx`
 - `apps/control-center/src/App.backendTruth.test.tsx`
+- `apps/control-center/src/api/client.calendar-adoption.test.ts`
+- `apps/control-center/src/components/CalendarAdoptionWorkspace.test.tsx`
 - `python scripts/inspect_chat_workspace.py --state-dir <local-state-dir>`
 - `python scripts/dev/uaa_work_board.py inspect-adoption --state-dir <local-state-dir>`
+- `python scripts/dev/uaa_calendar.py inspect-adoption --state-dir <local-state-dir>`
 - `python scripts/verify_queue_v2_q33_work_board_adoption.py`
+- `python scripts/verify_queue_v2_q33_calendar_adoption.py`
 - OpenAPI/API manifest snapshot and documentation-integrity verification
 
 These are bounded Q33 slices, not terminal evidence for the full Founder
-Operating Loop adoption item. Calendar and final cross-surface acceptance remain.
+Operating Loop adoption item. Final cross-surface founder-private acceptance
+remains.

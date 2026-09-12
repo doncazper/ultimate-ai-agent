@@ -3211,6 +3211,253 @@ export interface WorkBoardAdoptionRestorePreview {
   restore_performed: false;
 }
 
+export type CalendarAdoptionView = "day" | "week" | "month" | "agenda";
+
+export interface CalendarAdoptionCalendar {
+  calendar_ref: string;
+  name: string;
+  timezone: string;
+  color_ref?: string | null;
+  archived: boolean;
+}
+
+export interface CalendarAdoptionRecurrence {
+  frequency: "daily" | "weekly" | "monthly";
+  interval: number;
+  timezone: string;
+  weekdays: number[];
+  month_day?: number | null;
+  count?: number | null;
+  until?: string | null;
+}
+
+export interface CalendarAdoptionEvent {
+  event_ref: string;
+  calendar_ref: string;
+  title?: string | null;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  all_day: boolean;
+  participant_items: Array<{
+    participant_ref: string;
+    display_name: string;
+    address?: string | null;
+    status: "needs_action" | "accepted" | "declined" | "tentative";
+  }>;
+  reminder_items: Array<{
+    reminder_ref: string;
+    minutes_before: number;
+    delivery_posture: "intent_only";
+  }>;
+  recurrence?: CalendarAdoptionRecurrence | null;
+  task_ref?: string | null;
+  archived: boolean;
+}
+
+export interface CalendarAdoptionOccurrenceProjection {
+  event: CalendarAdoptionEvent;
+  occurrence: {
+    occurrence_ref: string;
+    event_ref: string;
+    calendar_ref: string;
+    starts_at: string;
+    ends_at: string;
+    timezone: string;
+  };
+  canonical_owner_ref: string;
+  field_provenance_refs: string[];
+  projection_state: "current" | "archived" | "missing";
+}
+
+export interface CalendarAdoptionConflictItem {
+  first_occurrence_ref: string;
+  second_occurrence_ref: string;
+  overlap_starts_at: string;
+  overlap_ends_at: string;
+}
+
+export interface CalendarAdoptionWorkspaceView {
+  schema_version: "uaa-calendar-adoption-read-model.v1";
+  contract_ref: string;
+  status:
+    | "onboarding"
+    | "ready"
+    | "setup_incomplete"
+    | "projection_limited"
+    | "recovery_required";
+  workspace_ref: string;
+  calendar_set_ref: string;
+  revision: number;
+  current_state_ref: string;
+  idempotency_generation: number;
+  idempotency_generation_ref: string;
+  calendar_set_name?: string | null;
+  calendars: CalendarAdoptionCalendar[];
+  active_events: CalendarAdoptionEvent[];
+  occurrence_items: CalendarAdoptionOccurrenceProjection[];
+  archived_events: CalendarAdoptionEvent[];
+  conflict_items: CalendarAdoptionConflictItem[];
+  view: CalendarAdoptionView;
+  timezone: string;
+  range_starts_at: string;
+  range_ends_at: string;
+  result_ref: string;
+  can_undo: boolean;
+  next_safe_action: string;
+  backend_owned: true;
+  local_only: true;
+  exact_approval_required: true;
+  backup_restore_available: true;
+  external_calendar_write_enabled: false;
+  connector_read_enabled: false;
+  connector_write_enabled: false;
+  provider_model_call_enabled: false;
+  browser_automation_enabled: false;
+  shell_subprocess_execution_enabled: false;
+  background_scheduling_enabled: false;
+  notification_delivery_enabled: false;
+  production_authority_enabled: false;
+}
+
+export interface CalendarAdoptionCalendarDraft {
+  calendar_ref: string;
+  name: string;
+  timezone: string;
+  color_ref?: string | null;
+}
+
+export interface CalendarAdoptionEventDraft {
+  event_ref: string;
+  calendar_ref: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  all_day: boolean;
+  participant_items: CalendarAdoptionEvent["participant_items"];
+  reminder_items: CalendarAdoptionEvent["reminder_items"];
+  recurrence?: CalendarAdoptionRecurrence | null;
+}
+
+export interface CalendarAdoptionMutationRequest {
+  action:
+    | "initialize"
+    | "create_event"
+    | "update_event"
+    | "archive_event"
+    | "recover_event"
+    | "create_calendar"
+    | "update_calendar"
+    | "archive_calendar"
+    | "recover_calendar"
+    | "undo";
+  expected_revision: number;
+  target_ref?: string | null;
+  event?: CalendarAdoptionEventDraft | null;
+  calendar?: CalendarAdoptionCalendarDraft | null;
+}
+
+export interface CalendarAdoptionMutationPreview {
+  schema_version: "uaa-calendar-adoption-mutation-preview.v1";
+  contract_ref: string;
+  action: CalendarAdoptionMutationRequest["action"];
+  expected_revision: number;
+  resulting_revision: number;
+  target_ref?: string | null;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  operation_ref: string;
+  safe_summary: string;
+  mutation_performed: false;
+  external_write_performed: false;
+}
+
+export interface CalendarAdoptionApprovalReceipt {
+  schema_version: "uaa-calendar-adoption-approval-receipt.v1";
+  contract_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  preview_ref: string;
+  idempotency_ref: string;
+  expires_at: string;
+  backend_owned: true;
+  mutation_performed: false;
+}
+
+export interface CalendarAdoptionMutationReceipt {
+  schema_version: "uaa-calendar-adoption-mutation-receipt.v1";
+  contract_ref: string;
+  action: CalendarAdoptionMutationRequest["action"] | "restore_backup";
+  target_ref?: string | null;
+  before_revision: number;
+  after_revision: number;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  approval_expires_at: string;
+  authority_decision_ref: string;
+  authority_lease_ref: string;
+  operation_ref: string;
+  receipt_ref: string;
+  operation_receipt_refs: string[];
+  backup_fingerprint_ref?: string | null;
+  state_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  replayed: boolean;
+  local_calendar_write_performed: true;
+  external_calendar_write_performed: false;
+  connector_write_performed: false;
+  provider_model_call_performed: false;
+  shell_subprocess_execution_performed: false;
+  browser_automation_performed: false;
+  background_scheduling_performed: false;
+  notification_delivery_performed: false;
+  production_authority_enabled: false;
+}
+
+export interface CalendarAdoptionPortableBackup {
+  schema_version: "uaa-calendar-adoption-portable-backup.v1";
+  contract_ref: string;
+  salt: string;
+  nonce: string;
+  ciphertext: string;
+  ciphertext_fingerprint_ref: string;
+  source_revision: number;
+  created_at: string;
+  private_values_encrypted: true;
+  key_material_included: false;
+  raw_paths_included: false;
+}
+
+export interface CalendarAdoptionRestorePreview {
+  schema_version: "uaa-calendar-adoption-restore-preview.v1";
+  contract_ref: string;
+  action: "restore_backup";
+  expected_revision: number;
+  resulting_revision: number;
+  backup_revision: number;
+  calendar_count: number;
+  event_count: number;
+  current_state_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  operation_ref: string;
+  rollback_available: boolean;
+  impact_status: "exact" | "empty_target" | "unknown_current_state";
+  restore_performed: false;
+  private_values_included: false;
+}
+
 export interface FounderLoopTaskDecompositionStep {
   step_ref: string;
   title: string;

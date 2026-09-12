@@ -3516,6 +3516,7 @@ describe("Web Control Center shell", () => {
       "Source Inbox",
       "Plans",
       "Work Board",
+      "Calendar",
       "Action Inbox",
       "Proof",
       "Trust",
@@ -17396,6 +17397,25 @@ describe("Web Control Center shell", () => {
           },
         },
       }),
+    ).toBe(false);
+  });
+
+  it("requires the backend-owned Calendar adoption read before admitting Calendar", () => {
+    const data = structuredClone(mockControlCenterData);
+    data.routeStates["/calendar"] = {
+      ...data.routeStates["/crm"],
+      route: "/calendar",
+      state: "backend_owned",
+    };
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/calendar", data),
+    ).toBe(true);
+    data.routeStates["/calendar"] = {
+      ...data.routeStates["/calendar"],
+      state: "degraded",
+    };
+    expect(
+      criticalRouteDataIsBackendOwned("/workspace/calendar", data),
     ).toBe(false);
   });
 

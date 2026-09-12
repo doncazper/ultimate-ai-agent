@@ -10,12 +10,12 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 378,
-    "release_surface_route_count": 44,
-    "visible_action_count": 47,
-    "human_capability_count": 32,
-    "covered_release_route_count": 44,
-    "covered_visible_action_count": 47,
+    "api_manifest_route_count": 386,
+    "release_surface_route_count": 45,
+    "visible_action_count": 48,
+    "human_capability_count": 33,
+    "covered_release_route_count": 45,
+    "covered_visible_action_count": 48,
     "missing_release_routes": [],
     "missing_visible_actions": []
   },
@@ -712,6 +712,208 @@
         },
         {
           "action_id": "ui-control:work-board.adoption-restore",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        }
+      ],
+      "source_truth_status": "current"
+    },
+    {
+      "capability_id": "calendar_founder_private_lifecycle",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/calendar/adoption",
+          "operation_id": "get_control_center_calendar_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/preview",
+          "operation_id": "preview_control_center_calendar_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/approval",
+          "operation_id": "capture_control_center_calendar_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/commit",
+          "operation_id": "commit_control_center_calendar_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/backup",
+          "operation_id": "create_control_center_calendar_adoption_backup",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/restore-preview",
+          "operation_id": "preview_control_center_calendar_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/restore-approval",
+          "operation_id": "capture_control_center_calendar_adoption_restore_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/calendar/adoption/restore-commit",
+          "operation_id": "commit_control_center_calendar_adoption_restore",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        }
+      ],
+      "ui_routes": [
+        {
+          "path": "/workspace/calendar",
+          "label": "Calendar",
+          "group": "Founder Loop",
+          "ui_status": "backend-owned founder-private calendar",
+          "release_status": "partial",
+          "owner": "founder-loop",
+          "backend_route_count": 8,
+          "blocked_capability_count": 12,
+          "visual_proof_status": "checked_in_baseline",
+          "source_truth_status": "current"
+        }
+      ],
+      "control_action_ids": [
+        {
+          "action_id": "navigate-calendar",
+          "source": "route_status_manifest",
+          "frontend_route": "/workspace/calendar",
+          "ui_surface": "Calendar",
+          "release_status": "partial_backend_not_product_ready",
+          "side_effect_class": "local_dev_workspace_only",
+          "risk_class": "medium",
+          "backend_route_count": 8,
+          "missing_backend_route_count": 4,
+          "source_truth_status": "current"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-create-calendar",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-create-event",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-edit-event",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-archive-event",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-recover-event",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-undo",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-backup",
+          "source": "human_capability_ui_control_ref",
+          "frontend_route": "manual_ui_control",
+          "ui_surface": "manual_ui_control",
+          "release_status": "manual_ui_control_ref",
+          "side_effect_class": "manual_ui_control_ref",
+          "risk_class": "manual_ui_control_ref",
+          "backend_route_count": 0,
+          "missing_backend_route_count": 0,
+          "source_truth_status": "human_owned"
+        },
+        {
+          "action_id": "ui-control:calendar.adoption-restore",
           "source": "human_capability_ui_control_ref",
           "frontend_route": "manual_ui_control",
           "ui_surface": "manual_ui_control",

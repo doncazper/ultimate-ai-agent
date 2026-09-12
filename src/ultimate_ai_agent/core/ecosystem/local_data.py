@@ -1206,6 +1206,95 @@ class EcosystemLocalDataPlatform:
             finally:
                 connection.close()
 
+    def recover_receipt(
+        self,
+        *,
+        workspace_ref: str,
+        idempotency_ref: str,
+        requested_action: str,
+        request_context_ref: str,
+    ) -> UnitOfWorkReceipt | None:
+        """Recover an exact content-free receipt without granting a new write.
+
+        This path is intentionally read-only.  It validates the authenticated
+        durable receipt and its encrypted request-context binding, but it does
+        not accept an approval object and cannot create or update a record.
+        """
+
+        _validate_ref(workspace_ref, field_name="workspace_ref")
+        _validate_ref(idempotency_ref, field_name="idempotency_ref")
+        _validate_ref(requested_action, field_name="requested_action")
+        _validate_ref(request_context_ref, field_name="request_context_ref")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN")
+            key_item_ref, _key_version_ref = self._workspace_key(
+                connection, workspace_ref
+            )
+            replay = connection.execute(
+                "SELECT * FROM eco_uow_receipts "
+                "WHERE workspace_ref = ? AND idempotency_ref = ?",
+                (workspace_ref, idempotency_ref),
+            ).fetchone()
+            if replay is None:
+                connection.rollback()
+                return None
+            expected_authenticator = self._receipt_authenticator(
+                key_item_ref=key_item_ref,
+                key_version_ref=replay["key_version_ref"],
+                workspace_ref=workspace_ref,
+                idempotency_ref=idempotency_ref,
+                request_fingerprint_ref=replay["request_fingerprint_ref"],
+                request_ciphertext=replay["request_ciphertext"],
+                approval_ref=replay["approval_ref"],
+                receipt_ref=replay["receipt_ref"],
+                operation_receipt_refs_json=replay["operation_receipt_refs_json"],
+                created_at=replay["created_at"],
+            )
+            if not hmac.compare_digest(
+                replay["receipt_authenticator_ref"], expected_authenticator
+            ):
+                raise EcosystemLocalDataError("ECO_UOW_RECEIPT_INTEGRITY_FAILED")
+            previous_material = self.crypto_backend.decrypt(
+                key_item_ref=key_item_ref,
+                key_version_ref=replay["key_version_ref"],
+                ciphertext=replay["request_ciphertext"],
+                aad=_receipt_aad(
+                    workspace_ref=workspace_ref,
+                    idempotency_ref=idempotency_ref,
+                    key_version_ref=replay["key_version_ref"],
+                ),
+            )
+            try:
+                material = json.loads(previous_material)
+            except (TypeError, ValueError) as exc:
+                raise EcosystemLocalDataError(
+                    "ECO_UOW_RECEIPT_REQUEST_INVALID"
+                ) from exc
+            if (
+                not isinstance(material, dict)
+                or material.get("workspace_ref") != workspace_ref
+                or material.get("requested_action") != requested_action
+                or material.get("request_context_ref") != request_context_ref
+            ):
+                raise EcosystemConflict("ECO_IDEMPOTENCY_REPLAY_CONFLICT")
+            connection.rollback()
+            return UnitOfWorkReceipt(
+                workspace_ref=workspace_ref,
+                idempotency_ref=idempotency_ref,
+                request_fingerprint_ref=replay["request_fingerprint_ref"],
+                receipt_ref=replay["receipt_ref"],
+                operation_receipt_refs=tuple(
+                    json.loads(replay["operation_receipt_refs_json"])
+                ),
+                replayed=True,
+            )
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def _request_material(
         self,
         workspace_ref: str,

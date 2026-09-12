@@ -1047,6 +1047,116 @@ class CalendarRepository:
             approval=approval,
         )
 
+    def restore_bundle(
+        self,
+        *,
+        workspace_ref: str,
+        calendar_set_ref: str,
+        bundle: CalendarPortableBundle,
+        expected_version: int,
+        operation_ref: str,
+        idempotency_ref: str,
+        approval: ApprovalValidationRequest,
+    ) -> UnitOfWorkReceipt:
+        """Replace one existing set from an exact portable bundle with undo."""
+
+        def transform(_current: CalendarSet) -> CalendarSetSnapshot:
+            return CalendarSetSnapshot(
+                name=bundle.name,
+                calendars=bundle.calendars,
+                events=bundle.events,
+                archived=False,
+            )
+
+        return self._mutate(
+            workspace_ref=workspace_ref,
+            calendar_set_ref=calendar_set_ref,
+            expected_version=expected_version,
+            operation_ref=operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+            mutation_kind="restore_bundle",
+            mutation_material={"bundle": bundle.model_dump(mode="json")},
+            transform=transform,
+        )
+
+    def recover_mutation_receipt(
+        self,
+        *,
+        workspace_ref: str,
+        calendar_set_ref: str,
+        expected_version: int,
+        operation_ref: str,
+        idempotency_ref: str,
+        mutation_kind: str,
+        mutation_material: dict[str, Any],
+    ) -> UnitOfWorkReceipt | None:
+        """Recover an exact prior mutation receipt without new write authority."""
+
+        _validate_ref(mutation_kind, "mutation_kind")
+        context = self._request_context_ref(
+            mutation_kind,
+            {
+                "workspace_ref": workspace_ref,
+                "calendar_set_ref": calendar_set_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+                "mutation": mutation_material,
+            },
+        )
+        return self.platform.recover_receipt(
+            workspace_ref=workspace_ref,
+            idempotency_ref=idempotency_ref,
+            requested_action=ECO_CALENDAR_MUTATION_ACTION,
+            request_context_ref=context,
+        )
+
+    def recover_create_receipt(
+        self,
+        *,
+        calendar_set: CalendarSet,
+        operation_ref: str,
+        idempotency_ref: str,
+    ) -> UnitOfWorkReceipt | None:
+        context = self._request_context_ref(
+            "create_calendar_set",
+            {
+                "calendar_set": calendar_set.model_dump(mode="json"),
+                "operation_ref": operation_ref,
+            },
+        )
+        return self.platform.recover_receipt(
+            workspace_ref=calendar_set.workspace_ref,
+            idempotency_ref=idempotency_ref,
+            requested_action=ECO_CALENDAR_MUTATION_ACTION,
+            request_context_ref=context,
+        )
+
+    def recover_undo_receipt(
+        self,
+        *,
+        workspace_ref: str,
+        calendar_set_ref: str,
+        expected_version: int,
+        operation_ref: str,
+        idempotency_ref: str,
+    ) -> UnitOfWorkReceipt | None:
+        context = self._request_context_ref(
+            "undo",
+            {
+                "workspace_ref": workspace_ref,
+                "calendar_set_ref": calendar_set_ref,
+                "expected_version": expected_version,
+                "operation_ref": operation_ref,
+            },
+        )
+        return self.platform.recover_receipt(
+            workspace_ref=workspace_ref,
+            idempotency_ref=idempotency_ref,
+            requested_action=ECO_CALENDAR_MUTATION_ACTION,
+            request_context_ref=context,
+        )
+
     def occurrences(
         self,
         *,

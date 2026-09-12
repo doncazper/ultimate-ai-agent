@@ -370,6 +370,7 @@
               "communications_matrix_messaging",
               "communications_matrix_rooms_media",
               "communications_matrix_session",
+              "calendar_adoption",
               "crm_adoption",
               "local_model_validation",
               "memory_feedback",

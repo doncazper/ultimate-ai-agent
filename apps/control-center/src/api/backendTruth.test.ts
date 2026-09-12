@@ -88,24 +88,46 @@ const crmSurface = {
   contract_status: "backend_contract_declared",
 } as const;
 
-function withCrmSurface(value: ReturnType<typeof fixture>) {
+const calendarSurface = {
+  surface_ref: "critical-surface:calendar",
+  label: "Calendar",
+  frontend_paths: ["/workspace/calendar"],
+  backend_route_refs: ["GET /control-center/calendar/adoption"],
+  contract_status: "backend_contract_declared",
+} as const;
+
+type BackendTruthFixtureSurface = {
+  surface_ref: string;
+  label: string;
+  frontend_paths: readonly string[];
+  backend_route_refs: readonly string[];
+  contract_status: "backend_contract_declared";
+};
+
+type CurrentFixture = Omit<ReturnType<typeof fixture>, "critical_surfaces"> & {
+  critical_surfaces: BackendTruthFixtureSurface[];
+};
+
+function withCrmSurface(value: ReturnType<typeof fixture>): CurrentFixture {
+  const baseSurfaces = value.critical_surfaces as unknown as BackendTruthFixtureSurface[];
+  const currentSurfaces = baseSurfaces.flatMap((surface) =>
+    surface.surface_ref === "critical-surface:work-board"
+      ? [
+          {
+            ...surface,
+            backend_route_refs: [
+              ...surface.backend_route_refs,
+              "GET /control-center/work-board/adoption",
+            ],
+          },
+          calendarSurface,
+        ]
+      : [surface],
+  );
   return {
     ...value,
-    critical_surfaces: [
-      ...value.critical_surfaces.map((surface) =>
-        surface.surface_ref === "critical-surface:work-board"
-          ? {
-              ...surface,
-              backend_route_refs: [
-                ...surface.backend_route_refs,
-                "GET /control-center/work-board/adoption",
-              ],
-            }
-          : surface,
-      ),
-      crmSurface,
-    ],
-  };
+    critical_surfaces: [...currentSurfaces, crmSurface],
+  } as CurrentFixture;
 }
 
 const options = {
@@ -129,7 +151,7 @@ describe("backend truth validation", () => {
     const validated = await validateControlCenterBackendTruth(value, options);
 
     expect(validated.backend_revision_ref).toMatch(/^commit-ref:git:/);
-    expect(validated.critical_surfaces).toHaveLength(15);
+    expect(validated.critical_surfaces).toHaveLength(16);
     expect(validated.evidence_binding.status).toBe("unverified_incomplete");
   });
 
@@ -283,6 +305,22 @@ describe("backend truth validation", () => {
     ).rejects.toMatchObject({ code: "BACKEND_TRUTH_CRITICAL_SURFACE_INVALID" });
   });
 
+  it("rejects Calendar truth that omits the adoption read contract", async () => {
+    const current = withCrmSurface(fixture());
+    const value = {
+      ...current,
+      critical_surfaces: current.critical_surfaces.map((surface) =>
+        surface.surface_ref === "critical-surface:calendar"
+          ? { ...surface, backend_route_refs: [] }
+          : surface,
+      ),
+    };
+
+    await expect(
+      validateControlCenterBackendTruth(value, options),
+    ).rejects.toMatchObject({ code: "BACKEND_TRUTH_CRITICAL_SURFACE_INVALID" });
+  });
+
   it("uses stable key ordering for the cross-language integrity input", () => {
     expect(canonicalJson({ z: [2, 1], a: { y: false, x: "ref" } })).toBe(
       '{"a":{"x":"ref","y":false},"z":[2,1]}',
@@ -295,6 +333,7 @@ describe("backend truth validation", () => {
     expect(isCriticalControlCenterPath("/runtime")).toBe(true);
     expect(isCriticalControlCenterPath("/settings")).toBe(true);
     expect(isCriticalControlCenterPath("/workspace/crm")).toBe(true);
+    expect(isCriticalControlCenterPath("/workspace/calendar")).toBe(true);
     expect(isCriticalControlCenterPath("/news")).toBe(false);
   });
 });

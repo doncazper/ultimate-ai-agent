@@ -33,6 +33,12 @@ WORK_BOARD_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
 WORK_BOARD_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:work-board-adoption-authority-approval-store:v1"
 )
+CALENDAR_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:calendar-adoption-state-receipts:v1"
+)
+CALENDAR_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF = (
+    "idempotency-owner:calendar-adoption-authority-approval-store:v1"
+)
 CHAT_WORKSPACE_DURABLE_IDEMPOTENCY_OWNER_REF = (
     "idempotency-owner:chat-workspace-mutation-replay-store:v1"
 )
@@ -67,6 +73,18 @@ WORK_BOARD_ADOPTION_DURABLE_REPLAY_PATHS = frozenset(
     {
         "/control-center/work-board/adoption/commit",
         "/control-center/work-board/adoption/restore-commit",
+    }
+)
+CALENDAR_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/control-center/calendar/adoption/approval",
+        "/control-center/calendar/adoption/restore-approval",
+    }
+)
+CALENDAR_ADOPTION_DURABLE_REPLAY_PATHS = frozenset(
+    {
+        "/control-center/calendar/adoption/commit",
+        "/control-center/calendar/adoption/restore-commit",
     }
 )
 GOAL_JOURNAL_DURABLE_REPLAY_PATHS = frozenset(
@@ -170,6 +188,19 @@ def route_idempotency_enforcement(
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
             WORK_BOARD_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if (
+        method == "POST"
+        and path in CALENDAR_ADOPTION_APPROVAL_DURABLE_REPLAY_PATHS
+    ):
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CALENDAR_ADOPTION_APPROVAL_DURABLE_IDEMPOTENCY_OWNER_REF,
+        )
+    if method == "POST" and path in CALENDAR_ADOPTION_DURABLE_REPLAY_PATHS:
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            CALENDAR_ADOPTION_DURABLE_IDEMPOTENCY_OWNER_REF,
         )
     if method == "POST" and path in CHAT_WORKSPACE_APPROVAL_DURABLE_REPLAY_PATHS:
         return (

@@ -13,6 +13,65 @@
   text-rendering: optimizeLegibility;
 }
 
+/* Founder-private Calendar adoption */
+.calendar-adoption { position: relative; width: 100%; min-width: 0; }
+.calendar-adoption-toolbar, .calendar-adoption-range, .calendar-adoption-actions, .calendar-adoption-confirm .panel > div, .calendar-adoption-recovery > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.calendar-adoption-toolbar { margin: 14px 0; padding: 10px; border: 1px solid var(--fcc-line); border-radius: 10px; background: var(--fcc-soft); }
+.calendar-adoption-toolbar > label { margin-left: auto; }
+.calendar-adoption-toolbar input { width: 190px; }
+.calendar-adoption-view-switcher { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--fcc-surface); }
+.calendar-adoption-view-switcher button { border-color: transparent; text-transform: capitalize; }
+.calendar-adoption-view-switcher button.active { border-color: var(--fcc-blue); background: var(--fcc-blue-soft); color: var(--fcc-blue); }
+.calendar-adoption-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 310px); gap: 14px; }
+.calendar-adoption-main, .calendar-adoption-inspector { min-width: 0; border: 1px solid var(--fcc-line); border-radius: 12px; background: var(--fcc-surface); }
+.calendar-adoption-main { padding: 14px; }
+.calendar-adoption-range { justify-content: space-between; margin-bottom: 12px; }
+.calendar-adoption-range input { min-width: min(280px, 72vw); }
+.calendar-adoption-days { display: grid; gap: 12px; }
+.calendar-adoption-days > section { display: grid; grid-template-columns: minmax(116px, 0.22fr) minmax(0, 1fr); gap: 8px; padding-top: 10px; border-top: 1px solid var(--fcc-line); }
+.calendar-adoption-days > section > header { display: flex; justify-content: space-between; gap: 6px; padding: 8px; }
+.calendar-adoption-days > section > header span, .calendar-adoption-event span, .calendar-adoption-event small { color: var(--fcc-muted); }
+.calendar-adoption-event { display: grid; grid-template-columns: minmax(112px, auto) minmax(140px, 1fr) auto; align-items: center; gap: 12px; width: 100%; margin-bottom: 6px; padding: 11px 12px; border: 1px solid var(--fcc-line); border-left: 4px solid var(--fcc-blue); border-radius: 9px; background: var(--fcc-soft); color: var(--fcc-text); text-align: left; }
+.calendar-adoption-event:hover, .calendar-adoption-event.selected { border-color: var(--fcc-blue); background: var(--fcc-blue-soft); }
+.calendar-adoption-event.conflict { border-left-color: var(--fcc-orange); }
+.calendar-adoption-empty { padding: 34px 18px; text-align: center; }
+.calendar-adoption-inspector { padding: 16px; }
+.calendar-adoption-inspector h3, .calendar-adoption-inspector h4 { margin-top: 0; }
+.calendar-adoption-inspector dl > div { padding: 8px 0; border-top: 1px solid var(--fcc-line); }
+.calendar-adoption-inspector dt, .calendar-adoption-inspector small { color: var(--fcc-muted); font-size: 0.78rem; }
+.calendar-adoption-inspector dd { margin: 3px 0 0; }
+.calendar-adoption-archive { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--fcc-line); }
+.calendar-adoption-archive button { display: block; width: 100%; margin-bottom: 6px; text-align: left; }
+.calendar-adoption-editor-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.7fr) minmax(240px, 0.8fr); gap: 14px; margin-top: 14px; }
+.calendar-adoption-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.calendar-adoption-fields label, .calendar-adoption-calendars > label, .calendar-adoption-recovery > label, .calendar-adoption-onboarding label { display: grid; gap: 5px; color: var(--fcc-muted); font-size: 0.82rem; }
+.calendar-adoption-wide { grid-column: 1 / -1; }
+.calendar-adoption-fields textarea { min-height: 92px; resize: vertical; }
+.calendar-adoption-calendars > div { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--fcc-line); }
+.calendar-adoption-calendars > div small { grid-column: 2; color: var(--fcc-muted); }
+.calendar-adoption-dot { width: 10px; height: 10px; grid-row: 1 / 3; border-radius: 50%; background: var(--fcc-blue); }
+.calendar-adoption-file { position: relative; display: inline-flex; overflow: hidden; align-items: center; padding: 8px 12px; border: 1px solid var(--fcc-line); border-radius: 8px; cursor: pointer; }
+.calendar-adoption-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.calendar-adoption-confirm { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, 0.48); }
+.calendar-adoption-confirm .panel { width: min(600px, 100%); max-height: 85vh; overflow: auto; box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25); }
+.calendar-adoption-receipt { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--fcc-line); border-radius: 9px; background: var(--fcc-soft); color: var(--fcc-muted); font-size: 0.8rem; }
+
+@media (max-width: 1100px) {
+  .calendar-adoption-editor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-adoption-recovery { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .calendar-adoption-layout, .calendar-adoption-editor-grid, .calendar-adoption-fields { grid-template-columns: 1fr; }
+  .calendar-adoption-toolbar > label { width: 100%; margin-left: 0; }
+  .calendar-adoption-toolbar input, .calendar-adoption-range input { width: 100%; min-width: 0; }
+  .calendar-adoption-view-switcher { width: 100%; }
+  .calendar-adoption-view-switcher button { flex: 1; }
+  .calendar-adoption-days > section, .calendar-adoption-event { grid-template-columns: 1fr; }
+  .calendar-adoption-event { gap: 4px; }
+  .calendar-adoption-wide, .calendar-adoption-recovery { grid-column: auto; }
+}
+
 * {
   box-sizing: border-box;
 }

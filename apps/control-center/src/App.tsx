@@ -1330,6 +1330,7 @@ const CRITICAL_ROUTE_KEYS: Record<string, string[]> = {
     "/actions",
     ...NORTH_STAR_SHELL_ROUTE_KEYS,
   ],
+  "/workspace/calendar": ["/calendar"],
   "/workspace/knowledge": [
     "/memory",
     ...NORTH_STAR_SHELL_ROUTE_KEYS,

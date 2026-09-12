@@ -60,6 +60,10 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/work-board/adoption/commit"),
         ("POST", "/control-center/work-board/adoption/restore-approval"),
         ("POST", "/control-center/work-board/adoption/restore-commit"),
+        ("POST", "/control-center/calendar/adoption/approval"),
+        ("POST", "/control-center/calendar/adoption/commit"),
+        ("POST", "/control-center/calendar/adoption/restore-approval"),
+        ("POST", "/control-center/calendar/adoption/restore-commit"),
         ("POST", "/control-center/communications/harness/fixture-seed"),
         ("POST", "/control-center/communications/harness/reset"),
         ("POST", "/control-center/communications/harness/start"),
@@ -181,6 +185,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "communications_matrix_session",
         "crm_adoption",
         "work_board_adoption",
+        "calendar_adoption",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
         "governed_runtime_pilot",
@@ -197,9 +202,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 165
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 172
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "be7c5222dfe275d4d75e32746099394a20976846348537a377c9d087e5c7d033"
+    "7addb2831e98e7523fbdf5c726f2a8436e5025235779168cd2415c0c9f76b4d6"
 )
 
 

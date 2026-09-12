@@ -67,6 +67,17 @@ export const API_ENDPOINTS = {
     "/control-center/work-board/adoption/restore-approval",
   workBoardAdoptionRestoreCommit:
     "/control-center/work-board/adoption/restore-commit",
+  calendarAdoption: "/control-center/calendar/adoption",
+  calendarAdoptionPreview: "/control-center/calendar/adoption/preview",
+  calendarAdoptionApproval: "/control-center/calendar/adoption/approval",
+  calendarAdoptionCommit: "/control-center/calendar/adoption/commit",
+  calendarAdoptionBackup: "/control-center/calendar/adoption/backup",
+  calendarAdoptionRestorePreview:
+    "/control-center/calendar/adoption/restore-preview",
+  calendarAdoptionRestoreApproval:
+    "/control-center/calendar/adoption/restore-approval",
+  calendarAdoptionRestoreCommit:
+    "/control-center/calendar/adoption/restore-commit",
   socialPublishingProposal: "/control-center/social-publishing/proposal",
   autocorrectStatus: "/control-center/autocorrect/status",
   autocorrectProposalPreview: "/control-center/autocorrect/proposals/preview",

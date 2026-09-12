@@ -160,6 +160,21 @@
       "raw_private_screenshot_included": false
     },
     {
+      "surface": "Calendar",
+      "route": "/workspace/calendar",
+      "baseline_ref": "visual-baseline:control-center:calendar",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:calendar",
+        "mobile": "visual-baseline-file:mobile:calendar"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:3722a26e01e45c64b448bedd4eb361e757931cd13786a6c5064bc966bd93c807",
+        "mobile": "sha256:d3f2aa3c13e405337618b5c39a9d304c6e9eb6ecdf7626bc423ff35059351e0c"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
       "surface": "Proof",
       "route": "/proof",
       "baseline_ref": "visual-baseline:control-center:proof",
