@@ -157,6 +157,13 @@ _CALENDAR_ADOPTION_MANAGED_ROOT_NAMES = frozenset(
         CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE,
     }
 )
+_CALENDAR_ADOPTION_RESTORE_STAGE_PREFIX = ".calendar-restore."
+_CALENDAR_ADOPTION_DATABASE_CLUSTER_NAMES = (
+    CALENDAR_ADOPTION_DATABASE_FILE,
+    f"{CALENDAR_ADOPTION_DATABASE_FILE}-journal",
+    f"{CALENDAR_ADOPTION_DATABASE_FILE}-shm",
+    f"{CALENDAR_ADOPTION_DATABASE_FILE}-wal",
+)
 
 
 class CalendarAdoptionError(RuntimeError):
@@ -928,8 +935,13 @@ class CalendarAdoptionStore:
 
     @staticmethod
     def _managed_root_child(child: Path) -> bool:
-        return child.name in _CALENDAR_ADOPTION_MANAGED_ROOT_NAMES or (
-            child.name.startswith(".calendar-receipts.") and child.name.endswith(".tmp")
+        return (
+            child.name in _CALENDAR_ADOPTION_MANAGED_ROOT_NAMES
+            or (
+                child.name.startswith(".calendar-receipts.")
+                and child.name.endswith(".tmp")
+            )
+            or child.name.startswith(_CALENDAR_ADOPTION_RESTORE_STAGE_PREFIX)
         )
 
     def _validate_state_tree_before_permission_change(self) -> None:
@@ -1150,12 +1162,64 @@ class CalendarAdoptionStore:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
         return True
 
+    def _database_cluster_state_ref(self) -> str:
+        """Bind an unreadable SQLite target without materializing private bytes."""
+
+        items: list[dict[str, Any]] = []
+        for name in _CALENDAR_ADOPTION_DATABASE_CLUSTER_NAMES:
+            path = self.state_dir / name
+            try:
+                linked = os.lstat(path)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                ) from exc
+            if not stat.S_ISREG(linked.st_mode) or linked.st_nlink != 1:
+                raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+            descriptor = -1
+            try:
+                descriptor = os.open(
+                    path,
+                    os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                )
+                opened = os.fstat(descriptor)
+                if (
+                    not stat.S_ISREG(opened.st_mode)
+                    or opened.st_nlink != 1
+                    or (opened.st_dev, opened.st_ino) != (linked.st_dev, linked.st_ino)
+                ):
+                    raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+                digest = hashlib.sha256()
+                while chunk := os.read(descriptor, 1024 * 1024):
+                    digest.update(chunk)
+            except OSError as exc:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+                ) from exc
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+            items.append(
+                {
+                    "name": name,
+                    "size": linked.st_size,
+                    "sha256": digest.hexdigest(),
+                }
+            )
+        if not items or items[0]["name"] != CALENDAR_ADOPTION_DATABASE_FILE:
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE")
+        return _hash_ref("state-ref:calendar-adoption-unreadable", items)
+
     def _repository(
         self,
+        *,
+        database_path: Path | None = None,
     ) -> tuple[CalendarRepository, EcosystemLocalDataPlatform, LocalApprovalAuthority]:
         authority = LocalApprovalAuthority()
         platform = EcosystemLocalDataPlatform(
-            database_path=self.database_path,
+            database_path=database_path or self.database_path,
             crypto_backend=_FileCalendarKeyBackend(self.state_dir),
             approval_authority=authority,
             path_resolver=InMemoryLocalDataPathResolver(),
@@ -2651,8 +2715,6 @@ class CalendarAdoptionStore:
                     current_readable = False
             except (OSError, sqlite3.Error, CalendarError):
                 current_readable = False
-        if not current_readable:
-            raise CalendarAdoptionError("CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE")
         expected_revision = current.version if current is not None else 0
         resulting_revision = expected_revision + 1
         rollback_available = False
@@ -2671,9 +2733,13 @@ class CalendarAdoptionStore:
         current_state_ref = (
             self._state_ref(current)
             if current is not None
-            else _hash_ref(
-                "state-ref:calendar-adoption",
-                {"status": "empty" if current_readable else "unreadable"},
+            else (
+                _hash_ref(
+                    "state-ref:calendar-adoption",
+                    {"status": "empty"},
+                )
+                if current_readable
+                else self._database_cluster_state_ref()
             )
         )
         payload_fingerprint_ref = _hash_ref(
@@ -2829,8 +2895,6 @@ class CalendarAdoptionStore:
         approval_validation_ref: str,
         approval_expires_at: datetime,
     ) -> CalendarAdoptionMutationReceipt:
-        if repository is None or authority is None:
-            repository, _platform, authority = self._repository()
         if checkpoint is None:
             checkpoint = _CalendarAdoptionReceiptCheckpoint(
                 action="restore_backup",
@@ -2885,6 +2949,43 @@ class CalendarAdoptionStore:
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_AUTHORITY_MISMATCH"
             )
+        if preview.impact_status == "unknown_current_state":
+            unit = self._replace_unreadable_database(
+                bundle=bundle,
+                preview=preview,
+                idempotency_ref=idempotency_ref,
+                outer_approval_ref=preview.approval_ref,
+                approval_expires_at=approval_expires_at,
+            )
+        else:
+            if repository is None or authority is None:
+                repository, _platform, authority = self._repository()
+            unit = self._apply_repository_restore(
+                repository=repository,
+                authority=authority,
+                bundle=bundle,
+                preview=preview,
+                idempotency_ref=idempotency_ref,
+                outer_approval_ref=preview.approval_ref,
+                approval_expires_at=approval_expires_at,
+            )
+        self._secure_tree(self.state_dir)
+        completed = self._complete_checkpoint(checkpoint, unit)
+        self._save_checkpoint(checkpoints, completed)
+        assert completed.receipt is not None
+        return completed.receipt
+
+    def _apply_repository_restore(
+        self,
+        *,
+        repository: CalendarRepository,
+        authority: LocalApprovalAuthority,
+        bundle: CalendarPortableBundle,
+        preview: CalendarAdoptionRestorePreview,
+        idempotency_ref: str,
+        outer_approval_ref: str,
+        approval_expires_at: datetime,
+    ) -> UnitOfWorkReceipt:
         if preview.expected_revision == 0:
             workspace_approval = self._repository_approval(
                 authority,
@@ -2927,34 +3028,112 @@ class CalendarAdoptionStore:
                 idempotency_ref=idempotency_ref,
                 approval=approval,
             )
-        else:
-            resources = repository.mutation_resource_refs(
-                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                idempotency_ref=idempotency_ref,
-                operation_ref=preview.operation_ref,
-                record_ref=CALENDAR_ADOPTION_SET_REF,
+            return unit
+        resources = repository.mutation_resource_refs(
+            workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+            idempotency_ref=idempotency_ref,
+            operation_ref=preview.operation_ref,
+            record_ref=CALENDAR_ADOPTION_SET_REF,
+        )
+        approval = self._repository_approval(
+            authority,
+            action=ECO_CALENDAR_MUTATION_ACTION,
+            resource_refs=resources,
+            outer_approval_ref=outer_approval_ref,
+            expires_at=approval_expires_at,
+        )
+        return repository.restore_bundle(
+            workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+            calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+            bundle=bundle,
+            expected_version=preview.expected_revision,
+            operation_ref=preview.operation_ref,
+            idempotency_ref=idempotency_ref,
+            approval=approval,
+        )
+
+    def _replace_unreadable_database(
+        self,
+        *,
+        bundle: CalendarPortableBundle,
+        preview: CalendarAdoptionRestorePreview,
+        idempotency_ref: str,
+        outer_approval_ref: str,
+        approval_expires_at: datetime,
+    ) -> UnitOfWorkReceipt:
+        """Build a complete replacement before atomically publishing it."""
+
+        if self._database_cluster_state_ref() != preview.current_state_ref:
+            raise CalendarAdoptionConflict("CALENDAR_ADOPTION_CURRENT_STATE_CHANGED")
+        with tempfile.TemporaryDirectory(
+            dir=self.state_dir,
+            prefix=_CALENDAR_ADOPTION_RESTORE_STAGE_PREFIX,
+        ) as directory:
+            stage_dir = Path(directory)
+            self._set_private_permissions(stage_dir, directory=True)
+            stage_database = stage_dir / CALENDAR_ADOPTION_DATABASE_FILE
+            repository, _platform, authority = self._repository(
+                database_path=stage_database
             )
-            approval = self._repository_approval(
-                authority,
-                action=ECO_CALENDAR_MUTATION_ACTION,
-                resource_refs=resources,
-                outer_approval_ref=preview.approval_ref,
-                expires_at=approval_expires_at,
-            )
-            unit = repository.restore_bundle(
-                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
-                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+            unit = self._apply_repository_restore(
+                repository=repository,
+                authority=authority,
                 bundle=bundle,
-                expected_version=preview.expected_revision,
-                operation_ref=preview.operation_ref,
+                preview=preview,
                 idempotency_ref=idempotency_ref,
-                approval=approval,
+                outer_approval_ref=outer_approval_ref,
+                approval_expires_at=approval_expires_at,
             )
-        self._secure_tree(self.state_dir)
-        completed = self._complete_checkpoint(checkpoint, unit)
-        self._save_checkpoint(checkpoints, completed)
-        assert completed.receipt is not None
-        return completed.receipt
+            connection = sqlite3.connect(stage_database)
+            try:
+                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                journal_mode = connection.execute(
+                    "PRAGMA journal_mode = DELETE"
+                ).fetchone()[0]
+                integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
+                if str(journal_mode).lower() != "delete" or integrity != "ok":
+                    raise CalendarAdoptionError(
+                        "CALENDAR_ADOPTION_REPLACEMENT_DATABASE_INVALID"
+                    )
+            finally:
+                connection.close()
+            if self._database_cluster_state_ref() != preview.current_state_ref:
+                raise CalendarAdoptionConflict(
+                    "CALENDAR_ADOPTION_CURRENT_STATE_CHANGED"
+                )
+            moved_sidecars: list[tuple[Path, Path]] = []
+            published = False
+            try:
+                for name in _CALENDAR_ADOPTION_DATABASE_CLUSTER_NAMES[1:]:
+                    source = self.state_dir / name
+                    if not os.path.lexists(source):
+                        continue
+                    retained = stage_dir / f"replaced-{name}"
+                    os.replace(source, retained)
+                    moved_sidecars.append((source, retained))
+                os.replace(stage_database, self.database_path)
+                published = True
+                self._set_private_permissions(self.database_path, directory=False)
+                _fsync_directory(self.state_dir)
+            except OSError as exc:
+                if not published:
+                    for source, retained in reversed(moved_sidecars):
+                        try:
+                            if not os.path.lexists(source):
+                                os.replace(retained, source)
+                        except OSError:
+                            pass
+                    try:
+                        _fsync_directory(self.state_dir)
+                    except OSError:
+                        pass
+                code = (
+                    "CALENDAR_ADOPTION_RESTORE_PUBLICATION_UNCERTAIN"
+                    if published
+                    else "CALENDAR_ADOPTION_REPLACEMENT_DATABASE_FAILED"
+                )
+                raise CalendarAdoptionError(code) from exc
+            return unit
 
     def commit_restore(
         self,
@@ -2970,7 +3149,11 @@ class CalendarAdoptionStore:
             repository: CalendarRepository | None = None
             authority: LocalApprovalAuthority | None = None
             if self._database_present():
-                repository, _platform, authority = self._repository()
+                try:
+                    repository, _platform, authority = self._repository()
+                except (OSError, sqlite3.Error, CalendarError, EcosystemLocalDataError):
+                    repository = None
+                    authority = None
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
                     checkpoint,

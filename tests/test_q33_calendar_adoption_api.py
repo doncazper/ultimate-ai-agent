@@ -143,7 +143,7 @@ def test_calendar_adoption_api_returns_recovery_for_corrupt_database(
     assert response.json()["data"]["status"] == "recovery_required"
 
 
-def test_calendar_restore_preview_returns_bounded_error_for_corrupt_database(
+def test_calendar_restore_api_recovers_corrupt_database_after_exact_approval(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     source = CalendarAdoptionStore(tmp_path / "source")
@@ -178,16 +178,42 @@ def test_calendar_restore_preview_returns_bounded_error_for_corrupt_database(
     (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
     monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
 
-    response = TestClient(app).post(
+    client = TestClient(app)
+    idempotency_suffix = "restore-corrupt-target"
+    response = client.post(
         "/control-center/calendar/adoption/restore-preview",
         json={"passphrase": passphrase, "backup": backup.model_dump(mode="json")},
-        headers=_headers("restore-corrupt-target"),
+        headers=_headers(idempotency_suffix),
     )
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == (
-        "CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE"
+    assert response.status_code == 200
+    preview_data = response.json()["data"]
+    assert preview_data["impact_status"] == "unknown_current_state"
+    assert preview_data["rollback_available"] is False
+    scope = {
+        "passphrase": passphrase,
+        "backup": backup.model_dump(mode="json"),
+        "preview_ref": preview_data["preview_ref"],
+        "approval_ref": preview_data["approval_ref"],
+    }
+    approval = client.post(
+        "/control-center/calendar/adoption/restore-approval",
+        json=scope,
+        headers=_headers(idempotency_suffix, confirmed=True),
     )
+    assert approval.status_code == 200
+    restored = client.post(
+        "/control-center/calendar/adoption/restore-commit",
+        json=scope,
+        headers=_headers(idempotency_suffix, confirmed=True),
+    )
+    assert restored.status_code == 200
+    assert restored.json()["data"]["after_revision"] == 1
+    workspace = client.get(
+        "/control-center/calendar/adoption",
+        params={"anchor": "2026-09-14T16:00:00Z", "timezone": "UTC"},
+    )
+    assert workspace.status_code == 200
+    assert workspace.json()["data"]["status"] == "ready"
 
 
 def test_calendar_adoption_api_enforces_body_and_structure_bounds(

@@ -574,9 +574,7 @@ def test_lost_response_recovers_durable_receipt_without_second_write(
     ):
         store.commit_mutation(commit, idempotency_ref=idempotency_ref)
 
-    assert not AuthorityLeaseStore(tmp_path / "authority").list_leases(
-        active_only=True
-    )
+    assert not AuthorityLeaseStore(tmp_path / "authority").list_leases(active_only=True)
     recovered = CalendarAdoptionStore(tmp_path).commit_mutation(
         commit, idempotency_ref=idempotency_ref
     )
@@ -642,7 +640,7 @@ def test_lost_restore_response_revokes_lease_and_recovers_receipt(
     assert CalendarAdoptionStore(target_dir).read_view().revision == 1
 
 
-def test_restore_preview_fails_bounded_for_corrupt_current_database(
+def test_restore_replaces_corrupt_current_database_after_exact_approval(
     tmp_path: Path,
 ) -> None:
     source = CalendarAdoptionStore(tmp_path / "source")
@@ -654,18 +652,30 @@ def test_restore_preview_fails_bounded_for_corrupt_current_database(
     target_dir = tmp_path / "target"
     target_dir.mkdir()
     (target_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+    target = CalendarAdoptionStore(target_dir)
+    restore = CalendarAdoptionPortableRestoreRequest(
+        passphrase=passphrase,
+        backup=backup,
+    )
+    idempotency_ref = _idempotency("corrupt-restore-target")
+    preview = target.preview_restore(restore, idempotency_ref=idempotency_ref)
+    assert preview.impact_status == "unknown_current_state"
+    assert preview.rollback_available is False
+    capture = CalendarAdoptionRestoreApprovalCaptureRequest(
+        **restore.model_dump(mode="python"),
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    target.capture_restore_approval(capture, idempotency_ref=idempotency_ref)
+    commit = CalendarAdoptionRestoreCommitRequest(**capture.model_dump(mode="python"))
+    receipt = target.commit_restore(commit, idempotency_ref=idempotency_ref)
 
-    with pytest.raises(
-        CalendarAdoptionError,
-        match="CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE",
-    ):
-        CalendarAdoptionStore(target_dir).preview_restore(
-            CalendarAdoptionPortableRestoreRequest(
-                passphrase=passphrase,
-                backup=backup,
-            ),
-            idempotency_ref=_idempotency("corrupt-restore-target"),
-        )
+    assert receipt.before_revision == 0
+    assert receipt.after_revision == 1
+    assert target.read_view().status == "ready"
+    replay = target.commit_restore(commit, idempotency_ref=idempotency_ref)
+    assert replay.replayed is True
+    assert replay.receipt_ref == receipt.receipt_ref
 
 
 def test_lost_response_recovers_archived_event_and_calendar_updates(

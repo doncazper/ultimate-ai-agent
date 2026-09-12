@@ -418,6 +418,37 @@ describe("CalendarAdoptionWorkspace", () => {
     ).toBeVisible();
   });
 
+  it("invalidates a hidden edit when the durable Calendar revision changes", async () => {
+    const replaced = structuredClone(workspace);
+    replaced.revision += 1;
+    replaced.occurrence_items = [];
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockResolvedValueOnce(replaced);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Stale hidden draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next period" }));
+
+    expect(
+      await screen.findByText(
+        "The selected event changed. Review the refreshed event before editing again.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Cancel edit" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).not.toHaveValue(
+      "Stale hidden draft",
+    );
+  });
+
   it("offers calendar recovery before recovering an event it contains", async () => {
     const archived = structuredClone(workspace);
     archived.calendars[0].archived = true;

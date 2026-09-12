@@ -196,6 +196,14 @@ ambiguous current target. Manual encrypted export/import provides continuity
 between the founder's own computers; automatic or concurrent sync is not
 included.
 
+When the current SQLite database is corrupt but remains an exact, readable,
+owner-only regular file, restore binds the database and SQLite sidecar bytes to
+the reviewed preview, builds and integrity-checks a complete replacement in a
+private staging directory, then atomically publishes it only after the same
+approval and AuthorityLease checks. The confirmation reports unknown current
+impact and no rollback rather than calling the damaged target empty. Unsafe,
+changed, or unbindable state remains blocked.
+
 `python scripts/dev/uaa_calendar.py inspect-adoption` reads the same Core
 contract. Its safe default prints only counts, refs, readiness, and blocked
 authority flags; `--include-private` is required to print event values.
