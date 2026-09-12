@@ -125,6 +125,52 @@ const workspaceView: CalendarAdoptionWorkspaceView = {
   production_authority_enabled: false,
 };
 
+const populatedWorkspaceView: CalendarAdoptionWorkspaceView = {
+  ...workspaceView,
+  calendars: [{
+    calendar_ref: "calendar-ref:founder-private:primary",
+    name: "Personal",
+    timezone: "UTC",
+    color_ref: "color-ref:calendar:blue",
+    archived: false,
+  }],
+  occurrence_items: [{
+    event: {
+      event_ref: "calendar-event-ref:founder-private:one",
+      calendar_ref: "calendar-ref:founder-private:primary",
+      title: "Private appointment",
+      description: null,
+      location: null,
+      starts_at: "2026-09-14T16:00:00Z",
+      ends_at: "2026-09-14T17:00:00Z",
+      timezone: "UTC",
+      all_day: false,
+      participant_items: [],
+      reminder_items: [],
+      recurrence: null,
+      task_ref: null,
+      archived: false,
+    },
+    occurrence: {
+      occurrence_ref: "calendar-occurrence-ref:founder-private:one",
+      event_ref: "calendar-event-ref:founder-private:one",
+      calendar_ref: "calendar-ref:founder-private:primary",
+      starts_at: "2026-09-14T16:00:00Z",
+      ends_at: "2026-09-14T17:00:00Z",
+      timezone: "UTC",
+    },
+    canonical_owner_ref: "canonical-owner-ref:calendar:one",
+    field_provenance_refs: ["field-provenance-ref:calendar:one"],
+    projection_state: "current",
+  }],
+  conflict_items: [{
+    first_occurrence_ref: "calendar-occurrence-ref:founder-private:one",
+    second_occurrence_ref: "calendar-occurrence-ref:founder-private:two",
+    overlap_starts_at: "2026-09-14T16:30:00Z",
+    overlap_ends_at: "2026-09-14T17:00:00Z",
+  }],
+};
+
 function approvalReceipt(
   preview: CalendarAdoptionMutationPreview | CalendarAdoptionRestorePreview,
   idempotencyRef: string,
@@ -394,6 +440,56 @@ describe("Calendar adoption response and mutation provenance", () => {
         "UTC",
       ),
     ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  });
+
+  it("validates every nested Calendar read object before returning it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => response(populatedWorkspaceView)));
+    await expect(
+      loadCalendarAdoptionWorkspace("week", "2026-09-14T00:00:00Z", "UTC"),
+    ).resolves.toEqual(populatedWorkspaceView);
+
+    const malformedViews = [
+      { ...workspaceView, calendars: [{}] },
+      { ...workspaceView, occurrence_items: [{}] },
+      { ...workspaceView, archived_events: [{}] },
+      { ...workspaceView, conflict_items: [{}] },
+      {
+        ...populatedWorkspaceView,
+        occurrence_items: [{
+          ...populatedWorkspaceView.occurrence_items[0],
+          occurrence: {},
+        }],
+      },
+    ];
+    for (const malformed of malformedViews) {
+      vi.stubGlobal("fetch", vi.fn(async () => response(malformed)));
+      await expect(
+        loadCalendarAdoptionWorkspace("week", "2026-09-14T00:00:00Z", "UTC"),
+      ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
+    }
+  });
+
+  it("binds Calendar read metadata and collection limits", async () => {
+    const tooManyCalendars = Array.from({ length: 257 }, (_, index) => ({
+      ...populatedWorkspaceView.calendars[0],
+      calendar_ref: `calendar-ref:founder-private:${index}`,
+    }));
+    const malformedViews = [
+      { ...populatedWorkspaceView, contract_ref: "contract-ref:other" },
+      { ...populatedWorkspaceView, revision: -1 },
+      { ...populatedWorkspaceView, calendars: tooManyCalendars },
+      { ...populatedWorkspaceView, view: "day" },
+      {
+        ...populatedWorkspaceView,
+        range_ends_at: populatedWorkspaceView.range_starts_at,
+      },
+    ];
+    for (const malformed of malformedViews) {
+      vi.stubGlobal("fetch", vi.fn(async () => response(malformed)));
+      await expect(
+        loadCalendarAdoptionWorkspace("week", "2026-09-14T00:00:00Z", "UTC"),
+      ).rejects.toThrow("CALENDAR_ADOPTION_RESPONSE_INVALID");
+    }
   });
 
   it("rejects successful receipts that are rebound or broaden authority", async () => {

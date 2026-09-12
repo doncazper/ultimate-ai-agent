@@ -140,7 +140,13 @@ test("foundation visual baselines stay backend-owned", async ({
       let prioritizedReadCount = 0;
       const prioritizedResponses = await Promise.all(
         prioritizedEndpoints.map((endpoint) =>
-          request.get(`${backendBaseUrl}${endpoint}`),
+          request.get(
+            `${backendBaseUrl}${endpoint}${
+              endpoint === "/control-center/calendar/adoption"
+                ? "?view=week&timezone=America%2FLos_Angeles"
+                : ""
+            }`,
+          ),
         ),
       );
       for (const prioritizedResponse of prioritizedResponses) {

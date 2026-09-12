@@ -126,6 +126,46 @@ def test_calendar_adoption_api_rejects_timezone_naive_anchor(
     assert not state_dir.exists()
 
 
+def test_calendar_adoption_api_rejects_extreme_agenda_anchor_without_state_access(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_dir = tmp_path / "calendar"
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).get(
+        "/control-center/calendar/adoption",
+        params={"view": "agenda", "anchor": "9999-12-31T12:00:00Z", "timezone": "UTC"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_ANCHOR_OUT_OF_RANGE"
+    )
+    assert not state_dir.exists()
+
+
+def test_calendar_adoption_api_rejects_extreme_month_anchor_without_state_access(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_dir = tmp_path / "calendar"
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).get(
+        "/control-center/calendar/adoption",
+        params={
+            "view": "month",
+            "anchor": "9999-12-15T12:00:00Z",
+            "timezone": "UTC",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_ANCHOR_OUT_OF_RANGE"
+    )
+    assert not state_dir.exists()
+
+
 def test_calendar_adoption_api_returns_recovery_for_corrupt_database(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -214,6 +254,86 @@ def test_calendar_restore_api_recovers_corrupt_database_after_exact_approval(
     )
     assert workspace.status_code == 200
     assert workspace.json()["data"]["status"] == "ready"
+
+
+def test_calendar_restore_api_blocks_malformed_live_key_recovery(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    source_mutation = CalendarAdoptionMutationRequest(
+        action="initialize",
+        expected_revision=0,
+        calendar=CalendarAdoptionCalendarDraft(
+            calendar_ref="calendar-ref:q33:malformed-key-source",
+            name="Personal",
+            timezone="UTC",
+            color_ref="color-ref:q33:malformed-key-source",
+        ),
+    )
+    source_idempotency_ref = "idempotency-ref:calendar-api:malformed-key-source"
+    source_preview = source.preview_mutation(
+        source_mutation, idempotency_ref=source_idempotency_ref
+    )
+    source_capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=source_mutation,
+        preview_ref=source_preview.preview_ref,
+        approval_ref=source_preview.approval_ref,
+    )
+    source.capture_approval(
+        source_capture, idempotency_ref=source_idempotency_ref
+    )
+    source.commit_mutation(
+        CalendarAdoptionCommitRequest(**source_capture.model_dump(mode="python")),
+        idempotency_ref=source_idempotency_ref,
+    )
+    passphrase = "founder private malformed key recovery"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+
+    target_dir = tmp_path / "target"
+    target = CalendarAdoptionStore(target_dir)
+    target_mutation = CalendarAdoptionMutationRequest(
+        action="initialize",
+        expected_revision=0,
+        calendar=CalendarAdoptionCalendarDraft(
+            calendar_ref="calendar-ref:q33:malformed-key-target",
+            name="Local",
+            timezone="UTC",
+            color_ref="color-ref:q33:malformed-key-target",
+        ),
+    )
+    target_idempotency_ref = "idempotency-ref:calendar-api:malformed-key-target"
+    target_preview = target.preview_mutation(
+        target_mutation, idempotency_ref=target_idempotency_ref
+    )
+    target_capture = CalendarAdoptionApprovalCaptureRequest(
+        mutation=target_mutation,
+        preview_ref=target_preview.preview_ref,
+        approval_ref=target_preview.approval_ref,
+    )
+    target.capture_approval(
+        target_capture, idempotency_ref=target_idempotency_ref
+    )
+    target.commit_mutation(
+        CalendarAdoptionCommitRequest(**target_capture.model_dump(mode="python")),
+        idempotency_ref=target_idempotency_ref,
+    )
+    key_files = list((target_dir / "keys").glob("*.key"))
+    assert len(key_files) == 1
+    key_files[0].write_bytes(b"malformed")
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(target_dir))
+
+    response = TestClient(app).post(
+        "/control-center/calendar/adoption/restore-preview",
+        json={"passphrase": passphrase, "backup": backup.model_dump(mode="json")},
+        headers=_headers("malformed-live-key"),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+    )
 
 
 def test_calendar_adoption_api_enforces_body_and_structure_bounds(

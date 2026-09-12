@@ -127,6 +127,7 @@ CALENDAR_ADOPTION_MAX_BACKUP_BYTES = 2 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_BACKUP_B64_CHARS = (
     (CALENDAR_ADOPTION_MAX_BACKUP_BYTES + 2) // 3
 ) * 4
+CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES = 64 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_REVISION = 9_007_199_254_740_991
 CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS = 256
 CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES = 2 * 1024 * 1024
@@ -1166,6 +1167,7 @@ class CalendarAdoptionStore:
         """Bind an unreadable SQLite target without materializing private bytes."""
 
         items: list[dict[str, Any]] = []
+        total_bytes = 0
         for name in _CALENDAR_ADOPTION_DATABASE_CLUSTER_NAMES:
             path = self.state_dir / name
             try:
@@ -1178,6 +1180,14 @@ class CalendarAdoptionStore:
                 ) from exc
             if not stat.S_ISREG(linked.st_mode) or linked.st_nlink != 1:
                 raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+            if (
+                linked.st_size < 0
+                or linked.st_size
+                > CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES - total_bytes
+            ):
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_DATABASE_CLUSTER_SIZE_LIMIT"
+                )
             descriptor = -1
             try:
                 descriptor = os.open(
@@ -1192,7 +1202,16 @@ class CalendarAdoptionStore:
                 ):
                     raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
                 digest = hashlib.sha256()
+                file_bytes = 0
                 while chunk := os.read(descriptor, 1024 * 1024):
+                    file_bytes += len(chunk)
+                    if (
+                        file_bytes
+                        > CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES - total_bytes
+                    ):
+                        raise CalendarAdoptionError(
+                            "CALENDAR_ADOPTION_DATABASE_CLUSTER_SIZE_LIMIT"
+                        )
                     digest.update(chunk)
             except OSError as exc:
                 raise CalendarAdoptionError(
@@ -1204,10 +1223,11 @@ class CalendarAdoptionStore:
             items.append(
                 {
                     "name": name,
-                    "size": linked.st_size,
+                    "size": file_bytes,
                     "sha256": digest.hexdigest(),
                 }
             )
+            total_bytes += file_bytes
         if not items or items[0]["name"] != CALENDAR_ADOPTION_DATABASE_FILE:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE")
         return _hash_ref("state-ref:calendar-adoption-unreadable", items)
@@ -1235,24 +1255,31 @@ class CalendarAdoptionStore:
         except (ValueError, ZoneInfoNotFoundError) as exc:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_TIMEZONE_INVALID") from exc
         _aware(anchor, "CALENDAR_ADOPTION_ANCHOR_INVALID")
-        local = anchor.astimezone(zone)
-        if view == CalendarView.day:
-            start = local.replace(hour=0, minute=0, second=0, microsecond=0)
-            end = start + timedelta(days=1)
-        elif view == CalendarView.week:
-            start = (local - timedelta(days=local.weekday())).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            end = start + timedelta(days=7)
-        elif view == CalendarView.month:
-            start = local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            if start.month == 12:
-                end = start.replace(year=start.year + 1, month=1)
+        try:
+            local = anchor.astimezone(zone)
+            if view == CalendarView.day:
+                start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+                end = start + timedelta(days=1)
+            elif view == CalendarView.week:
+                start = (local - timedelta(days=local.weekday())).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                end = start + timedelta(days=7)
+            elif view == CalendarView.month:
+                start = local.replace(
+                    day=1, hour=0, minute=0, second=0, microsecond=0
+                )
+                if start.month == 12:
+                    end = start.replace(year=start.year + 1, month=1)
+                else:
+                    end = start.replace(month=start.month + 1)
             else:
-                end = start.replace(month=start.month + 1)
-        else:
-            start = local.replace(hour=0, minute=0, second=0, microsecond=0)
-            end = start + timedelta(days=30)
+                start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+                end = start + timedelta(days=30)
+        except (OverflowError, ValueError) as exc:
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_ANCHOR_OUT_OF_RANGE"
+            ) from exc
         return start, end
 
     def _empty_view(
@@ -1308,6 +1335,11 @@ class CalendarAdoptionStore:
             ZoneInfo(timezone_name)
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_TIMEZONE_INVALID") from exc
+        self._empty_range(
+            view=view,
+            anchor=selected_anchor,
+            timezone_name=timezone_name,
+        )
         if not self._database_present():
             return self._empty_view(
                 status="onboarding",
@@ -2708,6 +2740,10 @@ class CalendarAdoptionStore:
                     calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
                 )
             except EcosystemLocalDataError as exc:
+                if isinstance(exc, EcosystemKeyUnavailable):
+                    raise CalendarAdoptionError(
+                        "CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE"
+                    ) from exc
                 if str(exc) not in {
                     "ECO_WORKSPACE_NOT_FOUND",
                     "ECO_RECORD_NOT_FOUND",

@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.control_center import (
 )
 from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CALENDAR_ADOPTION_DATABASE_FILE,
+    CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES,
     CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE,
     CalendarAdoptionApprovalCaptureRequest,
     CalendarAdoptionCalendarDraft,
@@ -147,6 +148,21 @@ def test_corrupt_calendar_database_enters_recovery_required(tmp_path: Path) -> N
     assert view.external_calendar_write_enabled is False
     assert view.provider_model_call_enabled is False
     assert state_dir.exists()
+
+
+def test_unreadable_database_cluster_hashing_is_size_bounded(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "calendar"
+    state_dir.mkdir()
+    with (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).open("wb") as handle:
+        handle.truncate(CALENDAR_ADOPTION_MAX_DATABASE_CLUSTER_BYTES + 1)
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_DATABASE_CLUSTER_SIZE_LIMIT",
+    ):
+        CalendarAdoptionStore(state_dir)._database_cluster_state_ref()
 
 
 def test_expired_uncommitted_checkpoints_are_reclaimable(tmp_path: Path) -> None:

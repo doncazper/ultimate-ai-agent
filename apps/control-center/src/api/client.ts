@@ -962,8 +962,26 @@ export async function loadCalendarAdoptionWorkspace(
   );
   if (
     value.schema_version !== "uaa-calendar-adoption-read-model.v1" ||
+    value.contract_ref !== CALENDAR_ADOPTION_CONTRACT_REF ||
+    !["onboarding", "ready", "setup_incomplete", "recovery_required"].includes(
+      String(value.status),
+    ) ||
+    value.workspace_ref !== "workspace-ref:founder-private-calendar" ||
+    value.calendar_set_ref !== "calendar-set-ref:founder-private" ||
+    !isCalendarAdoptionRevision(value.revision) ||
     typeof value.current_state_ref !== "string" ||
     !value.current_state_ref.startsWith("state-ref:calendar-adoption") ||
+    (value.calendar_set_name !== null &&
+      !isCalendarAdoptionPrivateText(value.calendar_set_name, 512)) ||
+    value.view !== view ||
+    value.timezone !== timezone ||
+    !isCalendarAdoptionAwareTimestamp(value.range_starts_at) ||
+    !isCalendarAdoptionAwareTimestamp(value.range_ends_at) ||
+    Date.parse(value.range_ends_at) <= Date.parse(value.range_starts_at) ||
+    !isCalendarAdoptionSafeRef(value.result_ref) ||
+    !value.result_ref.startsWith("calendar-view-result-ref:adoption:") ||
+    typeof value.can_undo !== "boolean" ||
+    !isCalendarAdoptionPrivateText(value.next_safe_action, 512) ||
     value.backend_owned !== true ||
     value.local_only !== true ||
     value.exact_approval_required !== true ||
@@ -978,9 +996,17 @@ export async function loadCalendarAdoptionWorkspace(
     value.notification_delivery_enabled !== false ||
     value.production_authority_enabled !== false ||
     !Array.isArray(value.calendars) ||
+    value.calendars.length > 256 ||
+    !value.calendars.every(isCalendarAdoptionCalendar) ||
     !Array.isArray(value.occurrence_items) ||
+    value.occurrence_items.length > 25_000 ||
+    !value.occurrence_items.every(isCalendarAdoptionOccurrenceProjection) ||
     !Array.isArray(value.archived_events) ||
-    !Array.isArray(value.conflict_items)
+    value.archived_events.length > 10_000 ||
+    !value.archived_events.every(isCalendarAdoptionEvent) ||
+    !Array.isArray(value.conflict_items) ||
+    value.conflict_items.length > 10_000 ||
+    !value.conflict_items.every(isCalendarAdoptionConflictItem)
   ) {
     throw new Error("CALENDAR_ADOPTION_RESPONSE_INVALID");
   }
@@ -1027,6 +1053,138 @@ function isCalendarAdoptionAwareTimestamp(value: unknown): value is string {
     typeof value === "string" &&
     CALENDAR_ADOPTION_AWARE_TIMESTAMP.test(value) &&
     Number.isFinite(Date.parse(value))
+  );
+}
+
+function isCalendarAdoptionPrivateText(
+  value: unknown,
+  maximumBytes: number,
+): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    new TextEncoder().encode(value).byteLength <= maximumBytes &&
+    !Array.from(value).some(
+      (character) =>
+        character.charCodeAt(0) < 32 && character !== "\n" && character !== "\t",
+    )
+  );
+}
+
+function isCalendarAdoptionTimezone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 255) return false;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isCalendarAdoptionCalendar(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.calendar_ref) &&
+    isCalendarAdoptionPrivateText(value.name, 512) &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    (value.color_ref == null || isCalendarAdoptionSafeRef(value.color_ref)) &&
+    typeof value.archived === "boolean"
+  );
+}
+
+function isCalendarAdoptionRecurrence(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    ["daily", "weekly", "monthly"].includes(String(value.frequency)) &&
+    Number.isInteger(value.interval) &&
+    Number(value.interval) >= 1 &&
+    Number(value.interval) <= 365 &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    Array.isArray(value.weekdays) &&
+    value.weekdays.length <= 7 &&
+    value.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    (value.month_day == null ||
+      (Number.isInteger(value.month_day) && Number(value.month_day) >= 1 && Number(value.month_day) <= 31)) &&
+    (value.count == null ||
+      (Number.isInteger(value.count) && Number(value.count) >= 1 && Number(value.count) <= 100_000)) &&
+    (value.until == null || isCalendarAdoptionAwareTimestamp(value.until))
+  );
+}
+
+function isCalendarAdoptionEvent(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.event_ref) &&
+    isCalendarAdoptionSafeRef(value.calendar_ref) &&
+    (value.task_ref == null
+      ? isCalendarAdoptionPrivateText(value.title, 2_048)
+      : isCalendarAdoptionSafeRef(value.task_ref) && value.title === null && value.description === null) &&
+    (value.description == null || isCalendarAdoptionPrivateText(value.description, 65_536)) &&
+    (value.location == null || isCalendarAdoptionPrivateText(value.location, 8_192)) &&
+    isCalendarAdoptionAwareTimestamp(value.starts_at) &&
+    isCalendarAdoptionAwareTimestamp(value.ends_at) &&
+    Date.parse(value.ends_at) > Date.parse(value.starts_at) &&
+    isCalendarAdoptionTimezone(value.timezone) &&
+    typeof value.all_day === "boolean" &&
+    typeof value.archived === "boolean" &&
+    Array.isArray(value.participant_items) &&
+    value.participant_items.length <= 1_000 &&
+    value.participant_items.every(
+      (item) =>
+        isCalendarAdoptionRecord(item) &&
+        isCalendarAdoptionSafeRef(item.participant_ref) &&
+        isCalendarAdoptionPrivateText(item.display_name, 512) &&
+        (item.address == null || isCalendarAdoptionPrivateText(item.address, 2_048)) &&
+        ["needs_action", "accepted", "declined", "tentative"].includes(String(item.status)),
+    ) &&
+    Array.isArray(value.reminder_items) &&
+    value.reminder_items.length <= 64 &&
+    value.reminder_items.every(
+      (item) =>
+        isCalendarAdoptionRecord(item) &&
+        isCalendarAdoptionSafeRef(item.reminder_ref) &&
+        Number.isInteger(item.minutes_before) &&
+        Number(item.minutes_before) >= 0 &&
+        Number(item.minutes_before) <= 525_600 &&
+        item.delivery_posture === "intent_only",
+    ) &&
+    (value.recurrence == null ||
+      (isCalendarAdoptionRecurrence(value.recurrence) &&
+        value.recurrence.timezone === value.timezone))
+  );
+}
+
+function isCalendarAdoptionOccurrenceProjection(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value) || !isCalendarAdoptionRecord(value.occurrence)) return false;
+  const event = value.event;
+  const occurrence = value.occurrence;
+  return (
+    isCalendarAdoptionRecord(event) &&
+    isCalendarAdoptionEvent(event) &&
+    isCalendarAdoptionSafeRef(occurrence.occurrence_ref) &&
+    occurrence.event_ref === event.event_ref &&
+    occurrence.calendar_ref === event.calendar_ref &&
+    isCalendarAdoptionAwareTimestamp(occurrence.starts_at) &&
+    isCalendarAdoptionAwareTimestamp(occurrence.ends_at) &&
+    Date.parse(occurrence.ends_at) > Date.parse(occurrence.starts_at) &&
+    isCalendarAdoptionTimezone(occurrence.timezone) &&
+    isCalendarAdoptionSafeRef(value.canonical_owner_ref) &&
+    Array.isArray(value.field_provenance_refs) &&
+    value.field_provenance_refs.every(isCalendarAdoptionSafeRef) &&
+    ["current", "archived", "missing"].includes(String(value.projection_state))
+  );
+}
+
+function isCalendarAdoptionConflictItem(value: unknown): boolean {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    isCalendarAdoptionSafeRef(value.first_occurrence_ref) &&
+    isCalendarAdoptionSafeRef(value.second_occurrence_ref) &&
+    isCalendarAdoptionAwareTimestamp(value.overlap_starts_at) &&
+    isCalendarAdoptionAwareTimestamp(value.overlap_ends_at) &&
+    Date.parse(value.overlap_ends_at) > Date.parse(value.overlap_starts_at)
   );
 }
 
