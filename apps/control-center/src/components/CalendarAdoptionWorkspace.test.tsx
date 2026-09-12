@@ -306,6 +306,28 @@ describe("CalendarAdoptionWorkspace", () => {
     });
   });
 
+  it("binds an update preview to the revision captured when editing began", async () => {
+    const mutableWorkspace = structuredClone(workspace);
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(mutableWorkspace);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    mutableWorkspace.revision += 1;
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Revision-bound edit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.expected_revision).toBe(workspace.revision);
+  });
+
   it("preserves the chosen offset when editing a repeated local wall time", async () => {
     const repeated = structuredClone(workspace);
     repeated.occurrence_items[0].event.starts_at = "2026-11-01T09:30:00Z";

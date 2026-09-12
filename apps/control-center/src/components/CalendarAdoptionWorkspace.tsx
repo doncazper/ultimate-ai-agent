@@ -364,6 +364,11 @@ export function CalendarAdoptionWorkspace() {
 
   const submitEvent = useCallback(() => {
     if (!workspace || !draft.title.trim() || !draft.calendar_ref) return;
+    const expectedRevision = editing ? editingRevision : workspace.revision;
+    if (expectedRevision === null) {
+      setError("The edit revision is unavailable. Refresh and review the event again.");
+      return;
+    }
     let prepared: CalendarAdoptionEventDraft;
     try {
       const selectedDraft = editing
@@ -385,11 +390,11 @@ export function CalendarAdoptionWorkspace() {
     }
     void runPreview({
       action: editing ? "update_event" : "create_event",
-      expected_revision: workspace.revision,
+      expected_revision: expectedRevision,
       ...(editing ? { target_ref: editing.event_ref } : {}),
       event: prepared,
     }, editing ? "update-event" : "create-event");
-  }, [draft, editing, runPreview, timezone, workspace]);
+  }, [draft, editing, editingRevision, runPreview, timezone, workspace]);
 
   const startEdit = useCallback((event: CalendarAdoptionEvent) => {
     setEditing(event); setEditingRevision(workspace?.revision ?? null); setDraft(eventDraft(event.calendar_ref, event));
