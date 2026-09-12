@@ -533,10 +533,10 @@ def test_calendar_body_limit_is_published_for_every_json_route() -> None:
         (
             {
                 "X-UAA-Idempotency-Key": (
-                    "idempotency-generation-ref:calendar-adoption"
+                    "_calendar-adoption-idempotency-generation"
                 )
             },
-            "API_IDEMPOTENCY_RESERVED",
+            "API_IDEMPOTENCY_INVALID",
         ),
     ],
 )

@@ -294,11 +294,25 @@ def test_tombstone_capacity_rotates_a_bounded_idempotency_generation(
     read_model = store.read_view()
     assert read_model.idempotency_generation == 1
     assert read_model.idempotency_generation_ref == generation_ref
+    with monkeypatch.context() as projection_failure:
+        def fail_projection(*_args: object, **_kwargs: object) -> None:
+            raise CalendarError("ECO_CALENDAR_PROJECTION_FAILED")
+
+        projection_failure.setattr(CalendarRepository, "view", fail_projection)
+        limited_model = store.read_view()
+    assert limited_model.status == "recovery_required"
+    assert limited_model.idempotency_generation == 1
+    assert limited_model.idempotency_generation_ref == generation_ref
     store.database_path.unlink()
     recovery_model = store.read_view()
     assert recovery_model.status == "onboarding"
     assert recovery_model.idempotency_generation == 1
     assert recovery_model.idempotency_generation_ref == generation_ref
+    store.database_path.write_bytes(b"not sqlite")
+    corrupt_model = store.read_view()
+    assert corrupt_model.status == "recovery_required"
+    assert corrupt_model.idempotency_generation == 1
+    assert corrupt_model.idempotency_generation_ref == generation_ref
     assert store._tombstone_for(retained, tombstones[0].idempotency_ref) is None
     with pytest.raises(
         CalendarAdoptionError,
@@ -318,24 +332,28 @@ def test_tombstone_capacity_rotates_a_bounded_idempotency_generation(
     )
 
 
-def test_generation_marker_identity_is_reserved_from_api_callers(
+def test_generation_marker_identity_cannot_collide_with_a_legacy_valid_ref(
     tmp_path: Path,
 ) -> None:
     store = CalendarAdoptionStore(tmp_path)
-    mutation = CalendarAdoptionMutationRequest(
-        action="initialize", expected_revision=0, calendar=_calendar()
+    legacy = calendar_adoption_module._CalendarAdoptionIdempotencyTombstone(
+        idempotency_ref="idempotency-generation-ref:calendar-adoption",
+        payload_fingerprint_ref="payload-fingerprint-ref:q33:legacy-marker-ref",
     )
 
-    with pytest.raises(
-        CalendarAdoptionError,
-        match="CALENDAR_ADOPTION_IDEMPOTENCY_REF_RESERVED",
-    ):
-        store.preview_mutation(
-            mutation,
-            idempotency_ref="idempotency-generation-ref:calendar-adoption",
-        )
+    store._write_receipt_checkpoints([legacy])
 
-    assert store._read_receipt_checkpoints() == []
+    retained = store._read_receipt_checkpoints()
+    assert store._tombstone_for(retained, legacy.idempotency_ref) == legacy
+    marker = next(
+        item
+        for item in retained
+        if isinstance(
+            item,
+            calendar_adoption_module._CalendarAdoptionIdempotencyGeneration,
+        )
+    )
+    assert marker.idempotency_ref == "_calendar-adoption-idempotency-generation"
 
 
 def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:

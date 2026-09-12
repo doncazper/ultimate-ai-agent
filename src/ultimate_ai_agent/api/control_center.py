@@ -32,7 +32,6 @@ from ultimate_ai_agent.core.control_center.capability_surface import (
 )
 from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CALENDAR_ADOPTION_CONTRACT_REF,
-    CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF,
     CalendarAdoptionApprovalCaptureRequest,
     CalendarAdoptionCommitRequest,
     CalendarAdoptionConflict,
@@ -2548,14 +2547,6 @@ def _calendar_adoption_idempotency_ref(
             detail={
                 "code": "API_IDEMPOTENCY_CONFLICT",
                 "safe_message": "The supplied idempotency values do not match.",
-            },
-        )
-    if CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF in supplied_values:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "API_IDEMPOTENCY_RESERVED",
-                "safe_message": "The supplied idempotency value is reserved.",
             },
         )
     return supplied_values[0]

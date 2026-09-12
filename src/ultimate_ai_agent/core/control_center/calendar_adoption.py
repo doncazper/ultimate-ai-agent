@@ -123,9 +123,6 @@ CALENDAR_ADOPTION_SAFE_DISABLE_REF = (
 CALENDAR_ADOPTION_STATE_DIR_ENV = "UAA_CALENDAR_STATE_DIR"
 CALENDAR_ADOPTION_DATABASE_FILE = "calendar.sqlite3"
 CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE = "adoption-receipts.json"
-CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF = (
-    "idempotency-generation-ref:calendar-adoption"
-)
 CALENDAR_ADOPTION_APPROVAL_TTL_MINUTES = 5
 CALENDAR_ADOPTION_MAX_BACKUP_BYTES = 2 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_BACKUP_B64_CHARS = (
@@ -594,8 +591,8 @@ class _CalendarAdoptionIdempotencyGeneration(_CalendarAdoptionModel):
     )
     generation: int = Field(..., ge=0, le=CALENDAR_ADOPTION_MAX_REVISION)
     generation_token: str = Field(..., pattern=r"^[a-f0-9]{32}$")
-    idempotency_ref: Literal["idempotency-generation-ref:calendar-adoption"] = (
-        "idempotency-generation-ref:calendar-adoption"
+    idempotency_ref: Literal["_calendar-adoption-idempotency-generation"] = (
+        "_calendar-adoption-idempotency-generation"
     )
     payload_fingerprint_ref: Literal[
         "payload-fingerprint-ref:calendar-adoption-generation"
@@ -1375,10 +1372,6 @@ class CalendarAdoptionStore:
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> None:
-        if idempotency_ref == CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_MARKER_REF:
-            raise CalendarAdoptionError(
-                "CALENDAR_ADOPTION_IDEMPOTENCY_REF_RESERVED"
-            )
         checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
         if checkpoint is None and not self._idempotency_matches_generation(
             idempotency_ref,
@@ -1694,6 +1687,11 @@ class CalendarAdoptionStore:
         timezone_name: str = "UTC",
     ) -> CalendarAdoptionReadModel:
         selected_anchor = anchor or utc_now()
+        idempotency_generation = 0
+        idempotency_generation_ref = (
+            "idempotency-generation-ref:calendar-adoption:"
+            "00000000000000000000000000000000"
+        )
         try:
             checkpoint_entries = self._read_receipt_checkpoints()
             idempotency_generation = self._checkpoint_generation(checkpoint_entries)
@@ -1809,6 +1807,8 @@ class CalendarAdoptionStore:
                 view=view,
                 anchor=selected_anchor,
                 timezone_name=timezone_name,
+                idempotency_generation=idempotency_generation,
+                idempotency_generation_ref=idempotency_generation_ref,
             )
         except (
             OSError,
@@ -1821,6 +1821,8 @@ class CalendarAdoptionStore:
                 view=view,
                 anchor=selected_anchor,
                 timezone_name=timezone_name,
+                idempotency_generation=idempotency_generation,
+                idempotency_generation_ref=idempotency_generation_ref,
             )
 
     @staticmethod
