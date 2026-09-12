@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ultimate_ai_agent.api.dependencies import (
     get_founder_loop_service,
-    get_news_signals_repository,
+    get_news_signals_adoption_store,
 )
 from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
@@ -148,7 +148,7 @@ def get_control_center_backend_truth() -> ResultEnvelope:
 @router.get("/today/summary", response_model=ResultEnvelope)
 def get_control_center_today_summary() -> ResultEnvelope:
     data = get_founder_loop_service().today_summary()
-    news_signals = get_news_signals_repository().summary(limit=20)
+    news_signals = get_news_signals_adoption_store().read_view(limit=20)["summary"]
     data["news_signals_projection"] = news_signals["today_projection"]
     return ResultEnvelope(
         success=True,
@@ -2056,7 +2056,7 @@ def post_control_center_action_local_task_commit(
 @router.get("/morning-briefing/summary", response_model=ResultEnvelope)
 def get_control_center_morning_briefing_summary() -> ResultEnvelope:
     data = get_founder_loop_service().morning_briefing_summary()
-    news_signals = get_news_signals_repository().summary(limit=20)
+    news_signals = get_news_signals_adoption_store().read_view(limit=20)["summary"]
     data["news_signals_projection"] = news_signals["morning_briefing_projection"]
     return ResultEnvelope(
         success=True,
@@ -2077,7 +2077,7 @@ def get_control_center_morning_briefing_summary() -> ResultEnvelope:
 def get_control_center_news_signals_summary(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> ResultEnvelope:
-    data = get_news_signals_repository().summary(limit=limit)
+    data = get_news_signals_adoption_store().read_view(limit=limit)["summary"]
     return ResultEnvelope(
         success=True,
         operation="control_center_news_signals_summary",

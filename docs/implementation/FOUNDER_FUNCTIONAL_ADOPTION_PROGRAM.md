@@ -97,21 +97,23 @@ Plans, Actions, and Evidence feel like one product. Implement the highest-value
 Q31 chat and cockpit adaptations behind the same Python/API contracts and prove
 normal work without operator-critical raw JSON or CLI fallback.
 
-Current bounded slice: `/chat` now provides a backend-owned content-free
+Terminal bounded adoption: `/chat` provides a backend-owned content-free
 conversation workspace with clean-start drafting, a readable/searchable thread
 rail, exact draft checkpoint metadata, and archive/recover receipts. Unsent
 draft bodies remain in the current browser tab and are never sent to or stored
 by the server. Ordinary send/model calls and all broader authority remain
-blocked. Q33 is not terminal until its remaining cross-surface acceptance scope
-is implemented and qualified.
+blocked. Setup, Decision-to-local-Task, Work Board, and Calendar use the same
+Python/API truth boundary. Q33 reached protected merge at
+`d6d5b97ac87b51e002d236f32a035739a74a4f38` with green post-merge CI and Supply
+Chain qualification.
 
 The bounded Work Board slice now adds the backend-owned founder-private
 create/edit/move/archive/recover/undo lifecycle, readable primary UI,
 safe-default CLI inspection, exact approval and `workspace/write` lease binding,
-and encrypted portable backup/restore recovery. It adds no task execution,
-assignment, issue-tracker sync, connector/provider/model call, automatic sync,
-or production authority. Calendar and final cross-surface acceptance remain
-before Q33 can become terminal.
+and encrypted portable backup/restore recovery. Calendar adds the corresponding
+founder-private local planning, recurrence, conflict, recovery, and encrypted
+portable restore loop. These add no task execution, assignment, issue-tracker
+sync, connector/provider/model call, automatic sync, or production authority.
 
 ### Q34 — News And Source Intelligence Functional Adoption
 
@@ -120,6 +122,13 @@ signals. Prove intake, deduplication, clustering, ranking, preferences,
 inspection, recovery, and delivery into Today and Morning Briefing. This does
 not authorize unrestricted browsing, authenticated browser action, or treating
 source content as instructions or authority.
+
+Current bounded candidate: `/news` supports operator-entered, already-redacted
+sources and signals, exact reviewed local mutations, preferences,
+archive/recovery, source safe-disable/recovery, undo, and backend-owned Today and
+Morning Briefing projections. Live adapters and all external authority remain
+blocked. The implementation contract is
+`docs/control_center/Q34_NEWS_SOURCE_INTELLIGENCE_ADOPTION.md`.
 
 ### Q35 — Vertical Modules Functional Adoption
 

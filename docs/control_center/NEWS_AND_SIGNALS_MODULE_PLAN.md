@@ -1,8 +1,8 @@
 # News & Signals Module Plan
 
-Status: Q24 backend-owned bounded read model implemented; live sources remain blocked
+Status: Q24 read model implemented; Q34 founder-private local adoption candidate implemented; live sources remain blocked
 Baseline: v0.104.0 / 0.104.0
-Reviewed: 2026-07-13
+Reviewed: 2026-09-12
 
 This plan refines the existing News destination into **News & Signals**. Q24
 replaces the sample-record-only preview with a backend-owned local read model,
@@ -12,6 +12,8 @@ The default state is honestly empty and blocked until a separately graduated
 read-only news source supplies artifacts. It adds no live source access,
 account access, background polling, model summarization, connector write,
 browser automation, external action, public release, or production authority.
+Q34 adds the reviewed local operator-entry lifecycle needed to use that model
+without promoting a live adapter.
 
 ## Executive Decision
 
@@ -130,10 +132,12 @@ The `/news` surface now renders only Python-owned Q24 state and demonstrates:
   live source, authentication, background polling, model summarization, write,
   or action capability is active.
 
-Only filter and selection state are held in React. Artifact, source-readiness,
-clustering, rank reasons, and briefing candidacy are backend-owned. Ingestion is
-a Python-core-only boundary for already-redacted artifacts; Q24 exposes no
-mutation route and grants no source adapter or account authority.
+Only filter, selection, and form state are held in React. Artifact,
+source-readiness, clustering, rank reasons, preferences, archive state, and
+briefing candidacy are backend-owned. Q24 ingestion remains a Python-core
+boundary. Q34 layers exact local mutation routes over it for operator-entered,
+already-redacted source and signal drafts; neither slice grants source adapter
+or account authority.
 
 The durable boundary caps source readiness at 24 entries, binds artifact updates
 to the expected current source revision, and reads sources and artifacts from one
@@ -141,6 +145,27 @@ SQLite snapshot. Artifacts from blocked, unknown, revoked, or safe-disabled
 sources remain stored but are withheld from ranking and projections. Today and
 Morning Briefing select their own bounded candidates from the full deduplicated
 ranking rather than from the currently displayed page.
+
+### Implemented Q34 founder-private adoption candidate
+
+The normal `/news` workspace now lets the founder register multiple local
+source identities, enter an already-redacted signal with its publication time,
+inspect the ranked result, set or clear a topic preference, archive or recover
+a signal, safe-disable or recover a source, and undo one reviewed change. Every
+operator-relevant change is Python-owned and uses preview, operator
+confirmation, exact approval, current revision, idempotency, an
+operation-budget-one `workspace/write` AuthorityLease, durable receipt, and
+rollback ref.
+
+The same adopted Q24 summary feeds Today and Morning Briefing, so source state,
+archive state, preferences, freshness, conflict, and ranking are not UI-only.
+The repo-local CLI inspects this state without showing private values by
+default. Storage is owner-only local SQLite and relies on host disk encryption;
+automatic backup, automatic sync, and concurrent multi-computer merge remain
+outside the bounded slice.
+
+The complete contract and evidence map is
+`docs/control_center/Q34_NEWS_SOURCE_INTELLIGENCE_ADOPTION.md`.
 
 ### Accepted target composition
 
@@ -176,13 +201,14 @@ progress in this order:
 2. Q24 implemented deterministic synthetic CLI inspection with redacted safe refs.
 3. Q24 implemented read-only local storage and API/OpenAPI/manifest contracts
    with focused tests and route-side-effect classification.
-4. Graduate exact live source adapters one at a time through `WebAccessGateway`,
+4. Q34 adds backend-owned reviewed local source, artifact, preference, archive,
+   safe-disable, recovery, and undo decisions with exact idempotency, receipts,
+   CLI/API parity, and rollback refs.
+5. Graduate exact live source adapters one at a time through `WebAccessGateway`,
    policy, audit, terms/permission review, safe-disable posture, and bounded
    retention. An adapter for one source grants no authority for another.
-5. Add backend-owned review decisions only with idempotency, receipts, CLI/API
-   parity, and rollback or safe-disable behavior.
-6. Bind selected candidates into Morning Briefing through an explicit read-only
-   projection before considering action proposals.
+6. Preserve the explicit read-only Morning Briefing projection before
+   considering action proposals.
 
 Direct scraping, provider SDK calls, authenticated browsing, cookies, browser
 automation, unrestricted fetching, and connector writes remain blocked by the

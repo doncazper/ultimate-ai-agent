@@ -17543,3 +17543,125 @@ export interface NewsSignalsSummary {
   blocked_state_refs: string[];
   evidence_refs: string[];
 }
+
+export interface NewsSignalSourceDraft {
+  safe_label: string;
+  source_kind: NewsSignalSourceKind;
+  freshness_ttl_seconds: number;
+}
+
+export interface NewsSignalArtifactDraft {
+  source_ref: string;
+  title: string;
+  safe_summary: string;
+  topic_label: string;
+  cluster_label: string;
+  claim_label: string;
+  published_at: string;
+  confidence_percent: number;
+  evidence_class: "primary" | "corroborating" | "community" | "commentary";
+  claim_stance: "supports" | "disputes" | "unknown";
+}
+
+export type NewsSignalsAdoptionMutationRequest =
+  | { action: "register_source"; expected_revision: number; source_draft: NewsSignalSourceDraft }
+  | { action: "update_source"; expected_revision: number; target_ref: string; source_draft: NewsSignalSourceDraft }
+  | { action: "ingest_signal"; expected_revision: number; signal_draft: NewsSignalArtifactDraft }
+  | { action: "update_signal"; expected_revision: number; target_ref: string; signal_draft: NewsSignalArtifactDraft }
+  | { action: "set_preference"; expected_revision: number; topic_ref: string; preference_weight: number }
+  | { action: "remove_preference"; expected_revision: number; topic_ref: string }
+  | { action: "set_source_state"; expected_revision: number; target_ref: string; source_state: "ready" | "safe_disabled" }
+  | { action: "archive_signal" | "recover_signal"; expected_revision: number; target_ref: string }
+  | { action: "undo"; expected_revision: number };
+
+export interface NewsSignalsAdoptionView {
+  schema_version: "uaa-news-signals-adoption.v1";
+  contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1";
+  status: NewsSignalsSummary["status"];
+  revision: number;
+  current_state_ref: string;
+  can_undo: boolean;
+  local_manual_intake_enabled: true;
+  backend_owned: true;
+  external_content_untrusted: true;
+  live_fetch_enabled: false;
+  authenticated_source_enabled: false;
+  background_polling_enabled: false;
+  model_summarization_enabled: false;
+  connector_write_enabled: false;
+  action_authority_granted: false;
+  summary: NewsSignalsSummary;
+  preferences: Array<{ topic_ref: string; weight: number; preference_ref: string }>;
+  archived_items: Array<{
+    signal_ref: string;
+    title: string;
+    safe_summary: string;
+    source_ref: string;
+    source_label: string;
+    topic_ref: string;
+    published_at: string;
+    archived: true;
+  }>;
+  next_safe_action: string;
+  evidence_refs: string[];
+}
+
+export interface NewsSignalsAdoptionMutationPreview {
+  schema_version: "uaa-news-signals-adoption-preview.v1";
+  contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1";
+  action: NewsSignalsAdoptionMutationRequest["action"];
+  target_ref: string | null;
+  source_ref: string | null;
+  signal_ref: string | null;
+  expected_revision: number;
+  resulting_revision: number;
+  current_state_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  safe_summary: string;
+  external_network_read_performed: false;
+  authenticated_source_access_performed: false;
+  model_call_performed: false;
+  external_write_performed: false;
+  production_authority_granted: false;
+}
+
+export interface NewsSignalsAdoptionApprovalReceipt {
+  schema_version: "uaa-news-signals-adoption-approval.v1";
+  approval_ref: string;
+  approval_validation_ref: string;
+  preview_ref: string;
+  idempotency_ref: string;
+  expires_at: string;
+  safe_summary: string;
+}
+
+export interface NewsSignalsAdoptionMutationReceipt {
+  schema_version: "uaa-news-signals-adoption-receipt.v1";
+  contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1";
+  action: NewsSignalsAdoptionMutationRequest["action"];
+  target_ref: string | null;
+  source_ref: string | null;
+  signal_ref: string | null;
+  before_revision: number;
+  after_revision: number;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  preview_ref: string;
+  approval_ref: string;
+  approval_validation_ref: string;
+  approval_expires_at: string;
+  authority_decision_ref: string;
+  authority_lease_ref: string;
+  receipt_ref: string;
+  state_ref: string;
+  rollback_ref: string;
+  replayed: boolean;
+  external_network_read_performed: false;
+  authenticated_source_access_performed: false;
+  model_call_performed: false;
+  external_write_performed: false;
+  production_authority_granted: false;
+  safe_summary: string;
+}

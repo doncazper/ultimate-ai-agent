@@ -10,7 +10,7 @@
   "public_beta_claim_enabled": false,
   "production_readiness_claim_enabled": false,
   "source_truth_counts": {
-    "api_manifest_route_count": 386,
+    "api_manifest_route_count": 390,
     "release_surface_route_count": 45,
     "visible_action_count": 48,
     "human_capability_count": 33,
@@ -205,6 +205,42 @@
           "route_classification": "local_sensitive",
           "approval_posture": "not_required_for_route_classification",
           "source_truth_status": "current"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/news-signals/adoption",
+          "operation_id": "get_control_center_news_signals_adoption_workspace",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/preview",
+          "operation_id": "preview_control_center_news_signals_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive",
+          "approval_posture": "not_required_for_route_classification",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/approval",
+          "operation_id": "capture_control_center_news_signals_adoption_approval",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/commit",
+          "operation_id": "commit_control_center_news_signals_adoption_mutation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority",
+          "approval_posture": "required_before_mutation_authority",
+          "source_truth_status": "current"
         }
       ],
       "ui_routes": [
@@ -212,10 +248,10 @@
           "path": "/news",
           "label": "News & Signals",
           "group": "Founder Loop",
-          "ui_status": "backend-owned redacted artifact read model",
+          "ui_status": "founder-private local News adoption",
           "release_status": "partial",
           "owner": "founder-loop",
-          "backend_route_count": 1,
+          "backend_route_count": 5,
           "blocked_capability_count": 7,
           "visual_proof_status": "blocked_no_baseline",
           "source_truth_status": "current"

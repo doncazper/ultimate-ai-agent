@@ -1,13 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { loadNewsSignalsSummary } from "../api/client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  captureNewsSignalsAdoptionApproval,
+  commitNewsSignalsAdoptionMutation,
+  loadNewsSignalsAdoptionWorkspace,
+  previewNewsSignalsAdoptionMutation,
+} from "../api/client";
 import type {
   NewsSignalReadItem,
   NewsSignalSourceKind,
+  NewsSignalsAdoptionMutationPreview,
+  NewsSignalsAdoptionMutationRequest,
+  NewsSignalsAdoptionView,
   NewsSignalsSummary,
 } from "../api/types";
+import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { NorthStarIcon, type IconReference } from "./NorthStarIcon";
 
 type SignalFilter = "for-you" | "brief" | "official" | "community";
+type IntakeMode = "signal" | "source";
 
 const FILTERS: Array<{ id: SignalFilter; label: string }> = [
   { id: "for-you", label: "For you" },
@@ -24,32 +34,88 @@ const SOURCE_ICONS: Record<NewsSignalSourceKind, IconReference> = {
   local: "database",
 };
 
+function newIdempotencyRef(action: string): string {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replaceAll("-", "")
+      : `${Date.now()}${Math.random().toString(16).slice(2)}`;
+  return `idempotency-ref:news-signals-adoption-ui:${action.replaceAll("_", "-")}:${suffix}`;
+}
+
+function currentLocalDateTime(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 export function NewsSignalsPreviewPanel() {
-  const [summary, setSummary] = useState<NewsSignalsSummary | null>(null);
+  const mutationBinding = useBackendTruthMutationBinding();
+  const [workspace, setWorkspace] = useState<NewsSignalsAdoptionView | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">(
     "loading",
   );
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("for-you");
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [selectedSourceRef, setSelectedSourceRef] = useState<string | null>(null);
+  const [intakeMode, setIntakeMode] = useState<IntakeMode>("source");
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [sourceKind, setSourceKind] = useState<NewsSignalSourceKind>("local");
+  const [signalTitle, setSignalTitle] = useState("");
+  const [signalSummary, setSignalSummary] = useState("");
+  const [signalTopic, setSignalTopic] = useState("");
+  const [signalPublishedAt, setSignalPublishedAt] = useState(currentLocalDateTime);
+  const [pending, setPending] = useState<{
+    request: NewsSignalsAdoptionMutationRequest;
+    preview: NewsSignalsAdoptionMutationPreview;
+    idempotencyRef: string;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  const summary = workspace?.summary ?? null;
+
+  const acceptWorkspace = useCallback((value: NewsSignalsAdoptionView) => {
+    setWorkspace(value);
+    setSelectedRef((current) =>
+      value.summary.items.some((item) => item.signal_ref === current)
+        ? current
+        : (value.summary.items[0]?.signal_ref ?? null),
+    );
+    setSelectedSourceRef((current) =>
+      value.summary.source_readiness.some(
+        (source) => source.source_ref === current && source.state === "ready",
+      )
+        ? current
+        : (value.summary.source_readiness.find(
+            (source) => source.state === "ready",
+          )?.source_ref ?? null),
+    );
+    setLoadState("ready");
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const value = await loadNewsSignalsAdoptionWorkspace();
+    acceptWorkspace(value);
+  }, [acceptWorkspace]);
 
   useEffect(() => {
     let active = true;
-    loadNewsSignalsSummary()
+    loadNewsSignalsAdoptionWorkspace()
       .then((value) => {
         if (!active) return;
-        setSummary(value);
-        setSelectedRef(value.items[0]?.signal_ref ?? null);
-        setLoadState("ready");
+        acceptWorkspace(value);
       })
       .catch(() => {
         if (!active) return;
-        setSummary(null);
+        setWorkspace(null);
         setLoadState("failed");
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [acceptWorkspace]);
 
   const visibleItems = useMemo(
     () =>
@@ -68,6 +134,78 @@ export function NewsSignalsPreviewPanel() {
     visibleItems[0];
   const briefCandidateCount =
     summary?.morning_briefing_projection.candidate_refs.length ?? 0;
+  const readySources =
+    summary?.source_readiness.filter((source) => source.state === "ready") ?? [];
+  const readySource =
+    readySources.find((source) => source.source_ref === selectedSourceRef) ??
+    readySources[0];
+  const firstSource = summary?.source_readiness[0];
+  const selectedPreference = workspace?.preferences.find(
+    (preference) => preference.topic_ref === selectedItem?.topic_ref,
+  );
+
+  const runPreview = async (request: NewsSignalsAdoptionMutationRequest) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    const idempotencyRef = newIdempotencyRef(request.action);
+    try {
+      const preview = await previewNewsSignalsAdoptionMutation(
+        request,
+        idempotencyRef,
+      );
+      setPending({ request, preview, idempotencyRef });
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "The local News preview failed safely.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmPending = async () => {
+    if (!pending) return;
+    setBusy(true);
+    setError("");
+    try {
+      await captureNewsSignalsAdoptionApproval(
+        pending.request,
+        pending.preview,
+        pending.idempotencyRef,
+        mutationBinding,
+      );
+      await commitNewsSignalsAdoptionMutation(
+        pending.request,
+        pending.preview,
+        pending.idempotencyRef,
+        mutationBinding,
+      );
+      setPending(null);
+      setNotice("The reviewed local News change was saved.");
+      if (pending.request.action === "register_source") {
+        setSourceLabel("");
+        setIntakeMode("signal");
+      }
+      if (pending.request.action === "ingest_signal") {
+        setSignalTitle("");
+        setSignalSummary("");
+        setSignalTopic("");
+        setSignalPublishedAt(currentLocalDateTime());
+      }
+      await refresh();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "The local News change was not saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section className="news-signals-preview" aria-labelledby="news-signals-heading">
@@ -102,6 +240,196 @@ export function NewsSignalsPreviewPanel() {
       </header>
 
       <AuthorityNotice loadState={loadState} summary={summary} />
+
+      {error ? <p className="news-adoption-feedback error" role="alert">{error}</p> : null}
+      {notice ? <p className="news-adoption-feedback" role="status">{notice}</p> : null}
+
+      <section className="news-adoption-controls" aria-label="Local News intake">
+        <div>
+          <p className="eyebrow">Local intake</p>
+          <h2>
+            {intakeMode === "signal" && readySource
+              ? "Add a reviewed signal"
+              : readySource
+                ? "Add another source"
+                : "Add your first source"}
+          </h2>
+          <p>
+            Enter already-redacted details only. This does not visit a website,
+            connect an account, or call a model.
+          </p>
+          {readySource ? (
+            <div className="news-intake-mode" aria-label="Local intake type">
+              <button
+                aria-pressed={intakeMode === "signal"}
+                onClick={() => setIntakeMode("signal")}
+                type="button"
+              >
+                Signal
+              </button>
+              <button
+                aria-pressed={intakeMode === "source"}
+                onClick={() => setIntakeMode("source")}
+                type="button"
+              >
+                Source
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {intakeMode === "signal" && readySource ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!workspace || !signalTitle.trim() || !signalSummary.trim() || !signalTopic.trim()) return;
+              void runPreview({
+                action: "ingest_signal",
+                expected_revision: workspace.revision,
+                signal_draft: {
+                  source_ref: readySource.source_ref,
+                  title: signalTitle.trim(),
+                  safe_summary: signalSummary.trim(),
+                  topic_label: signalTopic.trim(),
+                  cluster_label: signalTitle.trim().slice(0, 80),
+                  claim_label: `${signalTopic.trim()} reviewed`,
+                  published_at: new Date(signalPublishedAt).toISOString(),
+                  confidence_percent: 80,
+                  evidence_class: "primary",
+                  claim_stance: "unknown",
+                },
+              });
+            }}
+          >
+            <label>
+              Source
+              <select
+                onChange={(event) => setSelectedSourceRef(event.target.value)}
+                value={readySource.source_ref}
+              >
+                {readySources.map((source) => (
+                  <option key={source.source_ref} value={source.source_ref}>
+                    {source.safe_label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>Headline<input maxLength={140} onChange={(event) => setSignalTitle(event.target.value)} required value={signalTitle} /></label>
+            <label>Redacted summary<input maxLength={320} onChange={(event) => setSignalSummary(event.target.value)} required value={signalSummary} /></label>
+            <label>Topic<input maxLength={60} onChange={(event) => setSignalTopic(event.target.value)} required value={signalTopic} /></label>
+            <label>Published<input onChange={(event) => setSignalPublishedAt(event.target.value)} required type="datetime-local" value={signalPublishedAt} /></label>
+            <button disabled={busy} type="submit">Review signal</button>
+          </form>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!workspace || !sourceLabel.trim()) return;
+              void runPreview({
+                action: "register_source",
+                expected_revision: workspace.revision,
+                source_draft: {
+                  safe_label: sourceLabel.trim(),
+                  source_kind: sourceKind,
+                  freshness_ttl_seconds: 86_400,
+                },
+              });
+            }}
+          >
+            <label>Source name<input maxLength={80} onChange={(event) => setSourceLabel(event.target.value)} required value={sourceLabel} /></label>
+            <label>
+              Source type
+              <select
+                onChange={(event) =>
+                  setSourceKind(event.target.value as NewsSignalSourceKind)
+                }
+                value={sourceKind}
+              >
+                <option value="official">Official</option>
+                <option value="community">Community</option>
+                <option value="rss">RSS artifact</option>
+                <option value="public_social">Public commentary</option>
+                <option value="local">Local artifact</option>
+              </select>
+            </label>
+            <button disabled={busy} type="submit">Review source</button>
+          </form>
+        )}
+        {workspace?.can_undo ? (
+          <button
+            disabled={busy}
+            onClick={() => void runPreview({ action: "undo", expected_revision: workspace.revision })}
+            type="button"
+          >
+            Review undo
+          </button>
+        ) : null}
+        {workspace && readySource ? (
+          <button
+            disabled={busy}
+            onClick={() => void runPreview({
+              action: "set_source_state",
+              expected_revision: workspace.revision,
+              target_ref: readySource.source_ref,
+              source_state: "safe_disabled",
+            })}
+            type="button"
+          >
+            Review safe-disable
+          </button>
+        ) : null}
+        {workspace && !readySource && firstSource?.state === "safe_disabled" ? (
+          <button
+            disabled={busy}
+            onClick={() => void runPreview({
+              action: "set_source_state",
+              expected_revision: workspace.revision,
+              target_ref: firstSource.source_ref,
+              source_state: "ready",
+            })}
+            type="button"
+          >
+            Review source recovery
+          </button>
+        ) : null}
+      </section>
+
+      {workspace?.archived_items.length ? (
+        <section className="news-archived-items" aria-label="Archived News items">
+          <div>
+            <p className="eyebrow">Recovery</p>
+            <h2>Archived signals</h2>
+          </div>
+          {workspace.archived_items.map((item) => (
+            <button
+              disabled={busy}
+              key={item.signal_ref}
+              onClick={() => void runPreview({
+                action: "recover_signal",
+                expected_revision: workspace.revision,
+                target_ref: item.signal_ref,
+              })}
+              type="button"
+            >
+              Recover {item.title}
+            </button>
+          ))}
+        </section>
+      ) : null}
+
+      {pending ? (
+        <section className="news-adoption-review" aria-label="Review local News change">
+          <div>
+            <p className="eyebrow">Confirmation</p>
+            <h2>Review this one local change</h2>
+            <p>{pending.preview.safe_summary}</p>
+            <small>Revision {pending.preview.expected_revision} → {pending.preview.resulting_revision}. No external action will run.</small>
+          </div>
+          <div>
+            <button disabled={busy} onClick={() => setPending(null)} type="button">Cancel</button>
+            <button disabled={busy || mutationBinding === null} onClick={() => void confirmPending()} type="button">Confirm and save</button>
+          </div>
+        </section>
+      ) : null}
 
       <div className="news-signals-toolbar">
         <div className="news-filter-group" aria-label="News and Signals filters">
@@ -173,7 +501,13 @@ export function NewsSignalsPreviewPanel() {
         </div>
 
         {selectedItem ? (
-          <SignalInspector item={selectedItem} />
+          <SignalInspector
+            busy={busy}
+            item={selectedItem}
+            onArchive={() => workspace && void runPreview({ action: "archive_signal", expected_revision: workspace.revision, target_ref: selectedItem.signal_ref })}
+            onClearPreference={selectedPreference ? () => workspace && void runPreview({ action: "remove_preference", expected_revision: workspace.revision, topic_ref: selectedItem.topic_ref }) : undefined}
+            onPrefer={() => workspace && void runPreview({ action: "set_preference", expected_revision: workspace.revision, topic_ref: selectedItem.topic_ref, preference_weight: 10 })}
+          />
         ) : (
           <aside className="news-signal-inspector" aria-label="Signal detail">
             <p className="eyebrow">No selected signal</p>
@@ -234,7 +568,19 @@ function EmptyStream({ title }: { title: string }) {
   );
 }
 
-function SignalInspector({ item }: { item: NewsSignalReadItem }) {
+function SignalInspector({
+  busy,
+  item,
+  onArchive,
+  onClearPreference,
+  onPrefer,
+}: {
+  busy: boolean;
+  item: NewsSignalReadItem;
+  onArchive: () => void;
+  onClearPreference?: () => void;
+  onPrefer: () => void;
+}) {
   return (
     <aside className="news-signal-inspector" aria-label="Signal detail">
       <div className="news-inspector-heading">
@@ -287,8 +633,16 @@ function SignalInspector({ item }: { item: NewsSignalReadItem }) {
       <div className="news-deferred-controls">
         <strong>External content is untrusted evidence</strong>
         <span>
-          This read model cannot save, dismiss, recommend, execute, or mint source
-          authority.
+          Local ranking and archive choices cannot mint source, account, model,
+          or execution authority.
+        </span>
+        <span className="news-inspector-actions">
+          {onClearPreference ? (
+            <button disabled={busy} onClick={onClearPreference} type="button">Clear topic preference</button>
+          ) : (
+            <button disabled={busy} onClick={onPrefer} type="button">Prefer this topic</button>
+          )}
+          <button disabled={busy} onClick={onArchive} type="button">Review archive</button>
         </span>
       </div>
     </aside>
