@@ -45,6 +45,12 @@ return durable exact-replay receipts with rollback refs. Rebound payloads,
 stale revisions, substituted previews or approvals, expired approvals, replay
 conflicts, malformed state, and unsafe identifiers fail closed.
 
+The reviewed state identity includes the exact bounded undo snapshot, and the
+durable receipt identity covers every stable lifecycle, approval, and authority
+evidence field. Snapshot substitution or receipt-field substitution therefore
+invalidates the reviewed or replayed operation before state is changed or
+evidence is returned.
+
 The exact approval ref is retained in source reason refs and signal provenance
 refs, so the read model cannot silently detach a source or artifact from the
 review that admitted it.

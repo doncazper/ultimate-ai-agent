@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import os
 import sqlite3
 
@@ -325,6 +326,40 @@ def test_stale_revision_and_approval_substitution_are_rejected(tmp_path) -> None
         )
 
 
+def test_undo_approval_binds_the_exact_snapshot_bytes(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="undo",
+        expected_revision=1,
+    )
+    idempotency_ref = "idempotency-ref:q34:test:undo-snapshot-binding"
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    exact = NewsSignalsAdoptionCommitRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(exact, idempotency_ref=idempotency_ref)
+
+    with sqlite3.connect(store.db_path) as conn:
+        original = conn.execute(
+            "SELECT snapshot_json FROM news_signals_adoption_undo WHERE singleton = 1"
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE news_signals_adoption_undo SET snapshot_json = ? "
+            "WHERE singleton = 1",
+            (f"{original} ",),
+        )
+
+    with pytest.raises(NewsSignalsAdoptionConflict, match="COMMIT_SCOPE_MISMATCH"):
+        store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+
+    view = store.read_view(now=NOW)
+    assert view["revision"] == 1
+    assert view["summary"]["source_readiness"][0]["source_ref"] == source_ref
+
+
 def test_commit_requires_captured_exact_approval_and_replays_idempotently(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     mutation = NewsSignalsAdoptionMutationRequest(
@@ -458,6 +493,66 @@ def test_corrupt_database_and_receipt_state_fail_with_safe_codes(tmp_path) -> No
         )
     with pytest.raises(NewsSignalsAdoptionError, match="RECEIPT_STATE_INVALID"):
         receipt_store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+
+
+def test_durable_receipt_rejects_substituted_lifecycle_and_authority_fields(
+    tmp_path,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source",
+        expected_revision=0,
+        source_draft=_source_draft(),
+    )
+    idempotency_ref = "idempotency-ref:q34:test:receipt-complete-binding"
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    exact = NewsSignalsAdoptionCommitRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(exact, idempotency_ref=idempotency_ref)
+    original_receipt = store.commit_mutation(
+        exact,
+        idempotency_ref=idempotency_ref,
+    )
+    original_json = original_receipt.model_dump_json()
+    substitutions = {
+        "action": "undo",
+        "target_ref": "signal-ref:q34:forged",
+        "source_ref": "source-ref:q34:forged",
+        "signal_ref": "signal-ref:q34:forged",
+        "approval_validation_ref": "approval-validation-ref:q34:forged",
+        "approval_expires_at": "2099-01-01T00:00:00Z",
+        "authority_decision_ref": "authority-decision-ref:q34:forged",
+        "authority_lease_ref": "authority-lease-ref:q34:forged",
+        "replayed": True,
+    }
+
+    for field, replacement in substitutions.items():
+        forged = json.loads(original_json)
+        forged[field] = replacement
+        with sqlite3.connect(store.db_path) as conn:
+            conn.execute(
+                "UPDATE news_signals_adoption_receipts SET receipt_json = ? "
+                "WHERE idempotency_ref = ?",
+                (json.dumps(forged), idempotency_ref),
+            )
+        with pytest.raises(
+            NewsSignalsAdoptionError,
+            match="RECEIPT_STATE_INVALID",
+        ):
+            store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signals_adoption_receipts SET receipt_json = ? "
+            "WHERE idempotency_ref = ?",
+            (original_json, idempotency_ref),
+        )
+    replay = store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+    assert replay.receipt_ref == original_receipt.receipt_ref
+    assert replay.replayed is True
 
 
 def test_direct_database_capacity_inflation_fails_before_projection(tmp_path) -> None:
