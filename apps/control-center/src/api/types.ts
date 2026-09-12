@@ -3292,8 +3292,11 @@ export interface CalendarAdoptionWorkspaceView {
   calendar_set_ref: string;
   revision: number;
   current_state_ref: string;
+  idempotency_generation: number;
+  idempotency_generation_ref: string;
   calendar_set_name?: string | null;
   calendars: CalendarAdoptionCalendar[];
+  active_events: CalendarAdoptionEvent[];
   occurrence_items: CalendarAdoptionOccurrenceProjection[];
   archived_events: CalendarAdoptionEvent[];
   conflict_items: CalendarAdoptionConflictItem[];

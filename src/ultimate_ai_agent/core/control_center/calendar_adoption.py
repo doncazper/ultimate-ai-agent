@@ -583,8 +583,26 @@ class _CalendarAdoptionIdempotencyTombstone(_CalendarAdoptionModel):
         return self
 
 
+class _CalendarAdoptionIdempotencyGeneration(_CalendarAdoptionModel):
+    """Bounded generation marker for retiring compacted idempotency identities."""
+
+    schema_version: Literal["uaa-calendar-adoption-idempotency-generation.v1"] = (
+        "uaa-calendar-adoption-idempotency-generation.v1"
+    )
+    generation: int = Field(..., ge=0, le=CALENDAR_ADOPTION_MAX_REVISION)
+    generation_token: str = Field(..., pattern=r"^[a-f0-9]{32}$")
+    idempotency_ref: Literal["idempotency-generation-ref:calendar-adoption"] = (
+        "idempotency-generation-ref:calendar-adoption"
+    )
+    payload_fingerprint_ref: Literal[
+        "payload-fingerprint-ref:calendar-adoption-generation"
+    ] = "payload-fingerprint-ref:calendar-adoption-generation"
+
+
 _CalendarAdoptionCheckpointEntry = (
-    _CalendarAdoptionReceiptCheckpoint | _CalendarAdoptionIdempotencyTombstone
+    _CalendarAdoptionReceiptCheckpoint
+    | _CalendarAdoptionIdempotencyTombstone
+    | _CalendarAdoptionIdempotencyGeneration
 )
 
 
@@ -724,8 +742,15 @@ class CalendarAdoptionReadModel(_CalendarAdoptionModel):
     calendar_set_ref: Literal[CALENDAR_ADOPTION_SET_REF] = CALENDAR_ADOPTION_SET_REF
     revision: int
     current_state_ref: str
+    idempotency_generation: int = Field(
+        default=0, ge=0, le=CALENDAR_ADOPTION_MAX_REVISION
+    )
+    idempotency_generation_ref: str = (
+        "idempotency-generation-ref:calendar-adoption:00000000000000000000000000000000"
+    )
     calendar_set_name: str | None = Field(default=None, repr=False)
     calendars: tuple[LocalCalendar, ...] = Field(default=(), repr=False)
+    active_events: tuple[CalendarEvent, ...] = Field(default=(), repr=False)
     occurrence_items: tuple[CalendarEventProjection, ...] = Field(
         default=(), repr=False
     )
@@ -751,6 +776,19 @@ class CalendarAdoptionReadModel(_CalendarAdoptionModel):
     background_scheduling_enabled: Literal[False] = False
     notification_delivery_enabled: Literal[False] = False
     production_authority_enabled: Literal[False] = False
+
+    @field_validator("idempotency_generation_ref")
+    @classmethod
+    def validate_idempotency_generation_ref(cls, value: str) -> str:
+        prefix = "idempotency-generation-ref:calendar-adoption:"
+        token = value.removeprefix(prefix)
+        if (
+            not value.startswith(prefix)
+            or len(token) != 32
+            or any(character not in "0123456789abcdef" for character in token)
+        ):
+            raise ValueError("CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_REF_INVALID")
+        return value
 
 
 class _FileCalendarKeyBackend:
@@ -1076,6 +1114,13 @@ class CalendarAdoptionStore:
                     checkpoints.append(
                         _CalendarAdoptionIdempotencyTombstone.model_validate(item)
                     )
+                elif (
+                    item.get("schema_version")
+                    == "uaa-calendar-adoption-idempotency-generation.v1"
+                ):
+                    checkpoints.append(
+                        _CalendarAdoptionIdempotencyGeneration.model_validate(item)
+                    )
                 else:
                     checkpoints.append(
                         _CalendarAdoptionReceiptCheckpoint.model_validate(item)
@@ -1085,9 +1130,15 @@ class CalendarAdoptionStore:
                 for item in checkpoints
             )
             tombstone_count = len(checkpoints) - full_count
+            generation_count = sum(
+                isinstance(item, _CalendarAdoptionIdempotencyGeneration)
+                for item in checkpoints
+            )
+            tombstone_count -= generation_count
             if (
                 full_count > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS
                 or tombstone_count > CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES
+                or generation_count > 1
                 or len({item.idempotency_ref for item in checkpoints})
                 != len(checkpoints)
             ):
@@ -1113,6 +1164,16 @@ class CalendarAdoptionStore:
     def _write_receipt_checkpoints(
         self, checkpoints: list[_CalendarAdoptionCheckpointEntry]
     ) -> None:
+        if (
+            sum(
+                isinstance(item, _CalendarAdoptionIdempotencyGeneration)
+                for item in checkpoints
+            )
+            > 1
+        ):
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_GENERATION_CONFLICT"
+            )
         if len({item.idempotency_ref for item in checkpoints}) != len(checkpoints):
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_IDENTITY_CONFLICT"
@@ -1127,6 +1188,8 @@ class CalendarAdoptionStore:
             for item in checkpoints
             if isinstance(item, _CalendarAdoptionReceiptCheckpoint)
         ]
+        generation = self._checkpoint_generation(checkpoints)
+        generation_token = self._checkpoint_generation_token(checkpoints)
         if len(full_checkpoints) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
             now = utc_now()
             pending = [
@@ -1156,14 +1219,35 @@ class CalendarAdoptionStore:
                 )
                 for item in reclaimable
                 if item.idempotency_ref not in retained_refs
+                and self._idempotency_matches_generation(
+                    item.idempotency_ref, generation, generation_token
+                )
             )
             full_checkpoints = retained
-        if len(tombstones) > CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES:
-            raise CalendarAdoptionError(
-                "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_CAPACITY_EXHAUSTED"
-            )
-        checkpoints = [*tombstones, *full_checkpoints]
+        marker = _CalendarAdoptionIdempotencyGeneration(
+            generation=generation,
+            generation_token=generation_token,
+        )
+        checkpoints = [marker, *tombstones, *full_checkpoints]
         raw = _canonical_json([item.model_dump(mode="json") for item in checkpoints])
+        if (
+            len(tombstones) > CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES
+            or len(raw) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES
+        ):
+            if generation >= CALENDAR_ADOPTION_MAX_REVISION:
+                raise CalendarAdoptionError(
+                    "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_CAPACITY_EXHAUSTED"
+                )
+            generation += 1
+            generation_token = secrets.token_hex(16)
+            marker = _CalendarAdoptionIdempotencyGeneration(
+                generation=generation,
+                generation_token=generation_token,
+            )
+            checkpoints = [marker, *full_checkpoints]
+            raw = _canonical_json(
+                [item.model_dump(mode="json") for item in checkpoints]
+            )
         if len(raw) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES:
             raise CalendarAdoptionError(
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_SIZE_INVALID"
@@ -1204,6 +1288,54 @@ class CalendarAdoptionStore:
                     pass
 
     @staticmethod
+    def _checkpoint_generation(
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
+    ) -> int:
+        marker = next(
+            (
+                item
+                for item in checkpoints
+                if isinstance(item, _CalendarAdoptionIdempotencyGeneration)
+            ),
+            None,
+        )
+        return marker.generation if marker is not None else 0
+
+    @staticmethod
+    def _checkpoint_generation_token(
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
+    ) -> str:
+        marker = next(
+            (
+                item
+                for item in checkpoints
+                if isinstance(item, _CalendarAdoptionIdempotencyGeneration)
+            ),
+            None,
+        )
+        return marker.generation_token if marker is not None else "0" * 32
+
+    @classmethod
+    def _checkpoint_generation_ref(
+        cls,
+        checkpoints: list[_CalendarAdoptionCheckpointEntry],
+    ) -> str:
+        return (
+            "idempotency-generation-ref:calendar-adoption:"
+            f"{cls._checkpoint_generation_token(checkpoints)}"
+        )
+
+    @staticmethod
+    def _idempotency_matches_generation(
+        idempotency_ref: str,
+        generation: int,
+        generation_token: str,
+    ) -> bool:
+        return generation == 0 or (
+            f":generation-{generation}-{generation_token}:" in idempotency_ref
+        )
+
+    @staticmethod
     def _checkpoint_for(
         checkpoints: list[_CalendarAdoptionCheckpointEntry],
         idempotency_ref: str,
@@ -1240,6 +1372,15 @@ class CalendarAdoptionStore:
         idempotency_ref: str,
         payload_fingerprint_ref: str,
     ) -> None:
+        checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
+        if checkpoint is None and not self._idempotency_matches_generation(
+            idempotency_ref,
+            self._checkpoint_generation(checkpoints),
+            self._checkpoint_generation_token(checkpoints),
+        ):
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_RETIRED"
+            )
         tombstone = self._tombstone_for(checkpoints, idempotency_ref)
         if tombstone is None:
             return
@@ -1458,6 +1599,11 @@ class CalendarAdoptionStore:
         view: CalendarView,
         anchor: datetime,
         timezone_name: str,
+        idempotency_generation: int = 0,
+        idempotency_generation_ref: str = (
+            "idempotency-generation-ref:calendar-adoption:"
+            "00000000000000000000000000000000"
+        ),
     ) -> CalendarAdoptionReadModel:
         start, end = self._empty_range(
             view=view, anchor=anchor, timezone_name=timezone_name
@@ -1465,6 +1611,8 @@ class CalendarAdoptionStore:
         return CalendarAdoptionReadModel(
             status=status,
             revision=0,
+            idempotency_generation=idempotency_generation,
+            idempotency_generation_ref=idempotency_generation_ref,
             current_state_ref=_hash_ref(
                 "state-ref:calendar-adoption", {"status": status}
             ),
@@ -1541,6 +1689,11 @@ class CalendarAdoptionStore:
                     timezone_name=timezone_name,
                 )
             self._secure_tree(self.state_dir)
+            checkpoint_entries = self._read_receipt_checkpoints()
+            idempotency_generation = self._checkpoint_generation(checkpoint_entries)
+            idempotency_generation_ref = self._checkpoint_generation_ref(
+                checkpoint_entries
+            )
             repository, _platform, _authority = self._repository()
             try:
                 calendar_set = repository.read(
@@ -1554,6 +1707,8 @@ class CalendarAdoptionStore:
                         view=view,
                         anchor=selected_anchor,
                         timezone_name=timezone_name,
+                        idempotency_generation=idempotency_generation,
+                        idempotency_generation_ref=idempotency_generation_ref,
                     )
                 raise
             projection = repository.view(
@@ -1567,8 +1722,13 @@ class CalendarAdoptionStore:
                 status="ready",
                 revision=calendar_set.version,
                 current_state_ref=self._state_ref(calendar_set),
+                idempotency_generation=idempotency_generation,
+                idempotency_generation_ref=idempotency_generation_ref,
                 calendar_set_name=calendar_set.name,
                 calendars=calendar_set.calendars,
+                active_events=tuple(
+                    item for item in calendar_set.events if not item.archived
+                ),
                 occurrence_items=projection.occurrence_items,
                 archived_events=tuple(
                     item for item in calendar_set.events if item.archived
@@ -1598,8 +1758,13 @@ class CalendarAdoptionStore:
                     status="projection_limited",
                     revision=calendar_set.version,
                     current_state_ref=self._state_ref(calendar_set),
+                    idempotency_generation=idempotency_generation,
+                    idempotency_generation_ref=idempotency_generation_ref,
                     calendar_set_name=calendar_set.name,
                     calendars=calendar_set.calendars,
+                    active_events=tuple(
+                        item for item in calendar_set.events if not item.archived
+                    ),
                     archived_events=tuple(
                         item for item in calendar_set.events if item.archived
                     ),
@@ -1618,8 +1783,9 @@ class CalendarAdoptionStore:
                     ),
                     can_undo=bool(calendar_set.undo_stack),
                     next_safe_action=(
-                        "Narrow the Calendar period or switch to day view; "
-                        "the stored Calendar remains intact."
+                        "Narrow the Calendar period, switch to day view, or manage "
+                        "the bounded canonical event list below; the stored Calendar "
+                        "remains intact."
                     ),
                 )
             return self._empty_view(

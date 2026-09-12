@@ -39,6 +39,9 @@ const workspace: CalendarAdoptionWorkspaceView = {
   calendar_set_ref: "calendar-set-ref:founder-private",
   revision: 4,
   current_state_ref: "state-ref:calendar-adoption:sha256:test",
+  idempotency_generation: 0,
+  idempotency_generation_ref:
+    "idempotency-generation-ref:calendar-adoption:00000000000000000000000000000000",
   calendar_set_name: "My Calendar",
   calendars: [
     {
@@ -80,6 +83,7 @@ const workspace: CalendarAdoptionWorkspaceView = {
       projection_state: "current",
     },
   ],
+  active_events: [],
   archived_events: [],
   conflict_items: [],
   view: "week",
@@ -239,6 +243,12 @@ describe("CalendarAdoptionWorkspace", () => {
   });
 
   it("previews and confirms one exact local event change", async () => {
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
+      ...structuredClone(workspace),
+      idempotency_generation: 7,
+      idempotency_generation_ref:
+        "idempotency-generation-ref:calendar-adoption:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
     render(
       <BackendTruthMutationBindingProvider binding={binding}>
         <CalendarAdoptionWorkspace />
@@ -265,6 +275,11 @@ describe("CalendarAdoptionWorkspace", () => {
     expect(screen.getByText(/Repeats: none/)).toBeVisible();
 
     const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    const [, idempotencyRef] =
+      apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(idempotencyRef).toMatch(
+      /^idempotency-ref:calendar-adoption-ui:create-event:generation-7-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:/,
+    );
     expect(request).toMatchObject({
       action: "create_event",
       expected_revision: 4,
@@ -405,6 +420,60 @@ describe("CalendarAdoptionWorkspace", () => {
     expect(
       await screen.findByText(
         /Repeats: weekly; interval 1; timezone America\/Los_Angeles; weekdays Monday \(0\), Wednesday \(2\); month day none; count none; until none/,
+      ),
+    ).toBeVisible();
+  });
+
+  it("moves an explicit monthly recurrence with the edited start date", async () => {
+    const recurring = structuredClone(workspace);
+    recurring.occurrence_items[0].event.recurrence = {
+      frequency: "monthly",
+      interval: 1,
+      weekdays: [],
+      month_day: 14,
+      timezone: "America/Los_Angeles",
+    };
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(recurring);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Starts"), {
+      target: { value: "2026-09-15T09:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Ends"), {
+      target: { value: "2026-09-15T10:00" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.event.recurrence.month_day).toBe(15);
+  });
+
+  it("discloses that archiving an occurrence removes its recurring series", async () => {
+    const recurring = structuredClone(workspace);
+    recurring.occurrence_items[0].event.recurrence = {
+      frequency: "weekly",
+      interval: 1,
+      weekdays: [0],
+      timezone: "America/Los_Angeles",
+    };
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(recurring);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    expect(
+      await screen.findByText(
+        /Archive “Founder briefing”.*entire recurring series and every occurrence/,
       ),
     ).toBeVisible();
   });
@@ -705,9 +774,11 @@ describe("CalendarAdoptionWorkspace", () => {
   });
 
   it("keeps period navigation available when a dense view is projection limited", async () => {
+    const canonicalEvent = structuredClone(workspace.occurrence_items[0].event);
     apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
       ...structuredClone(workspace),
       status: "projection_limited",
+      active_events: [canonicalEvent],
       occurrence_items: [],
       conflict_items: [],
       next_safe_action:
@@ -720,6 +791,10 @@ describe("CalendarAdoptionWorkspace", () => {
       await screen.findByText("This Calendar period is too dense to display safely"),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "day" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: "Manage stored events" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Founder briefing" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
     expect(
       screen.queryByRole("heading", { name: "Restore encrypted Calendar" }),
     ).not.toBeInTheDocument();

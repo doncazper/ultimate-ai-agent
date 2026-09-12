@@ -977,6 +977,9 @@ export async function loadCalendarAdoptionWorkspace(
     !isCalendarAdoptionRevision(value.revision) ||
     typeof value.current_state_ref !== "string" ||
     !value.current_state_ref.startsWith("state-ref:calendar-adoption") ||
+    !isCalendarAdoptionRevision(value.idempotency_generation) ||
+    typeof value.idempotency_generation_ref !== "string" ||
+    !CALENDAR_ADOPTION_GENERATION_REF.test(value.idempotency_generation_ref) ||
     (value.calendar_set_name !== null &&
       !isCalendarAdoptionPrivateText(value.calendar_set_name, 512)) ||
     value.view !== view ||
@@ -1003,6 +1006,9 @@ export async function loadCalendarAdoptionWorkspace(
     !Array.isArray(value.calendars) ||
     value.calendars.length > 256 ||
     !value.calendars.every(isCalendarAdoptionCalendar) ||
+    !Array.isArray(value.active_events) ||
+    value.active_events.length > 10_000 ||
+    !value.active_events.every(isCalendarAdoptionEvent) ||
     !Array.isArray(value.occurrence_items) ||
     value.occurrence_items.length > 25_000 ||
     !value.occurrence_items.every(isCalendarAdoptionOccurrenceProjection) ||
@@ -1026,6 +1032,8 @@ const CALENDAR_ADOPTION_MAX_REVISION = 9_007_199_254_740_991;
 const CALENDAR_ADOPTION_SAFE_REF = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
 const CALENDAR_ADOPTION_AWARE_TIMESTAMP =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const CALENDAR_ADOPTION_GENERATION_REF =
+  /^idempotency-generation-ref:calendar-adoption:[a-f0-9]{32}$/;
 const CALENDAR_ADOPTION_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 function isCalendarAdoptionRecord(

@@ -98,9 +98,13 @@ const workspaceView: CalendarAdoptionWorkspaceView = {
   calendar_set_ref: "calendar-set-ref:founder-private",
   revision: 4,
   current_state_ref: "state-ref:calendar-adoption:sha256:current",
+  idempotency_generation: 0,
+  idempotency_generation_ref:
+    "idempotency-generation-ref:calendar-adoption:00000000000000000000000000000000",
   calendar_set_name: "My Calendar",
   calendars: [],
   occurrence_items: [],
+  active_events: [],
   archived_events: [],
   conflict_items: [],
   view: "week",

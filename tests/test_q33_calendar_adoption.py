@@ -266,6 +266,53 @@ def test_reclaimed_checkpoint_identity_cannot_be_reused_for_a_new_payload(
         store.preview_mutation(substituted, idempotency_ref=idempotency_ref)
 
 
+def test_tombstone_capacity_rotates_a_bounded_idempotency_generation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    _initialize(store, suffix="generation-rotation")
+    monkeypatch.setattr(
+        calendar_adoption_module,
+        "CALENDAR_ADOPTION_MAX_IDEMPOTENCY_TOMBSTONES",
+        2,
+    )
+    tombstones = [
+        calendar_adoption_module._CalendarAdoptionIdempotencyTombstone(
+            idempotency_ref=_idempotency(f"retired-{index}"),
+            payload_fingerprint_ref=f"payload-fingerprint-ref:q33:retired-{index}",
+        )
+        for index in range(3)
+    ]
+
+    store._write_receipt_checkpoints(tombstones)
+
+    retained = store._read_receipt_checkpoints()
+    assert store._checkpoint_generation(retained) == 1
+    generation_ref = store._checkpoint_generation_ref(retained)
+    generation_token = generation_ref.rsplit(":", maxsplit=1)[-1]
+    assert generation_token != "0" * 32
+    read_model = store.read_view()
+    assert read_model.idempotency_generation == 1
+    assert read_model.idempotency_generation_ref == generation_ref
+    assert store._tombstone_for(retained, tombstones[0].idempotency_ref) is None
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_IDEMPOTENCY_GENERATION_RETIRED",
+    ):
+        store._assert_idempotency_not_retired(
+            retained,
+            idempotency_ref=tombstones[0].idempotency_ref,
+            payload_fingerprint_ref=tombstones[0].payload_fingerprint_ref,
+        )
+    store._assert_idempotency_not_retired(
+        retained,
+        idempotency_ref=(
+            f"idempotency-ref:q33-calendar-test:generation-1-{generation_token}:new"
+        ),
+        payload_fingerprint_ref="payload-fingerprint-ref:q33:generation-1:new",
+    )
+
+
 def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:
     store = CalendarAdoptionStore(tmp_path)
     mutation = CalendarAdoptionMutationRequest(
@@ -707,7 +754,8 @@ def test_replay_rejects_checkpoint_receipt_substitution(tmp_path: Path) -> None:
 
     checkpoint_path = tmp_path / CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE
     payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
-    payload[0]["receipt"]["receipt_ref"] = "receipt-ref:forged-checkpoint"
+    checkpoint = next(item for item in payload if "receipt" in item)
+    checkpoint["receipt"]["receipt_ref"] = "receipt-ref:forged-checkpoint"
     checkpoint_path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(
@@ -1338,6 +1386,15 @@ def test_dense_calendar_is_projection_limited_without_claiming_storage_damage(
 ) -> None:
     store = CalendarAdoptionStore(tmp_path)
     _initialize(store, suffix=f"projection-limit-{safe_code}")
+    _commit(
+        store,
+        CalendarAdoptionMutationRequest(
+            action="create_event",
+            expected_revision=1,
+            event=_event(f"projection-limit-{safe_code}"),
+        ),
+        suffix=f"projection-limit-event-{safe_code}",
+    )
 
     def reject_dense_projection(*_args: object, **_kwargs: object) -> None:
         raise CalendarError(safe_code)
@@ -1346,8 +1403,10 @@ def test_dense_calendar_is_projection_limited_without_claiming_storage_damage(
     result = store.read_view(view=CalendarView.month)
 
     assert result.status == "projection_limited"
-    assert result.revision == 1
+    assert result.revision == 2
     assert result.calendars[0].calendar_ref == "calendar-ref:q33:primary"
+    assert len(result.active_events) == 1
+    assert result.active_events[0].title.startswith("Private projection-limit-")
     assert result.occurrence_items == ()
     assert result.conflict_items == ()
     assert result.current_state_ref.startswith("state-ref:calendar-adoption:")
