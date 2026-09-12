@@ -1575,6 +1575,14 @@ def get_control_center_calendar_adoption(
     anchor: datetime | None = Query(default=None),
     timezone_name: str = Query(default="UTC", alias="timezone", max_length=128),
 ) -> ResultEnvelope:
+    if anchor is not None and (anchor.tzinfo is None or anchor.utcoffset() is None):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "CALENDAR_ADOPTION_ANCHOR_TIMEZONE_REQUIRED",
+                "safe_message": "Calendar anchors must include an explicit UTC offset.",
+            },
+        )
     try:
         read_model = CalendarAdoptionStore.from_env().read_view(
             view=CalendarView(view),

@@ -980,13 +980,236 @@ export async function loadCalendarAdoptionWorkspace(
   return value;
 }
 
-async function postCalendarAdoptionEnvelope<T>(
+const CALENDAR_ADOPTION_CONTRACT_REF =
+  "contract-ref:queue-v2-q33-calendar-adoption:v1";
+const CALENDAR_ADOPTION_SAFE_DISABLE_REF =
+  "safe-disable-ref:calendar-adoption-local-write:deny";
+const CALENDAR_ADOPTION_MAX_REVISION = 9_007_199_254_740_991;
+const CALENDAR_ADOPTION_SAFE_REF = /^[A-Za-z][A-Za-z0-9_.:-]{2,190}$/;
+const CALENDAR_ADOPTION_AWARE_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const CALENDAR_ADOPTION_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function isCalendarAdoptionRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCalendarAdoptionSafeRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    CALENDAR_ADOPTION_SAFE_REF.test(value) &&
+    !containsSecretLike(value)
+  );
+}
+
+function isCalendarAdoptionRevision(
+  value: unknown,
+  minimum = 0,
+): value is number {
+  return (
+    Number.isSafeInteger(value) &&
+    (value as number) >= minimum &&
+    (value as number) <= CALENDAR_ADOPTION_MAX_REVISION
+  );
+}
+
+function isCalendarAdoptionAwareTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    CALENDAR_ADOPTION_AWARE_TIMESTAMP.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+
+function requireCalendarAdoptionResponse<T>(
+  value: unknown,
+  validator: (candidate: unknown) => candidate is T,
+): T {
+  if (!validator(value)) {
+    throw new Error("CALENDAR_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+function isCalendarAdoptionMutationPreview(
+  value: unknown,
+  request: CalendarAdoptionMutationRequest,
+): value is CalendarAdoptionMutationPreview {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-mutation-preview.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === request.action &&
+    value.expected_revision === request.expected_revision &&
+    value.resulting_revision === request.expected_revision + 1 &&
+    value.target_ref === (request.target_ref ?? null) &&
+    isCalendarAdoptionSafeRef(value.payload_fingerprint_ref) &&
+    value.payload_fingerprint_ref.startsWith(
+      "payload-fingerprint-ref:calendar-adoption:",
+    ) &&
+    isCalendarAdoptionSafeRef(value.preview_ref) &&
+    value.preview_ref.startsWith("preview-ref:calendar-adoption:") &&
+    isCalendarAdoptionSafeRef(value.approval_ref) &&
+    value.approval_ref.startsWith("approval-ref:calendar-adoption:") &&
+    isCalendarAdoptionSafeRef(value.operation_ref) &&
+    value.operation_ref.startsWith("operation-ref:calendar-adoption:") &&
+    typeof value.safe_summary === "string" &&
+    value.safe_summary.length > 0 &&
+    value.safe_summary.length <= 320 &&
+    !containsSecretLike(value.safe_summary) &&
+    value.mutation_performed === false &&
+    value.external_write_performed === false
+  );
+}
+
+function isCalendarAdoptionApprovalReceipt(
+  value: unknown,
+  preview: CalendarAdoptionMutationPreview | CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+): value is CalendarAdoptionApprovalReceipt {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-approval-receipt.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.approval_ref === preview.approval_ref &&
+    typeof value.approval_validation_ref === "string" &&
+    /^appr_dec_[0-9a-f]{12}$/.test(value.approval_validation_ref) &&
+    value.preview_ref === preview.preview_ref &&
+    value.idempotency_ref === idempotencyRef &&
+    isCalendarAdoptionAwareTimestamp(value.expires_at) &&
+    value.backend_owned === true &&
+    value.mutation_performed === false
+  );
+}
+
+function isCalendarAdoptionMutationReceipt(
+  value: unknown,
+  action: CalendarAdoptionMutationReceipt["action"],
+  targetRef: string | null,
+  preview: CalendarAdoptionMutationPreview | CalendarAdoptionRestorePreview,
+  idempotencyRef: string,
+  backupFingerprintRef: string | null,
+): value is CalendarAdoptionMutationReceipt {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-mutation-receipt.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === action &&
+    value.target_ref === targetRef &&
+    value.before_revision === preview.expected_revision &&
+    value.after_revision === preview.resulting_revision &&
+    value.idempotency_ref === idempotencyRef &&
+    value.payload_fingerprint_ref === preview.payload_fingerprint_ref &&
+    value.preview_ref === preview.preview_ref &&
+    value.approval_ref === preview.approval_ref &&
+    typeof value.approval_validation_ref === "string" &&
+    /^appr_dec_[0-9a-f]{12}$/.test(value.approval_validation_ref) &&
+    isCalendarAdoptionAwareTimestamp(value.approval_expires_at) &&
+    isCalendarAdoptionSafeRef(value.authority_decision_ref) &&
+    isCalendarAdoptionSafeRef(value.authority_lease_ref) &&
+    value.operation_ref === preview.operation_ref &&
+    isCalendarAdoptionSafeRef(value.receipt_ref) &&
+    Array.isArray(value.operation_receipt_refs) &&
+    value.operation_receipt_refs.length > 0 &&
+    value.operation_receipt_refs.length <= 64 &&
+    value.operation_receipt_refs.every(isCalendarAdoptionSafeRef) &&
+    new Set(value.operation_receipt_refs).size ===
+      value.operation_receipt_refs.length &&
+    value.backup_fingerprint_ref === backupFingerprintRef &&
+    isCalendarAdoptionSafeRef(value.state_ref) &&
+    isCalendarAdoptionSafeRef(value.rollback_ref) &&
+    value.safe_disable_ref === CALENDAR_ADOPTION_SAFE_DISABLE_REF &&
+    typeof value.replayed === "boolean" &&
+    value.local_calendar_write_performed === true &&
+    value.external_calendar_write_performed === false &&
+    value.connector_write_performed === false &&
+    value.provider_model_call_performed === false &&
+    value.shell_subprocess_execution_performed === false &&
+    value.browser_automation_performed === false &&
+    value.background_scheduling_performed === false &&
+    value.notification_delivery_performed === false &&
+    value.production_authority_enabled === false
+  );
+}
+
+function isCalendarAdoptionPortableBackup(
+  value: unknown,
+): value is CalendarAdoptionPortableBackup {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  return (
+    value.schema_version === "uaa-calendar-adoption-portable-backup.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    typeof value.salt === "string" &&
+    value.salt.length === 24 &&
+    CALENDAR_ADOPTION_BASE64.test(value.salt) &&
+    typeof value.nonce === "string" &&
+    value.nonce.length === 16 &&
+    CALENDAR_ADOPTION_BASE64.test(value.nonce) &&
+    typeof value.ciphertext === "string" &&
+    value.ciphertext.length >= 24 &&
+    value.ciphertext.length <= 2_796_204 &&
+    CALENDAR_ADOPTION_BASE64.test(value.ciphertext) &&
+    typeof value.ciphertext_fingerprint_ref === "string" &&
+    /^ciphertext-fingerprint-ref:sha256:[0-9a-f]{64}$/.test(
+      value.ciphertext_fingerprint_ref,
+    ) &&
+    isCalendarAdoptionRevision(value.source_revision, 1) &&
+    isCalendarAdoptionAwareTimestamp(value.created_at) &&
+    value.private_values_encrypted === true &&
+    value.key_material_included === false &&
+    value.raw_paths_included === false
+  );
+}
+
+function isCalendarAdoptionRestorePreview(
+  value: unknown,
+  backup: CalendarAdoptionPortableBackup,
+): value is CalendarAdoptionRestorePreview {
+  if (!isCalendarAdoptionRecord(value)) return false;
+  const expected = value.expected_revision;
+  return (
+    value.schema_version === "uaa-calendar-adoption-restore-preview.v1" &&
+    value.contract_ref === CALENDAR_ADOPTION_CONTRACT_REF &&
+    value.action === "restore_backup" &&
+    isCalendarAdoptionRevision(expected) &&
+    value.resulting_revision === (expected as number) + 1 &&
+    value.backup_revision === backup.source_revision &&
+    Number.isInteger(value.calendar_count) &&
+    (value.calendar_count as number) >= 1 &&
+    (value.calendar_count as number) <= 256 &&
+    Number.isInteger(value.event_count) &&
+    (value.event_count as number) >= 0 &&
+    (value.event_count as number) <= 10_000 &&
+    isCalendarAdoptionSafeRef(value.current_state_ref) &&
+    isCalendarAdoptionSafeRef(value.payload_fingerprint_ref) &&
+    value.payload_fingerprint_ref.startsWith(
+      "payload-fingerprint-ref:calendar-adoption-restore:",
+    ) &&
+    isCalendarAdoptionSafeRef(value.preview_ref) &&
+    value.preview_ref.startsWith("preview-ref:calendar-adoption-restore:") &&
+    isCalendarAdoptionSafeRef(value.approval_ref) &&
+    value.approval_ref.startsWith("approval-ref:calendar-adoption-restore:") &&
+    isCalendarAdoptionSafeRef(value.operation_ref) &&
+    value.operation_ref.startsWith("operation-ref:calendar-adoption-restore:") &&
+    typeof value.rollback_available === "boolean" &&
+    (expected === 0
+      ? value.rollback_available === false &&
+        value.impact_status === "empty_target"
+      : value.impact_status === "exact") &&
+    value.restore_performed === false &&
+    value.private_values_included === false
+  );
+}
+
+async function postCalendarAdoptionEnvelope(
   endpoint: string,
   body: unknown,
   idempotencyRef: string,
   operatorConfirmed = false,
   mutationBinding: BackendTruthReadBinding | null = null,
-): Promise<T> {
+): Promise<unknown> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
@@ -1006,7 +1229,7 @@ async function postCalendarAdoptionEnvelope<T>(
   if (operatorConfirmed) {
     validateBackendResponseBinding(response.headers, mutationBinding);
   }
-  const data = (await readJsonSafely(response)) as ResultEnvelope<T>;
+  const data = (await readJsonSafely(response)) as ResultEnvelope<unknown>;
   const result = data.result ?? data.data;
   if (!response.ok || result === undefined) {
     throw new Error(
@@ -1020,10 +1243,15 @@ export async function previewCalendarAdoptionMutation(
   request: CalendarAdoptionMutationRequest,
   idempotencyRef: string,
 ): Promise<CalendarAdoptionMutationPreview> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionPreview,
     request,
     idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationPreview =>
+      isCalendarAdoptionMutationPreview(candidate, request),
   );
 }
 
@@ -1033,7 +1261,7 @@ export async function captureCalendarAdoptionApproval(
   idempotencyRef: string,
   mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CalendarAdoptionApprovalReceipt> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionApproval,
     {
       mutation: request,
@@ -1044,6 +1272,11 @@ export async function captureCalendarAdoptionApproval(
     true,
     mutationBinding,
   );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionApprovalReceipt =>
+      isCalendarAdoptionApprovalReceipt(candidate, preview, idempotencyRef),
+  );
 }
 
 export async function commitCalendarAdoptionMutation(
@@ -1052,7 +1285,7 @@ export async function commitCalendarAdoptionMutation(
   idempotencyRef: string,
   mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CalendarAdoptionMutationReceipt> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionCommit,
     {
       mutation: request,
@@ -1063,16 +1296,32 @@ export async function commitCalendarAdoptionMutation(
     true,
     mutationBinding,
   );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationReceipt =>
+      isCalendarAdoptionMutationReceipt(
+        candidate,
+        request.action,
+        request.target_ref ?? null,
+        preview,
+        idempotencyRef,
+        null,
+      ),
+  );
 }
 
 export async function createCalendarAdoptionBackup(
   passphrase: string,
   idempotencyRef: string,
 ): Promise<CalendarAdoptionPortableBackup> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionBackup,
     { passphrase },
     idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    isCalendarAdoptionPortableBackup,
   );
 }
 
@@ -1081,10 +1330,15 @@ export async function previewCalendarAdoptionRestore(
   passphrase: string,
   idempotencyRef: string,
 ): Promise<CalendarAdoptionRestorePreview> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionRestorePreview,
     { backup, passphrase },
     idempotencyRef,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionRestorePreview =>
+      isCalendarAdoptionRestorePreview(candidate, backup),
   );
 }
 
@@ -1095,7 +1349,7 @@ export async function captureCalendarAdoptionRestoreApproval(
   idempotencyRef: string,
   mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CalendarAdoptionApprovalReceipt> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionRestoreApproval,
     {
       backup,
@@ -1107,6 +1361,11 @@ export async function captureCalendarAdoptionRestoreApproval(
     true,
     mutationBinding,
   );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionApprovalReceipt =>
+      isCalendarAdoptionApprovalReceipt(candidate, preview, idempotencyRef),
+  );
 }
 
 export async function commitCalendarAdoptionRestore(
@@ -1116,7 +1375,7 @@ export async function commitCalendarAdoptionRestore(
   idempotencyRef: string,
   mutationBinding: BackendTruthReadBinding | null,
 ): Promise<CalendarAdoptionMutationReceipt> {
-  return postCalendarAdoptionEnvelope(
+  const value = await postCalendarAdoptionEnvelope(
     API_ENDPOINTS.calendarAdoptionRestoreCommit,
     {
       backup,
@@ -1127,6 +1386,18 @@ export async function commitCalendarAdoptionRestore(
     idempotencyRef,
     true,
     mutationBinding,
+  );
+  return requireCalendarAdoptionResponse(
+    value,
+    (candidate): candidate is CalendarAdoptionMutationReceipt =>
+      isCalendarAdoptionMutationReceipt(
+        candidate,
+        "restore_backup",
+        "calendar-set-ref:founder-private",
+        preview,
+        idempotencyRef,
+        backup.ciphertext_fingerprint_ref,
+      ),
   );
 }
 

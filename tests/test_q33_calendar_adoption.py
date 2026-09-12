@@ -31,7 +31,7 @@ from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CalendarAdoptionRestoreCommitRequest,
     CalendarAdoptionStore,
 )
-from ultimate_ai_agent.core.ecosystem.calendar import CalendarView
+from ultimate_ai_agent.core.ecosystem.calendar import CalendarRepository, CalendarView
 
 
 def _idempotency(suffix: str) -> str:
@@ -290,6 +290,98 @@ def test_exact_idempotent_replay_rejects_substitution(tmp_path: Path) -> None:
         store.commit_mutation(
             commit.model_copy(
                 update={"preview_ref": "preview-ref:q33-calendar:substituted"}
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+
+
+def test_approval_capture_binds_idempotency_before_commit(tmp_path: Path) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    _initialize(store)
+    idempotency_ref = _idempotency("approval-binding")
+    first = CalendarAdoptionMutationRequest(
+        action="create_event",
+        expected_revision=1,
+        event=_event("first-approval"),
+    )
+    first_preview = store.preview_mutation(first, idempotency_ref=idempotency_ref)
+    store.capture_approval(
+        CalendarAdoptionApprovalCaptureRequest(
+            mutation=first,
+            preview_ref=first_preview.preview_ref,
+            approval_ref=first_preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    second = first.model_copy(update={"event": _event("second-approval")})
+    second_preview = store.preview_mutation(second, idempotency_ref=idempotency_ref)
+
+    with pytest.raises(
+        CalendarAdoptionConflict, match="CALENDAR_ADOPTION_IDEMPOTENCY_CONFLICT"
+    ):
+        store.capture_approval(
+            CalendarAdoptionApprovalCaptureRequest(
+                mutation=second,
+                preview_ref=second_preview.preview_ref,
+                approval_ref=second_preview.approval_ref,
+            ),
+            idempotency_ref=idempotency_ref,
+        )
+
+
+def test_restore_approval_capture_binds_idempotency_before_commit(
+    tmp_path: Path,
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="restore-binding-source")
+    first_backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private first restore binding"
+        )
+    )
+    _commit(
+        source,
+        CalendarAdoptionMutationRequest(
+            action="create_event",
+            expected_revision=1,
+            event=_event("restore-binding-source-event"),
+        ),
+        suffix="restore-binding-source-event",
+    )
+    second_backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private second restore binding"
+        )
+    )
+    target = CalendarAdoptionStore(tmp_path / "target")
+    idempotency_ref = _idempotency("restore-approval-binding")
+    first = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private first restore binding",
+        backup=first_backup,
+    )
+    first_preview = target.preview_restore(first, idempotency_ref=idempotency_ref)
+    target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **first.model_dump(mode="python"),
+            preview_ref=first_preview.preview_ref,
+            approval_ref=first_preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    second = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private second restore binding",
+        backup=second_backup,
+    )
+    second_preview = target.preview_restore(second, idempotency_ref=idempotency_ref)
+
+    with pytest.raises(
+        CalendarAdoptionConflict, match="CALENDAR_ADOPTION_IDEMPOTENCY_CONFLICT"
+    ):
+        target.capture_restore_approval(
+            CalendarAdoptionRestoreApprovalCaptureRequest(
+                **second.model_dump(mode="python"),
+                preview_ref=second_preview.preview_ref,
+                approval_ref=second_preview.approval_ref,
             ),
             idempotency_ref=idempotency_ref,
         )
@@ -663,6 +755,55 @@ def test_encrypted_backup_restores_from_setup_incomplete_state(tmp_path: Path) -
     assert target.read_view().status == "ready"
 
 
+def test_restore_preview_only_advertises_undo_when_bounded_history_keeps_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    target = CalendarAdoptionStore(tmp_path / "target")
+    _initialize(source, suffix="source-initialize")
+    _initialize(target, suffix="target-initialize")
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(
+            passphrase="founder private bounded restore calendar"
+        )
+    )
+    request = CalendarAdoptionPortableRestoreRequest(
+        passphrase="founder private bounded restore calendar",
+        backup=backup,
+    )
+
+    monkeypatch.setattr(
+        CalendarRepository,
+        "_record_plaintext_size",
+        staticmethod(
+            lambda calendar_set: 2 * 1024 * 1024 if calendar_set.undo_stack else 1
+        ),
+    )
+    idempotency_ref = _idempotency("bounded-restore")
+    preview = target.preview_restore(request, idempotency_ref=idempotency_ref)
+
+    assert preview.expected_revision == 1
+    assert preview.impact_status == "exact"
+    assert preview.rollback_available is False
+    approval = target.capture_restore_approval(
+        CalendarAdoptionRestoreApprovalCaptureRequest(
+            **request.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=preview.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    target.commit_restore(
+        CalendarAdoptionRestoreCommitRequest(
+            **request.model_dump(mode="python"),
+            preview_ref=preview.preview_ref,
+            approval_ref=approval.approval_ref,
+        ),
+        idempotency_ref=idempotency_ref,
+    )
+    assert target.read_view().can_undo is False
+
+
 def test_invalid_timezone_fails_closed_before_reading_state(tmp_path: Path) -> None:
     with pytest.raises(
         CalendarAdoptionError, match="CALENDAR_ADOPTION_TIMEZONE_INVALID"
@@ -721,4 +862,31 @@ def test_state_directory_root_symlink_fails_before_target_permissions_change(
         )
 
     assert stat.S_IMODE(target.stat().st_mode) == 0o755
+    assert stat.S_IMODE(marker.stat().st_mode) == 0o644
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission contract")
+def test_existing_broad_state_root_is_rejected_before_permissions_change(
+    tmp_path: Path,
+) -> None:
+    broad = tmp_path / "shared"
+    broad.mkdir(mode=0o755)
+    marker = broad / "user-file.txt"
+    marker.write_text("unrelated", encoding="utf-8")
+    marker.chmod(0o644)
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE",
+    ):
+        CalendarAdoptionStore(broad).preview_mutation(
+            CalendarAdoptionMutationRequest(
+                action="initialize",
+                expected_revision=0,
+                calendar=_calendar(),
+            ),
+            idempotency_ref=_idempotency("broad-root"),
+        )
+
+    assert stat.S_IMODE(broad.stat().st_mode) == 0o755
     assert stat.S_IMODE(marker.stat().st_mode) == 0o644

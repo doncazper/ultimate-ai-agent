@@ -129,10 +129,29 @@ _DEFAULT_CALENDAR_REF = "calendar-ref:founder-private:primary"
 _DEFAULT_KEY_VERSION_REF = "key-version-ref:v1"
 _BACKUP_AAD = b"uaa:calendar-adoption:portable-backup:v1"
 _LOCK_KEY = "calendar-adoption-state"
+_PENDING_APPROVAL_VALIDATION_REF = "appr_dec_000000000000"
+_PENDING_AUTHORITY_DECISION_REF = (
+    "authority-policy-decision-ref:calendar-adoption:pending"
+)
+_PENDING_AUTHORITY_LEASE_REF = "authority-lease-ref:calendar-adoption:pending"
 _SAFE_REF_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-"
 )
 _IS_WINDOWS = os.name == "nt"
+_CALENDAR_ADOPTION_MANAGED_ROOT_NAMES = frozenset(
+    {
+        ".key-locks",
+        ".locks",
+        ".uaa-authority-approval-secrets",
+        "authority",
+        "keys",
+        CALENDAR_ADOPTION_DATABASE_FILE,
+        f"{CALENDAR_ADOPTION_DATABASE_FILE}-journal",
+        f"{CALENDAR_ADOPTION_DATABASE_FILE}-shm",
+        f"{CALENDAR_ADOPTION_DATABASE_FILE}-wal",
+        CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_FILE,
+    }
+)
 
 
 class CalendarAdoptionError(RuntimeError):
@@ -464,6 +483,7 @@ class _CalendarAdoptionReceiptCheckpoint(_CalendarAdoptionModel):
     authority_lease_ref: str
     operation_ref: str
     backup_fingerprint_ref: str | None = None
+    approval_pending: bool = False
     receipt: CalendarAdoptionMutationReceipt | None = None
 
     @model_validator(mode="after")
@@ -491,6 +511,19 @@ class _CalendarAdoptionReceiptCheckpoint(_CalendarAdoptionModel):
             self.backup_fingerprint_ref is not None
         ):
             raise ValueError("CALENDAR_ADOPTION_CHECKPOINT_BACKUP_BINDING_INVALID")
+        if self.approval_pending and (
+            self.approval_validation_ref != _PENDING_APPROVAL_VALIDATION_REF
+            or self.authority_decision_ref != _PENDING_AUTHORITY_DECISION_REF
+            or self.authority_lease_ref != _PENDING_AUTHORITY_LEASE_REF
+            or self.receipt is not None
+        ):
+            raise ValueError("CALENDAR_ADOPTION_CHECKPOINT_APPROVAL_BINDING_INVALID")
+        if self.receipt is not None and (
+            self.approval_pending
+            or self.authority_decision_ref == _PENDING_AUTHORITY_DECISION_REF
+            or self.authority_lease_ref == _PENDING_AUTHORITY_LEASE_REF
+        ):
+            raise ValueError("CALENDAR_ADOPTION_CHECKPOINT_AUTHORITY_PENDING")
         if self.receipt is not None and any(
             [
                 self.receipt.action != self.action,
@@ -888,9 +921,47 @@ class CalendarAdoptionStore:
         for child in root.iterdir():
             self._secure_tree(child)
 
+    @staticmethod
+    def _managed_root_child(child: Path) -> bool:
+        return child.name in _CALENDAR_ADOPTION_MANAGED_ROOT_NAMES or (
+            child.name.startswith(".calendar-receipts.") and child.name.endswith(".tmp")
+        )
+
+    def _validate_state_tree_before_permission_change(self) -> None:
+        """Reject broad or aliased roots before chmod touches any object."""
+
+        home = Path.home().absolute()
+        if self.state_dir == home or self.state_dir in home.parents:
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE")
+
+        def validate_object(path: Path) -> None:
+            metadata = os.lstat(path)
+            if stat.S_ISLNK(metadata.st_mode):
+                raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+            if stat.S_ISREG(metadata.st_mode):
+                if metadata.st_nlink != 1:
+                    raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+                return
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+            for nested in path.iterdir():
+                validate_object(nested)
+
+        root_metadata = os.lstat(self.state_dir)
+        if stat.S_ISLNK(root_metadata.st_mode) or not stat.S_ISDIR(
+            root_metadata.st_mode
+        ):
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_OBJECT_UNSAFE")
+        children = tuple(self.state_dir.iterdir())
+        if any(not self._managed_root_child(child) for child in children):
+            raise CalendarAdoptionError("CALENDAR_ADOPTION_STATE_DIRECTORY_UNSAFE")
+        for child in children:
+            validate_object(child)
+
     def _ensure_private_state_directory(self) -> None:
         try:
             self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self._validate_state_tree_before_permission_change()
             self._secure_tree(self.state_dir)
         except (OSError, CalendarAdoptionError) as exc:
             raise CalendarAdoptionError(
@@ -1643,9 +1714,8 @@ class CalendarAdoptionStore:
                 "operation-ref:calendar-adoption",
                 {"payload_fingerprint_ref": payload_fingerprint_ref},
             )
-            checkpoint = self._checkpoint_for(
-                self._read_receipt_checkpoints(), idempotency_ref
-            )
+            checkpoints = self._read_receipt_checkpoints()
+            checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
                     checkpoint,
@@ -1657,13 +1727,14 @@ class CalendarAdoptionStore:
                     approval_ref=request.approval_ref,
                     operation_ref=operation_ref,
                 )
-                return CalendarAdoptionApprovalReceipt(
-                    approval_ref=checkpoint.approval_ref,
-                    approval_validation_ref=checkpoint.approval_validation_ref,
-                    preview_ref=checkpoint.preview_ref,
-                    idempotency_ref=checkpoint.idempotency_ref,
-                    expires_at=checkpoint.approval_expires_at,
-                )
+                if not checkpoint.approval_pending:
+                    return CalendarAdoptionApprovalReceipt(
+                        approval_ref=checkpoint.approval_ref,
+                        approval_validation_ref=checkpoint.approval_validation_ref,
+                        preview_ref=checkpoint.preview_ref,
+                        idempotency_ref=checkpoint.idempotency_ref,
+                        expires_at=checkpoint.approval_expires_at,
+                    )
             preview = self._preview(request.mutation, idempotency_ref=idempotency_ref)
             if (
                 request.preview_ref != preview.preview_ref
@@ -1672,7 +1743,25 @@ class CalendarAdoptionStore:
                 raise CalendarAdoptionConflict(
                     "CALENDAR_ADOPTION_APPROVAL_SCOPE_MISMATCH"
                 )
-            return self._capture_approval(
+            if checkpoint is None:
+                checkpoint = _CalendarAdoptionReceiptCheckpoint(
+                    action=preview.action,
+                    target_ref=preview.target_ref,
+                    before_revision=preview.expected_revision,
+                    after_revision=preview.resulting_revision,
+                    idempotency_ref=idempotency_ref,
+                    payload_fingerprint_ref=preview.payload_fingerprint_ref,
+                    preview_ref=preview.preview_ref,
+                    approval_ref=preview.approval_ref,
+                    approval_validation_ref=_PENDING_APPROVAL_VALIDATION_REF,
+                    approval_expires_at=utc_now(),
+                    authority_decision_ref=_PENDING_AUTHORITY_DECISION_REF,
+                    authority_lease_ref=_PENDING_AUTHORITY_LEASE_REF,
+                    operation_ref=preview.operation_ref,
+                    approval_pending=True,
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
+            receipt = self._capture_approval(
                 action=preview.action,
                 expected_revision=preview.expected_revision,
                 payload_fingerprint_ref=preview.payload_fingerprint_ref,
@@ -1681,6 +1770,15 @@ class CalendarAdoptionStore:
                 operation_ref=preview.operation_ref,
                 idempotency_ref=idempotency_ref,
             )
+            captured = checkpoint.model_copy(
+                update={
+                    "approval_validation_ref": receipt.approval_validation_ref,
+                    "approval_expires_at": receipt.expires_at,
+                    "approval_pending": False,
+                }
+            )
+            self._save_checkpoint(checkpoints, captured)
+            return receipt
 
     def _authorize(
         self,
@@ -2123,6 +2221,14 @@ class CalendarAdoptionStore:
         checkpoint: _CalendarAdoptionReceiptCheckpoint,
         unit: UnitOfWorkReceipt,
     ) -> _CalendarAdoptionReceiptCheckpoint:
+        if (
+            checkpoint.approval_pending
+            or checkpoint.authority_decision_ref == _PENDING_AUTHORITY_DECISION_REF
+            or checkpoint.authority_lease_ref == _PENDING_AUTHORITY_LEASE_REF
+        ):
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_INCOMPLETE"
+            )
         receipt = CalendarAdoptionMutationReceipt(
             action=checkpoint.action,
             target_ref=checkpoint.target_ref,
@@ -2300,6 +2406,30 @@ class CalendarAdoptionStore:
                 )
                 self._save_checkpoint(checkpoints, checkpoint)
                 checkpoints = [*checkpoints, checkpoint]
+            elif checkpoint.approval_pending:
+                checkpoint = checkpoint.model_copy(
+                    update={
+                        "approval_validation_ref": approval_validation_ref,
+                        "approval_expires_at": approval_expires_at,
+                        "authority_decision_ref": authority_decision_ref,
+                        "authority_lease_ref": lease.lease_ref,
+                        "approval_pending": False,
+                    }
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
+            elif (
+                checkpoint.authority_decision_ref == _PENDING_AUTHORITY_DECISION_REF
+                and checkpoint.authority_lease_ref == _PENDING_AUTHORITY_LEASE_REF
+            ):
+                checkpoint = checkpoint.model_copy(
+                    update={
+                        "approval_validation_ref": approval_validation_ref,
+                        "approval_expires_at": approval_expires_at,
+                        "authority_decision_ref": authority_decision_ref,
+                        "authority_lease_ref": lease.lease_ref,
+                    }
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
             elif any(
                 [
                     checkpoint.authority_decision_ref != authority_decision_ref,
@@ -2449,6 +2579,19 @@ class CalendarAdoptionStore:
             raise CalendarAdoptionError("CALENDAR_ADOPTION_CURRENT_STATE_UNREADABLE")
         expected_revision = current.version if current is not None else 0
         resulting_revision = expected_revision + 1
+        rollback_available = False
+        if current is not None:
+            restored = CalendarRepository._with_bounded_undo(
+                CalendarRepository.__new__(CalendarRepository),
+                current=current,
+                snapshot=CalendarSetSnapshot(
+                    name=bundle.name,
+                    calendars=bundle.calendars,
+                    events=bundle.events,
+                    archived=False,
+                ),
+            )
+            rollback_available = bool(restored.undo_stack)
         current_state_ref = (
             self._state_ref(current)
             if current is not None
@@ -2493,7 +2636,7 @@ class CalendarAdoptionStore:
                 preview_ref=preview_ref,
                 approval_ref=approval_ref,
                 operation_ref=operation_ref,
-                rollback_available=current is not None,
+                rollback_available=rollback_available,
                 impact_status=(
                     "exact"
                     if current is not None
@@ -2523,9 +2666,8 @@ class CalendarAdoptionStore:
     ) -> CalendarAdoptionApprovalReceipt:
         self._ensure_private_state_directory()
         with self.lock_manager.acquire(_LOCK_KEY):
-            checkpoint = self._checkpoint_for(
-                self._read_receipt_checkpoints(), idempotency_ref
-            )
+            checkpoints = self._read_receipt_checkpoints()
+            checkpoint = self._checkpoint_for(checkpoints, idempotency_ref)
             if checkpoint is not None:
                 self._assert_checkpoint_matches(
                     checkpoint,
@@ -2538,13 +2680,14 @@ class CalendarAdoptionStore:
                     operation_ref=checkpoint.operation_ref,
                     backup_fingerprint_ref=(request.backup.ciphertext_fingerprint_ref),
                 )
-                return CalendarAdoptionApprovalReceipt(
-                    approval_ref=checkpoint.approval_ref,
-                    approval_validation_ref=checkpoint.approval_validation_ref,
-                    preview_ref=checkpoint.preview_ref,
-                    idempotency_ref=checkpoint.idempotency_ref,
-                    expires_at=checkpoint.approval_expires_at,
-                )
+                if not checkpoint.approval_pending:
+                    return CalendarAdoptionApprovalReceipt(
+                        approval_ref=checkpoint.approval_ref,
+                        approval_validation_ref=checkpoint.approval_validation_ref,
+                        preview_ref=checkpoint.preview_ref,
+                        idempotency_ref=checkpoint.idempotency_ref,
+                        expires_at=checkpoint.approval_expires_at,
+                    )
             preview, _bundle = self._restore_preview(
                 request, idempotency_ref=idempotency_ref
             )
@@ -2555,7 +2698,26 @@ class CalendarAdoptionStore:
                 raise CalendarAdoptionConflict(
                     "CALENDAR_ADOPTION_RESTORE_APPROVAL_SCOPE_MISMATCH"
                 )
-            return self._capture_approval(
+            if checkpoint is None:
+                checkpoint = _CalendarAdoptionReceiptCheckpoint(
+                    action="restore_backup",
+                    target_ref=CALENDAR_ADOPTION_SET_REF,
+                    before_revision=preview.expected_revision,
+                    after_revision=preview.resulting_revision,
+                    idempotency_ref=idempotency_ref,
+                    payload_fingerprint_ref=preview.payload_fingerprint_ref,
+                    preview_ref=preview.preview_ref,
+                    approval_ref=preview.approval_ref,
+                    approval_validation_ref=_PENDING_APPROVAL_VALIDATION_REF,
+                    approval_expires_at=utc_now(),
+                    authority_decision_ref=_PENDING_AUTHORITY_DECISION_REF,
+                    authority_lease_ref=_PENDING_AUTHORITY_LEASE_REF,
+                    operation_ref=preview.operation_ref,
+                    backup_fingerprint_ref=(request.backup.ciphertext_fingerprint_ref),
+                    approval_pending=True,
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
+            receipt = self._capture_approval(
                 action=preview.action,
                 expected_revision=preview.expected_revision,
                 payload_fingerprint_ref=preview.payload_fingerprint_ref,
@@ -2565,6 +2727,15 @@ class CalendarAdoptionStore:
                 idempotency_ref=idempotency_ref,
                 restore=True,
             )
+            captured = checkpoint.model_copy(
+                update={
+                    "approval_validation_ref": receipt.approval_validation_ref,
+                    "approval_expires_at": receipt.expires_at,
+                    "approval_pending": False,
+                }
+            )
+            self._save_checkpoint(checkpoints, captured)
+            return receipt
 
     def commit_restore(
         self,
@@ -2696,6 +2867,30 @@ class CalendarAdoptionStore:
                 )
                 self._save_checkpoint(checkpoints, checkpoint)
                 checkpoints = [*checkpoints, checkpoint]
+            elif checkpoint.approval_pending:
+                checkpoint = checkpoint.model_copy(
+                    update={
+                        "approval_validation_ref": approval_validation_ref,
+                        "approval_expires_at": approval_expires_at,
+                        "authority_decision_ref": authority_decision_ref,
+                        "authority_lease_ref": lease.lease_ref,
+                        "approval_pending": False,
+                    }
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
+            elif (
+                checkpoint.authority_decision_ref == _PENDING_AUTHORITY_DECISION_REF
+                and checkpoint.authority_lease_ref == _PENDING_AUTHORITY_LEASE_REF
+            ):
+                checkpoint = checkpoint.model_copy(
+                    update={
+                        "approval_validation_ref": approval_validation_ref,
+                        "approval_expires_at": approval_expires_at,
+                        "authority_decision_ref": authority_decision_ref,
+                        "authority_lease_ref": lease.lease_ref,
+                    }
+                )
+                self._save_checkpoint(checkpoints, checkpoint)
             elif any(
                 [
                     checkpoint.authority_decision_ref != authority_decision_ref,

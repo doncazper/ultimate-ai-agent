@@ -102,6 +102,24 @@ def test_calendar_adoption_api_completes_exact_local_loop(
     assert populated.json()["data"]["calendars"][0]["name"] == "Personal"
 
 
+def test_calendar_adoption_api_rejects_timezone_naive_anchor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_dir = tmp_path / "calendar"
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).get(
+        "/control-center/calendar/adoption",
+        params={"anchor": "2026-09-14T16:00:00", "timezone": "UTC"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "CALENDAR_ADOPTION_ANCHOR_TIMEZONE_REQUIRED"
+    )
+    assert not state_dir.exists()
+
+
 def test_calendar_adoption_api_enforces_body_and_structure_bounds(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -234,6 +234,12 @@ describe("CalendarAdoptionWorkspace", () => {
     expect(
       screen.getByText(/Only the encrypted local Calendar will change/i),
     ).toBeVisible();
+    expect(
+      screen.getByText(/Calendar: calendar-ref:q33:personal/),
+    ).toBeVisible();
+    expect(screen.getByText(/All day: no/)).toBeVisible();
+    expect(screen.getByText(/Location: none; Notes: none/)).toBeVisible();
+    expect(screen.getByText(/Repeats: none/)).toBeVisible();
 
     const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
     expect(request).toMatchObject({
@@ -288,9 +294,97 @@ describe("CalendarAdoptionWorkspace", () => {
     expect(request.event).toMatchObject({
       all_day: true,
       timezone: "Asia/Tokyo",
-      starts_at: "2026-09-14T00:00:00.000Z",
-      ends_at: "2026-09-14T01:00:00.000Z",
+      starts_at: "2026-09-14T00:00:00Z",
+      ends_at: "2026-09-14T01:00:00Z",
     });
+  });
+
+  it("preserves the chosen offset when editing a repeated local wall time", async () => {
+    const repeated = structuredClone(workspace);
+    repeated.occurrence_items[0].event.starts_at = "2026-11-01T09:30:00Z";
+    repeated.occurrence_items[0].event.ends_at = "2026-11-01T10:30:00Z";
+    repeated.occurrence_items[0].occurrence.starts_at = "2026-11-01T09:30:00Z";
+    repeated.occurrence_items[0].occurrence.ends_at = "2026-11-01T10:30:00Z";
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(repeated);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Starts")).toHaveValue("2026-11-01T01:30");
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Repeated-hour title edit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.event.starts_at).toBe("2026-11-01T09:30:00Z");
+    expect(request.event.ends_at).toBe("2026-11-01T10:30:00Z");
+  });
+
+  it("recomputes weekly recurrence after the start date changes", async () => {
+    render(<CalendarAdoptionWorkspace />);
+    await screen.findAllByText("Founder briefing");
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Tuesday planning" },
+    });
+    fireEvent.change(screen.getByLabelText("Repeats"), {
+      target: { value: "weekly" },
+    });
+    fireEvent.change(screen.getByLabelText("Starts"), {
+      target: { value: "2026-09-15T09:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Ends"), {
+      target: { value: "2026-09-15T10:00" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review new event" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+    expect(request.event.recurrence.weekdays).toEqual([1]);
+  });
+
+  it("submits new-event wall times in the selected Calendar timezone", async () => {
+    const hostOptions = new Intl.DateTimeFormat().resolvedOptions();
+    const timezoneSpy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ ...hostOptions, timeZone: "UTC" });
+    try {
+      render(<CalendarAdoptionWorkspace />);
+      await screen.findAllByText("Founder briefing");
+      fireEvent.change(screen.getByLabelText("Calendar timezone"), {
+        target: { value: "America/Los_Angeles" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Apply timezone" }));
+      fireEvent.change(screen.getByLabelText("Title"), {
+        target: { value: "Los Angeles planning" },
+      });
+      fireEvent.change(screen.getByLabelText("Starts"), {
+        target: { value: "2026-09-15T09:00" },
+      });
+      fireEvent.change(screen.getByLabelText("Ends"), {
+        target: { value: "2026-09-15T10:00" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Review new event" }));
+
+      await waitFor(() =>
+        expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+      );
+      const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
+      expect(request.event).toMatchObject({
+        timezone: "America/Los_Angeles",
+        starts_at: "2026-09-15T16:00:00.000Z",
+        ends_at: "2026-09-15T17:00:00.000Z",
+      });
+    } finally {
+      timezoneSpy.mockRestore();
+    }
   });
 
   it("keeps the clicked recurrence occurrence in the inspector", async () => {
@@ -348,6 +442,34 @@ describe("CalendarAdoptionWorkspace", () => {
     }
   });
 
+  it("normalizes period navigation across a nonexistent local wall time", () => {
+    expect(
+      shiftCalendarAnchor(
+        "2026-03-07T10:30:00Z",
+        "day",
+        1,
+        "America/Los_Angeles",
+      ),
+    ).toBe("2026-03-08T19:00:00.000Z");
+  });
+
+  it("clears a stale load error after a successful refresh", async () => {
+    apiMocks.loadCalendarAdoptionWorkspace
+      .mockRejectedValueOnce(new Error("Calendar load failed safely."))
+      .mockResolvedValueOnce(workspace);
+
+    render(<CalendarAdoptionWorkspace />);
+    expect(
+      await screen.findByText("Calendar load failed safely."),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findAllByText("Founder briefing")).not.toHaveLength(0);
+    expect(
+      screen.queryByText("Calendar load failed safely."),
+    ).not.toBeInTheDocument();
+  });
+
   it.each(["onboarding", "setup_incomplete"] as const)(
     "offers encrypted restore while the workspace is %s",
     async (status) => {
@@ -366,6 +488,32 @@ describe("CalendarAdoptionWorkspace", () => {
       ).not.toBeInTheDocument();
     },
   );
+
+  it("allows setup initialization to resume from setup_incomplete", async () => {
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
+      ...structuredClone(workspace),
+      status: "setup_incomplete",
+      revision: 0,
+      calendars: [],
+      occurrence_items: [],
+    });
+
+    render(<CalendarAdoptionWorkspace />);
+    expect(
+      await screen.findByRole("heading", {
+        name: "Finish your private calendar setup",
+      }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Review setup" }));
+
+    await waitFor(() =>
+      expect(apiMocks.previewCalendarAdoptionMutation).toHaveBeenCalled(),
+    );
+    expect(apiMocks.previewCalendarAdoptionMutation.mock.calls[0][0]).toMatchObject({
+      action: "initialize",
+      expected_revision: 0,
+    });
+  });
 
   it("resets a stale event draft after restore replaces its calendar", async () => {
     const restored = structuredClone(workspace);
