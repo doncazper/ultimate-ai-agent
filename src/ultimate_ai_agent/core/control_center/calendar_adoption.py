@@ -82,6 +82,7 @@ from ultimate_ai_agent.core.ecosystem.calendar import (
     LocalCalendar,
 )
 from ultimate_ai_agent.core.ecosystem.local_data import (
+    ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES,
     EcosystemKeyUnavailable,
     EcosystemLocalDataError,
     EcosystemLocalDataPlatform,
@@ -710,7 +711,13 @@ class CalendarAdoptionReadModel(_CalendarAdoptionModel):
     contract_ref: Literal[CALENDAR_ADOPTION_CONTRACT_REF] = (
         CALENDAR_ADOPTION_CONTRACT_REF
     )
-    status: Literal["onboarding", "ready", "setup_incomplete", "recovery_required"]
+    status: Literal[
+        "onboarding",
+        "ready",
+        "setup_incomplete",
+        "projection_limited",
+        "recovery_required",
+    ]
     workspace_ref: Literal[CALENDAR_ADOPTION_WORKSPACE_REF] = (
         CALENDAR_ADOPTION_WORKSPACE_REF
     )
@@ -1577,11 +1584,54 @@ class CalendarAdoptionStore:
                     "Create an event or select one to edit, archive, or recover."
                 ),
             )
+        except CalendarError as exc:
+            if str(exc) in {
+                "ECO_CALENDAR_CONFLICT_LIMIT_EXCEEDED",
+                "ECO_CALENDAR_OCCURRENCE_LIMIT_EXCEEDED",
+            }:
+                start, end = self._empty_range(
+                    view=view,
+                    anchor=selected_anchor,
+                    timezone_name=timezone_name,
+                )
+                return CalendarAdoptionReadModel(
+                    status="projection_limited",
+                    revision=calendar_set.version,
+                    current_state_ref=self._state_ref(calendar_set),
+                    calendar_set_name=calendar_set.name,
+                    calendars=calendar_set.calendars,
+                    archived_events=tuple(
+                        item for item in calendar_set.events if item.archived
+                    ),
+                    view=view,
+                    timezone=timezone_name,
+                    range_starts_at=start,
+                    range_ends_at=end,
+                    result_ref=_hash_ref(
+                        "calendar-view-result-ref:adoption",
+                        {
+                            "status": "projection_limited",
+                            "view": view.value,
+                            "start": start.isoformat(),
+                            "reason": str(exc),
+                        },
+                    ),
+                    can_undo=bool(calendar_set.undo_stack),
+                    next_safe_action=(
+                        "Narrow the Calendar period or switch to day view; "
+                        "the stored Calendar remains intact."
+                    ),
+                )
+            return self._empty_view(
+                status="recovery_required",
+                view=view,
+                anchor=selected_anchor,
+                timezone_name=timezone_name,
+            )
         except (
             OSError,
             ValueError,
             sqlite3.Error,
-            CalendarError,
             EcosystemLocalDataError,
         ):
             return self._empty_view(
@@ -2999,21 +3049,39 @@ class CalendarAdoptionStore:
                 current_readable = False
             if not current_readable:
                 self._probe_existing_live_key()
+        else:
+            self._probe_existing_live_key()
         expected_revision = current.version if current is not None else 0
         resulting_revision = expected_revision + 1
         rollback_available = False
+        snapshot = CalendarSetSnapshot(
+            name=bundle.name,
+            calendars=bundle.calendars,
+            events=bundle.events,
+            archived=False,
+        )
         if current is not None:
             restored = CalendarRepository._with_bounded_undo(
                 CalendarRepository.__new__(CalendarRepository),
                 current=current,
-                snapshot=CalendarSetSnapshot(
-                    name=bundle.name,
-                    calendars=bundle.calendars,
-                    events=bundle.events,
-                    archived=False,
-                ),
+                snapshot=snapshot,
             )
             rollback_available = bool(restored.undo_stack)
+        else:
+            restored = CalendarRepository._build_set(
+                workspace_ref=CALENDAR_ADOPTION_WORKSPACE_REF,
+                calendar_set_ref=CALENDAR_ADOPTION_SET_REF,
+                version=resulting_revision,
+                undo_stack=(),
+                snapshot=snapshot,
+            )
+        if (
+            CalendarRepository._record_plaintext_size(restored)
+            > ECO_LOCAL_DATA_MAX_PRIVATE_PAYLOAD_BYTES
+        ):
+            raise CalendarAdoptionError(
+                "CALENDAR_ADOPTION_RESTORE_PAYLOAD_LIMIT_EXCEEDED"
+            )
         current_state_ref = (
             self._state_ref(current)
             if current is not None

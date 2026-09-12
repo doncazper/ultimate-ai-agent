@@ -400,6 +400,23 @@ describe("Calendar adoption response and mutation provenance", () => {
     ).resolves.toEqual(recoveryPreview);
   });
 
+  it("accepts a bounded projection-limited Calendar read", async () => {
+    const projectionLimited: CalendarAdoptionWorkspaceView = {
+      ...workspaceView,
+      status: "projection_limited",
+      occurrence_items: [],
+      conflict_items: [],
+      result_ref: "calendar-view-result-ref:adoption:projection-limited",
+      next_safe_action:
+        "Narrow the Calendar period or switch to day view; the stored Calendar remains intact.",
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => response(projectionLimited)));
+
+    await expect(
+      loadCalendarAdoptionWorkspace("week", workspaceView.range_starts_at, "UTC"),
+    ).resolves.toEqual(projectionLimited);
+  });
+
   it("rejects Calendar reads with broadened authority boundaries", async () => {
     const blockedFlags = [
       "external_calendar_write_enabled",

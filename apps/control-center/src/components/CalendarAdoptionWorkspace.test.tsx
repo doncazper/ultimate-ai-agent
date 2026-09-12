@@ -171,8 +171,10 @@ describe("CalendarAdoptionWorkspace", () => {
     apiMocks.previewCalendarAdoptionRestore.mockResolvedValue({
       expected_revision: 0,
       resulting_revision: 1,
+      backup_revision: 3,
       calendar_count: 1,
       event_count: 1,
+      current_state_ref: "state-ref:calendar-adoption:sha256:empty",
       rollback_available: false,
       impact_status: "empty_target",
       preview_ref: "preview-ref:calendar-adoption-restore:test",
@@ -677,6 +679,52 @@ describe("CalendarAdoptionWorkspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("precomputes conflicted occurrence refs before rendering events", async () => {
+    const conflicted = structuredClone(workspace);
+    conflicted.conflict_items = [
+      {
+        first_occurrence_ref:
+          conflicted.occurrence_items[0].occurrence.occurrence_ref,
+        second_occurrence_ref: "calendar-occurrence-ref:q33:other",
+        overlap_starts_at: "2026-09-14T16:00:00Z",
+        overlap_ends_at: "2026-09-14T16:30:00Z",
+      },
+    ];
+    Object.defineProperty(conflicted.conflict_items, "some", {
+      value: () => {
+        throw new Error("render must not scan every conflict per occurrence");
+      },
+    });
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(conflicted);
+
+    render(<CalendarAdoptionWorkspace />);
+
+    expect(
+      await screen.findByRole("button", { name: /Founder briefing.*Conflict/ }),
+    ).toHaveClass("conflict");
+  });
+
+  it("keeps period navigation available when a dense view is projection limited", async () => {
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue({
+      ...structuredClone(workspace),
+      status: "projection_limited",
+      occurrence_items: [],
+      conflict_items: [],
+      next_safe_action:
+        "Narrow the Calendar period or switch to day view; the stored Calendar remains intact.",
+    });
+
+    render(<CalendarAdoptionWorkspace />);
+
+    expect(
+      await screen.findByText("This Calendar period is too dense to display safely"),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "day" })).toBeEnabled();
+    expect(
+      screen.queryByRole("heading", { name: "Restore encrypted Calendar" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps view controls disabled while a manual refresh is in flight", async () => {
     let finishRefresh: (value: CalendarAdoptionWorkspaceView) => void = () => {};
     const refreshResult = new Promise<CalendarAdoptionWorkspaceView>((resolve) => {
@@ -762,7 +810,13 @@ describe("CalendarAdoptionWorkspace", () => {
       target: { value: "Stale draft" },
     });
     const file = new File(
-      [JSON.stringify({ encrypted: true })],
+      [
+        JSON.stringify({
+          ciphertext_fingerprint_ref:
+            "ciphertext-fingerprint-ref:sha256:" + "7".repeat(64),
+          source_revision: 3,
+        }),
+      ],
       "calendar.json",
       {
         type: "application/json",
@@ -796,8 +850,10 @@ describe("CalendarAdoptionWorkspace", () => {
     apiMocks.previewCalendarAdoptionRestore.mockResolvedValue({
       expected_revision: 4,
       resulting_revision: 5,
+      backup_revision: 3,
       calendar_count: 1,
       event_count: 1,
+      current_state_ref: "state-ref:calendar-adoption:sha256:review-target",
       rollback_available: false,
       impact_status: "exact",
       preview_ref: "preview-ref:calendar-adoption-restore:test",
@@ -807,7 +863,13 @@ describe("CalendarAdoptionWorkspace", () => {
     render(<CalendarAdoptionWorkspace />);
     await screen.findAllByText("Founder briefing");
     const file = new File(
-      [JSON.stringify({ encrypted: true })],
+      [
+        JSON.stringify({
+          ciphertext_fingerprint_ref:
+            "ciphertext-fingerprint-ref:sha256:" + "7".repeat(64),
+          source_revision: 3,
+        }),
+      ],
       "calendar.json",
       { type: "application/json" },
     );
@@ -828,5 +890,12 @@ describe("CalendarAdoptionWorkspace", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByText(/The target is empty/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Backup revision 3; backup fingerprint/),
+    ).toHaveTextContent(
+      "ciphertext-fingerprint-ref:sha256:" +
+        "7".repeat(64) +
+        "; target state state-ref:calendar-adoption:sha256:review-target; target revision 4 → 5",
+    );
   });
 });

@@ -3282,7 +3282,12 @@ export interface CalendarAdoptionConflictItem {
 export interface CalendarAdoptionWorkspaceView {
   schema_version: "uaa-calendar-adoption-read-model.v1";
   contract_ref: string;
-  status: "onboarding" | "ready" | "setup_incomplete" | "recovery_required";
+  status:
+    | "onboarding"
+    | "ready"
+    | "setup_incomplete"
+    | "projection_limited"
+    | "recovery_required";
   workspace_ref: string;
   calendar_set_ref: string;
   revision: number;

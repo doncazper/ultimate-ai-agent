@@ -32,7 +32,11 @@ from ultimate_ai_agent.core.control_center.calendar_adoption import (
     CalendarAdoptionRestoreCommitRequest,
     CalendarAdoptionStore,
 )
-from ultimate_ai_agent.core.ecosystem.calendar import CalendarRepository, CalendarView
+from ultimate_ai_agent.core.ecosystem.calendar import (
+    CalendarError,
+    CalendarRepository,
+    CalendarView,
+)
 from ultimate_ai_agent.core.ecosystem.local_data import EcosystemKeyUnavailable
 
 
@@ -852,6 +856,60 @@ def test_restore_replaces_corrupt_current_database_after_exact_approval(
     assert replay.receipt_ref == receipt.receipt_ref
 
 
+def test_restore_preview_rejects_malformed_orphaned_live_key(tmp_path: Path) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="orphan-key-source")
+    passphrase = "founder private orphaned key recovery"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    target = CalendarAdoptionStore(tmp_path / "target")
+    _initialize(target, suffix="orphan-key-target")
+    target.database_path.unlink()
+    key_path = next((target.state_dir / "keys").glob("*.key"))
+    key_path.write_bytes(b"malformed")
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_KEY_RECOVERY_UNAVAILABLE",
+    ):
+        target.preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=backup,
+            ),
+            idempotency_ref=_idempotency("orphan-key-restore"),
+        )
+
+
+def test_empty_target_restore_rejects_oversized_private_payload_before_approval(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = CalendarAdoptionStore(tmp_path / "source")
+    _initialize(source, suffix="oversized-restore-source")
+    passphrase = "founder private bounded empty restore"
+    backup = source.create_portable_backup(
+        CalendarAdoptionPortableBackupRequest(passphrase=passphrase)
+    )
+    monkeypatch.setattr(
+        CalendarRepository,
+        "_record_plaintext_size",
+        staticmethod(lambda _calendar_set: 1024 * 1024 + 1),
+    )
+
+    with pytest.raises(
+        CalendarAdoptionError,
+        match="CALENDAR_ADOPTION_RESTORE_PAYLOAD_LIMIT_EXCEEDED",
+    ):
+        CalendarAdoptionStore(tmp_path / "empty-target").preview_restore(
+            CalendarAdoptionPortableRestoreRequest(
+                passphrase=passphrase,
+                backup=backup,
+            ),
+            idempotency_ref=_idempotency("oversized-empty-restore"),
+        )
+
+
 def test_restore_commit_translates_damaged_checkpoint_recovery(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -1266,6 +1324,34 @@ def test_restore_preview_only_advertises_undo_when_bounded_history_keeps_it(
         idempotency_ref=idempotency_ref,
     )
     assert target.read_view().can_undo is False
+
+
+@pytest.mark.parametrize(
+    "safe_code",
+    [
+        "ECO_CALENDAR_OCCURRENCE_LIMIT_EXCEEDED",
+        "ECO_CALENDAR_CONFLICT_LIMIT_EXCEEDED",
+    ],
+)
+def test_dense_calendar_is_projection_limited_without_claiming_storage_damage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, safe_code: str
+) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    _initialize(store, suffix=f"projection-limit-{safe_code}")
+
+    def reject_dense_projection(*_args: object, **_kwargs: object) -> None:
+        raise CalendarError(safe_code)
+
+    monkeypatch.setattr(CalendarRepository, "view", reject_dense_projection)
+    result = store.read_view(view=CalendarView.month)
+
+    assert result.status == "projection_limited"
+    assert result.revision == 1
+    assert result.calendars[0].calendar_ref == "calendar-ref:q33:primary"
+    assert result.occurrence_items == ()
+    assert result.conflict_items == ()
+    assert result.current_state_ref.startswith("state-ref:calendar-adoption:")
+    assert "Narrow" in result.next_safe_action
 
 
 def test_invalid_timezone_fails_closed_before_reading_state(tmp_path: Path) -> None:

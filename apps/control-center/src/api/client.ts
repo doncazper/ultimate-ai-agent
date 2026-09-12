@@ -963,7 +963,13 @@ export async function loadCalendarAdoptionWorkspace(
   if (
     value.schema_version !== "uaa-calendar-adoption-read-model.v1" ||
     value.contract_ref !== CALENDAR_ADOPTION_CONTRACT_REF ||
-    !["onboarding", "ready", "setup_incomplete", "recovery_required"].includes(
+    ![
+      "onboarding",
+      "ready",
+      "setup_incomplete",
+      "projection_limited",
+      "recovery_required",
+    ].includes(
       String(value.status),
     ) ||
     value.workspace_ref !== "workspace-ref:founder-private-calendar" ||
@@ -1119,7 +1125,12 @@ function isCalendarAdoptionResultRef(value: unknown, status: string): boolean {
   if (!isCalendarAdoptionSafeRef(value)) return false;
   return status === "ready"
     ? /^calendar-view-result-ref:sha256:[0-9a-f]{64}$/.test(value)
-    : ["onboarding", "setup_incomplete", "recovery_required"].includes(status) &&
+    : [
+        "onboarding",
+        "setup_incomplete",
+        "projection_limited",
+        "recovery_required",
+      ].includes(status) &&
         value.startsWith("calendar-view-result-ref:adoption:");
 }
 
