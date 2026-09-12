@@ -11,6 +11,7 @@ from ultimate_ai_agent.api.control_center import (
     CALENDAR_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
 )
 from ultimate_ai_agent.core.control_center.calendar_adoption import (
+    CALENDAR_ADOPTION_DATABASE_FILE,
     CalendarAdoptionStore,
 )
 from ultimate_ai_agent.core.ecosystem.calendar import CalendarConflict
@@ -118,6 +119,23 @@ def test_calendar_adoption_api_rejects_timezone_naive_anchor(
         "CALENDAR_ADOPTION_ANCHOR_TIMEZONE_REQUIRED"
     )
     assert not state_dir.exists()
+
+
+def test_calendar_adoption_api_returns_recovery_for_corrupt_database(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state_dir = tmp_path / "calendar"
+    state_dir.mkdir()
+    (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not sqlite")
+    monkeypatch.setenv("UAA_CALENDAR_STATE_DIR", str(state_dir))
+
+    response = TestClient(app).get(
+        "/control-center/calendar/adoption",
+        params={"anchor": "2026-09-14T16:00:00Z", "timezone": "UTC"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["status"] == "recovery_required"
 
 
 def test_calendar_adoption_api_enforces_body_and_structure_bounds(

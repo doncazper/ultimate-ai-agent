@@ -127,6 +127,76 @@ def test_empty_calendar_is_read_only_onboarding(tmp_path: Path) -> None:
     assert not state_dir.exists()
 
 
+def test_corrupt_calendar_database_enters_recovery_required(tmp_path: Path) -> None:
+    state_dir = tmp_path / "calendar"
+    state_dir.mkdir()
+    (state_dir / CALENDAR_ADOPTION_DATABASE_FILE).write_bytes(b"not a sqlite database")
+
+    view = CalendarAdoptionStore(state_dir).read_view(
+        view=CalendarView.week,
+        anchor=datetime(2026, 9, 14, tzinfo=timezone.utc),
+        timezone_name="America/Los_Angeles",
+    )
+
+    assert view.status == "recovery_required"
+    assert view.revision == 0
+    assert view.occurrence_items == ()
+    assert view.backend_owned is True
+    assert view.local_only is True
+    assert view.exact_approval_required is True
+    assert view.external_calendar_write_enabled is False
+    assert view.provider_model_call_enabled is False
+    assert state_dir.exists()
+
+
+def test_expired_uncommitted_checkpoints_are_reclaimable(tmp_path: Path) -> None:
+    store = CalendarAdoptionStore(tmp_path)
+    store._ensure_private_state_directory()
+    expired_at = datetime(2026, 9, 1, tzinfo=timezone.utc)
+
+    def checkpoint(index: int, *, expires_at: datetime):
+        suffix = f"capacity-{index}"
+        return calendar_adoption_module._CalendarAdoptionReceiptCheckpoint(
+            action="initialize",
+            target_ref="calendar-ref:q33:primary",
+            before_revision=0,
+            after_revision=1,
+            idempotency_ref=_idempotency(suffix),
+            payload_fingerprint_ref=f"payload-fingerprint-ref:q33:{suffix}",
+            preview_ref=f"preview-ref:q33:{suffix}",
+            approval_ref=f"approval-ref:q33:{suffix}",
+            approval_validation_ref=(
+                calendar_adoption_module._PENDING_APPROVAL_VALIDATION_REF
+            ),
+            approval_expires_at=expires_at,
+            authority_decision_ref=(
+                calendar_adoption_module._PENDING_AUTHORITY_DECISION_REF
+            ),
+            authority_lease_ref=(calendar_adoption_module._PENDING_AUTHORITY_LEASE_REF),
+            operation_ref=f"operation-ref:q33:{suffix}",
+        )
+
+    expired = [
+        checkpoint(index, expires_at=expired_at)
+        for index in range(
+            calendar_adoption_module.CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS
+        )
+    ]
+    store._write_receipt_checkpoints(expired)
+    current = checkpoint(256, expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc))
+
+    store._write_receipt_checkpoints([*expired, current])
+
+    retained = store._read_receipt_checkpoints()
+    assert (
+        len(retained)
+        == calendar_adoption_module.CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS
+    )
+    assert store._checkpoint_for(retained, current.idempotency_ref) == current
+    assert store._checkpoint_for(retained, expired[0].idempotency_ref) is None
+    assert store._checkpoint_for(retained, expired[1].idempotency_ref) == expired[1]
+
+
 def test_commit_requires_exact_captured_approval(tmp_path: Path) -> None:
     store = CalendarAdoptionStore(tmp_path)
     mutation = CalendarAdoptionMutationRequest(

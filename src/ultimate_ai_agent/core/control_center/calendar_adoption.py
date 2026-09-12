@@ -15,6 +15,7 @@ import hmac
 import json
 import os
 import secrets
+import sqlite3
 import stat
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -1040,16 +1041,25 @@ class CalendarAdoptionStore:
                 "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_IDENTITY_CONFLICT"
             )
         if len(checkpoints) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
-            pending = [item for item in checkpoints if item.receipt is None]
-            completed = [item for item in checkpoints if item.receipt is not None]
+            now = utc_now()
+            pending = [
+                item
+                for item in checkpoints
+                if item.receipt is None and item.approval_expires_at > now
+            ]
+            reclaimable = [
+                item
+                for item in checkpoints
+                if item.receipt is not None or item.approval_expires_at <= now
+            ]
             if len(pending) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS:
                 raise CalendarAdoptionError(
                     "CALENDAR_ADOPTION_RECEIPT_CHECKPOINT_CAPACITY_EXHAUSTED"
                 )
-            completed_slots = CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS - len(pending)
+            reclaimable_slots = CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINTS - len(pending)
             checkpoints = [
                 *pending,
-                *(completed[-completed_slots:] if completed_slots else []),
+                *(reclaimable[-reclaimable_slots:] if reclaimable_slots else []),
             ]
         raw = _canonical_json([item.model_dump(mode="json") for item in checkpoints])
         if len(raw) > CALENDAR_ADOPTION_MAX_RECEIPT_CHECKPOINT_BYTES:
@@ -1305,7 +1315,13 @@ class CalendarAdoptionStore:
                     "Create an event or select one to edit, archive, or recover."
                 ),
             )
-        except (OSError, ValueError, CalendarError, EcosystemLocalDataError):
+        except (
+            OSError,
+            ValueError,
+            sqlite3.Error,
+            CalendarError,
+            EcosystemLocalDataError,
+        ):
             return self._empty_view(
                 status="recovery_required",
                 view=view,

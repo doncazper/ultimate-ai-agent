@@ -358,6 +358,36 @@ describe("CalendarAdoptionWorkspace", () => {
     );
     const [request] = apiMocks.previewCalendarAdoptionMutation.mock.calls[0];
     expect(request.event.recurrence.weekdays).toEqual([0, 2]);
+    expect(
+      await screen.findByText(
+        /Repeats: weekly; interval 1; timezone America\/Los_Angeles; weekdays Monday \(0\), Wednesday \(2\); month day none; count none; until none/,
+      ),
+    ).toBeVisible();
+  });
+
+  it("resets a cancelled edit to the first active calendar", async () => {
+    const mixed = structuredClone(workspace);
+    mixed.calendars = [
+      { ...mixed.calendars[0], archived: true },
+      {
+        ...mixed.calendars[0],
+        calendar_ref: "calendar-ref:q33:active",
+        name: "Active",
+        archived: false,
+      },
+    ];
+    apiMocks.loadCalendarAdoptionWorkspace.mockResolvedValue(mixed);
+
+    render(<CalendarAdoptionWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Founder briefing/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel edit" }));
+
+    expect(screen.getByLabelText("Calendar")).toHaveValue(
+      "calendar-ref:q33:active",
+    );
   });
 
   it("recomputes weekly recurrence after the start date changes", async () => {
