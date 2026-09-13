@@ -1057,11 +1057,33 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("rejects unsafe external-information summary truth", async () => {
+    const routeData = baseRouteData();
+    const thread = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.founderAgentLoopThread]),
+    ) as Record<string, unknown>;
+    const highMaturity = thread.high_maturity_spine_readiness as Record<
+      string,
+      unknown
+    >;
+    const externalInformation = highMaturity.external_information_handling as Record<
+      string,
+      unknown
+    >;
+    const rows = externalInformation.rows as Array<Record<string, unknown>>;
+    rows[1].safe_summary = "Untrusted raw pages must not be retained.";
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = thread;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
+
   it.each([
-    ["unsafe summary", (posture: Record<string, unknown>) => {
-      const rows = posture.rows as Array<Record<string, unknown>>;
-      rows[1].safe_summary = "Untrusted raw pages must not be retained.";
-    }],
     ["lane count", (posture: Record<string, unknown>) => {
       posture.existing_exact_network_lane_count = 5;
     }],
