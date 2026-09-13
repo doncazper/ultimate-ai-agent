@@ -49,6 +49,26 @@ sources and artifacts remain visible without silently adopting their database.
 `apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
 provides the normal readable workflow.
 
+Today (including the NorthStar workspace) and Morning Briefing render a
+read-only News digest from the same local summary. They preserve the Python
+projection's selected refs and ordering, show source, confidence, conflict and
+snapshot freshness, and link back to News for inspection. They do not rank or
+summarize content in the browser. Explicit refresh reads local state only.
+Unavailable backend ownership, failed refresh, or inconsistent projection
+identities hide the prior items; missing sources, safe-disabled sources and a
+valid empty selection remain distinct. These displays do not bypass the
+existing first-loop setup gate or authorize candidate execution.
+These entry routes request only their ten existing shell, authority, Today,
+Actions, Evidence, Agent Loop and Briefing read dependencies, rather than
+waiting on unrelated runtime, memory and integration surfaces. They reuse the
+same validators and backend-instance/revision binding. Every previously
+required route must still be backend-owned; unrequested routes remain
+non-authoritative. These compound local reads run serially;
+the existing eight-second per-read deadline and truth gates remain unchanged.
+The backend vault readiness retains its explicit adapter-not-scoped reason,
+and the external-intake description uses bounded safety-compatible wording.
+The existing frontend authority and raw-content validators remain unchanged.
+
 The normal `/news` route obtains a current, validated backend truth envelope
 and supplies its revision, process identity, and snapshot to the exact approval
 and commit requests. First-run local intake does not depend on a prior unrelated
@@ -133,6 +153,7 @@ instruction or authority source.
 - `tests/test_queue_v2_q34_news_source_intelligence.py`
 - `apps/control-center/src/api/client.newsSignalsAdoption.test.ts`
 - `apps/control-center/src/components/NewsSignalsPreviewPanel.test.tsx`
+- `apps/control-center/src/components/NewsSignalsDigest.test.tsx`
 - `apps/control-center/src/App.news.test.tsx`
 - `apps/control-center/tests/visual/foundation-surfaces.real.spec.ts`
 - OpenAPI/API manifest, capability/release-surface, documentation, frontend,

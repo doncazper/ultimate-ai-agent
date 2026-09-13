@@ -118,7 +118,7 @@ test.afterAll(async () => {
 });
 
 test("normal News intake binds confirmation and keeps every signal field inside the panel", async ({ page, request }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   // This regression uses the fixture-backed server above; it is not founder
   // acceptance evidence. The normal App route and actual News API are used.
   const truthResponse = await request.get(`${backendBaseUrl}/control-center/backend-truth`);
@@ -169,12 +169,44 @@ test("normal News intake binds confirmation and keeps every signal field inside 
   await page.getByLabel("Redacted summary", { exact: true }).fill("A synthetic local artifact for normal-route regression only.");
   await page.getByLabel("Topic", { exact: true }).fill("Local review");
   await page.getByLabel("Claim", { exact: true }).fill("Normal route saves a reviewed artifact");
+  const publishedAt = await page.evaluate((timestamp) => {
+    const date = new Date(timestamp);
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 23);
+  }, Date.now() - 60_000);
+  await page.getByLabel("Published", { exact: true }).fill(publishedAt);
+  await page.getByLabel("Confidence percent", { exact: true }).fill("91");
+  await page.getByRole("combobox", { name: /^Evidence class/ }).selectOption("primary");
   await page.getByRole("button", { name: "Review signal", exact: true }).click();
   await expect(save).toBeEnabled();
   await save.click();
   await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
+
+  for (const [path, label] of [
+    ["/workspace/today", "Today News snapshot"],
+    ["/today", "Today News snapshot"],
+    ["/briefing", "Briefing News snapshot"],
+  ]) {
+    await page.goto(path);
+    const digest = page.getByLabel(label, { exact: true });
+    await expect(digest.getByRole("heading", { name: "Local News regression artifact", exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(digest.getByText(/Fresh when checked/)).toBeVisible();
+    await expect(digest.getByRole("button", { name: "Refresh News", exact: true })).toBeEnabled();
+    const digestBounds = await digest.evaluate((element) => ({
+      width: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      left: element.getBoundingClientRect().left,
+      right: element.getBoundingClientRect().right,
+      viewport: innerWidth,
+    }));
+    expect(digestBounds.scrollWidth).toBeLessThanOrEqual(digestBounds.width + 1);
+    expect(digestBounds.left).toBeGreaterThanOrEqual(0);
+    expect(digestBounds.right).toBeLessThanOrEqual(digestBounds.viewport);
+    await digest.getByRole("link", { name: "Open News for inspection" }).click();
+    await expect(page).toHaveURL(/\/news$/);
+    await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
+  }
 });
 
 test("foundation visual baselines stay backend-owned", async ({

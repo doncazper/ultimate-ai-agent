@@ -376,6 +376,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <TodaySurfacePanel
             actionReadModelAuthoritative={isAuthoritativeRoute(data, "/actions")}
+            readModelAuthoritative={isAuthoritativeRoute(data, "/today")}
             agentLoopThread={data.founderAgentLoopThread}
             today={data.founderToday}
           />
@@ -471,7 +472,10 @@ export function renderRoute(path: string, data: ControlCenterData) {
             settingsStatus={data.settingsStatus}
             today={data.founderToday}
           />
-          <MorningBriefingPanel briefing={data.founderMorningBriefing} />
+          <MorningBriefingPanel
+            briefing={data.founderMorningBriefing}
+            readModelAuthoritative={isAuthoritativeRoute(data, "/briefing")}
+          />
         </>
       );
     case "/crm":

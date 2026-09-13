@@ -288,7 +288,7 @@ export function NorthStarRoute({
   );
   const dataScope = canonicalizeControlCenterPath(activePath) === "/workspace/decisions"
     ? "north-star-decisions"
-    : "full";
+    : isNewsHandoffRoute(activePath) ? "news-handoff" : "full";
   const state = useControlCenterData(
     moduleStatus === "ready" && truthAdmitted,
     truthReadBinding,
@@ -1085,6 +1085,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   const state = useControlCenterData(
     truthAdmitted,
     truthReadBinding,
+    isNewsHandoffRoute(activePath) ? "news-handoff" : "full",
   );
   const loadedActionInbox =
     state.status === "ready" ? state.data.founderActionsInbox : null;
@@ -1265,6 +1266,10 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
       </BackendTruthMutationBindingProvider>
     </AppShell>
   );
+}
+
+function isNewsHandoffRoute(path: string): boolean {
+  return ["/workspace", "/workspace/today", "/today", "/briefing", "/morning-briefing"].includes(canonicalizeControlCenterPath(path));
 }
 
 const FOUNDER_LOOP_SPINE_ROUTE_KEYS = [

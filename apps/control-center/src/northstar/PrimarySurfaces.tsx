@@ -3,6 +3,7 @@ import type { ControlCenterData } from "../api/types";
 import { CrmAdoptionWorkspace } from "../components/CrmAdoptionWorkspace";
 import { WorkBoardAdoptionWorkspace } from "../components/WorkBoardAdoptionWorkspace";
 import { CalendarAdoptionWorkspace } from "../components/CalendarAdoptionWorkspace";
+import { NewsSignalsDigest } from "../components/NewsSignalsDigest";
 import { Avatar, Badge, Button, Icon, MetaRow, Panel, SearchField, Tabs, Toolbar } from "./primitives";
 import { WORKSPACE_PREFIX } from "./model";
 
@@ -66,9 +67,8 @@ export function TodaySurface({ data }: { data: ControlCenterData }) {
           </div>
           <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/work-board`}>Open full plan</a>
         </Panel>
-        <Panel title="News" icon="newspaper" action={<Badge tone="neutral">Source required</Badge>}>
-          <p className="ns-help-copy">No sourced news items are attached to the Today read model.</p>
-          <a className="ns-panel-link" href={`${WORKSPACE_PREFIX}/news`}>View sourced brief</a>
+        <Panel title="News" icon="newspaper" action={<Badge tone="neutral">Local snapshot</Badge>}>
+          <NewsSignalsDigest authoritative={backendOwned} surface="today" />
         </Panel>
         <Panel title="Business pulse" icon="activity">
           <p className="ns-help-copy">No backend-owned business metrics are attached to the Today read model.</p>

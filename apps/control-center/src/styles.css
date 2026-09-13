@@ -13,6 +13,14 @@
   text-rendering: optimizeLegibility;
 }
 
+.news-signals-digest { min-width: 0; overflow-wrap: anywhere; }
+.news-signals-digest-list { display: grid; gap: 14px; padding: 0; list-style: none; }
+.news-signals-digest-list h4 { margin: 0 0 6px; }
+.news-signals-digest-list p { margin: 6px 0; }
+.news-signals-digest-note, .news-signals-digest-list small { font-size: 0.78rem; }
+.news-signals-digest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.news-signals-digest-actions button { padding: 6px 10px; border-radius: 7px; }
+
 /* Founder-private Calendar adoption */
 .calendar-adoption { position: relative; width: 100%; min-width: 0; }
 .calendar-adoption-toolbar, .calendar-adoption-range, .calendar-adoption-actions, .calendar-adoption-confirm .panel > div, .calendar-adoption-recovery > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -7236,7 +7244,7 @@ th {
   -webkit-line-clamp: 1;
 }
 
-.surface-today .app-main > .page-section[aria-labelledby="today-surface-heading"] > :not(.section-heading):not(.north-star-today) {
+.surface-today .app-main > .page-section[aria-labelledby="today-surface-heading"] > :not(.section-heading):not(.north-star-today):not(.today-news-digest) {
   display: none;
 }
 

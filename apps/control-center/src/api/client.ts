@@ -319,12 +319,12 @@ interface ControlCenterReadLimiter {
   reset: () => void;
 }
 
-function createControlCenterReadLimiter(): ControlCenterReadLimiter {
+function createControlCenterReadLimiter(maxConcurrentReads = CONTROL_CENTER_MAX_CONCURRENT_READS): ControlCenterReadLimiter {
   let activeReadCount = 0;
   const pendingReadStarts: Array<() => void> = [];
   return {
     async acquire() {
-      if (activeReadCount < CONTROL_CENTER_MAX_CONCURRENT_READS) {
+      if (activeReadCount < maxConcurrentReads) {
         activeReadCount += 1;
         return;
       }
@@ -1601,11 +1601,13 @@ export async function commitCalendarAdoptionRestore(
   );
 }
 
-export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {
+export async function loadNewsSignalsSummary(
+  expectedBinding: BackendTruthReadBinding | null = null,
+): Promise<NewsSignalsSummary> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
-  const value = await readEnvelope<unknown>(API_ENDPOINTS.newsSignalsSummary);
+  const value = await readEnvelope<unknown>(API_ENDPOINTS.newsSignalsSummary, defaultControlCenterReadLimiter, expectedBinding);
   if (!isSafeNewsSignalsSummary(value)) {
     throw new Error("NEWS_SIGNALS_RESPONSE_INVALID");
   }
@@ -3824,9 +3826,31 @@ async function isSafeCrmSocialProjection(crm: CrmLocalCommandCenterReadModel | u
   return true;
 }
 
+const NEWS_HANDOFF_READ_ENDPOINTS = new Set<string>([
+  API_ENDPOINTS.controlCenterDashboard,
+  API_ENDPOINTS.approvalSummary,
+  API_ENDPOINTS.runtimeReadinessSummary,
+  API_ENDPOINTS.foundationGateSummary,
+  API_ENDPOINTS.controlCenterSettingsStatus,
+  API_ENDPOINTS.founderTodaySummary,
+  API_ENDPOINTS.founderEvidenceTimeline,
+  API_ENDPOINTS.founderActionsInbox,
+  API_ENDPOINTS.founderMorningBriefing,
+  API_ENDPOINTS.founderAgentLoopThread,
+]);
+
+const NEWS_HANDOFF_REQUIRED_ROUTES = [
+  "/today", "/actions", "/evidence", "/chat", "/settings", "/briefing",
+  "/critical/dashboard-read-model",
+];
+
 export async function loadControlCenterData(
   expectedBinding: BackendTruthReadBinding | null = null,
+  scope: "full" | "news-handoff" = "full",
 ): Promise<ControlCenterData> {
+  if (scope === "news-handoff" && (!API_BASE_POLICY.allowed || !expectedBinding)) {
+    throw new StrictBackendDataError();
+  }
   if (!API_BASE_POLICY.allowed) {
     if (strictBackendModeEnabled()) {
       throw new StrictBackendDataError();
@@ -3850,9 +3874,13 @@ export async function loadControlCenterData(
     );
   }
 
-  const loadReadLimiter = createControlCenterReadLimiter();
+  // Compound Founder Loop reads share local storage and CPU. Keep this small
+  // scope serial without extending the existing deadline.
+  const loadReadLimiter = createControlCenterReadLimiter(scope === "news-handoff" ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
   const read = <T>(endpoint: string): Promise<T> =>
-    endpoint.startsWith("/api/runtime/")
+    scope === "news-handoff" && !NEWS_HANDOFF_READ_ENDPOINTS.has(endpoint)
+      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+      : endpoint.startsWith("/api/runtime/")
       ? Promise.resolve().then(() =>
           readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding),
         )
@@ -3873,7 +3901,9 @@ export async function loadControlCenterData(
     API_ENDPOINTS.crmSummary,
   );
   const communicationsProjectionSettledPromise = Promise.allSettled([
-    loadCommunicationsConversationsWithReadContext(
+    scope === "news-handoff"
+      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+      : loadCommunicationsConversationsWithReadContext(
       loadReadLimiter,
       expectedBinding,
     ),
@@ -5395,6 +5425,7 @@ export async function loadControlCenterData(
   };
 
   if (fulfilledCount === 0) {
+    if (scope === "news-handoff") throw new StrictBackendDataError();
     return withConnection(
       {
         ...mockControlCenterData,
@@ -5601,6 +5632,21 @@ export async function loadControlCenterData(
     connection: mockControlCenterData.connection,
     routeStates,
   };
+
+  if (scope === "news-handoff") {
+    // Reuse the full loader's validators and exact route-ownership calculation.
+    // Unrequested surfaces remain fallback, never promoted by this connection.
+    const unavailableRoutes = NEWS_HANDOFF_REQUIRED_ROUTES.filter((route) => routeStates[route]?.state !== "backend_owned");
+    if (unavailableRoutes.length > 0) {
+      throw new Error(`NEWS_HANDOFF_ROUTE_UNVERIFIED:${unavailableRoutes.join(",")}`);
+    }
+    return withConnection(data, {
+      state: "online",
+      safeMessage: "Today and Briefing loaded from their bound local read contracts; other surfaces were not requested.",
+      usingMockData: false,
+      warnings: [],
+    });
+  }
 
   if (
     fulfilledCount === expectedReadCount &&

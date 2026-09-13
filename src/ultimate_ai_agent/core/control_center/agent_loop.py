@@ -1064,7 +1064,7 @@ def build_external_information_handling_posture() -> dict[str, Any]:
             authority_posture="operator_review_required",
             safe_summary=(
                 "External intake records accept bounded quotes, safe refs, "
-                "freshness posture, and receipts without storing raw pages."
+                "freshness posture, and receipts without retaining source bodies."
             ),
             route_refs=[
                 "GET /control-center/web-evidence/attachments",
