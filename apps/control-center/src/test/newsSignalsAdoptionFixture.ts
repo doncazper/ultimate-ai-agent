@@ -78,7 +78,7 @@ export const preview: NewsSignalsAdoptionMutationPreview = {
   signal_ref: null,
   expected_revision: 0,
   resulting_revision: 1,
-  current_state_ref: workspace.current_state_ref,
+  current_state_ref: "state-ref:news-signals-adoption:empty",
   payload_fingerprint_ref: "payload-fingerprint-ref:q34:official",
   preview_ref: "preview-ref:q34:official",
   approval_ref: "approval-ref:q34:official",
@@ -89,4 +89,3 @@ export const preview: NewsSignalsAdoptionMutationPreview = {
   external_write_performed: false,
   production_authority_granted: false,
 };
-
