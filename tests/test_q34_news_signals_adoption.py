@@ -20,7 +20,10 @@ from ultimate_ai_agent.core.news_signals.adoption import (
     NewsSignalsAdoptionConflict,
     NewsSignalsAdoptionError,
     NewsSignalsAdoptionMutationRequest,
+    NewsSignalsAdoptionMutationReceipt,
     NewsSignalsAdoptionStore,
+    _hash_ref,
+    _mutation_receipt_ref,
 )
 from ultimate_ai_agent.core.news_signals.read_model import NewsSignalSource
 
@@ -197,7 +200,9 @@ def test_preference_is_inspectable_and_changes_ranking(tmp_path) -> None:
     )
     second_ref = second_receipt.signal_ref
     before = store.read_view(now=NOW)
-    second = next(item for item in before["summary"]["items"] if item["signal_ref"] == second_ref)
+    second = next(
+        item for item in before["summary"]["items"] if item["signal_ref"] == second_ref
+    )
 
     _commit(
         store,
@@ -214,16 +219,19 @@ def test_preference_is_inspectable_and_changes_ranking(tmp_path) -> None:
     assert after["summary"]["items"][0]["signal_ref"] == second_ref
     assert after["summary"]["items"][1]["signal_ref"] == first_ref
     assert after["preferences"][0]["weight"] == 20
-    assert "rank-reason-ref:q24:explicit-topic-preference" in after["summary"]["items"][0]["rank_reason_refs"]
+    assert (
+        "rank-reason-ref:q24:explicit-topic-preference"
+        in after["summary"]["items"][0]["rank_reason_refs"]
+    )
 
 
 def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
     signal_ref = _ingest(store, source_ref)
-    admitted_reason_refs = store.read_view(now=NOW)["summary"][
-        "source_readiness"
-    ][0]["reason_refs"]
+    admitted_reason_refs = store.read_view(now=NOW)["summary"]["source_readiness"][0][
+        "reason_refs"
+    ]
 
     _commit(
         store,
@@ -240,9 +248,7 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     assert disabled["summary"]["today_projection"]["item_refs"] == []
     disabled_reason_refs = disabled["summary"]["source_readiness"][0]["reason_refs"]
     assert disabled_reason_refs[:2] == admitted_reason_refs
-    assert disabled_reason_refs[1].startswith(
-        "approval-ref:news-signals-adoption:"
-    )
+    assert disabled_reason_refs[1].startswith("approval-ref:news-signals-adoption:")
     assert disabled_reason_refs[2:] == [
         "reason-ref:q34:operator-confirmed-source-state"
     ]
@@ -263,6 +269,37 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     assert recovered["summary"]["source_readiness"][0]["reason_refs"] == (
         disabled_reason_refs
     )
+
+
+def test_source_transition_preserves_a_full_admission_reason_set(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = "source-ref:q24:full-reason-set"
+    reason_refs = tuple(f"reason-ref:q24:admission-{index}" for index in range(24))
+    store.repository.upsert_source(
+        NewsSignalSource(
+            source_ref=source_ref,
+            source_kind="official",
+            safe_label="Fully evidenced source",
+            state="ready",
+            observed_at="2026-09-09T10:00:00Z",
+            reason_refs=reason_refs,
+        )
+    )
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="set_source_state",
+            expected_revision=0,
+            target_ref=source_ref,
+            source_state="safe_disabled",
+        ),
+        "disable-source-with-full-reason-set",
+    )
+
+    source = store.read_view(now=NOW)["summary"]["source_readiness"][0]
+    assert source["state"] == "safe_disabled"
+    assert source["reason_refs"] == list(reason_refs)
 
 
 @pytest.mark.parametrize("source_state", ["blocked", "unknown", "revoked"])
@@ -489,6 +526,48 @@ def test_archive_recover_correction_and_undo(tmp_path) -> None:
     assert undone["summary"]["items"][0]["safe_summary"].startswith("A bounded")
 
 
+def test_signal_correction_preserves_claim_identity_when_label_is_omitted(
+    tmp_path,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+    before = store.read_view(now=NOW)["summary"]["items"][0]
+    draft = _signal_draft(
+        source_ref,
+        summary="A corrected bounded summary supplied for local review.",
+    ).model_copy(update={"claim_label": None})
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="update_signal",
+            expected_revision=2,
+            target_ref=signal_ref,
+            signal_draft=draft,
+        ),
+        "correct-signal-preserve-claim",
+    )
+    after = store.read_view(now=NOW)["summary"]["items"][0]
+
+    assert after["safe_summary"].startswith("A corrected")
+    assert after["claim_ref"] == before["claim_ref"]
+
+
+def test_ingest_requires_an_explicit_claim_label(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+
+    with pytest.raises(ValueError, match="CLAIM_LABEL_REQUIRED"):
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=1,
+            signal_draft=_signal_draft(source_ref).model_copy(
+                update={"claim_label": None}
+            ),
+        )
+
+
 def test_signal_topic_correction_removes_orphaned_preference(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
@@ -575,12 +654,39 @@ def test_undo_approval_binds_the_exact_snapshot_bytes(tmp_path) -> None:
             (f"{original} ",),
         )
 
-    with pytest.raises(NewsSignalsAdoptionConflict, match="COMMIT_SCOPE_MISMATCH"):
+    with pytest.raises(NewsSignalsAdoptionConflict, match="UNDO_UNAVAILABLE"):
         store.commit_mutation(exact, idempotency_ref=idempotency_ref)
 
     view = store.read_view(now=NOW)
     assert view["revision"] == 1
     assert view["summary"]["source_readiness"][0]["source_ref"] == source_ref
+
+
+def test_undo_is_invalidated_by_later_shared_q24_state(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    store.repository.upsert_source(
+        NewsSignalSource(
+            source_ref="source-ref:q24:later-admission",
+            source_kind="community",
+            safe_label="Later shared admission",
+            state="ready",
+            observed_at="2026-09-09T11:30:00Z",
+            reason_refs=("reason-ref:q24:later-admission",),
+        )
+    )
+
+    view = store.read_view(now=NOW)
+    assert view["can_undo"] is False
+    assert {item["source_ref"] for item in view["summary"]["source_readiness"]} == {
+        source_ref,
+        "source-ref:q24:later-admission",
+    }
+    with pytest.raises(NewsSignalsAdoptionConflict, match="UNDO_UNAVAILABLE"):
+        store.preview_mutation(
+            NewsSignalsAdoptionMutationRequest(action="undo", expected_revision=1),
+            idempotency_ref="idempotency-ref:q34:test:stale-shared-state-undo",
+        )
 
 
 def test_invalid_undo_snapshot_fails_closed_before_undo_is_advertised(
@@ -602,7 +708,9 @@ def test_invalid_undo_snapshot_fails_closed_before_undo_is_advertised(
         store.read_view(now=NOW)
 
 
-def test_commit_requires_captured_exact_approval_and_replays_idempotently(tmp_path) -> None:
+def test_commit_requires_captured_exact_approval_and_replays_idempotently(
+    tmp_path,
+) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     mutation = NewsSignalsAdoptionMutationRequest(
         action="register_source",
@@ -638,6 +746,50 @@ def test_receipt_capacity_reserves_the_final_slot_for_undo(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
     with sqlite3.connect(store.db_path) as conn:
+        original = NewsSignalsAdoptionMutationReceipt.model_validate_json(
+            conn.execute(
+                "SELECT receipt_json FROM news_signals_adoption_receipts LIMIT 1"
+            ).fetchone()[0]
+        )
+        rows = []
+        for index in range(NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS - 2):
+            idempotency_ref = f"idempotency-ref:q34:capacity:{index}"
+            receipt_ref = _mutation_receipt_ref(
+                action=original.action,
+                target_ref=original.target_ref,
+                source_ref=original.source_ref,
+                signal_ref=original.signal_ref,
+                before_revision=original.before_revision,
+                after_revision=original.after_revision,
+                idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=original.payload_fingerprint_ref,
+                preview_ref=original.preview_ref,
+                approval_ref=original.approval_ref,
+                approval_validation_ref=original.approval_validation_ref,
+                approval_expires_at=original.approval_expires_at,
+                authority_decision_ref=original.authority_decision_ref,
+                authority_lease_ref=original.authority_lease_ref,
+                state_ref=original.state_ref,
+            )
+            clone = original.model_copy(
+                update={
+                    "idempotency_ref": idempotency_ref,
+                    "receipt_ref": receipt_ref,
+                    "rollback_ref": _hash_ref(
+                        "rollback-ref:news-signals-adoption",
+                        {"receipt_ref": receipt_ref, "action": "undo"},
+                    ),
+                }
+            )
+            rows.append(
+                (
+                    clone.idempotency_ref,
+                    clone.payload_fingerprint_ref,
+                    clone.preview_ref,
+                    clone.approval_ref,
+                    clone.model_dump_json(),
+                )
+            )
         conn.executemany(
             """
             INSERT INTO news_signals_adoption_receipts(
@@ -645,16 +797,7 @@ def test_receipt_capacity_reserves_the_final_slot_for_undo(tmp_path) -> None:
                 approval_ref, receipt_json
             ) VALUES (?, ?, ?, ?, ?)
             """,
-            [
-                (
-                    f"idempotency-ref:q34:capacity:{index}",
-                    f"payload-fingerprint-ref:q34:capacity:{index}",
-                    f"preview-ref:q34:capacity:{index}",
-                    f"approval-ref:q34:capacity:{index}",
-                    "{}",
-                )
-                for index in range(NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS - 2)
-            ],
+            rows,
         )
 
     update = NewsSignalsAdoptionMutationRequest(
@@ -806,9 +949,7 @@ def test_corrupt_database_and_receipt_state_fail_with_safe_codes(tmp_path) -> No
         source_draft=_source_draft(),
     )
     idempotency_ref = "idempotency-ref:q34:test:corrupt-receipt"
-    preview = receipt_store.preview_mutation(
-        mutation, idempotency_ref=idempotency_ref
-    )
+    preview = receipt_store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
     exact = NewsSignalsAdoptionCommitRequest(
         mutation=mutation,
         preview_ref=preview.preview_ref,
@@ -824,6 +965,31 @@ def test_corrupt_database_and_receipt_state_fail_with_safe_codes(tmp_path) -> No
         )
     with pytest.raises(NewsSignalsAdoptionError, match="RECEIPT_STATE_INVALID"):
         receipt_store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+
+
+def test_unrelated_corrupt_receipt_blocks_reads_and_new_mutations(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    _ingest(store, source_ref)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signals_adoption_receipts SET receipt_json = ? "
+            "WHERE idempotency_ref = ?",
+            ("{}", "idempotency-ref:q34:test:register-source"),
+        )
+
+    with pytest.raises(NewsSignalsAdoptionError, match="RECEIPT_STATE_INVALID"):
+        store.read_view(now=NOW)
+    with pytest.raises(NewsSignalsAdoptionError, match="RECEIPT_STATE_INVALID"):
+        store.preview_mutation(
+            NewsSignalsAdoptionMutationRequest(
+                action="update_source",
+                expected_revision=2,
+                target_ref=source_ref,
+                source_draft=_source_draft("Blocked by receipt corruption"),
+            ),
+            idempotency_ref="idempotency-ref:q34:test:after-receipt-corruption",
+        )
 
 
 def test_durable_receipt_rejects_substituted_lifecycle_and_authority_fields(

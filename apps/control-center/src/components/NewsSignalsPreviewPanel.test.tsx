@@ -322,9 +322,14 @@ describe("NewsSignalsPreviewPanel", () => {
       screen.getByLabelText("Topic (re-enter for correction)"),
       { target: { value: "Agent governance" } },
     );
-    fireEvent.change(screen.getByLabelText("Claim"), {
+    fireEvent.change(
+      screen.getByLabelText(
+        "Claim correction (optional; blank preserves existing claim)",
+      ),
+      {
       target: { value: "The reviewed governance milestone occurred" },
-    });
+      },
+    );
     fireEvent.change(screen.getByLabelText("Confidence percent"), {
       target: { value: "77" },
     });
@@ -378,6 +383,58 @@ describe("NewsSignalsPreviewPanel", () => {
       target: { value: "commentary" },
     });
 
+    expect(
+      screen.queryByRole("button", { name: "Confirm and save" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves claim identity when an edit leaves claim correction blank", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit Governed signal" }),
+    );
+    fireEvent.change(
+      screen.getByLabelText("Topic (re-enter for correction)"),
+      { target: { value: "Agent governance" } },
+    );
+    expect(
+      screen.getByLabelText(
+        "Claim correction (optional; blank preserves existing claim)",
+      ),
+    ).toHaveValue("");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review signal correction" }),
+    );
+
+    await waitFor(() =>
+      expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update_signal",
+          signal_draft: expect.not.objectContaining({ claim_label: expect.anything() }),
+        }),
+        expect.any(String),
+      ),
+    );
+  });
+
+  it("clears a prior review when a newer preview fails", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    apiMocks.previewNewsSignalsAdoptionMutation
+      .mockResolvedValueOnce(preview)
+      .mockRejectedValueOnce(new Error("New preview failed safely."));
+    render(<NewsSignalsPreviewPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Review archive for Governed signal" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Review this one local change" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review safe-disable" }));
+    expect(await screen.findByText("New preview failed safely.")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Confirm and save" }),
     ).not.toBeInTheDocument();

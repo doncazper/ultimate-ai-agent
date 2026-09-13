@@ -210,7 +210,7 @@ export function NewsSignalsPreviewPanel() {
     setSignalTitle(item.title);
     setSignalSummary(item.safe_summary);
     setSignalTopic("");
-    setSignalClaim(item.title);
+    setSignalClaim("");
     setSignalPublishedAt(localDateTimeFromTimestamp(item.published_at));
     setSignalEvidenceClass(item.evidence_class);
     setSignalClaimStance(item.claim_stance);
@@ -220,6 +220,7 @@ export function NewsSignalsPreviewPanel() {
   const runPreview = async (request: NewsSignalsAdoptionMutationRequest) => {
     const generation = previewGeneration.current + 1;
     previewGeneration.current = generation;
+    setPending(null);
     setBusy(true);
     setError("");
     setNotice("");
@@ -397,14 +398,22 @@ export function NewsSignalsPreviewPanel() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (!workspace || !signalTitle.trim() || !signalSummary.trim() || !signalTopic.trim() || !signalClaim.trim()) return;
+              if (
+                !workspace ||
+                !signalTitle.trim() ||
+                !signalSummary.trim() ||
+                !signalTopic.trim() ||
+                (!editingSignalRef && !signalClaim.trim())
+              ) return;
               const signalDraft = {
                 source_ref: readySource.source_ref,
                 title: signalTitle.trim(),
                 safe_summary: signalSummary.trim(),
                 topic_label: signalTopic.trim(),
                 cluster_label: signalTitle.trim().slice(0, 80),
-                claim_label: signalClaim.trim(),
+                ...(signalClaim.trim()
+                  ? { claim_label: signalClaim.trim() }
+                  : {}),
                 published_at: new Date(signalPublishedAt).toISOString(),
                 confidence_percent: signalConfidence,
                 evidence_class: signalEvidenceClass,
@@ -449,8 +458,10 @@ export function NewsSignalsPreviewPanel() {
               <input maxLength={60} onChange={(event) => { invalidatePendingReview(); setSignalTopic(event.target.value); }} required value={signalTopic} />
             </label>
             <label>
-              Claim
-              <input maxLength={80} onChange={(event) => { invalidatePendingReview(); setSignalClaim(event.target.value); }} required value={signalClaim} />
+              {editingSignalRef
+                ? "Claim correction (optional; blank preserves existing claim)"
+                : "Claim"}
+              <input maxLength={80} onChange={(event) => { invalidatePendingReview(); setSignalClaim(event.target.value); }} required={!editingSignalRef} value={signalClaim} />
             </label>
             <label>Published<input onChange={(event) => { invalidatePendingReview(); setSignalPublishedAt(event.target.value); }} required type="datetime-local" value={signalPublishedAt} /></label>
             <label>
@@ -762,6 +773,9 @@ export function NewsSignalsPreviewPanel() {
             <p className="eyebrow">Confirmation</p>
             <h2>Review this one local change</h2>
             <p>{pending.preview.safe_summary}</p>
+            <small>
+              Exact target: {pending.preview.target_ref ?? pending.preview.signal_ref ?? pending.preview.source_ref ?? "new local record"}
+            </small>
             <small>Revision {pending.preview.expected_revision} → {pending.preview.resulting_revision}. No external action will run.</small>
           </div>
           <div>

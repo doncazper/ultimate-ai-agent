@@ -66,9 +66,7 @@ NEWS_SIGNALS_ADOPTION_CONTRACT_REF = (
     "contract-ref:queue-v2-q34-news-signals-adoption:v1"
 )
 NEWS_SIGNALS_ADOPTION_WORKSPACE_REF = "news-workspace-ref:founder-private"
-NEWS_SIGNALS_ADOPTION_ROUTE_REF = (
-    "POST /control-center/news-signals/adoption/commit"
-)
+NEWS_SIGNALS_ADOPTION_ROUTE_REF = "POST /control-center/news-signals/adoption/commit"
 NEWS_SIGNALS_ADOPTION_AUTHORITY_LANE_REF = (
     "authority-lane-ref:news-signals-adoption-local-write"
 )
@@ -134,9 +132,7 @@ def _canonical_json(value: Any) -> bytes:
             allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        raise NewsSignalsAdoptionError(
-            "NEWS_SIGNALS_ADOPTION_JSON_INVALID"
-        ) from exc
+        raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_JSON_INVALID") from exc
 
 
 def _hash_ref(prefix: str, value: Any) -> str:
@@ -244,7 +240,7 @@ class NewsSignalArtifactDraft(_AdoptionModel):
     safe_summary: str
     topic_label: str
     cluster_label: str
-    claim_label: str
+    claim_label: str | None = None
     published_at: str
     confidence_percent: int = Field(ge=0, le=100)
     evidence_class: Literal["primary", "corroborating", "community", "commentary"]
@@ -266,10 +262,17 @@ class NewsSignalArtifactDraft(_AdoptionModel):
     def validate_summary(cls, value: str) -> str:
         return _safe_label(value, "safe_summary", 320)
 
-    @field_validator("topic_label", "cluster_label", "claim_label")
+    @field_validator("topic_label", "cluster_label")
     @classmethod
     def validate_group_label(cls, value: str) -> str:
         return _safe_label(value, "group_label", 80)
+
+    @field_validator("claim_label")
+    @classmethod
+    def validate_claim_label(cls, value: str | None) -> str | None:
+        if value is not None:
+            return _safe_label(value, "claim_label", 80)
+        return value
 
     @field_validator("published_at")
     @classmethod
@@ -324,6 +327,12 @@ class NewsSignalsAdoptionMutationRequest(_AdoptionModel):
         expected = set(required[self.action])
         if populated != expected:
             raise ValueError("NEWS_SIGNALS_ADOPTION_ACTION_SHAPE_INVALID")
+        if (
+            self.action == "ingest_signal"
+            and self.signal_draft is not None
+            and self.signal_draft.claim_label is None
+        ):
+            raise ValueError("NEWS_SIGNALS_ADOPTION_CLAIM_LABEL_REQUIRED")
         return self
 
 
@@ -347,9 +356,9 @@ class NewsSignalsAdoptionMutationPreview(_AdoptionModel):
     schema_version: Literal["uaa-news-signals-adoption-preview.v1"] = (
         "uaa-news-signals-adoption-preview.v1"
     )
-    contract_ref: Literal[
-        "contract-ref:queue-v2-q34-news-signals-adoption:v1"
-    ] = NEWS_SIGNALS_ADOPTION_CONTRACT_REF
+    contract_ref: Literal["contract-ref:queue-v2-q34-news-signals-adoption:v1"] = (
+        NEWS_SIGNALS_ADOPTION_CONTRACT_REF
+    )
     action: MutationAction
     target_ref: str | None
     source_ref: str | None
@@ -408,9 +417,9 @@ class NewsSignalsAdoptionMutationReceipt(_AdoptionModel):
     schema_version: Literal["uaa-news-signals-adoption-receipt.v1"] = (
         "uaa-news-signals-adoption-receipt.v1"
     )
-    contract_ref: Literal[
-        "contract-ref:queue-v2-q34-news-signals-adoption:v1"
-    ] = NEWS_SIGNALS_ADOPTION_CONTRACT_REF
+    contract_ref: Literal["contract-ref:queue-v2-q34-news-signals-adoption:v1"] = (
+        NEWS_SIGNALS_ADOPTION_CONTRACT_REF
+    )
     action: MutationAction
     target_ref: str | None
     source_ref: str | None
@@ -434,9 +443,9 @@ class NewsSignalsAdoptionMutationReceipt(_AdoptionModel):
     model_call_performed: Literal[False] = False
     external_write_performed: Literal[False] = False
     production_authority_granted: Literal[False] = False
-    safe_summary: Literal[
+    safe_summary: Literal["One exact local News and Signals change was persisted."] = (
         "One exact local News and Signals change was persisted."
-    ] = "One exact local News and Signals change was persisted."
+    )
 
     @field_validator(
         "idempotency_ref",
@@ -457,9 +466,7 @@ class NewsSignalsAdoptionMutationReceipt(_AdoptionModel):
 
     @field_validator("target_ref", "source_ref", "signal_ref")
     @classmethod
-    def validate_optional_receipt_ref(
-        cls, value: str | None, info: Any
-    ) -> str | None:
+    def validate_optional_receipt_ref(cls, value: str | None, info: Any) -> str | None:
         if value is not None:
             _validate_ref(value, info.field_name)
         return value
@@ -563,7 +570,9 @@ class NewsSignalsAdoptionStore:
             conn.execute("BEGIN")
             state = self._read_snapshot(conn)
         active = tuple(
-            item for item in state.artifacts if item.artifact_ref not in state.archived_refs
+            item
+            for item in state.artifacts
+            if item.artifact_ref not in state.archived_refs
         )
         summary = build_news_signals_summary(
             sources=state.sources,
@@ -761,6 +770,8 @@ class NewsSignalsAdoptionStore:
                 )
                 next_state = self._read_snapshot(conn)
                 state_ref = self._state_ref(next_state)
+                if request.mutation.action != "undo":
+                    self._bind_undo_snapshot(conn, expected_state_ref=state_ref)
                 receipt_ref = _mutation_receipt_ref(
                     action=request.mutation.action,
                     target_ref=request.mutation.target_ref,
@@ -816,13 +827,9 @@ class NewsSignalsAdoptionStore:
         idempotency_ref: str,
     ) -> NewsSignalsAdoptionMutationPreview:
         if request.expected_revision != state.revision:
-            raise NewsSignalsAdoptionConflict(
-                "NEWS_SIGNALS_ADOPTION_STALE_REVISION"
-            )
+            raise NewsSignalsAdoptionConflict("NEWS_SIGNALS_ADOPTION_STALE_REVISION")
         if state.revision >= NEWS_SIGNALS_ADOPTION_MAX_REVISION:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_REVISION_EXHAUSTED"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_REVISION_EXHAUSTED")
         source_by_ref = {item.source_ref: item for item in state.sources}
         artifact_by_ref = {item.artifact_ref: item for item in state.artifacts}
         preference_by_ref = {item.topic_ref: item for item in state.preferences}
@@ -843,9 +850,7 @@ class NewsSignalsAdoptionStore:
                 },
             )
             if source_ref in source_by_ref:
-                raise NewsSignalsAdoptionConflict(
-                    "NEWS_SIGNALS_ADOPTION_SOURCE_EXISTS"
-                )
+                raise NewsSignalsAdoptionConflict("NEWS_SIGNALS_ADOPTION_SOURCE_EXISTS")
         elif action == "update_source":
             assert request.target_ref is not None
             source_ref = request.target_ref
@@ -1092,9 +1097,7 @@ class NewsSignalsAdoptionStore:
             > grant.created_at
             + timedelta(minutes=NEWS_SIGNALS_ADOPTION_APPROVAL_TTL_MINUTES)
         ):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_APPROVAL_EXPIRED"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_APPROVAL_EXPIRED")
         approved_request = request.model_copy(
             update={"approval_ref": lease_approval_ref}
         )
@@ -1151,9 +1154,7 @@ class NewsSignalsAdoptionStore:
             AuthorityDecisionOutcome.ask.value,
         }:
             self._revoke_lease(lease_store, lease)
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_AUTHORITY_DENIED"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_AUTHORITY_DENIED")
         return (
             lease_store,
             lease,
@@ -1193,9 +1194,7 @@ class NewsSignalsAdoptionStore:
         request = AuthorityLeaseIssueRequest(
             mode=TrustMode.ask_before_changes,
             scope=AuthorityLeaseScope.session,
-            requested_domains={
-                AuthorityDomain.workspace: [AuthorityCapability.write]
-            },
+            requested_domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
             authority_constraints=[
                 AuthorityConstraint(
                     constraint_ref=(
@@ -1239,9 +1238,7 @@ class NewsSignalsAdoptionStore:
                 "Issue one exact operator-confirmed local News and Signals write lease."
             ),
         )
-        lease_store = AuthorityLeaseStore(
-            self.state_dir / "news_signals_authority"
-        )
+        lease_store = AuthorityLeaseStore(self.state_dir / "news_signals_authority")
         lease_idempotency_ref = _hash_ref(
             "idempotency-ref:news-signals-adoption-lease",
             {
@@ -1279,8 +1276,7 @@ class NewsSignalsAdoptionStore:
                 AuthorityLeaseRevokeRequest(
                     lease_ref=lease.lease_ref,
                     decision_reason_ref=(
-                        "decision-reason-ref:news-signals-adoption:"
-                        "local-write-failed"
+                        "decision-reason-ref:news-signals-adoption:local-write-failed"
                     ),
                     safe_summary=(
                         "Revoke the exact News and Signals lease after local "
@@ -1316,11 +1312,7 @@ class NewsSignalsAdoptionStore:
                 source_ref=source_ref,
                 source_kind=request.source_draft.source_kind,
                 safe_label=request.source_draft.safe_label,
-                state=(
-                    prior_source.state
-                    if prior_source is not None
-                    else "ready"
-                ),
+                state=(prior_source.state if prior_source is not None else "ready"),
                 observed_at=(
                     prior_source.observed_at
                     if prior_source is not None
@@ -1368,8 +1360,13 @@ class NewsSignalsAdoptionStore:
             cluster_ref = _hash_ref(
                 "cluster-ref:q34", {"safe_label": draft.cluster_label.casefold()}
             )
-            claim_ref = _hash_ref(
-                "claim-ref:q34", {"safe_label": draft.claim_label.casefold()}
+            claim_ref = (
+                prior.claim_ref
+                if prior is not None and draft.claim_label is None
+                else _hash_ref(
+                    "claim-ref:q34",
+                    {"safe_label": str(draft.claim_label).casefold()},
+                )
             )
             source_revision_ref = _hash_ref(
                 "source-revision-ref:q34",
@@ -1393,7 +1390,9 @@ class NewsSignalsAdoptionStore:
                 safe_summary=draft.safe_summary,
                 source_label=source_by_ref[draft.source_ref].safe_label,
                 topic_ref=topic_ref,
-                published_at=_utc_text(_parse_timestamp(draft.published_at, "published_at")),
+                published_at=_utc_text(
+                    _parse_timestamp(draft.published_at, "published_at")
+                ),
                 observed_at=_utc_text(now),
                 confidence_percent=draft.confidence_percent,
                 evidence_class=draft.evidence_class,
@@ -1473,11 +1472,15 @@ class NewsSignalsAdoptionStore:
                         **asdict(source),
                         "state": request.source_state,
                         "observed_at": _utc_text(now),
-                        "reason_refs": tuple(
-                            dict.fromkeys(
-                                (
-                                    *source.reason_refs,
-                                    "reason-ref:q34:operator-confirmed-source-state",
+                        "reason_refs": (
+                            source.reason_refs
+                            if len(source.reason_refs) >= 24
+                            else tuple(
+                                dict.fromkeys(
+                                    (
+                                        *source.reason_refs,
+                                        "reason-ref:q34:operator-confirmed-source-state",
+                                    )
                                 )
                             )
                         ),
@@ -1498,6 +1501,7 @@ class NewsSignalsAdoptionStore:
             self._restore_undo_snapshot(
                 conn,
                 expected_snapshot_ref=state.undo_snapshot_ref,
+                expected_state_ref=self._state_ref(state),
             )
         return source_ref, signal_ref
 
@@ -1512,31 +1516,46 @@ class NewsSignalsAdoptionStore:
         payload = self._snapshot_payload(state)
         encoded = _canonical_json(payload)
         if len(encoded) > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT")
         conn.execute(
             """
             INSERT INTO news_signals_adoption_undo(singleton, snapshot_json)
             VALUES (1, ?)
-            ON CONFLICT(singleton) DO UPDATE SET snapshot_json=excluded.snapshot_json
+            ON CONFLICT(singleton) DO UPDATE SET
+                snapshot_json=excluded.snapshot_json,
+                expected_state_ref=NULL
             """,
             (encoded.decode("utf-8"),),
         )
+
+    def _bind_undo_snapshot(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        expected_state_ref: str,
+    ) -> None:
+        _validate_ref(expected_state_ref, "expected_state_ref")
+        updated = conn.execute(
+            "UPDATE news_signals_adoption_undo SET expected_state_ref = ? "
+            "WHERE singleton = 1",
+            (expected_state_ref,),
+        ).rowcount
+        if updated != 1:
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
 
     def _restore_undo_snapshot(
         self,
         conn: sqlite3.Connection,
         *,
         expected_snapshot_ref: str | None,
+        expected_state_ref: str,
     ) -> None:
         row = conn.execute(
-            "SELECT snapshot_json FROM news_signals_adoption_undo WHERE singleton = 1"
+            "SELECT snapshot_json, expected_state_ref "
+            "FROM news_signals_adoption_undo WHERE singleton = 1"
         ).fetchone()
         if row is None:
-            raise NewsSignalsAdoptionConflict(
-                "NEWS_SIGNALS_ADOPTION_UNDO_UNAVAILABLE"
-            )
+            raise NewsSignalsAdoptionConflict("NEWS_SIGNALS_ADOPTION_UNDO_UNAVAILABLE")
         snapshot_json = row["snapshot_json"]
         if (
             expected_snapshot_ref is None
@@ -1544,6 +1563,10 @@ class NewsSignalsAdoptionStore:
         ):
             raise NewsSignalsAdoptionConflict(
                 "NEWS_SIGNALS_ADOPTION_UNDO_SNAPSHOT_MISMATCH"
+            )
+        if row["expected_state_ref"] != expected_state_ref:
+            raise NewsSignalsAdoptionConflict(
+                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_MISMATCH"
             )
         sources, artifacts, preferences, archived_refs = self._decode_undo_snapshot(
             snapshot_json
@@ -1661,9 +1684,7 @@ class NewsSignalsAdoptionStore:
             "SELECT revision FROM news_signals_adoption_meta WHERE singleton = 1"
         ).fetchone()
         if revision_row is None:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_METADATA_MISSING"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_METADATA_MISSING")
         try:
             revision = int(revision_row["revision"])
         except (TypeError, ValueError) as exc:
@@ -1691,15 +1712,22 @@ class NewsSignalsAdoptionStore:
             "WHERE archived = 1 ORDER BY artifact_ref LIMIT ?",
             (NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS + 1,),
         ).fetchall()
-        receipt_count = conn.execute(
-            "SELECT COUNT(*) FROM news_signals_adoption_receipts"
-        ).fetchone()[0]
+        receipt_rows = conn.execute(
+            """
+            SELECT idempotency_ref, payload_fingerprint_ref, preview_ref,
+                   approval_ref, receipt_json
+            FROM news_signals_adoption_receipts
+            ORDER BY idempotency_ref
+            LIMIT ?
+            """,
+            (NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS + 1,),
+        ).fetchall()
         if (
             len(source_rows) > MAX_NEWS_SIGNAL_SOURCES
             or len(artifact_rows) > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
             or len(preference_rows) > NEWS_SIGNALS_ADOPTION_MAX_PREFERENCES
             or len(archive_rows) > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
-            or receipt_count > NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS
+            or len(receipt_rows) > NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS
         ):
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_DATABASE_CAPACITY_INVALID"
@@ -1741,7 +1769,16 @@ class NewsSignalsAdoptionStore:
                 )
                 for row in preference_rows
             )
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            for row in receipt_rows:
+                self._receipt_from_row(row)
+        except (
+            AttributeError,
+            RecursionError,
+            TypeError,
+            UnicodeError,
+            ValueError,
+            json.JSONDecodeError,
+        ) as exc:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_DATABASE_ROW_INVALID"
             ) from exc
@@ -1758,7 +1795,7 @@ class NewsSignalsAdoptionStore:
                 "NEWS_SIGNALS_ADOPTION_RELATIONSHIP_STATE_INVALID"
             )
         undo_row = conn.execute(
-            "SELECT snapshot_json, "
+            "SELECT snapshot_json, expected_state_ref, "
             "length(CAST(snapshot_json AS BLOB)) AS snapshot_bytes "
             "FROM news_signals_adoption_undo WHERE singleton = 1"
         ).fetchone()
@@ -1766,23 +1803,41 @@ class NewsSignalsAdoptionStore:
             undo_row is not None
             and undo_row["snapshot_bytes"] > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES
         ):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT")
         undo_snapshot_ref = (
             self._validated_undo_snapshot_ref(undo_row["snapshot_json"])
             if undo_row is not None
             else None
         )
-        return _NewsSignalsSnapshot(
+        state = _NewsSignalsSnapshot(
             revision=revision,
             sources=sources,
             artifacts=artifacts,
             preferences=preferences,
             archived_refs=archived_refs,
             undo_snapshot_ref=undo_snapshot_ref,
-            can_undo=undo_row is not None,
+            can_undo=False,
         )
+        expected_state_ref = (
+            undo_row["expected_state_ref"] if undo_row is not None else None
+        )
+        if expected_state_ref is not None:
+            try:
+                _validate_ref(expected_state_ref, "expected_state_ref")
+            except ValueError as exc:
+                raise NewsSignalsAdoptionError(
+                    "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
+                ) from exc
+            state = _NewsSignalsSnapshot(
+                revision=state.revision,
+                sources=state.sources,
+                artifacts=state.artifacts,
+                preferences=state.preferences,
+                archived_refs=state.archived_refs,
+                undo_snapshot_ref=state.undo_snapshot_ref,
+                can_undo=expected_state_ref == self._state_ref(state),
+            )
+        return state
 
     @staticmethod
     def _snapshot_payload(state: _NewsSignalsSnapshot) -> dict[str, object]:
@@ -1806,9 +1861,7 @@ class NewsSignalsAdoptionStore:
     @staticmethod
     def _undo_snapshot_ref(snapshot_json: object) -> str:
         if not isinstance(snapshot_json, str):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         try:
             encoded = snapshot_json.encode("utf-8")
         except UnicodeError as exc:
@@ -1816,9 +1869,7 @@ class NewsSignalsAdoptionStore:
                 "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
             ) from exc
         if len(encoded) > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT")
         return _hash_ref(
             "undo-snapshot-ref:news-signals-adoption",
             {"snapshot_json": snapshot_json},
@@ -1843,9 +1894,7 @@ class NewsSignalsAdoptionStore:
             snapshot_json,
             maximum_depth=NEWS_SIGNALS_ADOPTION_MAX_UNDO_JSON_DEPTH,
         ):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         try:
             payload = json.loads(snapshot_json)
         except (json.JSONDecodeError, RecursionError) as exc:
@@ -1858,9 +1907,7 @@ class NewsSignalsAdoptionStore:
             "preferences",
             "archived_refs",
         }:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         source_items = payload["sources"]
         artifact_items = payload["artifacts"]
         preference_items = payload["preferences"]
@@ -1875,9 +1922,7 @@ class NewsSignalsAdoptionStore:
             or not isinstance(archived_items, list)
             or len(archived_items) > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
         ):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         try:
             sources = tuple(NewsSignalSource(**item) for item in source_items)
             artifacts = tuple(NewsSignalArtifact(**item) for item in artifact_items)
@@ -1904,9 +1949,7 @@ class NewsSignalsAdoptionStore:
             or any(item.source_ref not in source_refs for item in artifacts)
             or any(item.topic_ref not in topic_refs for item in preferences)
         ):
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         return sources, artifacts, preferences, archived_refs
 
     def _receipt_for_idempotency(
@@ -1923,15 +1966,34 @@ class NewsSignalsAdoptionStore:
         ).fetchone()
         if row is None:
             return None
+        return self._receipt_from_row(row)
+
+    @staticmethod
+    def _receipt_from_row(
+        row: sqlite3.Row,
+    ) -> NewsSignalsAdoptionMutationReceipt:
         try:
-            if len(row["receipt_json"].encode("utf-8")) > (
-                NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES
+            receipt_json = row["receipt_json"]
+            if (
+                not isinstance(receipt_json, str)
+                or len(receipt_json.encode("utf-8"))
+                > NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES
+                or _json_nesting_exceeds_limit(
+                    receipt_json,
+                    maximum_depth=NEWS_SIGNALS_ADOPTION_MAX_UNDO_JSON_DEPTH,
+                )
             ):
                 raise ValueError("RECEIPT_JSON_SIZE_INVALID")
             receipt = NewsSignalsAdoptionMutationReceipt.model_validate_json(
-                row["receipt_json"]
+                receipt_json
             )
-        except (AttributeError, TypeError, ValueError) as exc:
+        except (
+            AttributeError,
+            RecursionError,
+            TypeError,
+            UnicodeError,
+            ValueError,
+        ) as exc:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_RECEIPT_STATE_INVALID"
             ) from exc
@@ -1957,9 +2019,7 @@ class NewsSignalsAdoptionStore:
     ) -> None:
         receipt_json = receipt.model_dump_json()
         if len(receipt_json.encode("utf-8")) > NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_RECEIPT_SIZE_LIMIT"
-            )
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_RECEIPT_SIZE_LIMIT")
         count = conn.execute(
             "SELECT COUNT(*) FROM news_signals_adoption_receipts"
         ).fetchone()[0]
@@ -2108,7 +2168,8 @@ class NewsSignalsAdoptionStore:
                 VALUES (1, 0);
                 CREATE TABLE IF NOT EXISTS news_signals_adoption_undo (
                     singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
-                    snapshot_json TEXT NOT NULL
+                    snapshot_json TEXT NOT NULL,
+                    expected_state_ref TEXT
                 );
                 CREATE TABLE IF NOT EXISTS news_signals_adoption_receipts (
                     idempotency_ref TEXT PRIMARY KEY,
@@ -2119,15 +2180,24 @@ class NewsSignalsAdoptionStore:
                 );
                 """
             )
+            undo_columns = {
+                row[1]
+                for row in conn.execute(
+                    "PRAGMA table_info(news_signals_adoption_undo)"
+                ).fetchall()
+            }
+            if "expected_state_ref" not in undo_columns:
+                conn.execute(
+                    "ALTER TABLE news_signals_adoption_undo "
+                    "ADD COLUMN expected_state_ref TEXT"
+                )
         self._harden_database_files()
 
     def _ensure_private_storage(self) -> None:
         try:
             if os.path.lexists(self.state_dir):
                 metadata = self.state_dir.lstat()
-                if self.state_dir.is_symlink() or not stat.S_ISDIR(
-                    metadata.st_mode
-                ):
+                if self.state_dir.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
                     raise NewsSignalsAdoptionError(
                         "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE"
                     )
