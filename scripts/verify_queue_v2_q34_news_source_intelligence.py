@@ -151,6 +151,21 @@ def verify() -> dict[str, object]:
         )
         initial = store.read_view(now=NOW)
         _require(len(initial["summary"]["items"]) == 2, "Q34_DEDUP")
+        _require(
+            initial["active_items_page"]["total_items"] == 3,
+            "Q34_COMPLETE_ACTIVE_ITEM_COUNT",
+        )
+        lower_page = store.read_view(now=NOW, offset=2, limit=1)
+        _require(
+            lower_page["active_items_page"]["returned_items"] == 1,
+            "Q34_ACTIVE_ITEM_PAGINATION",
+        )
+        searched = store.read_view(now=NOW, search_query="founder operations")
+        _require(
+            searched["active_items_page"]["items"][0]["signal_ref"]
+            == operations,
+            "Q34_ACTIVE_ITEM_SEARCH",
+        )
         primary_item = next(
             item
             for item in initial["summary"]["items"]
@@ -292,6 +307,7 @@ def verify() -> dict[str, object]:
         "provenance_freshness_deduplication_verified": True,
         "ranking_and_preferences_verified": True,
         "inspection_archive_recovery_undo_verified": True,
+        "complete_active_item_navigation_verified": True,
         "today_and_morning_briefing_delivery_verified": True,
         "exact_approval_authority_and_idempotency_verified": True,
         "restart_persistence_verified": True,

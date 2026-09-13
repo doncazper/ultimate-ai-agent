@@ -479,7 +479,7 @@
       "guardrail_refs": ["scope-ref:queue-v2/Q36/no-foundation-gap-labeled-polish", "scope-ref:queue-v2/Q36/no-public-or-production-readiness-claim", "scope-ref:queue-v2/Q36/no-new-runtime-authority", "scope-ref:queue-v2/Q36/no-endless-edge-case-chase"],
       "depends_on_item_ids": ["Q32", "Q33", "Q34", "Q35"], "merge_after_item_ids": [],
       "branch_ref": "branch-ref:codex/q36-cross-module-adoption-closure", "worktree_ref": "worktree-ref:queue-v2/q36-cross-module-adoption-closure", "workstream_ref": "workstream-ref:functional-adoption",
-      "next_safe_action": "Run finite representative founder workflows across the adopted surfaces; repair foundational blockers, classify noncritical polish, and stop after the bounded acceptance cycle."
+      "next_safe_action": "Run finite representative founder workflows across the adopted surfaces; require the normal workflows to operate with no known material blocker rather than relying on queue labels or contract-only checks; repair foundational blockers, classify noncritical polish, and stop after the bounded acceptance cycle."
     },
     {
       "queue_order": 37, "wave_id": "wave-7", "item_id": "Q37", "slug": "post-adoption-hermes-openclaw-parity-check",

@@ -103,8 +103,28 @@ def test_api_runs_normal_founder_private_news_loop(tmp_path, monkeypatch) -> Non
     adoption = client.get("/control-center/news-signals/adoption").json()["data"]
     assert adoption["revision"] == 2
     assert adoption["summary"]["items"][0]["signal_ref"] == signal_ref
+    assert adoption["active_items_page"]["items"][0]["signal_ref"] == signal_ref
     assert adoption["live_fetch_enabled"] is False
     assert adoption["model_summarization_enabled"] is False
+
+    searched = client.get(
+        "/control-center/news-signals/adoption",
+        params={"offset": 0, "limit": 1, "search_query": "governed systems"},
+    )
+    assert searched.status_code == 200
+    searched_page = searched.json()["data"]["active_items_page"]
+    assert searched_page["search_applied"] is True
+    assert searched_page["returned_items"] == 1
+    assert searched_page["items"][0]["signal_ref"] == signal_ref
+
+    unsafe_search = client.get(
+        "/control-center/news-signals/adoption",
+        params={"search_query": "unsafe/path"},
+    )
+    assert unsafe_search.status_code == 400
+    assert unsafe_search.json()["detail"]["code"] == (
+        "SEARCH_QUERY_REDACTION_REQUIRED"
+    )
 
     today = client.get("/control-center/today/summary").json()["data"]
     briefing = client.get("/control-center/morning-briefing/summary").json()["data"]

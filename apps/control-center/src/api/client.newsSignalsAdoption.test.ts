@@ -64,6 +64,16 @@ const workspace: NewsSignalsAdoptionView = {
   connector_write_enabled: false,
   action_authority_granted: false,
   summary,
+  active_items_page: {
+    offset: 0,
+    limit: 100,
+    total_items: 0,
+    returned_items: 0,
+    has_previous: false,
+    has_next: false,
+    search_applied: false,
+    items: [],
+  },
   preferences: [],
   archived_items: [],
   next_safe_action: "Register the first local redacted artifact source.",
@@ -122,6 +132,52 @@ describe("News and Signals adoption API", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(loadNewsSignalsAdoptionWorkspace()).resolves.toEqual(workspace);
+    await expect(loadNewsSignalsAdoptionWorkspace()).rejects.toThrow(
+      "NEWS_SIGNALS_ADOPTION_RESPONSE_INVALID",
+    );
+  });
+
+  it("requests a bounded active-item page and rejects inconsistent page metadata", async () => {
+    const invalidPage = {
+      ...workspace,
+      active_items_page: {
+        ...workspace.active_items_page,
+        returned_items: 1,
+        items: [],
+      },
+    };
+    const requestedPage = {
+      ...workspace,
+      active_items_page: {
+        ...workspace.active_items_page,
+        offset: 100,
+        has_previous: true,
+        search_applied: true,
+      },
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, data: requestedPage }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, data: invalidPage }), {
+          status: 200,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      loadNewsSignalsAdoptionWorkspace({
+        offset: 100,
+        limit: 100,
+        searchQuery: "governed systems",
+      }),
+    ).resolves.toEqual(requestedPage);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "offset=100&limit=100&search_query=governed+systems",
+    );
     await expect(loadNewsSignalsAdoptionWorkspace()).rejects.toThrow(
       "NEWS_SIGNALS_ADOPTION_RESPONSE_INVALID",
     );

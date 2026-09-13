@@ -74,6 +74,16 @@ const workspace: NewsSignalsAdoptionView = {
     blocked_state_refs: ["blocked-state-ref:q24:no-graduated-news-source"],
     evidence_refs: ["evidence-ref:q24:safe-artifacts-only"],
   },
+  active_items_page: {
+    offset: 0,
+    limit: 100,
+    total_items: 0,
+    returned_items: 0,
+    has_previous: false,
+    has_next: false,
+    search_applied: false,
+    items: [],
+  },
   preferences: [],
   archived_items: [],
   next_safe_action: "Register the first local redacted artifact source.",
@@ -99,6 +109,58 @@ const preview: NewsSignalsAdoptionMutationPreview = {
   model_call_performed: false,
   external_write_performed: false,
   production_authority_granted: false,
+};
+
+const readySource = {
+  source_ref: "source-ref:q34:official",
+  source_kind: "official" as const,
+  safe_label: "Official source",
+  state: "ready" as const,
+  observed_at: "2026-09-09T12:00:00Z",
+  freshness_ttl_seconds: 86_400,
+  adapter_ref: "connector-adapter-ref:q34:local",
+  provenance_ref: "provenance-ref:q34:local",
+  retention_ref: "retention-ref:q34:local",
+  reason_refs: ["reason-ref:q34:local"],
+  external_network_read_performed: false as const,
+  account_authority_granted: false as const,
+};
+
+const activeItem = {
+  signal_ref: "signal-ref:q34:governed",
+  title: "Governed signal",
+  safe_summary: "A bounded redacted summary for review.",
+  source_ref: readySource.source_ref,
+  source_label: readySource.safe_label,
+  source_state: "ready" as const,
+  topic_ref: "topic-ref:q34:governance",
+  published_at: "2026-09-09T11:00:00Z",
+  evidence_class: "primary" as const,
+  claim_stance: "supports" as const,
+  confidence_percent: 91,
+  external_content_untrusted: true as const,
+};
+
+const readyWorkspace: NewsSignalsAdoptionView = {
+  ...workspace,
+  status: "ready",
+  revision: 2,
+  current_state_ref: "state-ref:news-signals-adoption:ready",
+  summary: {
+    ...workspace.summary,
+    status: "ready",
+    source_readiness: [readySource],
+  },
+  active_items_page: {
+    offset: 0,
+    limit: 100,
+    total_items: 101,
+    returned_items: 1,
+    has_previous: false,
+    has_next: true,
+    search_applied: false,
+    items: [activeItem],
+  },
 };
 
 describe("NewsSignalsPreviewPanel", () => {
@@ -141,5 +203,140 @@ describe("NewsSignalsPreviewPanel", () => {
     expect(
       await screen.findByText("The reviewed local News change was saved."),
     ).toBeInTheDocument();
+  });
+
+  it("invalidates a pending review when a bound draft field changes", async () => {
+    render(<NewsSignalsPreviewPanel />);
+
+    const input = await screen.findByLabelText("Source name");
+    fireEvent.change(input, { target: { value: "Official source" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source" }));
+    expect(
+      await screen.findByRole("heading", { name: "Review this one local change" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Changed source" } });
+
+    expect(
+      screen.queryByRole("button", { name: "Confirm and save" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps every safe-disabled source individually recoverable", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      revision: 4,
+      summary: {
+        ...workspace.summary,
+        status: "blocked_source_unavailable",
+        source_readiness: [
+          { ...readySource, state: "safe_disabled", safe_label: "First source" },
+          {
+            ...readySource,
+            source_ref: "source-ref:q34:second",
+            state: "safe_disabled",
+            safe_label: "Second source",
+          },
+        ],
+      },
+    });
+    render(<NewsSignalsPreviewPanel />);
+
+    const recoveryButtons = await screen.findAllByRole("button", {
+      name: "Review recovery",
+    });
+    expect(recoveryButtons).toHaveLength(2);
+    fireEvent.click(recoveryButtons[1]);
+
+    await waitFor(() =>
+      expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "set_source_state",
+          target_ref: "source-ref:q34:second",
+          source_state: "ready",
+        }),
+        expect.any(String),
+      ),
+    );
+  });
+
+  it("exposes normal source and signal correction flows", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit Official source" }),
+    );
+    fireEvent.change(screen.getByLabelText("Source name"), {
+      target: { value: "Renamed source" },
+    });
+    fireEvent.change(screen.getByLabelText("Freshness window (seconds)"), {
+      target: { value: "172800" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review source correction" }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update_source",
+          target_ref: readySource.source_ref,
+          source_draft: expect.objectContaining({
+            safe_label: "Renamed source",
+            freshness_ttl_seconds: 172_800,
+          }),
+        }),
+        expect.any(String),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Governed signal" }));
+    fireEvent.change(
+      screen.getByLabelText("Topic (re-enter for correction)"),
+      { target: { value: "Agent governance" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review signal correction" }),
+    );
+    await waitFor(() =>
+      expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "update_signal",
+          target_ref: activeItem.signal_ref,
+          signal_draft: expect.objectContaining({
+            title: activeItem.title,
+            safe_summary: activeItem.safe_summary,
+            evidence_class: activeItem.evidence_class,
+            claim_stance: activeItem.claim_stance,
+          }),
+        }),
+        expect.any(String),
+      ),
+    );
+  });
+
+  it("loads later pages and searches the complete active signal contract", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Next signals" }));
+    await waitFor(() =>
+      expect(apiMocks.loadNewsSignalsAdoptionWorkspace).toHaveBeenCalledWith({
+        offset: 100,
+        limit: 100,
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Search active signals"), {
+      target: { value: "governed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() =>
+      expect(apiMocks.loadNewsSignalsAdoptionWorkspace).toHaveBeenCalledWith({
+        offset: 0,
+        limit: 100,
+        searchQuery: "governed",
+      }),
+    );
   });
 });

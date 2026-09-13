@@ -13,10 +13,12 @@ loop over operator-entered, already-redacted source artifacts:
 2. add a redacted signal with its actual publication time;
 3. inspect source, provenance, freshness, confidence, cross-source coverage,
    conflict, rank reasons, and Morning Briefing eligibility;
-4. set or remove a topic preference;
-5. archive and recover a signal, safe-disable and recover a source, or undo the
-   most recent reviewed change; and
-6. consume the bounded ranked refs in Today and Morning Briefing.
+4. search or page through every active signal, including lower-ranked and
+   deduplicated artifacts, and correct a source or signal from the normal UI;
+5. set or remove a topic preference;
+6. archive and recover a signal, independently safe-disable and recover any
+   source, or undo the most recent reviewed change; and
+7. consume the bounded ranked refs in Today and Morning Briefing.
 
 The Python Agent Core owns sources, artifacts, clustering, ranking,
 preferences, archive state, source state, revisions, undo, and receipts. React
@@ -33,6 +35,8 @@ Python-owned state and mutations live in
 - `POST /control-center/news-signals/adoption/approval`
 - `POST /control-center/news-signals/adoption/commit`
 
+The read endpoint exposes a bounded active-item page with offset, limit, and a
+redaction-safe search query while retaining the deduplicated curated summary.
 The read-only `python scripts/inspect_news_signals_adoption.py` command reports
 the same safe posture without printing private source or signal text by
 default. `apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
@@ -66,8 +70,10 @@ encryption. Host disk encryption remains the device boundary.
 Manual archive/recover, source safe-disable/recover, and one-step undo are
 available. The store is bounded to 24 sources, 2,000 artifacts, 128 topic
 preferences, 2,048 receipts, a 4 MiB undo snapshot, 256 KiB API request bodies,
-and JSON nesting depth 32. Automatic backup, automatic multi-computer sync,
-and concurrent merge are not included.
+and JSON nesting depth 32. Ordinary mutations reserve the final receipt slot
+for one last reviewed undo, so capacity exhaustion cannot strand the latest
+reversible change. Automatic backup, automatic multi-computer sync, and
+concurrent merge are not included.
 
 ## Authority boundary
 

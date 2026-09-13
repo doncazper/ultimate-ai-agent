@@ -1612,12 +1612,28 @@ export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {
   return value;
 }
 
-export async function loadNewsSignalsAdoptionWorkspace(): Promise<NewsSignalsAdoptionView> {
+export async function loadNewsSignalsAdoptionWorkspace(
+  options: { offset?: number; limit?: number; searchQuery?: string } = {},
+): Promise<NewsSignalsAdoptionView> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
   }
-  const value = await readEnvelope<unknown>(API_ENDPOINTS.newsSignalsAdoption);
-  if (!isSafeNewsSignalsAdoptionView(value)) {
+  const query = new URLSearchParams();
+  if (options.offset !== undefined) query.set("offset", String(options.offset));
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.searchQuery) query.set("search_query", options.searchQuery);
+  const suffix = query.size ? `?${query.toString()}` : "";
+  const value = await readEnvelope<unknown>(
+    `${API_ENDPOINTS.newsSignalsAdoption}${suffix}`,
+  );
+  const expectedOffset = options.offset ?? 0;
+  const expectedLimit = options.limit ?? 100;
+  if (
+    !isSafeNewsSignalsAdoptionView(value) ||
+    value.active_items_page.offset !== expectedOffset ||
+    value.active_items_page.limit !== expectedLimit ||
+    value.active_items_page.search_applied !== Boolean(options.searchQuery)
+  ) {
     throw new Error("NEWS_SIGNALS_ADOPTION_RESPONSE_INVALID");
   }
   return value;
@@ -2008,6 +2024,7 @@ function isSafeNewsSignalsAdoptionView(
       "connector_write_enabled",
       "action_authority_granted",
       "summary",
+      "active_items_page",
       "preferences",
       "archived_items",
       "next_safe_action",
@@ -2055,6 +2072,43 @@ function isSafeNewsSignalsAdoptionView(
         NEWS_SIGNALS_TIMESTAMP.test(item.published_at) &&
         item.archived === true,
     );
+  const activePage = value.active_items_page;
+  const activePageValid =
+    isPlainRecord(activePage) &&
+    newsSignalsHasOnlyKeys(activePage, [
+      "offset",
+      "limit",
+      "total_items",
+      "returned_items",
+      "has_previous",
+      "has_next",
+      "search_applied",
+      "items",
+    ]) &&
+    Number.isInteger(activePage.offset) &&
+    Number(activePage.offset) >= 0 &&
+    Number(activePage.offset) <= 1_999 &&
+    Number.isInteger(activePage.limit) &&
+    Number(activePage.limit) >= 1 &&
+    Number(activePage.limit) <= 100 &&
+    Number.isInteger(activePage.total_items) &&
+    Number(activePage.total_items) >= 0 &&
+    Number(activePage.total_items) <= 2_000 &&
+    Number.isInteger(activePage.returned_items) &&
+    Number(activePage.returned_items) >= 0 &&
+    Number(activePage.returned_items) <= Number(activePage.limit) &&
+    typeof activePage.has_previous === "boolean" &&
+    activePage.has_previous === (Number(activePage.offset) > 0) &&
+    typeof activePage.has_next === "boolean" &&
+    typeof activePage.search_applied === "boolean" &&
+    Array.isArray(activePage.items) &&
+    activePage.items.length === Number(activePage.returned_items) &&
+    activePage.items.every((item) =>
+      isSafeNewsSignalsAdoptionActiveItem(item),
+    ) &&
+    activePage.has_next ===
+      (Number(activePage.offset) + Number(activePage.returned_items) <
+        Number(activePage.total_items));
   return (
     value.schema_version === "uaa-news-signals-adoption.v1" &&
     value.contract_ref ===
@@ -2073,11 +2127,51 @@ function isSafeNewsSignalsAdoptionView(
     value.connector_write_enabled === false &&
     value.action_authority_granted === false &&
     isSafeNewsSignalsSummary(value.summary) &&
+    activePageValid &&
     value.status === value.summary.status &&
     preferencesValid &&
     archivesValid &&
     isNewsSignalsSafeText(value.next_safe_action, 240) &&
     isNewsSignalsSafeRefArray(value.evidence_refs, 24)
+  );
+}
+
+function isSafeNewsSignalsAdoptionActiveItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  return (
+    newsSignalsHasOnlyKeys(value, [
+      "signal_ref",
+      "title",
+      "safe_summary",
+      "source_ref",
+      "source_label",
+      "source_state",
+      "topic_ref",
+      "published_at",
+      "evidence_class",
+      "claim_stance",
+      "confidence_percent",
+      "external_content_untrusted",
+    ]) &&
+    isNewsSignalsSafeRef(value.signal_ref) &&
+    isNewsSignalsSafeText(value.title, 140) &&
+    isNewsSignalsSafeText(value.safe_summary, 320) &&
+    isNewsSignalsSafeRef(value.source_ref) &&
+    isNewsSignalsSafeText(value.source_label, 80) &&
+    ["ready", "blocked", "unknown", "revoked", "safe_disabled"].includes(
+      String(value.source_state),
+    ) &&
+    isNewsSignalsSafeRef(value.topic_ref) &&
+    typeof value.published_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.published_at) &&
+    ["primary", "corroborating", "community", "commentary"].includes(
+      String(value.evidence_class),
+    ) &&
+    ["supports", "disputes", "unknown"].includes(String(value.claim_stance)) &&
+    Number.isInteger(value.confidence_percent) &&
+    Number(value.confidence_percent) >= 0 &&
+    Number(value.confidence_percent) <= 100 &&
+    value.external_content_untrusted === true
   );
 }
 

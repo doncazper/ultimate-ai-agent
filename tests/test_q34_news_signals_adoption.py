@@ -7,7 +7,12 @@ import sqlite3
 
 import pytest
 
+from ultimate_ai_agent.core.authority.approval_validation import (
+    AuthorityLeaseApprovalStateError,
+    AuthorityLeaseApprovalStore,
+)
 from ultimate_ai_agent.core.news_signals.adoption import (
+    NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS,
     NewsSignalArtifactDraft,
     NewsSignalSourceDraft,
     NewsSignalsAdoptionApprovalCaptureRequest,
@@ -243,6 +248,67 @@ def test_source_update_keeps_artifact_label_and_approval_binding_current(
     )
 
 
+def test_active_signal_page_reaches_deduplicated_items_and_supports_search(
+    tmp_path,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    first_ref = _ingest(store, source_ref)
+    _, _, second_receipt = _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=2,
+            signal_draft=_signal_draft(
+                source_ref,
+                title="A second view of the milestone",
+                summary="A separate redacted artifact in the same cluster.",
+            ),
+        ),
+        "ingest-deduplicated-signal",
+    )
+    assert second_receipt.signal_ref is not None
+
+    first_page = store.read_view(now=NOW, limit=1, offset=0)["active_items_page"]
+    second_page = store.read_view(now=NOW, limit=1, offset=1)["active_items_page"]
+    searched = store.read_view(
+        now=NOW,
+        limit=10,
+        search_query="second view",
+    )["active_items_page"]
+
+    assert first_page["total_items"] == 2
+    assert first_page["has_next"] is True
+    assert second_page["has_previous"] is True
+    assert {
+        first_page["items"][0]["signal_ref"],
+        second_page["items"][0]["signal_ref"],
+    } == {first_ref, second_receipt.signal_ref}
+    assert searched["search_applied"] is True
+    assert searched["items"][0]["signal_ref"] == second_receipt.signal_ref
+    assert len(store.read_view(now=NOW)["summary"]["items"]) == 1
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=3,
+            signal_draft=_signal_draft(
+                source_ref,
+                title="A distinct founder signal",
+                summary="A second ranked topic for bounded summary verification.",
+                topic="Founder operations",
+            ),
+        ),
+        "ingest-distinct-signal",
+    )
+    assert len(store.read_view(now=NOW, limit=1)["summary"]["items"]) == 1
+    assert len(store.read_view(now=NOW, limit=10)["summary"]["items"]) == 2
+
+    with pytest.raises(ValueError, match="SEARCH_QUERY_REDACTION_REQUIRED"):
+        store.read_view(search_query="unsafe/path")
+
+
 def test_archive_recover_correction_and_undo(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
@@ -390,6 +456,95 @@ def test_commit_requires_captured_exact_approval_and_replays_idempotently(tmp_pa
     assert replay.receipt_ref == first.receipt_ref
     assert replay.replayed is True
     assert store.read_view()["revision"] == 1
+
+
+def test_receipt_capacity_reserves_the_final_slot_for_undo(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.executemany(
+            """
+            INSERT INTO news_signals_adoption_receipts(
+                idempotency_ref, payload_fingerprint_ref, preview_ref,
+                approval_ref, receipt_json
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    f"idempotency-ref:q34:capacity:{index}",
+                    f"payload-fingerprint-ref:q34:capacity:{index}",
+                    f"preview-ref:q34:capacity:{index}",
+                    f"approval-ref:q34:capacity:{index}",
+                    "{}",
+                )
+                for index in range(NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS - 2)
+            ],
+        )
+
+    update = NewsSignalsAdoptionMutationRequest(
+        action="update_source",
+        expected_revision=1,
+        target_ref=source_ref,
+        source_draft=_source_draft("Capacity update"),
+    )
+    update_ref = "idempotency-ref:q34:test:capacity-update"
+    update_preview = store.preview_mutation(update, idempotency_ref=update_ref)
+    update_request = NewsSignalsAdoptionCommitRequest(
+        mutation=update,
+        preview_ref=update_preview.preview_ref,
+        approval_ref=update_preview.approval_ref,
+    )
+    store.capture_approval(update_request, idempotency_ref=update_ref)
+    with pytest.raises(
+        NewsSignalsAdoptionError,
+        match="RECEIPT_CAPACITY_EXHAUSTED",
+    ):
+        store.commit_mutation(update_request, idempotency_ref=update_ref)
+
+    unchanged = store.read_view(now=NOW)
+    assert unchanged["revision"] == 1
+    assert unchanged["summary"]["source_readiness"][0]["safe_label"] == (
+        "Official source"
+    )
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(action="undo", expected_revision=1),
+        "capacity-final-undo",
+    )
+    assert store.read_view(now=NOW)["summary"]["source_readiness"] == []
+
+
+def test_approval_resolution_failure_is_bounded_and_does_not_mutate(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source",
+        expected_revision=0,
+        source_draft=_source_draft(),
+    )
+    idempotency_ref = "idempotency-ref:q34:test:approval-resolution-failure"
+    preview = store.preview_mutation(mutation, idempotency_ref=idempotency_ref)
+    exact = NewsSignalsAdoptionCommitRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(exact, idempotency_ref=idempotency_ref)
+
+    def fail_resolve(*_args: object, **_kwargs: object) -> None:
+        raise AuthorityLeaseApprovalStateError("synthetic invalid approval store")
+
+    monkeypatch.setattr(AuthorityLeaseApprovalStore, "resolve", fail_resolve)
+
+    with pytest.raises(
+        NewsSignalsAdoptionError,
+        match="AUTHORITY_STATE_INVALID",
+    ):
+        store.commit_mutation(exact, idempotency_ref=idempotency_ref)
+    assert store.read_view(now=NOW)["revision"] == 0
 
 
 def test_idempotency_ref_cannot_be_rebound_to_changed_payload(tmp_path) -> None:

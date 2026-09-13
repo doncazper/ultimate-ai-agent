@@ -125,9 +125,10 @@ source content as instructions or authority.
 
 Current bounded candidate: `/news` supports operator-entered, already-redacted
 sources and signals, exact reviewed local mutations, preferences,
-archive/recovery, source safe-disable/recovery, undo, and backend-owned Today and
-Morning Briefing projections. Live adapters and all external authority remain
-blocked. The implementation contract is
+source and signal corrections, complete paginated/searchable active-item
+inspection, archive/recovery, per-source safe-disable/recovery, undo, and
+backend-owned Today and Morning Briefing projections. Live adapters and all
+external authority remain blocked. The implementation contract is
 `docs/control_center/Q34_NEWS_SOURCE_INTELLIGENCE_ADOPTION.md`.
 
 ### Q35 — Vertical Modules Functional Adoption
@@ -172,5 +173,10 @@ Its canonical contract is
   supported-distribution claim.
 - Every discovered gap is classified as foundational, noncritical polish,
   intentionally blocked, deferred with evidence, or out of scope.
+- Functional completion means the declared founder workflows operate through
+  their normal product surfaces with no known material blocker. A queue label,
+  merged plan, or passing contract-only verifier does not substitute for that
+  working-loop evidence; refinements discovered through later use may remain
+  noncritical polish.
 - No item may become an endless parity or edge-case chase. The declared
   scenarios and measurable exit tests bound the repair cycle.

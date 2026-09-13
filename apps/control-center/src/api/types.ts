@@ -17563,6 +17563,32 @@ export interface NewsSignalArtifactDraft {
   claim_stance: "supports" | "disputes" | "unknown";
 }
 
+export interface NewsSignalsAdoptionActiveItem {
+  signal_ref: string;
+  title: string;
+  safe_summary: string;
+  source_ref: string;
+  source_label: string;
+  source_state: "ready" | "blocked" | "unknown" | "revoked" | "safe_disabled";
+  topic_ref: string;
+  published_at: string;
+  evidence_class: "primary" | "corroborating" | "community" | "commentary";
+  claim_stance: "supports" | "disputes" | "unknown";
+  confidence_percent: number;
+  external_content_untrusted: true;
+}
+
+export interface NewsSignalsAdoptionActiveItemsPage {
+  offset: number;
+  limit: number;
+  total_items: number;
+  returned_items: number;
+  has_previous: boolean;
+  has_next: boolean;
+  search_applied: boolean;
+  items: NewsSignalsAdoptionActiveItem[];
+}
+
 export type NewsSignalsAdoptionMutationRequest =
   | { action: "register_source"; expected_revision: number; source_draft: NewsSignalSourceDraft }
   | { action: "update_source"; expected_revision: number; target_ref: string; source_draft: NewsSignalSourceDraft }
@@ -17591,6 +17617,7 @@ export interface NewsSignalsAdoptionView {
   connector_write_enabled: false;
   action_authority_granted: false;
   summary: NewsSignalsSummary;
+  active_items_page: NewsSignalsAdoptionActiveItemsPage;
   preferences: Array<{ topic_ref: string; weight: number; preference_ref: string }>;
   archived_items: Array<{
     signal_ref: string;

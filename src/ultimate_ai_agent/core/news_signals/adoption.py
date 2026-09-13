@@ -83,6 +83,9 @@ NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS = 2_048
 NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES = 4 * 1024 * 1024
 NEWS_SIGNALS_ADOPTION_MAX_UNDO_JSON_DEPTH = 32
 NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES = 64 * 1024
+NEWS_SIGNALS_ADOPTION_MAX_PAGE_SIZE = 100
+NEWS_SIGNALS_ADOPTION_MAX_PAGE_OFFSET = 1_999
+NEWS_SIGNALS_ADOPTION_MAX_SEARCH_LENGTH = 80
 NEWS_SIGNALS_ADOPTION_ADAPTER_REF = (
     "connector-adapter-ref:q34:local-redacted-artifact-intake-v1"
 )
@@ -543,7 +546,19 @@ class NewsSignalsAdoptionStore:
         *,
         now: datetime | None = None,
         limit: int = 100,
+        offset: int = 0,
+        search_query: str | None = None,
     ) -> dict[str, object]:
+        if not 1 <= limit <= NEWS_SIGNALS_ADOPTION_MAX_PAGE_SIZE:
+            raise ValueError("LIMIT_BOUNDS_INVALID")
+        if not 0 <= offset <= NEWS_SIGNALS_ADOPTION_MAX_PAGE_OFFSET:
+            raise ValueError("OFFSET_BOUNDS_INVALID")
+        if search_query is not None:
+            _validate_safe_text(
+                search_query.strip(),
+                "search_query",
+                maximum=NEWS_SIGNALS_ADOPTION_MAX_SEARCH_LENGTH,
+            )
         with self._safe_connection() as conn:
             conn.execute("BEGIN")
             state = self._read_snapshot(conn)
@@ -557,6 +572,23 @@ class NewsSignalsAdoptionStore:
             now=now,
             limit=limit,
         )
+        normalized_search = search_query.strip().casefold() if search_query else None
+        active_for_page = sorted(
+            active,
+            key=lambda item: (item.published_at, item.artifact_ref),
+            reverse=True,
+        )
+        if normalized_search is not None:
+            active_for_page = [
+                item
+                for item in active_for_page
+                if normalized_search
+                in " ".join(
+                    (item.title, item.safe_summary, item.source_label)
+                ).casefold()
+            ]
+        active_page_items = active_for_page[offset : offset + limit]
+        source_by_ref = {source.source_ref: source for source in state.sources}
         archived_by_ref = {
             artifact.artifact_ref: artifact
             for artifact in state.artifacts
@@ -594,6 +626,32 @@ class NewsSignalsAdoptionStore:
             "connector_write_enabled": False,
             "action_authority_granted": False,
             "summary": summary,
+            "active_items_page": {
+                "offset": offset,
+                "limit": limit,
+                "total_items": len(active_for_page),
+                "returned_items": len(active_page_items),
+                "has_previous": offset > 0,
+                "has_next": offset + len(active_page_items) < len(active_for_page),
+                "search_applied": normalized_search is not None,
+                "items": [
+                    {
+                        "signal_ref": item.artifact_ref,
+                        "title": item.title,
+                        "safe_summary": item.safe_summary,
+                        "source_ref": item.source_ref,
+                        "source_label": item.source_label,
+                        "source_state": source_by_ref[item.source_ref].state,
+                        "topic_ref": item.topic_ref,
+                        "published_at": item.published_at,
+                        "evidence_class": item.evidence_class,
+                        "claim_stance": item.claim_stance,
+                        "confidence_percent": item.confidence_percent,
+                        "external_content_untrusted": True,
+                    }
+                    for item in active_page_items
+                ],
+            },
             "preferences": [asdict(item) for item in state.preferences],
             "archived_items": archived_items,
             "next_safe_action": self._next_safe_action(state, summary),
@@ -1009,7 +1067,12 @@ class NewsSignalsAdoptionStore:
             lease_idempotency_ref=lease_idempotency_ref,
         )
         approval_store = AuthorityLeaseApprovalStore(lease_store.state_dir)
-        record = approval_store.resolve(lease_approval_ref)
+        try:
+            record = approval_store.resolve(lease_approval_ref)
+        except AuthorityLeaseApprovalStateError as exc:
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_AUTHORITY_STATE_INVALID"
+            ) from exc
         if record is None:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_EXACT_APPROVAL_REQUIRED"
@@ -1847,7 +1910,12 @@ class NewsSignalsAdoptionStore:
         count = conn.execute(
             "SELECT COUNT(*) FROM news_signals_adoption_receipts"
         ).fetchone()[0]
-        if count >= NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS:
+        maximum_before_insert = (
+            NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS
+            if receipt.action == "undo"
+            else NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS - 1
+        )
+        if count >= maximum_before_insert:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_RECEIPT_CAPACITY_EXHAUSTED"
             )

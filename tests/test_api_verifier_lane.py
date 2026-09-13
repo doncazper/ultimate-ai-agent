@@ -48,6 +48,10 @@ def test_default_api_verifier_context_is_cached() -> None:
         ("POST", "/control-center/calendar/adoption/restore-preview"),
         ("POST", "/control-center/calendar/adoption/restore-approval"),
         ("POST", "/control-center/calendar/adoption/restore-commit"),
+        ("GET", "/control-center/news-signals/adoption"),
+        ("POST", "/control-center/news-signals/adoption/preview"),
+        ("POST", "/control-center/news-signals/adoption/approval"),
+        ("POST", "/control-center/news-signals/adoption/commit"),
         ("GET", "/control-center/chat/workspace"),
         (
             "POST",

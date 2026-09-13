@@ -1381,9 +1381,17 @@ def post_control_center_crm_local_mutation(
     operation_id="get_control_center_news_signals_adoption_workspace",
     summary="Read the founder-private local News workspace",
 )
-def get_control_center_news_signals_adoption() -> ResultEnvelope:
+def get_control_center_news_signals_adoption(
+    offset: int = Query(default=0, ge=0, le=1_999),
+    limit: int = Query(default=100, ge=1, le=100),
+    search_query: str | None = Query(default=None, min_length=1, max_length=80),
+) -> ResultEnvelope:
     try:
-        view = NewsSignalsAdoptionStore.from_env().read_view()
+        view = NewsSignalsAdoptionStore.from_env().read_view(
+            offset=offset,
+            limit=limit,
+            search_query=search_query,
+        )
     except (NewsSignalsAdoptionConflict, NewsSignalsAdoptionError, ValueError) as exc:
         _raise_news_signals_adoption_http_error(exc)
     return _news_signals_adoption_result_envelope(
