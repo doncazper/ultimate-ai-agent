@@ -132,6 +132,13 @@ published. Messages, assertion values, titles, stacks, paths, and attachments
 are not retained. Legacy v1 test-only diagnostics remain readable. These hints
 help locate an assertion or timeout; they are not collection-bound proof,
 permission to retry, or evidence that an unreproduced hosted failure is fixed.
+The exact visual runner, diagnostic helper, command manifest, and visual-scope
+resolver are visual-owned paths: changes to them require browser execution in
+the hosted visual lane, not only its non-visual contract check.
+The corpus guard accepts only a literal visual-scope superset with original
+paths and ordering preserved and every other executable AST node unchanged.
+Removed paths, dynamic scope expressions, or other runner changes still fail
+closed; no test-retirement exception or command-budget change is involved.
 
 Admission also validates the complete offline npm dependency trees for the
 Control Center and Matrix adapter with scripts disabled. Missing or invalid

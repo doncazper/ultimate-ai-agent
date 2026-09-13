@@ -11931,6 +11931,59 @@ def _safe_pytest_suffix_discovery_alignment_paths(
     return expected_paths
 
 
+def _safe_visual_scope_expansion_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Prove literal visual-scope growth without changing executable runner code."""
+
+    path = "scripts/verification/ci_command_manifest.py"
+    if set(current_by_path) != {path} or set(prior_by_path) != {path}:
+        return set()
+    normalized: list[str] = []
+    scopes: list[tuple[str, ...]] = []
+    try:
+        for source in (prior_by_path[path], current_by_path[path]):
+            tree = ast.parse(source, filename=path)
+            bindings = [
+                node for node in tree.body
+                if isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == "VISUAL_SCOPE_PATHS"
+            ]
+            if len(bindings) != 1 or not isinstance(bindings[0].value, ast.Tuple):
+                return set()
+            values: list[str] = []
+            for item in bindings[0].value.elts:
+                if not isinstance(item, ast.Constant) or not isinstance(item.value, str):
+                    return set()
+                value = item.value
+                if (
+                    re.fullmatch(r"[A-Za-z0-9_./-]{1,512}", value) is None
+                    or any(part in {"", ".", ".."} for part in value.split("/"))
+                ):
+                    return set()
+                values.append(value)
+            if not values or len(values) != len(set(values)):
+                return set()
+            scopes.append(tuple(values))
+            bindings[0].value = ast.Tuple(elts=[], ctx=ast.Load())
+            normalized.append(ast.dump(tree, include_attributes=False))
+    except (SyntaxError, ValueError, RecursionError):
+        return set()
+    prior_scope, current_scope = scopes
+    prior_paths = set(prior_scope)
+    if (
+        normalized[0] != normalized[1]
+        or not prior_paths < set(current_scope)
+        or tuple(value for value in current_scope if value in prior_paths) != prior_scope
+    ):
+        return set()
+    return {path}
+
+
 def _safe_visual_regression_timeout_alignment_paths(
     *,
     current_by_path: dict[str, str],
@@ -12223,6 +12276,18 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
         prior_by_path={
             path: prior_runner_by_path[path] for path in effective_changed_runner_paths
         },
+    )
+    safe_runner_paths.update(
+        _safe_visual_scope_expansion_paths(
+            current_by_path={
+                path: current_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+            prior_by_path={
+                path: prior_runner_by_path[path]
+                for path in effective_changed_runner_paths
+            },
+        )
     )
     safe_runner_paths.update(
         _safe_visual_regression_timeout_alignment_paths(
