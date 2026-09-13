@@ -851,6 +851,14 @@ CONTROL_CENTER_CALENDAR_ADOPTION_MUTATION_PATHS = {
     "/control-center/calendar/adoption/restore-approval",
     "/control-center/calendar/adoption/restore-commit",
 }
+CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_SENSITIVE_PATHS = {
+    "/control-center/news-signals/adoption",
+    "/control-center/news-signals/adoption/preview",
+}
+CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_MUTATION_PATHS = {
+    "/control-center/news-signals/adoption/approval",
+    "/control-center/news-signals/adoption/commit",
+}
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
 }
@@ -1641,6 +1649,19 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Founder-private Calendar exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact local approval validation, one operation-budget-one Workspace/write AuthorityLease, durable idempotency, encrypted local persistence, content-free receipts, and undo or encrypted restore recovery are required while all external calendar and scheduling authority remains blocked.",
+        )
+    if path in CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_SENSITIVE_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Founder-private News read or exact preview route; only already-redacted local artifacts and provenance-bound metadata are accepted, while live fetching, authenticated sources, background polling, provider or model calls, connector writes, and production authority remain blocked.",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_MUTATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Founder-private News exact local mutation route; current-state binding, explicit operator confirmation, exact approval validation, one operation-budget-one Workspace/write AuthorityLease, idempotency, private local persistence, content-free receipts, safe-disable, archive recovery, and undo are required while source content remains untrusted and all external authority stays blocked.",
         )
     if (
         normalized_method == "POST"

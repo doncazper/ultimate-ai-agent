@@ -710,7 +710,8 @@ def test_q31_packet_binds_human_report_claims_and_documentation_index() -> None:
     assert "Q32 is now the active founder-private CRM functional-adoption item" in (
         " ".join(docs_readme.split())
     )
-    assert "Q33 founder operating loop and chat usability adoption — active" in board
+    assert "Q33 founder operating loop and chat usability adoption — terminal" in board
+    assert "Q34 News and source intelligence functional adoption — active" in board
     q31 = next(item for item in registry["items"] if item["item_id"] == "Q31")
     assert q31["whole_vision"]["status"] == "planned"
     assert q31["whole_vision"]["completion_evidence_refs"] == []

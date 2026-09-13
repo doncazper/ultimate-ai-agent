@@ -79,6 +79,11 @@ import type {
   FounderLoopAgentLoopThread,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
+  NewsSignalsAdoptionApprovalReceipt,
+  NewsSignalsAdoptionMutationPreview,
+  NewsSignalsAdoptionMutationReceipt,
+  NewsSignalsAdoptionMutationRequest,
+  NewsSignalsAdoptionView,
   NewsSignalsSummary,
   FounderLoopSourceReadiness,
   FounderLoopStorageStatus,
@@ -1607,6 +1612,130 @@ export async function loadNewsSignalsSummary(): Promise<NewsSignalsSummary> {
   return value;
 }
 
+export async function loadNewsSignalsAdoptionWorkspace(
+  options: { offset?: number; limit?: number; searchQuery?: string } = {},
+): Promise<NewsSignalsAdoptionView> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const query = new URLSearchParams();
+  if (options.offset !== undefined) query.set("offset", String(options.offset));
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.searchQuery) query.set("search_query", options.searchQuery);
+  const suffix = query.size ? `?${query.toString()}` : "";
+  const value = await readEnvelope<unknown>(
+    `${API_ENDPOINTS.newsSignalsAdoption}${suffix}`,
+  );
+  const expectedOffset = options.offset ?? 0;
+  const expectedLimit = options.limit ?? 100;
+  if (
+    !isSafeNewsSignalsAdoptionView(value) ||
+    value.active_items_page.offset !== expectedOffset ||
+    value.active_items_page.limit !== expectedLimit ||
+    value.active_items_page.search_applied !== Boolean(options.searchQuery)
+  ) {
+    throw new Error("NEWS_SIGNALS_ADOPTION_RESPONSE_INVALID");
+  }
+  return value;
+}
+
+async function postNewsSignalsAdoptionEnvelope(
+  endpoint: string,
+  body: unknown,
+  idempotencyRef: string,
+  operatorConfirmed = false,
+  mutationBinding: BackendTruthReadBinding | null = null,
+): Promise<unknown> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const headers = withLocalApiAuthHeaders({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-UAA-Idempotency-Key": idempotencyRef,
+    ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+  });
+  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+    method: "POST",
+    headers: operatorConfirmed
+      ? withBackendTruthMutationHeaders(headers, mutationBinding)
+      : headers,
+    body: JSON.stringify(body),
+  });
+  if (operatorConfirmed) {
+    validateBackendResponseBinding(response.headers, mutationBinding);
+  }
+  const data = (await readJsonSafely(response)) as ResultEnvelope<unknown>;
+  const result = data.result ?? data.data;
+  if (!response.ok || result === undefined) {
+    throw new Error(
+      safeApiErrorMessage(data, "The private News request failed safely."),
+    );
+  }
+  return result;
+}
+
+export async function previewNewsSignalsAdoptionMutation(
+  request: NewsSignalsAdoptionMutationRequest,
+  idempotencyRef: string,
+): Promise<NewsSignalsAdoptionMutationPreview> {
+  const value = await postNewsSignalsAdoptionEnvelope(
+    API_ENDPOINTS.newsSignalsAdoptionPreview,
+    request,
+    idempotencyRef,
+  );
+  if (!isSafeNewsSignalsAdoptionPreview(value, request, idempotencyRef)) {
+    throw new Error("NEWS_SIGNALS_ADOPTION_PREVIEW_INVALID");
+  }
+  return value;
+}
+
+export async function captureNewsSignalsAdoptionApproval(
+  request: NewsSignalsAdoptionMutationRequest,
+  preview: NewsSignalsAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<NewsSignalsAdoptionApprovalReceipt> {
+  const value = await postNewsSignalsAdoptionEnvelope(
+    API_ENDPOINTS.newsSignalsAdoptionApproval,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  if (!isSafeNewsSignalsAdoptionApproval(value, preview, idempotencyRef)) {
+    throw new Error("NEWS_SIGNALS_ADOPTION_APPROVAL_INVALID");
+  }
+  return value;
+}
+
+export async function commitNewsSignalsAdoptionMutation(
+  request: NewsSignalsAdoptionMutationRequest,
+  preview: NewsSignalsAdoptionMutationPreview,
+  idempotencyRef: string,
+  mutationBinding: BackendTruthReadBinding | null,
+): Promise<NewsSignalsAdoptionMutationReceipt> {
+  const value = await postNewsSignalsAdoptionEnvelope(
+    API_ENDPOINTS.newsSignalsAdoptionCommit,
+    {
+      mutation: request,
+      preview_ref: preview.preview_ref,
+      approval_ref: preview.approval_ref,
+    },
+    idempotencyRef,
+    true,
+    mutationBinding,
+  );
+  if (!isSafeNewsSignalsAdoptionReceipt(value, preview, idempotencyRef)) {
+    throw new Error("NEWS_SIGNALS_ADOPTION_RECEIPT_INVALID");
+  }
+  return value;
+}
+
 const NEWS_SIGNALS_SAFE_REF =
   /^[a-z][a-z0-9-]*-ref:[a-z0-9][a-z0-9:-]{1,190}$/;
 const NEWS_SIGNALS_TIMESTAMP =
@@ -1831,7 +1960,7 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     value.items.length > 100 ||
     !value.items.every(isSafeNewsSignalItem) ||
     !isPlainRecord(value.freshness_counts) ||
-    !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 100) ||
+    !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 2_000) ||
     !isPlainRecord(value.today_projection) ||
     !isPlainRecord(value.morning_briefing_projection) ||
     !isNewsSignalsSafeText(value.safe_summary, 320) ||
@@ -1849,6 +1978,7 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
       (count) => Number.isInteger(count) && Number(count) >= 0,
     ) &&
     newsSignalsHasOnlyKeys(today, [
+      "storage_status",
       "projection_ref",
       "item_refs",
       "bounded_limit",
@@ -1858,7 +1988,9 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     isNewsSignalsSafeRefArray(today.item_refs, 3) &&
     today.bounded_limit === 3 &&
     today.read_only === true &&
+    (today.storage_status === undefined || isNewsSignalsStorageStatus(today.storage_status)) &&
     newsSignalsHasOnlyKeys(briefing, [
+      "storage_status",
       "projection_ref",
       "candidate_refs",
       "bounded_limit",
@@ -1869,7 +2001,343 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     isNewsSignalsSafeRefArray(briefing.candidate_refs, 5) &&
     briefing.bounded_limit === 5 &&
     briefing.review_required === true &&
-    briefing.read_only === true
+    briefing.read_only === true &&
+    (briefing.storage_status === undefined || isNewsSignalsStorageStatus(briefing.storage_status))
+  );
+}
+
+function isNewsSignalsStorageStatus(value: unknown): boolean {
+  return typeof value === "string" &&
+    ["missing", "q24_only", "ready", "migration_required"].includes(value);
+}
+
+function isSafeNewsSignalsAdoptionView(
+  value: unknown,
+): value is NewsSignalsAdoptionView {
+  if (
+    !isPlainRecord(value) ||
+    !newsSignalsHasOnlyKeys(value, [
+      "schema_version",
+      "contract_ref",
+      "status",
+      "storage_status",
+      "revision",
+      "current_state_ref",
+      "can_undo",
+      "local_manual_intake_enabled",
+      "backend_owned",
+      "external_content_untrusted",
+      "live_fetch_enabled",
+      "authenticated_source_enabled",
+      "background_polling_enabled",
+      "model_summarization_enabled",
+      "connector_write_enabled",
+      "action_authority_granted",
+      "summary",
+      "active_items_page",
+      "preferences",
+      "archived_items",
+      "next_safe_action",
+      "evidence_refs",
+    ])
+  ) {
+    return false;
+  }
+  const preferencesValid =
+    Array.isArray(value.preferences) &&
+    value.preferences.length <= 128 &&
+    value.preferences.every(
+      (item) =>
+        isPlainRecord(item) &&
+        newsSignalsHasOnlyKeys(item, ["topic_ref", "weight", "preference_ref"]) &&
+        isNewsSignalsSafeRef(item.topic_ref) &&
+        Number.isInteger(item.weight) &&
+        Number(item.weight) >= -20 &&
+        Number(item.weight) <= 20 &&
+        isNewsSignalsSafeRef(item.preference_ref),
+    );
+  const archivesValid =
+    Array.isArray(value.archived_items) &&
+    value.archived_items.length <= 2_000 &&
+    value.archived_items.every(
+      (item) =>
+        isPlainRecord(item) &&
+        newsSignalsHasOnlyKeys(item, [
+          "signal_ref",
+          "title",
+          "safe_summary",
+          "source_ref",
+          "source_label",
+          "topic_ref",
+          "published_at",
+          "archived",
+        ]) &&
+        isNewsSignalsSafeRef(item.signal_ref) &&
+        isNewsSignalsSafeText(item.title, 140) &&
+        isNewsSignalsSafeText(item.safe_summary, 320) &&
+        isNewsSignalsSafeRef(item.source_ref) &&
+        isNewsSignalsSafeText(item.source_label, 80) &&
+        isNewsSignalsSafeRef(item.topic_ref) &&
+        typeof item.published_at === "string" &&
+        NEWS_SIGNALS_TIMESTAMP.test(item.published_at) &&
+        item.archived === true,
+    );
+  const activePage = value.active_items_page;
+  const activePageValid =
+    isPlainRecord(activePage) &&
+    newsSignalsHasOnlyKeys(activePage, [
+      "offset",
+      "limit",
+      "total_items",
+      "returned_items",
+      "has_previous",
+      "has_next",
+      "search_applied",
+      "items",
+    ]) &&
+    Number.isInteger(activePage.offset) &&
+    Number(activePage.offset) >= 0 &&
+    Number(activePage.offset) <= 1_999 &&
+    Number.isInteger(activePage.limit) &&
+    Number(activePage.limit) >= 1 &&
+    Number(activePage.limit) <= 100 &&
+    Number.isInteger(activePage.total_items) &&
+    Number(activePage.total_items) >= 0 &&
+    Number(activePage.total_items) <= 2_000 &&
+    Number.isInteger(activePage.returned_items) &&
+    Number(activePage.returned_items) >= 0 &&
+    Number(activePage.returned_items) <= Number(activePage.limit) &&
+    typeof activePage.has_previous === "boolean" &&
+    activePage.has_previous === (Number(activePage.offset) > 0) &&
+    typeof activePage.has_next === "boolean" &&
+    typeof activePage.search_applied === "boolean" &&
+    Array.isArray(activePage.items) &&
+    activePage.items.length === Number(activePage.returned_items) &&
+    activePage.items.every((item) =>
+      isSafeNewsSignalsAdoptionActiveItem(item),
+    ) &&
+    activePage.has_next ===
+      (Number(activePage.offset) + Number(activePage.returned_items) <
+        Number(activePage.total_items));
+  return (
+    value.schema_version === "uaa-news-signals-adoption.v1" &&
+    value.contract_ref ===
+      "contract-ref:queue-v2-q34-news-signals-adoption:v1" &&
+    Number.isInteger(value.revision) &&
+    Number(value.revision) >= 0 &&
+    isNewsSignalsStorageStatus(value.storage_status) &&
+    isNewsSignalsSafeRef(value.current_state_ref) &&
+    typeof value.can_undo === "boolean" &&
+    value.local_manual_intake_enabled === true &&
+    value.backend_owned === true &&
+    value.external_content_untrusted === true &&
+    value.live_fetch_enabled === false &&
+    value.authenticated_source_enabled === false &&
+    value.background_polling_enabled === false &&
+    value.model_summarization_enabled === false &&
+    value.connector_write_enabled === false &&
+    value.action_authority_granted === false &&
+    isSafeNewsSignalsSummary(value.summary) &&
+    activePageValid &&
+    value.status === value.summary.status &&
+    preferencesValid &&
+    archivesValid &&
+    isNewsSignalsSafeText(value.next_safe_action, 240) &&
+    isNewsSignalsSafeRefArray(value.evidence_refs, 24)
+  );
+}
+
+function isSafeNewsSignalsAdoptionActiveItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  return (
+    newsSignalsHasOnlyKeys(value, [
+      "signal_ref",
+      "title",
+      "safe_summary",
+      "source_ref",
+      "source_label",
+      "source_state",
+      "topic_ref",
+      "published_at",
+      "evidence_class",
+      "claim_stance",
+      "confidence_percent",
+      "external_content_untrusted",
+    ]) &&
+    isNewsSignalsSafeRef(value.signal_ref) &&
+    isNewsSignalsSafeText(value.title, 140) &&
+    isNewsSignalsSafeText(value.safe_summary, 320) &&
+    isNewsSignalsSafeRef(value.source_ref) &&
+    isNewsSignalsSafeText(value.source_label, 80) &&
+    ["ready", "blocked", "unknown", "revoked", "safe_disabled"].includes(
+      String(value.source_state),
+    ) &&
+    isNewsSignalsSafeRef(value.topic_ref) &&
+    typeof value.published_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.published_at) &&
+    ["primary", "corroborating", "community", "commentary"].includes(
+      String(value.evidence_class),
+    ) &&
+    ["supports", "disputes", "unknown"].includes(String(value.claim_stance)) &&
+    Number.isInteger(value.confidence_percent) &&
+    Number(value.confidence_percent) >= 0 &&
+    Number(value.confidence_percent) <= 100 &&
+    value.external_content_untrusted === true
+  );
+}
+
+function isSafeNewsSignalsAdoptionPreview(
+  value: unknown,
+  request: NewsSignalsAdoptionMutationRequest,
+  idempotencyRef: string,
+): value is NewsSignalsAdoptionMutationPreview {
+  if (
+    !isPlainRecord(value) ||
+    !newsSignalsHasOnlyKeys(value, [
+      "schema_version",
+      "contract_ref",
+      "action",
+      "target_ref",
+      "source_ref",
+      "signal_ref",
+      "expected_revision",
+      "resulting_revision",
+      "current_state_ref",
+      "payload_fingerprint_ref",
+      "preview_ref",
+      "approval_ref",
+      "safe_summary",
+      "external_network_read_performed",
+      "authenticated_source_access_performed",
+      "model_call_performed",
+      "external_write_performed",
+      "production_authority_granted",
+    ])
+  ) {
+    return false;
+  }
+  const optionalRef = (candidate: unknown) =>
+    candidate === null || isNewsSignalsSafeRef(candidate);
+  return (
+    isNewsSignalsSafeRef(idempotencyRef) &&
+    value.schema_version === "uaa-news-signals-adoption-preview.v1" &&
+    value.contract_ref ===
+      "contract-ref:queue-v2-q34-news-signals-adoption:v1" &&
+    value.action === request.action &&
+    optionalRef(value.target_ref) &&
+    optionalRef(value.source_ref) &&
+    optionalRef(value.signal_ref) &&
+    value.expected_revision === request.expected_revision &&
+    value.resulting_revision === request.expected_revision + 1 &&
+    isNewsSignalsSafeRef(value.current_state_ref) &&
+    isNewsSignalsSafeRef(value.payload_fingerprint_ref) &&
+    isNewsSignalsSafeRef(value.preview_ref) &&
+    isNewsSignalsSafeRef(value.approval_ref) &&
+    isNewsSignalsSafeText(value.safe_summary, 160) &&
+    value.external_network_read_performed === false &&
+    value.authenticated_source_access_performed === false &&
+    value.model_call_performed === false &&
+    value.external_write_performed === false &&
+    value.production_authority_granted === false
+  );
+}
+
+function isSafeNewsSignalsAdoptionApproval(
+  value: unknown,
+  preview: NewsSignalsAdoptionMutationPreview,
+  idempotencyRef: string,
+): value is NewsSignalsAdoptionApprovalReceipt {
+  return (
+    isPlainRecord(value) &&
+    newsSignalsHasOnlyKeys(value, [
+      "schema_version",
+      "approval_ref",
+      "approval_validation_ref",
+      "preview_ref",
+      "idempotency_ref",
+      "expires_at",
+      "safe_summary",
+    ]) &&
+    value.schema_version === "uaa-news-signals-adoption-approval.v1" &&
+    value.approval_ref === preview.approval_ref &&
+    isNewsSignalsSafeRef(value.approval_validation_ref) &&
+    value.preview_ref === preview.preview_ref &&
+    value.idempotency_ref === idempotencyRef &&
+    typeof value.expires_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.expires_at) &&
+    isNewsSignalsSafeText(value.safe_summary, 160)
+  );
+}
+
+function isSafeNewsSignalsAdoptionReceipt(
+  value: unknown,
+  preview: NewsSignalsAdoptionMutationPreview,
+  idempotencyRef: string,
+): value is NewsSignalsAdoptionMutationReceipt {
+  if (
+    !isPlainRecord(value) ||
+    !newsSignalsHasOnlyKeys(value, [
+      "schema_version",
+      "contract_ref",
+      "action",
+      "target_ref",
+      "source_ref",
+      "signal_ref",
+      "before_revision",
+      "after_revision",
+      "idempotency_ref",
+      "payload_fingerprint_ref",
+      "preview_ref",
+      "approval_ref",
+      "approval_validation_ref",
+      "approval_expires_at",
+      "authority_decision_ref",
+      "authority_lease_ref",
+      "receipt_ref",
+      "state_ref",
+      "rollback_ref",
+      "replayed",
+      "external_network_read_performed",
+      "authenticated_source_access_performed",
+      "model_call_performed",
+      "external_write_performed",
+      "production_authority_granted",
+      "safe_summary",
+    ])
+  ) {
+    return false;
+  }
+  const optionalRef = (candidate: unknown) =>
+    candidate === null || isNewsSignalsSafeRef(candidate);
+  return (
+    value.schema_version === "uaa-news-signals-adoption-receipt.v1" &&
+    value.contract_ref ===
+      "contract-ref:queue-v2-q34-news-signals-adoption:v1" &&
+    value.action === preview.action &&
+    optionalRef(value.target_ref) &&
+    optionalRef(value.source_ref) &&
+    optionalRef(value.signal_ref) &&
+    value.before_revision === preview.expected_revision &&
+    value.after_revision === preview.resulting_revision &&
+    value.idempotency_ref === idempotencyRef &&
+    value.payload_fingerprint_ref === preview.payload_fingerprint_ref &&
+    value.preview_ref === preview.preview_ref &&
+    value.approval_ref === preview.approval_ref &&
+    isNewsSignalsSafeRef(value.approval_validation_ref) &&
+    typeof value.approval_expires_at === "string" &&
+    NEWS_SIGNALS_TIMESTAMP.test(value.approval_expires_at) &&
+    isNewsSignalsSafeRef(value.authority_decision_ref) &&
+    isNewsSignalsSafeRef(value.authority_lease_ref) &&
+    isNewsSignalsSafeRef(value.receipt_ref) &&
+    isNewsSignalsSafeRef(value.state_ref) &&
+    isNewsSignalsSafeRef(value.rollback_ref) &&
+    typeof value.replayed === "boolean" &&
+    value.external_network_read_performed === false &&
+    value.authenticated_source_access_performed === false &&
+    value.model_call_performed === false &&
+    value.external_write_performed === false &&
+    value.production_authority_granted === false &&
+    isNewsSignalsSafeText(value.safe_summary, 160)
   );
 }
 

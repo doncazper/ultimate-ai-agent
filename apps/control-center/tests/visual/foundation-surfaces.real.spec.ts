@@ -117,6 +117,66 @@ test.afterAll(async () => {
   rmSync(stateDir, { recursive: true, force: true });
 });
 
+test("normal News intake binds confirmation and keeps every signal field inside the panel", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  // This regression uses the fixture-backed server above; it is not founder
+  // acceptance evidence. The normal App route and actual News API are used.
+  const truthResponse = await request.get(`${backendBaseUrl}/control-center/backend-truth`);
+  expect(truthResponse.ok()).toBe(true);
+  const truth = (await truthResponse.json()).data;
+  await page.clock.setFixedTime(new Date(truth.generated_at));
+  await page.goto("/news");
+  await page.getByLabel("Source name", { exact: true }).fill("Local review regression source");
+  await page.getByRole("button", { name: "Review source", exact: true }).click();
+  const save = page.getByRole("button", { name: "Confirm and save", exact: true });
+  await expect(save).toBeEnabled();
+  const approval = page.waitForRequest((message) =>
+    new URL(message.url()).pathname === "/control-center/news-signals/adoption/approval",
+  );
+  await save.click();
+  const approvalHeaders = (await approval).headers();
+  expect(approvalHeaders["x-uaa-expected-backend-revision-ref"]).toBe(`commit-ref:git:${backendSourceCommit}`);
+  expect(approvalHeaders["x-uaa-expected-backend-instance-ref"]).toBe(truth.backend_instance_ref);
+  expect(approvalHeaders["x-uaa-control-center-mutation-binding"]).toBe("backend-truth.v1");
+  await expect(page.getByText("The reviewed local News change was saved.", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Headline", { exact: true })).toBeVisible();
+
+  // Document overflow alone misses a clipped inner scroll region. Check the
+  // actual field bounds and News viewport as well, on both configured sizes.
+  const bounds = await page.locator(".news-signals-preview").evaluate((element) => {
+    const panel = element.getBoundingClientRect();
+    return {
+      panelLeft: panel.left,
+      panelRight: panel.right,
+      viewportWidth: innerWidth,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      fields: [...element.querySelectorAll(".news-adoption-controls input, .news-adoption-controls select, .news-adoption-controls form button")].map((field) => {
+        const rect = field.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      }),
+    };
+  });
+  expect(bounds.panelLeft).toBeGreaterThanOrEqual(0);
+  expect(bounds.panelRight).toBeLessThanOrEqual(bounds.viewportWidth);
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth + 1);
+  expect(bounds.fields.length).toBeGreaterThan(8);
+  for (const field of bounds.fields) {
+    expect(field.left).toBeGreaterThanOrEqual(bounds.panelLeft);
+    expect(field.right).toBeLessThanOrEqual(bounds.panelRight);
+  }
+  await page.getByLabel("Headline", { exact: true }).fill("Local News regression artifact");
+  await page.getByLabel("Redacted summary", { exact: true }).fill("A synthetic local artifact for normal-route regression only.");
+  await page.getByLabel("Topic", { exact: true }).fill("Local review");
+  await page.getByLabel("Claim", { exact: true }).fill("Normal route saves a reviewed artifact");
+  await page.getByRole("button", { name: "Review signal", exact: true }).click();
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
+});
+
 test("foundation visual baselines stay backend-owned", async ({
   context,
   request,

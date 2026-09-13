@@ -4,6 +4,18 @@ The module consumes already-redacted artifacts from separately admitted read-onl
 source lanes.  It does not fetch, authenticate, summarize, or execute actions.
 """
 
+from ultimate_ai_agent.core.news_signals.adoption import (
+    NEWS_SIGNALS_ADOPTION_CONTRACT_REF,
+    NEWS_SIGNALS_ADOPTION_SCHEMA_VERSION,
+    NewsSignalArtifactDraft,
+    NewsSignalSourceDraft,
+    NewsSignalsAdoptionApprovalCaptureRequest,
+    NewsSignalsAdoptionCommitRequest,
+    NewsSignalsAdoptionConflict,
+    NewsSignalsAdoptionError,
+    NewsSignalsAdoptionMutationRequest,
+    NewsSignalsAdoptionStore,
+)
 from ultimate_ai_agent.core.news_signals.read_model import (
     NEWS_SIGNALS_ADAPTER_REF,
     NEWS_SIGNALS_CONTRACT_REF,
@@ -16,12 +28,22 @@ from ultimate_ai_agent.core.news_signals.read_model import (
 )
 
 __all__ = [
+    "NEWS_SIGNALS_ADOPTION_CONTRACT_REF",
+    "NEWS_SIGNALS_ADOPTION_SCHEMA_VERSION",
     "NEWS_SIGNALS_ADAPTER_REF",
     "NEWS_SIGNALS_CONTRACT_REF",
     "NEWS_SIGNALS_SCHEMA_VERSION",
     "NewsSignalArtifact",
+    "NewsSignalArtifactDraft",
     "NewsSignalPreference",
     "NewsSignalSource",
+    "NewsSignalSourceDraft",
+    "NewsSignalsAdoptionApprovalCaptureRequest",
+    "NewsSignalsAdoptionCommitRequest",
+    "NewsSignalsAdoptionConflict",
+    "NewsSignalsAdoptionError",
+    "NewsSignalsAdoptionMutationRequest",
+    "NewsSignalsAdoptionStore",
     "NewsSignalsRepository",
     "build_news_signals_summary",
 ]

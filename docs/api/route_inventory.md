@@ -3,7 +3,7 @@
 Current active baseline: **v0.104.0**
 
 <!-- uaa-api-contract-counts:start -->
-Current generated contract snapshot: `384` OpenAPI paths and `386` manifest route operations.
+Current generated contract snapshot: `388` OpenAPI paths and `390` manifest route operations.
 <!-- uaa-api-contract-counts:end -->
 
 The checked-in inventory is the canonical generated static API contract

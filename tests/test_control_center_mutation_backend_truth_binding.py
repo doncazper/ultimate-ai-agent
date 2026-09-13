@@ -441,3 +441,28 @@ def test_browser_crm_adoption_mutations_require_truth_binding(
     assert response.json()["code"] == (
         "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
     )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/control-center/news-signals/adoption/approval",
+        "/control-center/news-signals/adoption/commit",
+    ],
+)
+def test_browser_news_adoption_mutations_require_truth_binding(
+    monkeypatch,
+    path: str,
+) -> None:
+    monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
+
+    response = TestClient(app).post(
+        path,
+        headers={"Origin": ORIGIN},
+        json={},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == (
+        "BACKEND_TRUTH_MUTATION_PROVENANCE_MISMATCH"
+    )

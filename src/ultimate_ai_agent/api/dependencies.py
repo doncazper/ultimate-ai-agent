@@ -14,7 +14,10 @@ from ultimate_ai_agent.core.control_center.founder_loop_mission import (
     FounderLoopFilesystemTarget,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
-from ultimate_ai_agent.core.news_signals import NewsSignalsRepository
+from ultimate_ai_agent.core.news_signals import (
+    NewsSignalsAdoptionStore,
+    NewsSignalsRepository,
+)
 from ultimate_ai_agent.core.tools.runtime import (
     FilesystemSafeRoot,
     filesystem_opaque_path_ref,
@@ -45,6 +48,12 @@ def get_news_signals_repository() -> NewsSignalsRepository:
     """
 
     return NewsSignalsRepository.from_env()
+
+
+def get_news_signals_adoption_store() -> NewsSignalsAdoptionStore:
+    """Return the founder-private local News adoption workspace."""
+
+    return NewsSignalsAdoptionStore.from_env()
 
 
 def get_founder_attention_workflow() -> FounderLoopAttentionWorkflow:

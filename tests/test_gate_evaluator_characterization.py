@@ -308,6 +308,10 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 70
     assert CONTROL_CENTER_NEWS_SIGNALS_ROUTES == {
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/adoption/approval",
+        "/control-center/news-signals/adoption/commit",
+        "/control-center/news-signals/adoption/preview",
         "/control-center/news-signals/summary",
     }
     assert CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES == {

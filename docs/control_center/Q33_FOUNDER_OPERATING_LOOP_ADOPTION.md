@@ -1,7 +1,8 @@
 # Q33 Founder Operating Loop Functional Adoption
 
-Status: bounded implementation slice; Q33 remains active until every accepted
-surface in the Queue V2 contract has protected merge and post-merge evidence.
+Status: terminal at protected merge
+`d6d5b97ac87b51e002d236f32a035739a74a4f38`, with green post-merge CI
+`34715302806` and Supply Chain `34715302797` evidence.
 
 ## Implemented Chat workspace slice
 
@@ -238,6 +239,7 @@ shell execution, automatic sync, public release, or production authority.
 - `python scripts/verify_queue_v2_q33_calendar_adoption.py`
 - OpenAPI/API manifest snapshot and documentation-integrity verification
 
-These are bounded Q33 slices, not terminal evidence for the full Founder
-Operating Loop adoption item. Final cross-surface founder-private acceptance
-remains.
+Together these accepted slices close the bounded founder-private Q33 Operating
+Loop adoption contract. Ordinary Chat send/model execution, external calendar
+or task connectors, automatic multi-device sync, public release, and production
+authority remain separately gated rather than becoming hidden Q33 scope.

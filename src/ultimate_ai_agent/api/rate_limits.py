@@ -43,6 +43,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "crm_adoption": {"max_requests": 30, "window_seconds": 60},
     "work_board_adoption": {"max_requests": 30, "window_seconds": 60},
     "calendar_adoption": {"max_requests": 30, "window_seconds": 60},
+    "news_signals_adoption": {"max_requests": 30, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -269,6 +270,11 @@ CALENDAR_ADOPTION_POST_PATHS = {
     "/control-center/calendar/adoption/restore-approval",
     "/control-center/calendar/adoption/restore-commit",
 }
+NEWS_SIGNALS_ADOPTION_POST_PATHS = {
+    "/control-center/news-signals/adoption/preview",
+    "/control-center/news-signals/adoption/approval",
+    "/control-center/news-signals/adoption/commit",
+}
 
 
 @dataclass(frozen=True)
@@ -402,6 +408,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "work_board_adoption"
     if normalized_method == "POST" and path in CALENDAR_ADOPTION_POST_PATHS:
         return "calendar_adoption"
+    if normalized_method == "POST" and path in NEWS_SIGNALS_ADOPTION_POST_PATHS:
+        return "news_signals_adoption"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (
