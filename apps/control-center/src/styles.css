@@ -7435,6 +7435,7 @@ th {
   color: #27364a;
   display: grid;
   gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto;
   height: 100%;
   min-height: 0;
@@ -7476,6 +7477,14 @@ th {
   max-width: 440px;
 }
 
+.news-adoption-controls {
+  flex-wrap: wrap;
+}
+
+.news-adoption-controls > div:first-child {
+  flex: 1 1 200px;
+}
+
 .news-adoption-controls h2,
 .news-adoption-review h2 {
   color: #203249;
@@ -7494,10 +7503,11 @@ th {
 
 .news-adoption-controls form {
   align-items: end;
-  display: flex;
-  flex: 1 1 auto;
+  display: grid;
+  flex: 3 1 600px;
   gap: 8px;
-  justify-content: flex-end;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  min-width: 0;
 }
 
 .news-adoption-controls label {
@@ -7505,7 +7515,7 @@ th {
   display: grid;
   font-size: 10px;
   gap: 3px;
-  min-width: 120px;
+  min-width: 0;
 }
 
 .news-adoption-controls input,
@@ -7515,7 +7525,9 @@ th {
   border-radius: 7px;
   color: #26384e;
   min-height: 34px;
+  min-width: 0;
   padding: 6px 8px;
+  width: 100%;
 }
 
 .news-intake-mode {
@@ -8320,6 +8332,15 @@ th {
   .news-active-search {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .news-adoption-controls > div:first-child,
+  .news-adoption-controls form {
+    flex: 0 1 auto;
+  }
+
+  .news-adoption-controls form {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .news-signals-metrics {

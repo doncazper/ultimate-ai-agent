@@ -36,7 +36,6 @@ import {
   ManualSmokeControlSurfacePanel,
 } from "./components/LocalRuntimeStatusPanel";
 import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
-import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
 import {
   ChatOperatorPanel,
   EvidenceOperatorPanel,
@@ -713,10 +712,6 @@ export function renderRoute(path: string, data: ControlCenterData) {
     default:
       return <DashboardSummary dashboard={data.dashboard} />;
   }
-}
-
-export function renderStaticPreviewRoute(path: string) {
-  return path === "/news" ? <NewsSignalsPreviewPanel /> : null;
 }
 
 function isAuthoritativeRoute(data: ControlCenterData, route: string): boolean {

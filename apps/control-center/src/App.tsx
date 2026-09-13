@@ -7,6 +7,7 @@ import {
 } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
 import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
+import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
 import { MessengerShell } from "./components/messenger/MessengerShell";
 import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
@@ -20,7 +21,6 @@ import {
   getRouteStateDescriptor,
   getRouteSurfaceLabel,
   renderRoute,
-  renderStaticPreviewRoute,
 } from "./routes";
 import { mockControlCenterData } from "./mocks/controlCenterData";
 import type {
@@ -73,16 +73,51 @@ export function App() {
     return <SetupControlCenterRoute activePath={activePath} />;
   }
 
-  const staticPreviewRoute = renderStaticPreviewRoute(activePath);
-  if (staticPreviewRoute) {
-    return (
-      <AppShell activePath={activePath}>
-        {staticPreviewRoute}
-      </AppShell>
-    );
+  if (activePath === "/news") {
+    return <NewsControlCenterRoute activePath={activePath} />;
   }
 
   return <ControlCenterRoute activePath={activePath} />;
+}
+
+function NewsControlCenterRoute({ activePath }: { activePath: string }) {
+  const truthState = useCriticalBackendTruth(true);
+  const truthAdmitted = criticalTruthAllowsRoute(activePath, truthState);
+  const truthReadBinding = useMemo<BackendTruthReadBinding | null>(
+    () =>
+      truthAdmitted && truthState.truth
+        ? {
+            snapshotRef: truthState.truth.envelope_integrity_ref,
+            backendRevisionRef: truthState.truth.backend_revision_ref,
+            backendInstanceRef: truthState.truth.backend_instance_ref,
+          }
+        : null,
+    [
+      truthAdmitted,
+      truthState.truth?.envelope_integrity_ref,
+      truthState.truth?.backend_revision_ref,
+      truthState.truth?.backend_instance_ref,
+    ],
+  );
+
+  if (!truthAdmitted) {
+    return (
+      <CriticalBackendTruthUnavailable
+        activePath={activePath}
+        retry={truthState.retry}
+        state={truthState}
+        surfaceLabel="News & Signals"
+      />
+    );
+  }
+
+  return (
+    <AppShell activePath={activePath}>
+      <BackendTruthMutationBindingProvider binding={truthReadBinding}>
+        <NewsSignalsPreviewPanel />
+      </BackendTruthMutationBindingProvider>
+    </AppShell>
+  );
 }
 
 function SetupControlCenterRoute({ activePath }: { activePath: string }) {
@@ -1247,6 +1282,8 @@ const NORTH_STAR_SHELL_ROUTE_KEYS = [
 
 const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/actions",
+  // Reviewed local News intake does not claim complete founder-loop evidence.
+  "/news",
   "/settings",
   "/start",
   "/setup",
@@ -1394,7 +1431,7 @@ function CriticalBackendTruthUnavailable({
           {pending
             ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
             : firstRun
-              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here, Setup, Action Inbox, and the exact Settings authority lane remain available; other critical product claims stay hidden."
+              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here, Setup, Action Inbox, reviewed local News intake, and the exact Settings authority lane remain available; other critical product claims stay hidden."
             : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
         </p>
         <dl>

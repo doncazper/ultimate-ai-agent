@@ -49,6 +49,17 @@ sources and artifacts remain visible without silently adopting their database.
 `apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
 provides the normal readable workflow.
 
+The normal `/news` route obtains a current, validated backend truth envelope
+and supplies its revision, process identity, and snapshot to the exact approval
+and commit requests. First-run local intake does not depend on a prior unrelated
+founder-loop completion receipt. Loading, invalid, unavailable, or expired
+backend truth hides the intake controls; recovery requires a fresh review, not
+automatic resubmission. This binding does not replace PolicyEngine or exact
+operator approval and does not claim complete founder-loop evidence.
+The signal form wraps within the available News viewport, including after the
+first source is saved. Browser regressions check each field and review control
+against that inner viewport on desktop and narrow layouts.
+
 Every mutation binds the current revision, payload fingerprint, exact preview,
 operator confirmation, exact approval, idempotency ref, and an
 operation-budget-one `workspace/write` AuthorityLease. Completed commits
@@ -122,6 +133,8 @@ instruction or authority source.
 - `tests/test_queue_v2_q34_news_source_intelligence.py`
 - `apps/control-center/src/api/client.newsSignalsAdoption.test.ts`
 - `apps/control-center/src/components/NewsSignalsPreviewPanel.test.tsx`
+- `apps/control-center/src/App.news.test.tsx`
+- `apps/control-center/tests/visual/foundation-surfaces.real.spec.ts`
 - OpenAPI/API manifest, capability/release-surface, documentation, frontend,
   Foundation Gate, security, hosted CI, and post-merge qualification gates
 
