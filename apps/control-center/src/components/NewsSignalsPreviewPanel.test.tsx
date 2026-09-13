@@ -319,7 +319,9 @@ describe("NewsSignalsPreviewPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Governed signal" }));
     fireEvent.change(
-      screen.getByLabelText("Topic (re-enter for correction)"),
+      screen.getByLabelText(
+        "Topic correction (optional; blank preserves existing topic)",
+      ),
       { target: { value: "Agent governance" } },
     );
     fireEvent.change(
@@ -368,10 +370,6 @@ describe("NewsSignalsPreviewPanel", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Edit Governed signal" }),
     );
-    fireEvent.change(
-      screen.getByLabelText("Topic (re-enter for correction)"),
-      { target: { value: "Agent governance" } },
-    );
     fireEvent.click(
       screen.getByRole("button", { name: "Review signal correction" }),
     );
@@ -395,10 +393,11 @@ describe("NewsSignalsPreviewPanel", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Edit Governed signal" }),
     );
-    fireEvent.change(
-      screen.getByLabelText("Topic (re-enter for correction)"),
-      { target: { value: "Agent governance" } },
-    );
+    expect(
+      screen.getByLabelText(
+        "Topic correction (optional; blank preserves existing topic)",
+      ),
+    ).toHaveValue("");
     expect(
       screen.getByLabelText(
         "Claim correction (optional; blank preserves existing claim)",
@@ -412,11 +411,41 @@ describe("NewsSignalsPreviewPanel", () => {
       expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "update_signal",
-          signal_draft: expect.not.objectContaining({ claim_label: expect.anything() }),
+          signal_draft: expect.not.objectContaining({
+            claim_label: expect.anything(),
+            topic_label: expect.anything(),
+          }),
         }),
         expect.any(String),
       ),
     );
+  });
+
+  it("reports a committed change accurately when the refresh fails", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace
+      .mockResolvedValueOnce(workspace)
+      .mockRejectedValueOnce(new Error("refresh unavailable"));
+    render(<NewsSignalsPreviewPanel />);
+
+    const input = await screen.findByLabelText("Source name");
+    fireEvent.change(input, { target: { value: "Official source" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source" }));
+    await screen.findByRole("heading", { name: "Review this one local change" });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+
+    expect(
+      await screen.findByText(
+        "The local News change was saved, but the workspace could not be refreshed. Reload before making another change.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("The local News change was not saved."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Backend read unavailable. No sample stories are shown as a fallback.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("clears a prior review when a newer preview fails", async () => {

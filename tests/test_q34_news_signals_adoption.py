@@ -554,6 +554,44 @@ def test_signal_correction_preserves_claim_identity_when_label_is_omitted(
     assert after["claim_ref"] == before["claim_ref"]
 
 
+def test_signal_correction_preserves_topic_identity_when_label_is_omitted(
+    tmp_path,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+    before = store.read_view(now=NOW)["summary"]["items"][0]
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="set_preference",
+            expected_revision=2,
+            topic_ref=before["topic_ref"],
+            preference_weight=12,
+        ),
+        "prefer-before-preserved-topic-correction",
+    )
+    draft = _signal_draft(
+        source_ref,
+        summary="A corrected bounded summary supplied for local review.",
+    ).model_copy(update={"topic_label": None})
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="update_signal",
+            expected_revision=3,
+            target_ref=signal_ref,
+            signal_draft=draft,
+        ),
+        "correct-signal-preserve-topic",
+    )
+    after = store.read_view(now=NOW)
+
+    assert after["summary"]["items"][0]["topic_ref"] == before["topic_ref"]
+    assert after["preferences"][0]["topic_ref"] == before["topic_ref"]
+
+
 def test_ingest_requires_an_explicit_claim_label(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
@@ -564,6 +602,20 @@ def test_ingest_requires_an_explicit_claim_label(tmp_path) -> None:
             expected_revision=1,
             signal_draft=_signal_draft(source_ref).model_copy(
                 update={"claim_label": None}
+            ),
+        )
+
+
+def test_ingest_requires_an_explicit_topic_label(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+
+    with pytest.raises(ValueError, match="TOPIC_LABEL_REQUIRED"):
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=1,
+            signal_draft=_signal_draft(source_ref).model_copy(
+                update={"topic_label": None}
             ),
         )
 
@@ -990,6 +1042,58 @@ def test_unrelated_corrupt_receipt_blocks_reads_and_new_mutations(tmp_path) -> N
             ),
             idempotency_ref="idempotency-ref:q34:test:after-receipt-corruption",
         )
+
+
+def test_object_shaped_durable_reference_lists_fail_closed(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+
+    with sqlite3.connect(store.db_path) as conn:
+        original = conn.execute(
+            "SELECT reason_refs_json FROM news_signal_sources WHERE source_ref = ?",
+            (source_ref,),
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE news_signal_sources SET reason_refs_json = ? WHERE source_ref = ?",
+            (json.dumps({"reason-ref:q34:forged": True}), source_ref),
+        )
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_ROW_INVALID"):
+        store.read_view(now=NOW)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signal_sources SET reason_refs_json = ? WHERE source_ref = ?",
+            (original, source_ref),
+        )
+
+    with sqlite3.connect(store.db_path) as conn:
+        original = conn.execute(
+            "SELECT interest_refs_json FROM news_signal_artifacts "
+            "WHERE artifact_ref = ?",
+            (signal_ref,),
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE news_signal_artifacts SET interest_refs_json = ? "
+            "WHERE artifact_ref = ?",
+            (json.dumps({"interest-ref:q34:forged": True}), signal_ref),
+        )
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_ROW_INVALID"):
+        store.read_view(now=NOW)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signal_artifacts SET interest_refs_json = ? "
+            "WHERE artifact_ref = ?",
+            (original, signal_ref),
+        )
+
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signal_artifacts SET provenance_refs_json = ? "
+            "WHERE artifact_ref = ?",
+            (json.dumps({"provenance-ref:q34:forged": True}), signal_ref),
+        )
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_ROW_INVALID"):
+        store.read_view(now=NOW)
 
 
 def test_durable_receipt_rejects_substituted_lifecycle_and_authority_fields(

@@ -137,6 +137,29 @@ describe("News and Signals adoption API", () => {
     );
   });
 
+  it("accepts the backend-bounded conflict reference set", async () => {
+    const boundedWorkspace = {
+      ...workspace,
+      summary: {
+        ...workspace.summary,
+        conflicting_claim_refs: Array.from(
+          { length: 2_000 },
+          (_, index) => `claim-ref:q34:conflict-${index}`,
+        ),
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, data: boundedWorkspace }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadNewsSignalsAdoptionWorkspace()).resolves.toEqual(
+      boundedWorkspace,
+    );
+  });
+
   it("requests a bounded active-item page and rejects inconsistent page metadata", async () => {
     const invalidPage = {
       ...workspace,

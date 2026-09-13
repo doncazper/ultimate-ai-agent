@@ -238,7 +238,7 @@ class NewsSignalArtifactDraft(_AdoptionModel):
     source_ref: str
     title: str
     safe_summary: str
-    topic_label: str
+    topic_label: str | None = None
     cluster_label: str
     claim_label: str | None = None
     published_at: str
@@ -262,7 +262,14 @@ class NewsSignalArtifactDraft(_AdoptionModel):
     def validate_summary(cls, value: str) -> str:
         return _safe_label(value, "safe_summary", 320)
 
-    @field_validator("topic_label", "cluster_label")
+    @field_validator("topic_label")
+    @classmethod
+    def validate_topic_label(cls, value: str | None) -> str | None:
+        if value is not None:
+            return _safe_label(value, "topic_label", 80)
+        return value
+
+    @field_validator("cluster_label")
     @classmethod
     def validate_group_label(cls, value: str) -> str:
         return _safe_label(value, "group_label", 80)
@@ -333,6 +340,12 @@ class NewsSignalsAdoptionMutationRequest(_AdoptionModel):
             and self.signal_draft.claim_label is None
         ):
             raise ValueError("NEWS_SIGNALS_ADOPTION_CLAIM_LABEL_REQUIRED")
+        if (
+            self.action == "ingest_signal"
+            and self.signal_draft is not None
+            and self.signal_draft.topic_label is None
+        ):
+            raise ValueError("NEWS_SIGNALS_ADOPTION_TOPIC_LABEL_REQUIRED")
         return self
 
 
@@ -1354,8 +1367,13 @@ class NewsSignalsAdoptionStore:
             assert request.signal_draft is not None and signal_ref is not None
             draft = request.signal_draft
             prior = artifact_by_ref.get(signal_ref)
-            topic_ref = _hash_ref(
-                "topic-ref:q34", {"safe_label": draft.topic_label.casefold()}
+            topic_ref = (
+                prior.topic_ref
+                if prior is not None and draft.topic_label is None
+                else _hash_ref(
+                    "topic-ref:q34",
+                    {"safe_label": str(draft.topic_label).casefold()},
+                )
             )
             cluster_ref = _hash_ref(
                 "cluster-ref:q34", {"safe_label": draft.cluster_label.casefold()}
@@ -1733,11 +1751,16 @@ class NewsSignalsAdoptionStore:
                 "NEWS_SIGNALS_ADOPTION_DATABASE_CAPACITY_INVALID"
             )
         try:
+            source_reason_refs: list[tuple[str, ...]] = []
             for row in source_rows:
                 if len(row["reason_refs_json"].encode("utf-8")) > (
                     NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES
                 ):
                     raise ValueError("SOURCE_REASON_REFS_SIZE_INVALID")
+                decoded_reason_refs = json.loads(row["reason_refs_json"])
+                if not isinstance(decoded_reason_refs, list):
+                    raise ValueError("SOURCE_REASON_REFS_SHAPE_INVALID")
+                source_reason_refs.append(tuple(decoded_reason_refs))
             for row in artifact_rows:
                 if any(
                     len(row[field].encode("utf-8"))
@@ -1745,6 +1768,9 @@ class NewsSignalsAdoptionStore:
                     for field in ("interest_refs_json", "provenance_refs_json")
                 ):
                     raise ValueError("ARTIFACT_REFS_SIZE_INVALID")
+                for field in ("interest_refs_json", "provenance_refs_json"):
+                    if not isinstance(json.loads(row[field]), list):
+                        raise ValueError("ARTIFACT_REFS_SHAPE_INVALID")
             sources = tuple(
                 NewsSignalSource(
                     source_ref=row["source_ref"],
@@ -1756,9 +1782,9 @@ class NewsSignalsAdoptionStore:
                     adapter_ref=row["adapter_ref"],
                     provenance_ref=row["provenance_ref"],
                     retention_ref=row["retention_ref"],
-                    reason_refs=tuple(json.loads(row["reason_refs_json"])),
+                    reason_refs=source_reason_refs[index],
                 )
-                for row in source_rows
+                for index, row in enumerate(source_rows)
             )
             artifacts = tuple(_artifact_from_row(row) for row in artifact_rows)
             preferences = tuple(

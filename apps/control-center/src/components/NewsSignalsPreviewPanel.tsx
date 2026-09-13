@@ -301,7 +301,15 @@ export function NewsSignalsPreviewPanel() {
         setSignalConfidence(80);
         setEditingSignalRef(null);
       }
-      await refresh();
+      try {
+        await refresh();
+      } catch {
+        setWorkspace(null);
+        setLoadState("failed");
+        setError(
+          "The local News change was saved, but the workspace could not be refreshed. Reload before making another change.",
+        );
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -402,15 +410,17 @@ export function NewsSignalsPreviewPanel() {
                 !workspace ||
                 !signalTitle.trim() ||
                 !signalSummary.trim() ||
-                !signalTopic.trim() ||
+                (!editingSignalRef && !signalTopic.trim()) ||
                 (!editingSignalRef && !signalClaim.trim())
               ) return;
               const signalDraft = {
                 source_ref: readySource.source_ref,
                 title: signalTitle.trim(),
                 safe_summary: signalSummary.trim(),
-                topic_label: signalTopic.trim(),
                 cluster_label: signalTitle.trim().slice(0, 80),
+                ...(signalTopic.trim()
+                  ? { topic_label: signalTopic.trim() }
+                  : {}),
                 ...(signalClaim.trim()
                   ? { claim_label: signalClaim.trim() }
                   : {}),
@@ -454,8 +464,10 @@ export function NewsSignalsPreviewPanel() {
             <label>Headline<input maxLength={140} onChange={(event) => { invalidatePendingReview(); setSignalTitle(event.target.value); }} required value={signalTitle} /></label>
             <label>Redacted summary<input maxLength={320} onChange={(event) => { invalidatePendingReview(); setSignalSummary(event.target.value); }} required value={signalSummary} /></label>
             <label>
-              {editingSignalRef ? "Topic (re-enter for correction)" : "Topic"}
-              <input maxLength={60} onChange={(event) => { invalidatePendingReview(); setSignalTopic(event.target.value); }} required value={signalTopic} />
+              {editingSignalRef
+                ? "Topic correction (optional; blank preserves existing topic)"
+                : "Topic"}
+              <input maxLength={60} onChange={(event) => { invalidatePendingReview(); setSignalTopic(event.target.value); }} required={!editingSignalRef} value={signalTopic} />
             </label>
             <label>
               {editingSignalRef

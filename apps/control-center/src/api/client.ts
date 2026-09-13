@@ -1960,7 +1960,7 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     value.items.length > 100 ||
     !value.items.every(isSafeNewsSignalItem) ||
     !isPlainRecord(value.freshness_counts) ||
-    !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 100) ||
+    !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 2_000) ||
     !isPlainRecord(value.today_projection) ||
     !isPlainRecord(value.morning_briefing_projection) ||
     !isNewsSignalsSafeText(value.safe_summary, 320) ||
