@@ -15,15 +15,21 @@ from typing import Any
 MAX_RESULT_BYTES = 16 * 1024 * 1024
 MAX_TESTS = 100_000
 MAX_FAILED_TEST_REFS = 8
+MAX_FAILED_ATTEMPT_REFS = 32
 MAX_SUITE_DEPTH = 32
 SUMMARY_ENV = "GITHUB_STEP_SUMMARY"
 DIAGNOSTIC_NAME = "failure-diagnostics.json"
 DIAGNOSTIC_SCHEMA = "uaa.frontend_failure_diagnostics.v1"
+DIAGNOSTIC_ATTEMPT_SCHEMA = "uaa.frontend_failure_diagnostics.v2"
 
 _SAFE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 _SAFE_REF_RE = re.compile(
     r"^frontend-test-ref:(?:vitest|playwright):"
     r"[A-Za-z0-9_.-]{1,72}:[a-f0-9]{12}$"
+)
+_SAFE_ATTEMPT_REF_RE = re.compile(
+    r"^frontend-attempt-ref:playwright:([a-f0-9]{12}):[0-7]:"
+    r"(?:failed|timed-out|interrupted|other):(?:0|[1-9][0-9]{0,5})$"
 )
 
 
@@ -104,6 +110,76 @@ def _validate_failed_refs(
         )
 
 
+def select_failed_attempt_refs(
+    candidates: set[str], refs: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Bind bounded code-location hints to the selected failing test identities."""
+    identities = {
+        ref.rsplit(":", 1)[1] for ref in refs
+        if ref.startswith("frontend-test-ref:playwright:")
+    }
+    selected = []
+    for candidate in sorted(candidates):
+        match = _SAFE_ATTEMPT_REF_RE.fullmatch(candidate)
+        if match is None:
+            raise FrontendFailureDiagnosticsError("frontend attempt ref is invalid")
+        if match.group(1) in identities:
+            selected.append(candidate)
+    return tuple(selected[:MAX_FAILED_ATTEMPT_REFS])
+
+
+def _validate_attempt_refs(attempt_refs: tuple[str, ...], refs: tuple[str, ...]) -> None:
+    if (
+        len(attempt_refs) > MAX_FAILED_ATTEMPT_REFS
+        or any(not isinstance(ref, str) for ref in attempt_refs)
+        or select_failed_attempt_refs(set(attempt_refs), refs) != attempt_refs
+    ):
+        raise FrontendFailureDiagnosticsError("frontend attempt refs are invalid")
+
+
+def _playwright_attempt_refs(
+    test: dict[str, Any], ref: str, *, relative_path: str,
+    repository_root: Path, playwright_root: Path,
+) -> set[str]:
+    results = test.get("results", [])
+    if not isinstance(results, list):
+        raise FrontendFailureDiagnosticsError("playwright attempt results are invalid")
+    identity = ref.rsplit(":", 1)[1]
+    refs: set[str] = set()
+    for index, result in enumerate(results[:8]):
+        if not isinstance(result, dict):
+            raise FrontendFailureDiagnosticsError("playwright attempt result is invalid")
+        status = result.get("status")
+        if status in ("passed", "skipped"):
+            continue
+        reason = {
+            "failed": "failed", "timedOut": "timed-out", "interrupted": "interrupted",
+        }.get(status, "other") if isinstance(status, str) else "other"
+        line = 0
+        errors = result.get("errors", [])
+        for error in errors[:8] if isinstance(errors, list) else []:
+            location = error.get("location") if isinstance(error, dict) else None
+            if not isinstance(location, dict):
+                continue
+            candidate_line = location.get("line")
+            if type(candidate_line) is not int or not 1 <= candidate_line <= 999_999:
+                continue
+            try:
+                location_path = _relative_report_path(
+                    location.get("file"), repository_root=repository_root,
+                    relative_base=playwright_root,
+                )
+            except FrontendFailureDiagnosticsError:
+                continue
+            if location_path == relative_path:
+                line = candidate_line
+                break
+        # No messages, stacks, titles, paths, expected values or attachments.
+        # Zero means the reporter did not provide a valid same-test source line.
+        refs.add(f"frontend-attempt-ref:playwright:{identity}:{index}:{reason}:{line}")
+    return refs
+
+
 def vitest_failed_test_refs(
     path: Path,
     *,
@@ -162,6 +238,7 @@ def playwright_failed_test_refs(
     path: Path,
     *,
     repository_root: Path,
+    attempt_refs: set[str] | None = None,
 ) -> tuple[str, ...]:
     """Extract bounded refs from a Playwright JSON report without retaining titles."""
 
@@ -185,6 +262,7 @@ def playwright_failed_test_refs(
     )
 
     refs: list[str] = []
+    attempts_by_test: dict[str, set[str]] = {}
     observed = 0
 
     def walk(raw_suites: list[object], *, depth: int) -> None:
@@ -233,18 +311,27 @@ def playwright_failed_test_refs(
                             "playwright diagnostic identity is invalid"
                         )
                     if outcome == "unexpected":
-                        refs.append(
-                            _safe_ref(
-                                "playwright",
-                                relative_path,
-                                spec_id,
-                                project_id,
-                            )
+                        ref = _safe_ref(
+                            "playwright", relative_path, spec_id, project_id,
                         )
+                        refs.append(ref)
+                        if attempt_refs is not None:
+                            attempts_by_test[ref] = _playwright_attempt_refs(
+                                test, ref, relative_path=relative_path,
+                                repository_root=repository_root,
+                                playwright_root=playwright_root,
+                            )
+                            if len(attempts_by_test) > MAX_FAILED_TEST_REFS:
+                                del attempts_by_test[max(attempts_by_test)]
             walk(child_suites, depth=depth + 1)
 
     walk(suites, depth=1)
-    return _bounded_refs(refs)
+    selected = _bounded_refs(refs)
+    if attempt_refs is not None:
+        attempt_refs.update(select_failed_attempt_refs(
+            set().union(*attempts_by_test.values()), selected,
+        ))
+    return selected
 
 
 def publish_failed_test_refs(
@@ -252,13 +339,16 @@ def publish_failed_test_refs(
     *,
     failed_test_count: int,
     summary_path: Path | None = None,
+    attempt_refs: tuple[str, ...] = (),
 ) -> None:
     """Append refs to the GitHub summary and stdout without raw reporter content."""
 
     _validate_failed_refs(refs, failed_test_count=failed_test_count)
+    _validate_attempt_refs(attempt_refs, refs)
     lines = [
         f"Frontend diagnostic refs: {len(refs)} of {failed_test_count} failed tests",
         *(f"Diagnostic frontend test ref: {ref}" for ref in refs),
+        *(f"Diagnostic frontend attempt ref: {ref}" for ref in attempt_refs),
     ]
     for line in lines:
         print(line)
@@ -299,10 +389,12 @@ def retain_failed_test_refs(
     refs: tuple[str, ...],
     *,
     failed_test_count: int,
+    attempt_refs: tuple[str, ...] = (),
 ) -> None:
     """Retain only validated refs for the workflow summary follow-up step."""
 
     _validate_failed_refs(refs, failed_test_count=failed_test_count)
+    _validate_attempt_refs(attempt_refs, refs)
     if not path.is_absolute() or path.name != DIAGNOSTIC_NAME:
         raise FrontendFailureDiagnosticsError(
             "frontend diagnostic retention target is invalid"
@@ -323,6 +415,9 @@ def retain_failed_test_refs(
         "failed_test_refs": list(refs),
         "redaction_status": "content_free",
     }
+    if attempt_refs:
+        payload["schema_version"] = DIAGNOSTIC_ATTEMPT_SCHEMA
+        payload["failed_attempt_refs"] = list(attempt_refs)
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
         "ascii"
     )
@@ -358,19 +453,23 @@ def publish_retained_failed_test_refs(
     if not path.exists():
         return False
     payload = _load_result(path)
-    if set(payload) != {
+    expected_keys = {
         "schema_version",
         "failed_test_count",
         "failed_test_refs",
         "redaction_status",
-    }:
+    }
+    has_attempts = payload.get("schema_version") == DIAGNOSTIC_ATTEMPT_SCHEMA
+    if has_attempts:
+        expected_keys.add("failed_attempt_refs")
+    if set(payload) != expected_keys:
         raise FrontendFailureDiagnosticsError(
             "retained frontend diagnostic schema is invalid"
         )
     failed_test_count = payload["failed_test_count"]
     raw_refs = payload["failed_test_refs"]
     if (
-        payload["schema_version"] != DIAGNOSTIC_SCHEMA
+        payload["schema_version"] not in (DIAGNOSTIC_SCHEMA, DIAGNOSTIC_ATTEMPT_SCHEMA)
         or payload["redaction_status"] != "content_free"
         or isinstance(failed_test_count, bool)
         or not isinstance(failed_test_count, int)
@@ -381,10 +480,14 @@ def publish_retained_failed_test_refs(
             "retained frontend diagnostic is invalid"
         )
     refs = tuple(raw_refs)
+    raw_attempts = payload.get("failed_attempt_refs", [])
+    if not isinstance(raw_attempts, list) or (has_attempts and not raw_attempts):
+        raise FrontendFailureDiagnosticsError("retained frontend attempts are invalid")
     publish_failed_test_refs(
         refs,
         failed_test_count=failed_test_count,
         summary_path=summary_path,
+        attempt_refs=tuple(raw_attempts),
     )
     try:
         path.unlink()

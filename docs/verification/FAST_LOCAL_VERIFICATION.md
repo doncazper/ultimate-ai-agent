@@ -124,6 +124,15 @@ individual paths. Before a ref is published, both the exact committed journal
 bytes and its named inode are revalidated while the lock is still held.
 Terminal diagnostics preserve timeout and cancellation causes.
 
+Failed Playwright cases also retain bounded, content-free attempt hints in
+`uaa.frontend_failure_diagnostics.v2`: the selected test identity digest,
+zero-based attempt index, allowlisted result status, and a same-test source
+line (zero means unavailable). At most eight tests and 32 attempt hints are
+published. Messages, assertion values, titles, stacks, paths, and attachments
+are not retained. Legacy v1 test-only diagnostics remain readable. These hints
+help locate an assertion or timeout; they are not collection-bound proof,
+permission to retry, or evidence that an unreproduced hosted failure is fixed.
+
 Admission also validates the complete offline npm dependency trees for the
 Control Center and Matrix adapter with scripts disabled. Missing or invalid
 transitive dependencies therefore fail before a durable verification attempt
