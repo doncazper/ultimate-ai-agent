@@ -69,6 +69,11 @@ required route must still be backend-owned; unrequested routes remain
 non-authoritative. These compound local reads run serially within one
 eight-second deadline covering queue wait, request and response-body parsing.
 Expired reads are aborted and queued requests cannot start after that deadline.
+If the bound Today or Briefing read fails, an explicit `Retry local read`
+control starts a fresh read through the same hook and current backend binding.
+It is shown only after backend truth is admitted, disappears while loading,
+and never resubmits an approval or save. Failed content remains hidden until
+the existing route ownership and response validation checks pass.
 The full-loader concurrency policy and truth gates remain unchanged.
 Unapproved Agent Loop items check for an approved receipt before rebuilding
 generated action payloads. Approved items still validate their current action
