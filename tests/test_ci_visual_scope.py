@@ -19,10 +19,6 @@ BASE_SHA = "b" * 40
         (b"src/ultimate_ai_agent/api/app.py\0", "not_affected"),
         (b"apps/control-center/src/App.tsx\0", "affected"),
         (b"docs/control_center/PRODUCT_LANGUAGE_RULES.md\0", "affected"),
-        (b"scripts/verification/run_frontend_playwright.py\0", "affected"),
-        (b"scripts/verification/frontend_failure_diagnostics.py\0", "affected"),
-        (b"scripts/verification/ci_command_manifest.py\0", "affected"),
-        (b"scripts/verification/resolve_ci_visual_scope.py\0", "affected"),
     ),
 )
 def test_visual_scope_is_exact_diff_derived(
@@ -39,6 +35,25 @@ def test_visual_scope_is_exact_diff_derived(
     )
 
     assert resolver.resolve_visual_scope(Path("."), BASE_SHA, SHA) == expected
+
+
+@pytest.mark.parametrize("path", (
+    "scripts/verification/run_frontend_playwright.py",
+    "scripts/verification/frontend_failure_diagnostics.py",
+    "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/resolve_ci_visual_scope.py",
+))
+def test_visual_infrastructure_diff_requires_browser_execution(
+    monkeypatch: pytest.MonkeyPatch, path: str,
+) -> None:
+    monkeypatch.setattr(
+        resolver.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=("git",), returncode=0, stdout=f"{path}\0".encode(), stderr=b"",
+        ),
+    )
+    assert resolver.resolve_visual_scope(Path("."), BASE_SHA, SHA) == "affected"
 
 
 @pytest.mark.parametrize("payload", (b"unsafe\npath\0", b"\xff\0"))

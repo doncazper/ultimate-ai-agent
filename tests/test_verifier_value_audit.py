@@ -11,6 +11,8 @@ from scripts.verification import verifier_value_audit as audit
 # Route additions may change this audit's collected dependency graph without
 # changing its behavioral contract; keep that ownership explicit here.
 # The Q33 Calendar route group is included in this exact-head audit refresh.
+# Q34 diagnostic infrastructure is explicitly covered below; the stable
+# measurement fixture and historical measurement artifact remain unchanged.
 
 def _artifact_payload() -> dict[str, object]:
     return json.loads(audit.MEASUREMENT_PATH.read_text(encoding="utf-8"))
@@ -112,6 +114,24 @@ def test_q34_news_routes_are_owned_by_the_api_policy_floor() -> None:
         ("POST", "/control-center/news-signals/adoption/commit"),
     }.issubset(MUTATING_ROUTES)
     assert "news_signals_adoption" in TARGETED_RATE_LIMIT_GROUPS
+
+
+def test_q34_visual_diagnostics_require_the_retained_visual_verifier() -> None:
+    from scripts.verification.ci_command_manifest import visual_scope_for_paths
+
+    visual = next(
+        value for value in audit.VALUES
+        if value.verifier_ref == "verifier-ref:visual-regression"
+    )
+    assert "release-lane:visual-regression" in audit.required_coverage_refs()
+    assert visual.coverage_refs == ("release-lane:visual-regression",)
+    for path in (
+        "scripts/verification/run_frontend_playwright.py",
+        "scripts/verification/frontend_failure_diagnostics.py",
+        "scripts/verification/ci_command_manifest.py",
+        "scripts/verification/resolve_ci_visual_scope.py",
+    ):
+        assert visual_scope_for_paths((path,)) == "affected"
 
 
 def test_verifier_value_audit_rejects_duplicate_defect_claims(
