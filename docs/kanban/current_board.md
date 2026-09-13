@@ -63,11 +63,12 @@ without copying competitor code or branding. The active Wave 6 order is:
 
 1. Q32 CRM functional adoption — terminal after protected merge and post-merge
    qualification.
-2. Q33 founder operating loop and chat usability adoption — active; Chat,
-   Setup, Decision-to-local-Task, Work Board, and Calendar slices are
-   implemented while final cross-surface acceptance remains.
-3. Q34 News and source intelligence functional adoption — blocked by Q33.
-4. Q35 vertical modules functional adoption — blocked by Q26 and Q34.
+2. Q33 founder operating loop and chat usability adoption — terminal at
+   protected merge `d6d5b97ac87b51e002d236f32a035739a74a4f38` with green
+   post-merge CI and Supply Chain qualification.
+3. Q34 News and source intelligence functional adoption — active; bounded
+   founder-private local adoption is in protected qualification.
+4. Q35 vertical modules functional adoption — blocked by Q34.
 5. Q36 cross-module founder adoption closure — blocked by Q32 through Q35.
 
 After this wave closes, Q37 runs the exact-revision post-adoption
@@ -1785,6 +1786,26 @@ Scope: `docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md`,
 No live fetch, account auth, background poll, model summary, connector write,
 recommendation, action, public release, or production authority is accepted.
 Next: admit any live source only as its own exact Q23-compatible authority lane.
+
+Q34 News And Source Intelligence — Founder-Private Functional Adoption
+Goal: make the Q24 News model usable for normal founder-private source and
+signal review without granting live source authority.
+Status: bounded implementation candidate. The Python-owned local lifecycle now
+supports multiple operator-entered sources, already-redacted signals with
+publication timestamps, provenance/freshness/deduplication/ranking,
+preferences, inspection, archive/recovery, source safe-disable/recovery, undo,
+durable exact receipts, and delivery into Today and Morning Briefing. Every
+change requires exact preview, confirmation, approval, revision, idempotency,
+and an operation-budget-one `workspace/write` AuthorityLease.
+Scope: `docs/control_center/Q34_NEWS_SOURCE_INTELLIGENCE_ADOPTION.md`,
+`src/ultimate_ai_agent/core/news_signals/adoption.py`,
+`scripts/inspect_news_signals_adoption.py`,
+`scripts/verify_queue_v2_q34_news_source_intelligence.py`, and Q34 core/API/CLI,
+frontend, and verifier tests. No live fetch, authenticated source, browser,
+background poll, provider/model, connector write, external action, public
+release, or production authority is accepted.
+Next: finish protected merge, post-merge qualification, Queue V2 disposition,
+and cleanup; live adapters remain separate exact future lanes.
 
 ECO-009 Exact Read-Only Connector Platform — First Lane
 Goal: establish the shared exact connector-read contract without inventing

@@ -20,6 +20,7 @@ The runtime gate applies to selected route groups:
 - `memory_context_pack_action_proposal`
 - `memory_feedback`
 - `calendar_adoption`
+- `news_signals_adoption`
 - `crm_adoption`
 - `work_board_adoption`
 - `provider_credential_validation`

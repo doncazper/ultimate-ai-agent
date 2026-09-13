@@ -220,16 +220,21 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "visual-baseline:control-center:today"
     )
     assert by_path["/news"]["status"] == "partial"
-    assert by_path["/news"]["backend_routes"][0]["path"] == (
-        "/control-center/news-signals/summary"
-    )
-    assert by_path["/news"]["side_effect_class"] == "validation_only"
+    assert {route["path"] for route in by_path["/news"]["backend_routes"]} == {
+        "/control-center/news-signals/summary",
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/adoption/preview",
+        "/control-center/news-signals/adoption/approval",
+        "/control-center/news-signals/adoption/commit",
+    }
+    assert by_path["/news"]["side_effect_class"] == "mixed"
+    assert by_path["/news"]["approval_required"] is True
     assert by_path["/news"]["visual_proof_status"] == "blocked_no_baseline"
     assert "missing_backend:news-signals-live-source-adapter" in (
         by_path["/news"]["blocked_capabilities"]
     )
     assert any(
-        "backend-owned safe refs" in caveat.lower()
+        "operator-entered" in caveat.lower()
         for caveat in by_path["/news"]["product_language_caveats"]
     )
     assert by_path["/inbox"]["status"] == "partial"

@@ -87,6 +87,6 @@ def build_provider_credential_vault_adapter_readiness(
         raw_key_visible=report.raw_key_visible,
         adapter_runtime_enabled=False,
         readiness_status=report.readiness_status,
-        blocker_codes=report.blocker_codes,
+        blocker_codes=list(dict.fromkeys([*report.blocker_codes, "VAULT_ADAPTER_NOT_SCOPED"])),
         safe_summary=report.safe_summary,
     )

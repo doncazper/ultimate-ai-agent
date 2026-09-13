@@ -95,11 +95,23 @@ def test_action_inbox_revision_suite_has_advisory_timing_coverage() -> None:
             encoding="utf-8"
         )
     )
-
     assert any(
         row["path"] == "tests/test_action_inbox_revision_lifecycle.py"
         for row in timing_seed["timings"]
     )
+
+
+def test_q34_news_routes_are_owned_by_the_api_policy_floor() -> None:
+    from scripts.verification.api_route_policy_floor import (
+        MUTATING_ROUTES,
+        TARGETED_RATE_LIMIT_GROUPS,
+    )
+
+    assert {
+        ("POST", "/control-center/news-signals/adoption/approval"),
+        ("POST", "/control-center/news-signals/adoption/commit"),
+    }.issubset(MUTATING_ROUTES)
+    assert "news_signals_adoption" in TARGETED_RATE_LIMIT_GROUPS
 
 
 def test_verifier_value_audit_rejects_duplicate_defect_claims(

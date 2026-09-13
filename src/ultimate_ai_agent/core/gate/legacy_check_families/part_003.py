@@ -1047,6 +1047,50 @@ class FoundationGateLegacyChecksPart003Mixin:
                 )
                 and route.blocked_from_production
             )
+            is_news_signals_adoption_state = (
+                path in CONTROL_CENTER_NEWS_SIGNALS_ROUTES
+                and path != "/control-center/news-signals/summary"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.protected_route
+                and route.blocked_from_production
+                and (
+                    (
+                        route.method == "GET"
+                        and path == "/control-center/news-signals/adoption"
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and not route.idempotency_required
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and path == "/control-center/news-signals/adoption/preview"
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and not route.idempotency_required
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "news_signals_adoption"
+                    )
+                    or (
+                        route.method == "POST"
+                        and path
+                        in {
+                            "/control-center/news-signals/adoption/approval",
+                            "/control-center/news-signals/adoption/commit",
+                        }
+                        and route.route_classification
+                        == "mutating_requires_authority"
+                        and route.approval_posture
+                        == "required_before_mutation_authority"
+                        and route.idempotency_required
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "news_signals_adoption"
+                    )
+                )
+            )
             is_control_center_runtime_cockpit_read_model = (
                 path in CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES
                 and route.method == "GET"
@@ -1261,6 +1305,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_coding_cockpit_read_model
                 and not is_work_board_read_model
                 and not is_calendar_read_model
+                and not is_news_signals_adoption_state
                 and not is_control_center_runtime_cockpit_read_model
                 and not is_communications_read_model
                 and not is_matrix_harness_read_command
@@ -1542,6 +1587,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "postCrmAdoptionEnvelope",
             "postWorkBoardAdoptionEnvelope",
             "postCalendarAdoptionEnvelope",
+            "postNewsSignalsAdoptionEnvelope",
             "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
         }

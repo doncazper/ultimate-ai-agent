@@ -83,34 +83,6 @@ ROOT = Path(__file__).resolve().parents[1]
 REDACTED_TEST_PROMPT = "[redacted-test-input]"
 
 
-def _hold_runtime_gateway_store_lock(
-    state_dir: Path,
-    started_path: Path,
-    release_path: Path,
-) -> None:
-    state_dir.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(
-        state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK,
-        os.O_RDWR | os.O_CREAT,
-        0o600,
-    )
-    try:
-        runtime_storage.fcntl.flock(
-            descriptor,
-            runtime_storage.fcntl.LOCK_EX,
-        )
-        started_path.write_text("started", encoding="utf-8")
-        deadline = time.monotonic() + 10
-        while not release_path.exists() and time.monotonic() < deadline:
-            time.sleep(0.01)
-    finally:
-        runtime_storage.fcntl.flock(
-            descriptor,
-            runtime_storage.fcntl.LOCK_UN,
-        )
-        os.close(descriptor)
-
-
 def _run_cross_process_command_owner(
     state_dir: Path,
     started_path: Path,
@@ -913,12 +885,18 @@ def test_runtime_store_lock_contention_fails_closed_within_bounded_wait(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from tests.lock_process_helper import hold_file_lock
+
     state_dir = tmp_path / "runtime"
     started_path = tmp_path / "lock-started"
     release_path = tmp_path / "lock-release"
     process = multiprocessing.Process(
-        target=_hold_runtime_gateway_store_lock,
-        args=(state_dir, started_path, release_path),
+        target=hold_file_lock,
+        args=(
+            state_dir / runtime_storage.RUNTIME_GATEWAY_LOCK,
+            started_path,
+            release_path,
+        ),
     )
     process.start()
     try:
@@ -951,6 +929,54 @@ def test_runtime_store_lock_contention_fails_closed_within_bounded_wait(
             process.terminate()
             process.join(timeout=1)
     assert process.exitcode == 0
+
+
+def test_runtime_store_lock_child_bootstrap_is_independent_of_product_imports(
+    tmp_path: Path,
+) -> None:
+    from tests.lock_process_helper import hold_file_lock
+
+    # The spawned lock holder must not spend its readiness budget importing
+    # the full test module, pytest, or the product dependency graph.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            """
+import importlib
+import importlib.abc
+from pathlib import Path
+import sys
+
+class IsolatedBootstrap(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split(".")[0] in {"pytest", "pydantic", "ultimate_ai_agent"}:
+            raise ImportError("PRODUCT_OR_TEST_RUNNER_IMPORT_IN_LOCK_CHILD")
+
+sys.meta_path.insert(0, IsolatedBootstrap())
+sys.path.insert(0, sys.argv[1])
+module = importlib.import_module(sys.argv[3])
+hold_lock = getattr(module, sys.argv[4])
+root = Path(sys.argv[2])
+release = root / "release"
+release.write_text("release", encoding="utf-8")
+hold_lock(root / "state" / sys.argv[5], root / "started", release)
+""",
+            str(ROOT),
+            str(tmp_path),
+            hold_file_lock.__module__,
+            hold_file_lock.__name__,
+            runtime_storage.RUNTIME_GATEWAY_LOCK,
+        ],
+        capture_output=True,
+        check=False,
+        timeout=5,
+    )
+    assert result.returncode == 0
+    assert result.stdout == b""
+    assert result.stderr == b""
+    assert (tmp_path / "started").read_text(encoding="utf-8") == "started"
 
 
 def test_runtime_store_pins_validated_state_root_descriptor_through_lock_admission(

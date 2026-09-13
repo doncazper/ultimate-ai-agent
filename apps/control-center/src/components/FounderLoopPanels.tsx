@@ -21,6 +21,7 @@ import type { GovernedRuntimeCommandIntent } from "../api/client";
 import { useBackendTruthMutationBinding } from "../backendTruthMutationBinding";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import { ConnectorReadPlatformCard } from "./ConnectorReadPlatformCard";
+import { NewsSignalsDigest } from "./NewsSignalsDigest";
 import type {
   ActionToolCodeLaneCatalogReadModel,
   ActionToolCodeLaneEntry,
@@ -3624,10 +3625,12 @@ function compactLabel(value: string): string {
 
 export function TodaySurfacePanel({
   actionReadModelAuthoritative,
+  readModelAuthoritative = false,
   agentLoopThread,
   today,
 }: {
   actionReadModelAuthoritative: boolean;
+  readModelAuthoritative?: boolean;
   agentLoopThread: FounderLoopAgentLoopThread;
   today: FounderLoopTodaySummary;
 }) {
@@ -3645,6 +3648,10 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <article className="status-card today-news-digest">
+        <h3>News</h3>
+        <NewsSignalsDigest authoritative={readModelAuthoritative} surface="today" />
+      </article>
       <AgentLoopThreadPanel readModel={agentLoopThread} />
       <OperatorWorkspaceSpinePanel
         readModel={today.operator_workspace_spine_read_model}
@@ -8377,8 +8384,10 @@ function MemoryDerivedActionProposalCard({
 
 export function MorningBriefingPanel({
   briefing,
+  readModelAuthoritative = false,
 }: {
   briefing: FounderLoopMorningBriefing;
+  readModelAuthoritative?: boolean;
 }) {
   return (
     <section className="page-section" aria-labelledby="briefing-surface-heading">
@@ -8390,6 +8399,10 @@ export function MorningBriefingPanel({
         <span className="status-pill compact">{briefing.status}</span>
       </div>
       <BriefingOperatorSummary briefing={briefing} />
+      <article className="status-card">
+        <h3>News for review</h3>
+        <NewsSignalsDigest authoritative={readModelAuthoritative} surface="briefing" />
+      </article>
       <MorningBriefingV1Panel
         contractRef={briefing.morning_briefing_v1_contract_ref}
         readModel={briefing.morning_briefing_v1_read_model}

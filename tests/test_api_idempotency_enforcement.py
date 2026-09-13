@@ -39,6 +39,8 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
             "/control-center/calendar/adoption/commit",
             "/control-center/calendar/adoption/restore-approval",
             "/control-center/calendar/adoption/restore-commit",
+            "/control-center/news-signals/adoption/approval",
+            "/control-center/news-signals/adoption/commit",
         }
     ]
     assert all(
@@ -248,6 +250,35 @@ def test_calendar_adoption_approvals_report_durable_authority_owner() -> None:
         route["durable_idempotency_owner_ref"]
         == "idempotency-owner:calendar-adoption-authority-approval-store:v1"
         for route in routes
+    )
+
+
+def test_news_signals_adoption_reports_durable_idempotency_owners() -> None:
+    manifest = build_api_manifest(app).model_dump(mode="json")
+    routes = {
+        route["path"]: route
+        for route in manifest["routes"]
+        if route["method"] == "POST"
+        and route["path"]
+        in {
+            "/control-center/news-signals/adoption/approval",
+            "/control-center/news-signals/adoption/commit",
+        }
+    }
+
+    assert routes[
+        "/control-center/news-signals/adoption/approval"
+    ]["durable_idempotency_owner_ref"] == (
+        "idempotency-owner:news-signals-adoption-authority-approval-store:v1"
+    )
+    assert routes[
+        "/control-center/news-signals/adoption/commit"
+    ]["durable_idempotency_owner_ref"] == (
+        "idempotency-owner:news-signals-adoption-state-receipts:v1"
+    )
+    assert all(
+        route["idempotency_enforcement"] == "route_owned_durable_replay"
+        for route in routes.values()
     )
 
 

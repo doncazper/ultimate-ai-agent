@@ -49,13 +49,13 @@ afterEach(() => {
 });
 
 
-function stubSummary(value: unknown) {
+function stubSummary(value: unknown, headers: Record<string, string> = {}) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
       new Response(JSON.stringify({ success: true, data: value }), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
       }),
     ),
   );
@@ -63,6 +63,25 @@ function stubSummary(value: unknown) {
 
 
 describe("News and Signals API boundary", () => {
+  it("requires the exact backend identity for a bound digest read", async () => {
+    const binding = {
+      snapshotRef: "proof-ref:q34:news",
+      backendRevisionRef: "commit-ref:git:q34-news",
+      backendInstanceRef: "backend-instance-ref:q34-news",
+    };
+    stubSummary(emptySummary);
+    await expect(loadNewsSignalsSummary(binding)).rejects.toThrow();
+    stubSummary(emptySummary, {
+      "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+      "X-UAA-Backend-Instance-Ref": "backend-instance-ref:substituted",
+    });
+    await expect(loadNewsSignalsSummary(binding)).rejects.toThrow();
+    stubSummary(emptySummary, {
+      "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+      "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+    });
+    await expect(loadNewsSignalsSummary(binding)).resolves.toEqual(emptySummary);
+  });
   it("accepts the bounded backend-owned empty state", async () => {
     stubSummary(emptySummary);
 

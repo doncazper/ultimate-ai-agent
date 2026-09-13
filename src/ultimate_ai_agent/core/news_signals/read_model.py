@@ -406,6 +406,7 @@ def build_news_signals_summary(
         and item["source_state"] == "ready"
         and item["conflict_state"] == "none"
     ][:3]
+    projected_refs = {item["signal_ref"] for item in (*today_items, *briefing_items)}
     freshness_counts = {
         state: sum(item["freshness_state"] == state for item in visible)
         for state in ("fresh", "stale", "unknown")
@@ -436,6 +437,9 @@ def build_news_signals_summary(
         "observed_at": observed_now.isoformat().replace("+00:00", "Z"),
         "source_readiness": source_readiness,
         "items": visible,
+        "projection_items": [
+            item for item in deduplicated if item["signal_ref"] in projected_refs
+        ],
         "freshness_counts": freshness_counts,
         "conflicting_claim_refs": sorted(conflicting_claims),
         "today_projection": {
@@ -684,9 +688,14 @@ class NewsSignalsRepository:
     def _ensure_storage(self) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
-            conn.executescript(
-                """
-                PRAGMA journal_mode=WAL;
+            conn.execute("PRAGMA journal_mode=WAL")
+            self._ensure_schema(conn)
+
+    @staticmethod
+    def _ensure_schema(conn: sqlite3.Connection) -> None:
+        # Individual statements preserve the caller's approved transaction;
+        # executescript would implicitly commit before creating the schema.
+        for statement in """
                 CREATE TABLE IF NOT EXISTS news_signal_sources (
                     source_ref TEXT PRIMARY KEY,
                     source_kind TEXT NOT NULL,
@@ -723,8 +732,9 @@ class NewsSignalsRepository:
                     ON news_signal_artifacts(source_ref);
                 CREATE INDEX IF NOT EXISTS news_signal_artifacts_cluster_idx
                     ON news_signal_artifacts(cluster_ref);
-                """
-            )
+                """.split(";"):
+            if statement.strip():
+                conn.execute(statement)
 
 
 def _receipt_ref(kind: str, *parts: str) -> str:

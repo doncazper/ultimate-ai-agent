@@ -3987,7 +3987,7 @@ describe("Web Control Center shell", () => {
         ).not.toBeInTheDocument();
       }
       expect(fetchMock).toHaveBeenCalledWith(
-        "/control-center/news-signals/summary",
+        "/control-center/news-signals/adoption?offset=0&limit=100",
         expect.any(Object),
       );
     } finally {

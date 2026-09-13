@@ -88,6 +88,114 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     vi.unstubAllGlobals();
   });
 
+  it("loads only the exact Today and Briefing dependencies without promoting unread routes", async () => {
+    stubControlCenterFetch(baseRouteData(), {
+      "X-UAA-Backend-Revision-Ref": "commit-ref:git:news-handoff",
+      "X-UAA-Backend-Instance-Ref": "backend-instance-ref:news-handoff",
+    });
+    const result = await loadControlCenterData({
+      snapshotRef: "proof-ref:news-handoff",
+      backendRevisionRef: "commit-ref:git:news-handoff",
+      backendInstanceRef: "backend-instance-ref:news-handoff",
+    }, "news-handoff");
+    expect(vi.mocked(fetch).mock.calls.map(([input]) => endpointPath(input)).sort()).toEqual([
+      API_ENDPOINTS.controlCenterDashboard,
+      API_ENDPOINTS.approvalSummary,
+      API_ENDPOINTS.runtimeReadinessSummary,
+      API_ENDPOINTS.foundationGateSummary,
+      API_ENDPOINTS.controlCenterSettingsStatus,
+      API_ENDPOINTS.founderTodaySummary,
+      API_ENDPOINTS.founderEvidenceTimeline,
+      API_ENDPOINTS.founderActionsInbox,
+      API_ENDPOINTS.founderMorningBriefing,
+      API_ENDPOINTS.founderAgentLoopThread,
+    ].sort());
+    expect(result.connection.state).toBe("online");
+    expect(result.connection.usingMockData).toBe(false);
+    for (const route of ["/today", "/briefing", "/actions", "/evidence", "/chat", "/settings", "/critical/dashboard-read-model"]) {
+      expect(result.routeStates[route].state).toBe("backend_owned");
+    }
+    for (const route of ["/runtime", "/memory", "/crm", "/studio", "/work-board"]) {
+      expect(result.routeStates[route].state).not.toBe("backend_owned");
+    }
+  });
+
+  it("serializes the compound News handoff reads", async () => {
+    stubControlCenterFetch(baseRouteData(), {
+      "X-UAA-Backend-Revision-Ref": "commit-ref:git:news-handoff",
+      "X-UAA-Backend-Instance-Ref": "backend-instance-ref:news-handoff",
+    });
+    const originalFetch = fetch;
+    let active = 0;
+    let maximum = 0;
+    vi.stubGlobal("fetch", vi.fn(async (...args: Parameters<typeof fetch>) => {
+      active++;
+      maximum = Math.max(maximum, active);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return await originalFetch(...args);
+      } finally {
+        active--;
+      }
+    }));
+    await loadControlCenterData({
+      snapshotRef: "proof-ref:news-handoff",
+      backendRevisionRef: "commit-ref:git:news-handoff",
+      backendInstanceRef: "backend-instance-ref:news-handoff",
+    }, "news-handoff");
+    expect(maximum).toBe(1);
+  });
+
+  it.each([
+    API_ENDPOINTS.controlCenterDashboard,
+    API_ENDPOINTS.approvalSummary,
+    API_ENDPOINTS.runtimeReadinessSummary,
+    API_ENDPOINTS.foundationGateSummary,
+    API_ENDPOINTS.controlCenterSettingsStatus,
+    API_ENDPOINTS.founderTodaySummary,
+    API_ENDPOINTS.founderEvidenceTimeline,
+    API_ENDPOINTS.founderActionsInbox,
+    API_ENDPOINTS.founderMorningBriefing,
+    API_ENDPOINTS.founderAgentLoopThread,
+  ])("fails closed without required News handoff dependency %s", async (missing) => {
+    const fixtures = baseRouteData();
+    delete fixtures[missing];
+    stubControlCenterFetch(fixtures, {
+      "X-UAA-Backend-Revision-Ref": "commit-ref:git:news-handoff",
+      "X-UAA-Backend-Instance-Ref": "backend-instance-ref:news-handoff",
+    });
+    await expect(loadControlCenterData({
+      snapshotRef: "proof-ref:news-handoff",
+      backendRevisionRef: "commit-ref:git:news-handoff",
+      backendInstanceRef: "backend-instance-ref:news-handoff",
+    }, "news-handoff")).rejects.toThrow();
+  });
+
+  it("rejects an unbound or substituted News handoff backend", async () => {
+    stubControlCenterFetch(baseRouteData());
+    await expect(loadControlCenterData(null, "news-handoff")).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(loadControlCenterData({
+      snapshotRef: "proof-ref:news-handoff",
+      backendRevisionRef: "commit-ref:git:news-handoff",
+      backendInstanceRef: "backend-instance-ref:news-handoff",
+    }, "news-handoff")).rejects.toThrow();
+  });
+
+  it("retains the existing authority validator in the bounded News handoff", async () => {
+    const fixtures = baseRouteData();
+    fixtures[API_ENDPOINTS.controlCenterSettingsStatus] = {};
+    stubControlCenterFetch(fixtures, {
+      "X-UAA-Backend-Revision-Ref": "commit-ref:git:news-handoff",
+      "X-UAA-Backend-Instance-Ref": "backend-instance-ref:news-handoff",
+    });
+    await expect(loadControlCenterData({
+      snapshotRef: "proof-ref:news-handoff",
+      backendRevisionRef: "commit-ref:git:news-handoff",
+      backendInstanceRef: "backend-instance-ref:news-handoff",
+    }, "news-handoff")).rejects.toThrow();
+  });
+
   it("loads Studio skill metadata through one focused backend read", async () => {
     const posture = await validSkillMarketplacePosture();
     stubControlCenterFetch({
@@ -944,6 +1052,32 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "non_authoritative_review_truth",
     );
     expect(data.connection.state).toBe("degraded");
+    expect(data.connection.warnings).toContain(
+      "AGENT_LOOP_THREAD_MOCK_FALLBACK",
+    );
+  });
+
+  it("rejects unsafe external-information summary truth", async () => {
+    const routeData = baseRouteData();
+    const thread = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.founderAgentLoopThread]),
+    ) as Record<string, unknown>;
+    const highMaturity = thread.high_maturity_spine_readiness as Record<
+      string,
+      unknown
+    >;
+    const externalInformation = highMaturity.external_information_handling as Record<
+      string,
+      unknown
+    >;
+    const rows = externalInformation.rows as Array<Record<string, unknown>>;
+    rows[1].safe_summary = "Untrusted raw pages must not be retained.";
+    routeData[API_ENDPOINTS.founderAgentLoopThread] = thread;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderAgentLoopThread.backend_owned).toBe(false);
     expect(data.connection.warnings).toContain(
       "AGENT_LOOP_THREAD_MOCK_FALLBACK",
     );
@@ -1835,7 +1969,7 @@ function baseRouteData(): Record<string, unknown> {
   };
 }
 
-function stubControlCenterFetch(routeData: Record<string, unknown>): void {
+function stubControlCenterFetch(routeData: Record<string, unknown>, headers: Record<string, string> = {}): void {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: unknown) => {
@@ -1850,7 +1984,7 @@ function stubControlCenterFetch(routeData: Record<string, unknown>): void {
         }),
         {
           status: 200,
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...headers },
         },
       );
     }),

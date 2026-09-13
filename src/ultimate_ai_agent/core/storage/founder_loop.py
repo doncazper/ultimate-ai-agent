@@ -15056,6 +15056,11 @@ class FounderLoopRepository:
         conn: sqlite3.Connection | None = None,
         action: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
+        receipts = self._action_decision_receipts_for_item_ref(item_ref, conn=conn)
+        # No approved receipt can authorize this projection. Avoid rebuilding
+        # generated action payloads only to discover that no approval exists.
+        if not any(receipt.get("status") == "approved" for receipt in receipts):
+            return None
         action = action or self._action_payload_for_item_ref(item_ref, conn=conn)
         if action is None:
             return None
@@ -15063,7 +15068,6 @@ class FounderLoopRepository:
             {**action, **_action_envelope_contract_payload(action)},
             conn=conn,
         )
-        receipts = self._action_decision_receipts_for_item_ref(item_ref, conn=conn)
         for receipt in reversed(receipts):
             if (
                 receipt.get("status") != "approved"

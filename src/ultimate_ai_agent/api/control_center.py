@@ -112,6 +112,15 @@ from ultimate_ai_agent.core.ecosystem.calendar import CalendarView
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
 )
+from ultimate_ai_agent.core.news_signals import (
+    NEWS_SIGNALS_ADOPTION_CONTRACT_REF,
+    NewsSignalsAdoptionApprovalCaptureRequest,
+    NewsSignalsAdoptionCommitRequest,
+    NewsSignalsAdoptionConflict,
+    NewsSignalsAdoptionError,
+    NewsSignalsAdoptionMutationRequest,
+    NewsSignalsAdoptionStore,
+)
 from ultimate_ai_agent.core.social_publishing import build_q30_proposal_read_model
 from ultimate_ai_agent.core.task_decomposition import (
     api_safety as task_decomposition_api_safety,
@@ -128,6 +137,8 @@ WORK_BOARD_ADOPTION_MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024
 WORK_BOARD_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
 CALENDAR_ADOPTION_MAX_REQUEST_BODY_BYTES = 24 * 1024 * 1024
 CALENDAR_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 64
+NEWS_SIGNALS_ADOPTION_MAX_REQUEST_BODY_BYTES = 256 * 1024
+NEWS_SIGNALS_ADOPTION_MAX_REQUEST_NESTING_DEPTH = 32
 _CRM_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
     {
         "/control-center/crm/adoption/query",
@@ -159,6 +170,13 @@ _CALENDAR_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
         "/control-center/calendar/adoption/restore-preview",
         "/control-center/calendar/adoption/restore-approval",
         "/control-center/calendar/adoption/restore-commit",
+    }
+)
+_NEWS_SIGNALS_ADOPTION_BOUNDED_BODY_ROUTES = frozenset(
+    {
+        "/control-center/news-signals/adoption/preview",
+        "/control-center/news-signals/adoption/approval",
+        "/control-center/news-signals/adoption/commit",
     }
 )
 _TaskDecompositionServiceGetter = Callable[[], TaskDecompositionService]
@@ -199,6 +217,18 @@ class CalendarAdoptionBodyLimitResponse(BaseModel):
     maximum_json_nesting_depth: Literal[64]
 
 
+class NewsSignalsAdoptionBodyLimitResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    detail: Literal[
+        "The private News request body exceeds the permitted local bound."
+    ]
+    code: Literal["NEWS_SIGNALS_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED"]
+    contract_ref: Literal["contract-ref:queue-v2-q34-news-signals-adoption:v1"]
+    maximum_body_bytes: Literal[262144]
+    maximum_json_nesting_depth: Literal[32]
+
+
 def _crm_request_origin(scope: Scope) -> str | None:
     for name, value in scope.get("headers", ()):
         if name.lower() == b"origin":
@@ -209,7 +239,11 @@ def _crm_request_origin(scope: Scope) -> str | None:
     return None
 
 
-def _crm_json_nesting_exceeds_limit(body: bytes) -> bool:
+def _crm_json_nesting_exceeds_limit(
+    body: bytes,
+    *,
+    maximum_depth: int = CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
+) -> bool:
     depth = 0
     in_string = False
     escaped = False
@@ -226,7 +260,7 @@ def _crm_json_nesting_exceeds_limit(body: bytes) -> bool:
             in_string = True
         elif value in (ord("["), ord("{")):
             depth += 1
-            if depth > CRM_ADOPTION_MAX_REQUEST_NESTING_DEPTH:
+            if depth > maximum_depth:
                 return True
         elif value in (ord("]"), ord("}")) and depth > 0:
             depth -= 1
@@ -514,6 +548,96 @@ class CalendarAdoptionBodyLimitMiddleware:
         await response(scope, receive, send)
 
 
+class NewsSignalsAdoptionBodyLimitMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        maximum_body_bytes: int = NEWS_SIGNALS_ADOPTION_MAX_REQUEST_BODY_BYTES,
+    ) -> None:
+        self.app = app
+        self.maximum_body_bytes = maximum_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() != "POST"
+            or scope.get("path") not in _NEWS_SIGNALS_ADOPTION_BOUNDED_BODY_ROUTES
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        send = _crm_no_store_send(send)
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            try:
+                content_length = int(value)
+            except ValueError:
+                break
+            if content_length > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+
+        buffered_body = bytearray()
+        received_bytes = 0
+        disconnected = False
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                disconnected = True
+                break
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            received_bytes += len(chunk)
+            if received_bytes > self.maximum_body_bytes:
+                await self._reject(scope, receive, send)
+                return
+            buffered_body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        body = bytes(buffered_body)
+        if _crm_json_nesting_exceeds_limit(
+            body,
+            maximum_depth=NEWS_SIGNALS_ADOPTION_MAX_REQUEST_NESTING_DEPTH,
+        ):
+            await self._reject(scope, receive, send)
+            return
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                if disconnected:
+                    return {"type": "http.disconnect"}
+                return {"type": "http.request", "body": body, "more_body": False}
+            return {"type": "http.disconnect"}
+
+        await self.app(scope, replay_receive, send)
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": (
+                    "The private News request body exceeds the permitted local bound."
+                ),
+                "code": "NEWS_SIGNALS_ADOPTION_REQUEST_BODY_LIMIT_EXCEEDED",
+                "contract_ref": NEWS_SIGNALS_ADOPTION_CONTRACT_REF,
+                "maximum_body_bytes": self.maximum_body_bytes,
+                "maximum_json_nesting_depth": (
+                    NEWS_SIGNALS_ADOPTION_MAX_REQUEST_NESTING_DEPTH
+                ),
+            },
+        )
+        apply_loopback_cors_response_headers(response, _crm_request_origin(scope))
+        await response(scope, receive, send)
+
+
 class CrmAdoptionPrivateResponseMiddleware:
     """Prevent authenticated founder-private CRM responses from being cached."""
 
@@ -526,6 +650,7 @@ class CrmAdoptionPrivateResponseMiddleware:
                 "/control-center/crm/adoption",
                 "/control-center/work-board/adoption",
                 "/control-center/calendar/adoption",
+                "/control-center/news-signals/adoption",
             )
         ):
             await self.app(scope, receive, send)
@@ -545,6 +670,7 @@ def register_control_center_routes(
         app.add_middleware(CrmAdoptionBodyLimitMiddleware)
         app.add_middleware(WorkBoardAdoptionBodyLimitMiddleware)
         app.add_middleware(CalendarAdoptionBodyLimitMiddleware)
+        app.add_middleware(NewsSignalsAdoptionBodyLimitMiddleware)
         app.add_middleware(CrmAdoptionPrivateResponseMiddleware)
     register_router_once(app, router, state_attr=_REGISTERED_ATTR)
 
@@ -1246,6 +1372,155 @@ def post_control_center_crm_local_mutation(
         trace_id=receipt.receipt_ref,
         data=receipt.model_dump(mode="json"),
         evidence_ref="evidence-ref:crm-local-command-center:local-mutation",
+    )
+
+
+@router.get(
+    "/news-signals/adoption",
+    response_model=ResultEnvelope,
+    operation_id="get_control_center_news_signals_adoption_workspace",
+    summary="Read the founder-private local News workspace",
+)
+def get_control_center_news_signals_adoption(
+    offset: int = Query(default=0, ge=0, le=1_999),
+    limit: int = Query(default=100, ge=1, le=100),
+    search_query: str | None = Query(default=None, min_length=1, max_length=80),
+) -> ResultEnvelope:
+    try:
+        view = NewsSignalsAdoptionStore.from_env().read_view(
+            offset=offset,
+            limit=limit,
+            search_query=search_query,
+        )
+    except (NewsSignalsAdoptionConflict, NewsSignalsAdoptionError, ValueError) as exc:
+        _raise_news_signals_adoption_http_error(exc)
+    return _news_signals_adoption_result_envelope(
+        operation="control_center_news_signals_adoption",
+        trace_id=f"news-signals-adoption-revision-ref:{view['revision']}",
+        data=view,
+        evidence_ref="evidence-ref:queue-v2-q34:news-private-read",
+    )
+
+
+@router.post(
+    "/news-signals/adoption/preview",
+    response_model=ResultEnvelope,
+    operation_id="preview_control_center_news_signals_adoption_mutation",
+    summary="Preview one exact local News lifecycle change",
+    responses={
+        413: {
+            "model": NewsSignalsAdoptionBodyLimitResponse,
+            "description": "Private News request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_news_signals_adoption_preview(
+    request: NewsSignalsAdoptionMutationRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _news_signals_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        preview = NewsSignalsAdoptionStore.from_env().preview_mutation(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (NewsSignalsAdoptionConflict, NewsSignalsAdoptionError, ValueError) as exc:
+        _raise_news_signals_adoption_http_error(exc)
+    return _news_signals_adoption_result_envelope(
+        operation="control_center_news_signals_adoption_preview",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q34:news-exact-preview",
+    )
+
+
+@router.post(
+    "/news-signals/adoption/approval",
+    response_model=ResultEnvelope,
+    operation_id="capture_control_center_news_signals_adoption_approval",
+    summary="Capture one exact local News approval",
+    responses={
+        413: {
+            "model": NewsSignalsAdoptionBodyLimitResponse,
+            "description": "Private News request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_news_signals_adoption_approval(
+    request: NewsSignalsAdoptionApprovalCaptureRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_news_signals_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _news_signals_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = NewsSignalsAdoptionStore.from_env().capture_approval(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (NewsSignalsAdoptionConflict, NewsSignalsAdoptionError, ValueError) as exc:
+        _raise_news_signals_adoption_http_error(exc)
+    return _news_signals_adoption_result_envelope(
+        operation="control_center_news_signals_adoption_approval",
+        trace_id=receipt.approval_validation_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q34:news-exact-approval",
+    )
+
+
+@router.post(
+    "/news-signals/adoption/commit",
+    response_model=ResultEnvelope,
+    operation_id="commit_control_center_news_signals_adoption_mutation",
+    summary="Commit one approved local News lifecycle change",
+    responses={
+        413: {
+            "model": NewsSignalsAdoptionBodyLimitResponse,
+            "description": "Private News request exceeds a local input bound.",
+        }
+    },
+)
+def post_control_center_news_signals_adoption_commit(
+    request: NewsSignalsAdoptionCommitRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias=IDEMPOTENCY_KEY_HEADER
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias=IDEMPOTENCY_REF_HEADER
+    ),
+    x_uaa_operator_confirmed: bool = Header(
+        default=False, alias=_OPERATOR_CONFIRMATION_HEADER
+    ),
+) -> ResultEnvelope:
+    _require_news_signals_operator_confirmation(x_uaa_operator_confirmed)
+    idempotency_ref = _news_signals_adoption_idempotency_ref(
+        x_uaa_idempotency_key, x_uaa_idempotency_ref
+    )
+    try:
+        receipt = NewsSignalsAdoptionStore.from_env().commit_mutation(
+            request, idempotency_ref=idempotency_ref
+        )
+    except (NewsSignalsAdoptionConflict, NewsSignalsAdoptionError, ValueError) as exc:
+        _raise_news_signals_adoption_http_error(exc)
+    return _news_signals_adoption_result_envelope(
+        operation="control_center_news_signals_adoption_commit",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:queue-v2-q34:news-exact-receipt",
     )
 
 
@@ -2406,6 +2681,134 @@ def _crm_private_result_envelope(
             "provider_payloads_omitted",
         ],
     )
+
+
+def _news_signals_adoption_result_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    data: object,
+    evidence_ref: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterNewsSignalsAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": NEWS_SIGNALS_ADOPTION_CONTRACT_REF,
+            }
+        ],
+        redactions_applied=[
+            "already_redacted_local_artifacts_only",
+            "source_content_omitted_from_receipts",
+            "raw_paths_omitted",
+            "account_identifiers_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _require_news_signals_operator_confirmation(confirmed: bool) -> None:
+    if not confirmed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "NEWS_SIGNALS_ADOPTION_OPERATOR_CONFIRMATION_REQUIRED",
+                "safe_message": (
+                    "Review the exact News preview and confirm this one local change."
+                ),
+            },
+        )
+
+
+def _raise_news_signals_adoption_http_error(
+    exc: NewsSignalsAdoptionError | ValueError,
+) -> None:
+    candidate = str(exc)
+    code = (
+        candidate
+        if candidate
+        and len(candidate) <= 128
+        and candidate == candidate.upper()
+        and candidate.replace("_", "").isalnum()
+        else "NEWS_SIGNALS_ADOPTION_ERROR"
+    )
+    status_code = (
+        409
+        if isinstance(exc, NewsSignalsAdoptionConflict)
+        else 400
+        if isinstance(exc, ValueError)
+        else 403
+    )
+    if code in {
+        "NEWS_SIGNALS_ADOPTION_JSON_INVALID",
+        "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_RECEIPT_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_DATABASE_ROW_INVALID",
+        "NEWS_SIGNALS_ADOPTION_DATABASE_CAPACITY_INVALID",
+        "NEWS_SIGNALS_ADOPTION_RELATIONSHIP_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_REVISION_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_SCHEMA_STATE_INVALID",
+    }:
+        status_code = 422
+    elif code in {
+        "NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE",
+        "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE",
+    }:
+        status_code = 503
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "code": code,
+            "safe_message": (
+                "The private News request could not be completed safely. "
+                "Refresh the workspace before retrying."
+            ),
+        },
+    ) from exc
+
+
+def _news_signals_adoption_idempotency_ref(
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> str:
+    supplied_values = [
+        value.strip()
+        for value in (idempotency_key, idempotency_ref)
+        if value is not None and value.strip()
+    ]
+    if not supplied_values:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "Private News requests require an idempotency key or scoped ref."
+                ),
+            },
+        )
+    if any(not idempotency_value_valid(value) for value in supplied_values):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_INVALID",
+                "safe_message": "The supplied idempotency value is invalid.",
+            },
+        )
+    if len(set(supplied_values)) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "API_IDEMPOTENCY_CONFLICT",
+                "safe_message": "The supplied idempotency values do not match.",
+            },
+        )
+    return supplied_values[0]
 
 
 def _work_board_adoption_result_envelope(

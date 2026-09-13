@@ -31,7 +31,7 @@ type InternalLoadState =
   | { status: "error"; data: null; error: string; snapshotRef: null };
 
 const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
-export type ControlCenterDataScope = "full" | "north-star-decisions";
+export type ControlCenterDataScope = "full" | "north-star-decisions" | "news-handoff";
 
 export function useControlCenterData(
   enabled = true,
@@ -76,7 +76,9 @@ export function useControlCenterData(
         : null;
     const load = () => scope === "north-star-decisions"
       ? loadNorthStarDecisionsData(expectedBinding)
-      : loadControlCenterData(expectedBinding);
+      : scope === "news-handoff"
+        ? loadControlCenterData(expectedBinding, "news-handoff")
+        : loadControlCenterData(expectedBinding);
     const scheduleMockFallbackRetry = (attemptIndex: number) => {
       if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
         return;

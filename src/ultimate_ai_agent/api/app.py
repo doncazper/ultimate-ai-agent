@@ -287,6 +287,8 @@ _CONTROL_CENTER_BOUND_MUTATION_PATHS = {
     "/control-center/calendar/adoption/commit",
     "/control-center/calendar/adoption/restore-approval",
     "/control-center/calendar/adoption/restore-commit",
+    "/control-center/news-signals/adoption/approval",
+    "/control-center/news-signals/adoption/commit",
     "/control-center/work-board/reorder",
     "/control-center/work-board/cards",
     "/control-center/work-board/tasks",

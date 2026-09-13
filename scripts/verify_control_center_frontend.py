@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 32
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 33
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -990,6 +990,17 @@ def verify(root: Path = ROOT) -> list[str]:
             if fragment not in text:
                 failures.append(
                     "frontend client missing scoped Calendar adoption helper: "
+                    f"{fragment}"
+                )
+        for fragment in [
+            "postNewsSignalsAdoptionEnvelope",
+            "API_ENDPOINTS.newsSignalsAdoptionPreview",
+            "API_ENDPOINTS.newsSignalsAdoptionApproval",
+            "API_ENDPOINTS.newsSignalsAdoptionCommit",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    "frontend client missing scoped News adoption helper: "
                     f"{fragment}"
                 )
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:

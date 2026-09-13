@@ -140,17 +140,38 @@
     },
     {
       "capability_id": "news_signals_backend_read_model",
-      "label": "News & Signals backend-owned redacted artifact read model",
-      "python_core_owner": "src/ultimate_ai_agent/core/news_signals/read_model.py",
+      "label": "News & Signals founder-private local adoption",
+      "python_core_owner": "src/ultimate_ai_agent/core/news_signals/adoption.py",
       "api_routes": [
         {
           "method": "GET",
           "path": "/control-center/news-signals/summary",
           "operation_id": "get_control_center_news_signals_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/news-signals/adoption",
+          "operation_id": "get_control_center_news_signals_adoption_workspace"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/preview",
+          "operation_id": "preview_control_center_news_signals_adoption_mutation"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/approval",
+          "operation_id": "capture_control_center_news_signals_adoption_approval"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/news-signals/adoption/commit",
+          "operation_id": "commit_control_center_news_signals_adoption_mutation"
         }
       ],
       "cli_paths": [
-        "scripts/inspect_news_signals.py"
+        "scripts/inspect_news_signals.py",
+        "scripts/inspect_news_signals_adoption.py"
       ],
       "ui_routes": [
         "/news"
@@ -158,15 +179,20 @@
       "control_action_ids": [
         "navigate-news-signals"
       ],
-      "authority_posture": "backend-owned local safe-ref and bounded-summary projection from already-redacted artifacts; live source access, account authentication, background polling, model summarization, connector writes, recommendations, and actions remain blocked",
-      "status": "partial_surface_coverage",
-      "missing_reason": "No live news source adapter is graduated; the default stream remains empty and blocked until a separately accepted read-only lane supplies redacted artifacts",
+      "authority_posture": "backend-owned founder-private local source and already-redacted artifact adoption with exact approval, idempotency, operation-budget-one workspace/write lease, receipts, archive/recovery, source safe-disable/recovery, preferences, undo, and bounded Today/Morning Briefing projections; live source access, account authentication, background polling, model summarization, connector writes, recommendations, and actions remain blocked",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
       "tests_evidence_refs": [
         "tests/test_queue_v2_q24_news_signals.py",
         "tests/test_queue_v2_q24_news_signals_verifier.py",
+        "tests/test_q34_news_signals_adoption.py",
+        "tests/test_q34_news_signals_adoption_api.py",
+        "tests/test_q34_news_signals_adoption_cli.py",
+        "tests/test_queue_v2_q34_news_source_intelligence.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_control_center_capability_surface_manifest.py",
-        "docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md"
+        "docs/control_center/NEWS_AND_SIGNALS_MODULE_PLAN.md",
+        "docs/control_center/Q34_NEWS_SOURCE_INTELLIGENCE_ADOPTION.md"
       ]
     },
     {
