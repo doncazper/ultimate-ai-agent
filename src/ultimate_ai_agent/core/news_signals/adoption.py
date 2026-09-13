@@ -11,7 +11,7 @@ reversible through one bounded undo snapshot.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -770,7 +770,7 @@ class NewsSignalsAdoptionStore:
                 state = self._read_snapshot(read_conn)
                 replay = self._receipt_for_idempotency(read_conn, idempotency_ref)
             if replay is not None:
-                return self._validate_receipt_replay(
+                return self._finish_commit_replay(
                     replay, request=request, idempotency_ref=idempotency_ref
                 )
             preview = self._preview(
@@ -793,7 +793,7 @@ class NewsSignalsAdoptionStore:
                 state = self._read_snapshot(conn)
                 replay = self._receipt_for_idempotency(conn, idempotency_ref)
                 if replay is not None:
-                    return self._validate_receipt_replay(
+                    return self._finish_commit_replay(
                         replay,
                         request=request,
                         idempotency_ref=idempotency_ref,
@@ -820,7 +820,7 @@ class NewsSignalsAdoptionStore:
                     ) = self._authorize(preview, idempotency_ref=idempotency_ref)
                 self.repository._ensure_schema(conn)
                 self._ensure_adoption_schema(conn)
-                self._store_undo_snapshot(conn, state, request.mutation.action)
+                self._store_undo_snapshot(conn, state, request.mutation)
                 source_ref, signal_ref = self._apply_mutation(
                     conn,
                     state,
@@ -876,12 +876,35 @@ class NewsSignalsAdoptionStore:
                     ),
                 )
                 self._insert_receipt(conn, receipt)
-            self._harden_database_files()
+                # The successful commit and its receipt must already be private.
+                # A hardening failure here rolls back the SQLite transaction.
+                self._harden_database_files()
             return receipt
         except Exception:
             if lease_store is not None and lease is not None:
                 self._revoke_lease(lease_store, lease)
             raise
+
+    def _finish_commit_replay(
+        self,
+        receipt: NewsSignalsAdoptionMutationReceipt,
+        *,
+        request: NewsSignalsAdoptionCommitRequest,
+        idempotency_ref: str,
+    ) -> NewsSignalsAdoptionMutationReceipt:
+        replay = self._validate_receipt_replay(
+            receipt, request=request, idempotency_ref=idempotency_ref
+        )
+        try:
+            # Repair the postcondition for receipts written by older revisions;
+            # never report an already-committed request as a new failed mutation.
+            self._ensure_private_storage()
+            self._harden_database_files()
+        except NewsSignalsAdoptionError as exc:
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_COMMITTED_HARDENING_REQUIRED"
+            ) from exc
+        return replay
 
     def _preview(
         self,
@@ -1627,6 +1650,7 @@ class NewsSignalsAdoptionStore:
                 conn,
                 expected_snapshot_ref=state.undo_snapshot_ref,
                 expected_state_ref=self._state_ref(state),
+                current_artifacts=state.artifacts,
             )
         return source_ref, signal_ref
 
@@ -1634,12 +1658,40 @@ class NewsSignalsAdoptionStore:
         self,
         conn: sqlite3.Connection,
         state: _NewsSignalsSnapshot,
-        action: MutationAction,
+        request: NewsSignalsAdoptionMutationRequest,
     ) -> None:
-        if action == "undo":
+        if request.action == "undo":
             return
         payload = self._snapshot_payload(state)
         encoded = _canonical_json(payload)
+        if len(encoded) > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES:
+            # Unchanged artifact bodies are already bound by expected_state_ref.
+            # Retain only the changed body and any source-label changes, plus
+            # bounded source/preference/archive metadata. Restore resolves refs
+            # only after the exact complete current state has been validated.
+            changed_ref = (
+                request.target_ref if request.action == "update_signal" else None
+            )
+            payload.update(
+                snapshot_format="reference-delta-v1",
+                artifacts=[
+                    asdict(item)
+                    for item in state.artifacts
+                    if item.artifact_ref == changed_ref
+                ],
+                unchanged_artifact_refs=[
+                    item.artifact_ref
+                    for item in state.artifacts
+                    if item.artifact_ref != changed_ref
+                ],
+                source_label_overrides={
+                    item.artifact_ref: item.source_label
+                    for item in state.artifacts
+                    if request.action == "update_source"
+                    and item.source_ref == request.target_ref
+                },
+            )
+            encoded = _canonical_json(payload)
         if len(encoded) > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES:
             raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT")
         conn.execute(
@@ -1674,6 +1726,7 @@ class NewsSignalsAdoptionStore:
         *,
         expected_snapshot_ref: str | None,
         expected_state_ref: str,
+        current_artifacts: tuple[NewsSignalArtifact, ...],
     ) -> None:
         row = conn.execute(
             "SELECT snapshot_json, expected_state_ref "
@@ -1694,7 +1747,7 @@ class NewsSignalsAdoptionStore:
                 "NEWS_SIGNALS_ADOPTION_UNDO_STATE_MISMATCH"
             )
         sources, artifacts, preferences, archived_refs = self._decode_undo_snapshot(
-            snapshot_json
+            snapshot_json, current_artifacts=current_artifacts
         )
         conn.execute("DELETE FROM news_signal_archives")
         conn.execute("DELETE FROM news_signal_preferences")
@@ -2080,6 +2133,8 @@ class NewsSignalsAdoptionStore:
     @staticmethod
     def _decode_undo_snapshot(
         snapshot_json: str,
+        *,
+        current_artifacts: tuple[NewsSignalArtifact, ...] | None = None,
     ) -> tuple[
         tuple[NewsSignalSource, ...],
         tuple[NewsSignalArtifact, ...],
@@ -2097,13 +2152,20 @@ class NewsSignalsAdoptionStore:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
             ) from exc
-        if not isinstance(payload, dict) or set(payload) != {
+        full_keys = {
             "sources",
             "artifacts",
             "preferences",
             "archived_refs",
-        }:
+        }
+        delta_keys = full_keys | {
+            "snapshot_format",
+            "unchanged_artifact_refs",
+            "source_label_overrides",
+        }
+        if not isinstance(payload, dict) or set(payload) not in (full_keys, delta_keys):
             raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
+        is_delta = set(payload) == delta_keys
         source_items = payload["sources"]
         artifact_items = payload["artifacts"]
         preference_items = payload["preferences"]
@@ -2128,12 +2190,61 @@ class NewsSignalsAdoptionStore:
             archived_refs = tuple(archived_items)
             for artifact_ref in archived_refs:
                 _validate_ref(artifact_ref, "artifact_ref")
+            unchanged_refs: tuple[str, ...] = ()
+            label_overrides: dict[str, str] = {}
+            if is_delta:
+                unchanged = payload["unchanged_artifact_refs"]
+                labels = payload["source_label_overrides"]
+                if (
+                    payload["snapshot_format"] != "reference-delta-v1"
+                    or not isinstance(unchanged, list)
+                    or len(unchanged) + len(artifacts)
+                    > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
+                    or len(artifacts) > 1
+                    or not isinstance(labels, dict)
+                    or len(labels) > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
+                ):
+                    raise ValueError("INVALID_UNDO_DELTA")
+                for artifact_ref in unchanged:
+                    _validate_ref(artifact_ref, "artifact_ref")
+                unchanged_refs = tuple(unchanged)
+                if (
+                    len(set(unchanged_refs)) != len(unchanged_refs)
+                    or set(unchanged_refs) & {item.artifact_ref for item in artifacts}
+                    or not set(labels).issubset(unchanged_refs)
+                ):
+                    raise ValueError("INVALID_UNDO_DELTA")
+                for artifact_ref, label in labels.items():
+                    _validate_ref(artifact_ref, "artifact_ref")
+                    _validate_safe_text(label, "source_label", maximum=80)
+                label_overrides = labels
+                if current_artifacts is not None:
+                    current = {item.artifact_ref: item for item in current_artifacts}
+                    if not set(unchanged_refs).issubset(current):
+                        raise ValueError("UNDO_DELTA_REFERENCE_MISSING")
+                    artifacts = tuple(
+                        sorted(
+                            (
+                                *artifacts,
+                                *(
+                                    replace(
+                                        current[ref], source_label=label_overrides[ref]
+                                    )
+                                    if ref in label_overrides
+                                    else current[ref]
+                                    for ref in unchanged_refs
+                                ),
+                            ),
+                            key=lambda item: item.artifact_ref,
+                        )
+                    )
         except (TypeError, ValueError) as exc:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID"
             ) from exc
         source_refs = {item.source_ref for item in sources}
         artifact_refs = {item.artifact_ref for item in artifacts}
+        unresolved_refs = set(unchanged_refs) if current_artifacts is None else set()
         preference_topic_refs = {item.topic_ref for item in preferences}
         topic_refs = {item.topic_ref for item in artifacts}
         if (
@@ -2141,9 +2252,12 @@ class NewsSignalsAdoptionStore:
             or len(artifact_refs) != len(artifacts)
             or len(preference_topic_refs) != len(preferences)
             or len(set(archived_refs)) != len(archived_refs)
-            or not set(archived_refs).issubset(artifact_refs)
+            or not set(archived_refs).issubset(artifact_refs | unresolved_refs)
             or any(item.source_ref not in source_refs for item in artifacts)
-            or any(item.topic_ref not in topic_refs for item in preferences)
+            or (
+                not unresolved_refs
+                and any(item.topic_ref not in topic_refs for item in preferences)
+            )
         ):
             raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID")
         return sources, artifacts, preferences, archived_refs

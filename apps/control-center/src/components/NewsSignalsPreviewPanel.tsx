@@ -4,6 +4,7 @@ import {
   commitNewsSignalsAdoptionMutation,
   loadNewsSignalsAdoptionWorkspace,
   previewNewsSignalsAdoptionMutation,
+  type BackendTruthReadBinding,
 } from "../api/client";
 import type {
   NewsSignalReadItem,
@@ -58,7 +59,26 @@ function localDateTimeFromTimestamp(value: string): string {
 }
 
 export function NewsSignalsPreviewPanel() {
-  const mutationBinding = useBackendTruthMutationBinding();
+  const currentBinding = useBackendTruthMutationBinding();
+  const snapshotRef = currentBinding?.snapshotRef ?? null;
+  const backendRevisionRef = currentBinding?.backendRevisionRef ?? null;
+  const backendInstanceRef = currentBinding?.backendInstanceRef ?? null;
+  const mutationBinding = useMemo(
+    () => snapshotRef && backendRevisionRef && backendInstanceRef
+      ? { snapshotRef, backendRevisionRef, backendInstanceRef }
+      : null,
+    [snapshotRef, backendRevisionRef, backendInstanceRef],
+  );
+  // Reset the entire reviewed workspace synchronously when its owner changes.
+  return <BoundNewsSignalsPreviewPanel
+    key={JSON.stringify([snapshotRef, backendRevisionRef, backendInstanceRef])}
+    mutationBinding={mutationBinding}
+  />;
+}
+
+function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
+  mutationBinding: BackendTruthReadBinding | null;
+}) {
   const [workspace, setWorkspace] = useState<NewsSignalsAdoptionView | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">(
     "loading",
@@ -98,6 +118,17 @@ export function NewsSignalsPreviewPanel() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const previewGeneration = useRef(0);
+  const pageGeneration = useRef(0);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      previewGeneration.current += 1;
+      pageGeneration.current += 1;
+    };
+  }, []);
 
   const summary = workspace?.summary ?? null;
   const activePage = workspace?.active_items_page ?? null;
@@ -123,17 +154,19 @@ export function NewsSignalsPreviewPanel() {
 
   const loadPage = useCallback(
     async (offset: number, searchQuery: string) => {
+      const generation = ++pageGeneration.current;
       setLoadState("loading");
       const value = await loadNewsSignalsAdoptionWorkspace({
         offset,
         limit: 100,
         ...(searchQuery ? { searchQuery } : {}),
-      });
+      }, mutationBinding);
+      if (!mounted.current || generation !== pageGeneration.current) return;
       setPageOffset(offset);
       setActiveSearch(searchQuery);
       acceptWorkspace(value);
     },
-    [acceptWorkspace],
+    [acceptWorkspace, mutationBinding],
   );
 
   const refresh = useCallback(async () => {
@@ -142,7 +175,7 @@ export function NewsSignalsPreviewPanel() {
 
   useEffect(() => {
     let active = true;
-    loadNewsSignalsAdoptionWorkspace({ offset: 0, limit: 100 })
+    loadNewsSignalsAdoptionWorkspace({ offset: 0, limit: 100 }, mutationBinding)
       .then((value) => {
         if (!active) return;
         acceptWorkspace(value);
@@ -155,7 +188,7 @@ export function NewsSignalsPreviewPanel() {
     return () => {
       active = false;
     };
-  }, [acceptWorkspace]);
+  }, [acceptWorkspace, mutationBinding]);
 
   const visibleItems = useMemo(
     () =>
@@ -233,12 +266,13 @@ export function NewsSignalsPreviewPanel() {
       const preview = await previewNewsSignalsAdoptionMutation(
         request,
         idempotencyRef,
+        mutationBinding,
       );
-      if (previewGeneration.current === generation) {
+      if (mounted.current && previewGeneration.current === generation) {
         setPending({ request, preview, idempotencyRef });
       }
     } catch (reason) {
-      if (previewGeneration.current === generation) {
+      if (mounted.current && previewGeneration.current === generation) {
         setError(
           reason instanceof Error
             ? reason.message
@@ -246,7 +280,7 @@ export function NewsSignalsPreviewPanel() {
         );
       }
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
 
@@ -255,6 +289,7 @@ export function NewsSignalsPreviewPanel() {
     try {
       await loadPage(offset, searchQuery);
     } catch (reason) {
+      if (!mounted.current) return;
       setLoadState("failed");
       setError(
         reason instanceof Error
@@ -265,7 +300,7 @@ export function NewsSignalsPreviewPanel() {
   };
 
   const confirmPending = async () => {
-    if (!pending) return;
+    if (!pending || !mutationBinding || !mounted.current) return;
     setBusy(true);
     setError("");
     try {
@@ -275,12 +310,14 @@ export function NewsSignalsPreviewPanel() {
         pending.idempotencyRef,
         mutationBinding,
       );
+      if (!mounted.current) return;
       await commitNewsSignalsAdoptionMutation(
         pending.request,
         pending.preview,
         pending.idempotencyRef,
         mutationBinding,
       );
+      if (!mounted.current) return;
       setPending(null);
       setNotice("The reviewed local News change was saved.");
       if (
@@ -310,6 +347,7 @@ export function NewsSignalsPreviewPanel() {
       try {
         await refresh();
       } catch {
+        if (!mounted.current) return;
         setWorkspace(null);
         setLoadState("failed");
         setError(
@@ -317,13 +355,14 @@ export function NewsSignalsPreviewPanel() {
         );
       }
     } catch (reason) {
+      if (!mounted.current) return;
       setError(
         reason instanceof Error
           ? reason.message
           : "The local News change was not saved.",
       );
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
 
@@ -785,6 +824,27 @@ export function NewsSignalsPreviewPanel() {
                   type="button"
                 >
                   Review archive for {item.title}
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => void runPreview(
+                    workspace.preferences.some((entry) => entry.topic_ref === item.topic_ref)
+                      ? {
+                          action: "remove_preference",
+                          expected_revision: workspace.revision,
+                          topic_ref: item.topic_ref,
+                        }
+                      : {
+                          action: "set_preference",
+                          expected_revision: workspace.revision,
+                          topic_ref: item.topic_ref,
+                          preference_weight: 10,
+                        },
+                  )}
+                  type="button"
+                >
+                  {workspace.preferences.some((entry) => entry.topic_ref === item.topic_ref)
+                    ? "Clear topic preference for" : "Prefer topic for"} {item.title}
                 </button>
               </span>
             </div>

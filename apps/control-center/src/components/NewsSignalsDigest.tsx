@@ -15,10 +15,11 @@ function projectedItems(
   const refs = surface === "today"
     ? summary.today_projection.item_refs
     : summary.morning_briefing_projection.candidate_refs;
-  const items = new Map(summary.items.map((item) => [item.signal_ref, item]));
+  const records = summary.projection_items ?? summary.items;
+  const items = new Map(records.map((item) => [item.signal_ref, item]));
   const sources = new Map(summary.source_readiness.map((source) => [source.source_ref, source]));
   if (
-    items.size !== summary.items.length
+    items.size !== records.length
     || sources.size !== summary.source_readiness.length
     || new Set(refs).size !== refs.length
     || !Number.isFinite(Date.parse(summary.observed_at))

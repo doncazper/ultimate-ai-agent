@@ -126,6 +126,11 @@ describe("NewsSignalsPreviewPanel", () => {
           }),
         }),
         expect.stringMatching(/^idempotency-ref:news-signals-adoption-ui:/),
+        {
+          snapshotRef: "backend-truth-ref:test",
+          backendRevisionRef: "backend-revision-ref:test",
+          backendInstanceRef: "backend-instance-ref:test",
+        },
       ),
     );
     expect(
@@ -245,6 +250,11 @@ describe("NewsSignalsPreviewPanel", () => {
           source_state: "ready",
         }),
         expect.any(String),
+        {
+          snapshotRef: "backend-truth-ref:test",
+          backendRevisionRef: "backend-revision-ref:test",
+          backendInstanceRef: "backend-instance-ref:test",
+        },
       ),
     );
   });
@@ -276,6 +286,11 @@ describe("NewsSignalsPreviewPanel", () => {
           }),
         }),
         expect.any(String),
+        {
+          snapshotRef: "backend-truth-ref:test",
+          backendRevisionRef: "backend-revision-ref:test",
+          backendInstanceRef: "backend-instance-ref:test",
+        },
       ),
     );
 
@@ -321,6 +336,11 @@ describe("NewsSignalsPreviewPanel", () => {
           }),
         }),
         expect.any(String),
+        {
+          snapshotRef: "backend-truth-ref:test",
+          backendRevisionRef: "backend-revision-ref:test",
+          backendInstanceRef: "backend-instance-ref:test",
+        },
       ),
     );
   });
@@ -379,6 +399,11 @@ describe("NewsSignalsPreviewPanel", () => {
           }),
         }),
         expect.any(String),
+        {
+          snapshotRef: "backend-truth-ref:test",
+          backendRevisionRef: "backend-revision-ref:test",
+          backendInstanceRef: "backend-instance-ref:test",
+        },
       ),
     );
   });
@@ -523,6 +548,10 @@ describe("NewsSignalsPreviewPanel", () => {
       expect(apiMocks.loadNewsSignalsAdoptionWorkspace).toHaveBeenCalledWith({
         offset: 100,
         limit: 100,
+      }, {
+        snapshotRef: "backend-truth-ref:test",
+        backendRevisionRef: "backend-revision-ref:test",
+        backendInstanceRef: "backend-instance-ref:test",
       }),
     );
 
@@ -535,6 +564,10 @@ describe("NewsSignalsPreviewPanel", () => {
         offset: 0,
         limit: 100,
         searchQuery: "governed",
+      }, {
+        snapshotRef: "backend-truth-ref:test",
+        backendRevisionRef: "backend-revision-ref:test",
+        backendInstanceRef: "backend-instance-ref:test",
       }),
     );
   });

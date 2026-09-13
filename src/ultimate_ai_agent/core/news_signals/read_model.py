@@ -406,6 +406,7 @@ def build_news_signals_summary(
         and item["source_state"] == "ready"
         and item["conflict_state"] == "none"
     ][:3]
+    projected_refs = {item["signal_ref"] for item in (*today_items, *briefing_items)}
     freshness_counts = {
         state: sum(item["freshness_state"] == state for item in visible)
         for state in ("fresh", "stale", "unknown")
@@ -436,6 +437,9 @@ def build_news_signals_summary(
         "observed_at": observed_now.isoformat().replace("+00:00", "Z"),
         "source_readiness": source_readiness,
         "items": visible,
+        "projection_items": [
+            item for item in deduplicated if item["signal_ref"] in projected_refs
+        ],
         "freshness_counts": freshness_counts,
         "conflicting_claim_refs": sorted(conflicting_claims),
         "today_projection": {

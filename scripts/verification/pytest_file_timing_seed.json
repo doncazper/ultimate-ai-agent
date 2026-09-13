@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1021,
+  "timed_file_count": 1022,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -803,6 +803,11 @@
     {
       "path": "tests/test_queue_v2_q33_calendar_adoption.py",
       "seconds": 3.06,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_q34_news_review_recovery.py",
+      "seconds": 38.286,
       "source": "pytest-duration-summary"
     },
     {

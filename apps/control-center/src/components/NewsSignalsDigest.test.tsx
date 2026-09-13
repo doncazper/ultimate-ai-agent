@@ -94,6 +94,16 @@ describe("NewsSignalsDigest", () => {
     apiMocks.loadNewsSignalsSummary.mockResolvedValue(summary());
   });
 
+  it("renders selected records independently of the ranked summary page", async () => {
+    const value = summary();
+    value.projection_items = value.items;
+    value.items = [];
+    apiMocks.loadNewsSignalsSummary.mockResolvedValue(value);
+    render(<NewsSignalsDigest authoritative surface="briefing" />);
+    expect(await screen.findByText("Reviewed local release note")).toBeVisible();
+    expect(screen.queryByText(/News is unavailable/)).not.toBeInTheDocument();
+  });
+
   it("replaces the Today placeholder with the backend-selected News snapshot", async () => {
     const data = structuredClone(mockControlCenterData);
     data.connection.state = "online";

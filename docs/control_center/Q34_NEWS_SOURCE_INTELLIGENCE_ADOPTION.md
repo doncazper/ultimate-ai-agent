@@ -54,6 +54,9 @@ read-only News digest from the same local summary. They preserve the Python
 projection's selected refs and ordering, show source, confidence, conflict and
 snapshot freshness, and link back to News for inspection. They do not rank or
 summarize content in the browser. Explicit refresh reads local state only.
+The summary includes at most eight `projection_items`, independently of its
+ranked page, so eligible Today and Briefing records remain readable even when
+higher-ranked stale records fill that page.
 Unavailable backend ownership, failed refresh, or inconsistent projection
 identities hide the prior items; missing sources, safe-disabled sources and a
 valid empty selection remain distinct. These displays do not bypass the
@@ -63,8 +66,10 @@ Actions, Evidence, Agent Loop and Briefing read dependencies, rather than
 waiting on unrelated runtime, memory and integration surfaces. They reuse the
 same validators and backend-instance/revision binding. Every previously
 required route must still be backend-owned; unrequested routes remain
-non-authoritative. These compound local reads run serially;
-the existing eight-second per-read deadline and truth gates remain unchanged.
+non-authoritative. These compound local reads run serially within one
+eight-second deadline covering queue wait, request and response-body parsing.
+Expired reads are aborted and queued requests cannot start after that deadline.
+The full-loader concurrency policy and truth gates remain unchanged.
 The backend vault readiness retains its explicit adapter-not-scoped reason,
 and the external-intake description uses bounded safety-compatible wording.
 The existing frontend authority and raw-content validators remain unchanged.
@@ -76,6 +81,11 @@ founder-loop completion receipt. Loading, invalid, unavailable, or expired
 backend truth hides the intake controls; recovery requires a fresh review, not
 automatic resubmission. This binding does not replace PolicyEngine or exact
 operator approval and does not claim complete founder-loop evidence.
+Workspace reads and previews validate the expected backend identity too. A
+binding change resets the owned workspace, draft and pending confirmation;
+late reads, previews or approvals cannot populate or continue into its replacement.
+The complete active-item list exposes topic preference and removal actions,
+including signals omitted from the curated or deduplicated stream.
 The signal form wraps within the available News viewport, including after the
 first source is saved. Browser regressions check each field and review control
 against that inner viewport on desktop and narrow layouts.
@@ -124,6 +134,11 @@ rollback journal produces a safe retryable error; reads never ignore a live WAL
 or repair durable state. Each copied database or WAL file is limited to 128 MiB.
 On an approved save, the POSIX state directory is hardened to `0700` and the
 database and sidecars to `0600`; inspection does not chmod existing Q24 state.
+File hardening occurs before the mutation transaction commits, so failure
+rolls back the new mutation and receipt. An exact committed replay rechecks and
+repairs the private-file postcondition; if repair fails it explicitly reports
+`NEWS_SIGNALS_ADOPTION_COMMITTED_HARDENING_REQUIRED` instead of claiming a new
+uncommitted failure.
 Windows-equivalent ACL protection is not established by these POSIX checks.
 This is founder-private plaintext on disk, not application-level encryption.
 Host disk encryption remains the device boundary.
@@ -135,6 +150,13 @@ and JSON nesting depth 32. Ordinary mutations reserve the final receipt slot
 for one last reviewed undo, so capacity exhaustion cannot strand the latest
 reversible change. Automatic backup, automatic multi-computer sync, and
 concurrent merge are not included.
+When copying the whole prior artifact collection would exceed the unchanged
+4 MiB undo budget, undo retains a bounded reference delta: changed artifact
+content, any prior source labels, source/preference/archive metadata and refs
+to unchanged bodies. Resolution requires the exact complete current-state
+binding before restoration; later Q24 changes invalidate undo. Existing full
+snapshots remain supported. This prevents unrelated artifact bodies from
+blocking archive, correction or recovery at the 2,000-record limit.
 
 ## Authority boundary
 
@@ -150,9 +172,12 @@ instruction or authority source.
 - `tests/test_q34_news_signals_adoption.py`
 - `tests/test_q34_news_signals_adoption_api.py`
 - `tests/test_q34_news_signals_adoption_cli.py`
+- `tests/test_q34_news_review_recovery.py`
 - `tests/test_queue_v2_q34_news_source_intelligence.py`
 - `apps/control-center/src/api/client.newsSignalsAdoption.test.ts`
+- `apps/control-center/src/api/client.newsReadBoundary.test.ts`
 - `apps/control-center/src/components/NewsSignalsPreviewPanel.test.tsx`
+- `apps/control-center/src/components/NewsSignalsPreviewPanel.identity.test.tsx`
 - `apps/control-center/src/components/NewsSignalsDigest.test.tsx`
 - `apps/control-center/src/App.news.test.tsx`
 - `apps/control-center/src/App.backendTruth.test.tsx`

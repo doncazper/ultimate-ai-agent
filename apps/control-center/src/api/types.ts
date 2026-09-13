@@ -17524,6 +17524,7 @@ export interface NewsSignalsSummary {
     account_authority_granted: false;
   }>;
   items: NewsSignalReadItem[];
+  projection_items?: NewsSignalReadItem[];
   freshness_counts: Record<NewsSignalFreshnessState, number>;
   conflicting_claim_refs: string[];
   today_projection: {

@@ -462,12 +462,35 @@ async function readEnvelope<T>(
   endpoint: string,
   readLimiter = defaultControlCenterReadLimiter,
   expectedBinding: BackendTruthReadBinding | null = null,
+  deadlineAt: number | null = null,
+): Promise<T> {
+  if (deadlineAt === null) {
+    return readEnvelopeBody<T>(endpoint, readLimiter, expectedBinding);
+  }
+  const controller = new AbortController();
+  return withReadTimeout(
+    readEnvelopeBody<T>(endpoint, readLimiter, expectedBinding, controller.signal, deadlineAt),
+    endpoint,
+    Math.max(0, deadlineAt - performance.now()),
+  ).finally(() => controller.abort());
+}
+
+async function readEnvelopeBody<T>(
+  endpoint: string,
+  readLimiter: ControlCenterReadLimiter,
+  expectedBinding: BackendTruthReadBinding | null,
+  signal?: AbortSignal,
+  deadlineAt: number | null = null,
 ): Promise<T> {
   await readLimiter.acquire();
   try {
+    if (signal?.aborted || (deadlineAt !== null && performance.now() >= deadlineAt)) {
+      throw new Error("NEWS_HANDOFF_READ_DEADLINE_EXPIRED");
+    }
     const response = await withReadTimeout(
       fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
         headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+        ...(signal ? { signal } : {}),
       }),
       endpoint,
     );
@@ -1616,6 +1639,7 @@ export async function loadNewsSignalsSummary(
 
 export async function loadNewsSignalsAdoptionWorkspace(
   options: { offset?: number; limit?: number; searchQuery?: string } = {},
+  expectedBinding: BackendTruthReadBinding | null = null,
 ): Promise<NewsSignalsAdoptionView> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -1627,6 +1651,8 @@ export async function loadNewsSignalsAdoptionWorkspace(
   const suffix = query.size ? `?${query.toString()}` : "";
   const value = await readEnvelope<unknown>(
     `${API_ENDPOINTS.newsSignalsAdoption}${suffix}`,
+    defaultControlCenterReadLimiter,
+    expectedBinding,
   );
   const expectedOffset = options.offset ?? 0;
   const expectedLimit = options.limit ?? 100;
@@ -1661,10 +1687,12 @@ async function postNewsSignalsAdoptionEnvelope(
     method: "POST",
     headers: operatorConfirmed
       ? withBackendTruthMutationHeaders(headers, mutationBinding)
-      : headers,
+      : mutationBinding
+        ? withBackendTruthExpectedHeaders(headers, mutationBinding)
+        : headers,
     body: JSON.stringify(body),
   });
-  if (operatorConfirmed) {
+  if (operatorConfirmed || mutationBinding) {
     validateBackendResponseBinding(response.headers, mutationBinding);
   }
   const data = (await readJsonSafely(response)) as ResultEnvelope<unknown>;
@@ -1680,11 +1708,14 @@ async function postNewsSignalsAdoptionEnvelope(
 export async function previewNewsSignalsAdoptionMutation(
   request: NewsSignalsAdoptionMutationRequest,
   idempotencyRef: string,
+  expectedBinding: BackendTruthReadBinding | null = null,
 ): Promise<NewsSignalsAdoptionMutationPreview> {
   const value = await postNewsSignalsAdoptionEnvelope(
     API_ENDPOINTS.newsSignalsAdoptionPreview,
     request,
     idempotencyRef,
+    false,
+    expectedBinding,
   );
   if (!isSafeNewsSignalsAdoptionPreview(value, request, idempotencyRef)) {
     throw new Error("NEWS_SIGNALS_ADOPTION_PREVIEW_INVALID");
@@ -1923,6 +1954,7 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
       "observed_at",
       "source_readiness",
       "items",
+      "projection_items",
       "freshness_counts",
       "conflicting_claim_refs",
       "today_projection",
@@ -1961,6 +1993,11 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     !Array.isArray(value.items) ||
     value.items.length > 100 ||
     !value.items.every(isSafeNewsSignalItem) ||
+    (value.projection_items !== undefined && (
+      !Array.isArray(value.projection_items) ||
+      value.projection_items.length > 8 ||
+      !value.projection_items.every(isSafeNewsSignalItem)
+    )) ||
     !isPlainRecord(value.freshness_counts) ||
     !isNewsSignalsSafeRefArray(value.conflicting_claim_refs, 2_000) ||
     !isPlainRecord(value.today_projection) ||
@@ -3449,12 +3486,12 @@ export async function loadCommunicationsReceipt(
   return value as unknown as CommunicationsReceipt;
 }
 
-function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {
+function withReadTimeout<T>(promise: Promise<T>, endpoint: string, timeoutMs = CONTROL_CENTER_READ_TIMEOUT_MS): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(new Error(`Timed out reading ${endpoint}`));
-    }, CONTROL_CENTER_READ_TIMEOUT_MS);
+    }, timeoutMs);
   });
   return Promise.race([
     promise.finally(() => {
@@ -3877,14 +3914,16 @@ export async function loadControlCenterData(
   // Compound Founder Loop reads share local storage and CPU. Keep this small
   // scope serial without extending the existing deadline.
   const loadReadLimiter = createControlCenterReadLimiter(scope === "news-handoff" ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
+  const handoffDeadline = scope === "news-handoff"
+    ? performance.now() + CONTROL_CENTER_READ_TIMEOUT_MS : null;
   const read = <T>(endpoint: string): Promise<T> =>
     scope === "news-handoff" && !NEWS_HANDOFF_READ_ENDPOINTS.has(endpoint)
       ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
       : endpoint.startsWith("/api/runtime/")
       ? Promise.resolve().then(() =>
-          readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding),
+          readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding, handoffDeadline),
         )
-      : readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding);
+      : readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding, handoffDeadline);
 
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
