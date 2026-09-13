@@ -456,6 +456,69 @@ describe("NewsSignalsPreviewPanel", () => {
     );
   });
 
+  it.each([
+    "2026-09-09T11:00:37.123456Z",
+    "2026-09-09T11:00:37.123456789Z",
+    "2026-09-09T04:00:37.654321-07:00",
+  ])("preserves timestamp precision and grouping during a text edit: %s", async (publishedAt) => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue({
+      ...readyWorkspace,
+      active_items_page: {
+        ...readyWorkspace.active_items_page,
+        items: [{ ...activeItem, published_at: publishedAt }],
+      },
+    });
+    render(<NewsSignalsPreviewPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Governed signal" }));
+    fireEvent.change(screen.getByLabelText("Redacted summary"), {
+      target: { value: "A text-only correction." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review signal correction" }));
+    await waitFor(() => expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalled());
+    const request = apiMocks.previewNewsSignalsAdoptionMutation.mock.lastCall?.[0];
+    expect(request.signal_draft.published_at).toBe(publishedAt);
+    expect(request.signal_draft).not.toHaveProperty("cluster_label");
+    expect(request.signal_draft).not.toHaveProperty("topic_label");
+    expect(request.signal_draft).not.toHaveProperty("claim_label");
+
+    const correctedDate = "2026-09-08T14:20:37.123";
+    fireEvent.change(screen.getByLabelText("Published"), {
+      target: { value: correctedDate },
+    });
+    expect(screen.queryByRole("button", { name: "Confirm and save" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(
+      "Story group correction (optional; blank preserves existing group)",
+    ), { target: { value: "Corrected story group" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review signal correction" }));
+    await waitFor(() => expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledTimes(2));
+    const corrected = apiMocks.previewNewsSignalsAdoptionMutation.mock.lastCall?.[0];
+    expect(corrected.signal_draft.published_at).toBe(new Date(correctedDate).toISOString());
+    expect(corrected.signal_draft.cluster_label).toBe("Corrected story group");
+  });
+
+  it("discards canceled correction fields before creating another signal", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Governed signal" }));
+    fireEvent.change(screen.getByLabelText(
+      "Story group correction (optional; blank preserves existing group)",
+    ), { target: { value: "Canceled group" } });
+    fireEvent.change(screen.getByLabelText("Confidence percent"), { target: { value: "11" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel signal edit" }));
+    expect(screen.getByLabelText("Story group (optional; defaults to headline)")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Headline"), { target: { value: "New independent signal" } });
+    fireEvent.change(screen.getByLabelText("Redacted summary"), { target: { value: "A new reviewed summary." } });
+    fireEvent.change(screen.getByLabelText("Topic"), { target: { value: "New topic" } });
+    fireEvent.change(screen.getByLabelText("Claim"), { target: { value: "New claim" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review signal" }));
+    await waitFor(() => expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalled());
+    const request = apiMocks.previewNewsSignalsAdoptionMutation.mock.lastCall?.[0];
+    expect(request.action).toBe("ingest_signal");
+    expect(request.signal_draft.cluster_label).toBe("New independent signal");
+    expect(request.signal_draft.confidence_percent).toBe(80);
+    expect(request.signal_draft.published_at).not.toBe(activeItem.published_at);
+  });
+
   it("reports a committed change accurately when the refresh fails", async () => {
     apiMocks.loadNewsSignalsAdoptionWorkspace
       .mockResolvedValueOnce(workspace)

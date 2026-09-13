@@ -17555,7 +17555,7 @@ export interface NewsSignalArtifactDraft {
   title: string;
   safe_summary: string;
   topic_label?: string;
-  cluster_label: string;
+  cluster_label?: string;
   claim_label?: string;
   published_at: string;
   confidence_percent: number;

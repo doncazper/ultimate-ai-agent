@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import os
@@ -590,6 +591,116 @@ def test_signal_correction_preserves_topic_identity_when_label_is_omitted(
 
     assert after["summary"]["items"][0]["topic_ref"] == before["topic_ref"]
     assert after["preferences"][0]["topic_ref"] == before["topic_ref"]
+
+
+@pytest.mark.parametrize("shared_q24", [False, True])
+def test_signal_text_corrections_preserve_admission_and_unedited_identity(
+    tmp_path,
+    shared_q24,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+    original = store.repository._read_records()[1][0]
+    if shared_q24:
+        shared = replace(
+            original,
+            source_revision_ref="source-revision-ref:q24:shared",
+            topic_ref="topic-ref:q24:shared",
+            cluster_ref="cluster-ref:q24:shared",
+            claim_ref="claim-ref:q24:shared",
+            published_at="2026-09-09T11:00:37.123456789Z",
+            observed_at="2026-09-09T11:30:21.654321Z",
+            interest_refs=tuple(f"interest-ref:q24:shared-{i}" for i in range(12)),
+            provenance_refs=tuple(f"provenance-ref:q24:shared-{i}" for i in range(24)),
+        )
+        store.repository.ingest_artifact(
+            shared,
+            expected_current_source_revision_ref=original.source_revision_ref,
+        )
+        original = shared
+
+    for index in range(3):
+        draft = _signal_draft(
+            source_ref,
+            summary=f"A reviewed text correction number {index}.",
+        ).model_copy(
+            update={
+                "topic_label": None,
+                "cluster_label": None,
+                "claim_label": None,
+                "published_at": original.published_at,
+            }
+        )
+        preview, _, receipt = _commit(
+            store,
+            NewsSignalsAdoptionMutationRequest(
+                action="update_signal",
+                expected_revision=store.read_view()["revision"],
+                target_ref=signal_ref,
+                signal_draft=draft,
+            ),
+            f"preserve-admission-{index}",
+        )
+        after = store.repository._read_records()[1][0]
+        for field in (
+            "artifact_ref",
+            "source_ref",
+            "topic_ref",
+            "cluster_ref",
+            "claim_ref",
+            "published_at",
+            "interest_refs",
+            "provenance_refs",
+        ):
+            assert getattr(after, field) == getattr(original, field), field
+        assert after.safe_summary == draft.safe_summary
+        assert after.source_revision_ref != original.source_revision_ref
+        assert receipt.approval_ref == preview.approval_ref
+        with sqlite3.connect(store.db_path) as conn:
+            saved = conn.execute(
+                "SELECT receipt_json FROM news_signals_adoption_receipts "
+                "WHERE idempotency_ref = ?",
+                (f"idempotency-ref:q34:test:preserve-admission-{index}",),
+            ).fetchone()
+        assert json.loads(saved[0])["approval_ref"] == preview.approval_ref
+
+
+def test_explicit_cluster_correction_changes_only_the_requested_group(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+    before = store.read_view(now=NOW)["summary"]["items"][0]
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="update_signal",
+            expected_revision=2,
+            target_ref=signal_ref,
+            signal_draft=_signal_draft(source_ref).model_copy(
+                update={"cluster_label": "Corrected story group"},
+            ),
+        ),
+        "correct-cluster",
+    )
+    after = store.read_view(now=NOW)["summary"]["items"][0]
+    assert after["cluster_ref"] != before["cluster_ref"]
+    assert after["topic_ref"] == before["topic_ref"]
+    assert after["claim_ref"] == before["claim_ref"]
+    assert after["provenance_refs"] == before["provenance_refs"]
+
+
+def test_ingest_requires_an_explicit_cluster_label(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    with pytest.raises(ValueError, match="CLUSTER_LABEL_REQUIRED"):
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=1,
+            signal_draft=_signal_draft(source_ref).model_copy(
+                update={"cluster_label": None},
+            ),
+        )
 
 
 def test_ingest_requires_an_explicit_claim_label(tmp_path) -> None:

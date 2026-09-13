@@ -59,6 +59,14 @@ The exact approval ref is retained in source reason refs and signal provenance
 refs, so the read model cannot silently detach a source or artifact from the
 review that admitted it.
 
+Corrections retain that admission provenance and unrelated topic interests.
+Topic, story-group, and claim identities remain
+unchanged when their optional correction labels are blank; publication time
+retains its full stored precision unless the operator edits it. Each correction
+records its own exact approval in its durable mutation receipt and advances the
+artifact revision. Admission refs therefore stay bounded even after repeated
+corrections, including shared Q24 artifacts already at the 24-ref limit.
+
 ## Storage, recovery, and capacity
 
 The adoption store reuses the Q24 SQLite repository and adds bounded local

@@ -239,7 +239,7 @@ class NewsSignalArtifactDraft(_AdoptionModel):
     title: str
     safe_summary: str
     topic_label: str | None = None
-    cluster_label: str
+    cluster_label: str | None = None
     claim_label: str | None = None
     published_at: str
     confidence_percent: int = Field(ge=0, le=100)
@@ -271,8 +271,10 @@ class NewsSignalArtifactDraft(_AdoptionModel):
 
     @field_validator("cluster_label")
     @classmethod
-    def validate_group_label(cls, value: str) -> str:
-        return _safe_label(value, "group_label", 80)
+    def validate_group_label(cls, value: str | None) -> str | None:
+        if value is not None:
+            return _safe_label(value, "group_label", 80)
+        return value
 
     @field_validator("claim_label")
     @classmethod
@@ -346,6 +348,12 @@ class NewsSignalsAdoptionMutationRequest(_AdoptionModel):
             and self.signal_draft.topic_label is None
         ):
             raise ValueError("NEWS_SIGNALS_ADOPTION_TOPIC_LABEL_REQUIRED")
+        if (
+            self.action == "ingest_signal"
+            and self.signal_draft is not None
+            and self.signal_draft.cluster_label is None
+        ):
+            raise ValueError("NEWS_SIGNALS_ADOPTION_CLUSTER_LABEL_REQUIRED")
         return self
 
 
@@ -1375,8 +1383,13 @@ class NewsSignalsAdoptionStore:
                     {"safe_label": str(draft.topic_label).casefold()},
                 )
             )
-            cluster_ref = _hash_ref(
-                "cluster-ref:q34", {"safe_label": draft.cluster_label.casefold()}
+            cluster_ref = (
+                prior.cluster_ref
+                if prior is not None and draft.cluster_label is None
+                else _hash_ref(
+                    "cluster-ref:q34",
+                    {"safe_label": str(draft.cluster_label).casefold()},
+                )
             )
             claim_ref = (
                 prior.claim_ref
@@ -1394,6 +1407,18 @@ class NewsSignalsAdoptionStore:
                     "payload_fingerprint_ref": preview.payload_fingerprint_ref,
                 },
             )
+            topic_interest_ref = _hash_ref("interest-ref:q34", {"topic_ref": topic_ref})
+            interest_refs = (topic_interest_ref,)
+            if prior is not None:
+                prior_topic_interest_ref = _hash_ref(
+                    "interest-ref:q34", {"topic_ref": prior.topic_ref}
+                )
+                interest_refs = tuple(
+                    dict.fromkeys(
+                        topic_interest_ref if ref == prior_topic_interest_ref else ref
+                        for ref in prior.interest_refs
+                    )
+                )
             artifact = NewsSignalArtifact(
                 artifact_ref=signal_ref,
                 source_ref=draft.source_ref,
@@ -1408,28 +1433,29 @@ class NewsSignalsAdoptionStore:
                 safe_summary=draft.safe_summary,
                 source_label=source_by_ref[draft.source_ref].safe_label,
                 topic_ref=topic_ref,
-                published_at=_utc_text(
-                    _parse_timestamp(draft.published_at, "published_at")
+                published_at=(
+                    prior.published_at
+                    if prior is not None and draft.published_at == prior.published_at
+                    else _utc_text(_parse_timestamp(draft.published_at, "published_at"))
                 ),
                 observed_at=_utc_text(now),
                 confidence_percent=draft.confidence_percent,
                 evidence_class=draft.evidence_class,
                 claim_stance=draft.claim_stance,
-                interest_refs=(
-                    _hash_ref(
-                        "interest-ref:q34",
-                        {"topic_ref": topic_ref},
-                    ),
-                ),
+                interest_refs=interest_refs,
                 provenance_refs=(
-                    _hash_ref(
-                        "provenance-ref:q34",
-                        {
-                            "source_ref": draft.source_ref,
-                            "source_revision_ref": source_revision_ref,
-                        },
-                    ),
-                    preview.approval_ref,
+                    prior.provenance_refs
+                    if prior is not None
+                    else (
+                        _hash_ref(
+                            "provenance-ref:q34",
+                            {
+                                "source_ref": draft.source_ref,
+                                "source_revision_ref": source_revision_ref,
+                            },
+                        ),
+                        preview.approval_ref,
+                    )
                 ),
             )
             if prior is not None and prior.source_ref != artifact.source_ref:

@@ -54,7 +54,7 @@ function localDateTimeFromTimestamp(value: string): string {
   const date = new Date(value);
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
     .toISOString()
-    .slice(0, 16);
+    .slice(0, -1);
 }
 
 export function NewsSignalsPreviewPanel() {
@@ -75,8 +75,10 @@ export function NewsSignalsPreviewPanel() {
   const [signalTitle, setSignalTitle] = useState("");
   const [signalSummary, setSignalSummary] = useState("");
   const [signalTopic, setSignalTopic] = useState("");
+  const [signalCluster, setSignalCluster] = useState("");
   const [signalClaim, setSignalClaim] = useState("");
   const [signalPublishedAt, setSignalPublishedAt] = useState(currentLocalDateTime);
+  const [originalPublishedAt, setOriginalPublishedAt] = useState<string | null>(null);
   const [signalEvidenceClass, setSignalEvidenceClass] = useState<
     NewsSignalsAdoptionActiveItem["evidence_class"]
   >("primary");
@@ -210,8 +212,10 @@ export function NewsSignalsPreviewPanel() {
     setSignalTitle(item.title);
     setSignalSummary(item.safe_summary);
     setSignalTopic("");
+    setSignalCluster("");
     setSignalClaim("");
     setSignalPublishedAt(localDateTimeFromTimestamp(item.published_at));
+    setOriginalPublishedAt(item.published_at);
     setSignalEvidenceClass(item.evidence_class);
     setSignalClaimStance(item.claim_stance);
     setSignalConfidence(item.confidence_percent);
@@ -294,8 +298,10 @@ export function NewsSignalsPreviewPanel() {
         setSignalTitle("");
         setSignalSummary("");
         setSignalTopic("");
+        setSignalCluster("");
         setSignalClaim("");
         setSignalPublishedAt(currentLocalDateTime());
+        setOriginalPublishedAt(null);
         setSignalEvidenceClass("primary");
         setSignalClaimStance("unknown");
         setSignalConfidence(80);
@@ -417,14 +423,20 @@ export function NewsSignalsPreviewPanel() {
                 source_ref: readySource.source_ref,
                 title: signalTitle.trim(),
                 safe_summary: signalSummary.trim(),
-                cluster_label: signalTitle.trim().slice(0, 80),
+                ...(signalCluster.trim()
+                  ? { cluster_label: signalCluster.trim() }
+                  : !editingSignalRef
+                    ? { cluster_label: signalTitle.trim().slice(0, 80) }
+                    : {}),
                 ...(signalTopic.trim()
                   ? { topic_label: signalTopic.trim() }
                   : {}),
                 ...(signalClaim.trim()
                   ? { claim_label: signalClaim.trim() }
                   : {}),
-                published_at: new Date(signalPublishedAt).toISOString(),
+                published_at: editingSignalRef && originalPublishedAt !== null
+                  ? originalPublishedAt
+                  : new Date(signalPublishedAt).toISOString(),
                 confidence_percent: signalConfidence,
                 evidence_class: signalEvidenceClass,
                 claim_stance: signalClaimStance,
@@ -475,7 +487,13 @@ export function NewsSignalsPreviewPanel() {
                 : "Claim"}
               <input maxLength={80} onChange={(event) => { invalidatePendingReview(); setSignalClaim(event.target.value); }} required={!editingSignalRef} value={signalClaim} />
             </label>
-            <label>Published<input onChange={(event) => { invalidatePendingReview(); setSignalPublishedAt(event.target.value); }} required type="datetime-local" value={signalPublishedAt} /></label>
+            <label>
+              {editingSignalRef
+                ? "Story group correction (optional; blank preserves existing group)"
+                : "Story group (optional; defaults to headline)"}
+              <input maxLength={80} onChange={(event) => { invalidatePendingReview(); setSignalCluster(event.target.value); }} value={signalCluster} />
+            </label>
+            <label>Published<input onChange={(event) => { invalidatePendingReview(); setOriginalPublishedAt(null); setSignalPublishedAt(event.target.value); }} required step="0.001" type="datetime-local" value={signalPublishedAt} /></label>
             <label>
               Confidence percent
               <input
@@ -535,8 +553,13 @@ export function NewsSignalsPreviewPanel() {
                   setSignalTitle("");
                   setSignalSummary("");
                   setSignalTopic("");
+                  setSignalCluster("");
                   setSignalClaim("");
                   setSignalPublishedAt(currentLocalDateTime());
+                  setOriginalPublishedAt(null);
+                  setSignalEvidenceClass("primary");
+                  setSignalClaimStance("unknown");
+                  setSignalConfidence(80);
                 }}
                 type="button"
               >
