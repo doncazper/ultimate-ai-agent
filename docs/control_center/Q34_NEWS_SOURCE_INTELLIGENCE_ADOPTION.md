@@ -39,7 +39,9 @@ The read endpoint exposes a bounded active-item page with offset, limit, and a
 redaction-safe search query while retaining the deduplicated curated summary.
 The read-only `python scripts/inspect_news_signals_adoption.py` command reports
 the same safe posture without printing private source or signal text by
-default. `apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
+default. Inspection failures, including invalid arguments, emit a fixed blocked
+JSON result and exit 2 without a traceback, path, or supplied value.
+`apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
 provides the normal readable workflow.
 
 Every mutation binds the current revision, payload fingerprint, exact preview,
@@ -48,6 +50,8 @@ operation-budget-one `workspace/write` AuthorityLease. Completed commits
 return durable exact-replay receipts with rollback refs. Rebound payloads,
 stale revisions, substituted previews or approvals, expired approvals, replay
 conflicts, malformed state, and unsafe identifiers fail closed.
+Malformed or unavailable authority files produce a bounded authority-state
+error; conflicting durable lease history produces an explicit conflict.
 
 The reviewed state identity includes the exact bounded undo snapshot, and the
 durable receipt identity covers every stable lifecycle, approval, and authority

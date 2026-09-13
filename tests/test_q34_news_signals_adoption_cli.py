@@ -5,6 +5,8 @@ import sqlite3
 import subprocess
 import sys
 
+import pytest
+
 from ultimate_ai_agent.core.news_signals import (
     NewsSignalArtifact,
     NewsSignalSource,
@@ -72,9 +74,7 @@ def test_adoption_inspection_cli_is_content_safe(tmp_path) -> None:
     )
     payload = json.loads(result.stdout)
 
-    assert payload["schema_version"] == (
-        "uaa-news-signals-adoption-inspection.v1"
-    )
+    assert payload["schema_version"] == ("uaa-news-signals-adoption-inspection.v1")
     assert payload["workspace"]["revision"] == 0
     assert payload["workspace"]["status"] == "ready"
     assert payload["workspace"]["counts"] == {
@@ -88,9 +88,7 @@ def test_adoption_inspection_cli_is_content_safe(tmp_path) -> None:
         "today_items": 0,
     }
     assert payload["workspace"]["private_values_included"] is False
-    assert payload["workspace"]["active_signal_refs"] == [
-        "signal-ref:q34:cli-active"
-    ]
+    assert payload["workspace"]["active_signal_refs"] == ["signal-ref:q34:cli-active"]
     assert payload["external_network_read_performed"] is False
     assert payload["model_call_performed"] is False
     assert payload["raw_paths_included"] is False
@@ -103,3 +101,68 @@ def test_adoption_inspection_cli_is_content_safe(tmp_path) -> None:
         "Private archived summary",
     ):
         assert private_value not in result.stdout
+
+
+@pytest.mark.parametrize("failure", ("database", "undo", "state-file"))
+def test_adoption_inspection_cli_failures_are_content_safe(tmp_path, failure) -> None:
+    state_dir = tmp_path / "private-inspection-state"
+    if failure == "state-file":
+        state_dir.write_text("private invalid state", encoding="utf-8")
+    elif failure == "database":
+        state_dir.mkdir()
+        (state_dir / "news_signals.sqlite3").write_bytes(b"private truncated database")
+    else:
+        store = NewsSignalsAdoptionStore(state_dir)
+        with sqlite3.connect(store.db_path) as conn:
+            conn.execute(
+                "INSERT INTO news_signals_adoption_undo(singleton, snapshot_json) "
+                "VALUES (1, ?)",
+                ("private invalid undo",),
+            )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/inspect_news_signals_adoption.py",
+            "--state-dir",
+            str(state_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "blocked"
+    assert payload["error"]["code"] == "NEWS_SIGNALS_ADOPTION_INSPECTION_BLOCKED"
+    assert payload["workspace"] is None
+    assert payload["raw_paths_included"] is False
+    assert payload["raw_source_content_included"] is False
+    assert payload["external_network_read_performed"] is False
+    assert payload["model_call_performed"] is False
+    assert str(tmp_path) not in result.stdout
+    assert "Traceback" not in result.stdout
+    assert "private invalid" not in result.stdout
+    assert "private truncated" not in result.stdout
+
+
+@pytest.mark.parametrize("option", ("--limit", "--unknown-option"))
+def test_adoption_inspection_cli_argument_errors_do_not_echo_input(option) -> None:
+    private_value = "private-input-marker"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/inspect_news_signals_adoption.py",
+            option,
+            private_value,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "blocked"
+    assert payload["error"]["code"] == "NEWS_SIGNALS_ADOPTION_INSPECTION_BLOCKED"
+    assert private_value not in result.stdout

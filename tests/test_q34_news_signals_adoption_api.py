@@ -1,17 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 
 from fastapi.testclient import TestClient
 import pytest
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.api.manifest import (
     ApiRouteClassification,
     ApiRouteSideEffectClass,
     route_classification_for_path,
     route_side_effect_class,
 )
+from ultimate_ai_agent.core.news_signals.adoption import (
+    NewsSignalsAdoptionMutationPreview,
+    NewsSignalsAdoptionStore,
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_rate_limit_state():
+    reset_api_rate_limit_state()
+    yield
+    reset_api_rate_limit_state()
 
 
 def _headers(suffix: str, *, confirmed: bool = False) -> dict[str, str]:
@@ -77,8 +90,10 @@ def test_api_runs_normal_founder_private_news_loop(tmp_path, monkeypatch) -> Non
     )
     source_ref = source["source_ref"]
     published_at = (
-        datetime.now(timezone.utc) - timedelta(minutes=30)
-    ).isoformat().replace("+00:00", "Z")
+        (datetime.now(timezone.utc) - timedelta(minutes=30))
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     signal = _commit(
         client,
         _mutation(
@@ -123,9 +138,7 @@ def test_api_runs_normal_founder_private_news_loop(tmp_path, monkeypatch) -> Non
         params={"search_query": "unsafe/path"},
     )
     assert unsafe_search.status_code == 400
-    assert unsafe_search.json()["detail"]["code"] == (
-        "SEARCH_QUERY_REDACTION_REQUIRED"
-    )
+    assert unsafe_search.json()["detail"]["code"] == ("SEARCH_QUERY_REDACTION_REQUIRED")
 
     today = client.get("/control-center/today/summary").json()["data"]
     briefing = client.get("/control-center/morning-briefing/summary").json()["data"]
@@ -133,7 +146,9 @@ def test_api_runs_normal_founder_private_news_loop(tmp_path, monkeypatch) -> Non
     assert briefing["news_signals_projection"]["candidate_refs"] == [signal_ref]
 
 
-def test_api_mutations_require_idempotency_and_confirmation(tmp_path, monkeypatch) -> None:
+def test_api_mutations_require_idempotency_and_confirmation(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path))
     client = TestClient(app)
     mutation = _mutation(
@@ -146,9 +161,12 @@ def test_api_mutations_require_idempotency_and_confirmation(tmp_path, monkeypatc
         },
     )
 
-    assert client.post(
-        "/control-center/news-signals/adoption/preview", json=mutation
-    ).status_code == 428
+    assert (
+        client.post(
+            "/control-center/news-signals/adoption/preview", json=mutation
+        ).status_code
+        == 428
+    )
     preview = client.post(
         "/control-center/news-signals/adoption/preview",
         json=mutation,
@@ -210,6 +228,148 @@ def test_api_conflicts_are_safe_and_structured(tmp_path, monkeypatch) -> None:
     assert "Official source" not in stale.text
 
 
+@pytest.mark.parametrize(
+    "damaged_state",
+    (
+        "lease-json",
+        "lease-root",
+        "lease-entry",
+        "lease-entry-shape",
+        "lease-depth",
+        "receipt-json",
+        "receipt-entry",
+        "receipt-shape",
+        "receipt-conflict",
+        "receipt-filesystem",
+    ),
+)
+def test_api_authority_state_failures_are_safe_and_do_not_mutate(
+    tmp_path, monkeypatch, damaged_state
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path))
+    client = TestClient(app, raise_server_exceptions=False)
+    source = {
+        "safe_label": "Official source",
+        "source_kind": "official",
+        "freshness_ttl_seconds": 86400,
+    }
+    _commit(client, _mutation("register_source", 0, source_draft=source), "seed")
+    mutation = _mutation("register_source", 1, source_draft=source)
+    suffix = "damaged-authority"
+    preview = client.post(
+        "/control-center/news-signals/adoption/preview",
+        json=mutation,
+        headers=_headers(suffix),
+    ).json()["data"]
+    request = {
+        "mutation": mutation,
+        "preview_ref": preview["preview_ref"],
+        "approval_ref": preview["approval_ref"],
+    }
+    approval = client.post(
+        "/control-center/news-signals/adoption/approval",
+        json=request,
+        headers=_headers(suffix, confirmed=True),
+    )
+    assert approval.status_code == 200
+    store = NewsSignalsAdoptionStore(tmp_path)
+    before = store.read_view()
+    lease_store, _, lease_key, _, _, _ = store._lease_context(
+        NewsSignalsAdoptionMutationPreview.model_validate(preview),
+        idempotency_ref=_headers(suffix)["X-UAA-Idempotency-Key"],
+    )
+    if damaged_state.startswith("lease-"):
+        payload = {
+            "lease-json": "{",
+            "lease-root": "[]",
+            "lease-entry": '{"leases": [{}]}',
+            "lease-entry-shape": '{"leases": [0]}',
+            "lease-depth": "[" * 2000 + "0" + "]" * 2000,
+        }[damaged_state]
+        lease_store.leases_path.write_text(payload, encoding="utf-8")
+    elif damaged_state == "receipt-conflict":
+        recorded = json.loads(lease_store.receipts_path.read_text().splitlines()[0])
+        recorded["idempotency_ref"] = lease_key
+        rebound = {**recorded, "lease_ref": "authority-lease-ref:q34:substituted"}
+        lease_store.receipts_path.write_text(
+            json.dumps(recorded) + "\n" + json.dumps(rebound) + "\n",
+            encoding="utf-8",
+        )
+    elif damaged_state == "receipt-filesystem":
+        lease_store.receipts_path.unlink()
+        lease_store.receipts_path.mkdir()
+    else:
+        lease_store.receipts_path.write_text(
+            {"receipt-json": "{", "receipt-entry": "{}", "receipt-shape": "[]"}[
+                damaged_state
+            ],
+            encoding="utf-8",
+        )
+
+    response = client.post(
+        "/control-center/news-signals/adoption/commit",
+        json=request,
+        headers=_headers(suffix, confirmed=True),
+    )
+
+    conflict = damaged_state == "receipt-conflict"
+    assert response.status_code == (409 if conflict else 403)
+    assert response.json()["detail"]["code"] == (
+        "NEWS_SIGNALS_ADOPTION_AUTHORITY_IDEMPOTENCY_CONFLICT"
+        if conflict
+        else "NEWS_SIGNALS_ADOPTION_AUTHORITY_STATE_INVALID"
+    )
+    assert str(tmp_path) not in response.text
+    assert "Traceback" not in response.text
+    assert "Official source" not in response.text
+    assert store.read_view()["current_state_ref"] == before["current_state_ref"]
+
+
+@pytest.mark.parametrize("failure", ("regular-file", "symlink-loop"))
+def test_api_approval_directory_failure_is_safe_and_does_not_mutate(
+    tmp_path, monkeypatch, failure
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path))
+    client = TestClient(app, raise_server_exceptions=False)
+    mutation = _mutation(
+        "register_source",
+        0,
+        source_draft={
+            "safe_label": "Official source",
+            "source_kind": "official",
+            "freshness_ttl_seconds": 86400,
+        },
+    )
+    preview = client.post(
+        "/control-center/news-signals/adoption/preview",
+        json=mutation,
+        headers=_headers("unsafe-authority-dir"),
+    ).json()["data"]
+    authority_path = tmp_path / "news_signals_authority"
+    if failure == "regular-file":
+        authority_path.write_text(
+            "private invalid authority directory", encoding="utf-8",
+        )
+    else:
+        authority_path.symlink_to(authority_path.name)
+    response = client.post(
+        "/control-center/news-signals/adoption/approval",
+        json={
+            "mutation": mutation,
+            "preview_ref": preview["preview_ref"],
+            "approval_ref": preview["approval_ref"],
+        },
+        headers=_headers("unsafe-authority-dir", confirmed=True),
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == (
+        "NEWS_SIGNALS_ADOPTION_AUTHORITY_STATE_INVALID"
+    )
+    assert str(tmp_path) not in response.text
+    assert "private invalid" not in response.text
+    assert NewsSignalsAdoptionStore(tmp_path).read_view()["revision"] == 0
+
+
 def test_api_rejects_non_safe_idempotency_refs_without_500(
     tmp_path, monkeypatch
 ) -> None:
@@ -226,9 +386,7 @@ def test_api_rejects_non_safe_idempotency_refs_without_500(
                 "freshness_ttl_seconds": 86400,
             },
         ),
-        headers={
-            "X-UAA-Idempotency-Key": "idempotency-ref:q34:api:invalid_value"
-        },
+        headers={"X-UAA-Idempotency-Key": "idempotency-ref:q34:api:invalid_value"},
     )
 
     assert response.status_code == 400
@@ -298,11 +456,17 @@ def test_api_manifest_publishes_news_contract_and_authority_classification() -> 
     ]
 
     assert limit_schema["properties"]["maximum_body_bytes"]["const"] == 262144
-    for suffix in ("adoption", "adoption/preview", "adoption/approval", "adoption/commit"):
+    for suffix in (
+        "adoption",
+        "adoption/preview",
+        "adoption/approval",
+        "adoption/commit",
+    ):
         assert f"/control-center/news-signals/{suffix}" in schema["paths"]
-    assert route_side_effect_class(
-        "/control-center/news-signals/adoption/commit"
-    ) == ApiRouteSideEffectClass.local_dev_workspace_only
+    assert (
+        route_side_effect_class("/control-center/news-signals/adoption/commit")
+        == ApiRouteSideEffectClass.local_dev_workspace_only
+    )
     classification, description = route_classification_for_path(
         "POST",
         "/control-center/news-signals/adoption/commit",

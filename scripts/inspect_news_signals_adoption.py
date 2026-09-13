@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from typing import NoReturn
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,12 +60,8 @@ def _content_safe_workspace(view: dict[str, object]) -> dict[str, object]:
             "briefing_candidates": len(briefing_projection["candidate_refs"]),
         },
         "source_refs": [item["source_ref"] for item in source_readiness],
-        "active_signal_refs": [
-            item["signal_ref"] for item in active_page["items"]
-        ],
-        "archived_signal_refs": [
-            item["signal_ref"] for item in archived_items
-        ],
+        "active_signal_refs": [item["signal_ref"] for item in active_page["items"]],
+        "archived_signal_refs": [item["signal_ref"] for item in archived_items],
         "today_item_refs": today_projection["item_refs"],
         "briefing_candidate_refs": briefing_projection["candidate_refs"],
         "blocked_state_refs": summary["blocked_state_refs"],
@@ -74,8 +71,43 @@ def _content_safe_workspace(view: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _print_inspection_failure() -> None:
+    print(
+        json.dumps(
+            {
+                "schema_version": "uaa-news-signals-adoption-inspection.v1",
+                "command_ref": "repo-local-command:inspect-news-signals-adoption",
+                "status": "blocked",
+                "workspace": None,
+                "error": {
+                    "code": "NEWS_SIGNALS_ADOPTION_INSPECTION_BLOCKED",
+                    "safe_message": (
+                        "Local News inspection could not complete. "
+                        "Check the arguments and local state."
+                    ),
+                },
+                "external_network_read_performed": False,
+                "authenticated_source_access_performed": False,
+                "model_call_performed": False,
+                "external_write_performed": False,
+                "raw_paths_included": False,
+                "raw_source_content_included": False,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+class _SafeInspectionParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        # argparse's default error includes caller-supplied values and paths.
+        _print_inspection_failure()
+        raise SystemExit(2)
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(
+    parser = _SafeInspectionParser(
         description=(
             "Inspect local News adoption state without fetching sources, "
             "connecting accounts, or calling a model."
@@ -89,16 +121,22 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=20, choices=range(1, 101))
     args = parser.parse_args()
 
-    store = (
-        NewsSignalsAdoptionStore(args.state_dir)
-        if args.state_dir is not None
-        else NewsSignalsAdoptionStore.from_env()
-    )
-    workspace = store.read_view(limit=args.limit)
+    try:
+        store = (
+            NewsSignalsAdoptionStore(args.state_dir)
+            if args.state_dir is not None
+            else NewsSignalsAdoptionStore.from_env()
+        )
+        workspace = _content_safe_workspace(store.read_view(limit=args.limit))
+    except Exception:
+        # The CLI is a terminal evidence boundary: never serialize exception text
+        # or a traceback, including for unexpected local-state shape failures.
+        _print_inspection_failure()
+        return 2
     payload = {
         "schema_version": "uaa-news-signals-adoption-inspection.v1",
         "command_ref": "repo-local-command:inspect-news-signals-adoption",
-        "workspace": _content_safe_workspace(workspace),
+        "workspace": workspace,
         "external_network_read_performed": False,
         "authenticated_source_access_performed": False,
         "model_call_performed": False,

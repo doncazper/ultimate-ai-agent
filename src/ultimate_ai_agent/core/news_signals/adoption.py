@@ -32,6 +32,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseConflictError,
     AuthorityLeaseIssueRequest,
     AuthorityLeaseScope,
     AuthorityLeaseStore,
@@ -733,10 +734,11 @@ class NewsSignalsAdoptionStore:
             raise NewsSignalsAdoptionConflict(
                 "NEWS_SIGNALS_ADOPTION_APPROVAL_SCOPE_MISMATCH"
             )
-        return self._capture_preview_approval(
-            preview,
-            idempotency_ref=idempotency_ref,
-        )
+        with self._safe_authority_state():
+            return self._capture_preview_approval(
+                preview,
+                idempotency_ref=idempotency_ref,
+            )
 
     def commit_mutation(
         self,
@@ -770,13 +772,14 @@ class NewsSignalsAdoptionStore:
                     raise NewsSignalsAdoptionConflict(
                         "NEWS_SIGNALS_ADOPTION_COMMIT_SCOPE_MISMATCH"
                     )
-                (
-                    lease_store,
-                    lease,
-                    authority_decision_ref,
-                    approval_validation_ref,
-                    approval_expires_at,
-                ) = self._authorize(preview, idempotency_ref=idempotency_ref)
+                with self._safe_authority_state():
+                    (
+                        lease_store,
+                        lease,
+                        authority_decision_ref,
+                        approval_validation_ref,
+                        approval_expires_at,
+                    ) = self._authorize(preview, idempotency_ref=idempotency_ref)
                 self._store_undo_snapshot(conn, state, request.mutation.action)
                 source_ref, signal_ref = self._apply_mutation(
                     conn,
@@ -1015,6 +1018,30 @@ class NewsSignalsAdoptionStore:
             approval_ref=approval_ref,
             safe_summary=self._preview_summary(action),
         )
+
+    @staticmethod
+    @contextmanager
+    def _safe_authority_state() -> Iterator[None]:
+        """Keep durable authority parser, lock, and conflict failures content-free."""
+        try:
+            yield
+        except NewsSignalsAdoptionError:
+            raise
+        except AuthorityLeaseConflictError as exc:
+            raise NewsSignalsAdoptionConflict(
+                "NEWS_SIGNALS_ADOPTION_AUTHORITY_IDEMPOTENCY_CONFLICT"
+            ) from exc
+        except (
+            AuthorityLeaseApprovalStateError,
+            AttributeError,
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_AUTHORITY_STATE_INVALID"
+            ) from exc
 
     def _capture_preview_approval(
         self,
