@@ -7,10 +7,14 @@ const mocked = vi.hoisted(() => ({
   controlCenterState: {} as unknown,
   truthState: {} as unknown,
   truthEnabled: false,
+  controlCenterArgs: [] as unknown[],
 }));
 
 vi.mock("./hooks/useControlCenterData", () => ({
-  useControlCenterData: () => mocked.controlCenterState,
+  useControlCenterData: (...args: unknown[]) => {
+    mocked.controlCenterArgs = args;
+    return mocked.controlCenterState;
+  },
 }));
 
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
@@ -58,6 +62,7 @@ function backendData(routeState: "backend_owned" | "mock_fallback") {
 }
 
 beforeEach(() => {
+  mocked.controlCenterArgs = [];
   window.history.pushState({}, "", "/today");
   mocked.controlCenterState = {
     status: "ready",
@@ -75,6 +80,19 @@ beforeEach(() => {
   };
   mocked.truthEnabled = false;
 });
+
+it.each(["/workspace/today", "/today", "/briefing", "/morning-briefing"])(
+  "keeps the real %s route on the strict News handoff read scope",
+  async (path) => {
+    window.history.pushState({}, "", path);
+    render(<App />);
+    await waitFor(() => {
+      expect(mocked.truthEnabled).toBe(true);
+      expect(mocked.controlCenterArgs[0]).toBe(true);
+      expect(mocked.controlCenterArgs[2]).toBe("news-handoff");
+    });
+  },
+);
 
 afterEach(() => cleanup());
 

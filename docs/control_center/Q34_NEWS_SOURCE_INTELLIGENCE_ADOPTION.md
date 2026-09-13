@@ -155,6 +155,8 @@ instruction or authority source.
 - `apps/control-center/src/components/NewsSignalsPreviewPanel.test.tsx`
 - `apps/control-center/src/components/NewsSignalsDigest.test.tsx`
 - `apps/control-center/src/App.news.test.tsx`
+- `apps/control-center/src/App.backendTruth.test.tsx`
+- `tests/test_news_handoff_agent_loop_summary.py`
 - `apps/control-center/tests/visual/foundation-surfaces.real.spec.ts`
 - OpenAPI/API manifest, capability/release-surface, documentation, frontend,
   Foundation Gate, security, hosted CI, and post-merge qualification gates
@@ -163,3 +165,11 @@ Live adapters remain later exact lanes governed by `WebAccessGateway`, source
 permission and terms review, credentials, audit, retention, revocation, and
 safe-disable evidence. Completing this local adoption item does not promote any
 such adapter.
+
+The strict handoff read scope applies to governed critical routes; the existing
+non-authoritative preview shell keeps its full-loader fallback contract. The
+route tests cover that distinction without changing backend admission checks.
+Shared Social foundation subject hashes are refreshed from the current source
+inventory only; independent promotion remains pending and all authority flags
+remain false. The News summary regression is separate from the historical
+capability-comparison evaluator corpus, whose artifact and scores are unchanged.
