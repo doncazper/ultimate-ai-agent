@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   captureNewsSignalsAdoptionApproval,
   commitNewsSignalsAdoptionMutation,
@@ -75,6 +75,7 @@ export function NewsSignalsPreviewPanel() {
   const [signalTitle, setSignalTitle] = useState("");
   const [signalSummary, setSignalSummary] = useState("");
   const [signalTopic, setSignalTopic] = useState("");
+  const [signalClaim, setSignalClaim] = useState("");
   const [signalPublishedAt, setSignalPublishedAt] = useState(currentLocalDateTime);
   const [signalEvidenceClass, setSignalEvidenceClass] = useState<
     NewsSignalsAdoptionActiveItem["evidence_class"]
@@ -94,6 +95,7 @@ export function NewsSignalsPreviewPanel() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const previewGeneration = useRef(0);
 
   const summary = workspace?.summary ?? null;
   const activePage = workspace?.active_items_page ?? null;
@@ -182,6 +184,7 @@ export function NewsSignalsPreviewPanel() {
   );
 
   const invalidatePendingReview = () => {
+    previewGeneration.current += 1;
     setPending(null);
     setNotice("");
   };
@@ -207,6 +210,7 @@ export function NewsSignalsPreviewPanel() {
     setSignalTitle(item.title);
     setSignalSummary(item.safe_summary);
     setSignalTopic("");
+    setSignalClaim(item.title);
     setSignalPublishedAt(localDateTimeFromTimestamp(item.published_at));
     setSignalEvidenceClass(item.evidence_class);
     setSignalClaimStance(item.claim_stance);
@@ -214,6 +218,8 @@ export function NewsSignalsPreviewPanel() {
   };
 
   const runPreview = async (request: NewsSignalsAdoptionMutationRequest) => {
+    const generation = previewGeneration.current + 1;
+    previewGeneration.current = generation;
     setBusy(true);
     setError("");
     setNotice("");
@@ -223,13 +229,17 @@ export function NewsSignalsPreviewPanel() {
         request,
         idempotencyRef,
       );
-      setPending({ request, preview, idempotencyRef });
+      if (previewGeneration.current === generation) {
+        setPending({ request, preview, idempotencyRef });
+      }
     } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "The local News preview failed safely.",
-      );
+      if (previewGeneration.current === generation) {
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "The local News preview failed safely.",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -283,6 +293,7 @@ export function NewsSignalsPreviewPanel() {
         setSignalTitle("");
         setSignalSummary("");
         setSignalTopic("");
+        setSignalClaim("");
         setSignalPublishedAt(currentLocalDateTime());
         setSignalEvidenceClass("primary");
         setSignalClaimStance("unknown");
@@ -386,14 +397,14 @@ export function NewsSignalsPreviewPanel() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (!workspace || !signalTitle.trim() || !signalSummary.trim() || !signalTopic.trim()) return;
+              if (!workspace || !signalTitle.trim() || !signalSummary.trim() || !signalTopic.trim() || !signalClaim.trim()) return;
               const signalDraft = {
                 source_ref: readySource.source_ref,
                 title: signalTitle.trim(),
                 safe_summary: signalSummary.trim(),
                 topic_label: signalTopic.trim(),
                 cluster_label: signalTitle.trim().slice(0, 80),
-                claim_label: `${signalTopic.trim()} reviewed`,
+                claim_label: signalClaim.trim(),
                 published_at: new Date(signalPublishedAt).toISOString(),
                 confidence_percent: signalConfidence,
                 evidence_class: signalEvidenceClass,
@@ -436,6 +447,10 @@ export function NewsSignalsPreviewPanel() {
             <label>
               {editingSignalRef ? "Topic (re-enter for correction)" : "Topic"}
               <input maxLength={60} onChange={(event) => { invalidatePendingReview(); setSignalTopic(event.target.value); }} required value={signalTopic} />
+            </label>
+            <label>
+              Claim
+              <input maxLength={80} onChange={(event) => { invalidatePendingReview(); setSignalClaim(event.target.value); }} required value={signalClaim} />
             </label>
             <label>Published<input onChange={(event) => { invalidatePendingReview(); setSignalPublishedAt(event.target.value); }} required type="datetime-local" value={signalPublishedAt} /></label>
             <label>
@@ -497,6 +512,7 @@ export function NewsSignalsPreviewPanel() {
                   setSignalTitle("");
                   setSignalSummary("");
                   setSignalTopic("");
+                  setSignalClaim("");
                   setSignalPublishedAt(currentLocalDateTime());
                 }}
                 type="button"

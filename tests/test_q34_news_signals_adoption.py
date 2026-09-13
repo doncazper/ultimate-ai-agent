@@ -147,6 +147,36 @@ def test_register_and_ingest_deliver_ranked_today_and_briefing_signal(tmp_path) 
     )
 
 
+def test_distinct_claims_in_one_topic_do_not_create_a_false_conflict(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    _ingest(store, source_ref)
+    second_draft = _signal_draft(
+        source_ref,
+        title="A separate governance observation",
+        summary="A different bounded assertion in the same reviewed topic.",
+    ).model_copy(
+        update={
+            "claim_label": "A separate governance assertion",
+            "claim_stance": "disputes",
+        }
+    )
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="ingest_signal",
+            expected_revision=2,
+            signal_draft=second_draft,
+        ),
+        "ingest-distinct-claim",
+    )
+    view = store.read_view(now=NOW)
+
+    assert view["active_items_page"]["returned_items"] == 2
+    assert view["summary"]["conflicting_claim_refs"] == []
+
+
 def test_preference_is_inspectable_and_changes_ranking(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
@@ -191,6 +221,9 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
     signal_ref = _ingest(store, source_ref)
+    admitted_reason_refs = store.read_view(now=NOW)["summary"][
+        "source_readiness"
+    ][0]["reason_refs"]
 
     _commit(
         store,
@@ -205,9 +238,14 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     disabled = store.read_view(now=NOW)
     assert disabled["status"] == "blocked_source_unavailable"
     assert disabled["summary"]["today_projection"]["item_refs"] == []
-    assert disabled["summary"]["source_readiness"][0]["reason_refs"][1].startswith(
+    disabled_reason_refs = disabled["summary"]["source_readiness"][0]["reason_refs"]
+    assert disabled_reason_refs[:2] == admitted_reason_refs
+    assert disabled_reason_refs[1].startswith(
         "approval-ref:news-signals-adoption:"
     )
+    assert disabled_reason_refs[2:] == [
+        "reason-ref:q34:operator-confirmed-source-state"
+    ]
 
     _commit(
         store,
@@ -222,6 +260,9 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     recovered = store.read_view(now=NOW)
     assert recovered["status"] == "ready"
     assert recovered["summary"]["today_projection"]["item_refs"] == [signal_ref]
+    assert recovered["summary"]["source_readiness"][0]["reason_refs"] == (
+        disabled_reason_refs
+    )
 
 
 @pytest.mark.parametrize("source_state", ["blocked", "unknown", "revoked"])

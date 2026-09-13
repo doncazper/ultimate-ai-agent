@@ -222,6 +222,33 @@ describe("NewsSignalsPreviewPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("discards an in-flight preview when a bound draft field changes", async () => {
+    let resolvePreview: ((value: NewsSignalsAdoptionMutationPreview) => void) | undefined;
+    apiMocks.previewNewsSignalsAdoptionMutation.mockReturnValueOnce(
+      new Promise<NewsSignalsAdoptionMutationPreview>((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    render(<NewsSignalsPreviewPanel />);
+
+    const input = await screen.findByLabelText("Source name");
+    fireEvent.change(input, { target: { value: "Official source" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source" }));
+    await waitFor(() =>
+      expect(apiMocks.previewNewsSignalsAdoptionMutation).toHaveBeenCalledTimes(1),
+    );
+
+    fireEvent.change(input, { target: { value: "Changed while reviewing" } });
+    resolvePreview?.(preview);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Review source" })).toBeEnabled(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Confirm and save" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps every safe-disabled source individually recoverable", async () => {
     apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue({
       ...workspace,
@@ -295,6 +322,9 @@ describe("NewsSignalsPreviewPanel", () => {
       screen.getByLabelText("Topic (re-enter for correction)"),
       { target: { value: "Agent governance" } },
     );
+    fireEvent.change(screen.getByLabelText("Claim"), {
+      target: { value: "The reviewed governance milestone occurred" },
+    });
     fireEvent.change(screen.getByLabelText("Confidence percent"), {
       target: { value: "77" },
     });
@@ -315,6 +345,7 @@ describe("NewsSignalsPreviewPanel", () => {
           signal_draft: expect.objectContaining({
             title: activeItem.title,
             safe_summary: activeItem.safe_summary,
+            claim_label: "The reviewed governance milestone occurred",
             confidence_percent: 77,
             evidence_class: "corroborating",
             claim_stance: "disputes",

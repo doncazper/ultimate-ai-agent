@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+import pytest
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import (
@@ -261,8 +262,17 @@ def test_api_rejects_oversized_and_deep_json_with_cors(tmp_path, monkeypatch) ->
         )
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/summary",
+        "/control-center/today/summary",
+        "/control-center/morning-briefing/summary",
+    ],
+)
 def test_api_corrupt_local_state_fails_closed_without_raw_details(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, path
 ) -> None:
     state_dir = tmp_path / "state"
     state_dir.mkdir(mode=0o700)
@@ -270,9 +280,7 @@ def test_api_corrupt_local_state_fails_closed_without_raw_details(
         "private corrupt database body", encoding="utf-8"
     )
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(state_dir))
-    response = TestClient(app, raise_server_exceptions=False).get(
-        "/control-center/news-signals/adoption"
-    )
+    response = TestClient(app, raise_server_exceptions=False).get(path)
 
     assert response.status_code == 503
     assert response.headers["cache-control"] == "no-store"

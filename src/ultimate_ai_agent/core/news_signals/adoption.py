@@ -1473,9 +1473,13 @@ class NewsSignalsAdoptionStore:
                         **asdict(source),
                         "state": request.source_state,
                         "observed_at": _utc_text(now),
-                        "reason_refs": (
-                            "reason-ref:q34:operator-confirmed-source-state",
-                            preview.approval_ref,
+                        "reason_refs": tuple(
+                            dict.fromkeys(
+                                (
+                                    *source.reason_refs,
+                                    "reason-ref:q34:operator-confirmed-source-state",
+                                )
+                            )
                         ),
                     }
                 ),

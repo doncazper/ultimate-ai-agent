@@ -56,6 +56,7 @@ from ultimate_ai_agent.core.memory import (
     MemoryFeedbackRequest,
     MemoryReviewDecisionRequest,
 )
+from ultimate_ai_agent.core.news_signals.adoption import NewsSignalsAdoptionError
 from ultimate_ai_agent.core.storage import (
     FounderLoopAuthorityError,
     FounderLoopStorageDuplicateError,
@@ -69,6 +70,47 @@ from ultimate_ai_agent.core.storage.founder_loop import (
 router = APIRouter(prefix="/control-center", tags=["control-center"])
 _REGISTERED_ATTR = "_uaa_founder_loop_routes_registered"
 _AUTOCORRECT_REVIEW_SESSION = CorrectionReviewSession()
+
+_NEWS_SIGNALS_INVALID_STATE_CODES = {
+    "NEWS_SIGNALS_ADOPTION_JSON_INVALID",
+    "NEWS_SIGNALS_ADOPTION_UNDO_STATE_INVALID",
+    "NEWS_SIGNALS_ADOPTION_RECEIPT_STATE_INVALID",
+    "NEWS_SIGNALS_ADOPTION_DATABASE_ROW_INVALID",
+    "NEWS_SIGNALS_ADOPTION_DATABASE_CAPACITY_INVALID",
+    "NEWS_SIGNALS_ADOPTION_RELATIONSHIP_STATE_INVALID",
+    "NEWS_SIGNALS_ADOPTION_REVISION_STATE_INVALID",
+}
+
+
+def _read_news_signals_summary(*, limit: int) -> dict[str, object]:
+    """Read the local News projection with the adoption route's safe posture."""
+
+    try:
+        return get_news_signals_adoption_store().read_view(limit=limit)["summary"]
+    except NewsSignalsAdoptionError as exc:
+        candidate = str(exc)
+        code = (
+            candidate
+            if candidate in _NEWS_SIGNALS_INVALID_STATE_CODES
+            or candidate
+            in {
+                "NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE",
+                "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID",
+                "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE",
+            }
+            else "NEWS_SIGNALS_ADOPTION_ERROR"
+        )
+        raise HTTPException(
+            status_code=422 if code in _NEWS_SIGNALS_INVALID_STATE_CODES else 503,
+            detail={
+                "code": code,
+                "safe_message": (
+                    "The private News request could not be completed safely. "
+                    "Refresh the workspace before retrying."
+                ),
+            },
+            headers={"Cache-Control": "no-store"},
+        ) from exc
 
 
 class FounderLoopActionRevisionConflictDetail(BaseModel):
@@ -148,7 +190,7 @@ def get_control_center_backend_truth() -> ResultEnvelope:
 @router.get("/today/summary", response_model=ResultEnvelope)
 def get_control_center_today_summary() -> ResultEnvelope:
     data = get_founder_loop_service().today_summary()
-    news_signals = get_news_signals_adoption_store().read_view(limit=20)["summary"]
+    news_signals = _read_news_signals_summary(limit=20)
     data["news_signals_projection"] = news_signals["today_projection"]
     return ResultEnvelope(
         success=True,
@@ -2056,7 +2098,7 @@ def post_control_center_action_local_task_commit(
 @router.get("/morning-briefing/summary", response_model=ResultEnvelope)
 def get_control_center_morning_briefing_summary() -> ResultEnvelope:
     data = get_founder_loop_service().morning_briefing_summary()
-    news_signals = get_news_signals_adoption_store().read_view(limit=20)["summary"]
+    news_signals = _read_news_signals_summary(limit=20)
     data["news_signals_projection"] = news_signals["morning_briefing_projection"]
     return ResultEnvelope(
         success=True,
@@ -2077,7 +2119,7 @@ def get_control_center_morning_briefing_summary() -> ResultEnvelope:
 def get_control_center_news_signals_summary(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> ResultEnvelope:
-    data = get_news_signals_adoption_store().read_view(limit=limit)["summary"]
+    data = _read_news_signals_summary(limit=limit)
     return ResultEnvelope(
         success=True,
         operation="control_center_news_signals_summary",
