@@ -5,6 +5,10 @@ import re
 from ultimate_ai_agent.core.control_center.agent_loop import (
     build_external_information_handling_posture,
 )
+from ultimate_ai_agent.core.secrets import BlockedCredentialVaultAdapter
+from ultimate_ai_agent.core.secrets.vault_readiness import (
+    build_provider_credential_vault_adapter_readiness,
+)
 
 
 def test_external_intake_summary_is_renderable_without_relaxing_content_guard() -> None:
@@ -19,3 +23,25 @@ def test_external_intake_summary_is_renderable_without_relaxing_content_guard() 
     )
     assert intake["raw_content_included"] is False
     assert intake["external_content_can_grant_authority"] is False
+
+
+def test_built_vault_readiness_preserves_dashboard_blocked_reason() -> None:
+    report = BlockedCredentialVaultAdapter().inspect_capabilities()
+    original_codes = list(report.blocker_codes)
+    readiness = build_provider_credential_vault_adapter_readiness(report)
+
+    assert "VAULT_ADAPTER_NOT_SCOPED" in readiness.blocker_codes
+    assert set(original_codes).issubset(readiness.blocker_codes)
+    assert report.blocker_codes == original_codes
+    assert readiness.adapter_available is False
+    assert readiness.adapter_runtime_enabled is False
+    assert readiness.raw_key_visible is False
+    assert readiness.credential_material_stored_by_repo is False
+    assert readiness.readiness_status == "blocked_no_approved_backend"
+
+    report_with_reason = report.model_copy(
+        update={"blocker_codes": [*original_codes, "VAULT_ADAPTER_NOT_SCOPED"]}
+    )
+    assert build_provider_credential_vault_adapter_readiness(
+        report_with_reason
+    ).blocker_codes.count("VAULT_ADAPTER_NOT_SCOPED") == 1

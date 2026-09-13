@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1020,
+  "timed_file_count": 1021,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -5103,6 +5103,11 @@
     {
       "path": "tests/test_world_state.py",
       "seconds": 0.179442,
+      "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_news_handoff_agent_loop_summary.py",
+      "seconds": 4.247069,
       "source": "shard-elapsed-fallback"
     }
   ],

@@ -156,6 +156,7 @@ instruction or authority source.
 - `apps/control-center/src/components/NewsSignalsDigest.test.tsx`
 - `apps/control-center/src/App.news.test.tsx`
 - `apps/control-center/src/App.backendTruth.test.tsx`
+- `apps/control-center/src/App.newsHandoff.test.tsx`
 - `tests/test_news_handoff_agent_loop_summary.py`
 - `apps/control-center/tests/visual/foundation-surfaces.real.spec.ts`
 - OpenAPI/API manifest, capability/release-surface, documentation, frontend,
