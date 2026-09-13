@@ -37,6 +37,25 @@ def test_visual_scope_is_exact_diff_derived(
     assert resolver.resolve_visual_scope(Path("."), BASE_SHA, SHA) == expected
 
 
+@pytest.mark.parametrize("path", (
+    "scripts/verification/run_frontend_playwright.py",
+    "scripts/verification/frontend_failure_diagnostics.py",
+    "scripts/verification/ci_command_manifest.py",
+    "scripts/verification/resolve_ci_visual_scope.py",
+))
+def test_visual_infrastructure_diff_requires_browser_execution(
+    monkeypatch: pytest.MonkeyPatch, path: str,
+) -> None:
+    monkeypatch.setattr(
+        resolver.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=("git",), returncode=0, stdout=f"{path}\0".encode(), stderr=b"",
+        ),
+    )
+    assert resolver.resolve_visual_scope(Path("."), BASE_SHA, SHA) == "affected"
+
+
 @pytest.mark.parametrize("payload", (b"unsafe\npath\0", b"\xff\0"))
 def test_visual_scope_rejects_unsafe_changed_path_evidence(
     monkeypatch: pytest.MonkeyPatch,

@@ -549,6 +549,9 @@ export function NorthStarRoute({
           message={state.error ?? "Unable to load Control Center data."}
           surfaceLabel={activeSurfaceLabel}
         />
+        {isNewsHandoffRoute(activePath) ? (
+          <button onClick={state.retry} type="button">Retry local read</button>
+        ) : null}
       </AppShell>
     );
   }
@@ -1196,6 +1199,9 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           message={state.error ?? "Unable to load Control Center data."}
           surfaceLabel={activeSurfaceLabel}
         />
+        {isNewsHandoffRoute(activePath) ? (
+          <button onClick={state.retry} type="button">Retry local read</button>
+        ) : null}
       </AppShell>
     );
   }

@@ -39,6 +39,7 @@ from scripts.verification.frontend_failure_diagnostics import (  # noqa: E402
     playwright_failed_test_refs,
     publish_failed_test_refs,
     retain_failed_test_refs,
+    select_failed_attempt_refs,
 )
 
 
@@ -125,6 +126,7 @@ def _refresh_retained_failed_test_refs(
     refs: tuple[str, ...],
     *,
     failed_test_count: int,
+    attempt_refs: tuple[str, ...] = (),
 ) -> None:
     with tempfile.TemporaryDirectory(
         prefix="uaa-frontend-diagnostic-",
@@ -137,6 +139,7 @@ def _refresh_retained_failed_test_refs(
             staged,
             refs,
             failed_test_count=failed_test_count,
+            attempt_refs=attempt_refs,
         )
         try:
             os.replace(staged, path)
@@ -188,6 +191,7 @@ def run(suite: str) -> int:
         )
         observations: list[dict[str, object]] = []
         all_failed_test_refs: set[str] = set()
+        all_failed_attempt_refs: set[str] = set()
         returncodes: list[int] = []
         diagnostics_retained = False
         for phase_index, phase_args in enumerate(phases):
@@ -233,9 +237,11 @@ def run(suite: str) -> int:
                 raise FrontendPlaywrightError(
                     "frontend Playwright command exceeded its bounded timeout"
                 )
+            phase_failed_attempt_refs: set[str] = set()
             phase_failed_test_refs = playwright_failed_test_refs(
                 phase_raw_result,
                 repository_root=ROOT,
+                attempt_refs=phase_failed_attempt_refs,
             )
             phase_observation = consume_playwright_json_result(
                 phase_raw_result,
@@ -250,6 +256,7 @@ def run(suite: str) -> int:
             returncodes.append(returncode)
             observations.append(phase_observation)
             all_failed_test_refs.update(phase_failed_test_refs)
+            all_failed_attempt_refs.update(phase_failed_attempt_refs)
             if (
                 returncode != 0
                 and external_target is not None
@@ -262,17 +269,22 @@ def run(suite: str) -> int:
                 retained_failure_count = sum(
                     int(item["failed_test_count"]) for item in observations
                 )
+                retained_attempts = select_failed_attempt_refs(
+                    all_failed_attempt_refs, retained_refs,
+                )
                 if diagnostics_retained:
                     _refresh_retained_failed_test_refs(
                         diagnostic_target,
                         retained_refs,
                         failed_test_count=retained_failure_count,
+                        attempt_refs=retained_attempts,
                     )
                 else:
                     retain_failed_test_refs(
                         diagnostic_target,
                         retained_refs,
                         failed_test_count=retained_failure_count,
+                        attempt_refs=retained_attempts,
                     )
                 diagnostics_retained = True
         observation = _combined_playwright_observation(tuple(observations))
@@ -280,6 +292,9 @@ def run(suite: str) -> int:
         failed_test_refs = tuple(sorted(all_failed_test_refs))[
             :MAX_FAILED_TEST_REFS
         ]
+        failed_attempt_refs = select_failed_attempt_refs(
+            all_failed_attempt_refs, failed_test_refs,
+        )
         if external_target is not None:
             publish_frontend_collection_evidence(
                 external_target,
@@ -298,16 +313,19 @@ def run(suite: str) -> int:
                         diagnostic_target,
                         failed_test_refs,
                         failed_test_count=int(observation["failed_test_count"]),
+                        attempt_refs=failed_attempt_refs,
                     )
                 else:
                     retain_failed_test_refs(
                         diagnostic_target,
                         failed_test_refs,
                         failed_test_count=int(observation["failed_test_count"]),
+                        attempt_refs=failed_attempt_refs,
                     )
             publish_failed_test_refs(
                 failed_test_refs,
                 failed_test_count=int(observation["failed_test_count"]),
+                attempt_refs=failed_attempt_refs,
             )
             print(
                 "Frontend Playwright: failed "

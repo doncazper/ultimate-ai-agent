@@ -108,6 +108,102 @@ def test_visual_timeout_alignment_rejects_extra_runner_changes(
     ) == set()
 
 
+def test_visual_scope_expansion_preserves_all_runner_configuration() -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = 'VISUAL_SCOPE_PATHS = ("apps/control-center",)\nPYTEST_ARGS = ("tests",)\n'
+    current = prior.replace(
+        '("apps/control-center",)',
+        '("apps/control-center", "scripts/verification/run_frontend_playwright.py")',
+    )
+    assert guard._safe_visual_scope_expansion_paths(
+        current_by_path={path: current}, prior_by_path={path: prior},
+    ) == {path}
+    assert not guard._safe_visual_scope_expansion_paths(
+        current_by_path={path: current, "scripts/verification/run_pytest_shards.py": "changed"},
+        prior_by_path={path: prior},
+    )
+
+
+@pytest.mark.parametrize("scope", (
+    '()',
+    '("docs/control_center",)',
+    '("apps/control-center", "apps/control-center", "docs/control_center")',
+    'tuple(("apps/control-center", "docs/control_center"))',
+    '("apps/control-center", *EXTRA_PATHS)',
+    '("apps/control-center", False)',
+    '("apps/control-center", "../tests")',
+    '("apps/control-center", "/tests")',
+))
+def test_visual_scope_expansion_rejects_removals_and_dynamic_paths(scope: str) -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = 'VISUAL_SCOPE_PATHS = ("apps/control-center",)\nPYTEST_ARGS = ("tests",)\n'
+    current = f'VISUAL_SCOPE_PATHS = {scope}\nPYTEST_ARGS = ("tests",)\n'
+    assert not guard._safe_visual_scope_expansion_paths(
+        current_by_path={path: current}, prior_by_path={path: prior},
+    )
+
+
+@pytest.mark.parametrize("extra", (
+    'PYTEST_ARGS = ("--ignore", "tests/security")\n',
+    'TIMEOUT_SECONDS = 99999\n',
+    'VISUAL_SCOPE_PATHS = ()\n',
+))
+def test_visual_scope_expansion_rejects_any_other_executable_change(extra: str) -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = 'VISUAL_SCOPE_PATHS = ("apps/control-center",)\nPYTEST_ARGS = ("tests",)\n'
+    current = prior.replace(
+        '("apps/control-center",)', '("apps/control-center", "docs/control_center")',
+    ) + extra
+    assert not guard._safe_visual_scope_expansion_paths(
+        current_by_path={path: current}, prior_by_path={path: prior},
+    )
+
+
+@pytest.mark.parametrize("mutation", ("expand", "reorder", "remove", "command", "syntax"))
+def test_changed_visual_scope_configuration_requires_additive_proof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    path = "scripts/verification/ci_command_manifest.py"
+    prior = (
+        'VISUAL_SCOPE_PATHS = ("apps/control-center", "docs/control_center")\n'
+        'PYTEST_ARGS = ("tests",)\n'
+    )
+    current = prior.replace(
+        '"docs/control_center")',
+        '"docs/control_center", "scripts/verification/run_frontend_playwright.py")',
+    )
+    if mutation == "reorder":
+        current = current.replace(
+            '"apps/control-center", "docs/control_center"',
+            '"docs/control_center", "apps/control-center"',
+        )
+    elif mutation == "remove":
+        current = current.replace('"apps/control-center", ', "")
+    elif mutation == "command":
+        current = current.replace('("tests",)', '("--ignore", "tests/security")')
+    elif mutation == "syntax":
+        current += "broken = (\n"
+    target = tmp_path / path
+    target.parent.mkdir(parents=True)
+    target.write_text(current)
+    outputs = iter((f"{path}\0".encode(), b"", b"", b"",
+                    str(len(prior.encode())).encode(), prior.encode()))
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b"",
+        ),
+    )
+    if mutation == "expand":
+        assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
+    else:
+        with pytest.raises(guard.TestCorpusGuardError, match="pytest runner configuration"):
+            guard._changed_test_paths(tmp_path, "a" * 40)
+
+
 def test_exact_httpx2_security_dependency_alignment_is_pair_bound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

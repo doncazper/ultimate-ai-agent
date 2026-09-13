@@ -14,6 +14,17 @@ const backendTruthTestNow = "2026-07-22T18:00:00Z";
 const backendSourceCommit = resolveBackendSourceCommit();
 let backend: ChildProcess | null = null;
 
+function normalizedLocalInputValue(timestamp: number): string {
+  const date = new Date(timestamp);
+  const input = document.createElement("input");
+  input.type = "datetime-local";
+  input.value = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+    .toISOString().slice(0, 23);
+  // Chromium removes redundant seconds/fraction zeros. Playwright fill expects
+  // that normalized representation, while the instant and precision stay intact.
+  return input.value;
+}
+
 const foundationVisualSurfaces = [
   [
     "work-board",
@@ -169,10 +180,7 @@ test("normal News intake binds confirmation and keeps every signal field inside 
   await page.getByLabel("Redacted summary", { exact: true }).fill("A synthetic local artifact for normal-route regression only.");
   await page.getByLabel("Topic", { exact: true }).fill("Local review");
   await page.getByLabel("Claim", { exact: true }).fill("Normal route saves a reviewed artifact");
-  const publishedAt = await page.evaluate((timestamp) => {
-    const date = new Date(timestamp);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 23);
-  }, Date.now() - 60_000);
+  const publishedAt = await page.evaluate(normalizedLocalInputValue, Date.now() - 60_000);
   await page.getByLabel("Published", { exact: true }).fill(publishedAt);
   await page.getByLabel("Confidence percent", { exact: true }).fill("91");
   await page.getByRole("combobox", { name: /^Evidence class/ }).selectOption("primary");
@@ -190,6 +198,12 @@ test("normal News intake binds confirmation and keeps every signal field inside 
   ]) {
     await page.goto(path);
     const digest = page.getByLabel(label, { exact: true });
+    const heading = digest.getByRole("heading", { name: "Local News regression artifact", exact: true });
+    const readRetry = page.getByRole("button", { name: "Retry local read", exact: true });
+    // Exercise the ordinary recovery control once if a bounded local read fails.
+    // Persistent failure still fails; no save, approval or test run is replayed.
+    await expect(heading.or(readRetry)).toBeVisible({ timeout: 30_000 });
+    if (await readRetry.isVisible()) await readRetry.click();
     await expect(digest.getByRole("heading", { name: "Local News regression artifact", exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(digest.getByText(/Fresh when checked/)).toBeVisible();
     await expect(digest.getByRole("button", { name: "Refresh News", exact: true })).toBeEnabled();
@@ -207,6 +221,51 @@ test("normal News intake binds confirmation and keeps every signal field inside 
     await expect(page).toHaveURL(/\/news$/);
     await expect(page.getByRole("button", { name: "Edit Local News regression artifact", exact: true })).toBeVisible();
   }
+});
+
+test("publication input normalization preserves every tested instant", async ({ page }) => {
+  await page.setContent('<label>Publication regression<input type="datetime-local" step="0.001"></label>');
+  const input = page.getByLabel("Publication regression", { exact: true });
+  for (const offset of [0, 10, 100, 110, 120, 123, 999, 56_000, 56_100, 56_123]) {
+    const timestamp = Date.UTC(2026, 8, 13, 12, 34) + offset;
+    const value = await page.evaluate(normalizedLocalInputValue, timestamp);
+    await input.fill(value);
+    await expect(input).toHaveValue(value);
+    expect(await input.evaluate((element: HTMLInputElement) => new Date(element.value).getTime()))
+      .toBe(timestamp);
+  }
+});
+
+test("failed Today read recovers only after an explicit read-only retry", async ({ page, request }) => {
+  test.setTimeout(60_000);
+  const response = await request.get(`${backendBaseUrl}/control-center/backend-truth`);
+  expect(response.ok()).toBe(true);
+  await page.clock.setFixedTime(new Date((await response.json()).data.generated_at));
+  let readFailures = 0;
+  let mutationRequests = 0;
+  await page.route("**/control-center/agent-loop/thread", (route) => {
+    if (readFailures === 0) {
+      readFailures += 1;
+      return route.abort("failed");
+    }
+    return route.continue();
+  });
+  page.on("request", (message) => {
+    if (new URL(message.url()).pathname.startsWith("/control-center/")
+      && !["GET", "HEAD", "OPTIONS"].includes(message.method())) mutationRequests += 1;
+  });
+  await page.goto("/workspace/today");
+  const retry = page.getByRole("button", { name: "Retry local read", exact: true });
+  await expect(retry).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel("Today News snapshot", { exact: true })).toHaveCount(0);
+  expect(mutationRequests).toBe(0);
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  const digest = page.getByLabel("Today News snapshot", { exact: true });
+  await expect(digest.getByText(/Snapshot checked/)).toBeVisible({ timeout: 30_000 });
+  await expect(digest.getByRole("button", { name: "Refresh News", exact: true })).toBeEnabled();
+  expect(readFailures).toBe(1);
+  expect(mutationRequests).toBe(0);
 });
 
 test("foundation visual baselines stay backend-owned", async ({
