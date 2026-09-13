@@ -438,6 +438,53 @@ export function NewsSignalsPreviewPanel() {
               <input maxLength={60} onChange={(event) => { invalidatePendingReview(); setSignalTopic(event.target.value); }} required value={signalTopic} />
             </label>
             <label>Published<input onChange={(event) => { invalidatePendingReview(); setSignalPublishedAt(event.target.value); }} required type="datetime-local" value={signalPublishedAt} /></label>
+            <label>
+              Confidence percent
+              <input
+                max={100}
+                min={0}
+                onChange={(event) => {
+                  invalidatePendingReview();
+                  setSignalConfidence(Number(event.target.value));
+                }}
+                required
+                type="number"
+                value={signalConfidence}
+              />
+            </label>
+            <label>
+              Evidence class
+              <select
+                onChange={(event) => {
+                  invalidatePendingReview();
+                  setSignalEvidenceClass(
+                    event.target.value as NewsSignalsAdoptionActiveItem["evidence_class"],
+                  );
+                }}
+                value={signalEvidenceClass}
+              >
+                <option value="primary">Primary</option>
+                <option value="corroborating">Corroborating</option>
+                <option value="community">Community</option>
+                <option value="commentary">Commentary</option>
+              </select>
+            </label>
+            <label>
+              Claim stance
+              <select
+                onChange={(event) => {
+                  invalidatePendingReview();
+                  setSignalClaimStance(
+                    event.target.value as NewsSignalsAdoptionActiveItem["claim_stance"],
+                  );
+                }}
+                value={signalClaimStance}
+              >
+                <option value="supports">Supports</option>
+                <option value="disputes">Disputes</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </label>
             <button disabled={busy} type="submit">
               {editingSignalRef ? "Review signal correction" : "Review signal"}
             </button>
@@ -559,18 +606,20 @@ export function NewsSignalsPreviewPanel() {
                 <button disabled={busy} onClick={() => startSourceEdit(source)} type="button">
                   Edit {source.safe_label}
                 </button>
-                <button
-                  disabled={busy}
-                  onClick={() => void runPreview({
-                    action: "set_source_state",
-                    expected_revision: workspace.revision,
-                    target_ref: source.source_ref,
-                    source_state: source.state === "safe_disabled" ? "ready" : "safe_disabled",
-                  })}
-                  type="button"
-                >
-                  {source.state === "safe_disabled" ? "Review recovery" : "Review safe-disable"}
-                </button>
+                {source.state === "ready" || source.state === "safe_disabled" ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => void runPreview({
+                      action: "set_source_state",
+                      expected_revision: workspace.revision,
+                      target_ref: source.source_ref,
+                      source_state: source.state === "safe_disabled" ? "ready" : "safe_disabled",
+                    })}
+                    type="button"
+                  >
+                    {source.state === "safe_disabled" ? "Review recovery" : "Review safe-disable"}
+                  </button>
+                ) : null}
               </span>
             </div>
           ))}

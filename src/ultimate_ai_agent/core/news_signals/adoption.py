@@ -925,6 +925,13 @@ class NewsSignalsAdoptionStore:
                 raise NewsSignalsAdoptionConflict(
                     "NEWS_SIGNALS_ADOPTION_SOURCE_STATE_UNCHANGED"
                 )
+            if (source.state, request.source_state) not in {
+                ("ready", "safe_disabled"),
+                ("safe_disabled", "ready"),
+            }:
+                raise NewsSignalsAdoptionConflict(
+                    "NEWS_SIGNALS_ADOPTION_SOURCE_STATE_TRANSITION_INVALID"
+                )
         elif action in {"archive_signal", "recover_signal"}:
             assert request.target_ref is not None
             signal_ref = request.target_ref
@@ -1304,23 +1311,44 @@ class NewsSignalsAdoptionStore:
         signal_ref = preview.signal_ref
         if request.action in {"register_source", "update_source"}:
             assert request.source_draft is not None and source_ref is not None
+            prior_source = source_by_ref.get(source_ref)
             source = NewsSignalSource(
                 source_ref=source_ref,
                 source_kind=request.source_draft.source_kind,
                 safe_label=request.source_draft.safe_label,
                 state=(
-                    source_by_ref[source_ref].state
-                    if request.action == "update_source"
+                    prior_source.state
+                    if prior_source is not None
                     else "ready"
                 ),
-                observed_at=_utc_text(now),
+                observed_at=(
+                    prior_source.observed_at
+                    if prior_source is not None
+                    else _utc_text(now)
+                ),
                 freshness_ttl_seconds=request.source_draft.freshness_ttl_seconds,
-                adapter_ref=NEWS_SIGNALS_ADOPTION_ADAPTER_REF,
-                provenance_ref=NEWS_SIGNALS_ADOPTION_PROVENANCE_REF,
-                retention_ref=NEWS_SIGNALS_ADOPTION_RETENTION_REF,
+                adapter_ref=(
+                    prior_source.adapter_ref
+                    if prior_source is not None
+                    else NEWS_SIGNALS_ADOPTION_ADAPTER_REF
+                ),
+                provenance_ref=(
+                    prior_source.provenance_ref
+                    if prior_source is not None
+                    else NEWS_SIGNALS_ADOPTION_PROVENANCE_REF
+                ),
+                retention_ref=(
+                    prior_source.retention_ref
+                    if prior_source is not None
+                    else NEWS_SIGNALS_ADOPTION_RETENTION_REF
+                ),
                 reason_refs=(
-                    "reason-ref:q34:operator-confirmed-local-intake",
-                    preview.approval_ref,
+                    prior_source.reason_refs
+                    if prior_source is not None
+                    else (
+                        "reason-ref:q34:operator-confirmed-local-intake",
+                        preview.approval_ref,
+                    )
                 ),
             )
             self._write_source(conn, source)
@@ -1392,6 +1420,19 @@ class NewsSignalsAdoptionStore:
                     "NEWS_SIGNALS_ADOPTION_SIGNAL_SOURCE_REBIND_BLOCKED"
                 )
             self._write_artifact(conn, artifact)
+            if (
+                prior is not None
+                and prior.topic_ref != artifact.topic_ref
+                and not any(
+                    item.artifact_ref != prior.artifact_ref
+                    and item.topic_ref == prior.topic_ref
+                    for item in state.artifacts
+                )
+            ):
+                conn.execute(
+                    "DELETE FROM news_signal_preferences WHERE topic_ref = ?",
+                    (prior.topic_ref,),
+                )
         elif request.action == "set_preference":
             assert request.topic_ref is not None
             assert request.preference_weight is not None
@@ -1725,7 +1766,7 @@ class NewsSignalsAdoptionStore:
                 "NEWS_SIGNALS_ADOPTION_UNDO_SIZE_LIMIT"
             )
         undo_snapshot_ref = (
-            self._undo_snapshot_ref(undo_row["snapshot_json"])
+            self._validated_undo_snapshot_ref(undo_row["snapshot_json"])
             if undo_row is not None
             else None
         )
@@ -1778,6 +1819,12 @@ class NewsSignalsAdoptionStore:
             "undo-snapshot-ref:news-signals-adoption",
             {"snapshot_json": snapshot_json},
         )
+
+    def _validated_undo_snapshot_ref(self, snapshot_json: object) -> str:
+        snapshot_ref = self._undo_snapshot_ref(snapshot_json)
+        assert isinstance(snapshot_json, str)
+        self._decode_undo_snapshot(snapshot_json)
+        return snapshot_ref
 
     @staticmethod
     def _decode_undo_snapshot(
@@ -1842,10 +1889,12 @@ class NewsSignalsAdoptionStore:
             ) from exc
         source_refs = {item.source_ref for item in sources}
         artifact_refs = {item.artifact_ref for item in artifacts}
+        preference_topic_refs = {item.topic_ref for item in preferences}
         topic_refs = {item.topic_ref for item in artifacts}
         if (
             len(source_refs) != len(sources)
             or len(artifact_refs) != len(artifacts)
+            or len(preference_topic_refs) != len(preferences)
             or len(set(archived_refs)) != len(archived_refs)
             or not set(archived_refs).issubset(artifact_refs)
             or any(item.source_ref not in source_refs for item in artifacts)

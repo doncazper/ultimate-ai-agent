@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.news_signals.adoption import (
     NewsSignalsAdoptionMutationRequest,
     NewsSignalsAdoptionStore,
 )
+from ultimate_ai_agent.core.news_signals.read_model import NewsSignalSource
 
 
 NOW = datetime(2026, 9, 9, 12, 0, tzinfo=timezone.utc)
@@ -223,14 +224,54 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
     assert recovered["summary"]["today_projection"]["item_refs"] == [signal_ref]
 
 
+@pytest.mark.parametrize("source_state", ["blocked", "unknown", "revoked"])
+def test_source_recovery_cannot_override_non_q34_authority_states(
+    tmp_path,
+    source_state,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = f"source-ref:q24:{source_state}"
+    store.repository.upsert_source(
+        NewsSignalSource(
+            source_ref=source_ref,
+            source_kind="official",
+            safe_label=f"{source_state.title()} source",
+            state=source_state,
+            observed_at="2026-09-09T10:00:00Z",
+            freshness_ttl_seconds=86_400,
+            adapter_ref="connector-adapter-ref:q24:reviewed-source",
+            provenance_ref="provenance-ref:q24:reviewed-source",
+            retention_ref="retention-ref:q24:reviewed-source",
+            reason_refs=(f"reason-ref:q24:{source_state}",),
+        )
+    )
+
+    with pytest.raises(
+        NewsSignalsAdoptionConflict,
+        match="SOURCE_STATE_TRANSITION_INVALID",
+    ):
+        store.preview_mutation(
+            NewsSignalsAdoptionMutationRequest(
+                action="set_source_state",
+                expected_revision=0,
+                target_ref=source_ref,
+                source_state="safe_disabled",
+            ),
+            idempotency_ref=(
+                f"idempotency-ref:q34:test:invalid-transition:{source_state}"
+            ),
+        )
+
+
 def test_source_update_keeps_artifact_label_and_approval_binding_current(
     tmp_path,
 ) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = _register(store)
     _ingest(store, source_ref)
+    before_source = store.read_view(now=NOW)["summary"]["source_readiness"][0]
 
-    preview, _, _ = _commit(
+    _commit(
         store,
         NewsSignalsAdoptionMutationRequest(
             action="update_source",
@@ -243,9 +284,52 @@ def test_source_update_keeps_artifact_label_and_approval_binding_current(
     view = store.read_view(now=NOW)
 
     assert view["summary"]["items"][0]["source_label"] == "Renamed official source"
-    assert view["summary"]["source_readiness"][0]["reason_refs"][-1] == (
-        preview.approval_ref
+    after_source = view["summary"]["source_readiness"][0]
+    assert after_source["reason_refs"] == before_source["reason_refs"]
+
+
+def test_source_update_preserves_shared_source_origin_contract(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = "source-ref:q24:shared-origin"
+    store.repository.upsert_source(
+        NewsSignalSource(
+            source_ref=source_ref,
+            source_kind="rss",
+            safe_label="Shared source",
+            state="ready",
+            observed_at="2026-09-08T10:00:00Z",
+            freshness_ttl_seconds=86_400,
+            adapter_ref="connector-adapter-ref:q24:shared-origin",
+            provenance_ref="provenance-ref:q24:shared-origin",
+            retention_ref="retention-ref:q24:shared-origin",
+            reason_refs=("reason-ref:q24:shared-origin",),
+        )
     )
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="update_source",
+            expected_revision=0,
+            target_ref=source_ref,
+            source_draft=NewsSignalSourceDraft(
+                safe_label="Corrected shared source",
+                source_kind="official",
+                freshness_ttl_seconds=172_800,
+            ),
+        ),
+        "correct-shared-source",
+    )
+    source = store.read_view(now=NOW)["summary"]["source_readiness"][0]
+
+    assert source["safe_label"] == "Corrected shared source"
+    assert source["source_kind"] == "official"
+    assert source["freshness_ttl_seconds"] == 172_800
+    assert source["observed_at"] == "2026-09-08T10:00:00Z"
+    assert source["adapter_ref"] == "connector-adapter-ref:q24:shared-origin"
+    assert source["provenance_ref"] == "provenance-ref:q24:shared-origin"
+    assert source["retention_ref"] == "retention-ref:q24:shared-origin"
+    assert source["reason_refs"] == ["reason-ref:q24:shared-origin"]
 
 
 def test_active_signal_page_reaches_deduplicated_items_and_supports_search(
@@ -364,6 +448,38 @@ def test_archive_recover_correction_and_undo(tmp_path) -> None:
     assert undone["summary"]["items"][0]["safe_summary"].startswith("A bounded")
 
 
+def test_signal_topic_correction_removes_orphaned_preference(tmp_path) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    source_ref = _register(store)
+    signal_ref = _ingest(store, source_ref)
+    current = store.read_view(now=NOW)["summary"]["items"][0]
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="set_preference",
+            expected_revision=2,
+            topic_ref=current["topic_ref"],
+            preference_weight=12,
+        ),
+        "prefer-before-topic-correction",
+    )
+
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="update_signal",
+            expected_revision=3,
+            target_ref=signal_ref,
+            signal_draft=_signal_draft(source_ref, topic="Corrected governance"),
+        ),
+        "correct-preferred-topic",
+    )
+    view = store.read_view(now=NOW)
+
+    assert view["preferences"] == []
+    assert view["summary"]["items"][0]["topic_ref"] != current["topic_ref"]
+
+
 def test_stale_revision_and_approval_substitution_are_rejected(tmp_path) -> None:
     store = NewsSignalsAdoptionStore(tmp_path)
     mutation = NewsSignalsAdoptionMutationRequest(
@@ -424,6 +540,25 @@ def test_undo_approval_binds_the_exact_snapshot_bytes(tmp_path) -> None:
     view = store.read_view(now=NOW)
     assert view["revision"] == 1
     assert view["summary"]["source_readiness"][0]["source_ref"] == source_ref
+
+
+def test_invalid_undo_snapshot_fails_closed_before_undo_is_advertised(
+    tmp_path,
+) -> None:
+    store = NewsSignalsAdoptionStore(tmp_path)
+    _register(store)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "UPDATE news_signals_adoption_undo SET snapshot_json = ? "
+            "WHERE singleton = 1",
+            ('{"sources":',),
+        )
+
+    with pytest.raises(
+        NewsSignalsAdoptionError,
+        match="UNDO_STATE_INVALID",
+    ):
+        store.read_view(now=NOW)
 
 
 def test_commit_requires_captured_exact_approval_and_replays_idempotently(tmp_path) -> None:

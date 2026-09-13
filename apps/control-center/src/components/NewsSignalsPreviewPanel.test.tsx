@@ -295,6 +295,15 @@ describe("NewsSignalsPreviewPanel", () => {
       screen.getByLabelText("Topic (re-enter for correction)"),
       { target: { value: "Agent governance" } },
     );
+    fireEvent.change(screen.getByLabelText("Confidence percent"), {
+      target: { value: "77" },
+    });
+    fireEvent.change(screen.getByLabelText("Evidence class"), {
+      target: { value: "corroborating" },
+    });
+    fireEvent.change(screen.getByLabelText("Claim stance"), {
+      target: { value: "disputes" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Review signal correction" }),
     );
@@ -306,13 +315,61 @@ describe("NewsSignalsPreviewPanel", () => {
           signal_draft: expect.objectContaining({
             title: activeItem.title,
             safe_summary: activeItem.safe_summary,
-            evidence_class: activeItem.evidence_class,
-            claim_stance: activeItem.claim_stance,
+            confidence_percent: 77,
+            evidence_class: "corroborating",
+            claim_stance: "disputes",
           }),
         }),
         expect.any(String),
       ),
     );
+  });
+
+  it("invalidates signal review when evidence classification changes", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Edit Governed signal" }),
+    );
+    fireEvent.change(
+      screen.getByLabelText("Topic (re-enter for correction)"),
+      { target: { value: "Agent governance" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review signal correction" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Review this one local change" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Evidence class"), {
+      target: { value: "commentary" },
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Confirm and save" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not offer Q34 recovery for externally governed source states", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      summary: {
+        ...workspace.summary,
+        status: "blocked_source_unavailable",
+        source_readiness: [{ ...readySource, state: "revoked" }],
+      },
+    });
+    render(<NewsSignalsPreviewPanel />);
+
+    await screen.findByText("Official source · revoked");
+    expect(
+      screen.queryByRole("button", { name: "Review recovery" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Review safe-disable" }),
+    ).not.toBeInTheDocument();
   });
 
   it("loads later pages and searches the complete active signal contract", async () => {
