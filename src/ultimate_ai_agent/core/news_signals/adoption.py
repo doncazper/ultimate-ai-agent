@@ -762,6 +762,7 @@ class NewsSignalsAdoptionStore:
         _validate_ref(idempotency_ref, "idempotency_ref")
         lease_store: AuthorityLeaseStore | None = None
         lease: AuthorityLease | None = None
+        recoverable_hardening_error: NewsSignalsAdoptionError | None = None
         try:
             # Validate the exact approval before opening a writable database or
             # creating/hardening any News storage. Recheck under the write lock.
@@ -878,10 +879,22 @@ class NewsSignalsAdoptionStore:
                 self._insert_receipt(conn, receipt)
                 # The successful commit and its receipt must already be private.
                 # A hardening failure here rolls back the SQLite transaction.
-                self._harden_database_files()
+                try:
+                    self._harden_database_files()
+                except NewsSignalsAdoptionError as exc:
+                    recoverable_hardening_error = exc
+                    raise
             return receipt
-        except Exception:
-            if lease_store is not None and lease is not None:
+        except Exception as exc:
+            # Preserve the exact bounded lease only when the same hardening
+            # error survives transaction rollback and connection close. A
+            # rollback/close failure replaces it and still revokes authority.
+            # Retry revalidates the original scope, approval expiry and lease.
+            if (
+                lease_store is not None
+                and lease is not None
+                and exc is not recoverable_hardening_error
+            ):
                 self._revoke_lease(lease_store, lease)
             raise
 

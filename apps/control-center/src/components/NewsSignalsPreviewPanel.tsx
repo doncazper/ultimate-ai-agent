@@ -69,9 +69,9 @@ export function NewsSignalsPreviewPanel() {
       : null,
     [snapshotRef, backendRevisionRef, backendInstanceRef],
   );
-  // Reset the entire reviewed workspace synchronously when its owner changes.
+  // A new backend owns new drafts; routine proof rotation is not a new owner.
   return <BoundNewsSignalsPreviewPanel
-    key={JSON.stringify([snapshotRef, backendRevisionRef, backendInstanceRef])}
+    key={JSON.stringify([backendRevisionRef, backendInstanceRef, mutationBinding !== null])}
     mutationBinding={mutationBinding}
   />;
 }
@@ -79,6 +79,11 @@ export function NewsSignalsPreviewPanel() {
 function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
   mutationBinding: BackendTruthReadBinding | null;
 }) {
+  // GET responses bind revision/instance only. Preserve pagination across proof
+  // rotation; mutation requests below always use the current full binding.
+  const [workspaceBinding] = useState(mutationBinding);
+  const currentBinding = useRef(mutationBinding);
+  currentBinding.current = mutationBinding;
   const [workspace, setWorkspace] = useState<NewsSignalsAdoptionView | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">(
     "loading",
@@ -109,11 +114,13 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
   const [pageOffset, setPageOffset] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
-  const [pending, setPending] = useState<{
+  const [pendingReview, setPending] = useState<{
     request: NewsSignalsAdoptionMutationRequest;
     preview: NewsSignalsAdoptionMutationPreview;
     idempotencyRef: string;
+    binding: BackendTruthReadBinding | null;
   } | null>(null);
+  const pending = pendingReview?.binding === mutationBinding ? pendingReview : null;
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -160,13 +167,13 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
         offset,
         limit: 100,
         ...(searchQuery ? { searchQuery } : {}),
-      }, mutationBinding);
+      }, workspaceBinding);
       if (!mounted.current || generation !== pageGeneration.current) return;
       setPageOffset(offset);
       setActiveSearch(searchQuery);
       acceptWorkspace(value);
     },
-    [acceptWorkspace, mutationBinding],
+    [acceptWorkspace, workspaceBinding],
   );
 
   const refresh = useCallback(async () => {
@@ -175,7 +182,7 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
 
   useEffect(() => {
     let active = true;
-    loadNewsSignalsAdoptionWorkspace({ offset: 0, limit: 100 }, mutationBinding)
+    loadNewsSignalsAdoptionWorkspace({ offset: 0, limit: 100 }, workspaceBinding)
       .then((value) => {
         if (!active) return;
         acceptWorkspace(value);
@@ -188,7 +195,7 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
     return () => {
       active = false;
     };
-  }, [acceptWorkspace, mutationBinding]);
+  }, [acceptWorkspace, workspaceBinding]);
 
   const visibleItems = useMemo(
     () =>
@@ -268,11 +275,11 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
         idempotencyRef,
         mutationBinding,
       );
-      if (mounted.current && previewGeneration.current === generation) {
-        setPending({ request, preview, idempotencyRef });
+      if (mounted.current && previewGeneration.current === generation && currentBinding.current === mutationBinding) {
+        setPending({ request, preview, idempotencyRef, binding: mutationBinding });
       }
     } catch (reason) {
-      if (mounted.current && previewGeneration.current === generation) {
+      if (mounted.current && previewGeneration.current === generation && currentBinding.current === mutationBinding) {
         setError(
           reason instanceof Error
             ? reason.message
@@ -301,6 +308,7 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
 
   const confirmPending = async () => {
     if (!pending || !mutationBinding || !mounted.current) return;
+    const generation = previewGeneration.current;
     setBusy(true);
     setError("");
     try {
@@ -310,14 +318,14 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
         pending.idempotencyRef,
         mutationBinding,
       );
-      if (!mounted.current) return;
+      if (!mounted.current || currentBinding.current !== mutationBinding || previewGeneration.current !== generation) return;
       await commitNewsSignalsAdoptionMutation(
         pending.request,
         pending.preview,
         pending.idempotencyRef,
         mutationBinding,
       );
-      if (!mounted.current) return;
+      if (!mounted.current || previewGeneration.current !== generation) return;
       setPending(null);
       setNotice("The reviewed local News change was saved.");
       if (
@@ -505,6 +513,8 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
             <label>
               Source
               <select
+                disabled={busy || editingSignalRef !== null}
+                aria-describedby={editingSignalRef ? "news-signal-source-fixed" : undefined}
                 onChange={(event) => {
                   invalidatePendingReview();
                   setSelectedSourceRef(event.target.value);
@@ -518,6 +528,7 @@ function BoundNewsSignalsPreviewPanel({ mutationBinding }: {
                 ))}
               </select>
             </label>
+            {editingSignalRef ? <small id="news-signal-source-fixed">A correction keeps the original source.</small> : null}
             <label>Headline<input maxLength={140} onChange={(event) => { invalidatePendingReview(); setSignalTitle(event.target.value); }} required value={signalTitle} /></label>
             <label>Redacted summary<input maxLength={320} onChange={(event) => { invalidatePendingReview(); setSignalSummary(event.target.value); }} required value={signalSummary} /></label>
             <label>

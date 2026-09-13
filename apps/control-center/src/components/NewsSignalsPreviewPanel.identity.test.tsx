@@ -56,14 +56,19 @@ describe("News workspace owner lifecycle", () => {
   });
 
   it.each(["snapshotRef", "backendRevisionRef", "backendInstanceRef"] as const)(
-    "clears the pending review and reloads when %s changes", async (field) => {
+    "invalidates the pending review when %s changes", async (field) => {
       const mounted = render(boundPanel());
       await startSourcePreview();
       const next = { ...binding, [field]: `${binding[field]}-next` };
       mounted.rerender(boundPanel(next));
       expect(screen.queryByRole("button", { name: "Confirm and save" })).not.toBeInTheDocument();
-      await waitFor(() => expect(api.loadNewsSignalsAdoptionWorkspace).toHaveBeenLastCalledWith({ offset: 0, limit: 100 }, next));
-      expect(await screen.findByLabelText("Source name")).toHaveValue("");
+      if (field === "snapshotRef") {
+        expect(api.loadNewsSignalsAdoptionWorkspace).toHaveBeenCalledTimes(1);
+        expect(await screen.findByLabelText("Source name")).toHaveValue("Reviewed source");
+      } else {
+        await waitFor(() => expect(api.loadNewsSignalsAdoptionWorkspace).toHaveBeenLastCalledWith({ offset: 0, limit: 100 }, next));
+        expect(await screen.findByLabelText("Source name")).toHaveValue("");
+      }
       expect(api.captureNewsSignalsAdoptionApproval).not.toHaveBeenCalled();
       expect(api.commitNewsSignalsAdoptionMutation).not.toHaveBeenCalled();
     },
@@ -80,6 +85,82 @@ describe("News workspace owner lifecycle", () => {
     await act(async () => { approve({}); });
     expect(api.commitNewsSignalsAdoptionMutation).not.toHaveBeenCalled();
     expect(screen.queryByText("The reviewed local News change was saved.")).not.toBeInTheDocument();
+  });
+
+  it("keeps drafts and search across routine snapshot rotation and reviews with the fresh binding", async () => {
+    const mounted = render(boundPanel());
+    await startSourcePreview();
+    fireEvent.change(screen.getByLabelText("Search active signals"), { target: { value: "Reviewed search" } });
+    const next = { ...binding, snapshotRef: "proof-ref:q34:rotated-envelope" };
+    mounted.rerender(boundPanel(next));
+    expect(screen.getByLabelText("Source name")).toHaveValue("Reviewed source");
+    expect(screen.getByLabelText("Search active signals")).toHaveValue("Reviewed search");
+    expect(screen.queryByRole("button", { name: "Confirm and save" })).not.toBeInTheDocument();
+    expect(api.loadNewsSignalsAdoptionWorkspace).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Review source" }));
+    await screen.findByRole("button", { name: "Confirm and save" });
+    expect(api.previewNewsSignalsAdoptionMutation).toHaveBeenLastCalledWith(expect.any(Object), expect.any(String), next);
+  });
+
+  it("does not continue an approval after its snapshot rotates", async () => {
+    let approve!: (result: object) => void;
+    api.captureNewsSignalsAdoptionApproval.mockImplementationOnce(() => new Promise((resolve) => { approve = resolve; }));
+    const mounted = render(boundPanel());
+    await startSourcePreview();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await waitFor(() => expect(api.captureNewsSignalsAdoptionApproval).toHaveBeenCalledTimes(1));
+    mounted.rerender(boundPanel({ ...binding, snapshotRef: "proof-ref:q34:rotated-envelope" }));
+    await act(async () => { approve({}); });
+    expect(api.commitNewsSignalsAdoptionMutation).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Source name")).toHaveValue("Reviewed source");
+    expect(screen.getByRole("button", { name: "Review source" })).toBeEnabled();
+  });
+
+  it("discards a preview that completes after its snapshot rotates", async () => {
+    let finishPreview!: (value: typeof preview) => void;
+    api.previewNewsSignalsAdoptionMutation.mockImplementationOnce(() => new Promise((resolve) => { finishPreview = resolve; }));
+    const mounted = render(boundPanel());
+    fireEvent.change(await screen.findByLabelText("Source name"), { target: { value: "Unfinished source" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review source" }));
+    mounted.rerender(boundPanel({ ...binding, snapshotRef: "proof-ref:q34:rotated-envelope" }));
+    await act(async () => { finishPreview(preview); });
+    expect(screen.queryByRole("button", { name: "Confirm and save" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Source name")).toHaveValue("Unfinished source");
+  });
+
+  it("reports an already-sent commit after a routine snapshot rotation", async () => {
+    let finishCommit!: (result: object) => void;
+    api.commitNewsSignalsAdoptionMutation.mockImplementationOnce(() => new Promise((resolve) => { finishCommit = resolve; }));
+    const mounted = render(boundPanel());
+    await startSourcePreview();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and save" }));
+    await waitFor(() => expect(api.commitNewsSignalsAdoptionMutation).toHaveBeenCalledTimes(1));
+    mounted.rerender(boundPanel({ ...binding, snapshotRef: "proof-ref:q34:rotated-envelope" }));
+    await act(async () => { finishCommit({}); });
+    expect(await screen.findByText("The reviewed local News change was saved.")).toBeInTheDocument();
+    expect(api.commitNewsSignalsAdoptionMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the admitted source fixed while correcting a signal", async () => {
+    const value = paginatedOnlyWorkspace();
+    value.summary.source_readiness = ["hidden", "other"].map((suffix) => ({
+      source_ref: `source-ref:q34:${suffix}`, source_kind: "official", safe_label: `Reviewed ${suffix}`,
+      state: "ready", observed_at: "2026-09-13T12:00:00Z", freshness_ttl_seconds: 86400,
+      adapter_ref: "adapter-ref:q34:local", provenance_ref: "provenance-ref:q34:local",
+      retention_ref: "retention-ref:q34:local", reason_refs: [],
+      external_network_read_performed: false, account_authority_granted: false,
+    }));
+    api.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(value);
+    render(boundPanel());
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Paginated signal" }));
+    expect(screen.getByLabelText("Source")).toBeDisabled();
+    expect(screen.getByLabelText("Source")).toHaveValue("source-ref:q34:hidden");
+    expect(screen.getByText("A correction keeps the original source." )).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Review signal correction" }));
+    await waitFor(() => expect(api.previewNewsSignalsAdoptionMutation).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "update_signal", signal_draft: expect.objectContaining({ source_ref: "source-ref:q34:hidden" }) }),
+      expect.any(String), binding,
+    ));
   });
 
   it("discards an old workspace response after the owner changes", async () => {

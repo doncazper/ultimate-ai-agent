@@ -807,7 +807,7 @@
     },
     {
       "path": "tests/test_q34_news_review_recovery.py",
-      "seconds": 38.286,
+      "seconds": 34.186,
       "source": "pytest-duration-summary"
     },
     {

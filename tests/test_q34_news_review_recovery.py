@@ -1,5 +1,6 @@
+from contextlib import contextmanager
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -17,6 +18,8 @@ from ultimate_ai_agent.core.news_signals.adoption import (
     NewsSignalsAdoptionStore,
     _canonical_json,
 )
+from ultimate_ai_agent.core.authority import AuthorityLeaseStore
+from ultimate_ai_agent.core.news_signals import adoption
 from ultimate_ai_agent.core.news_signals.read_model import (
     NewsSignalArtifact,
     NewsSignalPreference,
@@ -335,3 +338,138 @@ def test_exact_replay_repairs_older_committed_file_postcondition(tmp_path, monke
     with pytest.raises(NewsSignalsAdoptionError, match="COMMITTED_HARDENING_REQUIRED"):
         store.commit_mutation(request, idempotency_ref=key)
     assert _snapshot(store).revision == receipt.after_revision
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission contract")
+def test_rolled_back_hardening_failure_keeps_exact_retry_recoverable(
+    tmp_path, monkeypatch
+):
+    store = NewsSignalsAdoptionStore(tmp_path)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source",
+        expected_revision=0,
+        source_draft=NewsSignalSourceDraft(
+            safe_label="Reviewed retry", source_kind="official"
+        ),
+    )
+    key = "idempotency-ref:q34:recovery:hardening-retry"
+    request = _prepare(store, mutation, key)
+    harden = store._harden_database_files
+
+    def fail_hardening():
+        raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE")
+
+    monkeypatch.setattr(store, "_harden_database_files", fail_hardening)
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_FILE_UNSAFE"):
+        store.commit_mutation(request, idempotency_ref=key)
+    assert _snapshot(store).revision == 0
+    with store._read_connection() as conn:
+        assert store._receipt_for_idempotency(conn, key) is None
+    monkeypatch.setattr(store, "_harden_database_files", harden)
+    receipt = store.commit_mutation(request, idempotency_ref=key)
+    assert receipt.after_revision == 1 and not receipt.replayed
+    replay = store.commit_mutation(request, idempotency_ref=key)
+    assert replay.replayed and replay.receipt_ref == receipt.receipt_ref
+    assert len(_snapshot(store).sources) == 1
+
+
+@pytest.mark.parametrize(
+    "invalidated",
+    ["approval_expired", "lease_revoked", "payload_rebound", "state_changed"],
+)
+def test_hardening_retry_still_requires_exact_current_authority(
+    tmp_path, monkeypatch, invalidated
+):
+    store = NewsSignalsAdoptionStore(tmp_path)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source",
+        expected_revision=0,
+        source_draft=NewsSignalSourceDraft(
+            safe_label="Reviewed retry", source_kind="official"
+        ),
+    )
+    key = "idempotency-ref:q34:recovery:retry-authority"
+    request = _prepare(store, mutation, key)
+    harden = store._harden_database_files
+
+    def fail_hardening():
+        raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE")
+
+    monkeypatch.setattr(store, "_harden_database_files", fail_hardening)
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_FILE_UNSAFE"):
+        store.commit_mutation(request, idempotency_ref=key)
+    monkeypatch.setattr(store, "_harden_database_files", harden)
+    leases = AuthorityLeaseStore(store.state_dir / "news_signals_authority")
+    active = leases.list_leases(active_only=True)
+    assert len(active) == 1
+    expected_error = "COMMIT_SCOPE_MISMATCH"
+    if invalidated == "approval_expired":
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        monkeypatch.setattr(adoption, "_utc_now", lambda: future)
+        expected_error = "APPROVAL_EXPIRED"
+    elif invalidated == "lease_revoked":
+        assert store._revoke_lease(leases, active[0])
+        expected_error = "EXACT_LEASE_ISSUANCE_DENIED"
+    elif invalidated == "payload_rebound":
+        request = request.model_copy(
+            update={
+                "mutation": mutation.model_copy(
+                    update={
+                        "source_draft": NewsSignalSourceDraft(
+                            safe_label="Unreviewed replacement", source_kind="official"
+                        ),
+                    }
+                )
+            }
+        )
+    else:
+        NewsSignalsRepository(tmp_path).upsert_source(_source())
+    before = store._snapshot_payload(_snapshot(store))
+    with pytest.raises(NewsSignalsAdoptionError, match=expected_error):
+        store.commit_mutation(request, idempotency_ref=key)
+    assert store._snapshot_payload(_snapshot(store)) == before
+    with store._read_connection() as conn:
+        assert store._receipt_for_idempotency(conn, key) is None
+
+
+@pytest.mark.parametrize("failure_stage", ["mutation", "rollback_or_close"])
+def test_only_confirmed_hardening_rollback_retains_its_lease(
+    tmp_path, monkeypatch, failure_stage
+):
+    store = NewsSignalsAdoptionStore(tmp_path)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source",
+        expected_revision=0,
+        source_draft=NewsSignalSourceDraft(
+            safe_label="Reviewed retry", source_kind="official"
+        ),
+    )
+    key = "idempotency-ref:q34:recovery:uncertain-rollback"
+    request = _prepare(store, mutation, key)
+
+    def fail_operation(*args, **kwargs):
+        raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE")
+
+    if failure_stage == "mutation":
+        monkeypatch.setattr(store, "_apply_mutation", fail_operation)
+    else:
+        safe_connection = store._safe_connection
+
+        @contextmanager
+        def replaced_rollback_error():
+            try:
+                with safe_connection() as conn:
+                    yield conn
+            except NewsSignalsAdoptionError as exc:
+                raise NewsSignalsAdoptionError(
+                    "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID"
+                ) from exc
+
+        monkeypatch.setattr(store, "_safe_connection", replaced_rollback_error)
+        monkeypatch.setattr(store, "_harden_database_files", fail_operation)
+    with pytest.raises(NewsSignalsAdoptionError):
+        store.commit_mutation(request, idempotency_ref=key)
+    leases = AuthorityLeaseStore(
+        store.state_dir / "news_signals_authority"
+    ).list_leases()
+    assert len(leases) == 1 and leases[0].status == "revoked"

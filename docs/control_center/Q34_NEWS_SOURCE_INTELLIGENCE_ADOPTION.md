@@ -86,8 +86,12 @@ backend truth hides the intake controls; recovery requires a fresh review, not
 automatic resubmission. This binding does not replace PolicyEngine or exact
 operator approval and does not claim complete founder-loop evidence.
 Workspace reads and previews validate the expected backend identity too. A
-binding change resets the owned workspace, draft and pending confirmation;
-late reads, previews or approvals cannot populate or continue into its replacement.
+backend revision or process change resets the owned workspace, draft and pending
+confirmation. Routine truth-snapshot rotation preserves drafts, search and
+pagination while invalidating the pending review; a new review uses the fresh
+snapshot, and an old approval cannot continue into a commit. Late reads or
+previews cannot populate a replacement owner. Signal corrections keep their
+original source fixed, including in the source selector.
 The complete active-item list exposes topic preference and removal actions,
 including signals omitted from the curated or deduplicated stream.
 The signal form wraps within the available News viewport, including after the
@@ -143,6 +147,10 @@ rolls back the new mutation and receipt. An exact committed replay rechecks and
 repairs the private-file postcondition; if repair fails it explicitly reports
 `NEWS_SIGNALS_ADOPTION_COMMITTED_HARDENING_REQUIRED` instead of claiming a new
 uncommitted failure.
+After a confirmed precommit hardening rollback, the exact bounded lease remains
+available for an idempotent retry. The retry still validates the unchanged
+request, current state, approval expiry and unrevoked lease. A different failure,
+including an unconfirmed rollback or connection close, retains lease revocation.
 Windows-equivalent ACL protection is not established by these POSIX checks.
 This is founder-private plaintext on disk, not application-level encryption.
 Host disk encryption remains the device boundary.
