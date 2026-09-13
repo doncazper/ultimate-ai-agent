@@ -995,6 +995,10 @@ function SignalInspector({
           <dt>Safe ref</dt>
           <dd>{item.signal_ref}</dd>
         </div>
+        <div>
+          <dt>Provenance</dt>
+          <dd>{item.provenance_refs.join(" · ")}</dd>
+        </div>
       </dl>
       <div className="news-deferred-controls">
         <strong>External content is untrusted evidence</strong>

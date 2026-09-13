@@ -141,6 +141,29 @@ const activeItem = {
   external_content_untrusted: true as const,
 };
 
+const readItem = {
+  ...activeItem,
+  cluster_ref: "cluster-ref:q34:governance",
+  claim_ref: "claim-ref:q34:governance",
+  source_kind: readySource.source_kind,
+  source_revision_ref: "source-revision-ref:q34:governance",
+  content_digest_ref: "content-digest-ref:q34:governance",
+  observed_at: "2026-09-09T12:00:00Z",
+  freshness_state: "fresh" as const,
+  confidence_state: "high" as const,
+  conflict_state: "none" as const,
+  coverage_source_refs: [readySource.source_ref],
+  coverage_count: 1,
+  provenance_refs: [
+    "provenance-ref:q34:operator-supplied",
+    "approval-ref:q34:governance",
+  ],
+  rank_score: 91,
+  rank_reason_refs: ["reason-ref:q34:fresh-primary-evidence"],
+  briefing_candidate: true,
+  action_authority_granted: false as const,
+};
+
 const readyWorkspace: NewsSignalsAdoptionView = {
   ...workspace,
   status: "ready",
@@ -150,6 +173,7 @@ const readyWorkspace: NewsSignalsAdoptionView = {
     ...workspace.summary,
     status: "ready",
     source_readiness: [readySource],
+    items: [readItem],
   },
   active_items_page: {
     offset: 0,
@@ -202,6 +226,17 @@ describe("NewsSignalsPreviewPanel", () => {
     expect(apiMocks.captureNewsSignalsAdoptionApproval).toHaveBeenCalledTimes(1);
     expect(
       await screen.findByText("The reviewed local News change was saved."),
+    ).toBeInTheDocument();
+  });
+
+  it("exposes the selected signal provenance refs", async () => {
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue(readyWorkspace);
+    render(<NewsSignalsPreviewPanel />);
+
+    expect(
+      await screen.findByText(
+        "provenance-ref:q34:operator-supplied · approval-ref:q34:governance",
+      ),
     ).toBeInTheDocument();
   });
 
