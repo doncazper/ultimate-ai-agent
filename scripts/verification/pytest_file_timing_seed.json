@@ -5112,8 +5112,8 @@
     },
     {
       "path": "tests/test_news_handoff_agent_loop_summary.py",
-      "seconds": 4.247069,
-      "source": "shard-elapsed-fallback"
+      "seconds": 0.752,
+      "source": "pytest-duration-summary"
     }
   ],
   "verification_evidence": false

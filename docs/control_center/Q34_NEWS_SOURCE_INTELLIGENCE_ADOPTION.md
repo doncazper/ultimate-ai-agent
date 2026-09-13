@@ -70,6 +70,10 @@ non-authoritative. These compound local reads run serially within one
 eight-second deadline covering queue wait, request and response-body parsing.
 Expired reads are aborted and queued requests cannot start after that deadline.
 The full-loader concurrency policy and truth gates remain unchanged.
+Unapproved Agent Loop items check for an approved receipt before rebuilding
+generated action payloads. Approved items still validate their current action
+revision and exact unrevoked grant; no cached approval or shared read cache is
+introduced.
 The backend vault readiness retains its explicit adapter-not-scoped reason,
 and the external-intake description uses bounded safety-compatible wording.
 The existing frontend authority and raw-content validators remain unchanged.
