@@ -364,6 +364,12 @@ export function NewsSignalsPreviewPanel() {
 
       <AuthorityNotice loadState={loadState} summary={summary} />
 
+      {workspace && workspace.storage_status !== "ready" ? (
+        <p className="news-adoption-feedback" role="status">
+          {workspace.next_safe_action}
+        </p>
+      ) : null}
+
       {error ? <p className="news-adoption-feedback error" role="alert">{error}</p> : null}
       {notice ? <p className="news-adoption-feedback" role="status">{notice}</p> : null}
 

@@ -26,6 +26,7 @@ const workspace: NewsSignalsAdoptionView = {
   schema_version: "uaa-news-signals-adoption.v1",
   contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1",
   status: "blocked_no_graduated_source",
+  storage_status: "missing",
   revision: 0,
   current_state_ref: "state-ref:news-signals-adoption:empty",
   can_undo: false,
@@ -167,6 +168,7 @@ const readItem = {
 const readyWorkspace: NewsSignalsAdoptionView = {
   ...workspace,
   status: "ready",
+  storage_status: "ready",
   revision: 2,
   current_state_ref: "state-ref:news-signals-adoption:ready",
   summary: {
@@ -227,6 +229,20 @@ describe("NewsSignalsPreviewPanel", () => {
     expect(
       await screen.findByText("The reviewed local News change was saved."),
     ).toBeInTheDocument();
+  });
+
+  it("shows backend setup guidance without approving or saving on mount", async () => {
+    const nextSafeAction = "Review and confirm your first local source to initialize News storage.";
+    apiMocks.loadNewsSignalsAdoptionWorkspace.mockResolvedValue({
+      ...workspace,
+      next_safe_action: nextSafeAction,
+    });
+    render(<NewsSignalsPreviewPanel />);
+
+    expect(await screen.findByText(nextSafeAction)).toBeInTheDocument();
+    expect(apiMocks.previewNewsSignalsAdoptionMutation).not.toHaveBeenCalled();
+    expect(apiMocks.captureNewsSignalsAdoptionApproval).not.toHaveBeenCalled();
+    expect(apiMocks.commitNewsSignalsAdoptionMutation).not.toHaveBeenCalled();
   });
 
   it("exposes the selected signal provenance refs", async () => {

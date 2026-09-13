@@ -11,11 +11,51 @@ from ultimate_ai_agent.core.news_signals import (
     NewsSignalArtifact,
     NewsSignalSource,
     NewsSignalsAdoptionStore,
+    NewsSignalsRepository,
 )
 
 
+def _seed_adopted_schema(state_dir):
+    """Explicit synthetic fixture setup, not an implicit inspection side effect."""
+    NewsSignalsRepository(state_dir)
+    store = NewsSignalsAdoptionStore(state_dir)
+    with sqlite3.connect(store.db_path) as conn:
+        store._ensure_adoption_schema(conn)
+    return store
+
+
+@pytest.mark.parametrize("q24_only", [False, True])
+def test_inspection_cli_does_not_initialize_news(tmp_path, q24_only):
+    state_dir = tmp_path / "news"
+    database = state_dir / "news_signals.sqlite3"
+    if q24_only:
+        import gc
+
+        NewsSignalsRepository(state_dir)
+        gc.collect()
+    before = database.read_bytes() if database.exists() else None
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/inspect_news_signals_adoption.py",
+            "--state-dir",
+            str(state_dir),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0 and result.stderr == ""
+    assert json.loads(result.stdout)["workspace"]["storage_status"] == (
+        "q24_only" if q24_only else "missing"
+    )
+    assert (database.read_bytes() if database.exists() else None) == before
+    if not q24_only:
+        assert not state_dir.exists()
+
+
 def test_adoption_inspection_cli_is_content_safe(tmp_path) -> None:
-    store = NewsSignalsAdoptionStore(tmp_path)
+    store = _seed_adopted_schema(tmp_path)
     source_ref = "source-ref:q34:private-cli-source"
     store.repository.upsert_source(
         NewsSignalSource(
@@ -112,7 +152,7 @@ def test_adoption_inspection_cli_failures_are_content_safe(tmp_path, failure) ->
         state_dir.mkdir()
         (state_dir / "news_signals.sqlite3").write_bytes(b"private truncated database")
     else:
-        store = NewsSignalsAdoptionStore(state_dir)
+        store = _seed_adopted_schema(state_dir)
         with sqlite3.connect(store.db_path) as conn:
             conn.execute(
                 "INSERT INTO news_signals_adoption_undo(singleton, snapshot_json) "

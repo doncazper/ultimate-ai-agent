@@ -1978,6 +1978,7 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
       (count) => Number.isInteger(count) && Number(count) >= 0,
     ) &&
     newsSignalsHasOnlyKeys(today, [
+      "storage_status",
       "projection_ref",
       "item_refs",
       "bounded_limit",
@@ -1987,7 +1988,9 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     isNewsSignalsSafeRefArray(today.item_refs, 3) &&
     today.bounded_limit === 3 &&
     today.read_only === true &&
+    (today.storage_status === undefined || isNewsSignalsStorageStatus(today.storage_status)) &&
     newsSignalsHasOnlyKeys(briefing, [
+      "storage_status",
       "projection_ref",
       "candidate_refs",
       "bounded_limit",
@@ -1998,8 +2001,14 @@ function isSafeNewsSignalsSummary(value: unknown): value is NewsSignalsSummary {
     isNewsSignalsSafeRefArray(briefing.candidate_refs, 5) &&
     briefing.bounded_limit === 5 &&
     briefing.review_required === true &&
-    briefing.read_only === true
+    briefing.read_only === true &&
+    (briefing.storage_status === undefined || isNewsSignalsStorageStatus(briefing.storage_status))
   );
+}
+
+function isNewsSignalsStorageStatus(value: unknown): boolean {
+  return typeof value === "string" &&
+    ["missing", "q24_only", "ready", "migration_required"].includes(value);
 }
 
 function isSafeNewsSignalsAdoptionView(
@@ -2011,6 +2020,7 @@ function isSafeNewsSignalsAdoptionView(
       "schema_version",
       "contract_ref",
       "status",
+      "storage_status",
       "revision",
       "current_state_ref",
       "can_undo",
@@ -2115,6 +2125,7 @@ function isSafeNewsSignalsAdoptionView(
       "contract-ref:queue-v2-q34-news-signals-adoption:v1" &&
     Number.isInteger(value.revision) &&
     Number(value.revision) >= 0 &&
+    isNewsSignalsStorageStatus(value.storage_status) &&
     isNewsSignalsSafeRef(value.current_state_ref) &&
     typeof value.can_undo === "boolean" &&
     value.local_manual_intake_enabled === true &&

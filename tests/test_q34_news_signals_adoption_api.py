@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
+import sqlite3
 
 from fastapi.testclient import TestClient
 import pytest
@@ -32,6 +33,87 @@ def _headers(suffix: str, *, confirmed: bool = False) -> dict[str, str]:
     if confirmed:
         headers["X-UAA-Operator-Confirmed"] = "true"
     return headers
+
+
+@pytest.mark.parametrize(
+    "route",
+    (
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/summary",
+        "/control-center/today/summary",
+        "/control-center/morning-briefing/summary",
+    ),
+)
+def test_read_routes_report_missing_news_without_initializing_it(
+    tmp_path, monkeypatch, route
+):
+    state_dir = tmp_path / "missing-news"
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(state_dir))
+    response = TestClient(app).get(route)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    if route.endswith("/adoption"):
+        assert data["storage_status"] == "missing"
+    elif route.endswith("news-signals/summary"):
+        assert (
+            "blocked-state-ref:q34:adoption-storage-missing"
+            in data["blocked_state_refs"]
+        )
+    else:
+        assert data["news_signals_projection"]["storage_status"] == "missing"
+    assert not (state_dir / "news_signals.sqlite3").exists()
+    assert not (state_dir / "news_signals_authority").exists()
+
+
+@pytest.mark.parametrize(
+    "route",
+    (
+        "/control-center/news-signals/adoption",
+        "/control-center/news-signals/summary",
+        "/control-center/today/summary",
+        "/control-center/morning-briefing/summary",
+    ),
+)
+def test_partial_news_schema_is_invalid_without_repair(tmp_path, monkeypatch, route):
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path))
+    database = tmp_path / "news_signals.sqlite3"
+    conn = sqlite3.connect(database)
+    try:
+        conn.execute("CREATE TABLE news_signal_sources (source_ref TEXT)")
+        conn.commit()
+    finally:
+        conn.close()
+    before = database.read_bytes()
+
+    response = TestClient(app).get(route)
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == (
+        "NEWS_SIGNALS_ADOPTION_SCHEMA_STATE_INVALID"
+    )
+    assert database.read_bytes() == before
+    assert not (tmp_path / "news_signals_authority").exists()
+
+
+def test_preview_route_does_not_initialize_news(tmp_path, monkeypatch):
+    state_dir = tmp_path / "missing-news"
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(state_dir))
+    response = TestClient(app).post(
+        "/control-center/news-signals/adoption/preview",
+        json={
+            "action": "register_source",
+            "expected_revision": 0,
+            "source_draft": {
+                "safe_label": "Reviewed source",
+                "source_kind": "local",
+                "freshness_ttl_seconds": 86400,
+            },
+        },
+        headers=_headers("no-initialization"),
+    )
+    assert response.status_code == 200
+    assert "Initialize local News storage" in response.json()["data"]["safe_summary"]
+    assert not state_dir.exists()
 
 
 def _mutation(action: str, revision: int, **values: object) -> dict[str, object]:
@@ -348,7 +430,8 @@ def test_api_approval_directory_failure_is_safe_and_does_not_mutate(
     authority_path = tmp_path / "news_signals_authority"
     if failure == "regular-file":
         authority_path.write_text(
-            "private invalid authority directory", encoding="utf-8",
+            "private invalid authority directory",
+            encoding="utf-8",
         )
     else:
         authority_path.symlink_to(authority_path.name)

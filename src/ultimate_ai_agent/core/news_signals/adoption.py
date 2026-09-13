@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 import sqlite3
 import stat
+import tempfile
 from typing import Any, Iterator, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -85,6 +86,17 @@ NEWS_SIGNALS_ADOPTION_MAX_ROW_JSON_BYTES = 64 * 1024
 NEWS_SIGNALS_ADOPTION_MAX_PAGE_SIZE = 100
 NEWS_SIGNALS_ADOPTION_MAX_PAGE_OFFSET = 1_999
 NEWS_SIGNALS_ADOPTION_MAX_SEARCH_LENGTH = 80
+NEWS_SIGNALS_ADOPTION_MAX_DATABASE_FILE_BYTES = 128 * 1024 * 1024
+_Q24_TABLES = frozenset({"news_signal_sources", "news_signal_artifacts"})
+_ADOPTION_TABLES = frozenset(
+    {
+        "news_signal_preferences",
+        "news_signal_archives",
+        "news_signals_adoption_meta",
+        "news_signals_adoption_undo",
+        "news_signals_adoption_receipts",
+    }
+)
 NEWS_SIGNALS_ADOPTION_ADAPTER_REF = (
     "connector-adapter-ref:q34:local-redacted-artifact-intake-v1"
 )
@@ -545,6 +557,7 @@ class _NewsSignalsSnapshot:
     archived_refs: frozenset[str]
     undo_snapshot_ref: str | None
     can_undo: bool
+    storage_status: str = "ready"
 
 
 class NewsSignalsAdoptionStore:
@@ -552,17 +565,10 @@ class NewsSignalsAdoptionStore:
 
     def __init__(self, state_dir: Path) -> None:
         self.state_dir = Path(os.path.abspath(os.path.expanduser(str(state_dir))))
-        self._ensure_private_storage()
         self.db_path = self.state_dir / "news_signals.sqlite3"
+        self._validate_state_directory()
         self._validate_existing_database_files()
-        try:
-            self.repository = NewsSignalsRepository(self.state_dir)
-        except (OSError, sqlite3.DatabaseError) as exc:
-            raise NewsSignalsAdoptionError(
-                "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID"
-            ) from exc
-        self.db_path = self.repository.db_path
-        self._ensure_adoption_schema()
+        self.repository = NewsSignalsRepository(self.state_dir, ensure_storage=False)
 
     @classmethod
     def from_env(cls) -> "NewsSignalsAdoptionStore":
@@ -588,7 +594,7 @@ class NewsSignalsAdoptionStore:
                 "search_query",
                 maximum=NEWS_SIGNALS_ADOPTION_MAX_SEARCH_LENGTH,
             )
-        with self._safe_connection() as conn:
+        with self._read_connection() as conn:
             conn.execute("BEGIN")
             state = self._read_snapshot(conn)
         active = tuple(
@@ -603,6 +609,12 @@ class NewsSignalsAdoptionStore:
             now=now,
             limit=limit,
         )
+        if state.storage_status != "ready":
+            summary["blocked_state_refs"].append(
+                f"blocked-state-ref:q34:adoption-storage-{state.storage_status.replace('_', '-')}"
+            )
+        summary["today_projection"]["storage_status"] = state.storage_status
+        summary["morning_briefing_projection"]["storage_status"] = state.storage_status
         normalized_search = search_query.strip().casefold() if search_query else None
         active_for_page = sorted(
             active,
@@ -644,6 +656,7 @@ class NewsSignalsAdoptionStore:
             "schema_version": NEWS_SIGNALS_ADOPTION_SCHEMA_VERSION,
             "contract_ref": NEWS_SIGNALS_ADOPTION_CONTRACT_REF,
             "status": summary["status"],
+            "storage_status": state.storage_status,
             "revision": state.revision,
             "current_state_ref": self._state_ref(state),
             "can_undo": state.can_undo,
@@ -700,7 +713,7 @@ class NewsSignalsAdoptionStore:
         idempotency_ref: str,
     ) -> NewsSignalsAdoptionMutationPreview:
         _validate_ref(idempotency_ref, "idempotency_ref")
-        with self._safe_connection() as conn:
+        with self._read_connection() as conn:
             conn.execute("BEGIN")
             state = self._read_snapshot(conn)
         return self._preview(state, request, idempotency_ref=idempotency_ref)
@@ -712,10 +725,10 @@ class NewsSignalsAdoptionStore:
         idempotency_ref: str,
     ) -> NewsSignalsAdoptionApprovalReceipt:
         _validate_ref(idempotency_ref, "idempotency_ref")
-        with self._safe_connection() as conn:
+        with self._read_connection() as conn:
             conn.execute("BEGIN")
-            replay = self._receipt_for_idempotency(conn, idempotency_ref)
             state = self._read_snapshot(conn)
+            replay = self._receipt_for_idempotency(conn, idempotency_ref)
         if replay is not None:
             return self._replay_approval(
                 replay,
@@ -750,8 +763,34 @@ class NewsSignalsAdoptionStore:
         lease_store: AuthorityLeaseStore | None = None
         lease: AuthorityLease | None = None
         try:
+            # Validate the exact approval before opening a writable database or
+            # creating/hardening any News storage. Recheck under the write lock.
+            with self._read_connection() as read_conn:
+                read_conn.execute("BEGIN")
+                state = self._read_snapshot(read_conn)
+                replay = self._receipt_for_idempotency(read_conn, idempotency_ref)
+            if replay is not None:
+                return self._validate_receipt_replay(
+                    replay, request=request, idempotency_ref=idempotency_ref
+                )
+            preview = self._preview(
+                state, request.mutation, idempotency_ref=idempotency_ref
+            )
+            if (
+                preview.preview_ref != request.preview_ref
+                or preview.approval_ref != request.approval_ref
+            ):
+                raise NewsSignalsAdoptionConflict(
+                    "NEWS_SIGNALS_ADOPTION_COMMIT_SCOPE_MISMATCH"
+                )
+            with self._safe_authority_state():
+                lease_store, lease, _, _, _ = self._authorize(
+                    preview, idempotency_ref=idempotency_ref
+                )
+            self._ensure_private_storage()
             with self._safe_connection() as conn:
                 conn.execute("BEGIN IMMEDIATE")
+                state = self._read_snapshot(conn)
                 replay = self._receipt_for_idempotency(conn, idempotency_ref)
                 if replay is not None:
                     return self._validate_receipt_replay(
@@ -759,7 +798,6 @@ class NewsSignalsAdoptionStore:
                         request=request,
                         idempotency_ref=idempotency_ref,
                     )
-                state = self._read_snapshot(conn)
                 preview = self._preview(
                     state,
                     request.mutation,
@@ -780,6 +818,8 @@ class NewsSignalsAdoptionStore:
                         approval_validation_ref,
                         approval_expires_at,
                     ) = self._authorize(preview, idempotency_ref=idempotency_ref)
+                self.repository._ensure_schema(conn)
+                self._ensure_adoption_schema(conn)
                 self._store_undo_snapshot(conn, state, request.mutation.action)
                 source_ref, signal_ref = self._apply_mutation(
                     conn,
@@ -995,6 +1035,7 @@ class NewsSignalsAdoptionStore:
             {
                 "action": action,
                 "current_state_ref": current_state_ref,
+                "storage_status": state.storage_status,
                 "payload_fingerprint_ref": payload_fingerprint_ref,
                 "resulting_revision": state.revision + 1,
                 "source_ref": source_ref,
@@ -1016,7 +1057,14 @@ class NewsSignalsAdoptionStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
             preview_ref=preview_ref,
             approval_ref=approval_ref,
-            safe_summary=self._preview_summary(action),
+            safe_summary=(
+                self._preview_summary(action)
+                + (
+                    " Initialize local News storage with this save."
+                    if state.storage_status != "ready"
+                    else ""
+                )
+            ),
         )
 
     @staticmethod
@@ -1127,6 +1175,12 @@ class NewsSignalsAdoptionStore:
             lease_idempotency_ref=lease_idempotency_ref,
         )
         approval_store = AuthorityLeaseApprovalStore(lease_store.state_dir)
+        # The generic resolver acquires a filesystem lock even for missing
+        # records. A denied first save must not create an authority directory.
+        if not os.path.lexists(approval_store.records_path):
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_EXACT_APPROVAL_REQUIRED"
+            )
         try:
             record = approval_store.resolve(lease_approval_ref)
         except AuthorityLeaseApprovalStateError as exc:
@@ -1751,9 +1805,26 @@ class NewsSignalsAdoptionStore:
         )
 
     def _read_snapshot(self, conn: sqlite3.Connection) -> _NewsSignalsSnapshot:
-        revision_row = conn.execute(
-            "SELECT revision FROM news_signals_adoption_meta WHERE singleton = 1"
-        ).fetchone()
+        storage_status = self._storage_status(conn)
+        if storage_status == "missing":
+            return _NewsSignalsSnapshot(
+                revision=0,
+                sources=(),
+                artifacts=(),
+                preferences=(),
+                archived_refs=frozenset(),
+                undo_snapshot_ref=None,
+                can_undo=False,
+                storage_status="missing",
+            )
+        adopted = storage_status != "q24_only"
+        revision_row = (
+            conn.execute(
+                "SELECT revision FROM news_signals_adoption_meta WHERE singleton = 1"
+            ).fetchone()
+            if adopted
+            else {"revision": 0}
+        )
         if revision_row is None:
             raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_METADATA_MISSING")
         try:
@@ -1774,25 +1845,37 @@ class NewsSignalsAdoptionStore:
             "SELECT * FROM news_signal_artifacts ORDER BY artifact_ref LIMIT ?",
             (NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS + 1,),
         ).fetchall()
-        preference_rows = conn.execute(
-            "SELECT * FROM news_signal_preferences ORDER BY topic_ref LIMIT ?",
-            (NEWS_SIGNALS_ADOPTION_MAX_PREFERENCES + 1,),
-        ).fetchall()
-        archive_rows = conn.execute(
-            "SELECT artifact_ref FROM news_signal_archives "
-            "WHERE archived = 1 ORDER BY artifact_ref LIMIT ?",
-            (NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS + 1,),
-        ).fetchall()
-        receipt_rows = conn.execute(
-            """
+        preference_rows = (
+            conn.execute(
+                "SELECT * FROM news_signal_preferences ORDER BY topic_ref LIMIT ?",
+                (NEWS_SIGNALS_ADOPTION_MAX_PREFERENCES + 1,),
+            ).fetchall()
+            if adopted
+            else []
+        )
+        archive_rows = (
+            conn.execute(
+                "SELECT artifact_ref FROM news_signal_archives "
+                "WHERE archived = 1 ORDER BY artifact_ref LIMIT ?",
+                (NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS + 1,),
+            ).fetchall()
+            if adopted
+            else []
+        )
+        receipt_rows = (
+            conn.execute(
+                """
             SELECT idempotency_ref, payload_fingerprint_ref, preview_ref,
                    approval_ref, receipt_json
             FROM news_signals_adoption_receipts
             ORDER BY idempotency_ref
             LIMIT ?
             """,
-            (NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS + 1,),
-        ).fetchall()
+                (NEWS_SIGNALS_ADOPTION_MAX_RECEIPTS + 1,),
+            ).fetchall()
+            if adopted
+            else []
+        )
         if (
             len(source_rows) > MAX_NEWS_SIGNAL_SOURCES
             or len(artifact_rows) > NEWS_SIGNALS_ADOPTION_MAX_ARTIFACTS
@@ -1873,11 +1956,20 @@ class NewsSignalsAdoptionStore:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_RELATIONSHIP_STATE_INVALID"
             )
-        undo_row = conn.execute(
-            "SELECT snapshot_json, expected_state_ref, "
-            "length(CAST(snapshot_json AS BLOB)) AS snapshot_bytes "
-            "FROM news_signals_adoption_undo WHERE singleton = 1"
-        ).fetchone()
+        expected_state_column = (
+            "NULL AS expected_state_ref"
+            if storage_status == "migration_required"
+            else "expected_state_ref"
+        )
+        undo_row = (
+            conn.execute(
+                f"SELECT snapshot_json, {expected_state_column}, "
+                "length(CAST(snapshot_json AS BLOB)) AS snapshot_bytes "
+                "FROM news_signals_adoption_undo WHERE singleton = 1"
+            ).fetchone()
+            if adopted
+            else None
+        )
         if (
             undo_row is not None
             and undo_row["snapshot_bytes"] > NEWS_SIGNALS_ADOPTION_MAX_UNDO_BYTES
@@ -1896,6 +1988,7 @@ class NewsSignalsAdoptionStore:
             archived_refs=archived_refs,
             undo_snapshot_ref=undo_snapshot_ref,
             can_undo=False,
+            storage_status=storage_status,
         )
         expected_state_ref = (
             undo_row["expected_state_ref"] if undo_row is not None else None
@@ -1915,8 +2008,32 @@ class NewsSignalsAdoptionStore:
                 archived_refs=state.archived_refs,
                 undo_snapshot_ref=state.undo_snapshot_ref,
                 can_undo=expected_state_ref == self._state_ref(state),
+                storage_status=storage_status,
             )
         return state
+
+    @staticmethod
+    def _storage_status(conn: sqlite3.Connection) -> str:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        if not tables:
+            return "missing"
+        if not _Q24_TABLES.issubset(tables):
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_SCHEMA_STATE_INVALID")
+        adoption_tables = tables & _ADOPTION_TABLES
+        if not adoption_tables:
+            return "q24_only"
+        if adoption_tables != _ADOPTION_TABLES:
+            raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_SCHEMA_STATE_INVALID")
+        undo_columns = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(news_signals_adoption_undo)")
+        }
+        return "ready" if "expected_state_ref" in undo_columns else "migration_required"
 
     @staticmethod
     def _snapshot_payload(state: _NewsSignalsSnapshot) -> dict[str, object]:
@@ -2034,6 +2151,8 @@ class NewsSignalsAdoptionStore:
     def _receipt_for_idempotency(
         self, conn: sqlite3.Connection, idempotency_ref: str
     ) -> NewsSignalsAdoptionMutationReceipt | None:
+        if self._storage_status(conn) in {"missing", "q24_only"}:
+            return None
         row = conn.execute(
             """
             SELECT idempotency_ref, payload_fingerprint_ref, preview_ref,
@@ -2207,6 +2326,7 @@ class NewsSignalsAdoptionStore:
         )
 
     def _connect(self) -> sqlite3.Connection:
+        self._validate_state_directory()
         self._validate_existing_database_files()
         conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
@@ -2215,8 +2335,10 @@ class NewsSignalsAdoptionStore:
 
     @contextmanager
     def _safe_connection(self) -> Iterator[sqlite3.Connection]:
+        conn: sqlite3.Connection | None = None
         try:
-            with self._connect() as conn:
+            conn = self._connect()
+            with conn:
                 yield conn
         except NewsSignalsAdoptionError:
             raise
@@ -2224,11 +2346,122 @@ class NewsSignalsAdoptionStore:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID"
             ) from exc
+        finally:
+            if conn is not None:
+                conn.close()
 
-    def _ensure_adoption_schema(self) -> None:
-        with self._safe_connection() as conn:
-            conn.executescript(
-                """
+    @contextmanager
+    def _read_connection(self) -> Iterator[sqlite3.Connection]:
+        """Read a stable private scratch copy, never SQLite's writable sidecars.
+
+        Even SQLite mode=ro may create shared-memory/WAL files at the source.
+        Copy the committed WAL with the database instead of ignoring it with
+        immutable=1. Reject a changing source rather than returning a torn view.
+        """
+        conn: sqlite3.Connection | None = None
+        try:
+            self._validate_state_directory()
+            self._validate_existing_database_files()
+            before = self._read_file_versions()
+            with tempfile.TemporaryDirectory(prefix="uaa-news-read-") as directory:
+                if self.db_path.name not in before:
+                    if before:
+                        raise NewsSignalsAdoptionError(
+                            "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID"
+                        )
+                    conn = sqlite3.connect(":memory:")
+                else:
+                    journal_name = self.db_path.name + "-journal"
+                    if journal_name in before and before[journal_name][2] > 0:
+                        raise NewsSignalsAdoptionConflict(
+                            "NEWS_SIGNALS_ADOPTION_READ_SNAPSHOT_UNAVAILABLE"
+                        )
+                    for name in (self.db_path.name, self.db_path.name + "-wal"):
+                        if name not in before:
+                            continue
+                        descriptor = os.open(
+                            self.state_dir / name,
+                            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                        )
+                        with os.fdopen(descriptor, "rb") as source:
+                            if (
+                                self._file_version(os.fstat(source.fileno()))
+                                != before[name]
+                            ):
+                                raise NewsSignalsAdoptionConflict(
+                                    "NEWS_SIGNALS_ADOPTION_READ_SNAPSHOT_UNAVAILABLE"
+                                )
+                            target_descriptor = os.open(
+                                Path(directory) / name,
+                                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                0o600,
+                            )
+                            with os.fdopen(target_descriptor, "wb") as target:
+                                remaining = (
+                                    NEWS_SIGNALS_ADOPTION_MAX_DATABASE_FILE_BYTES
+                                )
+                                while chunk := source.read(
+                                    min(1024 * 1024, remaining + 1)
+                                ):
+                                    remaining -= len(chunk)
+                                    if remaining < 0:
+                                        raise NewsSignalsAdoptionError(
+                                            "NEWS_SIGNALS_ADOPTION_DATABASE_SIZE_LIMIT"
+                                        )
+                                    target.write(chunk)
+                    if self._read_file_versions() != before:
+                        raise NewsSignalsAdoptionConflict(
+                            "NEWS_SIGNALS_ADOPTION_READ_SNAPSHOT_UNAVAILABLE"
+                        )
+                    conn = sqlite3.connect(Path(directory) / self.db_path.name)
+                conn.row_factory = sqlite3.Row
+                conn.execute("PRAGMA query_only = ON")
+                try:
+                    yield conn
+                finally:
+                    conn.close()
+                    conn = None
+        except NewsSignalsAdoptionError:
+            raise
+        except (OSError, sqlite3.DatabaseError) as exc:
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_DATABASE_STATE_INVALID"
+            ) from exc
+        finally:
+            if conn is not None:
+                conn.close()
+
+    @staticmethod
+    def _file_version(metadata: os.stat_result) -> tuple[int, ...]:
+        return (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+            metadata.st_mode,
+        )
+
+    def _read_file_versions(self) -> dict[str, tuple[int, ...]]:
+        versions = {}
+        for suffix in ("", "-wal", "-journal"):
+            path = Path(f"{self.db_path}{suffix}")
+            if not os.path.lexists(path):
+                continue
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise NewsSignalsAdoptionError(
+                    "NEWS_SIGNALS_ADOPTION_DATABASE_FILE_UNSAFE"
+                )
+            if metadata.st_size > NEWS_SIGNALS_ADOPTION_MAX_DATABASE_FILE_BYTES:
+                raise NewsSignalsAdoptionError(
+                    "NEWS_SIGNALS_ADOPTION_DATABASE_SIZE_LIMIT"
+                )
+            versions[path.name] = self._file_version(metadata)
+        return versions
+
+    def _ensure_adoption_schema(self, conn: sqlite3.Connection) -> None:
+        for statement in """
                 CREATE TABLE IF NOT EXISTS news_signal_preferences (
                     topic_ref TEXT PRIMARY KEY,
                     weight INTEGER NOT NULL,
@@ -2257,29 +2490,24 @@ class NewsSignalsAdoptionStore:
                     approval_ref TEXT NOT NULL,
                     receipt_json TEXT NOT NULL
                 );
-                """
+                """.split(";"):
+            if statement.strip():
+                conn.execute(statement)
+        undo_columns = {
+            row[1]
+            for row in conn.execute(
+                "PRAGMA table_info(news_signals_adoption_undo)"
+            ).fetchall()
+        }
+        if "expected_state_ref" not in undo_columns:
+            conn.execute(
+                "ALTER TABLE news_signals_adoption_undo "
+                "ADD COLUMN expected_state_ref TEXT"
             )
-            undo_columns = {
-                row[1]
-                for row in conn.execute(
-                    "PRAGMA table_info(news_signals_adoption_undo)"
-                ).fetchall()
-            }
-            if "expected_state_ref" not in undo_columns:
-                conn.execute(
-                    "ALTER TABLE news_signals_adoption_undo "
-                    "ADD COLUMN expected_state_ref TEXT"
-                )
-        self._harden_database_files()
 
     def _ensure_private_storage(self) -> None:
         try:
-            if os.path.lexists(self.state_dir):
-                metadata = self.state_dir.lstat()
-                if self.state_dir.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
-                    raise NewsSignalsAdoptionError(
-                        "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE"
-                    )
+            self._validate_state_directory()
             self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             if os.name != "nt":
                 os.chmod(self.state_dir, 0o700)
@@ -2294,6 +2522,21 @@ class NewsSignalsAdoptionStore:
                     )
         except NewsSignalsAdoptionError:
             raise
+        except OSError as exc:
+            raise NewsSignalsAdoptionError(
+                "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE"
+            ) from exc
+
+    def _validate_state_directory(self) -> None:
+        try:
+            if os.path.lexists(self.state_dir):
+                metadata = self.state_dir.lstat()
+                if not stat.S_ISDIR(metadata.st_mode) or (
+                    os.name != "nt" and metadata.st_uid != os.getuid()
+                ):
+                    raise NewsSignalsAdoptionError(
+                        "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE"
+                    )
         except OSError as exc:
             raise NewsSignalsAdoptionError(
                 "NEWS_SIGNALS_ADOPTION_STATE_DIRECTORY_UNSAFE"
@@ -2379,6 +2622,19 @@ class NewsSignalsAdoptionStore:
         state: _NewsSignalsSnapshot,
         summary: dict[str, object],
     ) -> str:
+        if state.storage_status == "missing":
+            return (
+                "Review and confirm your first local source to initialize News storage."
+            )
+        if state.storage_status == "q24_only":
+            return (
+                "Existing local source evidence is available. The next reviewed "
+                "and confirmed change will initialize News adoption."
+            )
+        if state.storage_status == "migration_required":
+            return (
+                "The next reviewed and confirmed local change will update News storage."
+            )
         if not state.sources:
             return "Register the first local redacted-artifact source."
         if not state.artifacts:

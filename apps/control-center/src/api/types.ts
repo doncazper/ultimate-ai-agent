@@ -17527,12 +17527,14 @@ export interface NewsSignalsSummary {
   freshness_counts: Record<NewsSignalFreshnessState, number>;
   conflicting_claim_refs: string[];
   today_projection: {
+    storage_status?: NewsSignalsStorageStatus;
     projection_ref: string;
     item_refs: string[];
     bounded_limit: 3;
     read_only: true;
   };
   morning_briefing_projection: {
+    storage_status?: NewsSignalsStorageStatus;
     projection_ref: string;
     candidate_refs: string[];
     bounded_limit: 5;
@@ -17600,10 +17602,13 @@ export type NewsSignalsAdoptionMutationRequest =
   | { action: "archive_signal" | "recover_signal"; expected_revision: number; target_ref: string }
   | { action: "undo"; expected_revision: number };
 
+export type NewsSignalsStorageStatus = "missing" | "q24_only" | "ready" | "migration_required";
+
 export interface NewsSignalsAdoptionView {
   schema_version: "uaa-news-signals-adoption.v1";
   contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1";
   status: NewsSignalsSummary["status"];
+  storage_status: NewsSignalsStorageStatus;
   revision: number;
   current_state_ref: string;
   can_undo: boolean;

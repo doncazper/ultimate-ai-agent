@@ -51,6 +51,7 @@ const workspace: NewsSignalsAdoptionView = {
   schema_version: "uaa-news-signals-adoption.v1",
   contract_ref: "contract-ref:queue-v2-q34-news-signals-adoption:v1",
   status: "blocked_no_graduated_source",
+  storage_status: "missing",
   revision: 0,
   current_state_ref: "state-ref:news-signals-adoption:empty",
   can_undo: false,
@@ -125,6 +126,37 @@ const responseHeaders = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("News and Signals adoption API", () => {
+  it.each(["missing", "q24_only", "ready", "migration_required"])(
+    "preserves the backend storage posture %s across projections",
+    async (storageStatus) => {
+      const data = {
+        ...workspace,
+        storage_status: storageStatus,
+        summary: {
+          ...summary,
+          today_projection: { ...summary.today_projection, storage_status: storageStatus },
+          morning_briefing_projection: { ...summary.morning_briefing_projection, storage_status: storageStatus },
+        },
+      };
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, data }), { status: 200 }),
+      ));
+      await expect(loadNewsSignalsAdoptionWorkspace()).resolves.toEqual(data);
+    },
+  );
+
+  it.each([undefined, "initialized_without_approval"])(
+    "rejects a missing or unknown storage posture %s",
+    async (storageStatus) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true, data: { ...workspace, storage_status: storageStatus } }), { status: 200 }),
+      ));
+      await expect(loadNewsSignalsAdoptionWorkspace()).rejects.toThrow(
+        "NEWS_SIGNALS_ADOPTION_RESPONSE_INVALID",
+      );
+    },
+  );
+
   it("accepts the exact fail-closed workspace and rejects authority promotion", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: workspace }), { status: 200 }))

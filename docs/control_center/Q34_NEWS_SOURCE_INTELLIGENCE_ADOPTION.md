@@ -41,6 +41,11 @@ The read-only `python scripts/inspect_news_signals_adoption.py` command reports
 the same safe posture without printing private source or signal text by
 default. Inspection failures, including invalid arguments, emit a fixed blocked
 JSON result and exit 2 without a traceback, path, or supplied value.
+Construction, reads, and previews do not create or migrate News storage.
+The workspace and inspection command distinguish `missing`, `q24_only`,
+`migration_required`, and `ready` storage from source-readiness status; Today
+and Morning Briefing projections carry the same storage posture. Existing Q24
+sources and artifacts remain visible without silently adopting their database.
 `apps/control-center/src/components/NewsSignalsPreviewPanel.tsx`
 provides the normal readable workflow.
 
@@ -74,10 +79,23 @@ corrections, including shared Q24 artifacts already at the 24-ref limit.
 ## Storage, recovery, and capacity
 
 The adoption store reuses the Q24 SQLite repository and adds bounded local
-preferences, archive metadata, undo state, and mutation receipts. The state
-directory is owner-only mode `0700`; the database and sidecars are hardened to
-`0600`. This is founder-private plaintext on disk, not application-level
-encryption. Host disk encryption remains the device boundary.
+preferences, archive metadata, undo state, and mutation receipts. Initialization
+or supported schema migration is included in the exact preview and occurs only
+with an approved save, in the same transaction as the change and receipt.
+An incomplete adopted schema fails closed instead of being silently recreated.
+Undo restores the prior source/artifact snapshot while retaining schema and the
+audit history; it does not delete the database or approval evidence.
+
+Reads use a bounded, owner-private temporary snapshot of the database and its
+committed WAL, without changing source files, schema, modes, or sidecars.
+The snapshot is removed after inspection. Concurrent file drift or a pending
+rollback journal produces a safe retryable error; reads never ignore a live WAL
+or repair durable state. Each copied database or WAL file is limited to 128 MiB.
+On an approved save, the POSIX state directory is hardened to `0700` and the
+database and sidecars to `0600`; inspection does not chmod existing Q24 state.
+Windows-equivalent ACL protection is not established by these POSIX checks.
+This is founder-private plaintext on disk, not application-level encryption.
+Host disk encryption remains the device boundary.
 
 Manual archive/recover, source safe-disable/recover, and one-step undo are
 available. The store is bounded to 24 sources, 2,000 artifacts, 128 topic

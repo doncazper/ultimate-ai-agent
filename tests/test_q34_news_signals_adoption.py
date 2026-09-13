@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
 import json
+import gc
+import hashlib
 import os
 import sqlite3
 
@@ -26,7 +28,227 @@ from ultimate_ai_agent.core.news_signals.adoption import (
     _hash_ref,
     _mutation_receipt_ref,
 )
-from ultimate_ai_agent.core.news_signals.read_model import NewsSignalSource
+from ultimate_ai_agent.core.news_signals.read_model import (
+    NewsSignalSource,
+    NewsSignalsRepository,
+)
+
+
+def _news_disk_fingerprint(state_dir):
+    if not state_dir.exists():
+        return {}
+    return {
+        str(path.relative_to(state_dir)): (
+            path.stat().st_mode,
+            hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None,
+        )
+        for path in (state_dir, *sorted(state_dir.rglob("*")))
+    }
+
+
+def _seed_q24_source(state_dir):
+    repository = NewsSignalsRepository(state_dir)
+    repository.upsert_source(
+        NewsSignalSource(
+            source_ref="source-ref:q24:preserved-admission",
+            source_kind="official",
+            safe_label="Existing reviewed source",
+            state="ready",
+            observed_at="2026-09-09T10:00:00Z",
+            reason_refs=("reason-ref:q24:original-admission",),
+        )
+    )
+    gc.collect()
+    return repository
+
+
+def test_fresh_inspection_preview_and_denied_commit_do_not_initialize_storage(tmp_path):
+    state_dir = tmp_path / "uninitialized-news"
+    store = NewsSignalsAdoptionStore(state_dir)
+    assert not state_dir.exists()
+    view = store.read_view()
+    assert view["storage_status"] == "missing"
+    assert view["summary"]["today_projection"]["storage_status"] == "missing"
+    request = NewsSignalsAdoptionMutationRequest(
+        action="register_source", expected_revision=0, source_draft=_source_draft()
+    )
+    key = "idempotency-ref:q34:test:missing-storage"
+    preview = store.preview_mutation(request, idempotency_ref=key)
+    assert "Initialize local News storage" in preview.safe_summary
+    assert not state_dir.exists()
+    with pytest.raises(NewsSignalsAdoptionError, match="EXACT_APPROVAL_REQUIRED"):
+        store.commit_mutation(
+            NewsSignalsAdoptionCommitRequest(
+                mutation=request,
+                preview_ref=preview.preview_ref,
+                approval_ref=preview.approval_ref,
+            ),
+            idempotency_ref=key,
+        )
+    assert not state_dir.exists()
+
+
+@pytest.mark.parametrize("adopted", [False, True])
+@pytest.mark.parametrize("live_wal", [False, True])
+def test_read_and_preview_preserve_q24_or_adopted_files_and_live_wal(
+    tmp_path, adopted, live_wal
+):
+    repository = _seed_q24_source(tmp_path)
+    store = NewsSignalsAdoptionStore(tmp_path)
+    if adopted:
+        _register(store)
+    gc.collect()
+    writer = sqlite3.connect(repository.db_path)
+    try:
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute(
+            "UPDATE news_signal_sources SET safe_label = ? WHERE source_ref = ?",
+            ("Committed journal label", "source-ref:q24:preserved-admission"),
+        )
+        writer.commit()
+        if not live_wal:
+            writer.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            writer.close()
+        if os.name != "nt" and not adopted:
+            os.chmod(tmp_path, 0o755)
+            os.chmod(repository.db_path, 0o644)
+        before = _news_disk_fingerprint(tmp_path)
+        reopened = NewsSignalsAdoptionStore(tmp_path)
+        view = reopened.read_view(now=NOW)
+        assert view["storage_status"] == ("ready" if adopted else "q24_only")
+        source = next(
+            item
+            for item in view["summary"]["source_readiness"]
+            if item["source_ref"] == "source-ref:q24:preserved-admission"
+        )
+        assert source["safe_label"] == "Committed journal label"
+        assert source["reason_refs"] == ["reason-ref:q24:original-admission"]
+        reopened.preview_mutation(
+            NewsSignalsAdoptionMutationRequest(
+                action="register_source",
+                expected_revision=view["revision"],
+                source_draft=_source_draft("Additional source"),
+            ),
+            idempotency_ref="idempotency-ref:q34:test:read-invariance",
+        )
+        assert _news_disk_fingerprint(tmp_path) == before
+    finally:
+        writer.close()
+
+
+@pytest.mark.parametrize("existing_q24", [False, True])
+def test_first_approved_commit_initializes_atomically_and_preserves_existing_data(
+    tmp_path, existing_q24
+):
+    state_dir = tmp_path / "news"
+    if existing_q24:
+        _seed_q24_source(state_dir)
+    store = NewsSignalsAdoptionStore(state_dir)
+    mutation = NewsSignalsAdoptionMutationRequest(
+        action="register_source", expected_revision=0, source_draft=_source_draft()
+    )
+    key = "idempotency-ref:q34:test:approved-bootstrap"
+    preview = store.preview_mutation(mutation, idempotency_ref=key)
+    exact = NewsSignalsAdoptionApprovalCaptureRequest(
+        mutation=mutation,
+        preview_ref=preview.preview_ref,
+        approval_ref=preview.approval_ref,
+    )
+    store.capture_approval(exact, idempotency_ref=key)
+    if existing_q24:
+        with store._read_connection() as conn:
+            assert store._storage_status(conn) == "q24_only"
+    else:
+        assert not store.db_path.exists()
+    commit = NewsSignalsAdoptionCommitRequest(**exact.model_dump())
+    receipt = store.commit_mutation(commit, idempotency_ref=key)
+    assert receipt.after_revision == 1
+    view = store.read_view()
+    assert view["storage_status"] == "ready"
+    assert len(view["summary"]["source_readiness"]) == (2 if existing_q24 else 1)
+    assert store.commit_mutation(commit, idempotency_ref=key).replayed
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(action="undo", expected_revision=1),
+        "undo-first-approved-write",
+    )
+    restored = store.read_view()
+    assert len(restored["summary"]["source_readiness"]) == (1 if existing_q24 else 0)
+
+
+def test_read_does_not_repair_partial_schema_or_migrate_legacy_undo(tmp_path):
+    store = NewsSignalsAdoptionStore(tmp_path)
+    _register(store)
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            "ALTER TABLE news_signals_adoption_undo DROP COLUMN expected_state_ref"
+        )
+    gc.collect()
+    before = _news_disk_fingerprint(tmp_path)
+    view = NewsSignalsAdoptionStore(tmp_path).read_view()
+    assert view["storage_status"] == "migration_required"
+    assert view["can_undo"] is False
+    assert _news_disk_fingerprint(tmp_path) == before
+    _commit(
+        store,
+        NewsSignalsAdoptionMutationRequest(
+            action="register_source",
+            expected_revision=1,
+            source_draft=_source_draft("Migration source"),
+        ),
+        "approved-schema-migration",
+    )
+    assert store.read_view()["storage_status"] == "ready"
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute("DROP TABLE news_signal_preferences")
+    gc.collect()
+    before = _news_disk_fingerprint(tmp_path)
+    with pytest.raises(NewsSignalsAdoptionError, match="SCHEMA_STATE_INVALID"):
+        NewsSignalsAdoptionStore(tmp_path).read_view()
+    assert _news_disk_fingerprint(tmp_path) == before
+
+
+def test_first_write_schema_is_rolled_back_when_receipt_insertion_fails(
+    tmp_path, monkeypatch
+):
+    store = NewsSignalsAdoptionStore(tmp_path)
+
+    def fail_receipt(*_):
+        raise NewsSignalsAdoptionError("NEWS_SIGNALS_ADOPTION_TEST_RECEIPT_FAILURE")
+
+    monkeypatch.setattr(store, "_insert_receipt", fail_receipt)
+    with pytest.raises(NewsSignalsAdoptionError, match="TEST_RECEIPT_FAILURE"):
+        _register(store)
+    with sqlite3.connect(store.db_path) as conn:
+        assert (
+            conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            == []
+        )
+    assert store.read_view()["storage_status"] == "missing"
+
+
+def test_read_rejects_source_drift_and_excessive_snapshot_size(tmp_path, monkeypatch):
+    _seed_q24_source(tmp_path)
+    store = NewsSignalsAdoptionStore(tmp_path)
+    versions = store._read_file_versions()
+    original = store._read_file_versions
+    calls = 0
+
+    def changing_versions():
+        nonlocal calls
+        calls += 1
+        return versions if calls == 1 else {}
+
+    monkeypatch.setattr(store, "_read_file_versions", changing_versions)
+    with pytest.raises(NewsSignalsAdoptionConflict, match="READ_SNAPSHOT_UNAVAILABLE"):
+        store.read_view()
+    monkeypatch.setattr(store, "_read_file_versions", original)
+    monkeypatch.setattr(
+        "ultimate_ai_agent.core.news_signals.adoption.NEWS_SIGNALS_ADOPTION_MAX_DATABASE_FILE_BYTES",
+        1,
+    )
+    with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_SIZE_LIMIT"):
+        store.read_view()
 
 
 NOW = datetime(2026, 9, 9, 12, 0, tzinfo=timezone.utc)
@@ -273,6 +495,7 @@ def test_source_safe_disable_and_recovery_are_truthful(tmp_path) -> None:
 
 
 def test_source_transition_preserves_a_full_admission_reason_set(tmp_path) -> None:
+    NewsSignalsRepository(tmp_path)
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = "source-ref:q24:full-reason-set"
     reason_refs = tuple(f"reason-ref:q24:admission-{index}" for index in range(24))
@@ -308,6 +531,7 @@ def test_source_recovery_cannot_override_non_q34_authority_states(
     tmp_path,
     source_state,
 ) -> None:
+    NewsSignalsRepository(tmp_path)
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = f"source-ref:q24:{source_state}"
     store.repository.upsert_source(
@@ -368,6 +592,7 @@ def test_source_update_keeps_artifact_label_and_approval_binding_current(
 
 
 def test_source_update_preserves_shared_source_origin_contract(tmp_path) -> None:
+    NewsSignalsRepository(tmp_path)
     store = NewsSignalsAdoptionStore(tmp_path)
     source_ref = "source-ref:q24:shared-origin"
     store.repository.upsert_source(
@@ -1103,7 +1328,7 @@ def test_corrupt_database_and_receipt_state_fail_with_safe_codes(tmp_path) -> No
     corrupt_dir.mkdir(mode=0o700)
     (corrupt_dir / "news_signals.sqlite3").write_bytes(b"not a sqlite database")
     with pytest.raises(NewsSignalsAdoptionError, match="DATABASE_STATE_INVALID"):
-        NewsSignalsAdoptionStore(corrupt_dir)
+        NewsSignalsAdoptionStore(corrupt_dir).read_view()
 
     receipt_store = NewsSignalsAdoptionStore(tmp_path / "receipt")
     mutation = NewsSignalsAdoptionMutationRequest(
@@ -1268,6 +1493,7 @@ def test_durable_receipt_rejects_substituted_lifecycle_and_authority_fields(
 
 
 def test_direct_database_capacity_inflation_fails_before_projection(tmp_path) -> None:
+    NewsSignalsRepository(tmp_path)
     store = NewsSignalsAdoptionStore(tmp_path)
     with sqlite3.connect(store.db_path) as conn:
         for index in range(25):

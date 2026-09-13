@@ -37,6 +37,7 @@ def _content_safe_workspace(view: dict[str, object]) -> dict[str, object]:
         "schema_version": view["schema_version"],
         "contract_ref": view["contract_ref"],
         "status": view["status"],
+        "storage_status": view["storage_status"],
         "revision": view["revision"],
         "current_state_ref": view["current_state_ref"],
         "can_undo": view["can_undo"],

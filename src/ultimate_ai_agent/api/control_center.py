@@ -2752,6 +2752,7 @@ def _raise_news_signals_adoption_http_error(
         "NEWS_SIGNALS_ADOPTION_DATABASE_CAPACITY_INVALID",
         "NEWS_SIGNALS_ADOPTION_RELATIONSHIP_STATE_INVALID",
         "NEWS_SIGNALS_ADOPTION_REVISION_STATE_INVALID",
+        "NEWS_SIGNALS_ADOPTION_SCHEMA_STATE_INVALID",
     }:
         status_code = 422
     elif code in {
