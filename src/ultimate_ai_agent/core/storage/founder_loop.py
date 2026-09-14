@@ -7146,9 +7146,39 @@ class FounderLoopRepository:
             ],
         }
 
+    def agent_loop_read_inputs(self) -> dict[str, Any]:
+        """Assemble this read from fresh, repository-owned bounded windows.
+
+        Each distinct Today window retains its original limit and validation.
+        Reuse is confined to this call, never a cache or an authority snapshot.
+        """
+        today = self.today_summary(limit=12)
+        actions = self.actions_inbox(limit=50)
+        proof_today = self.today_summary(limit=50)
+        binding_today = self.today_summary(limit=6)
+        return {
+            "today_summary": today,
+            "actions_inbox": actions,
+            "evidence_timeline": self._evidence_timeline_from_today(
+                today=proof_today, binding_today=binding_today
+            ),
+            "memory_review": self._memory_review_from_binding(
+                limit=20, binding_today=binding_today
+            ),
+            "proof_today": proof_today,
+            "binding_today": binding_today,
+        }
+
     def evidence_timeline(self, *, limit: int = 50) -> dict[str, Any]:
         today = self.today_summary(limit=min(max(int(limit), 6), 50))
         binding_today = self.today_summary(limit=6)
+        return self._evidence_timeline_from_today(
+            today=today, binding_today=binding_today
+        )
+
+    def _evidence_timeline_from_today(
+        self, *, today: dict[str, Any], binding_today: dict[str, Any]
+    ) -> dict[str, Any]:
         timeline = list(today["evidence_timeline"])
         events = self._productized_evidence_events(timeline)
         groups = self._productized_evidence_groups(events)
@@ -10881,7 +10911,9 @@ class FounderLoopRepository:
         )
         merge_generated_actions(task_decomposition_actions)
         projected_actions: list[dict[str, Any]] = []
-        for action in actions:
+        # Source admission and ordering are complete. Build expensive detail and
+        # authority projections only for the window this read can return.
+        for action in actions[: self._bounded_limit(limit)]:
             action_envelope_payload = _action_envelope_contract_payload(action)
             projected = {
                 **action,
@@ -15585,11 +15617,17 @@ class FounderLoopRepository:
         ]
 
     def memory_review(self, *, limit: int = 20) -> dict[str, Any]:
+        return self._memory_review_from_binding(
+            limit=limit, binding_today=self.today_summary(limit=6)
+        )
+
+    def _memory_review_from_binding(
+        self, *, limit: int, binding_today: dict[str, Any]
+    ) -> dict[str, Any]:
         items = self.list_memory_review_queue(limit=limit)
         decisions = self.list_memory_review_decisions(limit=limit)
         workbench = self.memory_workbench(limit=limit)
         write_posture = self.memory_review_write_safe_disable_posture()
-        binding_today = self.today_summary(limit=6)
         return {
             "route_ref": "/control-center/memory/review",
             "surface_ref": "/memory",
