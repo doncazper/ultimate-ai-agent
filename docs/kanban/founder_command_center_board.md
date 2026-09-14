@@ -1891,6 +1891,14 @@ review decision, changes the book or canonical inbox, learns a rule, accepts
 arbitrary input, stores protected documents, runs OCR, or grants connector,
 real-data, API, or UI authority.
 
+The separately claimed FIN-003 durable-decision continuation saves one exact
+synthetic confirm/reject/defer disposition and append-only compensating undo in
+the existing protected generation. Core/CLI review reflects that history, with
+unchanged postings/balances, current exact approval/lease and deterministic
+retry. See `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md`.
+Qualification and merge evidence remain separate from implementation. This child
+does not complete FIN-003, Q26, real-data promotion or the full Finance workflow.
+
 Planning refs: `docs/product/UAA_FINANCE_COMPLIANCE_PRODUCT_CONTRACT.md`,
 `docs/product/UAA_FINANCE_WORKFLOW_CASE_STUDY_001.md`,
 `docs/implementation/UAA_FINANCE_COMPLIANCE_IMPLEMENTATION_PLAN.md`,

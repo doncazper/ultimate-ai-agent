@@ -10,9 +10,13 @@ from ultimate_ai_agent.core.finance.import_commit import (
     FIN002_SUSPENSE_ACCOUNT_REF,
 )
 from ultimate_ai_agent.core.finance.models import (
+    FINANCE_REVIEW_EVENT_LIMIT,
+    FinanceReviewDecisionRecord,
     FinanceSnapshot,
     JournalFlow,
     _FinanceModel,
+    finance_review_lineage_ref,
+    fold_finance_review_history,
     stable_finance_ref,
 )
 
@@ -30,6 +34,13 @@ FIN003_RANKING_BASIS_REF = (
 FIN003_NEXT_SAFE_ACTION_REF = (
     "next-safe-action-ref:finance/FIN-003:inspect-synthetic-review-batch"
 )
+FinanceReviewItemState = Literal["needs_review", "confirmed", "rejected", "deferred"]
+FinanceReviewBatchState = Literal["needs_review", "reviewed"]
+FIN003_DECISION_STATES = {
+    "confirm": "confirmed",
+    "reject": "rejected",
+    "defer": "deferred",
+}
 
 
 class FinanceReviewItem(_FinanceModel):
@@ -42,7 +53,9 @@ class FinanceReviewItem(_FinanceModel):
     import_commit_ref: str
     candidate_ref: str
     journal_entry_ref: str
-    state: Literal["needs_review"] = "needs_review"
+    lineage_ref: str
+    effective_decision_ref: str | None = None
+    state: FinanceReviewItemState = "needs_review"
     reason_refs: tuple[str, ...] = FIN003_REVIEW_REASON_REFS
     consequence_ref: str = FIN003_REVIEW_CONSEQUENCE_REF
     confidence_posture: Literal["not_scored"] = "not_scored"
@@ -65,6 +78,8 @@ class FinanceReviewItem(_FinanceModel):
             raise ValueError("FIN003_REVIEW_REASON_REFS_INVALID")
         if self.consequence_ref != FIN003_REVIEW_CONSEQUENCE_REF:
             raise ValueError("FIN003_REVIEW_CONSEQUENCE_REF_INVALID")
+        if (self.effective_decision_ref is None) != (self.state == "needs_review"):
+            raise ValueError("FIN003_REVIEW_ITEM_DECISION_POSTURE_INVALID")
         return self
 
 
@@ -80,7 +95,7 @@ class FinanceReviewBatch(_FinanceModel):
     import_commit_ref: str
     review_item_refs: tuple[str, ...] = Field(..., min_length=1, max_length=128)
     item_count: StrictInt = Field(..., ge=1, le=128)
-    state: Literal["needs_review"] = "needs_review"
+    state: FinanceReviewBatchState = "needs_review"
     ranking_basis_ref: str = FIN003_RANKING_BASIS_REF
     synthetic_only: Literal[True] = True
     raw_financial_values_included: Literal[False] = False
@@ -116,7 +131,7 @@ class FinanceActionInboxProjection(_FinanceModel):
     rank: StrictInt = Field(..., ge=1, le=10_000)
     review_batch_ref: str
     action_kind: Literal["finance_review_batch"] = "finance_review_batch"
-    state: Literal["needs_review"] = "needs_review"
+    state: FinanceReviewBatchState = "needs_review"
     next_safe_action_ref: str = FIN003_NEXT_SAFE_ACTION_REF
     proposal_only: Literal[True] = True
     synthetic_only: Literal[True] = True
@@ -150,6 +165,9 @@ class FinanceReviewProjection(_FinanceModel):
     repository_ref: str
     source_snapshot_ref: str
     source_revision: StrictInt = Field(..., ge=0)
+    decision_history: tuple[FinanceReviewDecisionRecord, ...] = Field(
+        default=(), max_length=FINANCE_REVIEW_EVENT_LIMIT
+    )
     review_items: tuple[FinanceReviewItem, ...] = Field(default=(), max_length=10_000)
     review_batches: tuple[FinanceReviewBatch, ...] = Field(
         default=(), max_length=10_000
@@ -192,6 +210,32 @@ class FinanceReviewProjection(_FinanceModel):
         if batch_refs != action_batch_refs:
             raise ValueError("FIN003_REVIEW_PROJECTION_ACTION_GRAPH_INVALID")
         items_by_ref = {item.review_item_ref: item for item in self.review_items}
+        effective = fold_finance_review_history(
+            self.decision_history,
+            repository_ref=self.repository_ref,
+            revision=self.source_revision,
+        )
+        lineage_refs: set[str] = set()
+        for item in self.review_items:
+            expected_lineage = finance_review_lineage_ref(
+                repository_ref=self.repository_ref,
+                book_ref=item.book_ref,
+                import_commit_ref=item.import_commit_ref,
+                candidate_ref=item.candidate_ref,
+                journal_entry_ref=item.journal_entry_ref,
+            )
+            if item.lineage_ref != expected_lineage or item.lineage_ref in lineage_refs:
+                raise ValueError("FIN003_REVIEW_PROJECTION_LINEAGE_INVALID")
+            lineage_refs.add(item.lineage_ref)
+            decision = effective.get(item.lineage_ref)
+            if item.effective_decision_ref != (
+                decision.event_ref if decision else None
+            ) or item.state != (
+                FIN003_DECISION_STATES[decision.decision]
+                if decision
+                else "needs_review"
+            ):
+                raise ValueError("FIN003_REVIEW_PROJECTION_DECISION_INVALID")
         for batch in self.review_batches:
             for item_ref in batch.review_item_refs:
                 item = items_by_ref[item_ref]
@@ -200,6 +244,19 @@ class FinanceReviewProjection(_FinanceModel):
                     or item.import_commit_ref != batch.import_commit_ref
                 ):
                     raise ValueError("FIN003_REVIEW_BATCH_SCOPE_INVALID")
+            expected_state = (
+                "needs_review"
+                if any(
+                    items_by_ref[ref].state in {"needs_review", "deferred"}
+                    for ref in batch.review_item_refs
+                )
+                else "reviewed"
+            )
+            if batch.state != expected_state:
+                raise ValueError("FIN003_REVIEW_BATCH_POSTURE_INVALID")
+        for batch, action in zip(self.review_batches, self.action_inbox, strict=True):
+            if action.state != batch.state:
+                raise ValueError("FIN003_REVIEW_ACTION_POSTURE_INVALID")
         if tuple(item.rank for item in self.review_items) != tuple(
             range(1, len(self.review_items) + 1)
         ):
@@ -227,6 +284,8 @@ def _review_item(
     import_commit_ref: str,
     candidate_ref: str,
     journal_entry_ref: str,
+    lineage_ref: str,
+    effective_decision: FinanceReviewDecisionRecord | None,
 ) -> FinanceReviewItem:
     """Build one content-bound review item."""
 
@@ -236,6 +295,13 @@ def _review_item(
         "import_commit_ref": import_commit_ref,
         "candidate_ref": candidate_ref,
         "journal_entry_ref": journal_entry_ref,
+        "lineage_ref": lineage_ref,
+        "effective_decision_ref": effective_decision.event_ref
+        if effective_decision
+        else None,
+        "state": FIN003_DECISION_STATES[effective_decision.decision]
+        if effective_decision
+        else "needs_review",
     }
     provisional = FinanceReviewItem.model_construct(
         review_item_ref="review-item-ref:finance/FIN-003:pending", **payload
@@ -255,6 +321,7 @@ def _review_batch(
     book_ref: str,
     import_commit_ref: str,
     review_item_refs: tuple[str, ...],
+    state: FinanceReviewBatchState,
 ) -> FinanceReviewBatch:
     """Build one content-bound review batch."""
 
@@ -264,6 +331,7 @@ def _review_batch(
         "import_commit_ref": import_commit_ref,
         "review_item_refs": review_item_refs,
         "item_count": len(review_item_refs),
+        "state": state,
     }
     provisional = FinanceReviewBatch.model_construct(
         review_batch_ref="review-batch-ref:finance/FIN-003:pending", **payload
@@ -278,11 +346,11 @@ def _review_batch(
 
 
 def _action_projection(
-    *, rank: int, review_batch_ref: str
+    *, rank: int, review_batch_ref: str, state: FinanceReviewBatchState
 ) -> FinanceActionInboxProjection:
     """Build one content-bound Action Inbox pointer."""
 
-    payload = {"rank": rank, "review_batch_ref": review_batch_ref}
+    payload = {"rank": rank, "review_batch_ref": review_batch_ref, "state": state}
     provisional = FinanceActionInboxProjection.model_construct(
         action_projection_ref="action-projection-ref:finance/FIN-003:pending",
         **payload,
@@ -309,6 +377,11 @@ def build_finance_review_projection(
         or snapshot.filing_authority_granted
     ):
         raise ValueError("FIN003_REVIEW_SOURCE_POSTURE_DENIED")
+
+    snapshot = FinanceSnapshot.model_validate(
+        snapshot.model_dump(mode="python", warnings=False)
+    )
+    effective = snapshot.effective_review_decisions()
 
     entries = {item.journal_entry_ref: item for item in snapshot.journal_entries}
     reversal_by_target = {
@@ -361,12 +434,21 @@ def build_finance_review_projection(
                 book_ref = entry.book_ref
             elif book_ref != entry.book_ref:
                 raise ValueError("FIN003_REVIEW_BATCH_BOOK_SCOPE_INVALID")
+            lineage_ref = finance_review_lineage_ref(
+                repository_ref=snapshot.repository_ref,
+                book_ref=entry.book_ref,
+                import_commit_ref=record.commit_ref,
+                candidate_ref=candidate_ref,
+                journal_entry_ref=journal_entry_ref,
+            )
             item = _review_item(
                 rank=len(review_items) + len(batch_items) + 1,
                 book_ref=entry.book_ref,
                 import_commit_ref=record.commit_ref,
                 candidate_ref=candidate_ref,
                 journal_entry_ref=journal_entry_ref,
+                lineage_ref=lineage_ref,
+                effective_decision=effective.get(lineage_ref),
             )
             batch_items.append(item)
         if not batch_items or book_ref is None:
@@ -376,6 +458,9 @@ def build_finance_review_projection(
             book_ref=book_ref,
             import_commit_ref=record.commit_ref,
             review_item_refs=tuple(item.review_item_ref for item in batch_items),
+            state="needs_review"
+            if any(item.state in {"needs_review", "deferred"} for item in batch_items)
+            else "reviewed",
         )
         review_items.extend(batch_items)
         review_batches.append(batch)
@@ -383,6 +468,7 @@ def build_finance_review_projection(
             _action_projection(
                 rank=len(action_inbox) + 1,
                 review_batch_ref=batch.review_batch_ref,
+                state=batch.state,
             )
         )
 
@@ -390,6 +476,7 @@ def build_finance_review_projection(
         "repository_ref": snapshot.repository_ref,
         "source_snapshot_ref": snapshot.snapshot_ref,
         "source_revision": snapshot.revision,
+        "decision_history": snapshot.review_decisions,
         "review_items": tuple(review_items),
         "review_batches": tuple(review_batches),
         "action_inbox": tuple(action_inbox),

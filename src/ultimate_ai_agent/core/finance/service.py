@@ -77,6 +77,7 @@ class FinanceKernelService:
         killed = kill_switch_engaged or (lambda: False)
 
         def authorize():
+            self._validate_path_bindings(request, backup_path=backup_path)
             return self.gate.authorize(
                 request,
                 preview=preview,
@@ -89,6 +90,10 @@ class FinanceKernelService:
 
         permit = authorize()
         revalidate = authorize
+        if request.operation in {"review_decision", "review_undo"}:
+            return self.repository.commit_review_decision(
+                permit=permit, revalidate=revalidate
+            )
         if request.operation == FinanceMutationOperation.create.value:
             return self.repository.create_from_fixture(
                 permit=permit,

@@ -27,6 +27,8 @@ FINANCE_SCHEMA_VERSION = "finance-schema:v1"
 FINANCE_SYNTHETIC_INPUT_POLICY_REF = (
     "policy-ref:finance/FIN-001:fixture-ref-allowlist-only:v1"
 )
+FINANCE_REVIEW_EVENT_LIMIT = 4096
+FinanceReviewDecision = Literal["confirm", "reject", "defer"]
 
 
 def stable_finance_ref(prefix: str, payload: object) -> str:
@@ -232,6 +234,138 @@ class FinanceImportCommitRecord(_FinanceModel):
         return self
 
 
+def finance_review_lineage_ref(
+    *,
+    repository_ref: str,
+    book_ref: str,
+    import_commit_ref: str,
+    candidate_ref: str,
+    journal_entry_ref: str,
+) -> str:
+    """Identify imported review lineage independently of display rank/state."""
+
+    return stable_finance_ref(
+        "review-lineage-ref:finance/FIN-003",
+        {
+            "repository_ref": repository_ref,
+            "book_ref": book_ref,
+            "import_commit_ref": import_commit_ref,
+            "candidate_ref": candidate_ref,
+            "journal_entry_ref": journal_entry_ref,
+        },
+    )
+
+
+class FinanceReviewDecisionRecord(_FinanceModel):
+    """Append-only review disposition, never an accounting correction."""
+
+    schema_version: Literal["uaa-finance-review-decision-record.v1"] = (
+        "uaa-finance-review-decision-record.v1"
+    )
+    event_ref: str
+    operation: Literal["review_decision", "review_undo"]
+    repository_ref: str
+    book_ref: str
+    import_commit_ref: str
+    candidate_ref: str
+    journal_entry_ref: str
+    lineage_ref: str
+    review_item_ref: str
+    decision_preview_ref: str
+    before_snapshot_ref: str
+    before_revision: StrictInt = Field(..., ge=2)
+    request_ref: str
+    idempotency_ref: str
+    decision: FinanceReviewDecision | None = None
+    compensates_event_ref: str | None = None
+    prior_effective_event_ref: str | None = None
+    previous_history_event_ref: str | None = None
+    synthetic_only: Literal[True] = True
+    ledger_postings_changed: Literal[False] = False
+    categorization_performed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_record(self) -> "FinanceReviewDecisionRecord":
+        lineage = finance_review_lineage_ref(
+            repository_ref=self.repository_ref,
+            book_ref=self.book_ref,
+            import_commit_ref=self.import_commit_ref,
+            candidate_ref=self.candidate_ref,
+            journal_entry_ref=self.journal_entry_ref,
+        )
+        if self.lineage_ref != lineage:
+            raise ValueError("FIN003_REVIEW_LINEAGE_REF_INVALID")
+        if self.operation == "review_decision":
+            if self.decision is None or self.compensates_event_ref is not None:
+                raise ValueError("FIN003_REVIEW_DECISION_RECORD_SCOPE_INVALID")
+        elif (
+            self.decision is not None
+            or self.compensates_event_ref is None
+            or self.compensates_event_ref != self.prior_effective_event_ref
+        ):
+            raise ValueError("FIN003_REVIEW_UNDO_RECORD_SCOPE_INVALID")
+        expected = stable_finance_ref(
+            "review-decision-record-ref:finance/FIN-003",
+            self.model_dump(mode="json", exclude={"event_ref"}),
+        )
+        if self.event_ref != expected:
+            raise ValueError("FIN003_REVIEW_DECISION_RECORD_REF_INVALID")
+        return self
+
+
+def fold_finance_review_history(
+    records: tuple[FinanceReviewDecisionRecord, ...],
+    *,
+    repository_ref: str,
+    revision: int,
+) -> dict[str, FinanceReviewDecisionRecord]:
+    """Validate one bounded history and restore prior posture on exact undo."""
+
+    if len(records) > FINANCE_REVIEW_EVENT_LIMIT:
+        raise ValueError("FIN003_REVIEW_HISTORY_CAPACITY_EXHAUSTED")
+    seen_events: set[str] = set()
+    seen_requests: set[str] = set()
+    seen_idempotency: set[str] = set()
+    active: dict[str, list[FinanceReviewDecisionRecord]] = {}
+    previous: FinanceReviewDecisionRecord | None = None
+    for supplied in records:
+        record = FinanceReviewDecisionRecord.model_validate(
+            supplied.model_dump(mode="python", warnings=False)
+        )
+        if (
+            record.event_ref in seen_events
+            or record.request_ref in seen_requests
+            or record.idempotency_ref in seen_idempotency
+        ):
+            raise ValueError("FIN003_REVIEW_HISTORY_IDENTITY_REUSED")
+        seen_events.add(record.event_ref)
+        seen_requests.add(record.request_ref)
+        seen_idempotency.add(record.idempotency_ref)
+        if (
+            record.repository_ref != repository_ref
+            or record.before_revision >= revision
+            or (
+                previous is not None
+                and record.before_revision <= previous.before_revision
+            )
+            or record.previous_history_event_ref
+            != (previous.event_ref if previous else None)
+        ):
+            raise ValueError("FIN003_REVIEW_HISTORY_GENERATION_INVALID")
+        stack = active.setdefault(record.lineage_ref, [])
+        prior = stack[-1].event_ref if stack else None
+        if record.prior_effective_event_ref != prior:
+            raise ValueError("FIN003_REVIEW_HISTORY_EFFECTIVE_BINDING_INVALID")
+        if record.operation == "review_undo":
+            if not stack or record.compensates_event_ref != prior:
+                raise ValueError("FIN003_REVIEW_HISTORY_UNDO_TARGET_INVALID")
+            stack.pop()
+        else:
+            stack.append(record)
+        previous = record
+    return {lineage: stack[-1] for lineage, stack in active.items() if stack}
+
+
 class FinanceSnapshot(_FinanceModel):
     schema_version: Literal["finance-schema:v1"] = FINANCE_SCHEMA_VERSION
     repository_ref: str
@@ -245,6 +379,9 @@ class FinanceSnapshot(_FinanceModel):
     journal_entries: tuple[JournalEntry, ...] = Field(default=(), max_length=10_000)
     import_commits: tuple[FinanceImportCommitRecord, ...] = Field(
         default=(), max_length=10_000
+    )
+    review_decisions: tuple[FinanceReviewDecisionRecord, ...] = Field(
+        default=(), max_length=FINANCE_REVIEW_EVENT_LIMIT
     )
     safe_disable_enabled: StrictBool = True
     synthetic_only: Literal[True] = True
@@ -334,6 +471,7 @@ class FinanceSnapshot(_FinanceModel):
                     raise ValueError("FIN002_IMPORT_JOURNAL_REF_UNKNOWN")
                 if entries_by_ref[journal_ref].fixture_ref != record.fixture_ref:
                     raise ValueError("FIN002_IMPORT_JOURNAL_FIXTURE_MISMATCH")
+        self._validate_review_history(entries_by_ref)
         reversed_targets: set[str] = set()
         for entry in self.journal_entries:
             if (
@@ -367,11 +505,45 @@ class FinanceSnapshot(_FinanceModel):
                 raise ValueError("FINANCE_REVERSAL_POSTINGS_MISMATCH")
         return self
 
+    def _validate_review_history(self, entries: dict[str, JournalEntry]) -> None:
+        fold_finance_review_history(
+            self.review_decisions,
+            repository_ref=self.repository_ref,
+            revision=self.revision,
+        )
+        commits = {record.commit_ref: record for record in self.import_commits}
+        for record in self.review_decisions:
+            commit = commits.get(record.import_commit_ref)
+            entry = entries.get(record.journal_entry_ref)
+            if (
+                commit is None
+                or entry is None
+                or entry.book_ref != record.book_ref
+                or commit.before_revision >= record.before_revision
+                or (record.candidate_ref, record.journal_entry_ref)
+                not in tuple(
+                    zip(commit.candidate_refs, commit.journal_entry_refs, strict=True)
+                )
+            ):
+                raise ValueError("FIN003_REVIEW_HISTORY_LINEAGE_UNKNOWN")
+
+    def effective_review_decisions(self) -> dict[str, FinanceReviewDecisionRecord]:
+        """Fold a validated history; undo restores the prior effective decision."""
+
+        return fold_finance_review_history(
+            self.review_decisions,
+            repository_ref=self.repository_ref,
+            revision=self.revision,
+        )
+
     @property
     def snapshot_ref(self) -> str:
+        # A default field alone would change stored v1 snapshot identities.
+        # Legacy books and explicit empty histories share their original hash.
+        excluded = {"review_decisions"} if not self.review_decisions else set()
         return stable_finance_ref(
             "finance-snapshot-ref",
-            self.model_dump(mode="json"),
+            self.model_dump(mode="json", exclude=excluded),
         )
 
     def account_balances(self) -> dict[str, dict[str, int]]:
@@ -406,6 +578,8 @@ class FinanceSnapshot(_FinanceModel):
                     ),
                 }
             )
+        if self.review_decisions:
+            counts["review_decision_events"] = len(self.review_decisions)
         return {
             "schema_version": "uaa-finance-synthetic-read-model.v1",
             "repository_ref": self.repository_ref,

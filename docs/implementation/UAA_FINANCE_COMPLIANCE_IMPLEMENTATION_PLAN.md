@@ -203,7 +203,17 @@ correction, split, allocation, rule, API, UI, or external authority. See
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md` and
 `scripts/verify_fin003_synthetic_review_decision_preview.py`.
 
-The remaining FIN-003 work below stays planned and separately gated:
+A third bounded FIN-003 slice separately persists one exact synthetic confirm,
+reject, or defer disposition with current policy, exact approval and lease,
+encrypted atomic history, replay and append-only compensating undo. Core and CLI
+review derive posture from that history; display-rank changes preserve lineage.
+Journal entries and balances remain unchanged. This grants no categorization,
+real-input, API/UI or external authority. See
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md` and
+`scripts/verify_fin003_review_decision_persistence.py`.
+
+The remaining full FIN-003 work below stays planned and separately gated; the
+synthetic Core/CLI dispositions do not complete the normal Finance workflow:
 
 Deliver:
 

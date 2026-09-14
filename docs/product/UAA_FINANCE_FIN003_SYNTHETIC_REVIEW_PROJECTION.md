@@ -11,8 +11,10 @@ newest import revision and stable refs, and available through the existing
 `uaa_finance.py review` CLI inspection path.
 
 Each review item contains safe refs for its book, import commit, transaction
-candidate, and suspense journal entry. It states only `needs_review`, a fixed
-reason/consequence posture, and `confidence_posture=not_scored`. The projection
+candidate, and suspense journal entry. It derives `needs_review`, `confirmed`,
+`rejected`, or `deferred` from the separately governed durable decision history,
+with a fixed reason/consequence posture and `confidence_posture=not_scored`.
+Stable lineage survives display-rank changes. The projection
 does not expose amounts, descriptions, source fingerprints, observations, raw
 source content, or arbitrary operator input.
 
@@ -53,7 +55,9 @@ A separately admitted synthetic-only slice now previews the content-free
 consequences of `confirm`, `reject`, or `defer` over one exact current review
 item; see
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md`. Decision
-persistence or apply, corrections, splits, allocations, canonical Action Inbox
+persistence and compensating undo now have a separate exact Core/CLI contract in
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md`.
+Corrections, splits, allocations, canonical Action Inbox
 persistence, rule proposals and learning, confidence scoring, grouping by
 merchant or recurrence, bulk ChangeSets, API/UI surfaces, and any real-data
 handling remain separately scoped and gated.
