@@ -83,6 +83,16 @@ def test_cached_text_instances_and_lowercase_results_remain_separate() -> None:
     assert original._contains_cache is not lowered._contains_cache
 
 
+def test_cached_text_keeps_only_fixed_per_instance_cache_fields() -> None:
+    text = _GateCachedText("scope")
+
+    assert not hasattr(text, "__dict__")
+    assert not hasattr(text.lower(), "__dict__")
+    assert text._contains_cache == {}
+    assert "scope" in text
+    assert text._contains_cache == {"scope": True}
+
+
 def test_each_evaluation_rechecks_changed_source(tmp_path: Path) -> None:
     source = tmp_path / "src/ultimate_ai_agent/core/example.py"
     source.parent.mkdir(parents=True)

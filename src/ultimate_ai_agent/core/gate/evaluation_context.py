@@ -5,6 +5,8 @@ from typing import Any, Iterator
 
 
 class _GateCachedText(str):
+    __slots__ = ("_contains_cache", "_lower_cache")
+
     def __new__(cls, value: str) -> "_GateCachedText":
         obj = str.__new__(cls, value)
         obj._contains_cache: dict[str, bool] = {}
@@ -14,10 +16,11 @@ class _GateCachedText(str):
     def __contains__(self, item: object) -> bool:
         if not isinstance(item, str):
             return str.__contains__(self, item)
-        cached = self._contains_cache.get(item)
+        cache = self._contains_cache
+        cached = cache.get(item)
         if cached is None:
             cached = str.__contains__(self, item)
-            self._contains_cache[item] = cached
+            cache[item] = cached
         return cached
 
     def lower(self) -> "_GateCachedText":
