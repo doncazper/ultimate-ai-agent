@@ -1114,7 +1114,6 @@ class FinanceRepository:
             proof_refs=(backup_metadata.backup_ref,),
         )
         self._require_revalidated(permit, revalidate)
-        self._append_receipt(prepared)
         try:
             plaintext = self.crypto.open(
                 key_handle_ref=metadata.backup_key_handle_ref,
@@ -1132,6 +1131,9 @@ class FinanceRepository:
             staged.close()
         if restored_source.snapshot_ref != backup_metadata.source_snapshot_ref:
             raise FinanceRepositoryError("FINANCE_BACKUP_SNAPSHOT_MISMATCH")
+        self._require_restore_review_history(restored_source, before=before)
+        self._require_revalidated(permit, revalidate)
+        self._append_receipt(prepared)
         restored = restored_source.model_copy(
             update={"generation": metadata.generation + 1}
         )
@@ -1450,6 +1452,27 @@ class FinanceRepository:
             or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
         ):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        if committed.operation == "restore":
+            # Recovery must enforce the same history boundary even for a
+            # staged restore from an older writer or a partly promoted file.
+            try:
+                plaintext = self.crypto.open(
+                    key_handle_ref=metadata.key_handle_ref,
+                    key_version_ref=metadata.key_version_ref,
+                    context_ref=metadata.envelope_context_ref,
+                    request_ref=committed.request_ref,
+                    ciphertext=ciphertext,
+                )
+            except Exception:
+                raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID") from None
+            staged = self._connection_from_bytes(plaintext)
+            try:
+                restored = self._read_snapshot(staged)
+            finally:
+                staged.close()
+            if restored.snapshot_ref != committed.after_snapshot_ref:
+                raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+            self._require_restore_review_history(restored)
         recovery_prepared = None
         recovery_completed = None
         # Every recovery entry point shares this boundary, including legacy
@@ -1523,6 +1546,37 @@ class FinanceRepository:
         if recovery_completed is not None:
             self._append_receipt_if_missing(recovery_completed)
         self._unlink_private_file(self.pending_commit_path, missing_ok=False)
+
+    def _require_restore_review_history(
+        self, restored: FinanceSnapshot, *, before: FinanceSnapshot | None = None
+    ) -> None:
+        """Generic restore cannot erase, replace or introduce review decisions."""
+
+        if before is not None and restored.review_decisions != before.review_decisions:
+            raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
+        # The immutable committed receipts survive partial generation promotion;
+        # they also constrain recovery when the live ciphertext is already new.
+        expected: set[str] = set()
+        raw = self._read_regular(
+            self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
+        )
+        for line in raw.splitlines():
+            receipt = FinanceMutationReceipt.model_validate_json(line)
+            if receipt.phase != "committed" or receipt.operation not in {
+                "review_decision",
+                "review_undo",
+            }:
+                continue
+            events = [
+                ref
+                for ref in receipt.proof_refs
+                if ref.startswith("review-decision-record-ref:finance/FIN-003:")
+            ]
+            if len(events) != 1:
+                raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
+            expected.add(events[0])
+        if {event.event_ref for event in restored.review_decisions} != expected:
+            raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
 
     def _require_receipt_capacity(
         self, receipts: tuple[FinanceMutationReceipt, ...]

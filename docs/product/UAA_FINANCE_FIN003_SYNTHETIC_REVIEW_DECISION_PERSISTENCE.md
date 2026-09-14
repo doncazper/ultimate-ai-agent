@@ -33,6 +33,12 @@ FIN-001/FIN-002 permits cannot substitute. Core repeats those checks under the
 existing writer lock immediately before staging the encrypted atomic generation.
 Preview alone grants no execution authority. This adds no API or UI authority.
 
+FIN-003 approval evidence fingerprints the complete stored grant under the
+LocalApprovalAuthority validation lock, including its issuance, actor, expiry
+and exact scope. Reusing an approval ref or an active lease does not make a
+replacement grant the original grant. Receipts contain the fingerprint, not
+raw grant data; locked revalidation detects a changed grant before promotion.
+
 Receipts bind the reviewed preview, history event, before/after snapshot and
 compensating-undo contract. Retrying the same reviewed intent with current exact
 authority returns the retained committed receipt without a second event. A
@@ -49,6 +55,15 @@ durable. Both records bind the original committed receipt and transition; the
 completion also binds its preparation. The original receipt remains immutable
 and is returned as the historical replay result. Retrying the same recovery grant
 does not duplicate its audit records or the decision history.
+
+Generic repository restore must preserve the exact live review history and
+all committed review-event receipts. An older backup cannot remove a decision,
+an undo, or a fully compensated history; matching-history backups remain
+restorable. Pending restore recovery checks the same committed history, even
+after partial generation promotion, and leaves incompatible legacy pending
+state blocked for explicit recovery rather than silently completing it.
+This check is not a FIN-003 undo or a history-repair grant. Whole-book/key deletion
+remains a separate exact-approved FIN-001 privacy operation, not review undo.
 
 An expired or revoked permission is not revived by replay. `refresh-review`
 re-presents the unchanged old intent in a fresh preparation without granting
@@ -111,7 +126,8 @@ compensating undo, rank movement and CLI parity. Test-only crypto evidence is
 not native Keychain or multi-computer acceptance; those require separate observed
 evidence. A local native-helper drill also passed exact-approved synthetic
 create/import, decision save, separate-process reopen/replay, compensating undo
-and history inspection; its temporary book and Keychain item were deleted through
+and history inspection, plus matching-history backup/restore and rejection of
+an older-history backup; its temporary book and Keychain item were deleted through
 the approved cleanup lane. This is one macOS host, not hardware portability or
 real-data acceptance. Hosted checks, exact-head review and merge proof remain mandatory.
 

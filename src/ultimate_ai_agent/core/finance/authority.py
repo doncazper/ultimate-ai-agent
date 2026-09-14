@@ -904,25 +904,38 @@ class FinanceMutationGate:
             },
         )
 
-        approval_authority.create_request(preview.approval_request)
-        approval_decision = approval_authority.validate_at_trusted_time(
-            preview.approval_request.to_validation_request(
-                preview.expected_approval_ref
-            ),
-            current_time=current,
-        )
-        if not approval_decision.allowed:
-            raise FinanceAuthorityError("FINANCE_LOCAL_APPROVAL_DENIED")
-        approval_decision_ref = stable_finance_ref(
-            f"approval-decision-ref:finance/{contract['program']}",
-            {
+        with approval_authority.hold_validation_lock():
+            approval_authority.create_request(preview.approval_request)
+            approval_decision = approval_authority.validate_at_trusted_time(
+                preview.approval_request.to_validation_request(
+                    preview.expected_approval_ref
+                ),
+                current_time=current,
+            )
+            if not approval_decision.allowed:
+                raise FinanceAuthorityError("FINANCE_LOCAL_APPROVAL_DENIED")
+            approval_evidence = {
                 "approval_ref": preview.expected_approval_ref,
                 "exact_scope_ref": preview.exact_scope_ref,
                 "payload_fingerprint_ref": preview.payload_fingerprint_ref,
                 "status": approval_decision.status,
                 "allowed": approval_decision.allowed,
-            },
-        )
+            }
+            if request.operation in {"review_decision", "review_undo"}:
+                grant = approval_authority.get_grant(preview.expected_approval_ref)
+                if grant is None:
+                    raise FinanceAuthorityError("FINANCE_LOCAL_APPROVAL_DENIED")
+                # A reusable approval ref is not the stored grant: renewal may
+                # change issuance, actor, expiry or scope while retaining it.
+                # Capture the validated grant under the same authority lock.
+                approval_evidence["grant_fingerprint_ref"] = stable_finance_ref(
+                    "approval-grant-ref:finance/FIN-003",
+                    grant.model_dump(mode="json"),
+                )
+            approval_decision_ref = stable_finance_ref(
+                f"approval-decision-ref:finance/{contract['program']}",
+                approval_evidence,
+            )
 
         if kill_switch_engaged or authority_lease_kill_switch_engaged():
             raise FinanceAuthorityError("FINANCE_EXACT_AUTHORITY_LEASE_DENIED")

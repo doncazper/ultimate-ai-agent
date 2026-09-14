@@ -1580,3 +1580,319 @@ def test_recovery_preparation_does_not_authorize_later_promotion(
     assert len(_snapshot(service).review_decisions) == (
         2 if operation == "review_undo" else 1
     )
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("grant_change", ["created_at", "actor"])
+def test_regranted_same_ref_and_lease_recovery_has_fresh_grant_audit(
+    kernel, monkeypatch, operation, grant_change
+):
+    from ultimate_ai_agent.core.approvals import authority as approval_module
+
+    service, _crypto, now = kernel
+    if operation == "review_undo":
+        _execute(service, _request(service), now)
+        request = _request(
+            service,
+            decision=None,
+            compensates_event_ref=_snapshot(service).review_decisions[0].event_ref,
+            suffix="regrant-undo",
+        )
+    else:
+        request = _request(service, suffix="regrant-decision")
+    bound, preview, approvals, lease = _authorize(service, request, now)
+    grant = approvals.get_grant(preview.expected_approval_ref)
+    assert grant is not None
+    options = dict(
+        preview=preview,
+        approval_authority=approvals,
+        lease_provider=lambda: [lease],
+        clock=lambda: now,
+    )
+    repo = service.repository
+    recover = repo._recover_pending_commit
+
+    def interrupted(**kwargs):
+        if repo.pending_commit_path.exists():
+            raise InterruptedWrite("FIN003_TEST_REGRANT_PENDING")
+        return recover(**kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(repo, "_recover_pending_commit", interrupted)
+        with pytest.raises(InterruptedWrite):
+            service.execute(bound, **options)
+    original = FinanceMutationReceipt.model_validate(
+        json.loads(repo.pending_commit_path.read_bytes().split(b"\n", 1)[0])["receipt"]
+    )
+    approvals.revoke(preview.expected_approval_ref, "Synthetic same-ref regrant.")
+    with pytest.raises(FinanceAuthorityError):
+        service.execute(bound, **options)
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            approval_module,
+            "utc_now",
+            lambda: (
+                grant.created_at
+                + (
+                    timedelta(seconds=1)
+                    if grant_change == "created_at"
+                    else timedelta(0)
+                )
+            ),
+        )
+        approvals.grant(
+            preview.approval_request.approval_request_id,
+            approved_by_actor_id=(
+                grant.approved_by_actor_id
+                if grant_change == "created_at"
+                else "actor-ref:finance:replacement-test-operator"
+            ),
+            approval_ref=grant.approval_ref,
+            expires_at=grant.expires_at,
+        )
+    assert service.execute(bound, **options).replayed is True
+    logged = [
+        FinanceMutationReceipt.model_validate_json(line)
+        for line in repo.receipts_path.read_bytes().splitlines()
+    ]
+    recovered = [
+        item
+        for item in logged
+        if item.phase == "recovered" and original.receipt_ref in item.proof_refs
+    ]
+    assert len(recovered) == 1
+    assert recovered[0].approval_decision_ref != original.approval_decision_ref
+    assert recovered[0].permit_ref != original.permit_ref
+    assert recovered[0].authority_lease_ref == original.authority_lease_ref
+    assert original in logged
+    saved = repo.receipts_path.read_bytes()
+    assert service.execute(bound, **options).replayed is True
+    assert repo.receipts_path.read_bytes() == saved
+
+
+def _review_backup(service, now, suffix):
+    path = service.repository.root.parent / f"{suffix}-backup.enc"
+    snapshot = _snapshot(service)
+    request = FinanceMutationRequest(
+        operation="backup",
+        repository_ref=snapshot.repository_ref,
+        expected_revision=snapshot.revision,
+        target_ref=finance_target_ref(path),
+        request_ref=f"request-ref:finance:{suffix}-backup",
+        idempotency_ref=f"idempotency-ref:finance:{suffix}-backup",
+    )
+    _execute(service, request, now, backup_path=path)
+    return path
+
+
+def _review_restore(service, path, now, suffix):
+    snapshot = _snapshot(service)
+    request = FinanceMutationRequest(
+        operation="restore",
+        repository_ref=snapshot.repository_ref,
+        expected_revision=snapshot.revision,
+        target_ref=finance_target_ref(path),
+        request_ref=f"request-ref:finance:{suffix}-restore",
+        idempotency_ref=f"idempotency-ref:finance:{suffix}-restore",
+    )
+    return _execute(service, request, now, backup_path=path)
+
+
+@pytest.mark.parametrize("history_change", ["decision", "undo", "fully_undone"])
+def test_generic_restore_cannot_discard_review_history(kernel, history_change):
+    service, _crypto, now = kernel
+    if history_change == "undo":
+        _execute(service, _request(service), now)
+    backup = _review_backup(service, now, "history-before")
+    if history_change != "undo":
+        _execute(service, _request(service), now)
+    if history_change != "decision":
+        _execute(
+            service,
+            _request(
+                service,
+                decision=None,
+                compensates_event_ref=_snapshot(service).review_decisions[-1].event_ref,
+                suffix="history-undo",
+            ),
+            now,
+        )
+    before = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in service.repository.root.iterdir()
+        if p.is_file()
+    }
+    with pytest.raises(
+        FinanceRepositoryError, match="FIN003_RESTORE_REVIEW_HISTORY_MISMATCH"
+    ):
+        _review_restore(service, backup, now, "older-history")
+    assert {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in service.repository.root.iterdir()
+        if p.is_file()
+    } == before
+    current = _snapshot(service)
+    matching = _review_backup(service, now, "history-current")
+    assert (
+        _review_restore(service, matching, now, "matching-history").phase == "committed"
+    )
+    assert _snapshot(service).review_decisions == current.review_decisions
+    assert _snapshot(service).journal_entries == current.journal_entries
+
+
+@pytest.mark.parametrize("boundary", ["pending", "ciphertext", "metadata", "committed"])
+@pytest.mark.parametrize("entrypoint", ["legacy_load", "delete"])
+@pytest.mark.parametrize("history_change", ["decision", "undo"])
+def test_legacy_pending_restore_cannot_drop_committed_review_audit(
+    kernel, monkeypatch, boundary, entrypoint, history_change
+):
+    service, crypto, now = kernel
+    if history_change == "undo":
+        _execute(service, _request(service), now)
+    backup = _review_backup(service, now, "legacy-before")
+    if history_change == "decision":
+        _execute(service, _request(service), now)
+    else:
+        _execute(
+            service,
+            _request(
+                service,
+                decision=None,
+                compensates_event_ref=_snapshot(service).review_decisions[-1].event_ref,
+                suffix="legacy-undo",
+            ),
+            now,
+        )
+    source = _snapshot(service)
+    repo = service.repository
+    write = repo._atomic_write
+    append = repo._append_receipt_if_missing
+
+    def interrupted_write(path, payload):
+        write(path, payload)
+        if (
+            (boundary == "pending" and path == repo.pending_commit_path)
+            or (boundary == "ciphertext" and path == repo.encrypted_path)
+            or (boundary == "metadata" and path == repo.metadata_path)
+        ):
+            raise InterruptedWrite("FIN003_TEST_OLD_RESTORE_WRITE")
+
+    def interrupted_receipt(receipt):
+        append(receipt)
+        if boundary == "committed" and receipt.operation == "restore":
+            raise InterruptedWrite("FIN003_TEST_OLD_RESTORE_RECEIPT")
+
+    with monkeypatch.context() as patch:
+        # Build a legacy pending generation through the real old restore path;
+        # only the new history guard is absent, including partial promotion.
+        patch.setattr(repo, "_require_restore_review_history", lambda *a, **k: None)
+        patch.setattr(
+            FinanceRepository, "_atomic_write", staticmethod(interrupted_write)
+        )
+        patch.setattr(repo, "_append_receipt_if_missing", interrupted_receipt)
+        with pytest.raises(InterruptedWrite):
+            _review_restore(service, backup, now, "legacy-history")
+    before = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    }
+    reopened = FinanceKernelService(FinanceRepository(repo.root, crypto_backend=crypto))
+    with pytest.raises(
+        FinanceRepositoryError, match="FIN003_RESTORE_REVIEW_HISTORY_MISMATCH"
+    ):
+        if entrypoint == "legacy_load":
+            reopened.repository.load_snapshot(
+                request_ref="request-ref:finance:legacy-recover"
+            )
+        else:
+            _execute(
+                reopened,
+                FinanceMutationRequest(
+                    operation="delete",
+                    repository_ref=source.repository_ref,
+                    expected_revision=source.revision,
+                    request_ref="request-ref:finance:legacy-delete",
+                    idempotency_ref="idempotency-ref:finance:legacy-delete",
+                ),
+                now,
+            )
+    assert {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    } == before
+    assert repo.pending_commit_path.exists()
+
+
+@pytest.mark.parametrize("boundary", ["pending", "ciphertext", "metadata", "committed"])
+def test_matching_history_restore_recovers_at_every_promotion_boundary(
+    kernel, monkeypatch, boundary
+):
+    service, crypto, now = kernel
+    _execute(service, _request(service), now)
+    source = _snapshot(service)
+    backup = _review_backup(service, now, "matching-fault")
+    repo = service.repository
+    write = repo._atomic_write
+    append = repo._append_receipt_if_missing
+
+    def interrupted_write(path, payload):
+        write(path, payload)
+        if (
+            (boundary == "pending" and path == repo.pending_commit_path)
+            or (boundary == "ciphertext" and path == repo.encrypted_path)
+            or (boundary == "metadata" and path == repo.metadata_path)
+        ):
+            raise InterruptedWrite("FIN003_TEST_MATCHING_RESTORE_WRITE")
+
+    def interrupted_receipt(receipt):
+        append(receipt)
+        if boundary == "committed" and receipt.operation == "restore":
+            raise InterruptedWrite("FIN003_TEST_MATCHING_RESTORE_RECEIPT")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            FinanceRepository, "_atomic_write", staticmethod(interrupted_write)
+        )
+        patch.setattr(repo, "_append_receipt_if_missing", interrupted_receipt)
+        with pytest.raises(InterruptedWrite):
+            _review_restore(service, backup, now, "matching-fault")
+    reopened = FinanceRepository(repo.root, crypto_backend=crypto)
+    recovered = reopened.load_snapshot(
+        request_ref="request-ref:finance:matching-recover"
+    )
+    assert recovered.review_decisions == source.review_decisions
+    assert recovered.journal_entries == source.journal_entries
+    assert not reopened.pending_commit_path.exists()
+
+
+def test_restore_requires_exact_committed_history_not_just_matching_posture(kernel):
+    from ultimate_ai_agent.core.finance.models import FinanceSnapshot
+    from ultimate_ai_agent.core.finance.review_decision_commit import (
+        build_finance_review_decision_record,
+    )
+
+    service, _crypto, now = kernel
+    before = _snapshot(service)
+    preview = _request(service).review_preview
+    record = build_finance_review_decision_record(before, preview)
+    unlogged = FinanceSnapshot.model_validate(
+        {
+            **before.model_dump(mode="python"),
+            "revision": 3,
+            "generation": 3,
+            "review_decisions": (record,),
+        }
+    )
+    with pytest.raises(
+        FinanceRepositoryError, match="FIN003_RESTORE_REVIEW_HISTORY_MISMATCH"
+    ):
+        service.repository._require_restore_review_history(unlogged)
+    _execute(service, _request(service), now)
+    current = _snapshot(service)
+    service.repository._require_restore_review_history(current)
+    with pytest.raises(
+        FinanceRepositoryError, match="FIN003_RESTORE_REVIEW_HISTORY_MISMATCH"
+    ):
+        service.repository._require_restore_review_history(before)
