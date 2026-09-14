@@ -56,7 +56,7 @@ describe("Finance response and transport boundaries", () => {
     setLocalApiBearerForSession("test-session-only");
     await postFinanceWorkspace("preview", intent, intent.idempotency_ref, financeBinding);
     expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/control-center/finance/workspace/preview"), expect.objectContaining({
-      method: "POST", cache: "no-store", headers: expect.objectContaining({ Authorization: "Bearer test-session-only", "X-UAA-Idempotency-Key": intent.idempotency_ref, "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1", "X-UAA-Expected-Backend-Instance-Ref": financeBinding.backendInstanceRef }),
+      method: "POST", cache: "no-store", headers: expect.objectContaining({ "Authorization": "Bearer test-session-only", "X-UAA-Idempotency-Key": intent.idempotency_ref, "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1", "X-UAA-Expected-Backend-Instance-Ref": financeBinding.backendInstanceRef }),
     }));
   });
   it("never sends an unconfirmed commit or oversized body", async () => {

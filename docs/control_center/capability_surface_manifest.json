@@ -19,6 +19,29 @@
   "production_readiness_claim_enabled": false,
   "capabilities": [
     {
+      "capability_id": "finance_synthetic_workspace",
+      "label": "Finance protected synthetic review workflow",
+      "python_core_owner": "src/ultimate_ai_agent/core/finance/workspace.py",
+      "api_routes": [
+        { "method": "GET", "path": "/control-center/finance/workspace", "operation_id": "get_control_center_finance_workspace" },
+        { "method": "POST", "path": "/control-center/finance/workspace/preview", "operation_id": "preview_control_center_finance_workspace_mutation" },
+        { "method": "POST", "path": "/control-center/finance/workspace/refresh", "operation_id": "refresh_control_center_finance_workspace_preparation" },
+        { "method": "POST", "path": "/control-center/finance/workspace/commit", "operation_id": "commit_control_center_finance_workspace_mutation" }
+      ],
+      "cli_paths": ["scripts/dev/uaa_finance.py"],
+      "ui_routes": ["/finance"],
+      "control_action_ids": ["finance-synthetic-workspace-review"],
+      "authority_posture": "fixed synthetic book and allowlisted sample import only; read and preview grant no authority; each mutation needs separate exact confirmation, policy, approval, lease, current source and safe-disable checks",
+      "status": "partial_surface_coverage",
+      "missing_reason": "Final synthetic-child qualification remains pending. Real financial data, categorization, rules, Windows native crypto and multi-computer continuity remain blocked; this does not complete FIN-003 or Q26.",
+      "tests_evidence_refs": [
+        "tests/test_fin003_workspace.py",
+        "tests/test_fin003_workspace_api.py",
+        "tests/test_fin003_workspace_cli.py",
+        "docs/product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md"
+      ]
+    },
+    {
       "capability_id": "start_here_read_model",
       "label": "Start Here local loop summary",
       "python_core_owner": "src/ultimate_ai_agent/core/control_center/start_here.py",

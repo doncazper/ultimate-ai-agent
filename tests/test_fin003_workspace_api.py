@@ -210,6 +210,7 @@ def test_idempotency_aliases_and_body_are_exactly_bound(boundary):
         b"[" * 10_000 + b"0" + b"]" * 10_000,
         ("[" * 100 + "0" + "]" * 100).encode("utf-16"),
     ],
+    ids=["oversized-body", "excessive-depth", "unsupported-utf16"],
 )
 def test_body_guard_rejects_before_decode_with_cors_and_no_store(boundary, payload):
     client, workspace, headers = boundary

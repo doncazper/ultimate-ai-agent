@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1026,
+  "timed_file_count": 1030,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1359,6 +1359,26 @@
       "path": "tests/test_fin002_synthetic_import_preview.py",
       "seconds": 0.9,
       "source": "operator-supplied-advisory"
+    },
+    {
+      "path": "tests/test_fin003_operator_workflow.py",
+      "seconds": 0.158854,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_workspace.py",
+      "seconds": 5.912233,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_workspace_api.py",
+      "seconds": 16.737372,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_workspace_cli.py",
+      "seconds": 0.850352,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_fin003_review_decision_history.py",

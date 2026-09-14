@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `388`.
+Current OpenAPI path count: `392`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `390`
-- OpenAPI paths: `388`
+- Manifest route operations: `394`
+- OpenAPI paths: `392`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -24,7 +24,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 213 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:116, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 217 | `control-center` | `control_center_service` | local status or future auth per route | `authenticated_connector_mutation`:25, `destructive_external`:4, `destructive_local_sensitive`:4, `governed_network_read_only`:5, `local_dev_workspace_only`:120, `local_sensitive`:15, `none`:14, `system_browser_exact_launch`:1, `validation_only`:29 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 3 | `extension-catalog` | `extension_catalog_service` | future auth required | `local_dev_workspace_only`:2, `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -60,6 +60,10 @@ validate the exact request-scoped authority boundary.
 
 | Method | Path | Operation ID | Side-effect class | Validation only | Auth posture | Blocked from production |
 |---|---|---|---|---|---|---|
+| GET | `/control-center/finance/workspace` | `get_control_center_finance_workspace` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/finance/workspace/preview` | `preview_control_center_finance_workspace_mutation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/finance/workspace/refresh` | `refresh_control_center_finance_workspace_preparation` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/finance/workspace/commit` | `commit_control_center_finance_workspace_mutation` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/adapter-manifest/validate` | `post_adapter_manifest_validate` | `validation_only` | yes | future | yes |
 | GET | `/api/manifest` | `get_api_manifest` | `none` | no | future | yes |
 | POST | `/api/capability-diagnostics/preview` | `preview_tool_aware_capability_diagnostics` | `validation_only` | yes | future | yes |
