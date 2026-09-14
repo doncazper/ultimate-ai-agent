@@ -691,7 +691,7 @@ proof. Neither lane adds caller-supplied file/content input, arbitrary values,
 OCR, connector, real-data, API, UI, professional, or production authority. Evidence:
 `docs/product/UAA_FINANCE_FIN002_SYNTHETIC_IMPORT_PREVIEW.md` and
 `scripts/verify_fin002_synthetic_import_preview.py` plus
-`scripts/verify_fin002_synthetic_import_commit.py`. FIN-003 adds only a
+`scripts/verify_fin002_synthetic_import_commit.py`. The first FIN-003 slice provides a
 deterministic synthetic read-only Finance Review and Action Inbox projection
 over current commit lineage. It exposes safe refs and `needs_review` posture,
 not amounts or observations. A separately scoped second FIN-003 slice previews
@@ -703,6 +703,18 @@ API/UI or new authority. Evidence:
 `scripts/verify_fin003_synthetic_review_projection.py` plus
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PREVIEW.md` and
 `scripts/verify_fin003_synthetic_review_decision_preview.py`.
+
+The separately scoped third FIN-003 slice implements durable synthetic
+confirm/reject/defer dispositions and append-only compensating undo. Current
+exact policy, approval, lease and source bindings govern save and interrupted
+review recovery; other Finance operations cannot finish a pending review.
+Core/CLI reopen and history inspection use the protected generation, with
+unchanged journal postings and balances. Evidence:
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md` and
+`scripts/verify_fin003_review_decision_persistence.py`. Review, hosted checks,
+merge and post-merge qualification remain separate gates. This does not complete
+FIN-003 or Q26, add API/UI or rule execution, or grant real-data, connector,
+professional-validation, public-release or production authority.
 
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|

@@ -1019,7 +1019,7 @@ it revalidates the exact preview and fingerprint census under the
 protected repository lock, writes balanced suspense entries atomically, and
 returns content-free before/after and rollback evidence. No real-data storage,
 connector, filing, payment, professional, public-release, or production
-authority exists. FIN-003 now adds only a deterministic synthetic read-only
+authority exists. The first FIN-003 slice provides a deterministic synthetic read-only
 Finance Review and Action Inbox projection over current import lineage. It
 surfaces safe refs and `needs_review` posture without amounts, decisions,
 rules, persistence, API/UI, real data, or new authority. A separately claimed
@@ -1027,16 +1027,25 @@ second FIN-003 slice now adds only a content-free `confirm`, `reject`, or
 `defer` consequence preview over one exact current synthetic review item. It
 binds the projection, source snapshot, revision, and item refs while leaving
 review state and the book unchanged.
+A separately scoped third FIN-003 slice implements durable synthetic review
+dispositions and append-only compensating undo. Current exact policy, approval,
+lease and source bindings govern every save and review recovery; Core/CLI reopen
+and history inspection derive state from the protected generation. Postings and
+balances remain unchanged. See
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md`.
+Its review, merge and post-merge qualification remain separate gates; this does
+not complete FIN-003 or Q26 and adds no real-data, rule, API or UI authority.
 Scope: the product contract, privacy-safe workflow case study, implementation
 sequence, threat model, protected-local-data ADR, FIN-000 acceptance matrix,
 queue placement, and twelve-surface render brief. UAA builds first-party modules
 instead of white-labeling a complete finance product.
 Next: retain the independent FIN-000 gate before real-data, arbitrary file
 import, or higher-authority promotion. Exercise FIN-002A/FIN-002B, the FIN-003
-read-only projection, and its decision preview through private dogfood. Scope
-any decision persistence/apply or rule proposal separately. The merged FIN-001
-kernel, FIN-002 preview/commit loop, and FIN-003 projection/preview remain
-synthetic-only.
+read-only projection, decision preview and separately governed durable
+disposition/undo through private dogfood after qualification. Normal in-app
+workflows, categorization/corrections and rule proposals remain later scopes.
+The FIN-001 kernel, FIN-002 preview/commit loop and bounded FIN-003 review
+contracts remain synthetic-only.
 Financial/compliance adapters,
 accountant access, payments, tax filing, provider/model calls, browser runtime,
 background sync, public release, and production authority remain later lanes.

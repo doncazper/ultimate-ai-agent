@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import stat
 import sys
 from datetime import UTC, datetime
@@ -46,6 +47,10 @@ from ultimate_ai_agent.core.finance.review_projection import (  # noqa: E402
 from ultimate_ai_agent.core.finance.review_decision_preview import (  # noqa: E402
     build_finance_review_decision_preview_request,
     preview_finance_review_decision,
+)
+from ultimate_ai_agent.core.finance.review_decision_commit import (  # noqa: E402
+    FIN003_REVIEW_SAFE_DISABLE_REF,
+    preview_finance_review_persistence,
 )
 from ultimate_ai_agent.core.finance.service import (  # noqa: E402
     FinanceKernelService,
@@ -114,6 +119,45 @@ def _authority_state_dir(repository_dir: Path) -> Path:
 def _request(args: argparse.Namespace) -> FinanceMutationRequest:
     backup_path = getattr(args, "backup_path", None)
     import_fixture_ref = getattr(args, "import_fixture_ref", None)
+    review_item_ref = getattr(args, "review_item_ref", None)
+    decision = getattr(args, "decision", None)
+    compensates_event_ref = getattr(args, "compensates_event_ref", None)
+    if args.operation in {"review_decision", "review_undo"}:
+        if (
+            review_item_ref is None
+            or import_fixture_ref is not None
+            or backup_path is not None
+        ):
+            raise ValueError("FIN003_REVIEW_CLI_SCOPE_INVALID")
+        snapshot = _service(args).repository.load_snapshot_read_only(
+            request_ref=args.request_ref
+        )
+        if snapshot.revision != args.expected_revision:
+            raise ValueError("FINANCE_STALE_REVISION")
+        review_preview = preview_finance_review_persistence(
+            snapshot,
+            review_item_ref=review_item_ref,
+            decision=decision,
+            compensates_event_ref=compensates_event_ref,
+            request_ref=args.request_ref,
+            idempotency_ref=args.idempotency_ref,
+        )
+        if review_preview.operation != args.operation:
+            raise ValueError("FIN003_REVIEW_CLI_OPERATION_MISMATCH")
+        return FinanceMutationRequest(
+            operation=args.operation,
+            repository_ref=review_preview.repository_ref,
+            review_preview=review_preview,
+            expected_revision=args.expected_revision,
+            request_ref=args.request_ref,
+            idempotency_ref=args.idempotency_ref,
+            safe_disable_ref=FIN003_REVIEW_SAFE_DISABLE_REF,
+        )
+    if any(
+        value is not None
+        for value in (review_item_ref, decision, compensates_event_ref)
+    ):
+        raise ValueError("FIN003_REVIEW_CLI_OPERATION_MISMATCH")
     import_preview = None
     if args.operation == "import_commit":
         if import_fixture_ref is None:
@@ -190,6 +234,12 @@ def command_prepare(args: argparse.Namespace) -> int:
     request = _request(args)
     service = _service(args)
     preview = service.prepare(request)
+    return _emit_prepared_bundle(request, preview)
+
+
+def _emit_prepared_bundle(
+    request: FinanceMutationRequest, preview: FinanceMutationPreview
+) -> int:
     bound_request = FinanceMutationRequest.model_validate(
         {
             **request.model_dump(mode="python"),
@@ -210,10 +260,10 @@ def command_prepare(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_run(args: argparse.Namespace) -> int:
-    if not args.confirmed:
-        raise ValueError("FINANCE_OPERATOR_CONFIRMATION_REQUIRED")
-    raw = _read_json(args.bundle)
+def _read_prepared_bundle(
+    path: Path,
+) -> tuple[FinanceMutationRequest, FinanceMutationPreview]:
+    raw = _read_json(path)
     if (
         set(raw)
         != {
@@ -233,6 +283,36 @@ def command_run(args: argparse.Namespace) -> int:
         raise ValueError("FINANCE_PREPARED_BUNDLE_POSTURE_INVALID")
     request = FinanceMutationRequest.model_validate(raw["request"])
     preview = FinanceMutationPreview.model_validate(raw["preview"])
+    return request, preview
+
+
+def command_refresh_review(args: argparse.Namespace) -> int:
+    """Re-present the exact old review intent, never recover or renew authority."""
+
+    request, old_preview = _read_prepared_bundle(args.bundle)
+    if request.operation not in {"review_decision", "review_undo"}:
+        raise ValueError("FIN003_REVIEW_REFRESH_SCOPE_INVALID")
+    service = _service(args)
+    expected = service.prepare(request, now=old_preview.prepared_at)
+    if (
+        old_preview != expected
+        or request.approval_ref != expected.expected_approval_ref
+        or request.exact_scope_ref != expected.exact_scope_ref
+        or request.action_envelope_ref != expected.action_envelope_ref
+    ):
+        raise ValueError("FIN003_REVIEW_REFRESH_BINDING_INVALID")
+    # The source intent is unchanged, even when a staged generation prevents
+    # read-only inspection. A separate confirmed run must obtain fresh current
+    # authority and then recover/replay or validate the exact source under lock.
+    return _emit_prepared_bundle(request, service.prepare(request))
+
+
+def command_run(args: argparse.Namespace) -> int:
+    if not args.confirmed:
+        raise ValueError("FINANCE_OPERATOR_CONFIRMATION_REQUIRED")
+    if args.safe_disable_engaged:
+        raise ValueError("FINANCE_SAFE_DISABLE_ENGAGED")
+    request, preview = _read_prepared_bundle(args.bundle)
     service = _service(args)
     service._validate_path_bindings(request, backup_path=args.backup_path)
 
@@ -248,9 +328,15 @@ def command_run(args: argparse.Namespace) -> int:
     issue_request = build_finance_lease_issue_request(
         preview,
     )
+    lease_binding = {"payload_fingerprint_ref": preview.payload_fingerprint_ref}
+    if request.operation in {"review_decision", "review_undo"}:
+        # Re-running the same bundle cannot revive its revoked/expired lease.
+        # A separately prepared and confirmed bundle can authorize one retry of
+        # the same durable intent without reusing that dead permission.
+        lease_binding["reviewed_authority_preview_ref"] = preview.preview_ref
     issue_idempotency_ref = stable_finance_ref(
         "idempotency-ref:finance/FIN-001:lease-issue",
-        {"payload_fingerprint_ref": preview.payload_fingerprint_ref},
+        lease_binding,
     )
     _requirement, _grant, lease, lease_receipt = (
         issue_authority_lease_with_backend_approval(
@@ -337,7 +423,15 @@ def parser() -> argparse.ArgumentParser:
     prepare = commands.add_parser("prepare", parents=[shared])
     prepare.add_argument(
         "--operation",
-        choices=("create", "import_commit", "backup", "restore", "delete"),
+        choices=(
+            "create",
+            "import_commit",
+            "review_decision",
+            "review_undo",
+            "backup",
+            "restore",
+            "delete",
+        ),
         required=True,
     )
     prepare.add_argument("--expected-revision", type=int, required=True)
@@ -345,7 +439,13 @@ def parser() -> argparse.ArgumentParser:
     prepare.add_argument("--idempotency-ref", required=True)
     prepare.add_argument("--backup-path", type=Path)
     prepare.add_argument("--import-fixture-ref")
+    prepare.add_argument("--review-item-ref")
+    prepare.add_argument("--decision", choices=("confirm", "reject", "defer"))
+    prepare.add_argument("--compensates-event-ref")
     prepare.set_defaults(func=command_prepare)
+    refresh = commands.add_parser("refresh-review", parents=[shared])
+    refresh.add_argument("--bundle", type=Path, required=True)
+    refresh.set_defaults(func=command_refresh_review)
     run = commands.add_parser("run", parents=[shared])
     run.add_argument("--bundle", type=Path, required=True)
     run.add_argument("--backup-path", type=Path)
@@ -366,6 +466,15 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
+def _safe_error_code(exc: Exception) -> str:
+    """Never serialize exception text or Pydantic input into the CLI receipt."""
+
+    candidate = str(exc)
+    if re.fullmatch(r"(?:FINANCE|FIN00[123])_[A-Z0-9_]{1,100}", candidate):
+        return candidate
+    return "FINANCE_CLI_REQUEST_FAILED"
+
+
 def main() -> int:
     args = parser().parse_args()
     try:
@@ -375,7 +484,7 @@ def main() -> int:
             {
                 "schema_version": "uaa-finance-cli-error.v1",
                 "ok": False,
-                "error_code": str(exc).split(":", 1)[0],
+                "error_code": _safe_error_code(exc),
                 "raw_input_included": False,
             }
         )

@@ -57,7 +57,9 @@ payload from the caller.
 
 ## Remaining FIN-003 work
 
-Decision persistence or apply, corrections, splits, allocations, context
+The separate approved synthetic persistence/undo lane is documented in
+`docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md`.
+This preview command remains non-mutating. Corrections, splits, allocations, context
 requests, rule proposals and learning, confidence scoring, grouped or bulk
 ChangeSets, API/UI surfaces, and real-data handling remain separately scoped
 and gated.

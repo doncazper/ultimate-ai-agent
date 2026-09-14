@@ -44,6 +44,13 @@ from ultimate_ai_agent.core.finance.import_commit import (
     build_import_commit_proof,
     build_import_commit_record,
 )
+from ultimate_ai_agent.core.finance.review_decision_commit import (
+    FIN003_REVIEW_CAPABILITY_REF,
+    FIN003_REVIEW_ROLLBACK_REF,
+    FIN003_REVIEW_SAFE_DISABLE_REF,
+    FinanceReviewPersistencePreview,
+    build_finance_review_decision_record,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_task_ref,
@@ -62,6 +69,7 @@ FINANCE_REPOSITORY_ENVELOPE_CONTEXT_REF = (
 )
 FINANCE_BACKUP_ENVELOPE_CONTEXT_REF = "crypto-context-ref:finance/FIN-001:backup:v1"
 FINANCE_RECEIPT_LOG_MAX_BYTES = 8 * 1024 * 1024
+FINANCE_GENERATION_MAX_BYTES = 64 * 1024 * 1024
 
 
 class FinanceRepositoryError(RuntimeError):
@@ -71,6 +79,8 @@ class FinanceRepositoryError(RuntimeError):
 class FinanceMutationOperation(str, Enum):
     create = "create"
     import_commit = "import_commit"
+    review_decision = "review_decision"
+    review_undo = "review_undo"
     backup = "backup"
     restore = "restore"
     delete = "delete"
@@ -92,6 +102,7 @@ class FinanceMutationPermit(BaseModel):
     import_fixture_manifest_ref: str | None = None
     import_candidate_refs: tuple[str, ...] = Field(default=(), max_length=128)
     import_source_fingerprint_refs: tuple[str, ...] = Field(default=(), max_length=128)
+    review_preview: FinanceReviewPersistencePreview | None = None
     expected_revision: StrictInt = Field(..., ge=0)
     request_ref: str
     idempotency_ref: str
@@ -107,6 +118,7 @@ class FinanceMutationPermit(BaseModel):
     capability_ref: Literal[
         "capability-ref:finance/FIN-001/synthetic-book-mutation",
         "capability-ref:finance/FIN-002/synthetic-import-commit",
+        "capability-ref:finance/FIN-003/synthetic-review-decision",
     ] = "capability-ref:finance/FIN-001/synthetic-book-mutation"
     current_policy_validated: Literal[True] = True
     current_approval_validated: Literal[True] = True
@@ -130,6 +142,11 @@ class FinanceMutationPermit(BaseModel):
             elif name.endswith("_refs"):
                 for ref in value:
                     validate_task_ref(str(ref), f"finance_permit_{name}")
+        if self.review_preview is not None and self.operation not in {
+            "review_decision",
+            "review_undo",
+        }:
+            raise ValueError("FIN003_REVIEW_PREVIEW_OPERATION_MISMATCH")
         if self.operation == FinanceMutationOperation.create.value:
             if (
                 self.fixture_ref is None
@@ -167,6 +184,36 @@ class FinanceMutationPermit(BaseModel):
                 != "rollback-contract-ref:finance/FIN-002/reversal-or-restore:v1"
             ):
                 raise ValueError("FIN002_IMPORT_COMMIT_PERMIT_SCOPE_INVALID")
+        elif self.operation in {"review_decision", "review_undo"}:
+            preview = self.review_preview
+            if (
+                preview is None
+                or self.fixture_ref is not None
+                or self.target_ref is not None
+                or self.import_preview_ref is not None
+                or self.import_profile_ref is not None
+                or self.import_fixture_manifest_ref is not None
+                or self.import_candidate_refs
+                or self.import_source_fingerprint_refs
+                or self.capability_ref != FIN003_REVIEW_CAPABILITY_REF
+                or self.safe_disable_ref != FIN003_REVIEW_SAFE_DISABLE_REF
+                or self.rollback_ref != FIN003_REVIEW_ROLLBACK_REF
+                or (
+                    self.operation,
+                    self.repository_ref,
+                    self.expected_revision,
+                    self.request_ref,
+                    self.idempotency_ref,
+                )
+                != (
+                    preview.operation,
+                    preview.repository_ref,
+                    preview.source_revision,
+                    preview.request_ref,
+                    preview.idempotency_ref,
+                )
+            ):
+                raise ValueError("FIN003_REVIEW_PERMIT_SCOPE_INVALID")
         elif self.fixture_ref is not None:
             raise ValueError("FINANCE_NONCREATE_FIXTURE_REF_DENIED")
         elif (
@@ -188,7 +235,11 @@ class FinanceMutationPermit(BaseModel):
             raise ValueError("FINANCE_DELETE_TARGET_REF_DENIED")
         expected = stable_finance_ref(
             "finance-mutation-permit-ref",
-            self.model_dump(mode="json", exclude={"permit_ref"}),
+            self.model_dump(
+                mode="json",
+                exclude={"permit_ref"}
+                | ({"review_preview"} if self.review_preview is None else set()),
+            ),
         )
         if self.permit_ref != expected:
             raise ValueError("FINANCE_MUTATION_PERMIT_REF_INVALID")
@@ -647,6 +698,138 @@ class FinanceRepository:
             committed,
         )
 
+    def commit_review_decision(
+        self,
+        *,
+        permit: FinanceMutationPermit,
+        revalidate: Callable[[], FinanceMutationPermit],
+    ) -> FinanceMutationReceipt:
+        """Commit one exact disposition or compensating undo under one lock."""
+
+        self._ensure_private_root(create=False)
+        with self._mutation_lock():
+            if permit.operation not in {"review_decision", "review_undo"}:
+                raise FinanceRepositoryError("FIN003_REVIEW_OPERATION_REQUIRED")
+            self._require_permit(permit, FinanceMutationOperation(permit.operation))
+            self._require_revalidated(permit, revalidate)
+            self._recover_pending_commit(
+                review_permit=permit, review_revalidate=revalidate
+            )
+            metadata = self._read_metadata()
+            self._require_repository_binding(permit, metadata)
+            before = self._load_snapshot_locked(request_ref=permit.request_ref)
+            replay = self._find_logged_replay(permit)
+            preview = permit.review_preview
+            assert preview is not None
+            if replay is not None:
+                records = [
+                    event
+                    for event in before.review_decisions
+                    if event.event_ref in replay.proof_refs
+                    and event.decision_preview_ref == preview.preview_ref
+                    and event.operation == permit.operation
+                    and event.request_ref == permit.request_ref
+                    and event.idempotency_ref == permit.idempotency_ref
+                    and event.before_snapshot_ref == replay.before_snapshot_ref
+                ]
+                if len(records) != 1:
+                    raise FinanceRepositoryError("FIN003_REVIEW_REPLAY_RECORD_MISSING")
+                return replay.model_copy(update={"replayed": True})
+            if before.revision != permit.expected_revision:
+                raise FinanceRepositoryError("FINANCE_STALE_REVISION")
+            try:
+                record = build_finance_review_decision_record(before, preview)
+                after = FinanceSnapshot.model_validate(
+                    {
+                        **before.model_dump(mode="python"),
+                        "revision": before.revision + 1,
+                        "generation": before.generation + 1,
+                        "review_decisions": (*before.review_decisions, record),
+                    }
+                )
+            except ValueError:
+                raise FinanceRepositoryError(
+                    "FIN003_REVIEW_CURRENT_BINDING_INVALID"
+                ) from None
+            prepared = self._receipt(
+                permit=permit,
+                phase="prepared",
+                before_revision=before.revision,
+                after_revision=after.revision,
+                before_snapshot_ref=before.snapshot_ref,
+                after_snapshot_ref=None,
+                proof_refs=(
+                    preview.preview_ref,
+                    record.event_ref,
+                    FIN003_REVIEW_ROLLBACK_REF,
+                ),
+            )
+            connection = self._new_connection()
+            try:
+                self._write_snapshot(connection, after)
+                self._record_idempotency(connection, permit, prepared.receipt_ref)
+                serialized = connection.serialize()
+            finally:
+                connection.close()
+            if len(serialized) > FINANCE_GENERATION_MAX_BYTES:
+                raise FinanceRepositoryError(
+                    "FIN003_REVIEW_GENERATION_CAPACITY_EXHAUSTED"
+                )
+            ciphertext = self.crypto.seal(
+                key_handle_ref=metadata.key_handle_ref,
+                key_version_ref=metadata.key_version_ref,
+                context_ref=metadata.envelope_context_ref,
+                request_ref=permit.request_ref,
+                plaintext=serialized,
+            )
+            updated_metadata = metadata.model_copy(
+                update={
+                    "ciphertext_ref": ciphertext_ref(ciphertext),
+                    "generation": after.generation,
+                }
+            )
+            committed = self._receipt(
+                permit=permit,
+                phase="committed",
+                before_revision=before.revision,
+                after_revision=after.revision,
+                before_snapshot_ref=before.snapshot_ref,
+                after_snapshot_ref=after.snapshot_ref,
+                proof_refs=(
+                    preview.preview_ref,
+                    record.event_ref,
+                    FIN003_REVIEW_ROLLBACK_REF,
+                    updated_metadata.ciphertext_ref,
+                ),
+            )
+            # Bound the exact encoded envelope and both receipt writes before
+            # leaving any prepared state. No eviction or partial history save.
+            header = json.dumps(
+                {
+                    "schema_version": "uaa-finance-pending-commit.v1",
+                    "metadata": updated_metadata.model_dump(mode="json"),
+                    "receipt": committed.model_dump(mode="json"),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            if len(header) + 1 + len(ciphertext) > FINANCE_GENERATION_MAX_BYTES:
+                raise FinanceRepositoryError(
+                    "FIN003_REVIEW_GENERATION_CAPACITY_EXHAUSTED"
+                )
+            self._require_receipt_capacity((prepared, committed))
+            self._require_revalidated(permit, revalidate)
+            self._append_receipt_if_missing(prepared)
+            self._require_revalidated(permit, revalidate)
+            self._stage_and_commit_generation(
+                metadata=updated_metadata,
+                ciphertext=ciphertext,
+                committed=committed,
+                review_permit=permit,
+                review_revalidate=revalidate,
+            )
+            return committed
+
     @staticmethod
     def _require_current_import_preview(
         permit: FinanceMutationPermit,
@@ -931,7 +1114,6 @@ class FinanceRepository:
             proof_refs=(backup_metadata.backup_ref,),
         )
         self._require_revalidated(permit, revalidate)
-        self._append_receipt(prepared)
         try:
             plaintext = self.crypto.open(
                 key_handle_ref=metadata.backup_key_handle_ref,
@@ -949,6 +1131,9 @@ class FinanceRepository:
             staged.close()
         if restored_source.snapshot_ref != backup_metadata.source_snapshot_ref:
             raise FinanceRepositoryError("FINANCE_BACKUP_SNAPSHOT_MISMATCH")
+        self._require_restore_review_history(restored_source, before=before)
+        self._require_revalidated(permit, revalidate)
+        self._append_receipt(prepared)
         restored = restored_source.model_copy(
             update={"generation": metadata.generation + 1}
         )
@@ -1205,6 +1390,8 @@ class FinanceRepository:
         metadata: FinanceRepositoryMetadata,
         ciphertext: bytes,
         committed: FinanceMutationReceipt,
+        review_permit: FinanceMutationPermit | None = None,
+        review_revalidate: Callable[[], FinanceMutationPermit] | None = None,
     ) -> None:
         if committed.phase != "committed":
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_RECEIPT_INVALID")
@@ -1221,9 +1408,19 @@ class FinanceRepository:
         self._atomic_write(
             self.pending_commit_path, encoded_header + b"\n" + ciphertext
         )
-        self._recover_pending_commit()
+        if review_permit is None and review_revalidate is None:
+            self._recover_pending_commit()
+        else:
+            self._recover_pending_commit(
+                review_permit=review_permit, review_revalidate=review_revalidate
+            )
 
-    def _recover_pending_commit(self) -> None:
+    def _recover_pending_commit(
+        self,
+        *,
+        review_permit: FinanceMutationPermit | None = None,
+        review_revalidate: Callable[[], FinanceMutationPermit] | None = None,
+    ) -> None:
         if not self.pending_commit_path.exists():
             return
         raw = self._read_regular(
@@ -1255,10 +1452,158 @@ class FinanceRepository:
             or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
         ):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        if committed.operation == "restore":
+            # Recovery must enforce the same history boundary even for a
+            # staged restore from an older writer or a partly promoted file.
+            try:
+                plaintext = self.crypto.open(
+                    key_handle_ref=metadata.key_handle_ref,
+                    key_version_ref=metadata.key_version_ref,
+                    context_ref=metadata.envelope_context_ref,
+                    request_ref=committed.request_ref,
+                    ciphertext=ciphertext,
+                )
+            except Exception:
+                raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID") from None
+            staged = self._connection_from_bytes(plaintext)
+            try:
+                restored = self._read_snapshot(staged)
+            finally:
+                staged.close()
+            if restored.snapshot_ref != committed.after_snapshot_ref:
+                raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+            self._require_restore_review_history(restored)
+        recovery_prepared = None
+        recovery_completed = None
+        # Every recovery entry point shares this boundary, including legacy
+        # reads and FIN-001/002 mutations. Their authority cannot finish a
+        # staged FIN-003 decision or undo, even when data is partly promoted.
+        if (
+            committed.operation in {"review_decision", "review_undo"}
+            or review_permit is not None
+        ):
+            if (
+                review_permit is None
+                or review_revalidate is None
+                or review_permit.operation not in {"review_decision", "review_undo"}
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_AUTHORITY_REQUIRED")
+            self._require_permit(
+                review_permit, FinanceMutationOperation(review_permit.operation)
+            )
+            preview = review_permit.review_preview
+            if (
+                committed.operation != review_permit.operation
+                or committed.repository_ref != review_permit.repository_ref
+                or committed.request_ref != review_permit.request_ref
+                or committed.idempotency_ref != review_permit.idempotency_ref
+                or committed.payload_fingerprint_ref
+                != review_permit.payload_fingerprint_ref
+                or committed.before_revision != review_permit.expected_revision
+                or committed.after_revision != committed.before_revision + 1
+                or committed.rollback_ref != review_permit.rollback_ref
+                or preview is None
+                or committed.before_snapshot_ref != preview.source_snapshot_ref
+                or preview.preview_ref not in committed.proof_refs
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            if review_permit.permit_ref != committed.permit_ref:
+                # Keep the original receipt immutable. Before any promotion,
+                # retain the current grant for this exact staged transition;
+                # completion is recorded only after the generation is durable.
+                recovery_prepared = self._receipt(
+                    permit=review_permit,
+                    phase="prepared",
+                    before_revision=committed.before_revision,
+                    after_revision=committed.after_revision,
+                    before_snapshot_ref=committed.before_snapshot_ref,
+                    after_snapshot_ref=None,
+                    proof_refs=(committed.receipt_ref, *committed.proof_refs),
+                )
+                recovery_completed = self._receipt(
+                    permit=review_permit,
+                    phase="recovered",
+                    before_revision=committed.before_revision,
+                    after_revision=committed.after_revision,
+                    before_snapshot_ref=committed.before_snapshot_ref,
+                    after_snapshot_ref=committed.after_snapshot_ref,
+                    proof_refs=(
+                        committed.receipt_ref,
+                        recovery_prepared.receipt_ref,
+                        *committed.proof_refs,
+                    ),
+                )
+                self._require_receipt_capacity(
+                    (recovery_prepared, committed, recovery_completed)
+                )
+            self._require_revalidated(review_permit, review_revalidate)
+            if recovery_prepared is not None:
+                self._append_receipt_if_missing(recovery_prepared)
+                self._require_revalidated(review_permit, review_revalidate)
         self._atomic_write(self.encrypted_path, ciphertext)
         self._atomic_write_json(self.metadata_path, metadata.model_dump(mode="json"))
         self._append_receipt_if_missing(committed)
+        if recovery_completed is not None:
+            self._append_receipt_if_missing(recovery_completed)
         self._unlink_private_file(self.pending_commit_path, missing_ok=False)
+
+    def _require_restore_review_history(
+        self, restored: FinanceSnapshot, *, before: FinanceSnapshot | None = None
+    ) -> None:
+        """Generic restore cannot erase, replace or introduce review decisions."""
+
+        if before is not None and restored.review_decisions != before.review_decisions:
+            raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
+        # The immutable committed receipts survive partial generation promotion;
+        # they also constrain recovery when the live ciphertext is already new.
+        expected: set[str] = set()
+        raw = self._read_regular(
+            self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
+        )
+        for line in raw.splitlines():
+            receipt = FinanceMutationReceipt.model_validate_json(line)
+            if receipt.phase != "committed" or receipt.operation not in {
+                "review_decision",
+                "review_undo",
+            }:
+                continue
+            events = [
+                ref
+                for ref in receipt.proof_refs
+                if ref.startswith("review-decision-record-ref:finance/FIN-003:")
+            ]
+            if len(events) != 1:
+                raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
+            expected.add(events[0])
+        if {event.event_ref for event in restored.review_decisions} != expected:
+            raise FinanceRepositoryError("FIN003_RESTORE_REVIEW_HISTORY_MISMATCH")
+
+    def _require_receipt_capacity(
+        self, receipts: tuple[FinanceMutationReceipt, ...]
+    ) -> None:
+        """Reserve the exact missing receipt bytes before a FIN-003 write."""
+
+        raw = self._read_regular(
+            self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
+        )
+        logged: dict[str, FinanceMutationReceipt] = {}
+        for line in raw.splitlines():
+            receipt = FinanceMutationReceipt.model_validate_json(line)
+            existing = logged.get(receipt.receipt_ref)
+            if existing is not None and existing != receipt:
+                raise FinanceRepositoryError("FINANCE_RECEIPT_REF_CONFLICT")
+            logged[receipt.receipt_ref] = receipt
+        additional = 0
+        for receipt in receipts:
+            existing = logged.get(receipt.receipt_ref)
+            if existing is not None:
+                if existing != receipt:
+                    raise FinanceRepositoryError("FINANCE_RECEIPT_REF_CONFLICT")
+                continue
+            additional += len(self._encode_receipt(receipt))
+            logged[receipt.receipt_ref] = receipt
+        if len(raw) + additional > FINANCE_RECEIPT_LOG_MAX_BYTES:
+            raise FinanceRepositoryError("FIN003_REVIEW_RECEIPT_CAPACITY_EXHAUSTED")
 
     def _append_receipt_if_missing(self, receipt: FinanceMutationReceipt) -> None:
         if self.receipts_path.exists():
@@ -1516,9 +1861,9 @@ class FinanceRepository:
         )
         return FinanceMutationReceipt(receipt_ref=receipt_ref, **payload)
 
-    def _append_receipt(self, receipt: FinanceMutationReceipt) -> None:
-        self._ensure_private_root(create=True)
-        payload = (
+    @staticmethod
+    def _encode_receipt(receipt: FinanceMutationReceipt) -> bytes:
+        return (
             json.dumps(
                 receipt.model_dump(mode="json"),
                 sort_keys=True,
@@ -1526,6 +1871,21 @@ class FinanceRepository:
             )
             + "\n"
         ).encode("utf-8")
+
+    def _append_receipt(self, receipt: FinanceMutationReceipt) -> None:
+        self._ensure_private_root(create=True)
+        payload = self._encode_receipt(receipt)
+        if receipt.operation in {"review_decision", "review_undo"}:
+            # FIN-003 retries must never encounter a partially appended JSON
+            # record after a failed write. The existing writer lock serializes
+            # this bounded atomic replacement with generation recovery.
+            prior = self._read_regular(
+                self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
+            )
+            if len(prior) + len(payload) > FINANCE_RECEIPT_LOG_MAX_BYTES:
+                raise FinanceRepositoryError("FINANCE_RECEIPT_SINK_INVALID")
+            self._atomic_write(self.receipts_path, prior + payload)
+            return
         flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
