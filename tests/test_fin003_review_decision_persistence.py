@@ -29,6 +29,7 @@ from ultimate_ai_agent.core.finance.import_preview import preview_synthetic_csv_
 from ultimate_ai_agent.core.finance.models import stable_finance_ref
 from ultimate_ai_agent.core.finance.repository import (
     FinanceMutationPermit,
+    FinanceMutationReceipt,
     FinanceRepository,
     FinanceRepositoryError,
 )
@@ -1238,4 +1239,344 @@ def test_canonical_persistence_status_is_verified(monkeypatch, canonical):
     monkeypatch.setattr(Path, "read_text", stale_status)
     assert (
         f"FIN003 canonical persistence status missing: {canonical}" in verifier.verify()
+    )
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("permission_state", ["expired", "revoked"])
+@pytest.mark.parametrize("boundary", ["pending", "ciphertext", "metadata", "committed"])
+def test_fresh_recovery_retains_the_current_authority_audit(
+    kernel, monkeypatch, operation, permission_state, boundary
+):
+    service, crypto, now = kernel
+    repo = service.repository
+    if operation == "review_undo":
+        _execute(service, _request(service), now)
+        request = _request(
+            service,
+            decision=None,
+            compensates_event_ref=_snapshot(service).review_decisions[0].event_ref,
+            suffix="reauthorized-undo",
+        )
+    else:
+        request = _request(service, suffix="reauthorized-decision")
+    source = _snapshot(service)
+    bound, preview, approvals, lease = _authorize(service, request, now)
+    write = repo._atomic_write
+
+    def interrupted(path, payload):
+        write(path, payload)
+        if (
+            (boundary == "pending" and path == repo.pending_commit_path)
+            or (boundary == "ciphertext" and path == repo.encrypted_path)
+            or (boundary == "metadata" and path == repo.metadata_path)
+            or (
+                boundary == "committed"
+                and path == repo.receipts_path
+                and json.loads(payload.splitlines()[-1])["phase"] == "committed"
+                and json.loads(payload.splitlines()[-1])["request_ref"]
+                == request.request_ref
+            )
+        ):
+            raise InterruptedWrite("FIN003_TEST_RECOVERY_AUDIT")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(FinanceRepository, "_atomic_write", staticmethod(interrupted))
+        with pytest.raises(InterruptedWrite):
+            service.execute(
+                bound,
+                preview=preview,
+                approval_authority=approvals,
+                lease_provider=lambda: [lease],
+                clock=lambda: now,
+            )
+    original = FinanceMutationReceipt.model_validate(
+        json.loads(repo.pending_commit_path.read_bytes().split(b"\n", 1)[0])["receipt"]
+    )
+    later = now + (
+        timedelta(hours=1) if permission_state == "expired" else timedelta(seconds=1)
+    )
+    if permission_state == "revoked":
+        approvals.revoke(preview.expected_approval_ref, "Synthetic recovery test.")
+    with pytest.raises(FinanceAuthorityError):
+        service.execute(
+            bound,
+            preview=preview,
+            approval_authority=approvals,
+            lease_provider=lambda: [lease],
+            clock=lambda: later,
+        )
+
+    reopened = FinanceKernelService(FinanceRepository(repo.root, crypto_backend=crypto))
+    fresh, fresh_preview, fresh_approvals, fresh_lease = _authorize(
+        reopened, request, later
+    )
+    fresh_permit = reopened.gate.authorize(
+        fresh,
+        preview=fresh_preview,
+        approval_authority=fresh_approvals,
+        active_authority_leases=[fresh_lease],
+        now=later,
+    )
+    receipt = reopened.execute(
+        fresh,
+        preview=fresh_preview,
+        approval_authority=fresh_approvals,
+        lease_provider=lambda: [fresh_lease],
+        clock=lambda: later,
+    )
+    logged = [
+        FinanceMutationReceipt.model_validate_json(line)
+        for line in repo.receipts_path.read_bytes().splitlines()
+    ]
+    recovery = [
+        item
+        for item in logged
+        if item.phase == "recovered" and original.receipt_ref in item.proof_refs
+    ]
+    assert len(recovery) == 1
+    audit = recovery[0]
+    assert audit.permit_ref == fresh_permit.permit_ref != original.permit_ref
+    assert (
+        audit.authority_lease_ref
+        == fresh_lease.lease_ref
+        != original.authority_lease_ref
+    )
+    assert audit.authority_decision_ref == fresh_permit.authority_decision_ref
+    assert audit.approval_decision_ref == fresh_permit.approval_decision_ref
+    assert audit.after_snapshot_ref == original.after_snapshot_ref
+    preparations = [
+        item
+        for item in logged
+        if item.phase == "prepared"
+        and item.permit_ref == fresh_permit.permit_ref
+        and original.receipt_ref in item.proof_refs
+    ]
+    assert len(preparations) == 1
+    assert preparations[0].receipt_ref in audit.proof_refs
+    assert original in logged
+    assert receipt == original.model_copy(update={"replayed": True})
+    assert len(_snapshot(reopened).review_decisions) == (
+        2 if operation == "review_undo" else 1
+    )
+    assert _snapshot(reopened).journal_entries == source.journal_entries
+    before_replay = repo.receipts_path.read_bytes()
+    assert (
+        reopened.execute(
+            fresh,
+            preview=fresh_preview,
+            approval_authority=fresh_approvals,
+            lease_provider=lambda: [fresh_lease],
+            clock=lambda: later,
+        ).replayed
+        is True
+    )
+    assert repo.receipts_path.read_bytes() == before_replay
+
+
+def _pending_review_for_audit(kernel, monkeypatch, operation):
+    service, crypto, now = kernel
+    repo = service.repository
+    if operation == "review_undo":
+        _execute(service, _request(service), now)
+        request = _request(
+            service,
+            decision=None,
+            compensates_event_ref=_snapshot(service).review_decisions[0].event_ref,
+            suffix="audit-undo",
+        )
+    else:
+        request = _request(service, suffix="audit-decision")
+    recover = repo._recover_pending_commit
+
+    def interrupted(**kwargs):
+        if repo.pending_commit_path.exists():
+            raise InterruptedWrite("FIN003_TEST_AUDIT_PENDING")
+        return recover(**kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(repo, "_recover_pending_commit", interrupted)
+        with pytest.raises(InterruptedWrite):
+            _execute(service, request, now)
+    original = FinanceMutationReceipt.model_validate(
+        json.loads(repo.pending_commit_path.read_bytes().split(b"\n", 1)[0])["receipt"]
+    )
+    reopened = FinanceKernelService(FinanceRepository(repo.root, crypto_backend=crypto))
+    later = now + timedelta(hours=1)
+    fresh, preview, approvals, lease = _authorize(reopened, request, later)
+    return (
+        reopened,
+        fresh,
+        original,
+        {
+            "preview": preview,
+            "approval_authority": approvals,
+            "lease_provider": lambda: [lease],
+            "clock": lambda: later,
+        },
+    )
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("phase", ["prepared", "recovered"])
+@pytest.mark.parametrize("after_write", [False, True])
+def test_recovery_audit_write_faults_preserve_exact_retry(
+    kernel, monkeypatch, operation, phase, after_write
+):
+    service, request, original, options = _pending_review_for_audit(
+        kernel, monkeypatch, operation
+    )
+    repo = service.repository
+    prior = repo.receipts_path.read_bytes()
+    generation_before = repo.encrypted_path.read_bytes()
+    write = repo._atomic_write
+
+    def interrupted(path, payload):
+        is_target = (
+            path == repo.receipts_path
+            and json.loads(payload.splitlines()[-1])["phase"] == phase
+            and original.receipt_ref
+            in json.loads(payload.splitlines()[-1])["proof_refs"]
+        )
+        if is_target and not after_write:
+            raise InterruptedWrite("FIN003_TEST_RECOVERY_AUDIT_WRITE")
+        write(path, payload)
+        if is_target and after_write:
+            raise InterruptedWrite("FIN003_TEST_RECOVERY_AUDIT_WRITE")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(FinanceRepository, "_atomic_write", staticmethod(interrupted))
+        with pytest.raises(InterruptedWrite):
+            service.execute(request, **options)
+    assert repo.pending_commit_path.exists()
+    assert repo.receipts_path.read_bytes().startswith(prior)
+    if phase == "prepared":
+        assert repo.encrypted_path.read_bytes() == generation_before
+    assert service.execute(request, **options).replayed is True
+    logged = [
+        FinanceMutationReceipt.model_validate_json(line)
+        for line in repo.receipts_path.read_bytes().splitlines()
+    ]
+    audit = [item for item in logged if original.receipt_ref in item.proof_refs]
+    assert [item.phase for item in audit] == ["prepared", "recovered"]
+    assert (
+        len([item for item in logged if item.receipt_ref == original.receipt_ref]) == 1
+    )
+    assert audit[0].receipt_ref in audit[1].proof_refs
+    assert len(_snapshot(service).review_decisions) == (
+        2 if operation == "review_undo" else 1
+    )
+    completed = repo.receipts_path.read_bytes()
+    assert service.execute(request, **options).replayed is True
+    assert repo.receipts_path.read_bytes() == completed
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("available_for", ["original_only", "prepared_and_original"])
+def test_recovery_reserves_completion_capacity_before_any_write(
+    kernel, monkeypatch, operation, available_for
+):
+    from ultimate_ai_agent.core.finance import repository as repository_module
+
+    service, request, original, options = _pending_review_for_audit(
+        kernel, monkeypatch, operation
+    )
+    repo = service.repository
+    permit = service.gate.authorize(
+        request,
+        preview=options["preview"],
+        approval_authority=options["approval_authority"],
+        active_authority_leases=options["lease_provider"](),
+        now=options["clock"](),
+    )
+    preparation = repo._receipt(
+        permit=permit,
+        phase="prepared",
+        before_revision=original.before_revision,
+        after_revision=original.after_revision,
+        before_snapshot_ref=original.before_snapshot_ref,
+        after_snapshot_ref=None,
+        proof_refs=(original.receipt_ref, *original.proof_refs),
+    )
+    additional = (
+        (original,) if available_for == "original_only" else (original, preparation)
+    )
+    limited = len(repo.receipts_path.read_bytes()) + sum(
+        len(
+            (
+                json.dumps(
+                    item.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+                )
+                + "\n"
+            ).encode("utf-8")
+        )
+        for item in additional
+    )
+    before = {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in repo.root.iterdir()
+        if path.is_file()
+    }
+    with monkeypatch.context() as patch:
+        patch.setattr(repository_module, "FINANCE_RECEIPT_LOG_MAX_BYTES", limited)
+        with pytest.raises(FinanceRepositoryError, match="RECEIPT_CAPACITY_EXHAUSTED"):
+            service.execute(request, **options)
+    assert {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in repo.root.iterdir()
+        if path.is_file()
+    } == before
+    assert service.execute(request, **options).replayed is True
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("revoked", ["approval", "lease", "safe_disable"])
+def test_recovery_preparation_does_not_authorize_later_promotion(
+    kernel, monkeypatch, operation, revoked
+):
+    service, request, original, options = _pending_review_for_audit(
+        kernel, monkeypatch, operation
+    )
+    repo = service.repository
+    ciphertext_before = repo.encrypted_path.read_bytes()
+    metadata_before = repo.metadata_path.read_bytes()
+    original_provider = options["lease_provider"]
+    calls = 0
+
+    def current_leases():
+        nonlocal calls
+        calls += 1
+        if calls == 4:
+            if revoked == "approval":
+                options["approval_authority"].revoke(
+                    options["preview"].expected_approval_ref,
+                    "Synthetic post-preparation revocation.",
+                )
+            if revoked == "lease":
+                return []
+        return original_provider()
+
+    with pytest.raises(FinanceAuthorityError):
+        service.execute(
+            request,
+            **{**options, "lease_provider": current_leases},
+            safe_disable_engaged=lambda: revoked == "safe_disable" and calls == 4,
+        )
+    assert calls == 4
+    assert repo.pending_commit_path.exists()
+    assert repo.encrypted_path.read_bytes() == ciphertext_before
+    assert repo.metadata_path.read_bytes() == metadata_before
+    logged = [
+        FinanceMutationReceipt.model_validate_json(line)
+        for line in repo.receipts_path.read_bytes().splitlines()
+    ]
+    audit = [item for item in logged if original.receipt_ref in item.proof_refs]
+    assert [item.phase for item in audit] == ["prepared"]
+    assert original not in logged
+    assert (
+        _execute(service, request, options["clock"]() + timedelta(seconds=1)).replayed
+        is True
+    )
+    assert len(_snapshot(service).review_decisions) == (
+        2 if operation == "review_undo" else 1
     )

@@ -40,6 +40,16 @@ competing stale writer fails closed. A staged generation requires an explicitly
 confirmed retry of its own intent; another decision cannot recover it. Read-only
 review does not repair pending state or report it as successfully committed.
 
+When recovery uses a different current permit, the existing receipt log first
+retains a linked `prepared` recovery receipt with that permit, approval decision,
+lease and authority decision. This is authorization evidence, not a success
+claim. Core revalidates again before promotion and appends the linked `recovered`
+receipt only after the protected generation and original committed receipt are
+durable. Both records bind the original committed receipt and transition; the
+completion also binds its preparation. The original receipt remains immutable
+and is returned as the historical replay result. Retrying the same recovery grant
+does not duplicate its audit records or the decision history.
+
 An expired or revoked permission is not revived by replay. `refresh-review`
 re-presents the unchanged old intent in a fresh preparation without granting
 authority, changing state, or claiming its source is still current. The operator
@@ -51,6 +61,8 @@ item and prepare a new decision instead.
 History is append-only and capped at 4,096 records, including undo. The exact
 encoded pending generation is capped at 64 MiB and receipts at 8 MiB; both
 prepared and committed receipt space is checked before the prepared write.
+Reauthorized recovery also reserves its preparation, original commit if missing,
+and recovery completion bytes together before writing anything.
 Capacity failures do not evict history or partially save a decision. Undo also
 needs available capacity and a functioning protected store; unlimited retention
 and infallible disk recovery are not claimed. Existing empty-history v1 snapshots

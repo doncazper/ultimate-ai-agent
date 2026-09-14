@@ -817,29 +817,7 @@ class FinanceRepository:
                 raise FinanceRepositoryError(
                     "FIN003_REVIEW_GENERATION_CAPACITY_EXHAUSTED"
                 )
-            raw_receipts = self._read_regular(
-                self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
-            )
-            logged = [
-                FinanceMutationReceipt.model_validate_json(line)
-                for line in raw_receipts.splitlines()
-            ]
-            additional = sum(
-                len(
-                    (
-                        json.dumps(
-                            receipt.model_dump(mode="json"),
-                            sort_keys=True,
-                            separators=(",", ":"),
-                        )
-                        + "\n"
-                    ).encode("utf-8")
-                )
-                for receipt in (prepared, committed)
-                if not any(existing == receipt for existing in logged)
-            )
-            if len(raw_receipts) + additional > FINANCE_RECEIPT_LOG_MAX_BYTES:
-                raise FinanceRepositoryError("FIN003_REVIEW_RECEIPT_CAPACITY_EXHAUSTED")
+            self._require_receipt_capacity((prepared, committed))
             self._require_revalidated(permit, revalidate)
             self._append_receipt_if_missing(prepared)
             self._require_revalidated(permit, revalidate)
@@ -1472,6 +1450,8 @@ class FinanceRepository:
             or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
         ):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        recovery_prepared = None
+        recovery_completed = None
         # Every recovery entry point shares this boundary, including legacy
         # reads and FIN-001/002 mutations. Their authority cannot finish a
         # staged FIN-003 decision or undo, even when data is partly promoted.
@@ -1504,11 +1484,72 @@ class FinanceRepository:
                 or preview.preview_ref not in committed.proof_refs
             ):
                 raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            if review_permit.permit_ref != committed.permit_ref:
+                # Keep the original receipt immutable. Before any promotion,
+                # retain the current grant for this exact staged transition;
+                # completion is recorded only after the generation is durable.
+                recovery_prepared = self._receipt(
+                    permit=review_permit,
+                    phase="prepared",
+                    before_revision=committed.before_revision,
+                    after_revision=committed.after_revision,
+                    before_snapshot_ref=committed.before_snapshot_ref,
+                    after_snapshot_ref=None,
+                    proof_refs=(committed.receipt_ref, *committed.proof_refs),
+                )
+                recovery_completed = self._receipt(
+                    permit=review_permit,
+                    phase="recovered",
+                    before_revision=committed.before_revision,
+                    after_revision=committed.after_revision,
+                    before_snapshot_ref=committed.before_snapshot_ref,
+                    after_snapshot_ref=committed.after_snapshot_ref,
+                    proof_refs=(
+                        committed.receipt_ref,
+                        recovery_prepared.receipt_ref,
+                        *committed.proof_refs,
+                    ),
+                )
+                self._require_receipt_capacity(
+                    (recovery_prepared, committed, recovery_completed)
+                )
             self._require_revalidated(review_permit, review_revalidate)
+            if recovery_prepared is not None:
+                self._append_receipt_if_missing(recovery_prepared)
+                self._require_revalidated(review_permit, review_revalidate)
         self._atomic_write(self.encrypted_path, ciphertext)
         self._atomic_write_json(self.metadata_path, metadata.model_dump(mode="json"))
         self._append_receipt_if_missing(committed)
+        if recovery_completed is not None:
+            self._append_receipt_if_missing(recovery_completed)
         self._unlink_private_file(self.pending_commit_path, missing_ok=False)
+
+    def _require_receipt_capacity(
+        self, receipts: tuple[FinanceMutationReceipt, ...]
+    ) -> None:
+        """Reserve the exact missing receipt bytes before a FIN-003 write."""
+
+        raw = self._read_regular(
+            self.receipts_path, max_bytes=FINANCE_RECEIPT_LOG_MAX_BYTES
+        )
+        logged: dict[str, FinanceMutationReceipt] = {}
+        for line in raw.splitlines():
+            receipt = FinanceMutationReceipt.model_validate_json(line)
+            existing = logged.get(receipt.receipt_ref)
+            if existing is not None and existing != receipt:
+                raise FinanceRepositoryError("FINANCE_RECEIPT_REF_CONFLICT")
+            logged[receipt.receipt_ref] = receipt
+        additional = 0
+        for receipt in receipts:
+            existing = logged.get(receipt.receipt_ref)
+            if existing is not None:
+                if existing != receipt:
+                    raise FinanceRepositoryError("FINANCE_RECEIPT_REF_CONFLICT")
+                continue
+            additional += len(self._encode_receipt(receipt))
+            logged[receipt.receipt_ref] = receipt
+        if len(raw) + additional > FINANCE_RECEIPT_LOG_MAX_BYTES:
+            raise FinanceRepositoryError("FIN003_REVIEW_RECEIPT_CAPACITY_EXHAUSTED")
 
     def _append_receipt_if_missing(self, receipt: FinanceMutationReceipt) -> None:
         if self.receipts_path.exists():
@@ -1766,9 +1807,9 @@ class FinanceRepository:
         )
         return FinanceMutationReceipt(receipt_ref=receipt_ref, **payload)
 
-    def _append_receipt(self, receipt: FinanceMutationReceipt) -> None:
-        self._ensure_private_root(create=True)
-        payload = (
+    @staticmethod
+    def _encode_receipt(receipt: FinanceMutationReceipt) -> bytes:
+        return (
             json.dumps(
                 receipt.model_dump(mode="json"),
                 sort_keys=True,
@@ -1776,6 +1817,10 @@ class FinanceRepository:
             )
             + "\n"
         ).encode("utf-8")
+
+    def _append_receipt(self, receipt: FinanceMutationReceipt) -> None:
+        self._ensure_private_root(create=True)
+        payload = self._encode_receipt(receipt)
         if receipt.operation in {"review_decision", "review_undo"}:
             # FIN-003 retries must never encounter a partially appended JSON
             # record after a failed write. The existing writer lock serializes
