@@ -794,32 +794,34 @@ def _set_retrieval_elapsed_clock(
     )
 
 
-def test_missing_holdout_commitment_blocks_passing_posture(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_missing_holdout_commitment_blocks_passing_posture() -> None:
     # This checks evidence, not host scheduling. Real deadline guards are
     # exercised separately at and beyond every unchanged hard ceiling below.
-    _set_retrieval_elapsed_clock(monkeypatch)
-    corpus = _corpus()
-    policy = TAW07HardeningPolicy(
-        candidate_revision_ref=CANDIDATE_REVISION,
-        candidate_manifest_digest_ref=CANDIDATE_DIGEST,
-        development_corpus_digest_ref=corpus.corpus_digest,
-    )
-    bindings, observations, quality = _passing_inputs(corpus)
-    report = evaluate_taw07_hardening(
-        policy=policy,
-        corpus=corpus,
-        legacy_bindings=bindings,
-        observations=observations,
-        quality_observations=quality,
-    )
-    assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
-    assert report.holdout_commitment_present is False
-    assert report.holdout_evidence_verified is False
-    assert report.acceptance_evidence_complete is False
-    assert report.failure_reason_refs == ()
-    assert report.independent_promotion_ready is False
+    ticks = count(0, 1_000_000)
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(
+            retrieval, "time", SimpleNamespace(perf_counter_ns=lambda: next(ticks))
+        )
+        corpus = _corpus()
+        policy = TAW07HardeningPolicy(
+            candidate_revision_ref=CANDIDATE_REVISION,
+            candidate_manifest_digest_ref=CANDIDATE_DIGEST,
+            development_corpus_digest_ref=corpus.corpus_digest,
+        )
+        bindings, observations, quality = _passing_inputs(corpus)
+        report = evaluate_taw07_hardening(
+            policy=policy,
+            corpus=corpus,
+            legacy_bindings=bindings,
+            observations=observations,
+            quality_observations=quality,
+        )
+        assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
+        assert report.holdout_commitment_present is False
+        assert report.holdout_evidence_verified is False
+        assert report.acceptance_evidence_complete is False
+        assert report.failure_reason_refs == ()
+        assert report.independent_promotion_ready is False
 
 
 @pytest.mark.parametrize(
