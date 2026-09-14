@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from scripts.dev import uaa_finance
 from ultimate_ai_agent.core.finance.crypto import InMemoryFinanceCryptoBackend
@@ -111,6 +112,28 @@ def test_cli_workspace_needs_explicit_confirmation_before_reading_bundle(
         ["workspace-run", "--bundle", str(tmp_path / "absent")]
     )
     with pytest.raises(ValueError, match="OPERATOR_CONFIRMATION_REQUIRED"):
+        args.func(args)
+    assert not workspace.configuration.repository_dir.exists()
+
+
+@pytest.mark.parametrize(
+    "value", ["id:a", "idempotency-ref:finance/action", "id:review@account"]
+)
+def test_cli_rejects_idempotency_that_cannot_be_used_by_the_api(workspace, value):
+    args = uaa_finance.parser().parse_args(
+        [
+            "workspace-prepare",
+            "--operation",
+            "create",
+            "--expected-revision",
+            "0",
+            "--request-ref",
+            "request-ref:finance:cli-header-shape",
+            "--idempotency-ref",
+            value,
+        ]
+    )
+    with pytest.raises(ValidationError):
         args.func(args)
     assert not workspace.configuration.repository_dir.exists()
 

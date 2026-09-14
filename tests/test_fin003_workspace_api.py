@@ -12,6 +12,13 @@ from ultimate_ai_agent.api.finance_workspace import (
     get_finance_workspace,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
+from ultimate_ai_agent.api.idempotency import idempotency_value_valid
+from ultimate_ai_agent.core.idempotency_contract import (
+    IDEMPOTENCY_VALUE_PATTERN,
+    MAX_IDEMPOTENCY_VALUE_LENGTH,
+    MIN_IDEMPOTENCY_VALUE_LENGTH,
+)
 from ultimate_ai_agent.core.build_identity import build_identity
 from ultimate_ai_agent.core.control_center.backend_truth import (
     backend_instance_ref,
@@ -31,6 +38,7 @@ SHA = "8" * 40
 
 @pytest.fixture
 def boundary(tmp_path, monkeypatch):
+    reset_api_rate_limit_state()
     monkeypatch.setenv("UAA_BUILD_COMMIT", SHA)
     workspace = FinanceWorkspace(
         FinanceWorkspaceConfiguration(tmp_path / "book", tmp_path / "helper", "a" * 64),
@@ -52,6 +60,7 @@ def boundary(tmp_path, monkeypatch):
         yield TestClient(app), workspace, headers
     finally:
         app.dependency_overrides.pop(get_finance_workspace, None)
+        reset_api_rate_limit_state()
 
 
 def _intent(operation="create", revision=0, suffix="create", **fields):
@@ -145,6 +154,45 @@ def test_api_authentication_is_required_even_for_setup_status(boundary, monkeypa
         ).status_code
         == 200
     )
+    assert not workspace.configuration.repository_dir.exists()
+
+
+@pytest.mark.parametrize("value", ["id:abcde", "id:a_B-9.c:D", "id:" + "a" * 197])
+def test_published_idempotency_bounds_are_callable_through_the_header_gate(
+    boundary, value
+):
+    assert idempotency_value_valid(value)
+    request = _intent(idempotency_ref=value)
+    prepared, _headers = _prepare(boundary, request)
+    assert prepared["bundle"]["request"]["idempotency_ref"] == value
+    schema = boundary[0].get("/openapi.json").json()["components"]["schemas"]
+    constraints = schema["FinanceWorkspaceIntent"]["properties"]["idempotency_ref"]
+    assert constraints["minLength"] == MIN_IDEMPOTENCY_VALUE_LENGTH
+    assert constraints["maxLength"] == MAX_IDEMPOTENCY_VALUE_LENGTH
+    assert constraints["pattern"] == IDEMPOTENCY_VALUE_PATTERN
+    nested = schema["FinanceWorkspacePreparation"]["properties"]["bundle"][
+        "properties"
+    ]["request"]["properties"]["idempotency_ref"]
+    assert nested["minLength"] == constraints["minLength"]
+    assert nested["maxLength"] == constraints["maxLength"]
+    assert nested["pattern"] == constraints["pattern"]
+    assert not boundary[1].configuration.repository_dir.exists()
+
+
+@pytest.mark.parametrize(
+    "value", ["id:a", "idempotency-ref:finance/action", "id:review@account"]
+)
+def test_api_rejects_noncallable_body_idempotency_before_preparing(boundary, value):
+    client, workspace, headers = boundary
+    response = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/preview",
+        json=_intent(idempotency_ref=value),
+        headers={
+            **headers,
+            "X-UAA-Idempotency-Key": "idempotency-ref:finance:valid-header",
+        },
+    )
+    assert response.status_code == 422
     assert not workspace.configuration.repository_dir.exists()
 
 
@@ -307,7 +355,9 @@ def test_finance_openapi_and_manifest_publish_exact_contracts(boundary):
     assert len({route.operation_id for route in routes}) == 4
 
 
-def test_finance_originless_commit_cannot_bypass_idempotency_or_backend_binding(boundary):
+def test_finance_originless_commit_cannot_bypass_idempotency_or_backend_binding(
+    boundary,
+):
     client, workspace, _headers = boundary
     assert client.post(f"{FINANCE_WORKSPACE_PATH}/commit", json={}).status_code == 428
     response = client.post(
@@ -320,7 +370,9 @@ def test_finance_originless_commit_cannot_bypass_idempotency_or_backend_binding(
     assert not workspace.configuration.repository_dir.exists()
 
 
-def test_finance_exact_post_routes_share_a_bounded_request_budget(boundary, monkeypatch):
+def test_finance_exact_post_routes_share_a_bounded_request_budget(
+    boundary, monkeypatch
+):
     from ultimate_ai_agent.api.rate_limits import (
         API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
         reset_api_rate_limit_state,

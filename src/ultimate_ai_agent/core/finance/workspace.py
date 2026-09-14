@@ -11,7 +11,14 @@ import re
 import stat
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    TypeAdapter,
+    model_validator,
+)
 
 from ultimate_ai_agent.core.finance.authority import FinanceMutationRequest
 from ultimate_ai_agent.core.finance.crypto import (
@@ -52,6 +59,11 @@ from ultimate_ai_agent.core.finance.service import (
     finance_target_ref,
 )
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
+from ultimate_ai_agent.core.idempotency_contract import (
+    IDEMPOTENCY_VALUE_PATTERN,
+    MAX_IDEMPOTENCY_VALUE_LENGTH,
+    MIN_IDEMPOTENCY_VALUE_LENGTH,
+)
 
 
 FINANCE_WORKSPACE_CONTRACT_REF = "contract-ref:finance/FIN-003:synthetic-in-app:v1"
@@ -67,6 +79,15 @@ FinanceWorkspaceOperation = Literal[
     "create", "import_commit", "review_decision", "review_undo"
 ]
 FinanceWorkspaceRef = Annotated[str, Field(strict=True, min_length=3, max_length=200)]
+_IDEMPOTENCY_FIELD_CONSTRAINTS = {
+    "min_length": MIN_IDEMPOTENCY_VALUE_LENGTH,
+    "max_length": MAX_IDEMPOTENCY_VALUE_LENGTH,
+    "pattern": IDEMPOTENCY_VALUE_PATTERN,
+}
+FinanceWorkspaceIdempotencyRef = Annotated[
+    str, Field(strict=True, **_IDEMPOTENCY_FIELD_CONSTRAINTS)
+]
+_IDEMPOTENCY_ADAPTER = TypeAdapter(FinanceWorkspaceIdempotencyRef)
 
 
 class _WorkspaceModel(BaseModel):
@@ -79,7 +100,7 @@ class FinanceWorkspaceIntent(_WorkspaceModel):
     operation: FinanceWorkspaceOperation
     expected_revision: StrictInt = Field(ge=0, le=9_007_199_254_740_991)
     request_ref: FinanceWorkspaceRef
-    idempotency_ref: FinanceWorkspaceRef
+    idempotency_ref: FinanceWorkspaceIdempotencyRef
     review_item_ref: FinanceWorkspaceRef | None = None
     decision: FinanceReviewDecision | None = None
     compensates_event_ref: FinanceWorkspaceRef | None = None
@@ -122,9 +143,24 @@ class FinanceWorkspacePreparation(_WorkspaceModel):
         "uaa-finance-workspace-preparation.v1"
     )
     configuration_ref: FinanceWorkspaceRef
-    bundle: FinancePreparedMutation
+    bundle: FinancePreparedMutation = Field(
+        json_schema_extra={
+            "properties": {
+                "request": {
+                    "properties": {
+                        "idempotency_ref": _IDEMPOTENCY_ADAPTER.json_schema()
+                    }
+                }
+            }
+        }
+    )
     synthetic_only: Literal[True] = True
     real_financial_data_allowed: Literal[False] = False
+
+    @model_validator(mode="after")
+    def validate_transport_binding(self) -> "FinanceWorkspacePreparation":
+        _IDEMPOTENCY_ADAPTER.validate_python(self.bundle.request.idempotency_ref)
+        return self
 
 
 class FinanceWorkspaceCommitResult(_WorkspaceModel):

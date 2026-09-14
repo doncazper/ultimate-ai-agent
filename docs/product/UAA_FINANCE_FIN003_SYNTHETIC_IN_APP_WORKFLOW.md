@@ -101,6 +101,13 @@ response. Classification is `local_sensitive` for reads/preparations and
 The browser preserves a confirmed receipt independently of a failed reload.
 An unconfirmed save retains its exact preparation for explicit same-action
 retry, including when the reload fails. A read never silently recovers state.
+An expired preview that has never been submitted can be closed and prepared
+again without sending a save. Once an attempted save is uncertain, expiry alone
+does not prove that nothing changed and cannot discard the retained request.
+Safe-disable makes the sample import unavailable; it does not mean an import
+was recorded. The CLI, Core preparations and OpenAPI share the API-compatible
+8–200-character idempotency shape; a non-callable identifier is rejected before
+preparation or persistence.
 After the browser closes, a valid staged review or undo can be re-presented
 from its existing encrypted pending generation. The Core reconstructs and
 checks the predecessor snapshot, exact preview, appended record, receipt and

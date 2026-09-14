@@ -8,6 +8,11 @@ from ultimate_ai_agent.api.contracts import (
     ApiRouteIdempotencyEnforcement,
     ApiRouteIdempotencyPosture,
 )
+from ultimate_ai_agent.core.idempotency_contract import (
+    IDEMPOTENCY_VALUE_PATTERN,
+    MAX_IDEMPOTENCY_VALUE_LENGTH,
+    MIN_IDEMPOTENCY_VALUE_LENGTH,
+)
 
 
 API_IDEMPOTENCY_AUDIT_POLICY_REF = "idempotency:p1-084:mutating-routes:v1"
@@ -121,9 +126,7 @@ IDEMPOTENCY_REQUIRED_INPUT_KINDS: tuple[str, ...] = (
     "idempotency_ref",
     "scoped_idempotency_ref",
 )
-MIN_IDEMPOTENCY_VALUE_LENGTH = 8
-MAX_IDEMPOTENCY_VALUE_LENGTH = 200
-_IDEMPOTENCY_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$")
+_IDEMPOTENCY_VALUE_PATTERN = re.compile(IDEMPOTENCY_VALUE_PATTERN)
 
 
 @dataclass(frozen=True)

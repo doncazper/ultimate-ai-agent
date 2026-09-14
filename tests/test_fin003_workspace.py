@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from jsonschema import Draft202012Validator
 
 from ultimate_ai_agent.core.finance.crypto import InMemoryFinanceCryptoBackend
 from ultimate_ai_agent.core.finance.operator_workflow import prepare_finance_mutation
@@ -174,6 +175,52 @@ def test_intent_excludes_broader_authority_and_oversized_inputs(field, value):
     data[field] = value
     with pytest.raises(ValidationError):
         FinanceWorkspaceIntent.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "id:a",
+        "id:abcd",
+        "idempotency-ref:finance/action",
+        "id:review@account",
+        "id:abcde ",
+        "id:" + "a" * 198,
+    ],
+)
+def test_intent_and_preparation_reject_transport_incompatible_idempotency(
+    workspace, value
+):
+    data = intent("create", 0, "header-shape").model_dump()
+    data["idempotency_ref"] = value
+    with pytest.raises(ValidationError):
+        FinanceWorkspaceIntent.model_validate(data)
+    assert not Draft202012Validator(
+        FinanceWorkspaceIntent.model_json_schema()
+    ).is_valid(data)
+    prepared = workspace.prepare(intent("create", 0, "header-shape"))
+    payload = prepared.model_dump(mode="json")
+    payload["bundle"]["request"]["idempotency_ref"] = value
+    with pytest.raises(ValidationError):
+        FinanceWorkspacePreparation.model_validate(payload)
+    assert not Draft202012Validator(
+        FinanceWorkspacePreparation.model_json_schema()
+    ).is_valid(payload)
+    assert not workspace.configuration.repository_dir.exists()
+
+
+@pytest.mark.parametrize("value", ["id:abcde", "id:a_B-9.c:D", "id:" + "a" * 197])
+def test_transport_compatible_idempotency_boundaries_prepare_without_writes(
+    workspace, value
+):
+    data = intent("create", 0, "header-shape").model_dump()
+    data["idempotency_ref"] = value
+    prepared = workspace.prepare(FinanceWorkspaceIntent.model_validate(data))
+    assert prepared.bundle.request.idempotency_ref == value
+    assert Draft202012Validator(
+        FinanceWorkspacePreparation.model_json_schema()
+    ).is_valid(prepared.model_dump(mode="json"))
+    assert not workspace.configuration.repository_dir.exists()
 
 
 def test_configuration_substitution_is_rejected_before_writes(workspace):

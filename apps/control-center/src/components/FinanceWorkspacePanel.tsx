@@ -107,7 +107,12 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   }
 
   async function save() {
-    if (!pending || busy || workspace?.safe_disable_engaged === true || !begin()) return;
+    if (!pending || busy || workspace?.safe_disable_engaged === true) return;
+    if (!uncertain && Date.parse(pending.preparation.bundle.preview.expires_at) <= Date.now()) {
+      setError("This preview expired before a save was requested. Close it and prepare a new preview; nothing was sent for saving.");
+      return;
+    }
+    if (!begin()) return;
     try {
       const saved = await commitFinance(pending.preparation, currentBinding.current);
       if (!mounted.current) return;
@@ -166,7 +171,7 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
           setNotice("The exact interrupted review was read from the protected pending generation. Check it before confirming; nothing was recovered by opening this preview.");
         }}>Review interrupted save</button> : null}
         {workspace.status === "ready" ? <div className="finance-book-summary"><span>Saved revision <strong>{workspace.revision}</strong></span><span>{workspace.item_count} review items</span><span>{workspace.history_count} history entries</span>
-          {workspace.import_available ? <button type="button" disabled={!canReview} onClick={() => void preview("import_commit")}>Preview sample import</button> : <span>Sample import recorded</span>}
+          {workspace.import_available ? <button type="button" disabled={!canReview} onClick={() => void preview("import_commit")}>Preview sample import</button> : <span>{workspace.safe_disable_engaged ? "Sample import unavailable while safe-disable is engaged" : "Sample import recorded"}</span>}
         </div> : null}
         {["configuration_missing", "configuration_invalid", "helper_unavailable"].includes(workspace.status) ? <details><summary>Setup requirements</summary><p>The backend must have a private sample-book location and a verified macOS native key helper. Windows support is not implemented in this slice. Check the FIN-003 in-app setup guide and the Finance workspace command; this screen cannot choose a filesystem path or replace the encryption helper.</p></details> : null}
       </section>
