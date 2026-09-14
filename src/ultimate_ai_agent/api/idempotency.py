@@ -163,6 +163,11 @@ def route_idempotency_enforcement(
     path: str,
     route_classification: ApiRouteClassification,
 ) -> tuple[ApiRouteIdempotencyEnforcement, str | None]:
+    if method == "POST" and path == "/control-center/finance/workspace/commit":
+        return (
+            ApiRouteIdempotencyEnforcement.route_owned_durable_replay,
+            "idempotency-owner:finance-protected-repository-receipts:v1",
+        )
     if method == "POST" and path == "/control-center/web-evidence/attach":
         return (
             ApiRouteIdempotencyEnforcement.route_owned_durable_replay,

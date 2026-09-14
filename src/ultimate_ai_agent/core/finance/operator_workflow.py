@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import hashlib
 import os
 from pathlib import Path
@@ -148,7 +148,7 @@ def confirm_finance_mutation(
         preview=preview,
         approval_authority=approvals,
         lease_provider=lambda: lease_store.list_leases(active_only=True),
-        clock=lambda: datetime.now(UTC),
+        clock=lambda: datetime.now(timezone.utc),
         backup_path=backup_path,
         safe_disable_engaged=safe_disable_engaged,
     )

@@ -2357,6 +2357,14 @@ CONTROL_CENTER_NEWS_SIGNALS_ROUTES = frozenset(
         "/control-center/news-signals/summary",
     }
 )
+CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES = frozenset(
+    {
+        "/control-center/finance/workspace",
+        "/control-center/finance/workspace/preview",
+        "/control-center/finance/workspace/refresh",
+        "/control-center/finance/workspace/commit",
+    }
+)
 CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES = frozenset(
     {
         "/control-center/proposal-intelligence/extract",
@@ -2723,6 +2731,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     "control_center_news_signals": CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
+    "control_center_finance_workspace": CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES,
     "control_center_proposal_intelligence": CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
     "control_center_autocorrect": CONTROL_CENTER_AUTOCORRECT_ROUTES,
     "control_center_proof_start_trust": CONTROL_CENTER_PROOF_START_TRUST_ROUTES,
@@ -2782,6 +2791,7 @@ def _historical_control_center_path_set(paths: Iterable[str]) -> set[str]:
     """Normalize exact post-M13 Control Center additions for count guards."""
     path_set = {path for path in paths if path.startswith("/control-center")}
     path_set.difference_update(CONTROL_CENTER_NEWS_SIGNALS_ROUTES)
+    path_set.difference_update(CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES)
     path_set.difference_update(CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES)
     path_set.difference_update(CONTROL_CENTER_AUTOCORRECT_ROUTES)
     path_set.difference_update(CONTROL_CENTER_CRM_ADOPTION_SENSITIVE_PATHS)

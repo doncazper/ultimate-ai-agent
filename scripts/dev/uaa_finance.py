@@ -55,6 +55,13 @@ from ultimate_ai_agent.core.finance.service import (  # noqa: E402
     finance_repository_ref,
     finance_target_ref,
 )
+from ultimate_ai_agent.core.finance.workspace import (  # noqa: E402
+    FINANCE_WORKSPACE_MAX_BODY_BYTES,
+    FinanceWorkspace,
+    FinanceWorkspaceIntent,
+    FinanceWorkspacePreparation,
+    finance_workspace_body_within_limits,
+)
 
 
 FIXTURE_REF = "fixture-ref:finance/FIN-001:balanced-local-book:v1"
@@ -335,6 +342,47 @@ def command_read(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_workspace(args: argparse.Namespace) -> int:
+    """Inspect or operate the same server-configured book as Control Center."""
+
+    workspace = FinanceWorkspace.from_env()
+    if args.command == "workspace":
+        view = workspace.read_view(
+            item_offset=args.item_offset,
+            history_offset=args.history_offset,
+            limit=args.limit,
+        )
+        _json(view.model_dump(mode="json"))
+        return 0 if view.status in {"ready", "book_setup_required"} else 2
+    if args.command == "workspace-prepare":
+        intent = FinanceWorkspaceIntent(
+            operation=args.operation,
+            expected_revision=args.expected_revision,
+            request_ref=args.request_ref,
+            idempotency_ref=args.idempotency_ref,
+            review_item_ref=args.review_item_ref,
+            decision=args.decision,
+            compensates_event_ref=args.compensates_event_ref,
+        )
+        _json(workspace.prepare(intent).model_dump(mode="json"))
+        return 0
+    if args.command == "workspace-run" and not args.confirmed:
+        raise ValueError("FINANCE_OPERATOR_CONFIRMATION_REQUIRED")
+    if getattr(args, "safe_disable_engaged", False):
+        raise ValueError("FINANCE_SAFE_DISABLE_ENGAGED")
+    raw = FinanceRepository._read_regular(
+        args.bundle, max_bytes=FINANCE_WORKSPACE_MAX_BODY_BYTES
+    )
+    if not finance_workspace_body_within_limits(raw):
+        raise ValueError("FINANCE_WORKSPACE_REQUEST_BODY_LIMIT_EXCEEDED")
+    preparation = FinanceWorkspacePreparation.model_validate_json(raw)
+    if args.command == "workspace-refresh":
+        _json(workspace.refresh_preparation(preparation).model_dump(mode="json"))
+    else:
+        _json(workspace.commit(preparation, confirmed=args.confirmed))
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     """Build the bounded Finance CLI parser."""
 
@@ -388,6 +436,31 @@ def parser() -> argparse.ArgumentParser:
         "--decision", choices=("confirm", "reject", "defer"), required=True
     )
     decision_preview.set_defaults(func=command_read)
+    workspace = commands.add_parser("workspace")
+    workspace.add_argument("--item-offset", type=int, default=0)
+    workspace.add_argument("--history-offset", type=int, default=0)
+    workspace.add_argument("--limit", type=int, default=50)
+    workspace.set_defaults(func=command_workspace)
+    workspace_prepare = commands.add_parser("workspace-prepare")
+    workspace_prepare.add_argument(
+        "--operation",
+        choices=("create", "import_commit", "review_decision", "review_undo"),
+        required=True,
+    )
+    workspace_prepare.add_argument("--expected-revision", type=int, required=True)
+    workspace_prepare.add_argument("--request-ref", required=True)
+    workspace_prepare.add_argument("--idempotency-ref", required=True)
+    workspace_prepare.add_argument("--review-item-ref")
+    workspace_prepare.add_argument("--decision", choices=("confirm", "reject", "defer"))
+    workspace_prepare.add_argument("--compensates-event-ref")
+    workspace_prepare.set_defaults(func=command_workspace)
+    for name in ("workspace-run", "workspace-refresh"):
+        workspace_action = commands.add_parser(name)
+        workspace_action.add_argument("--bundle", type=Path, required=True)
+        if name == "workspace-run":
+            workspace_action.add_argument("--confirmed", action="store_true")
+            workspace_action.add_argument("--safe-disable-engaged", action="store_true")
+        workspace_action.set_defaults(func=command_workspace)
     return result
 
 

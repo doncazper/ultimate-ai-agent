@@ -1,6 +1,7 @@
 """Core/CLI preparation parity before the separately scoped in-app boundary."""
 
 from pathlib import Path
+import ast
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +18,24 @@ from ultimate_ai_agent.core.finance.service import (
     FinanceKernelService,
     finance_repository_ref,
 )
+
+
+@pytest.mark.parametrize("name", ["operator_workflow.py", "workspace.py"])
+def test_new_workspace_modules_do_not_import_post_python310_datetime_names(name):
+    # The supported floor lacks datetime.UTC; this focused regression does not
+    # claim that the entire dependency graph has been qualified on Python 3.10.
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/ultimate_ai_agent/core/finance"
+        / name
+    )
+    tree = ast.parse(source.read_text(), feature_version=(3, 10))
+    assert all(
+        alias.name != "UTC"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "datetime"
+        for alias in node.names
+    )
 
 
 @pytest.fixture

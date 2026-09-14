@@ -855,6 +855,14 @@ CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_SENSITIVE_PATHS = {
     "/control-center/news-signals/adoption",
     "/control-center/news-signals/adoption/preview",
 }
+CONTROL_CENTER_FINANCE_WORKSPACE_SENSITIVE_PATHS = {
+    "/control-center/finance/workspace",
+    "/control-center/finance/workspace/preview",
+    "/control-center/finance/workspace/refresh",
+}
+CONTROL_CENTER_FINANCE_WORKSPACE_MUTATION_PATHS = {
+    "/control-center/finance/workspace/commit",
+}
 CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_MUTATION_PATHS = {
     "/control-center/news-signals/adoption/approval",
     "/control-center/news-signals/adoption/commit",
@@ -1299,6 +1307,10 @@ def route_summary(method: str, path: str) -> str:
 
 
 def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
+    if path in CONTROL_CENTER_FINANCE_WORKSPACE_SENSITIVE_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
+    if path in CONTROL_CENTER_FINANCE_WORKSPACE_MUTATION_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if (
         path == "/api/manifest"
         or path in CONTROL_CENTER_COMMUNICATIONS_READONLY_PATHS
@@ -1649,6 +1661,16 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Founder-private Calendar exact commit or recovery authority route; current-state binding, explicit operator confirmation, exact local approval validation, one operation-budget-one Workspace/write AuthorityLease, durable idempotency, encrypted local persistence, content-free receipts, and undo or encrypted restore recovery are required while all external calendar and scheduling authority remains blocked.",
+        )
+    if path in CONTROL_CENTER_FINANCE_WORKSPACE_SENSITIVE_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Server-configured synthetic Finance inspection or exact preparation; pinned native storage remains private, previews create no book, key, approval or lease, and real input and external authority remain blocked.",
+        )
+    if normalized_method == "POST" and path in CONTROL_CENTER_FINANCE_WORKSPACE_MUTATION_PATHS:
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "One explicitly confirmed synthetic Finance create, allowlisted import, review disposition or compensating undo through the existing Core policy, stored approval, active exact lease, revision binding, encrypted generation, durable receipts and safe-disable. No arbitrary input, real-data, provider, connector, payment, filing or production authority.",
         )
     if path in CONTROL_CENTER_NEWS_SIGNALS_ADOPTION_SENSITIVE_PATHS:
         return (

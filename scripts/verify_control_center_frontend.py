@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 33
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 34
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -1005,6 +1005,17 @@ def verify(root: Path = ROOT) -> list[str]:
                 )
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        for fragment in [
+            "postFinanceWorkspace",
+            '"preview" | "refresh" | "commit"',
+            "/control-center/finance/workspace/${action}",
+            "FINANCE_CONFIRMATION_REQUIRED",
+            "FINANCE_REQUEST_TOO_LARGE",
+            "FINANCE_RESPONSE_TOO_LARGE",
+            "readFinanceWorkspaceResponse(response, binding)",
+        ]:
+            if fragment not in text:
+                failures.append(f"frontend Finance transport boundary missing: {fragment}")
         if "chatThreadApprovalEndpoint(threadRef)" not in text:
             failures.append(
                 "frontend client must capture chat mutation approval through its scoped endpoint"

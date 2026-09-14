@@ -50,6 +50,7 @@ from ultimate_ai_agent.core.finance.review_decision_commit import (
     FIN003_REVIEW_SAFE_DISABLE_REF,
     FinanceReviewPersistencePreview,
     build_finance_review_decision_record,
+    preview_finance_review_persistence,
 )
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
@@ -926,6 +927,109 @@ class FinanceRepository:
             raise FinanceRepositoryError("FINANCE_REPOSITORY_BINDING_MISMATCH")
         return snapshot
 
+    def inspect_pending_review_read_only(
+        self,
+    ) -> tuple[FinanceReviewPersistencePreview, FinanceMutationReceipt]:
+        """Reconstruct the exact interrupted review, without promotion or grants.
+
+        The encrypted staged history is the source, not the unauthenticated
+        pending header. Rebuild its predecessor, preview and record, and bind
+        both generations to the current book before presenting a retry.
+        """
+
+        self._ensure_private_root(create=False)
+        with self._read_lock():
+            metadata, committed, ciphertext = self._read_pending_generation()
+            if committed.operation not in {"review_decision", "review_undo"}:
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_SCOPE_INVALID")
+            current = self._read_metadata()
+            stable_fields = {"ciphertext_ref", "generation"}
+            if (
+                current.deleted
+                or current.model_dump(exclude=stable_fields)
+                != metadata.model_dump(exclude=stable_fields)
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+
+            def read_generation(encrypted: bytes) -> FinanceSnapshot:
+                try:
+                    plaintext = self.crypto.open(
+                        key_handle_ref=metadata.key_handle_ref,
+                        key_version_ref=metadata.key_version_ref,
+                        context_ref=metadata.envelope_context_ref,
+                        request_ref=committed.request_ref,
+                        ciphertext=encrypted,
+                    )
+                    connection = self._connection_from_bytes(plaintext)
+                    try:
+                        return self._read_snapshot(connection)
+                    finally:
+                        connection.close()
+                except Exception:
+                    raise FinanceRepositoryError(
+                        "FIN003_REVIEW_PENDING_GENERATION_INVALID"
+                    ) from None
+
+            after = read_generation(ciphertext)
+            if not after.review_decisions:
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            record = after.review_decisions[-1]
+            before = FinanceSnapshot.model_validate(
+                {
+                    **after.model_dump(mode="python"),
+                    "revision": after.revision - 1,
+                    "generation": after.generation - 1,
+                    "review_decisions": after.review_decisions[:-1],
+                }
+            )
+            preview = preview_finance_review_persistence(
+                before,
+                review_item_ref=record.review_item_ref,
+                request_ref=record.request_ref,
+                idempotency_ref=record.idempotency_ref,
+                decision=record.decision,
+                compensates_event_ref=record.compensates_event_ref,
+            )
+            if (
+                build_finance_review_decision_record(before, preview) != record
+                or committed.operation != preview.operation
+                or committed.repository_ref != after.repository_ref
+                or committed.request_ref != preview.request_ref
+                or committed.idempotency_ref != preview.idempotency_ref
+                or committed.before_revision != before.revision
+                or committed.after_revision != after.revision
+                or committed.before_snapshot_ref != before.snapshot_ref
+                or committed.after_snapshot_ref != after.snapshot_ref
+                or metadata.generation != after.generation
+                or current.generation not in {before.generation, after.generation}
+                or committed.rollback_ref != FIN003_REVIEW_ROLLBACK_REF
+                or committed.proof_refs
+                != (
+                    preview.preview_ref,
+                    record.event_ref,
+                    FIN003_REVIEW_ROLLBACK_REF,
+                    metadata.ciphertext_ref,
+                )
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            active_ciphertext = self._read_regular(
+                self.encrypted_path, max_bytes=FINANCE_GENERATION_MAX_BYTES
+            )
+            active_ref = ciphertext_ref(active_ciphertext)
+            # A crash can leave the ciphertext promoted before its metadata.
+            # No unrelated generation or rollback from a newer book is admitted.
+            if (
+                active_ref not in {current.ciphertext_ref, metadata.ciphertext_ref}
+                or (
+                    current.generation == after.generation
+                    and active_ref != metadata.ciphertext_ref
+                )
+                or read_generation(active_ciphertext).snapshot_ref
+                not in {before.snapshot_ref, after.snapshot_ref}
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            return preview, committed
+
     def check_integrity(self, *, request_ref: str) -> dict[str, Any]:
         snapshot = self.load_snapshot_read_only(request_ref=request_ref)
         return {
@@ -1423,6 +1527,18 @@ class FinanceRepository:
     ) -> None:
         if not self.pending_commit_path.exists():
             return
+        metadata, committed, ciphertext = self._read_pending_generation()
+        self._promote_pending_generation(
+            metadata=metadata,
+            committed=committed,
+            ciphertext=ciphertext,
+            review_permit=review_permit,
+            review_revalidate=review_revalidate,
+        )
+
+    def _read_pending_generation(
+        self,
+    ) -> tuple[FinanceRepositoryMetadata, FinanceMutationReceipt, bytes]:
         raw = self._read_regular(
             self.pending_commit_path,
             max_bytes=64 * 1024 * 1024,
@@ -1430,7 +1546,7 @@ class FinanceRepository:
         try:
             encoded_header, ciphertext = raw.split(b"\n", 1)
             header = json.loads(encoded_header)
-        except (ValueError, TypeError, json.JSONDecodeError):
+        except (ValueError, TypeError, RecursionError):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_INVALID") from None
         if not isinstance(header, dict) or set(header) != {
             "schema_version",
@@ -1452,6 +1568,17 @@ class FinanceRepository:
             or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
         ):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        return metadata, committed, ciphertext
+
+    def _promote_pending_generation(
+        self,
+        *,
+        metadata: FinanceRepositoryMetadata,
+        committed: FinanceMutationReceipt,
+        ciphertext: bytes,
+        review_permit: FinanceMutationPermit | None,
+        review_revalidate: Callable[[], FinanceMutationPermit] | None,
+    ) -> None:
         if committed.operation == "restore":
             # Recovery must enforce the same history boundary even for a
             # staged restore from an older writer or a partly promoted file.

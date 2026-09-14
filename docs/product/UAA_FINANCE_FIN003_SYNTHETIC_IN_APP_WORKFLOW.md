@@ -40,6 +40,80 @@ mandatory. Read-only inspection cannot recover an interrupted write.
 
 ## Verification and remaining boundaries
 
+### Local setup and shared command path
+
+Build the existing native helper using
+[`tools/macos/matrix-protected-cache-helper/README.md`](../../tools/macos/matrix-protected-cache-helper/README.md).
+Use an owner-only installed copy and its verified SHA-256. Explicitly configure
+the backend process with `UAA_FINANCE_SYNTHETIC_REPOSITORY_DIR` (an absolute,
+private sample-book location), `UAA_FINANCE_NATIVE_HELPER_PATH` (an absolute
+helper location) and `UAA_FINANCE_NATIVE_HELPER_SHA256` (64 lowercase hexadecimal
+characters). Do not reuse a real-data directory. Missing/invalid configuration
+never creates a book. `UAA_FINANCE_SAFE_DISABLE=1` blocks new mutations;
+unrecognized values also fail closed. The native implementation is macOS-only.
+
+Open `/finance` in the authenticated Control Center. Preview sample-book
+creation, confirm it, preview and confirm the fixed two-transaction sample
+import, then inspect a transaction and confirm/reject/defer its review. Every
+change has a separate preview and confirmation; undo appends compensation.
+Reload saved history to inspect durable state. Displayed samples are not a
+real-data promotion or an accounting-completion claim.
+
+The CLI uses the same process configuration and Core implementation:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_finance.py workspace
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_finance.py workspace-prepare --help
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_finance.py workspace-run --help
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_finance.py workspace-refresh --help
+```
+
+Prepared bundles must be retained privately (owner-only regular files, mode
+`0600`) and inspected before `workspace-run --bundle PATH --confirmed`.
+`workspace-refresh --bundle PATH` only re-presents the same review/undo intent;
+it does not confirm, recover, or save. Fresh confirmation remains required.
+Legacy Finance commands and their exact authority contracts remain supported.
+After a browser restart, `workspace` exposes a `pending_review.preparation`
+only when the existing encrypted pending review generation can be fully bound
+to the current book, original request and exact decision/undo. This preparation
+may be retained in a private bundle and separately confirmed using the same
+`workspace-run` command. Inspection never promotes a generation or grants a lease.
+
+### Exact API boundary
+
+| Method and route | Effect and binding |
+|---|---|
+| `GET /control-center/finance/workspace` | Protected read; items/history independently paged at 1–100 records; cannot recover a pending write. |
+| `POST /control-center/finance/workspace/preview` | Non-mutating exact preparation from server configuration and the allowlisted synthetic intent. |
+| `POST /control-center/finance/workspace/refresh` | Non-mutating fresh presentation of the same retained review/undo preparation. |
+| `POST /control-center/finance/workspace/commit` | Exact-confirmed local mutation; durable replay owned by protected Finance receipts, not the global header middleware. |
+
+All POST routes require the current backend revision, instance and truth refs,
+`X-UAA-Control-Center-Mutation-Binding: backend-truth.v1`, and an idempotency
+header matching the request exactly. Commit additionally requires the literal
+`X-UAA-Operator-Confirmed: true`. Local bearer protection, loopback-only CORS,
+no-store responses, a shared 30-per-60-second POST budget, and 128-KiB/32-level
+pre-decode UTF-8 input limits apply. OpenAPI publishes the structured `413`
+response. Classification is `local_sensitive` for reads/preparations and
+`mutating_requires_authority` for commit; side effects are
+`local_dev_workspace_only`, with production blocked.
+
+The browser preserves a confirmed receipt independently of a failed reload.
+An unconfirmed save retains its exact preparation for explicit same-action
+retry, including when the reload fails. A read never silently recovers state.
+After the browser closes, a valid staged review or undo can be re-presented
+from its existing encrypted pending generation. The Core reconstructs and
+checks the predecessor snapshot, exact preview, appended record, receipt and
+payload fingerprint, including partially promoted generations. The UI requires
+`Review interrupted save` and a separate explicit confirmation under current
+authority. No browser storage, second journal or automatic recovery is added.
+Invalid, unrelated or non-review pending data remains outcome-uncertain with
+no retry presentation. An interrupted create/import is not represented as a
+review retry; preserve the original request and use the existing exact CLI
+recovery path where applicable.
+
+### Qualification status
+
 Focused authority/recovery tests, API/schema/manifest tests and rendered desktop
 and narrow-screen journeys are required before qualification. Final publication
 also requires broad verification, an exact-head security scan, independent review,
