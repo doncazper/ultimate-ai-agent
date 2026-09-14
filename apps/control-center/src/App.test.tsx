@@ -3513,6 +3513,7 @@ describe("Web Control Center shell", () => {
       "Today",
       "Messenger",
       "News & Signals",
+      "Finance",
       "Source Inbox",
       "Plans",
       "Work Board",
@@ -3547,11 +3548,12 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 13)).toEqual([
+    expect(labels.slice(0, 14)).toEqual([
       "Start Here",
       "Today",
       "Messenger",
       "News & Signals",
+      "Finance",
       "Source Inbox",
       "Plans",
       "Work Board",
