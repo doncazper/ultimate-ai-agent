@@ -82,13 +82,18 @@ class FounderLoopControlCenterService:
         return self.repository.evidence_timeline()
 
     def agent_loop_thread(self) -> dict[str, Any]:
+        inputs = self.repository.agent_loop_read_inputs()
         return build_agent_loop_thread_read_model(
-            today_summary=self.repository.today_summary(limit=12),
-            actions_inbox=self.repository.actions_inbox(limit=50),
-            evidence_timeline=self.repository.evidence_timeline(limit=50),
-            memory_review=self.repository.memory_review(limit=20),
-            proof_index=self.proof_index(),
-            trust_authority_matrix=self.trust_authority_matrix(),
+            today_summary=inputs["today_summary"],
+            actions_inbox=inputs["actions_inbox"],
+            evidence_timeline=inputs["evidence_timeline"],
+            memory_review=inputs["memory_review"],
+            proof_index=build_control_center_proof_index(
+                today_summary=inputs["proof_today"]
+            ),
+            trust_authority_matrix=build_trust_authority_matrix_read_model(
+                today_summary=inputs["binding_today"]
+            ),
         )
 
     def attach_web_evidence(

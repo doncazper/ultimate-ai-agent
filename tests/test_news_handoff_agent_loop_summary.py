@@ -134,3 +134,124 @@ def test_read_cost_optimization_preserves_exact_approval_validation(
     )
     assert result == (receipt if posture == "valid" else None)
     assert calls == (["action"] if posture == "stale_revision" else ["action", "grant"])
+
+
+@pytest.mark.parametrize("limit", [1, 6])
+def test_action_read_materializes_only_its_returned_window(tmp_path, monkeypatch, limit):
+    import sys
+
+    from ultimate_ai_agent.core.storage import founder_loop as storage_module
+
+    repository = FounderLoopRepository(tmp_path)
+    complete = repository.list_action_inbox(limit=100)
+    expected_refs = [item["item_ref"] for item in complete[:limit]]
+    assert len(complete) > limit
+    original = storage_module._action_envelope_contract_payload
+    materialized = []
+
+    def observe_projection(action):
+        # Source/approval construction can also call this helper. Keep that work
+        # intact and count only final detail projection for the returned window.
+        if sys._getframe(1).f_code is repository.list_action_inbox.__func__.__code__:
+            materialized.append(action["item_ref"])
+        return original(action)
+
+    monkeypatch.setattr(
+        storage_module, "_action_envelope_contract_payload", observe_projection
+    )
+    result = repository.list_action_inbox(limit=limit)
+
+    # Diagnostic cost IDs and source observation times legitimately rotate;
+    # order and identity remain stable across otherwise identical window reads.
+    assert [item["item_ref"] for item in result] == expected_refs
+    assert materialized == [item["item_ref"] for item in result]
+
+
+def test_action_read_still_validates_every_returned_detail(tmp_path, monkeypatch):
+    import sys
+
+    from ultimate_ai_agent.core.storage import founder_loop as storage_module
+
+    repository = FounderLoopRepository(tmp_path)
+    original = storage_module._action_envelope_contract_payload
+
+    def reject_detail(action):
+        if sys._getframe(1).f_code is repository.list_action_inbox.__func__.__code__:
+            raise ValueError("ACTION_DETAIL_VALIDATION_SENTINEL")
+        return original(action)
+
+    monkeypatch.setattr(
+        storage_module, "_action_envelope_contract_payload", reject_detail
+    )
+    with pytest.raises(ValueError, match="ACTION_DETAIL_VALIDATION_SENTINEL"):
+        repository.list_action_inbox(limit=1)
+
+
+def test_agent_loop_compound_read_preserves_projection_and_reads_each_window_once(
+    tmp_path, monkeypatch
+):
+    from copy import deepcopy
+
+    from ultimate_ai_agent.core.control_center.agent_loop import (
+        build_agent_loop_thread_read_model,
+    )
+    from ultimate_ai_agent.core.control_center.founder_loop import (
+        FounderLoopControlCenterService,
+    )
+
+    repository = FounderLoopRepository(tmp_path)
+    service = FounderLoopControlCenterService(repository)
+    # Fix only the volatile diagnostic data for exact assembly parity. Each
+    # consumer receives an independent copy, so mutation is also observable.
+    windows = {limit: repository.today_summary(limit=limit) for limit in (6, 12, 50)}
+    calls = []
+
+    def read_window(*, limit=6):
+        calls.append(limit)
+        return deepcopy(windows[limit])
+
+    monkeypatch.setattr(repository, "today_summary", read_window)
+    expected = build_agent_loop_thread_read_model(
+        today_summary=repository.today_summary(limit=12),
+        actions_inbox=repository.actions_inbox(limit=50),
+        evidence_timeline=repository.evidence_timeline(limit=50),
+        memory_review=repository.memory_review(limit=20),
+        proof_index=service.proof_index(),
+        trust_authority_matrix=service.trust_authority_matrix(),
+    )
+    calls.clear()
+    before = deepcopy(windows)
+    actual = service.agent_loop_thread()
+    assert actual == expected
+    assert sorted(calls) == [6, 12, 50]
+    assert windows == before
+
+    # A subsequent read must rebuild every window and observe new source data,
+    # not reuse a repository, service or cross-request projection cache.
+    windows[12]["plans"][0]["title"] = "Inspect the newly reviewed local item."
+    calls.clear()
+    refreshed = service.agent_loop_thread()
+    assert sorted(calls) == [6, 12, 50]
+    assert refreshed != actual
+    assert "Inspect the newly reviewed local item." in str(refreshed)
+
+
+@pytest.mark.parametrize("failed_limit", [6, 12, 50])
+def test_agent_loop_compound_read_propagates_required_window_failure(
+    tmp_path, monkeypatch, failed_limit
+):
+    from ultimate_ai_agent.core.control_center.founder_loop import (
+        FounderLoopControlCenterService,
+    )
+
+    repository = FounderLoopRepository(tmp_path)
+    original = repository.today_summary
+
+    def read_window(*, limit=6):
+        if limit == failed_limit:
+            raise ValueError("REQUIRED_WINDOW_VALIDATION_SENTINEL")
+        return original(limit=limit)
+
+    monkeypatch.setattr(repository, "today_summary", read_window)
+    with pytest.raises(ValueError, match="REQUIRED_WINDOW_VALIDATION_SENTINEL"):
+        FounderLoopControlCenterService(repository).agent_loop_thread()

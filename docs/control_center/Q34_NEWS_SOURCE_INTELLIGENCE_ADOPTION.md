@@ -79,6 +79,14 @@ Unapproved Agent Loop items check for an approved receipt before rebuilding
 generated action payloads. Approved items still validate their current action
 revision and exact unrevoked grant; no cached approval or shared read cache is
 introduced.
+Action reads admit and order generated sources before projecting only the
+returned window; returned items retain all detail and authority checks.
+The compound Agent Loop read builds its three distinct Today windows once per
+call, preserving their six-, twelve- and fifty-item limits. Evidence, Memory,
+Proof and Trust use those repository-owned inputs through the existing
+projection builders. Nothing is cached across calls or supplied by the browser;
+this read-only assembly is neither an atomic storage snapshot nor authority.
+Standalone route contracts and required-read failure behavior remain intact.
 The backend vault readiness retains its explicit adapter-not-scoped reason,
 and the external-intake description uses bounded safety-compatible wording.
 The existing frontend authority and raw-content validators remain unchanged.
