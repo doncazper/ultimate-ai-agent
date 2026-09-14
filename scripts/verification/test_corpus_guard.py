@@ -130,6 +130,16 @@ HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
         "051afe63218256bdf37ed584630f7e53d65e68d565d4feb04f17e9072511cb14",
     ),
 }
+VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
+    "apps/control-center/package.json": (
+        "024f39703162f9ca5ab991fe91dd861eae75eb6b9b25ce73ec3532743a869884",
+        "af9d83f97dd930c95f27322af53085f32f0dca000c59c7f8702ca975b0e03b9c",
+    ),
+    "apps/control-center/package-lock.json": (
+        "a5210807be0a6b4a0932f87f160c769a8c4c03d7099659436e27621496479b4a",
+        "a662453251a3eea9fb2786a889845842a65e47b93b0bfa542c809f16e641e9c3",
+    ),
+}
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
     "uaa.test_corpus.parameter_dependency_identity.v2"
 )
@@ -12153,6 +12163,34 @@ def _safe_httpx2_security_dependency_alignment_paths(
     return expected_paths
 
 
+def _safe_vitest_security_dependency_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Recognize only the reviewed, full-byte Vitest 4.1.8 to 4.1.11 pair.
+
+    This is not a version-range or package-name exemption. Both exact files
+    must change together; scripts, collection configuration, additional lock
+    files, test declarations, and retirement evidence retain their own gates.
+    A later update requires a new reviewed transition and installed-suite proof.
+    """
+    expected_paths = set(VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return expected_paths
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -12420,10 +12458,21 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             raise TestCorpusGuardError(
                 "changed frontend test script cannot be inventoried safely"
             )
-    for path in FRONTEND_TEST_DEPENDENCY_PATHS & all_changed:
+    frontend_dependency_paths = FRONTEND_TEST_DEPENDENCY_PATHS & all_changed
+    safe_frontend_dependency_paths = _safe_vitest_security_dependency_alignment_paths(
+        current_by_path={
+            path: _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+            for path in frontend_dependency_paths
+        },
+        prior_by_path={
+            path: _base_text(repo, base_sha, path) or ""
+            for path in frontend_dependency_paths
+        },
+    )
+    for path in frontend_dependency_paths:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
-        if current != prior:
+        if current != prior and path not in safe_frontend_dependency_paths:
             raise TestCorpusGuardError(
                 "changed frontend test dependency boundary cannot be inventoried safely"
             )
