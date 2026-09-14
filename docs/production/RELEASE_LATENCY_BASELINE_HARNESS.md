@@ -136,6 +136,24 @@ command. Optional local-model or frontend prerequisites may be `skipped` or
 `blocked` only when the row remains visible and includes reason codes; unavailable
 optional prerequisites must not block local developer report generation.
 
+### Per-evaluation source-text search
+
+Foundation Gate source-text caches belong to one evaluation context, not a
+process-wide or cross-run result cache. For repeated literal searches ending
+in `=True`, each immutable text can retain up to 256 suffix endpoints plus one
+overflow sentinel. Every indexed candidate still uses native full-substring
+matching; this is not a token parser, case normalization, allowlist or new
+rule. If more endpoints exist, the whole-text native search is used instead
+of treating unindexed text as absent. Other needles keep native membership
+semantics, and string subclasses bypass the caches so custom equality, hash
+or string methods cannot affect a cached answer.
+
+Indexes are separate for different texts and lowercase views, and a new
+evaluation rereads changed source. No criterion, policy, approval, authority
+decision, request result or release budget is cached or changed by this
+optimization. Focused tests cover native parity, late matches and overflow,
+Unicode and non-token substrings, subclass behavior and source refresh.
+
 ## Safety
 
 Authority decisions must never be cached, skipped, shortened, or bypassed for
