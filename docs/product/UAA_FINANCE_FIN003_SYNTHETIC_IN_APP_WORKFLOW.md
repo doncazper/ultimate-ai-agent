@@ -108,6 +108,13 @@ Safe-disable makes the sample import unavailable; it does not mean an import
 was recorded. The CLI, Core preparations and OpenAPI share the API-compatible
 8–200-character idempotency shape; a non-callable identifier is rejected before
 preparation or persistence.
+If the server rejects an invocation during non-mutating preparation validation
+(including the browser/server expiry race), the Core marks that invocation
+`not_attempted`. The API preserves this phase distinction; the browser accepts
+only a bounded error response bound to the current backend before enabling
+close/reprepare. Error-code text alone is not proof of the phase. Failures after
+entering confirmation remain unconfirmed, and a rejected retry never settles
+an earlier uncertain attempt or permits its retained identity to be discarded.
 After the browser closes, a valid staged review or undo can be re-presented
 from its existing encrypted pending generation. The Core reconstructs and
 checks the predecessor snapshot, exact preview, appended record, receipt and

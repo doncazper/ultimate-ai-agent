@@ -1626,12 +1626,18 @@ export async function commitCalendarAdoptionRestore(
 
 // Finance keeps its validators and presentation contracts in a focused module.
 // Transport remains here so the existing in-memory bearer never leaves this owner.
+export class FinanceCommitNotAttemptedError extends Error {
+  constructor() { super("FINANCE_COMMIT_NOT_ATTEMPTED"); }
+}
+
 async function readFinanceWorkspaceResponse(
   response: Response,
   binding: BackendTruthReadBinding,
+  commitResponse = false,
 ): Promise<unknown> {
   validateBackendResponseBinding(response.headers, binding);
-  if (!response.ok) throw new Error(`FINANCE_REQUEST_REJECTED_${response.status}`);
+  const rejected = () => new Error(`FINANCE_REQUEST_REJECTED_${response.status}`);
+  if (!response.ok && !commitResponse) throw rejected();
   const reader = response.body?.getReader();
   if (!reader) throw new Error("FINANCE_RESPONSE_UNAVAILABLE");
   const chunks: Uint8Array[] = [];
@@ -1651,7 +1657,25 @@ async function readFinanceWorkspaceResponse(
   const bytes = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    // A malformed rejection is not proof that the write was never attempted.
+    if (!response.ok) throw rejected();
+    throw new Error("FINANCE_RESPONSE_INVALID");
+  }
+  if (!response.ok) {
+    const detail = typeof value === "object" && value !== null && "detail" in value ? value.detail : null;
+    if ([403, 409, 503].includes(response.status) && typeof detail === "object" && detail !== null
+      && "commit_outcome" in detail && detail.commit_outcome === "not_attempted"
+      && "code" in detail && typeof detail.code === "string"
+      && /^(?:FINANCE|FIN00[123])_[A-Z0-9_]{1,100}$/.test(detail.code)) {
+      throw new FinanceCommitNotAttemptedError();
+    }
+    throw rejected();
+  }
+  return value;
 }
 
 export async function readFinanceWorkspace(
@@ -1696,7 +1720,7 @@ export async function postFinanceWorkspace(
       }), binding),
       body: payload, cache: "no-store", signal: controller.signal,
     });
-    return await readFinanceWorkspaceResponse(response, binding);
+    return await readFinanceWorkspaceResponse(response, binding, action === "commit");
   } finally { clearTimeout(timer); }
 }
 

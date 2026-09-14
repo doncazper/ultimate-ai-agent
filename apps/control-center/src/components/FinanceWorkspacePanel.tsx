@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BackendTruthReadBinding } from "../api/client";
+import { FinanceCommitNotAttemptedError, type BackendTruthReadBinding } from "../api/client";
 import {
   commitFinance, loadFinance, prepareFinance, refreshFinance,
   type FinanceCommit, type FinanceDecision, type FinanceIntent,
@@ -121,10 +121,15 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
       setReceipt(saved); setPending(null); setUncertain(false);
       setNotice(saved.receipt.replayed ? "The same saved action was recovered from its receipt. No duplicate change was made." : "Saved to the protected sample book.");
       if (!await reload()) setError("The save receipt is confirmed, but the refreshed view is unavailable. Keep the receipt and reload; do not repeat the action as a new request.");
-    } catch {
+    } catch (failure) {
       if (mounted.current) {
-        setUncertain(true);
-        setError("The save outcome is unconfirmed. Inspect saved history or retry this same reviewed action. A timeout or error does not prove that nothing changed.");
+        if (!uncertain && failure instanceof FinanceCommitNotAttemptedError) {
+          setError("The server rejected this save before any book write. Close this preview and prepare a current one; this attempt did not save a change.");
+        } else {
+          // A rejected retry cannot settle an earlier uncertain attempt.
+          setUncertain(true);
+          setError("The save outcome is unconfirmed. Inspect saved history or retry this same reviewed action. A timeout or error does not prove that nothing changed.");
+        }
         await reload();
       }
     } finally { end(); }

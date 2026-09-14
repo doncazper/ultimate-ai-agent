@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FinanceWorkspacePanel } from "./FinanceWorkspacePanel";
+import { FinanceCommitNotAttemptedError } from "../api/client";
 import { financeBinding, financeCommit, financePreparation, financeSetup, financeView } from "../test/financeWorkspaceFixture";
 
 const api = vi.hoisted(() => ({ loadFinance: vi.fn(), prepareFinance: vi.fn(), commitFinance: vi.fn(), refreshFinance: vi.fn() }));
@@ -68,6 +69,42 @@ describe("Finance workspace", () => {
     expect(screen.getByRole("heading", { name: "Saved receipt" })).toBeInTheDocument();
     expect(screen.queryByText("private read detail")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm review" })).toBeDisabled();
+  });
+  it.each(["create", "import_commit"])("can restart %s when only the server observes preview expiry", async operation => {
+    mockFinanceApi();
+    api.loadFinance.mockResolvedValue(operation === "create" ? financeSetup : {
+      ...financeSetup, status: "ready", revision: 1, snapshot_ref: financeView.snapshot_ref, import_available: true,
+    });
+    api.commitFinance.mockRejectedValueOnce(new FinanceCommitNotAttemptedError());
+    render(<FinanceWorkspacePanel />);
+    const label = operation === "create" ? "Preview sample book" : "Preview sample import";
+    fireEvent.click(await screen.findByRole("button", { name: label }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and save" }));
+    expect(await screen.findByText(/server rejected this save before any book write/)).toBeInTheDocument();
+    const close = screen.getByRole("button", { name: "Close preview without saving" });
+    await waitFor(() => expect(close).toBeEnabled());
+    fireEvent.click(close);
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await screen.findByRole("heading", { name: "Review before saving" });
+    expect(api.prepareFinance).toHaveBeenCalledTimes(2);
+    expect(api.commitFinance).toHaveBeenCalledTimes(1);
+    expect(api.prepareFinance.mock.calls[1][0].idempotency_ref).not.toBe(api.prepareFinance.mock.calls[0][0].idempotency_ref);
+  });
+  it("a rejected retry cannot erase an earlier uncertain save", async () => {
+    mockFinanceApi();
+    api.commitFinance.mockRejectedValueOnce(new Error("unknown save"))
+      .mockRejectedValueOnce(new FinanceCommitNotAttemptedError());
+    render(<FinanceWorkspacePanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm review" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and save" }));
+    const retry = await screen.findByRole("button", { name: "Retry same reviewed save" });
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    await waitFor(() => expect(api.commitFinance).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(retry).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Close preview without saving" })).toBeDisabled();
+    expect(screen.queryByText(/server rejected this save before any book write/)).not.toBeInTheDocument();
+    expect(api.commitFinance.mock.calls[1][0]).toBe(api.commitFinance.mock.calls[0][0]);
   });
   it("retries the exact reviewed payload after an unknown save and failed reload", async () => {
     mockFinanceApi();

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -307,6 +308,103 @@ def test_unexpected_commit_failure_does_not_claim_no_change_or_leak_details(
     assert response.status_code == 503
     assert response.json()["detail"]["commit_outcome"] == "unconfirmed"
     assert "sensitive implementation" not in response.text
+
+
+@pytest.mark.parametrize(
+    "operation", ["create", "import_commit", "review_decision", "review_undo"]
+)
+def test_server_expiry_race_is_not_attempted_before_confirmation(
+    boundary, monkeypatch, operation
+):
+    from ultimate_ai_agent.core.finance import workspace as workspace_module
+
+    client, workspace, _headers = boundary
+    request = _intent()
+    if operation != "create":
+        _commit(boundary, request)
+        request = _intent("import_commit", 1, "import")
+    if operation in {"review_decision", "review_undo"}:
+        _commit(boundary, request)
+        view = workspace.read_view()
+        request = _intent(
+            "review_decision",
+            2,
+            "review",
+            review_item_ref=view.review_items[0].review_item_ref,
+            decision="confirm",
+        )
+    if operation == "review_undo":
+        _commit(boundary, request)
+        view = workspace.read_view()
+        request = _intent(
+            "review_undo",
+            3,
+            "undo",
+            review_item_ref=view.review_items[0].review_item_ref,
+            compensates_event_ref=view.review_items[0].effective_decision_ref,
+        )
+    prepared, headers = _prepare(boundary, request)
+    before = workspace.read_view()
+    expired = datetime.fromisoformat(
+        prepared["bundle"]["preview"]["expires_at"]
+    ) + timedelta(microseconds=1)
+
+    class ServerClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return expired
+
+    def must_not_confirm(*args, **kwargs):
+        pytest.fail("Expired preflight entered the confirming mutation path")
+
+    monkeypatch.setattr(workspace_module, "datetime", ServerClock)
+    monkeypatch.setattr(workspace_module, "confirm_finance_mutation", must_not_confirm)
+    response = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/commit",
+        json=prepared,
+        headers={**headers, "X-UAA-Operator-Confirmed": "true"},
+    )
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]["code"] == "FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT"
+    )
+    assert response.json()["detail"]["commit_outcome"] == "not_attempted"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert workspace.read_view() == before
+    if operation == "create":
+        assert not workspace.configuration.repository_dir.exists()
+        assert not (
+            workspace.configuration.repository_dir.parent / ".uaa-finance-authority"
+        ).exists()
+
+
+@pytest.mark.parametrize("write_first", [False, True])
+def test_preflight_shaped_error_after_confirmation_stays_unconfirmed(
+    boundary, monkeypatch, write_first
+):
+    from ultimate_ai_agent.core.finance import workspace as workspace_module
+
+    client, workspace, _headers = boundary
+    prepared, headers = _prepare(boundary, _intent())
+    confirm = workspace_module.confirm_finance_mutation
+
+    def fail_after_boundary(*args, **kwargs):
+        if write_first:
+            confirm(*args, **kwargs)
+        raise ValueError("FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT")
+
+    monkeypatch.setattr(
+        workspace_module, "confirm_finance_mutation", fail_after_boundary
+    )
+    response = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/commit",
+        json=prepared,
+        headers={**headers, "X-UAA-Operator-Confirmed": "true"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["commit_outcome"] == "unconfirmed"
+    assert workspace.read_view().revision == (1 if write_first else 0)
 
 
 def test_finance_openapi_and_manifest_publish_exact_contracts(boundary):

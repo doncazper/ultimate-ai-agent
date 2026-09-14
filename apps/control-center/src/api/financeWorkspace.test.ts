@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postFinanceWorkspace, setLocalApiBearerForSession } from "./client";
+import { FinanceCommitNotAttemptedError, postFinanceWorkspace, setLocalApiBearerForSession } from "./client";
 import { loadFinance, validateFinanceCommit, validateFinancePreparation, validateFinanceView } from "./financeWorkspace";
 import { financeBinding, financeCommit, financePreparation, financeView } from "../test/financeWorkspaceFixture";
 
@@ -75,5 +75,36 @@ describe("Finance response and transport boundaries", () => {
     vi.stubGlobal("fetch", fetcher);
     await expect(loadFinance(financeBinding)).rejects.toThrow("FINANCE_RESPONSE_TOO_LARGE");
     await expect(loadFinance(financeBinding)).rejects.toThrow("FINANCE_REQUEST_REJECTED_503");
+  });
+  it.each([403, 409, 503])("recognizes a bound not-attempted commit rejection at %s", async status => {
+    const rejected = new Response(JSON.stringify({ detail: {
+      code: "FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT", commit_outcome: "not_attempted",
+      message: "private server diagnostic is never displayed",
+    } }), { status, headers: response({}).headers });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(rejected));
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true))
+      .rejects.toBeInstanceOf(FinanceCommitNotAttemptedError);
+  });
+  it.each([
+    { code: "FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT", commit_outcome: "unconfirmed" },
+    { code: "FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT" },
+    { code: "untrusted raw detail", commit_outcome: "not_attempted" },
+  ])("does not turn an ambiguous rejection into proof of no attempt %j", async detail => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail }), {
+      status: 409, headers: response({}).headers,
+    })));
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true))
+      .rejects.toThrow("FINANCE_REQUEST_REJECTED_409");
+  });
+  it("rejects unbound, oversized and malformed preflight evidence", async () => {
+    const detail = { code: "FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT", commit_outcome: "not_attempted" };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail }), { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail, data: "x".repeat(1_048_576) }), { status: 409, headers: response({}).headers }))
+      .mockResolvedValueOnce(new Response("private invalid json", { status: 409, headers: response({}).headers }));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true)).rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true)).rejects.toThrow("FINANCE_RESPONSE_TOO_LARGE");
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true)).rejects.toThrow("FINANCE_REQUEST_REJECTED_409");
   });
 });

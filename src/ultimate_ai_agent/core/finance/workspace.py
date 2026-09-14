@@ -94,6 +94,13 @@ class _WorkspaceModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
 
+class FinanceWorkspaceCommitNotAttempted(ValueError):
+    """This invocation stopped before entering the confirming mutation path.
+
+    This says nothing about an earlier invocation of the same request.
+    """
+
+
 class FinanceWorkspaceIntent(_WorkspaceModel):
     """No paths, arbitrary input, identity grants or caller-produced evidence."""
 
@@ -588,18 +595,26 @@ class FinanceWorkspace:
     def commit(
         self, preparation: FinanceWorkspacePreparation, *, confirmed: bool
     ) -> dict[str, object]:
-        self._validate_preparation(preparation)
-        now = datetime.now(timezone.utc)
-        if (
-            not preparation.bundle.preview.prepared_at
-            <= now
-            <= preparation.bundle.preview.expires_at
-        ):
-            raise ValueError("FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT")
+        try:
+            self._validate_preparation(preparation)
+            now = datetime.now(timezone.utc)
+            if (
+                not preparation.bundle.preview.prepared_at
+                <= now
+                <= preparation.bundle.preview.expires_at
+            ):
+                raise ValueError("FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT")
+            service = self._require_service()
+        except (OSError, RuntimeError, ValueError) as exc:
+            # Classify by the actual phase, never by an error-code allowlist:
+            # later failures may use the same code after persistence begins.
+            raise FinanceWorkspaceCommitNotAttempted(
+                finance_workspace_error_code(exc)
+            ) from None
         # Return the committed Core receipt independently of subsequent reads.
         # A projection failure cannot erase a successful persistence result.
         result = confirm_finance_mutation(
-            self._require_service(),
+            service,
             preparation.bundle,
             confirmed=confirmed,
             actor_ref="actor-ref:finance:local-workspace-operator",

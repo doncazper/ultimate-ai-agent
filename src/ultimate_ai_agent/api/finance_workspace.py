@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.finance.workspace import (
     FINANCE_WORKSPACE_MAX_BODY_BYTES,
     FINANCE_WORKSPACE_MAX_DEPTH,
     FinanceWorkspace,
+    FinanceWorkspaceCommitNotAttempted,
     FinanceWorkspaceCommitResult,
     FinanceWorkspaceIntent,
     FinanceWorkspacePreparation,
@@ -220,6 +221,8 @@ def commit_workspace(
     try:
         result = workspace.commit(preparation, confirmed=True)
         return FinanceWorkspaceCommitResult.model_validate(result)
+    except FinanceWorkspaceCommitNotAttempted as exc:
+        _raise_workspace_error(exc)
     except (OSError, RuntimeError, ValueError) as exc:
         _raise_workspace_error(exc, commit_attempted=True)
 
