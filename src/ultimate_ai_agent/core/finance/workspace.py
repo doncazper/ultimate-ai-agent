@@ -59,7 +59,7 @@ from ultimate_ai_agent.core.finance.service import (
     finance_target_ref,
 )
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
-from ultimate_ai_agent.core.idempotency_contract import (
+from ultimate_ai_agent.core.safe_contract_text import (
     IDEMPOTENCY_VALUE_PATTERN,
     MAX_IDEMPOTENCY_VALUE_LENGTH,
     MIN_IDEMPOTENCY_VALUE_LENGTH,

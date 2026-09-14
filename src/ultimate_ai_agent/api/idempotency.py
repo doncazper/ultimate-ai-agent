@@ -8,7 +8,7 @@ from ultimate_ai_agent.api.contracts import (
     ApiRouteIdempotencyEnforcement,
     ApiRouteIdempotencyPosture,
 )
-from ultimate_ai_agent.core.idempotency_contract import (
+from ultimate_ai_agent.core.safe_contract_text import (
     IDEMPOTENCY_VALUE_PATTERN,
     MAX_IDEMPOTENCY_VALUE_LENGTH,
     MIN_IDEMPOTENCY_VALUE_LENGTH,

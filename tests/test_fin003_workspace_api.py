@@ -14,7 +14,7 @@ from ultimate_ai_agent.api.finance_workspace import (
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
 from ultimate_ai_agent.api.idempotency import idempotency_value_valid
-from ultimate_ai_agent.core.idempotency_contract import (
+from ultimate_ai_agent.core.safe_contract_text import (
     IDEMPOTENCY_VALUE_PATTERN,
     MAX_IDEMPOTENCY_VALUE_LENGTH,
     MIN_IDEMPOTENCY_VALUE_LENGTH,
