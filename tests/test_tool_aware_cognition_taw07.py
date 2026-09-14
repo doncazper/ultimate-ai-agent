@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from itertools import count
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -782,23 +784,34 @@ def test_holdout_and_authority_fields_fail_closed() -> None:
 
 
 def test_missing_holdout_commitment_blocks_passing_posture() -> None:
-    corpus = _corpus()
-    policy = TAW07HardeningPolicy(
-        candidate_revision_ref=CANDIDATE_REVISION,
-        candidate_manifest_digest_ref=CANDIDATE_DIGEST,
-        development_corpus_digest_ref=corpus.corpus_digest,
-    )
-    bindings, observations, quality = _passing_inputs(corpus)
-    report = evaluate_taw07_hardening(
-        policy=policy,
-        corpus=corpus,
-        legacy_bindings=bindings,
-        observations=observations,
-        quality_observations=quality,
-    )
-    assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
-    assert report.holdout_commitment_present is False
-    assert report.holdout_evidence_verified is False
+    # This checks evidence, not host scheduling. Real deadline guards are
+    # exercised at and beyond every unchanged ceiling in the deadline tests.
+    ticks = count(0, 1_000_000)
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(
+            "ultimate_ai_agent.core.capabilities.retrieval.time",
+            SimpleNamespace(perf_counter_ns=lambda: next(ticks)),
+        )
+        corpus = _corpus()
+        policy = TAW07HardeningPolicy(
+            candidate_revision_ref=CANDIDATE_REVISION,
+            candidate_manifest_digest_ref=CANDIDATE_DIGEST,
+            development_corpus_digest_ref=corpus.corpus_digest,
+        )
+        bindings, observations, quality = _passing_inputs(corpus)
+        report = evaluate_taw07_hardening(
+            policy=policy,
+            corpus=corpus,
+            legacy_bindings=bindings,
+            observations=observations,
+            quality_observations=quality,
+        )
+        assert report.status == HardeningStatus.blocked_missing_acceptance_evidence
+        assert report.holdout_commitment_present is False
+        assert report.holdout_evidence_verified is False
+        assert report.acceptance_evidence_complete is False
+        assert report.failure_reason_refs == ()
+        assert report.independent_promotion_ready is False
 
 
 def test_substituted_legacy_binding_set_is_rejected() -> None:
