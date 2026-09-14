@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import json
 from pathlib import Path
 from threading import Barrier
 from types import SimpleNamespace
 
 import pytest
+from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 from scripts.dev import uaa_finance
 
@@ -19,6 +21,7 @@ from ultimate_ai_agent.core.finance.authority import (
     FinanceAuthorityError,
     FinanceMutationRequest,
     build_exact_finance_lease,
+    build_finance_review_decision_capability_manifest,
 )
 from ultimate_ai_agent.core.finance.crypto import InMemoryFinanceCryptoBackend
 from ultimate_ai_agent.core.finance.import_commit import FIN002_IMPORT_SAFE_DISABLE_REF
@@ -40,6 +43,7 @@ from ultimate_ai_agent.core.finance.review_projection import (
 from ultimate_ai_agent.core.finance.service import (
     FinanceKernelService,
     finance_repository_ref,
+    finance_target_ref,
 )
 
 
@@ -674,10 +678,10 @@ def test_cli_refresh_review_preserves_pending_intent_and_requires_new_confirmati
     path.write_text(json.dumps(bundle))
     recover = FinanceRepository._recover_pending_commit
 
-    def interrupted(repo):
+    def interrupted(repo, **kwargs):
         if repo.pending_commit_path.exists():
             raise InterruptedWrite("FIN003_TEST_PENDING_COMMIT")
-        return recover(repo)
+        return recover(repo, **kwargs)
 
     monkeypatch.setattr(FinanceRepository, "_recover_pending_commit", interrupted)
     with pytest.raises(InterruptedWrite):
@@ -877,10 +881,10 @@ def test_review_retry_cannot_recover_a_different_pending_intent(kernel, monkeypa
     repo = service.repository
     recover = repo._recover_pending_commit
 
-    def interrupted():
+    def interrupted(**kwargs):
         if repo.pending_commit_path.exists():
             raise InterruptedWrite("FIN003_TEST_PENDING_SCOPE")
-        return recover()
+        return recover(**kwargs)
 
     monkeypatch.setattr(repo, "_recover_pending_commit", interrupted)
     with pytest.raises(InterruptedWrite):
@@ -955,3 +959,283 @@ def test_saved_decision_survives_real_import_rank_movement_and_exact_undo(kernel
     )
     assert restored.journal_entries == later.journal_entries
     assert restored.account_balances() == later.account_balances()
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+@pytest.mark.parametrize("boundary", ["pending", "ciphertext", "metadata", "committed"])
+@pytest.mark.parametrize(
+    "entrypoint",
+    [
+        "create",
+        "import_commit",
+        "direct_import",
+        "backup",
+        "restore",
+        "delete",
+        "legacy_load",
+    ],
+)
+def test_pending_review_cannot_be_recovered_by_another_entrypoint(
+    kernel, monkeypatch, operation, boundary, entrypoint
+):
+    service, crypto, now = kernel
+    repo = service.repository
+    if operation == "review_undo":
+        _execute(service, _request(service), now)
+        request = _request(
+            service,
+            decision=None,
+            compensates_event_ref=_snapshot(service).review_decisions[0].event_ref,
+            suffix="pending-undo",
+        )
+    else:
+        request = _request(service)
+    source = _snapshot(service)
+    write = repo._atomic_write
+
+    def interrupted(path, payload):
+        write(path, payload)
+        if (
+            (boundary == "pending" and path == repo.pending_commit_path)
+            or (boundary == "ciphertext" and path == repo.encrypted_path)
+            or (boundary == "metadata" and path == repo.metadata_path)
+            or (
+                boundary == "committed"
+                and path == repo.receipts_path
+                and json.loads(payload.splitlines()[-1])["phase"] == "committed"
+                and json.loads(payload.splitlines()[-1])["request_ref"]
+                == request.request_ref
+            )
+        ):
+            raise InterruptedWrite("FIN003_TEST_PENDING_REVIEW")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(FinanceRepository, "_atomic_write", staticmethod(interrupted))
+        with pytest.raises(InterruptedWrite):
+            _execute(service, request, now)
+    assert repo.pending_commit_path.exists()
+    before = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    }
+    reopened = FinanceKernelService(FinanceRepository(repo.root, crypto_backend=crypto))
+    imported = preview_synthetic_csv_fixture(
+        "fixture-ref:finance/FIN-002:synthetic-csv-duplicate:v1",
+        existing_fingerprint_refs=tuple(
+            ref
+            for record in source.import_commits
+            for ref in record.source_fingerprint_refs
+        ),
+    )
+    fields = {}
+    target = repo.root.parent / "other-operation-backup.enc"
+    if entrypoint in {"import_commit", "direct_import"}:
+        fields = {
+            "fixture_ref": imported.fixture_ref,
+            "import_preview_ref": imported.preview_ref,
+            "import_profile_ref": imported.profile_ref,
+            "import_fixture_manifest_ref": imported.import_fixture_manifest_ref,
+            "import_candidate_refs": tuple(
+                item.candidate_ref for item in imported.candidates
+            ),
+            "import_source_fingerprint_refs": tuple(
+                item.source_fingerprint_ref for item in imported.observations
+            ),
+            "safe_disable_ref": FIN002_IMPORT_SAFE_DISABLE_REF,
+        }
+    elif entrypoint == "create":
+        fields = {"fixture_ref": "fixture-ref:finance/FIN-001:balanced-local-book:v1"}
+    elif entrypoint in {"backup", "restore"}:
+        fields = {"target_ref": finance_target_ref(target)}
+    # The old review permission has expired, while this unrelated operation
+    # receives fresh, valid authority. It must not advance the pending review.
+    later = now + timedelta(hours=1)
+    error = None
+    try:
+        if entrypoint == "legacy_load":
+            reopened.repository.load_snapshot(
+                request_ref="request-ref:finance:other-load"
+            )
+        else:
+            other = FinanceMutationRequest(
+                operation="import_commit"
+                if entrypoint == "direct_import"
+                else entrypoint,
+                repository_ref=request.repository_ref,
+                expected_revision=0 if entrypoint == "create" else source.revision,
+                request_ref="request-ref:finance:other-entrypoint",
+                idempotency_ref="idempotency-ref:finance:other-entrypoint",
+                **fields,
+            )
+            if entrypoint == "direct_import":
+                bound, preview, approvals, lease = _authorize(reopened, other, later)
+
+                def revalidate():
+                    return reopened.gate.authorize(
+                        bound,
+                        preview=preview,
+                        approval_authority=approvals,
+                        active_authority_leases=[lease],
+                        now=later,
+                    )
+
+                reopened.repository.commit_import(
+                    imported, permit=revalidate(), revalidate=revalidate
+                )
+            else:
+                _execute(
+                    reopened,
+                    other,
+                    later,
+                    **(
+                        {"backup_path": target}
+                        if entrypoint in {"backup", "restore"}
+                        else {}
+                    ),
+                )
+    except FinanceRepositoryError as exc:
+        error = str(exc)
+    assert {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    } == before
+    assert error == "FIN003_REVIEW_PENDING_AUTHORITY_REQUIRED"
+    assert not target.exists()
+    receipt = _execute(reopened, request, later)
+    assert receipt.replayed is True
+    assert not repo.pending_commit_path.exists()
+    assert len(_snapshot(reopened).review_decisions) == (
+        2 if operation == "review_undo" else 1
+    )
+    assert _snapshot(reopened).journal_entries == source.journal_entries
+
+
+@pytest.mark.parametrize("operation", ["review_decision", "review_undo"])
+def test_manifest_accepts_an_executable_review_request(kernel, operation):
+    service, _crypto, now = kernel
+    if operation == "review_undo":
+        _execute(service, _request(service), now)
+        request = _request(
+            service,
+            decision=None,
+            compensates_event_ref=_snapshot(service).review_decisions[0].event_ref,
+            suffix="manifest-undo",
+        )
+    else:
+        request = _request(service)
+    manifest = build_finance_review_decision_capability_manifest()
+    validator = Draft202012Validator(manifest.input_schema)
+    payload = request.model_dump(
+        mode="json",
+        include={
+            "operation",
+            "repository_ref",
+            "review_preview",
+            "expected_revision",
+            "request_ref",
+            "idempotency_ref",
+            "safe_disable_ref",
+        },
+    )
+    validator.validate(payload)
+    parsed = FinanceMutationRequest.model_validate(payload)
+    receipt = _execute(service, parsed, now)
+    assert receipt.phase == "committed"
+    output_validator = Draft202012Validator(manifest.output_schema)
+    output = receipt.model_dump(mode="json")
+    output_validator.validate(output)
+    assert not output_validator.is_valid({**output, "operation": "import_commit"})
+    assert not output_validator.is_valid({**output, "phase": "prepared"})
+    assert not output_validator.is_valid({**output, "unreviewed_output": True})
+    for missing in ("expected_revision", "safe_disable_ref"):
+        assert not validator.is_valid(
+            {k: v for k, v in payload.items() if k != missing}
+        )
+    for revision in (None, -1, 0, 1, True, "2", 2.5):
+        assert not validator.is_valid({**payload, "expected_revision": revision})
+    for safe_disable in (None, "safe-disable-ref:finance/FIN-001:synthetic-mutations"):
+        assert not validator.is_valid({**payload, "safe_disable_ref": safe_disable})
+
+
+@pytest.mark.parametrize("revoked", ["approval", "lease", "safe_disable"])
+def test_pending_review_revalidates_current_authority_at_shared_recovery(
+    kernel, monkeypatch, revoked
+):
+    service, crypto, now = kernel
+    request = _request(service)
+    repo = service.repository
+    write = repo._atomic_write
+
+    def interrupted(path, payload):
+        write(path, payload)
+        if path == repo.pending_commit_path:
+            raise InterruptedWrite("FIN003_TEST_PENDING_AUTHORITY")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(FinanceRepository, "_atomic_write", staticmethod(interrupted))
+        with pytest.raises(InterruptedWrite):
+            _execute(service, request, now)
+    before = {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    }
+    reopened = FinanceKernelService(FinanceRepository(repo.root, crypto_backend=crypto))
+    bound, preview, approvals, lease = _authorize(reopened, request, now)
+    calls = 0
+
+    def current_leases():
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            if revoked == "approval":
+                approvals.revoke(
+                    preview.expected_approval_ref, "Synthetic recovery revocation."
+                )
+            if revoked == "lease":
+                return []
+        return [lease]
+
+    with pytest.raises(FinanceAuthorityError):
+        reopened.execute(
+            bound,
+            preview=preview,
+            approval_authority=approvals,
+            lease_provider=current_leases,
+            clock=lambda: now,
+            safe_disable_engaged=lambda: revoked == "safe_disable" and calls == 3,
+        )
+    assert calls == 3
+    assert {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in repo.root.iterdir()
+        if p.is_file()
+    } == before
+    assert _execute(reopened, request, now).replayed is True
+    assert len(_snapshot(reopened).review_decisions) == 1
+
+
+@pytest.mark.parametrize(
+    "canonical",
+    [
+        "docs/kanban/current_board.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+    ],
+)
+def test_canonical_persistence_status_is_verified(monkeypatch, canonical):
+    from scripts import verify_fin003_review_decision_persistence as verifier
+
+    assert verifier.verify() == []
+    read = Path.read_text
+
+    def stale_status(path, *args, **kwargs):
+        if path == verifier.ROOT / canonical:
+            return "FIN-003 preview only; no persistence."
+        return read(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", stale_status)
+    assert (
+        f"FIN003 canonical persistence status missing: {canonical}" in verifier.verify()
+    )

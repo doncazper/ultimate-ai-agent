@@ -145,6 +145,14 @@ def verify() -> list[str]:
     ):
         if phrase not in doc:
             failures.append(f"FIN003 persistence truth phrase missing: {phrase}")
+    for canonical in (
+        "docs/kanban/current_board.md",
+        "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
+    ):
+        if "UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md" not in (
+            ROOT / canonical
+        ).read_text(encoding="utf-8"):
+            failures.append(f"FIN003 canonical persistence status missing: {canonical}")
     return failures
 
 

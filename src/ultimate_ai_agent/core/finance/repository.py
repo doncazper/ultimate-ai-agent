@@ -712,38 +712,9 @@ class FinanceRepository:
                 raise FinanceRepositoryError("FIN003_REVIEW_OPERATION_REQUIRED")
             self._require_permit(permit, FinanceMutationOperation(permit.operation))
             self._require_revalidated(permit, revalidate)
-            if self.pending_commit_path.exists():
-                raw = self._read_regular(
-                    self.pending_commit_path, max_bytes=FINANCE_GENERATION_MAX_BYTES
-                )
-                try:
-                    header = json.loads(raw.split(b"\n", 1)[0])
-                    pending_receipt = FinanceMutationReceipt.model_validate(
-                        header["receipt"]
-                    )
-                except (ValueError, TypeError, KeyError):
-                    raise FinanceRepositoryError(
-                        "FIN003_REVIEW_PENDING_BINDING_INVALID"
-                    ) from None
-                if (
-                    pending_receipt.phase != "committed"
-                    or pending_receipt.operation != permit.operation
-                    or pending_receipt.repository_ref != permit.repository_ref
-                    or pending_receipt.request_ref != permit.request_ref
-                    or pending_receipt.idempotency_ref != permit.idempotency_ref
-                    or pending_receipt.payload_fingerprint_ref
-                    != permit.payload_fingerprint_ref
-                    or pending_receipt.before_revision != permit.expected_revision
-                    or permit.review_preview is None
-                    or pending_receipt.before_snapshot_ref
-                    != permit.review_preview.source_snapshot_ref
-                    or permit.review_preview.preview_ref
-                    not in pending_receipt.proof_refs
-                ):
-                    raise FinanceRepositoryError(
-                        "FIN003_REVIEW_PENDING_BINDING_INVALID"
-                    )
-            self._recover_pending_commit()
+            self._recover_pending_commit(
+                review_permit=permit, review_revalidate=revalidate
+            )
             metadata = self._read_metadata()
             self._require_repository_binding(permit, metadata)
             before = self._load_snapshot_locked(request_ref=permit.request_ref)
@@ -876,6 +847,8 @@ class FinanceRepository:
                 metadata=updated_metadata,
                 ciphertext=ciphertext,
                 committed=committed,
+                review_permit=permit,
+                review_revalidate=revalidate,
             )
             return committed
 
@@ -1437,6 +1410,8 @@ class FinanceRepository:
         metadata: FinanceRepositoryMetadata,
         ciphertext: bytes,
         committed: FinanceMutationReceipt,
+        review_permit: FinanceMutationPermit | None = None,
+        review_revalidate: Callable[[], FinanceMutationPermit] | None = None,
     ) -> None:
         if committed.phase != "committed":
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_RECEIPT_INVALID")
@@ -1453,9 +1428,19 @@ class FinanceRepository:
         self._atomic_write(
             self.pending_commit_path, encoded_header + b"\n" + ciphertext
         )
-        self._recover_pending_commit()
+        if review_permit is None and review_revalidate is None:
+            self._recover_pending_commit()
+        else:
+            self._recover_pending_commit(
+                review_permit=review_permit, review_revalidate=review_revalidate
+            )
 
-    def _recover_pending_commit(self) -> None:
+    def _recover_pending_commit(
+        self,
+        *,
+        review_permit: FinanceMutationPermit | None = None,
+        review_revalidate: Callable[[], FinanceMutationPermit] | None = None,
+    ) -> None:
         if not self.pending_commit_path.exists():
             return
         raw = self._read_regular(
@@ -1487,6 +1472,39 @@ class FinanceRepository:
             or ciphertext_ref(ciphertext) != metadata.ciphertext_ref
         ):
             raise FinanceRepositoryError("FINANCE_PENDING_COMMIT_BINDING_MISMATCH")
+        # Every recovery entry point shares this boundary, including legacy
+        # reads and FIN-001/002 mutations. Their authority cannot finish a
+        # staged FIN-003 decision or undo, even when data is partly promoted.
+        if (
+            committed.operation in {"review_decision", "review_undo"}
+            or review_permit is not None
+        ):
+            if (
+                review_permit is None
+                or review_revalidate is None
+                or review_permit.operation not in {"review_decision", "review_undo"}
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_AUTHORITY_REQUIRED")
+            self._require_permit(
+                review_permit, FinanceMutationOperation(review_permit.operation)
+            )
+            preview = review_permit.review_preview
+            if (
+                committed.operation != review_permit.operation
+                or committed.repository_ref != review_permit.repository_ref
+                or committed.request_ref != review_permit.request_ref
+                or committed.idempotency_ref != review_permit.idempotency_ref
+                or committed.payload_fingerprint_ref
+                != review_permit.payload_fingerprint_ref
+                or committed.before_revision != review_permit.expected_revision
+                or committed.after_revision != committed.before_revision + 1
+                or committed.rollback_ref != review_permit.rollback_ref
+                or preview is None
+                or committed.before_snapshot_ref != preview.source_snapshot_ref
+                or preview.preview_ref not in committed.proof_refs
+            ):
+                raise FinanceRepositoryError("FIN003_REVIEW_PENDING_BINDING_INVALID")
+            self._require_revalidated(review_permit, review_revalidate)
         self._atomic_write(self.encrypted_path, ciphertext)
         self._atomic_write_json(self.metadata_path, metadata.model_dump(mode="json"))
         self._append_receipt_if_missing(committed)

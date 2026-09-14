@@ -46,6 +46,7 @@ from ultimate_ai_agent.core.capabilities.policy import PolicyEngine
 from ultimate_ai_agent.core.finance.repository import (
     FinanceMutationOperation,
     FinanceMutationPermit,
+    FinanceMutationReceipt,
 )
 from ultimate_ai_agent.core.finance.import_commit import (
     FIN002_IMPORT_BUDGET_REF,
@@ -610,6 +611,11 @@ def build_finance_import_commit_capability_manifest() -> CapabilityManifest:
 def build_finance_review_decision_capability_manifest() -> CapabilityManifest:
     """Reuse the protected local posture, with a separate exact FIN-003 scope."""
 
+    output_schema = FinanceMutationReceipt.model_json_schema()
+    output_schema["properties"]["operation"] = {
+        "enum": ["review_decision", "review_undo"]
+    }
+    output_schema["properties"]["phase"] = {"const": "committed"}
     payload = build_finance_import_commit_capability_manifest().model_dump(
         mode="python"
     )
@@ -630,23 +636,23 @@ def build_finance_review_decision_capability_manifest() -> CapabilityManifest:
                 "operation",
                 "repository_ref",
                 "review_preview",
+                "expected_revision",
                 "request_ref",
                 "idempotency_ref",
+                "safe_disable_ref",
             ],
             "properties": {
                 "operation": {"enum": ["review_decision", "review_undo"]},
                 "repository_ref": {"type": "string"},
                 "review_preview": FinanceReviewPersistencePreview.model_json_schema(),
+                "expected_revision": {"type": "integer", "minimum": 2},
                 "request_ref": {"type": "string"},
                 "idempotency_ref": {"type": "string"},
+                "safe_disable_ref": {"const": FIN003_REVIEW_SAFE_DISABLE_REF},
             },
             "additionalProperties": False,
         },
-        output_schema={
-            "type": "object",
-            "required": ["receipt_ref", "proof_refs"],
-            "additionalProperties": False,
-        },
+        output_schema=output_schema,
         input_modes=["safe_refs_only", "current_synthetic_review_preview_only"],
         output_modes=["content_free_receipt"],
         metadata={
