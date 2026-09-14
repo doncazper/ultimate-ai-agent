@@ -4,13 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
 import stat
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,23 +17,23 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
-from ultimate_ai_agent.core.authority import AuthorityLeaseStore  # noqa: E402
-from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
-    issue_authority_lease_with_backend_approval,
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityLeaseStore as AuthorityLeaseStore,
+)
+from ultimate_ai_agent.core.finance.operator_workflow import (  # noqa: E402
+    FinancePreparedMutation,
+    confirm_finance_mutation,
+    finance_authority_state_dir,
 )
 from ultimate_ai_agent.core.finance.authority import (  # noqa: E402
     FinanceMutationPreview,
     FinanceMutationRequest,
-    build_finance_lease_issue_request,
 )
 from ultimate_ai_agent.core.finance.crypto import (  # noqa: E402
     MacOSFinanceCryptoBackend,
 )
-from ultimate_ai_agent.core.finance.models import stable_finance_ref  # noqa: E402
 from ultimate_ai_agent.core.finance.import_commit import (  # noqa: E402
     FIN002_IMPORT_SAFE_DISABLE_REF,
-    FinanceImportCommitProof,
 )
 from ultimate_ai_agent.core.finance.import_preview import (  # noqa: E402
     preview_synthetic_csv_fixture,
@@ -96,24 +94,9 @@ def _service(args: argparse.Namespace) -> FinanceKernelService:
 
 
 def _authority_state_dir(repository_dir: Path) -> Path:
-    canonical = repository_dir.expanduser().resolve(strict=False)
-    digest = hashlib.sha256(str(canonical).encode("utf-8")).hexdigest()
-    parent = canonical.parent / ".uaa-finance-authority"
-    state_dir = parent / digest
-    for directory in (parent, state_dir):
-        try:
-            directory.mkdir(mode=0o700, parents=True, exist_ok=False)
-        except FileExistsError:
-            pass
-        metadata = os.lstat(directory)
-        if (
-            not stat.S_ISDIR(metadata.st_mode)
-            or stat.S_ISLNK(metadata.st_mode)
-            or metadata.st_uid != os.getuid()
-            or metadata.st_mode & 0o077
-        ):
-            raise ValueError("FINANCE_AUTHORITY_STATE_DIR_INVALID")
-    return state_dir
+    """Retain the existing CLI inspection helper over the shared Core location."""
+
+    return finance_authority_state_dir(repository_dir)
 
 
 def _request(args: argparse.Namespace) -> FinanceMutationRequest:
@@ -313,73 +296,15 @@ def command_run(args: argparse.Namespace) -> int:
     if args.safe_disable_engaged:
         raise ValueError("FINANCE_SAFE_DISABLE_ENGAGED")
     request, preview = _read_prepared_bundle(args.bundle)
-    service = _service(args)
-    service._validate_path_bindings(request, backup_path=args.backup_path)
-
-    approvals = LocalApprovalAuthority()
-    approvals.create_request(preview.approval_request)
-    approvals.grant(
-        preview.approval_request.approval_request_id,
-        approved_by_actor_id="actor-ref:finance:local-cli-operator",
-        approval_ref=preview.expected_approval_ref,
-        expires_at=preview.expires_at,
-    )
-    lease_store = AuthorityLeaseStore(_authority_state_dir(args.repository_dir))
-    issue_request = build_finance_lease_issue_request(
-        preview,
-    )
-    lease_binding = {"payload_fingerprint_ref": preview.payload_fingerprint_ref}
-    if request.operation in {"review_decision", "review_undo"}:
-        # Re-running the same bundle cannot revive its revoked/expired lease.
-        # A separately prepared and confirmed bundle can authorize one retry of
-        # the same durable intent without reusing that dead permission.
-        lease_binding["reviewed_authority_preview_ref"] = preview.preview_ref
-    issue_idempotency_ref = stable_finance_ref(
-        "idempotency-ref:finance/FIN-001:lease-issue",
-        lease_binding,
-    )
-    _requirement, _grant, lease, lease_receipt = (
-        issue_authority_lease_with_backend_approval(
-            lease_store,
-            issue_request,
-            idempotency_ref=issue_idempotency_ref,
-            approved_by_actor_id="actor-ref:finance:local-cli-operator",
-        )
-    )
-    if lease is None or lease_receipt.status not in {"issued", "replayed"}:
-        raise ValueError("FINANCE_EXACT_LEASE_ISSUANCE_DENIED")
-    result = service.execute(
-        request,
-        preview=preview,
-        approval_authority=approvals,
-        lease_provider=lambda: lease_store.list_leases(active_only=True),
-        clock=lambda: datetime.now(UTC),
+    result = confirm_finance_mutation(
+        _service(args),
+        FinancePreparedMutation(request=request, preview=preview),
+        confirmed=args.confirmed,
+        actor_ref="actor-ref:finance:local-cli-operator",
         backup_path=args.backup_path,
         safe_disable_engaged=lambda: args.safe_disable_engaged,
     )
-    if isinstance(result, tuple):
-        evidence, receipt = result
-        if isinstance(evidence, FinanceImportCommitProof):
-            payload = {
-                "import_commit": evidence.model_dump(mode="json"),
-                "receipt": receipt.model_dump(mode="json"),
-            }
-        else:
-            payload = {
-                "backup": evidence.model_dump(mode="json"),
-                "receipt": receipt.model_dump(mode="json"),
-            }
-    else:
-        payload = {"receipt": result.model_dump(mode="json")}
-    _json(
-        {
-            "schema_version": "uaa-finance-cli-mutation-result.v1",
-            **payload,
-            "lease_receipt_ref": lease_receipt.receipt_ref,
-            "synthetic_only": True,
-            "real_financial_data_included": False,
-        }
-    )
+    _json(result)
     return 0
 
 

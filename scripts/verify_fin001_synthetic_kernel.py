@@ -118,11 +118,18 @@ def verify() -> list[str]:
     for command in ("status", "prepare", "run", "inspect", "check", "export"):
         if f'"{command}"' not in cli:
             failures.append(f"CLI command missing: {command}")
+    operator_workflow = (
+        ROOT / "src/ultimate_ai_agent/core/finance/operator_workflow.py"
+    ).read_text(encoding="utf-8")
     if (
         "--confirmed" not in cli
         or "--safe-disable-engaged" not in cli
         or "_authority_state_dir" not in cli
-        or "issue_authority_lease_with_backend_approval" not in cli
+        or "confirm_finance_mutation(" not in cli
+        or "issue_authority_lease_with_backend_approval(" not in operator_workflow
+        or "finance_authority_state_dir(service.repository.root)"
+        not in operator_workflow
+        or "safe_disable_engaged=safe_disable_engaged" not in operator_workflow
     ):
         failures.append("CLI confirmation or backend lease approval gate missing")
 
