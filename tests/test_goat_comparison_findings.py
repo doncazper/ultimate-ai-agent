@@ -73,6 +73,8 @@ def test_provenance_replacement_preserves_the_historical_artifact() -> None:
     assert proof["contract_transition"]["score_changed"] is False
     assert proof["contract_transition"]["report_projection_changed"] is False
     assert proof["contract_transition"]["changed_source_refs"] == [
+        "repo-ref:uaa:apps/control-center/package-lock.json",
+        "repo-ref:uaa:apps/control-center/package.json",
         "repo-ref:uaa:apps/control-center/src/App.test.tsx",
         "repo-ref:uaa:pyproject.toml",
         "repo-ref:uaa:scripts/verify_goat_comparison_findings.py",
@@ -161,6 +163,23 @@ def test_provenance_replacement_rejects_substitution(
     target[field] = replacement
 
     with pytest.raises(verifier.VerificationError, match=error):
+        verifier.verify_data(_data(), provenance_replacement=proof)
+
+
+@pytest.mark.parametrize(
+    "omitted_ref",
+    (
+        "repo-ref:uaa:apps/control-center/package-lock.json",
+        "repo-ref:uaa:apps/control-center/package.json",
+    ),
+)
+def test_provenance_replacement_binds_both_dependency_sources(
+    omitted_ref: str,
+) -> None:
+    proof = copy.deepcopy(_provenance_replacement())
+    proof["contract_transition"]["changed_source_refs"].remove(omitted_ref)
+
+    with pytest.raises(verifier.VerificationError, match="source substitution"):
         verifier.verify_data(_data(), provenance_replacement=proof)
 
 

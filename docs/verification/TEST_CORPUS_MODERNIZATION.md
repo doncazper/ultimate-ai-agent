@@ -222,6 +222,17 @@ transitive local dependencies, or its `package.json` `pretest`, `test`, or
 `posttest` lifecycle command, also fail closed. Changes to the Control Center
 frontend dependency manifest or resolved `package-lock.json` or
 `npm-shrinkwrap.json` are part of the same fail-closed collection boundary.
+The bounded Vitest security transition from 4.1.8 to 4.1.11 recognizes only
+the reviewed full-byte prior/current pair for `package.json` and
+`package-lock.json`. Both files must change together. Different bases,
+partial pairs, extra lock files, any changed bytes, lifecycle scripts, and
+collection configuration remain rejected. This transition addresses
+GHSA-82fw-gwwq-j7x9; it is not a standing dependency-update permission.
+Its qualification requires the canonical installed frontend suite, exact-base
+corpus verification with zero removals or retirements, adversarial pair tests,
+exact-head independent/security review, hosted CI, and Supply Chain checks.
+Future rotations require new scoped evidence and review; versions and package
+names alone never establish equivalence.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed
