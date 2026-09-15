@@ -5,23 +5,50 @@ from typing import Any, Iterator
 
 
 class _GateCachedText(str):
-    __slots__ = ("_contains_cache", "_lower_cache")
+    __slots__ = ("_contains_cache", "_lower_cache", "_true_assignment_ends")
 
     def __new__(cls, value: str) -> "_GateCachedText":
         obj = str.__new__(cls, value)
         obj._contains_cache: dict[str, bool] = {}
         obj._lower_cache: "_GateCachedText | None" = None
+        obj._true_assignment_ends: tuple[int, ...] | None = None
         return obj
 
     def __contains__(self, item: object) -> bool:
-        if not isinstance(item, str):
+        # Subclasses may override equality/hash or string helpers. Keep their
+        # native membership behavior without admitting them into either cache.
+        if type(item) is not str:
             return str.__contains__(self, item)
         cache = self._contains_cache
         cached = cache.get(item)
         if cached is None:
-            cached = str.__contains__(self, item)
+            if str.__len__(item) > 5 and str.endswith(item, "=True"):
+                cached = self._contains_true_assignment(item)
+            else:
+                cached = str.__contains__(self, item)
             cache[item] = cached
         return cached
+
+    def _contains_true_assignment(self, item: str) -> bool:
+        # Hundreds of distinct literal flags share this suffix. Enumerate its
+        # endpoints once, then confirm the entire needle with native semantics.
+        # The 257th endpoint is an overflow sentinel: fall back, never truncate
+        # the search and mistake an unindexed occurrence for absence.
+        ends = self._true_assignment_ends
+        if ends is None:
+            positions: list[int] = []
+            start = 0
+            while len(positions) <= 256:
+                position = str.find(self, "=True", start)
+                if position < 0:
+                    break
+                positions.append(position + 5)
+                start = position + 1
+            ends = tuple(positions)
+            self._true_assignment_ends = ends
+        if len(ends) > 256:
+            return str.__contains__(self, item)
+        return any(str.endswith(self, item, 0, end) for end in ends)
 
     def lower(self) -> "_GateCachedText":
         if self._lower_cache is None:
