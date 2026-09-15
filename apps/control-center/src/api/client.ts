@@ -1624,6 +1624,106 @@ export async function commitCalendarAdoptionRestore(
   );
 }
 
+// Finance keeps its validators and presentation contracts in a focused module.
+// Transport remains here so the existing in-memory bearer never leaves this owner.
+export class FinanceCommitNotAttemptedError extends Error {
+  constructor() { super("FINANCE_COMMIT_NOT_ATTEMPTED"); }
+}
+
+async function readFinanceWorkspaceResponse(
+  response: Response,
+  binding: BackendTruthReadBinding,
+  commitResponse = false,
+): Promise<unknown> {
+  validateBackendResponseBinding(response.headers, binding);
+  const rejected = () => new Error(`FINANCE_REQUEST_REJECTED_${response.status}`);
+  if (!response.ok && !commitResponse) throw rejected();
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("FINANCE_RESPONSE_UNAVAILABLE");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > 1_048_576) throw new Error("FINANCE_RESPONSE_TOO_LARGE");
+      chunks.push(part.value);
+    }
+  } finally {
+    await reader.cancel();
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    // A malformed rejection is not proof that the write was never attempted.
+    if (!response.ok) throw rejected();
+    throw new Error("FINANCE_RESPONSE_INVALID");
+  }
+  if (!response.ok) {
+    const detail = typeof value === "object" && value !== null && "detail" in value ? value.detail : null;
+    if ([403, 409, 503].includes(response.status) && typeof detail === "object" && detail !== null
+      && "commit_outcome" in detail && detail.commit_outcome === "not_attempted"
+      && "code" in detail && typeof detail.code === "string"
+      && /^(?:FINANCE|FIN00[123])_[A-Z0-9_]{1,100}$/.test(detail.code)) {
+      throw new FinanceCommitNotAttemptedError();
+    }
+    throw rejected();
+  }
+  return value;
+}
+
+export async function readFinanceWorkspace(
+  binding: BackendTruthReadBinding,
+  itemOffset = 0,
+  historyOffset = 0,
+): Promise<unknown> {
+  if (!API_BASE_POLICY.allowed) throw new Error("FINANCE_LOCAL_API_REQUIRED");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CONTROL_CENTER_READ_TIMEOUT_MS);
+  try {
+    const query = new URLSearchParams({ item_offset: String(itemOffset), history_offset: String(historyOffset), limit: "50" });
+    const response = await fetch(`${API_BASE_POLICY.baseUrl}/control-center/finance/workspace?${query}`, {
+      headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+      cache: "no-store", signal: controller.signal,
+    });
+    return await readFinanceWorkspaceResponse(response, binding);
+  } finally { clearTimeout(timer); }
+}
+
+export async function postFinanceWorkspace(
+  action: "preview" | "refresh" | "commit",
+  body: unknown,
+  idempotencyRef: string,
+  binding: BackendTruthReadBinding,
+  operatorConfirmed = false,
+): Promise<unknown> {
+  if (!API_BASE_POLICY.allowed) throw new Error("FINANCE_LOCAL_API_REQUIRED");
+  if (!["preview", "refresh", "commit"].includes(action)) throw new Error("FINANCE_OPERATION_INVALID");
+  if (action === "commit" && operatorConfirmed !== true) throw new Error("FINANCE_CONFIRMATION_REQUIRED");
+  const payload = JSON.stringify(body);
+  if (new TextEncoder().encode(payload).length > 131_072) throw new Error("FINANCE_REQUEST_TOO_LARGE");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(`${API_BASE_POLICY.baseUrl}/control-center/finance/workspace/${action}`, {
+      method: "POST",
+      headers: withBackendTruthMutationHeaders(withLocalApiAuthHeaders({
+        Accept: "application/json", "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": idempotencyRef,
+        ...(operatorConfirmed ? { "X-UAA-Operator-Confirmed": "true" } : {}),
+      }), binding),
+      body: payload, cache: "no-store", signal: controller.signal,
+    });
+    return await readFinanceWorkspaceResponse(response, binding, action === "commit");
+  } finally { clearTimeout(timer); }
+}
+
 export async function loadNewsSignalsSummary(
   expectedBinding: BackendTruthReadBinding | null = null,
 ): Promise<NewsSignalsSummary> {

@@ -8,6 +8,7 @@ import {
 import { SafeAlert } from "./components/SafeAlert";
 import { MacOSSetupAssistantPanel } from "./components/MacOSSetupAssistantPanel";
 import { NewsSignalsPreviewPanel } from "./components/NewsSignalsPreviewPanel";
+import { FinanceWorkspacePanel } from "./components/FinanceWorkspacePanel";
 import { MessengerShell } from "./components/messenger/MessengerShell";
 import { SkillWorkbench } from "./components/skillWorkbench/SkillWorkbench";
 import { useControlCenterData } from "./hooks/useControlCenterData";
@@ -76,8 +77,23 @@ export function App() {
   if (activePath === "/news") {
     return <NewsControlCenterRoute activePath={activePath} />;
   }
+  if (activePath === "/finance") {
+    return <FinanceControlCenterRoute activePath={activePath} />;
+  }
 
   return <ControlCenterRoute activePath={activePath} />;
+}
+
+function FinanceControlCenterRoute({ activePath }: { activePath: string }) {
+  const truthState = useCriticalBackendTruth(true);
+  const admitted = criticalTruthAllowsRoute(activePath, truthState);
+  const binding = useMemo<BackendTruthReadBinding | null>(() => admitted && truthState.truth ? {
+    snapshotRef: truthState.truth.envelope_integrity_ref,
+    backendRevisionRef: truthState.truth.backend_revision_ref,
+    backendInstanceRef: truthState.truth.backend_instance_ref,
+  } : null, [admitted, truthState.truth?.envelope_integrity_ref, truthState.truth?.backend_revision_ref, truthState.truth?.backend_instance_ref]);
+  if (!admitted) return <CriticalBackendTruthUnavailable activePath={activePath} retry={truthState.retry} state={truthState} surfaceLabel="Finance & Compliance" />;
+  return <BackendTruthMutationBindingProvider binding={binding}><FinanceWorkspacePanel /></BackendTruthMutationBindingProvider>;
 }
 
 function NewsControlCenterRoute({ activePath }: { activePath: string }) {
@@ -1295,6 +1311,7 @@ const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/actions",
   // Reviewed local News intake does not claim complete founder-loop evidence.
   "/news",
+  "/finance",
   "/settings",
   "/start",
   "/setup",

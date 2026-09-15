@@ -23,6 +23,10 @@ from ultimate_ai_agent.api.capability_diagnostics import (
 )
 from ultimate_ai_agent.api.communications import register_communications_routes
 from ultimate_ai_agent.api.control_center import register_control_center_routes
+from ultimate_ai_agent.api.finance_workspace import (
+    FINANCE_WORKSPACE_PATH,
+    register_finance_workspace_routes,
+)
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.chat_workspace import (
     CHAT_WORKSPACE_MUTATION_ROUTE_RE,
@@ -337,6 +341,7 @@ register_provider_setup_routes(app)
 register_governed_runtime_routes(app)
 register_communications_routes(app)
 register_capability_diagnostic_routes(app)
+register_finance_workspace_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()
@@ -829,14 +834,17 @@ async def backend_response_binding_middleware(
         or request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER)
         or request.headers.get(_EXPECTED_BACKEND_TRUTH_HEADER)
     )
-    defer_chat_workspace_to_idempotency_gate = bool(
-        CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(request.url.path)
+    defer_workspace_to_idempotency_gate = bool(
+        (
+            CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(request.url.path)
+            or request.url.path == f"{FINANCE_WORKSPACE_PATH}/commit"
+        )
         and not explicit_binding_context
         and idempotency_failure is not None
     )
     if (
         (requires_mutation_binding or requires_preview_binding)
-        and not defer_chat_workspace_to_idempotency_gate
+        and not defer_workspace_to_idempotency_gate
     ):
         identity = build_identity()
         expected_revision = request.headers.get(
@@ -900,6 +908,11 @@ async def backend_response_binding_middleware(
 
 
 def _requires_control_center_preview_binding(request: Request) -> bool:
+    if request.method.upper() == "POST" and request.url.path in {
+        f"{FINANCE_WORKSPACE_PATH}/preview",
+        f"{FINANCE_WORKSPACE_PATH}/refresh",
+    }:
+        return True
     if (
         request.method.upper() != "POST"
         or request.url.path != "/api/runtime/authority-decisions/preview"
@@ -918,6 +931,8 @@ def _requires_control_center_mutation_binding(request: Request) -> bool:
     if request.method.upper() != "POST":
         return False
     path = request.url.path
+    if path == f"{FINANCE_WORKSPACE_PATH}/commit":
+        return True
     if CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(path) is not None:
         return True
     if (
@@ -944,6 +959,8 @@ async def security_headers_api_middleware(request: Request, call_next: Any) -> A
     if (
         request.url.path == CHAT_WORKSPACE_READ_ROUTE
         or CHAT_WORKSPACE_MUTATION_ROUTE_RE.fullmatch(request.url.path) is not None
+        or request.url.path == FINANCE_WORKSPACE_PATH
+        or request.url.path.startswith(f"{FINANCE_WORKSPACE_PATH}/")
     ):
         response.headers["Cache-Control"] = "no-store"
     return response

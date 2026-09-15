@@ -2,6 +2,10 @@
 
 Current active baseline: **v0.104.0**
 
+Active Finance implementation: [FIN-003 synthetic in-app workflow](product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md)
+documents the shared Core/CLI/API/Control Center slice and its remaining
+recovery and qualification gates. This is not FIN-003 or Q26 completion.
+
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 
 For the front-door product narrative, read UAA as the Founder Command Center:

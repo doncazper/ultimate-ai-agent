@@ -66,6 +66,7 @@ MUTATING_ROUTES = frozenset(
         ("POST", "/control-center/calendar/adoption/restore-commit"),
         ("POST", "/control-center/news-signals/adoption/approval"),
         ("POST", "/control-center/news-signals/adoption/commit"),
+        ("POST", "/control-center/finance/workspace/commit"),
         ("POST", "/control-center/communications/harness/fixture-seed"),
         ("POST", "/control-center/communications/harness/reset"),
         ("POST", "/control-center/communications/harness/start"),
@@ -189,6 +190,7 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "work_board_adoption",
         "calendar_adoption",
         "news_signals_adoption",
+        "finance_workspace",
         "extension_install_disabled_record",
         "founder_loop_exact_action",
         "governed_runtime_pilot",
@@ -205,9 +207,9 @@ TARGETED_RATE_LIMIT_GROUPS = frozenset(
         "web_evidence_product_slice",
     }
 )
-TARGETED_RATE_LIMIT_ROUTE_COUNT = 175
+TARGETED_RATE_LIMIT_ROUTE_COUNT = 178
 TARGETED_RATE_LIMIT_ROUTE_FINGERPRINT = (
-    "d9b6224e9125ce35b45de3804a43da97fd83b5bea726a294e1c6f9c6579cf43c"
+    "0a38ee9cb0c763c2941aa9f939d410a70964e40762ac6b7ffa0635b666a2a5a6"
 )
 
 

@@ -372,6 +372,7 @@
               "communications_matrix_session",
               "calendar_adoption",
               "news_signals_adoption",
+              "finance_workspace",
               "crm_adoption",
               "local_model_validation",
               "memory_feedback",

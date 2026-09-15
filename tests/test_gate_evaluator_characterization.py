@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_CHAT_WORKSPACE_ROUTES,
     CONTROL_CENTER_AUTOCORRECT_ROUTES,
     CONTROL_CENTER_NEWS_SIGNALS_ROUTES,
+    CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES,
     CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
@@ -314,12 +315,22 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/news-signals/adoption/preview",
         "/control-center/news-signals/summary",
     }
+    assert CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES == {
+        "/control-center/finance/workspace",
+        "/control-center/finance/workspace/preview",
+        "/control-center/finance/workspace/refresh",
+        "/control-center/finance/workspace/commit",
+    }
     assert CONTROL_CENTER_PROPOSAL_INTELLIGENCE_ROUTES == {
         "/control-center/proposal-intelligence/extract",
     }
     normalized_control_center_paths = _historical_control_center_path_set(paths)
     assert len(normalized_control_center_paths) == 176
     assert "/control-center/news-signals/summary" not in normalized_control_center_paths
+    assert not (CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES & normalized_control_center_paths)
+    assert "/control-center/finance/unreviewed" in _historical_control_center_path_set(
+        paths | {"/control-center/finance/unreviewed"}
+    )
     assert (
         len(
             _historical_control_center_path_set(
@@ -341,6 +352,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_matrix_rooms_media",
         "control_center_communications_readonly",
         "control_center_news_signals",
+        "control_center_finance_workspace",
         "control_center_proposal_intelligence",
         "control_center_operational_status",
         "control_center_proof_start_trust",

@@ -1,5 +1,10 @@
 # Ultimate AI Agent Docs
 
+The separately admitted [FIN-003 synthetic in-app workflow](product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md)
+tracks protected sample-book setup/import/review/save/reopen/undo through the
+shared Core, CLI, API and Control Center. Recovery and final qualification are
+still in progress; real-data use and Q26 completion remain unclaimed.
+
 Tool-aware cognition and normal-chat quality are governed by
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` and its
 ordered pre-Goat queue record,

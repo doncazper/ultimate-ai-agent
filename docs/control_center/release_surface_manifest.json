@@ -19,6 +19,60 @@
   "production_readiness_claim_enabled": false,
   "routes": [
     {
+      "path": "/finance",
+      "label": "Finance",
+      "group": "Founder Loop",
+      "ui_status": "protected synthetic-only review workflow; real-data use blocked",
+      "status": "partial",
+      "backend_routes": [
+        { "method": "GET", "path": "/control-center/finance/workspace", "operation_id": "get_control_center_finance_workspace", "side_effect_class": "local_dev_workspace_only", "route_classification": "local_sensitive" },
+        { "method": "POST", "path": "/control-center/finance/workspace/preview", "operation_id": "preview_control_center_finance_workspace_mutation", "side_effect_class": "local_dev_workspace_only", "route_classification": "local_sensitive" },
+        { "method": "POST", "path": "/control-center/finance/workspace/refresh", "operation_id": "refresh_control_center_finance_workspace_preparation", "side_effect_class": "local_dev_workspace_only", "route_classification": "local_sensitive" },
+        { "method": "POST", "path": "/control-center/finance/workspace/commit", "operation_id": "commit_control_center_finance_workspace_mutation", "side_effect_class": "local_dev_workspace_only", "route_classification": "mutating_requires_authority" }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "approval_required": true,
+      "proof_lanes": [
+        "tests/test_fin003_workspace.py",
+        "tests/test_fin003_workspace_api.py",
+        "tests/test_fin003_workspace_cli.py",
+        "apps/control-center/src/components/FinanceWorkspacePanel.test.tsx",
+        "apps/control-center/src/api/financeWorkspace.test.ts"
+      ],
+      "blocked_capabilities": [
+        "blocked_backend:finance-real-data-promotion",
+        "missing_backend:finance-categorization-corrections-and-rules",
+        "missing_backend:finance-windows-native-crypto",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "docs/product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md",
+        "src/ultimate_ai_agent/core/finance/workspace.py",
+        "src/ultimate_ai_agent/api/finance_workspace.py",
+        "scripts/dev/uaa_finance.py"
+      ],
+      "owner": "finance-python-core",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:finance:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline. Private desktop and narrow-screen native-helper workflow evidence is retained separately; it does not replace a checked-in regression baseline or final qualification.",
+      "promotion_criteria": [
+        "Complete focused, broad, native-helper, security, independent review, hosted and post-merge proof for this exact synthetic child.",
+        "Keep FIN-003 and Q26 incomplete until all of their accepted product scope is genuinely qualified.",
+        "Require separate exact-scoped acceptance before real data, categorization, multi-computer continuity or additional native platforms."
+      ],
+      "product_language_caveats": [
+        "Python Agent Core owns the fixed synthetic book and durable review history; the UI never grants mutation authority on read or preview.",
+        "Every setup, import, review or undo requires separate exact confirmation, policy, approval, lease, current source and safe-disable validation.",
+        "This founder-private synthetic slice is not a public beta and grants no provider/model, connector, payment, filing or production authority."
+      ]
+    },
+    {
       "path": "/start",
       "label": "Start Here",
       "group": "Founder Loop",

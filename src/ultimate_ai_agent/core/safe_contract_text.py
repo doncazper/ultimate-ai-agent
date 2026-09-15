@@ -4,6 +4,12 @@ import re
 import unicodedata
 
 
+# Shared transport-compatible identifier shape, not durable replay authority.
+MIN_IDEMPOTENCY_VALUE_LENGTH = 8
+MAX_IDEMPOTENCY_VALUE_LENGTH = 200
+IDEMPOTENCY_VALUE_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$"
+
+
 _ABSOLUTE_OR_DOT_PATH_RE = re.compile(
     r"(?:^|[\s:=(\"'])((?:/|~/|\./|\.\./|[A-Za-z]:\\)\S+)"
 )
