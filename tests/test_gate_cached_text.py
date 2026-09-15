@@ -116,3 +116,112 @@ def test_each_evaluation_rechecks_changed_source(tmp_path: Path) -> None:
     assert evaluator._context is not first_context
     assert "subprocess.run(" in evaluator._read(source)
     assert "subprocess.run(" not in first_text
+
+
+@pytest.mark.parametrize("count", [0, 1, 255, 256, 257, 1000])
+def test_true_assignment_index_preserves_late_matches_and_overflow(count: int) -> None:
+    source = "other=True;" * count + "target=True"
+    text = _GateCachedText(source)
+
+    for needle in ("target=True", "absent=True", "other=True", "=True"):
+        for _ in range(2):
+            assert (needle in text) is str.__contains__(source, needle)
+    assert text._true_assignment_ends is not None
+    assert len(text._true_assignment_ends) == min(count + 1, 257)
+
+
+def test_true_assignment_index_matches_native_substrings_without_token_rules() -> None:
+    parts = (
+        "", "a", "a=", "a=Tru", "=True", "\x00", "\u03b1", "\U0001f98a", "\ud800"
+    )
+    needles = (
+        "a=True", "x=True", "=True=True", "a=Truea=True", "\u03b1=True",
+        "\x00=True", "\ud800=True", "a=true", "a=\nTrue",
+    )
+    for prefix in parts:
+        for suffix in parts:
+            source = prefix + "=True" + suffix
+            text = _GateCachedText(source)
+            for needle in needles:
+                assert (needle in text) is str.__contains__(source, needle)
+
+
+def test_true_assignment_index_ignores_needle_subclass_method_overrides() -> None:
+    class MisleadingNeedle(str):
+        def __len__(self) -> int:
+            return 0
+
+        def endswith(self, *args: object) -> bool:
+            return False
+
+    source = "prefix_target=True_suffix"
+    text = _GateCachedText(source)
+    for needle in (MisleadingNeedle("target=True"), MisleadingNeedle("absent=True")):
+        assert (needle in text) is str.__contains__(source, needle)
+    assert text._true_assignment_ends is None
+    assert text._contains_cache == {}
+
+
+def test_true_assignment_empty_index_and_false_results_are_reused() -> None:
+    text = _GateCachedText("no matching suffix")
+    assert "first=True" not in text
+    first_index = text._true_assignment_ends
+    assert first_index == ()
+    assert "second=True" not in text
+    assert "first=True" not in text
+    assert text._true_assignment_ends is first_index
+    assert text._contains_cache == {"first=True": False, "second=True": False}
+
+
+def test_true_assignment_indexes_do_not_cross_text_or_lowercase_boundaries() -> None:
+    first = _GateCachedText("target=True")
+    second = _GateCachedText("other=True")
+    lowered = first.lower()
+    assert "target=True" in first
+    assert "target=True" not in second
+    assert "target=True" not in lowered
+    assert "target=true" in lowered
+    assert first._true_assignment_ends == (11,)
+    assert second._true_assignment_ends == (10,)
+    assert lowered._true_assignment_ends == ()
+
+
+def test_string_subclass_hash_and_equality_cannot_poison_membership_cache() -> None:
+    class UnhashableNeedle(str):
+        __hash__ = None
+
+    class AliasingNeedle(str):
+        def __hash__(self) -> int:
+            return hash("target=True")
+
+        def __eq__(self, other: object) -> bool:
+            return True
+
+    source = "target=True"
+    text = _GateCachedText(source)
+    assert "target=True" in text
+    for needle in (UnhashableNeedle("target=True"), AliasingNeedle("absent=True")):
+        assert (needle in text) is str.__contains__(source, needle)
+    assert text._contains_cache == {"target=True": True}
+
+
+def test_true_assignment_index_refreshes_after_source_changes(tmp_path: Path) -> None:
+    source = tmp_path / "src/ultimate_ai_agent/core/example.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("flag=False\n", encoding="utf-8")
+    criterion = next(
+        item for item in default_foundation_gate_criteria()
+        if item.criterion_id == "shell_execution_absent"
+    )
+    evaluator = FoundationGateEvaluator(tmp_path)
+    assert evaluator.evaluate([criterion]).results[0].status == "passed"
+    before = evaluator._read(source)
+    assert "flag=True" not in before
+    assert before._true_assignment_ends == ()
+
+    source.write_text("flag=True\n", encoding="utf-8")
+    assert evaluator.evaluate([criterion]).results[0].status == "passed"
+    after = evaluator._read(source)
+    assert "flag=True" in after
+    assert after._true_assignment_ends == (9,)
+    assert "flag=True" not in before
