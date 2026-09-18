@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from scripts import verify_tool_aware_cognition_taw07 as verifier
 
+from ultimate_ai_agent.core.capabilities import retrieval
 from ultimate_ai_agent.core.capabilities.chat_shadow import (
     ChatShadowDecision,
     ShadowChatAction,
@@ -92,6 +93,17 @@ def _expected_action(case, state: CatalogState, mode: ReplayMode):
 
 
 def _passing_inputs(corpus: DevelopmentCorpusManifest):
+    # Synthetic evidence setup must not depend on host scheduling. Keep the
+    # real deadline guards active outside this fixture's scoped clock binding.
+    ticks = count(0, 1_000_000)
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(
+            retrieval, "time", SimpleNamespace(perf_counter_ns=lambda: next(ticks))
+        )
+        return _passing_inputs_with_fixture_clock(corpus)
+
+
+def _passing_inputs_with_fixture_clock(corpus: DevelopmentCorpusManifest):
     bindings = tuple(_binding(case.case_ref) for case in corpus.cases)
     by_case = {item.case_ref: item for item in bindings}
     observations = []
@@ -165,6 +177,36 @@ def _passing_inputs(corpus: DevelopmentCorpusManifest):
         if case.category_ref == "category-ref:taw07:ordinary-chat"
     )
     return bindings, tuple(observations), quality
+
+
+def test_passing_inputs_isolates_and_restores_retrieval_clock() -> None:
+    corpus = _corpus()
+    original_clock = retrieval.time
+    expired_ticks = count(0, 301_000_000)
+    expired_clock = SimpleNamespace(perf_counter_ns=lambda: next(expired_ticks))
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(retrieval, "time", expired_clock)
+        bindings, observations, quality = _passing_inputs(corpus)
+        assert len(bindings) == 24
+        assert len(observations) == 240
+        assert len(quality) == 2
+        assert retrieval.time is expired_clock
+        case = next(
+            item
+            for item in corpus.cases
+            if "parameter-ref:taw07:reviewed-read-operation" in item.parameter_refs
+        )
+        with pytest.raises(
+            ValueError, match="compact cache build latency budget exceeded"
+        ):
+            build_taw07_source_decision(
+                case_payload=reconstruct_development_case_payload(
+                    corpus, case.case_ref
+                ),
+                catalog_state=CatalogState.healthy,
+                replay_mode=ReplayMode.candidate_shadow,
+            )
+    assert retrieval.time is original_clock
 
 
 def _evaluate(
