@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
 from scripts import verify_uaa_p1_086_api_boundary_enforcement_tests as p1_086
 from scripts.verification import api_lane
 from scripts.verification.api_routes import (
@@ -16,6 +20,59 @@ from ultimate_ai_agent.api.rate_limits import API_TARGETED_RATE_LIMIT_POLICY_REF
 
 def test_p1_086_api_boundary_enforcement_verifier_passes_current_repo() -> None:
     assert p1_086.verify(api_lane.default_api_verifier_context()) == []
+
+
+@pytest.mark.parametrize("path", [
+    "/control-center/finance/workspace/preview",
+    "/control-center/finance/workspace/refresh",
+])
+@pytest.mark.parametrize(("field", "value"), [
+    ("route_classification", "mutating_requires_authority"),
+    ("side_effect_class", "none"),
+    ("approval_posture", "required_before_mutation_authority"),
+    ("idempotency_required", False),
+    ("idempotency_posture", "not_required_for_route_classification"),
+    ("idempotency_policy_ref", None),
+    ("idempotency_enforcement", "header_shape_gate_only"),
+    ("durable_idempotency_owner_ref", "idempotency-owner:unexpected-replay:v1"),
+])
+def test_finance_preparation_exact_binding_rejects_posture_drift(
+    path: str, field: str, value: object,
+) -> None:
+    context = api_lane.default_api_verifier_context()
+    routes = {key: dict(route) for key, route in context.routes_by_key.items()}
+    routes[("POST", path)][field] = value
+    failures: list[str] = []
+
+    p1_086._append_manifest_route_posture_failures(
+        failures, replace(context, routes_by_key=routes),
+    )
+
+    assert f"POST {path} exact request binding drifted" in failures
+
+
+@pytest.mark.parametrize("key", [
+    ("GET", "/control-center/finance/workspace"),
+    ("POST", "/files/tree/preview"),
+])
+def test_finance_exact_binding_exception_does_not_expand_to_other_routes(
+    key: tuple[str, str],
+) -> None:
+    context = api_lane.default_api_verifier_context()
+    routes = {key: dict(route) for key, route in context.routes_by_key.items()}
+    routes[key].update({
+        "idempotency_required": True,
+        "idempotency_posture": "required_for_exact_request_binding",
+        "idempotency_policy_ref": API_IDEMPOTENCY_AUDIT_POLICY_REF,
+        "idempotency_enforcement": "route_owned_exact_binding",
+    })
+    failures: list[str] = []
+
+    p1_086._append_manifest_route_posture_failures(
+        failures, replace(context, routes_by_key=routes),
+    )
+
+    assert f"{key[0]} {key[1]} non-mutating idempotency posture drifted" in failures
 
 
 def test_openapi_manifest_and_fixture_share_route_identity_and_operation_ids() -> None:

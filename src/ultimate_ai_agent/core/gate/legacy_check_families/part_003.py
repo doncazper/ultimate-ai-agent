@@ -1091,6 +1091,53 @@ class FoundationGateLegacyChecksPart003Mixin:
                     )
                 )
             )
+            is_finance_workspace_state = (
+                path in CONTROL_CENTER_FINANCE_WORKSPACE_ROUTES
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.protected_route
+                and route.blocked_from_production
+                and (
+                    (
+                        route.method == "GET"
+                        and path == "/control-center/finance/workspace"
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and not route.idempotency_required
+                        and not route.rate_limit_targeted
+                        and route.rate_limit_group is None
+                    )
+                    or (
+                        route.method == "POST"
+                        and path in {
+                            "/control-center/finance/workspace/preview",
+                            "/control-center/finance/workspace/refresh",
+                        }
+                        and route.route_classification == "local_sensitive"
+                        and route.approval_posture
+                        == "not_required_for_route_classification"
+                        and route.idempotency_required
+                        and route.idempotency_posture
+                        == "required_for_exact_request_binding"
+                        and route.idempotency_policy_ref
+                        == "idempotency:p1-084:mutating-routes:v1"
+                        and route.idempotency_enforcement == "route_owned_exact_binding"
+                        and route.durable_idempotency_owner_ref is None
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "finance_workspace"
+                    )
+                    or (
+                        route.method == "POST"
+                        and path == "/control-center/finance/workspace/commit"
+                        and route.route_classification == "mutating_requires_authority"
+                        and route.approval_posture
+                        == "required_before_mutation_authority"
+                        and route.idempotency_required
+                        and route.rate_limit_targeted
+                        and route.rate_limit_group == "finance_workspace"
+                    )
+                )
+            )
             is_control_center_runtime_cockpit_read_model = (
                 path in CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES
                 and route.method == "GET"
@@ -1306,6 +1353,7 @@ class FoundationGateLegacyChecksPart003Mixin:
                 and not is_work_board_read_model
                 and not is_calendar_read_model
                 and not is_news_signals_adoption_state
+                and not is_finance_workspace_state
                 and not is_control_center_runtime_cockpit_read_model
                 and not is_communications_read_model
                 and not is_matrix_harness_read_command
@@ -1588,6 +1636,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "postWorkBoardAdoptionEnvelope",
             "postCalendarAdoptionEnvelope",
             "postNewsSignalsAdoptionEnvelope",
+            "postFinanceWorkspace",
             "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
         }

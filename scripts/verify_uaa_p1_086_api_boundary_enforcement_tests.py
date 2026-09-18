@@ -218,7 +218,22 @@ def _append_manifest_route_posture_failures(
         if route["blocked_from_production"] is not True:
             failures.append(f"{key[0]} {key[1]} production block marker drifted")
 
-        if route["route_classification"] == "mutating_requires_authority":
+        if key in {
+            ("POST", "/control-center/finance/workspace/preview"),
+            ("POST", "/control-center/finance/workspace/refresh"),
+        }:
+            if (
+                route["route_classification"] != "local_sensitive"
+                or route["side_effect_class"] != "local_dev_workspace_only"
+                or route["approval_posture"] != "not_required_for_route_classification"
+                or route["idempotency_required"] is not True
+                or route["idempotency_posture"] != "required_for_exact_request_binding"
+                or route["idempotency_policy_ref"] != API_IDEMPOTENCY_AUDIT_POLICY_REF
+                or route["idempotency_enforcement"] != "route_owned_exact_binding"
+                or route["durable_idempotency_owner_ref"] is not None
+            ):
+                failures.append(f"{key[0]} {key[1]} exact request binding drifted")
+        elif route["route_classification"] == "mutating_requires_authority":
             mutating_routes.add(key)
             if route["protected_route"] is not True:
                 failures.append(f"{key[0]} {key[1]} mutating route is not protected")

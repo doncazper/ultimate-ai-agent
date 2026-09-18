@@ -41,6 +41,7 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
             "/control-center/calendar/adoption/restore-commit",
             "/control-center/news-signals/adoption/approval",
             "/control-center/news-signals/adoption/commit",
+            "/control-center/finance/workspace/commit",
         }
     ]
     assert all(
@@ -50,6 +51,20 @@ def test_global_header_gate_is_not_reported_as_durable_deduplication() -> None:
     assert all(
         route["durable_idempotency_owner_ref"] is None
         for route in generic_mutating_routes
+    )
+
+
+def test_exact_finance_commit_reports_protected_repository_receipt_owner() -> None:
+    routes = build_api_manifest(app).model_dump(mode="json")["routes"]
+    finance = [route for route in routes if route["path"].startswith("/control-center/finance/")]
+    assert len(finance) == 4
+    durable = [route for route in finance if route["durable_idempotency_owner_ref"] is not None]
+    assert len(durable) == 1
+    assert durable[0]["method"] == "POST"
+    assert durable[0]["path"] == "/control-center/finance/workspace/commit"
+    assert durable[0]["idempotency_enforcement"] == "route_owned_durable_replay"
+    assert durable[0]["durable_idempotency_owner_ref"] == (
+        "idempotency-owner:finance-protected-repository-receipts:v1"
     )
 
 

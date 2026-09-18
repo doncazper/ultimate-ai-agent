@@ -636,7 +636,13 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
     )
     assert all(
         route["idempotency_required"]
-        is (route["route_classification"] == "mutating_requires_authority")
+        is (
+            route["route_classification"] == "mutating_requires_authority"
+            or (route["method"], route["path"]) in {
+                ("POST", "/control-center/finance/workspace/preview"),
+                ("POST", "/control-center/finance/workspace/refresh"),
+            }
+        )
         for route in manifest["routes"]
     )
     assert all(route["rate_limit_reason"] for route in manifest["routes"])

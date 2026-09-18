@@ -130,8 +130,21 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     required_routes = {
         key for key, route in routes_by_key.items() if route["idempotency_required"] is True
     }
-    if required_routes != EXPECTED_MUTATING_ROUTES:
+    exact_binding_routes = {
+        ("POST", "/control-center/finance/workspace/preview"),
+        ("POST", "/control-center/finance/workspace/refresh"),
+    }
+    if required_routes != EXPECTED_MUTATING_ROUTES | exact_binding_routes:
         failures.append(f"mutating idempotency route set drifted: {sorted(required_routes)}")
+    for key in exact_binding_routes:
+        route = routes_by_key[key]
+        if (
+            route["route_classification"] != "local_sensitive"
+            or route["idempotency_posture"] != "required_for_exact_request_binding"
+            or route["approval_posture"] != "not_required_for_route_classification"
+            or route["idempotency_policy_ref"] != API_IDEMPOTENCY_AUDIT_POLICY_REF
+        ):
+            failures.append(f"{key[0]} {key[1]} exact request binding drifted")
     for key in EXPECTED_MUTATING_ROUTES:
         route = routes_by_key[key]
         if route["route_classification"] != "mutating_requires_authority":

@@ -101,7 +101,11 @@ class FinanceKernelService:
             )
         if request.operation == FinanceMutationOperation.import_commit.value:
             assert request.fixture_ref is not None
-            snapshot = self.repository.load_snapshot(request_ref=request.request_ref)
+            snapshot = self.repository.load_snapshot(
+                request_ref=request.request_ref,
+                mutation_permit=permit,
+                mutation_revalidate=revalidate,
+            )
             existing_fingerprints = tuple(
                 ref
                 for item in snapshot.import_commits

@@ -10,7 +10,7 @@ safe idempotency value. The policy ref is
 
 ## Contract
 
-The current mutating route set is the 136 routes classified as
+The current mutating route set is the 137 routes classified as
 `mutating_requires_authority` in `/api/manifest`.
 
 Requests to those routes without an idempotency header fail with a redacted
@@ -56,6 +56,13 @@ The current manifest therefore reports the global middleware as
 `header_shape_gate_only` and requires `route_owned_durable_replay` before any
 route can claim durable replay. Only exact routes with a named durable receipt
 owner may report that stronger posture.
+
+The FIN-003 Finance workspace preview and refresh routes additionally require
+the same exact header/body binding while remaining `local_sensitive` and
+non-mutating. Their posture is `required_for_exact_request_binding` with
+`route_owned_exact_binding` enforcement, not durable replay or mutation
+authority. The operation-level `x-uaa-idempotency` OpenAPI contract defines
+the at-least-one-alias header schema and alias/body equality requirements.
 
 ## Evidence
 

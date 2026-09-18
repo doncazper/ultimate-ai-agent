@@ -59,6 +59,7 @@ export function AppShell({
     "Today",
     "Messenger",
     "News & Signals",
+    "Finance",
     "Source Inbox",
     "Plans",
     "Work Board",

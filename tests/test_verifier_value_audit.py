@@ -13,6 +13,7 @@ from scripts.verification import verifier_value_audit as audit
 # The Q33 Calendar route group is included in this exact-head audit refresh.
 # Q34 diagnostic infrastructure is explicitly covered below; the stable
 # measurement fixture and historical measurement artifact remain unchanged.
+# FIN-003's shared route-policy dependency is explicitly exercised below too.
 
 def _artifact_payload() -> dict[str, object]:
     return json.loads(audit.MEASUREMENT_PATH.read_text(encoding="utf-8"))
@@ -132,6 +133,21 @@ def test_q34_visual_diagnostics_require_the_retained_visual_verifier() -> None:
         "scripts/verification/resolve_ci_visual_scope.py",
     ):
         assert visual_scope_for_paths((path,)) == "affected"
+
+
+def test_fin003_workspace_is_owned_by_the_shared_api_policy_floor() -> None:
+    from scripts.verification.api_route_policy_floor import (
+        MUTATING_ROUTES,
+        TARGETED_RATE_LIMIT_GROUPS,
+    )
+    from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
+
+    assert ("POST", "/control-center/finance/workspace/commit") in MUTATING_ROUTES
+    assert "finance_workspace" in TARGETED_RATE_LIMIT_GROUPS
+    for action in ("preview", "refresh", "commit"):
+        assert route_rate_limit_group(
+            "POST", f"/control-center/finance/workspace/{action}"
+        ) == "finance_workspace"
 
 
 def test_verifier_value_audit_rejects_duplicate_defect_claims(

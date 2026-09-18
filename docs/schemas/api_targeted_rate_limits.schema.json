@@ -35,6 +35,7 @@
           "communications_matrix_session",
           "calendar_adoption",
           "news_signals_adoption",
+          "finance_workspace",
           "crm_adoption",
           "local_model_validation",
           "memory_feedback",
@@ -54,12 +55,12 @@
           "work_board_adoption"
         ]
       },
-      "minItems": 27,
-      "maxItems": 27,
+      "minItems": 28,
+      "maxItems": 28,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 175
+      "const": 178
     },
     "posture_field": {
       "const": "rate_limit_posture"

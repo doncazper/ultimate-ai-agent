@@ -44,6 +44,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "work_board_adoption": {"max_requests": 30, "window_seconds": 60},
     "calendar_adoption": {"max_requests": 30, "window_seconds": 60},
     "news_signals_adoption": {"max_requests": 30, "window_seconds": 60},
+    "finance_workspace": {"max_requests": 30, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -275,6 +276,11 @@ NEWS_SIGNALS_ADOPTION_POST_PATHS = {
     "/control-center/news-signals/adoption/approval",
     "/control-center/news-signals/adoption/commit",
 }
+FINANCE_WORKSPACE_POST_PATHS = {
+    "/control-center/finance/workspace/preview",
+    "/control-center/finance/workspace/refresh",
+    "/control-center/finance/workspace/commit",
+}
 
 
 @dataclass(frozen=True)
@@ -410,6 +416,8 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "calendar_adoption"
     if normalized_method == "POST" and path in NEWS_SIGNALS_ADOPTION_POST_PATHS:
         return "news_signals_adoption"
+    if normalized_method == "POST" and path in FINANCE_WORKSPACE_POST_PATHS:
+        return "finance_workspace"
     if normalized_method == "POST" and (
         path in GOVERNED_RUNTIME_MUTATING_PATHS
         or (

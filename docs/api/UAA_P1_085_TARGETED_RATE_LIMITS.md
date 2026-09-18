@@ -29,6 +29,7 @@ The runtime gate applies to selected route groups:
 - `governed_runtime_pilot`
 - `extension_install_disabled_record`
 - `local_model_validation`
+- `finance_workspace`
 
 When a targeted local fixed-window limit is reached, the API returns a redacted
 `429` response with:
@@ -68,6 +69,13 @@ No production authority is enabled by this milestone.
 The limiter is a local process backpressure guard. It is not a production abuse
 platform, not authentication, not authorization, not billing, and not a
 multi-user fairness system.
+
+For the exact Finance workspace commit route only, the limiter's pre-handler
+rejection also carries a typed `uaa-finance-workspace-commit-rate-limit.v1`
+envelope with `commit_outcome=not_attempted`. The response binds its method,
+route, policy and Finance group, and retains the backend-identity and loopback
+CORS headers. This proof is scoped to this invocation, not an earlier uncertain
+attempt. Other rate-limit responses do not make a Finance commit-phase claim.
 
 ## Evidence
 
