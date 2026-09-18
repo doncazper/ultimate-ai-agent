@@ -13,18 +13,6 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from ultimate_ai_agent.core.finance_startup import (
-    FINANCE_STARTUP_ENV_NAMES,
-    FINANCE_STARTUP_METADATA_KEY,
-    FINANCE_WORKSPACE_DISABLE_ENV,
-    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
-    FINANCE_WORKSPACE_HELPER_ENV,
-    FINANCE_WORKSPACE_REPOSITORY_ENV,
-    finance_startup_configuration_ref,
-    finance_startup_environment,
-)
-from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
-
 from scripts.macos.build_release_bundle import (
     _launcher_source,
     build_release_bundle,
@@ -111,6 +99,11 @@ def test_launch_replaces_live_runtime_from_superseded_install(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_METADATA_KEY,
+        finance_startup_configuration_ref,
+    )
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     paths.runtime_state.write_text("{}", encoding="utf-8")
@@ -181,6 +174,14 @@ def test_launch_replaces_live_runtime_from_superseded_install(
 def test_packaged_runtime_preserves_only_exact_finance_configuration(
     monkeypatch, tmp_path: Path, disable_value: str
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_WORKSPACE_DISABLE_ENV,
+        FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
+        FINANCE_WORKSPACE_HELPER_ENV,
+        FINANCE_WORKSPACE_REPOSITORY_ENV,
+        finance_startup_environment,
+    )
+
     expected = {
         FINANCE_WORKSPACE_REPOSITORY_ENV: str(tmp_path / "sample-book"),
         FINANCE_WORKSPACE_HELPER_ENV: str(tmp_path / "sample-helper"),
@@ -203,6 +204,14 @@ def test_packaged_runtime_preserves_only_exact_finance_configuration(
 def test_packaged_finance_reuse_preserves_binding_and_stop(
     monkeypatch, tmp_path: Path, capsys, recorded: str
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_ENV_NAMES,
+        FINANCE_STARTUP_METADATA_KEY,
+        FINANCE_WORKSPACE_DISABLE_ENV,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     for name in FINANCE_STARTUP_ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "")
@@ -258,6 +267,15 @@ def test_packaged_finance_reuse_preserves_binding_and_stop(
 def test_packaged_finance_startup_state_binds_actual_child_environment(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_ENV_NAMES,
+        FINANCE_STARTUP_METADATA_KEY,
+        FINANCE_WORKSPACE_DISABLE_ENV,
+        FINANCE_WORKSPACE_REPOSITORY_ENV,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     for name in FINANCE_STARTUP_ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     paths = RuntimePaths(_layout(tmp_path))
@@ -294,6 +312,14 @@ def test_packaged_finance_startup_state_binds_actual_child_environment(
 def test_packaged_unverified_runtime_cannot_lose_ownership_on_launch_or_stop(
     monkeypatch, tmp_path: Path, capsys, condition: str, configuration_changed: bool
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_ENV_NAMES,
+        FINANCE_STARTUP_METADATA_KEY,
+        FINANCE_WORKSPACE_DISABLE_ENV,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     for name in FINANCE_STARTUP_ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     paths = RuntimePaths(_layout(tmp_path))
@@ -346,6 +372,13 @@ def test_packaged_unverified_runtime_cannot_lose_ownership_on_launch_or_stop(
 def test_packaged_proven_dead_runtime_allows_stale_cleanup_and_fresh_start(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_METADATA_KEY,
+        FINANCE_WORKSPACE_DISABLE_ENV,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     stale = {
@@ -387,6 +420,12 @@ def test_packaged_proven_dead_runtime_allows_stale_cleanup_and_fresh_start(
 def test_packaged_identity_loss_between_launch_probes_preserves_owner(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_METADATA_KEY,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     state = {
@@ -412,6 +451,8 @@ def test_packaged_identity_loss_between_launch_probes_preserves_owner(
 def test_packaged_stop_retains_owner_when_identity_is_lost_before_termination(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     state = {"schema_version": macos_runtime.RUNTIME_STATE_SCHEMA, "pid": 111}
@@ -431,6 +472,8 @@ def test_packaged_stop_retains_owner_when_identity_is_lost_before_termination(
 def test_packaged_launch_timeout_retains_unverified_live_child(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
     monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40, "tag": "v0.104.0"})
@@ -456,6 +499,8 @@ def test_packaged_launch_timeout_retains_unverified_live_child(
 def test_packaged_lifecycle_aborts_when_owned_stop_is_unverified(
     monkeypatch, tmp_path: Path, operation: str
 ) -> None:
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     monkeypatch.setattr(macos_runtime, "command_stop", lambda *_args, **_kwargs: 1)
     monkeypatch.setattr(macos_runtime.os, "execv", lambda *_args: pytest.fail("unverified stop must prevent exec"))
@@ -478,6 +523,8 @@ def test_packaged_lifecycle_aborts_when_owned_stop_is_unverified(
 def test_packaged_existing_unreadable_ownership_is_retained_and_reported_unverified(
     monkeypatch, tmp_path: Path, capsys, condition: str
 ) -> None:
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     payload = {
@@ -529,6 +576,8 @@ def test_packaged_existing_unreadable_ownership_is_retained_and_reported_unverif
 def test_packaged_genuinely_absent_ownership_is_reported_stopped(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     assert macos_runtime._load_runtime_state(paths) is None
     monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: None)
@@ -540,6 +589,12 @@ def test_packaged_genuinely_absent_ownership_is_reported_stopped(
 def test_packaged_superseded_runtime_is_retained_if_exit_cannot_be_proven(
     monkeypatch, tmp_path: Path
 ) -> None:
+    from ultimate_ai_agent.core.finance_startup import (
+        FINANCE_STARTUP_METADATA_KEY,
+        finance_startup_configuration_ref,
+    )
+    from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
     paths = RuntimePaths(_layout(tmp_path))
     paths.state_dir.mkdir(parents=True)
     state = {
