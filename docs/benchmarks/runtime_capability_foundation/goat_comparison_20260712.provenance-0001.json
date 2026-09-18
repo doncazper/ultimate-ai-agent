@@ -19,7 +19,7 @@
     "posture": "reachable_ancestor_digest_equivalent"
   },
   "contract_transition": {
-    "current_evaluator_source_digest": "sha256:f9fbad85dfc3eadbd23e76320a1c81b61a929ae51341ff2b11abb09cc86af099",
+    "current_evaluator_source_digest": "sha256:aa038a5289d1fa5f9ce1580596ec4a8471355188c024946988df79fec4379123",
     "current_evaluator_source_file_count": 53,
     "changed_source_refs": [
       "repo-ref:uaa:apps/control-center/package-lock.json",
