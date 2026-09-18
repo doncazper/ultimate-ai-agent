@@ -50,7 +50,10 @@ def build_bootstrap(
         # Keep the rest of Agent Core and its dependencies out of the bootstrap.
         target_core = target_package / "core"
         target_core.mkdir()
-        for name in ("__init__.py", "finance_startup.py"):
+        for name in (
+            "__init__.py", "finance_startup.py", "finance_managed_profile.py",
+            "private_path_security.py",
+        ):
             shutil.copy2(source_package / "core" / name, target_core / name)
         shutil.copytree(
             source_package / "distribution",

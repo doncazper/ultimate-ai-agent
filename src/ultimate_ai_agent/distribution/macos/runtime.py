@@ -29,6 +29,7 @@ from typing import Any, Literal
 
 from ultimate_ai_agent.core.finance_startup import (
     FINANCE_STARTUP_METADATA_KEY,
+    capture_finance_startup_environment,
     finance_startup_configuration_matches,
     finance_startup_configuration_ref,
     finance_startup_environment,
@@ -121,7 +122,7 @@ def command_launch(
     skip_update: bool,
     no_browser: bool,
 ) -> int:
-    finance_environment = finance_startup_environment(os.environ)
+    finance_environment = capture_finance_startup_environment(os.environ)
     state = _load_runtime_state(paths)
     identity_matches = state is not None and _runtime_identity_matches(state)
     if (
@@ -833,7 +834,8 @@ def _runtime_environment(
     allowed["UAA_BUILD_COMMIT"] = source_commit
     allowed.update(
         finance_startup_environment(
-            os.environ if finance_environment is None else finance_environment
+            capture_finance_startup_environment(os.environ)
+            if finance_environment is None else finance_environment
         )
     )
     return allowed
@@ -1007,6 +1009,195 @@ def _parse_timestamp(value: str) -> datetime:
     return parsed
 
 
+def _read_finance_setup_bundle(path: Path) -> bytes:
+    """Read one private CLI preparation through pinned directory descriptors."""
+
+    import stat
+
+    from ultimate_ai_agent.core.finance.managed_setup_authority import (
+        MANAGED_SETUP_PREPARATION_MAX_BYTES,
+        ManagedFinanceSetupError,
+    )
+    from ultimate_ai_agent.core.private_path_security import (
+        _private_identity,
+        _require_no_extended_acl_grants_fd,
+        _require_private_regular_metadata,
+        _require_root_owned_lexical_symlinks,
+        require_no_extended_acl_fd,
+        require_posix_private_path_support,
+    )
+
+    descriptors: list[int] = []
+    bindings: list[tuple[int, str, int, tuple[int, ...]]] = []
+    purpose = "Finance setup preparation"
+
+    def directory_identity(metadata: os.stat_result) -> tuple[int, ...]:
+        return metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_uid
+
+    def check_directory(fd: int) -> os.stat_result:
+        metadata = os.fstat(fd)
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or metadata.st_uid not in {0, os.getuid()}
+            or (metadata.st_mode & 0o022 and not metadata.st_mode & stat.S_ISVTX)
+        ):
+            raise ValueError("invalid directory")
+        _require_no_extended_acl_grants_fd(fd, purpose=purpose)
+        return metadata
+
+    try:
+        require_posix_private_path_support()
+        if (
+            not (os.O_NOFOLLOW and os.O_DIRECTORY and os.O_CLOEXEC and os.O_NONBLOCK)
+            or os.open not in os.supports_dir_fd or os.stat not in os.supports_dir_fd
+            or os.stat not in os.supports_follow_symlinks
+        ):
+            raise ValueError("descriptor validation unavailable")
+        lexical = path if path.is_absolute() else Path.cwd() / path
+        if ".." in lexical.parts or "\x00" in str(lexical) or len(lexical.parts) > 128:
+            raise ValueError("invalid path")
+        _require_root_owned_lexical_symlinks(lexical, purpose=purpose)
+        # Resolve only the already-checked directory aliases, never the leaf.
+        parent = lexical.parent.resolve(strict=True)
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY
+        descriptor = os.open(parent.anchor, flags)
+        descriptors.append(descriptor)
+        check_directory(descriptor)
+        for part in parent.parts[1:]:
+            initial = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+            child = os.open(part, flags, dir_fd=descriptor)
+            descriptors.append(child)
+            opened = check_directory(child)
+            identity = directory_identity(opened)
+            if directory_identity(initial) != identity:
+                raise ValueError("directory changed")
+            bindings.append((descriptor, part, child, identity))
+            descriptor = child
+        initial = os.stat(lexical.name, dir_fd=descriptor, follow_symlinks=False)
+        _require_private_regular_metadata(
+            initial, purpose=purpose, maximum_bytes=MANAGED_SETUP_PREPARATION_MAX_BYTES,
+            exact_bytes=None,
+        )
+        leaf = os.open(
+            lexical.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+            dir_fd=descriptor,
+        )
+        descriptors.append(leaf)
+        opened = os.fstat(leaf)
+        _require_private_regular_metadata(
+            opened, purpose=purpose, maximum_bytes=MANAGED_SETUP_PREPARATION_MAX_BYTES,
+            exact_bytes=None,
+        )
+        if _private_identity(initial) != _private_identity(opened):
+            raise ValueError("file changed")
+        require_no_extended_acl_fd(leaf, purpose=purpose)
+        chunks: list[bytes] = []
+        remaining = MANAGED_SETUP_PREPARATION_MAX_BYTES + 1
+        while remaining:
+            chunk = os.read(leaf, min(remaining, 65536))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) != opened.st_size or not remaining:
+            raise ValueError("file size changed")
+        require_no_extended_acl_fd(leaf, purpose=purpose)
+        if (
+            _private_identity(opened) != _private_identity(os.fstat(leaf))
+            or _private_identity(opened) != _private_identity(os.stat(lexical.name, dir_fd=descriptor, follow_symlinks=False))
+        ):
+            raise ValueError("file changed")
+        for parent_fd, name, child_fd, identity in bindings:
+            if (
+                directory_identity(check_directory(child_fd)) != identity
+                or directory_identity(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != identity
+            ):
+                raise ValueError("directory changed")
+        _require_root_owned_lexical_symlinks(lexical, purpose=purpose)
+        if lexical.parent.resolve(strict=True) != parent:
+            raise ValueError("directory alias changed")
+        return raw
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        raise ManagedFinanceSetupError("FIN003_MANAGED_BUNDLE_FILE_INVALID") from exc
+    finally:
+        for fd in reversed(descriptors):
+            os.close(fd)
+
+
+def command_finance_setup(
+    args: argparse.Namespace, *, source_provider: Any = None,
+    managed_layout: Any = None, environment_provider: Any = None, clock: Any = None,
+) -> int:
+    """Shared installed/repository CLI adapter; injections are internal only."""
+
+    error_mapper = None
+    try:
+        from datetime import timezone
+        from ultimate_ai_agent.core.finance.managed_setup import ManagedFinanceSetupService
+        from ultimate_ai_agent.core.finance.managed_setup_authority import (
+            managed_setup_error_code,
+            parse_managed_setup_preparation,
+            serialize_managed_setup_preparation,
+        )
+        from ultimate_ai_agent.core.finance_managed_profile import default_finance_managed_layout
+        from .installer import verified_installed_finance_helper
+        error_mapper = managed_setup_error_code
+        service = ManagedFinanceSetupService(
+            layout=managed_layout if managed_layout is not None else default_finance_managed_layout(),
+            source_provider=source_provider if source_provider is not None else (
+                lambda: verified_installed_finance_helper(InstallLayout.default())
+            ),
+            environment_provider=environment_provider if environment_provider is not None else (lambda: dict(os.environ)),
+            clock=clock if clock is not None else (lambda: datetime.now(timezone.utc)),
+        )
+        action = args.setup_command
+        if action == "inspect":
+            result = service.inspect()
+        elif action == "prepare":
+            prepared = service.prepare(args.operation, args.request_ref, args.idempotency_ref)
+            if prepared.status == "prepared":
+                print(serialize_managed_setup_preparation(prepared.preparation).decode("ascii"))
+                return 0
+            result = prepared.result
+        else:
+            preparation = parse_managed_setup_preparation(_read_finance_setup_bundle(args.bundle))
+            if action == "refresh":
+                refreshed = service.refresh(preparation)
+                if refreshed.status == "prepared":
+                    print(serialize_managed_setup_preparation(refreshed.preparation).decode("ascii"))
+                    return 0
+                result = refreshed.result
+            elif action == "run":
+                result = service.confirm(preparation, args.confirmed)
+            else:
+                raise ValueError("invalid setup command")
+        print(json.dumps(result.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), allow_nan=False))
+        return 0
+    except Exception as exc:
+        print(json.dumps({
+            "schema_version": "uaa-finance-managed-setup-cli-error.v1",
+            "ok": False, "error_code": (error_mapper(exc) if error_mapper is not None
+                else "FIN003_MANAGED_REQUEST_FAILED"),
+            "raw_input_included": False,
+        }, sort_keys=True, separators=(",", ":")))
+        return 2
+
+
+def add_finance_setup_arguments(parser: argparse.ArgumentParser, action: str) -> None:
+    """The same finite operation grammar is used by both CLI entry points."""
+
+    parser.set_defaults(setup_command=action)
+    if action == "prepare":
+        parser.add_argument("--operation", choices=("enroll", "discard_incomplete"), required=True)
+        parser.add_argument("--request-ref", required=True)
+        parser.add_argument("--idempotency-ref", required=True)
+    if action in {"refresh", "run"}:
+        parser.add_argument("--bundle", type=Path, required=True)
+    if action == "run":
+        parser.add_argument("--confirmed", action="store_true")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="uaa",
@@ -1036,6 +1227,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     local_parser.add_argument("--archive", type=Path, required=True)
     local_parser.add_argument("--descriptor", type=Path, required=True)
     subparsers.add_parser("version", help="Print the installed release tag and package version")
+    setup = subparsers.add_parser("finance-setup", help="Review and enroll one local synthetic Finance profile")
+    setup_commands = setup.add_subparsers(dest="setup_command", required=True)
+    for action in ("inspect", "prepare", "refresh", "run"):
+        add_finance_setup_arguments(setup_commands.add_parser(action), action)
     serve_parser = subparsers.add_parser("_serve")
     serve_parser.add_argument("--port", type=int, required=True)
     serve_parser.add_argument("--nonce", required=True)
@@ -1047,6 +1242,8 @@ def main(argv: list[str] | None = None) -> int:
     paths = RuntimePaths(InstallLayout.default())
     command = args.command or "launch"
     try:
+        if command == "finance-setup":
+            return command_finance_setup(args)
         if command == "launch":
             return command_launch(
                 paths,

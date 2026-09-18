@@ -6,6 +6,9 @@ owned cleanup recorded by its completed queue child. FIN-003 and Q26 remain
 incomplete. The separately admitted
 [normal startup continuation](UAA_FINANCE_FIN003_NORMAL_STARTUP.md) preserves
 explicit configuration through the launchers and guards stale runtime reuse.
+That continuation merged in PR #485. The separately admitted
+[managed setup candidate](UAA_FINANCE_FIN003_MANAGED_SETUP.md) provides confirmed
+helper/profile enrollment before an explicit owned backend restart.
 
 ## Bounded operator journey
 
@@ -17,8 +20,9 @@ disposition, reopen the saved history, and preview and confirm compensating undo
 No HTTP input chooses a repository path, helper executable, encryption backend,
 arbitrary input file, account, provider, or external destination.
 
-The server must explicitly configure the private repository and pinned native
-helper. Missing configuration, unavailable keys, unsupported hardware, stale
+The server needs validated explicit configuration or a separately enrolled
+managed profile for the private repository and pinned native helper. Missing
+configuration, unavailable keys, unsupported hardware, stale
 source, revoked authority and uncertain persistence are visible states. There is
 no in-memory crypto or mock-success fallback in the running application. Native
 availability on one macOS host is not Windows or multi-computer qualification.

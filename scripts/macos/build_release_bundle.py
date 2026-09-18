@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import plistlib
@@ -119,6 +120,11 @@ def build_release_bundle(
             version=version,
             architecture=architecture,
         )
+        _stage_finance_helper(
+            source_root=source_root,
+            app_bundle=app_bundle,
+            architecture=architecture,
+        )
         _remove_python_caches(runtime_python)
         _remove_non_runtime_package_metadata(runtime_python)
         _scan_for_forbidden_durable_text(
@@ -204,6 +210,20 @@ def build_release_bundle(
         encoding="utf-8",
     )
     return receipt
+
+
+def _stage_finance_helper(*, source_root: Path, app_bundle: Path, architecture: str) -> None:
+    # This is a fixed build-time sibling, never a runtime plugin/source selector.
+    specification = importlib.util.spec_from_file_location(
+        "uaa_fixed_finance_helper_builder", Path(__file__).with_name("build_finance_helper.py")
+    )
+    if specification is None or specification.loader is None:
+        raise RuntimeError("fixed Finance helper builder is unavailable")
+    builder = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(builder)
+    builder.stage_finance_helper(
+        source_root=source_root, app_bundle=app_bundle, architecture=architecture
+    )
 
 
 def _validate_build_inputs(
