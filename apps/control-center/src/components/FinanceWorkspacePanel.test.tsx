@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FinanceWorkspacePanel } from "./FinanceWorkspacePanel";
 import { FinanceCommitNotAttemptedError } from "../api/client";
-import type { FinanceOperation, FinanceView } from "../api/financeWorkspace";
+import type { FinanceView } from "../api/financeWorkspace";
 import { financeBinding, financeCommit, financePreparation, financeSetup, financeView } from "../test/financeWorkspaceFixture";
 
 const api = vi.hoisted(() => ({ loadFinance: vi.fn(), prepareFinance: vi.fn(), commitFinance: vi.fn(), refreshFinance: vi.fn() }));
@@ -205,7 +205,7 @@ describe("Finance workspace", () => {
     expect(api.prepareFinance).not.toHaveBeenCalled();
   });
 
-  it.each(["create", "import_commit", "review_decision", "review_undo"] as FinanceOperation[])("reopens a lost %s response using Core recovery and requires a separate confirmation", async operation => {
+  it.each(["create", "import_commit", "review_decision", "review_undo"] as const)("reopens a lost %s response using Core recovery and requires a separate confirmation", async operation => {
     mockFinanceApi();
     const initial: FinanceView = operation === "create" ? financeSetup : operation === "import_commit" ? {
       ...financeSetup, status: "ready", revision: 1, snapshot_ref: financeView.snapshot_ref, import_available: true,
