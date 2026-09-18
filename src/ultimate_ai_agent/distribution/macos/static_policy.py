@@ -33,6 +33,61 @@ _EXPECTED_SOURCE_SHA256 = {
     ),
 }
 
+# Runtime imports execute this parent initializer and the delegated transport.
+# These dependencies receive no adapter fragment exemptions: both exact source
+# integrity and the closed, pure implementation below must remain reviewed.
+MACOS_DISTRIBUTION_EXACT_DEPENDENCY_FILES = frozenset(
+    {
+        "src/ultimate_ai_agent/core/__init__.py",
+        "src/ultimate_ai_agent/core/finance_startup.py",
+    }
+)
+_EXPECTED_DEPENDENCY_SHA256 = {
+    "src/ultimate_ai_agent/core/__init__.py": (
+        "471b6cc8feea1f27f0eb6b46f7251209d7801999c40bf87217d3701b2632380e"
+    ),
+    "src/ultimate_ai_agent/core/finance_startup.py": (
+        "4bfc002260b232081244bfdbd7767b0c842cf173eb9691c1529d922161a0e233"
+    ),
+}
+_REVIEWED_FINANCE_STARTUP_IMPLEMENTATION = r'''
+from __future__ import annotations
+from collections.abc import Mapping
+import hashlib
+import json
+
+FINANCE_WORKSPACE_REPOSITORY_ENV = "UAA_FINANCE_SYNTHETIC_REPOSITORY_DIR"
+FINANCE_WORKSPACE_HELPER_ENV = "UAA_FINANCE_NATIVE_HELPER_PATH"
+FINANCE_WORKSPACE_HELPER_DIGEST_ENV = "UAA_FINANCE_NATIVE_HELPER_SHA256"
+FINANCE_WORKSPACE_DISABLE_ENV = "UAA_FINANCE_SAFE_DISABLE"
+FINANCE_STARTUP_ENV_NAMES = (
+    FINANCE_WORKSPACE_REPOSITORY_ENV,
+    FINANCE_WORKSPACE_HELPER_ENV,
+    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
+    FINANCE_WORKSPACE_DISABLE_ENV,
+)
+FINANCE_STARTUP_METADATA_KEY = "finance_startup_configuration_ref"
+_IDENTITY_DOMAIN = b"uaa:finance-startup-configuration:v1\x00"
+
+def finance_startup_environment(environ: Mapping[str, str]) -> dict[str, str]:
+    return {name: environ[name] for name in FINANCE_STARTUP_ENV_NAMES if name in environ}
+
+def finance_startup_configuration_ref(environ: Mapping[str, str]) -> str:
+    encoded = json.dumps(
+        finance_startup_environment(environ),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("ascii")
+    digest = hashlib.sha256(_IDENTITY_DOMAIN + encoded).hexdigest()
+    return f"configuration-ref:finance-startup:sha256:{digest}"
+
+def finance_startup_configuration_matches(
+    recorded_ref: object, environ: Mapping[str, str]
+) -> bool:
+    return isinstance(recorded_ref, str) and recorded_ref == finance_startup_configuration_ref(environ)
+'''
+
 _SOCKET_DOT = "socket" + "."
 _SOCKET_SOCKET = _SOCKET_DOT + "socket"
 _IMPORT_SUBPROCESS = "import " + "subprocess"
@@ -606,7 +661,7 @@ def macos_distribution_static_fragment_allowed(
 
 
 def macos_distribution_policy_failures(root: Path) -> list[str]:
-    """Validate every required adapter under a repository root."""
+    """Validate every required adapter and its exact delegated dependencies."""
 
     lane_root = root / "src" / "ultimate_ai_agent" / "distribution" / "macos"
     if not lane_root.exists():
@@ -620,6 +675,44 @@ def macos_distribution_policy_failures(root: Path) -> list[str]:
             failures.append(f"{rel_path}: required distribution adapter is unavailable")
             continue
         failures.extend(macos_distribution_adapter_policy_failures(rel_path, source))
+    for rel_path in sorted(MACOS_DISTRIBUTION_EXACT_DEPENDENCY_FILES):
+        try:
+            source = (root / rel_path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeError):
+            failures.append(f"{rel_path}: required distribution dependency is unavailable")
+            continue
+        failures.extend(_distribution_dependency_policy_failures(rel_path, source))
+    return failures
+
+
+def _distribution_dependency_policy_failures(rel_path: str, source: str) -> list[str]:
+    failures: list[str] = []
+    source_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    if source_sha256 != _EXPECTED_DEPENDENCY_SHA256[rel_path]:
+        failures.append(f"{rel_path}: reviewed dependency source digest changed")
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return failures + [f"{rel_path}: distribution dependency is not valid Python"]
+
+    # Ignore only literal module/function docstrings. All executable statements,
+    # imports, annotations, defaults, decorators, calls and payload selection
+    # remain part of the closed shape, independent of the source digest pin.
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.Module, ast.FunctionDef))
+            and ast.get_docstring(node) is not None
+        ):
+            node.body.pop(0)
+    reviewed_source = (
+        _REVIEWED_FINANCE_STARTUP_IMPLEMENTATION
+        if rel_path.endswith("/finance_startup.py")
+        else ""
+    )
+    if ast.dump(tree, include_attributes=False) != ast.dump(
+        ast.parse(reviewed_source), include_attributes=False
+    ):
+        failures.append(f"{rel_path}: reviewed pure dependency implementation changed")
     return failures
 
 

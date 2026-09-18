@@ -18,6 +18,12 @@ configuration requires an explicit owned stop and restart. A successful health
 response alone cannot establish that binding. This metadata is a reuse guard,
 not an authorization token or proof against a compromised local account.
 
+The self-contained installer bootstrap includes the exact standard-library
+startup helper and its Core package initializer. It does not include the Finance
+implementation or require third-party packages to import the installer runtime.
+The distribution policy pins these delegated source dependencies separately;
+they receive no distribution adapter scan exemptions.
+
 This child does not provision the native helper, initialize books or keys,
 select real data, grant approvals, change API contracts, or qualify the complete
 Finance product. Ordinary first-use provisioning and remaining Finance
@@ -66,6 +72,7 @@ initialize a book or replay an interrupted save.
 Required evidence includes exact allowlist and empty-value tests, fresh spawn
 metadata, matching reuse, missing/changed identity refusal, preserved stopping,
 Core configuration/safe-disable tests, static distribution guardrails,
+isolated copied-bootstrap execution, delegated dependency tamper rejection,
 documentation integrity, final broad qualification, independent exact-head
 review, security review, hosted checks, merge proof, and owned cleanup.
 Checks are planned until their results are recorded.

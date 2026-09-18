@@ -46,6 +46,12 @@ def build_bootstrap(
         target_package = purelib / "ultimate_ai_agent"
         target_package.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_package / "__init__.py", target_package / "__init__.py")
+        # The installed runtime uses this exact stdlib-only startup closure.
+        # Keep the rest of Agent Core and its dependencies out of the bootstrap.
+        target_core = target_package / "core"
+        target_core.mkdir()
+        for name in ("__init__.py", "finance_startup.py"):
+            shutil.copy2(source_package / "core" / name, target_core / name)
         shutil.copytree(
             source_package / "distribution",
             target_package / "distribution",
