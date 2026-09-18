@@ -53,7 +53,20 @@ Enclosing static suite titles are part of each frontend identity, and
 comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data and imported parameter-ID helpers are bound to
 the exact referenced declaration and its recursively resolvable local
-dependencies. Dynamic parameter-module imports, including calls through assigned
+dependencies. Application implementation code is an execution subject rather
+than test inventory. Baseline runtime analysis may reuse current application
+source only after proving the relevant revision-specific import closures are
+collection-neutral. New application dependencies must belong to the successfully
+proven current closure of an existing substituted application module; an absent
+baseline file alone never permits reuse. Recognized execution-abort and dynamic
+import forms cannot be hidden, and test-owned helpers and parameter/decorator
+data retain their baseline bindings. Source and import-resolution observations,
+including missing lookups, are revalidated before accepting the comparison.
+This normalization does not authorize test retirement, new collection hooks,
+ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
+guard's recognized static syntax and import forms.
+
+Dynamic parameter-module imports, including calls through assigned
 import-function aliases, and module-executed dynamic Python code through `exec`,
 `eval`, `compile`, `__import__`, or bounded aliases fail closed. Changes to an
 imported initializer or ID helper, including one in

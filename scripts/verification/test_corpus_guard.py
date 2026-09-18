@@ -3549,6 +3549,8 @@ def _python_import_closure_is_collection_neutral(
     module: str,
     source: str,
     import_source_resolver: Callable[[str], str | None],
+    *,
+    resolved_sources: dict[str, str] | None = None,
 ) -> bool:
     """Prove that a local import closure cannot abort test collection."""
 
@@ -3565,12 +3567,25 @@ def _python_import_closure_is_collection_neutral(
             cache,
         )
     cache_key = (module, hashlib.sha256(source.encode("utf-8")).hexdigest())
-    if cache_key in cache:
+    if cache_key in cache and resolved_sources is None:
         return bool(cache[cache_key])
+
+    dependency_cache = getattr(
+        import_source_resolver, "_uaa_collection_neutral_dependencies", None
+    )
+    if dependency_cache is None:
+        dependency_cache = {}
+        setattr(
+            import_source_resolver,
+            "_uaa_collection_neutral_dependencies",
+            dependency_cache,
+        )
 
     pending = [(module, source)]
     expanded_modules: set[str] = set()
     visited_cache_keys: set[tuple[str, str]] = set()
+    captured_sources: dict[str, str] = {}
+    captured_dependencies: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {}
     while pending:
         current_module, current_source = pending.pop()
         if current_module in expanded_modules:
@@ -3583,13 +3598,17 @@ def _python_import_closure_is_collection_neutral(
         if cached_posture is False:
             cache[cache_key] = False
             return False
-        if cached_posture is True:
+        if cached_posture is True and resolved_sources is None:
             continue
         expanded_modules.add(current_module)
         visited_cache_keys.add(current_cache_key)
+        captured_sources[current_module] = current_source
         if len(expanded_modules) > MAX_PYTHON_DEPENDENCY_MODULES:
             cache[cache_key] = False
             return False
+        if cached_posture is True and current_cache_key in dependency_cache:
+            pending.extend(dependency_cache[current_cache_key])
+            continue
         source_text = (
             current_source.split("\n", 1)[1]
             if current_source.startswith("path=")
@@ -3618,6 +3637,7 @@ def _python_import_closure_is_collection_neutral(
             cache[cache_key] = False
             return False
 
+        resolved_dependencies: list[tuple[str, str]] = []
         module_parts = current_module.split(".")
         for index in range(1, len(module_parts)):
             package_module = ".".join(module_parts[:index])
@@ -3625,7 +3645,7 @@ def _python_import_closure_is_collection_neutral(
             if package_source is not None and package_source.split("\n", 1)[
                 0
             ].endswith("/__init__.py"):
-                pending.append((package_module, package_source))
+                resolved_dependencies.append((package_module, package_source))
 
         lazy_export_modules = _python_lazy_export_modules(
             tree,
@@ -3670,11 +3690,161 @@ def _python_import_closure_is_collection_neutral(
                 None,
             )
             if resolved_import is not None:
-                pending.append(resolved_import)
+                resolved_dependencies.append(resolved_import)
+        captured_dependencies[current_cache_key] = tuple(resolved_dependencies)
+        pending.extend(resolved_dependencies)
 
+    dependency_cache.update(captured_dependencies)
     for visited_cache_key in visited_cache_keys:
         cache[visited_cache_key] = True
+    if resolved_sources is not None:
+        resolved_sources.update(captured_sources)
     return True
+
+
+def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
+    """Conservatively screen new execution dependencies, including dormant bodies."""
+
+    source_path, source_text = source.split("\n", 1)
+    tree = ast.parse(source_text, filename=source_path.removeprefix("path="))
+    relative_package = module
+    if not source_path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    nodes = tuple(ast.walk(tree))
+    imported_modules = _python_import_modules(tree, relative_package=relative_package)
+    # New execution subjects cannot carry test machinery. Refuse even dormant
+    # imports rather than try to prove arbitrary aliases, exception references,
+    # fixture factories, or collection hooks harmless. Existing dependencies
+    # retain their original identity rules outside this new admission proof.
+    framework_modules = {"pytest", "_pytest", "unittest"}
+    dynamic_modules = _dynamic_python_import_modules(
+        tree,
+        imported_modules,
+        relative_package=relative_package,
+        lazy_export_modules=(
+            *_python_lazy_export_modules(tree, relative_package=relative_package),
+            *_python_grouped_lazy_export_modules(tree),
+        ),
+    )
+    if any(
+        candidate.split(".", 1)[0] in framework_modules
+        for candidate in (
+            *(candidate for candidates in imported_modules.values() for candidate in candidates),
+            *dynamic_modules,
+        )
+    ) or any(
+        isinstance(node, ast.ImportFrom)
+        and (node.module or "").split(".", 1)[0] in framework_modules
+        for node in nodes
+    ):
+        return True
+    if any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("pytest_")
+        for node in nodes
+    ):
+        return True
+    flattened = ast.Module(
+        body=[node for node in nodes if isinstance(node, ast.stmt)],
+        type_ignores=[],
+    )
+    for alias in _pytest_module_aliases(flattened):
+        imported_modules[alias] = tuple(
+            dict.fromkeys((*imported_modules.get(alias, ()), "pytest"))
+        )
+    namespace_aliases = {
+        name
+        for name, candidates in imported_modules.items()
+        if {"unittest", "unittest.case"}.intersection(candidates)
+    }
+    for node in (
+        *nodes,
+        *(ast.Name(id=name, ctx=ast.Load()) for name in imported_modules),
+    ):
+        if _pytest_collection_abort_callable_name(node, imported_modules, {}) in {
+            "exit", "importorskip", "skip", "skip-exception", "xfail", "xfail-exception"
+        } or _unittest_skiptest_reference(
+            node, imported_modules, set(), namespace_aliases
+        ):
+            return True
+    return False
+
+
+def _python_admitted_runtime_sources(
+    worktree_resolver: Callable[[str], str | None],
+    base_resolver: Callable[[str], str | None],
+    current_proof_resolver: Callable[[str], str | None],
+    read_base: Callable[[str], str | None],
+) -> dict[str, str]:
+    """Freeze new application members reached through proven existing roots."""
+
+    observed_sources = getattr(worktree_resolver, "_uaa_source_cache", None)
+    if not isinstance(observed_sources, dict):
+        raise TestCorpusGuardError("test inventory snapshot is invalid")
+    admitted: dict[str, str] = {}
+    execution_subject_cache: dict[tuple[str, str], bool] = {}
+    # Complete all admission before the baseline runtime resolver can cache
+    # either a missing module or an identity derived from a partial graph.
+    for module, source in sorted(tuple(observed_sources.items())):
+        if source is None:
+            continue
+        path, _text = source.split("\n", 1)
+        path = path.removeprefix("path=")
+        if not path.startswith(PYTHON_APPLICATION_SOURCE_PREFIXES):
+            continue
+        base_source = read_base(path)
+        if base_source is None:
+            continue
+        if current_proof_resolver(module) != source:
+            raise TestCorpusGuardError("test inventory changed during verification")
+        if not _python_import_closure_is_collection_neutral(
+            module, f"path={path}\n{base_source}", base_resolver
+        ):
+            continue
+        current_closure: dict[str, str] = {}
+        if not _python_import_closure_is_collection_neutral(
+            module, source, current_proof_resolver, resolved_sources=current_closure
+        ):
+            continue
+        new_members = {
+            member: member_source
+            for member, member_source in current_closure.items()
+            if (
+                member_path := member_source.split("\n", 1)[0].removeprefix("path=")
+            ).startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
+            and read_base(member_path) is None
+        }
+        candidate_sources: dict[str, str] = {}
+        for member, member_source in new_members.items():
+            member_closure: dict[str, str] = {}
+            if not _python_import_closure_is_collection_neutral(
+                member,
+                member_source,
+                current_proof_resolver,
+                resolved_sources=member_closure,
+            ):
+                break
+            safe = True
+            for dependency, dependency_source in member_closure.items():
+                key = (dependency, dependency_source)
+                if key not in execution_subject_cache:
+                    execution_subject_cache[key] = not (
+                        _python_runtime_abort_reference_present(
+                            dependency, dependency_source
+                        )
+                    )
+                if not execution_subject_cache[key]:
+                    safe = False
+                    break
+            if not safe:
+                break
+            member_path, member_text = member_source.split("\n", 1)
+            candidate_sources[member_path.removeprefix("path=")] = member_text
+        else:
+            # No partially proven root is published, including on a failed
+            # child proof. Revalidation retains positive and negative lookups.
+            admitted.update(candidate_sources)
+    return admitted
 
 
 def _python_execution_import_modules(
@@ -13357,6 +13527,7 @@ def removed_declarations(
     base_import_source_resolver = _python_import_resolver(read_base_python_import)
     base_runtime_source_cache: dict[str, str | None] = {}
     base_runtime_current_source_cache: dict[str, str] = {}
+    admitted_runtime_sources: dict[str, str] = {}
 
     def read_worktree_import(candidate: str) -> str | None:
         target = repo / candidate
@@ -13373,6 +13544,9 @@ def removed_declarations(
             return base_runtime_source_cache[candidate]
         base_source = read_base_python_import(candidate)
         selected_source = base_source
+        if base_source is None and candidate in admitted_runtime_sources:
+            selected_source = admitted_runtime_sources[candidate]
+            base_runtime_current_source_cache[candidate] = selected_source
         target = repo / candidate
         current_source = (
             _read_worktree_text(repo, candidate)
@@ -13445,12 +13619,6 @@ def removed_declarations(
         "_uaa_local_python_module_counts",
         base_module_counts,
     )
-    setattr(
-        base_runtime_import_source_resolver,
-        "_uaa_local_python_module_counts",
-        base_module_counts,
-    )
-
     if worktree_snapshot is None:
         worktree_import_source_resolver = _python_import_resolver(
             read_worktree_import
@@ -13470,7 +13638,45 @@ def removed_declarations(
     worktree_frontend_source_cache: dict[str, str | None] = {}
     worktree_frontend_initializer_cache: dict[str, str] = {}
     worktree_frontend_runtime_dependency_cache: dict[str, frozenset[str]] = {}
-    for path in _changed_test_paths(repo, base_sha):
+    changed_paths = tuple(_changed_test_paths(repo, base_sha))
+    current_python_declarations: dict[str, tuple[str, tuple[TestDeclaration, ...]]] = {}
+    if worktree_snapshot is None:
+        for path in changed_paths:
+            if not path.endswith(".py") or path not in current_paths:
+                continue
+            if read_base_python_import(path) is None:
+                continue
+            current_text = _read_worktree_text(repo, path)
+            current_python_declarations[path] = (
+                current_text,
+                _parse_worktree_test_declarations(
+                    repo,
+                    path,
+                    current_text,
+                    worktree_import_source_resolver,
+                    worktree_frontend_source_cache,
+                    worktree_frontend_initializer_cache,
+                    worktree_frontend_runtime_dependency_cache,
+                ),
+            )
+    admitted_runtime_sources.update(
+        _python_admitted_runtime_sources(
+            worktree_import_source_resolver,
+            base_import_source_resolver,
+            current_neutrality_source_resolver,
+            read_base_python_import,
+        )
+    )
+    runtime_module_counts = dict(base_module_counts)
+    for path in admitted_runtime_sources:
+        module = _python_module_name_for_path(path)
+        runtime_module_counts[module] = runtime_module_counts.get(module, 0) + 1
+    setattr(
+        base_runtime_import_source_resolver,
+        "_uaa_local_python_module_counts",
+        runtime_module_counts,
+    )
+    for path in changed_paths:
         prior = _base_text(repo, base_sha, path)
         if prior is None:
             continue
@@ -13491,6 +13697,8 @@ def removed_declarations(
                 current_inventory = worktree_snapshot.files_by_path[path]
                 current_text = current_inventory.source
                 current_declarations = current_inventory.declarations
+            elif path in current_python_declarations:
+                current_text, current_declarations = current_python_declarations[path]
             else:
                 current_text = _read_worktree_text(repo, path)
                 current_declarations = _parse_worktree_test_declarations(
@@ -13623,6 +13831,19 @@ def removed_declarations(
             worktree_snapshot,
             set(discover_test_files(repo)),
         )
+    else:
+        for path, (source, _declarations) in current_python_declarations.items():
+            if read_worktree_import(path) != source:
+                raise TestCorpusGuardError("test inventory changed during verification")
+        worktree_source_cache = getattr(
+            worktree_import_source_resolver, "_uaa_source_cache", None
+        )
+        if not isinstance(worktree_source_cache, dict):
+            raise TestCorpusGuardError("test inventory snapshot is invalid")
+        current_revalidator = _python_import_resolver(read_worktree_import)
+        for module, source in worktree_source_cache.items():
+            if current_revalidator(module) != source:
+                raise TestCorpusGuardError("test inventory changed during verification")
     return tuple(sorted(removed))
 
 
