@@ -29,7 +29,7 @@ _EXPECTED_SOURCE_SHA256 = {
         "80b9327640c46e4d8b0622126cdca711596397d1a2f6d22da773526feadaf1ed"
     ),
     "src/ultimate_ai_agent/distribution/macos/runtime.py": (
-        "966cc0a2976ca5142557063bb44e4114a7618dfe6ceb8d3d7eed730cc66735ae"
+        "ece7bb938240652bf7ebf035d452abd9b44c888cc7d221d98f4c0dcc84d6a572"
     ),
 }
 
@@ -150,8 +150,8 @@ _EXPECTED_CALL_COUNTS = {
         _SUBPROCESS_POPEN: 1,
         _SUBPROCESS_RUN: 1,
         "tempfile.TemporaryDirectory": 1,
-        "time.monotonic": 4,
-        "time.sleep": 2,
+        "time.monotonic": 6,
+        "time.sleep": 3,
         "urllib.parse.quote": 1,
         "urllib.request.Request": 1,
         _URLLIB_URLOPEN: 1,

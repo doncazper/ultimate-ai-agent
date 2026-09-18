@@ -270,7 +270,7 @@ def command_launch(
             print(f"Ultimate AI Agent is ready at {url}")
             return 0
         time.sleep(0.2)
-    if _terminate_owned_process(state):
+    if _terminate_owned_process(state) or process.poll() is not None:
         paths.runtime_state.unlink(missing_ok=True)
     else:
         print("Runtime exit is unverified; ownership state was retained for recovery.")
@@ -779,6 +779,14 @@ def _terminate_owned_process(state: dict[str, Any]) -> bool:
             return True
         except (OSError, OverflowError):
             return False
+        # Signal delivery and reaping are asynchronous. Retain ownership until
+        # absence is proven, allowing the same bounded grace after escalation.
+        deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            process_state = _runtime_process_state(state)
+            if process_state != "alive":
+                return process_state == "dead"
+            time.sleep(0.1)
     return _runtime_process_state(state) == "dead"
 
 
