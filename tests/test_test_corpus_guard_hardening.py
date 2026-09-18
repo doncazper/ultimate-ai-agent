@@ -255,9 +255,16 @@ def test_exact_httpx2_security_dependency_alignment_is_pair_bound(
 
 def test_httpx2_security_dependency_current_fingerprints_are_exact() -> None:
     root = Path(__file__).parents[1]
-    for path, (_, current_digest) in (
+    assert set(guard.HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH) == set(
+        guard.ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+    )
+    for path, (_, historical_current_digest) in (
         guard.HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
     ):
+        prior_digest, current_digest = (
+            guard.ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH[path]
+        )
+        assert historical_current_digest == prior_digest
         assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
 
 
@@ -1258,3 +1265,155 @@ def test_shadowed_local_vitest_setup_hook_alias_fails_closed() -> None:
             "apps/control-center/src/sample.test.ts",
             source,
         )
+
+
+def _anyio_security_dependency_pair() -> tuple[dict[str, str], dict[str, str]]:
+    prior = {
+        "pyproject.toml": (
+            '[project]\ndependencies = ["starlette>=1.3.1,<2.0.0"]\n'
+            '[project.optional-dependencies]\ndev = ["pytest>=7,<10"]\n'
+        ),
+        "uv.lock": '[[package]]\nname = "anyio"\nversion = "4.13.0"\n',
+    }
+    current = {
+        "pyproject.toml": prior["pyproject.toml"].replace(
+            'dependencies = [', 'dependencies = ["anyio>=4.14.2,<5.0.0", '
+        ),
+        "uv.lock": prior["uv.lock"].replace("4.13.0", "4.14.2"),
+    }
+    return prior, current
+
+
+def _bind_anyio_security_dependency_pair(
+    monkeypatch: pytest.MonkeyPatch,
+    prior: dict[str, str],
+    current: dict[str, str],
+) -> None:
+    monkeypatch.setattr(
+        guard,
+        "ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+
+@pytest.mark.parametrize("side", ("prior", "current"))
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "project_byte",
+        "lock_byte",
+        "missing_project",
+        "missing_lock",
+        "extra_path",
+        "reversed_project",
+    ),
+)
+def test_anyio_security_dependency_alignment_rejects_pair_substitution(
+    monkeypatch: pytest.MonkeyPatch, side: str, mutation: str
+) -> None:
+    prior, current = _anyio_security_dependency_pair()
+    _bind_anyio_security_dependency_pair(monkeypatch, prior, current)
+    assert guard._safe_anyio_security_dependency_alignment_paths(
+        prior_by_path=prior, current_by_path=current
+    ) == {"pyproject.toml", "uv.lock"}
+
+    target = prior if side == "prior" else current
+    if mutation == "project_byte":
+        target["pyproject.toml"] += " "
+    elif mutation == "lock_byte":
+        target["uv.lock"] += " "
+    elif mutation == "missing_project":
+        del target["pyproject.toml"]
+    elif mutation == "missing_lock":
+        del target["uv.lock"]
+    elif mutation == "extra_path":
+        target["pytest.ini"] = "[pytest]\n"
+    else:
+        target["pyproject.toml"] = (current if side == "prior" else prior)[
+            "pyproject.toml"
+        ]
+    assert not guard._safe_anyio_security_dependency_alignment_paths(
+        prior_by_path=prior, current_by_path=current
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "none",
+        "project_byte",
+        "lock_byte",
+        "wrong_base",
+        "different_patch",
+        "unrelated_lock_record",
+        "lock_only",
+        "missing_project",
+        "missing_lock",
+        "pytest_config",
+        "pytest_plugin",
+        "dev_dependency",
+    ),
+)
+def test_anyio_security_dependency_alignment_keeps_collection_boundary_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    prior, current = _anyio_security_dependency_pair()
+    _bind_anyio_security_dependency_pair(monkeypatch, prior, current)
+    changed_paths = set(current)
+    if mutation == "project_byte":
+        current["pyproject.toml"] += " "
+    elif mutation == "lock_byte":
+        current["uv.lock"] += " "
+    elif mutation == "wrong_base":
+        prior["uv.lock"] = prior["uv.lock"].replace("4.13.0", "4.12.1")
+    elif mutation == "different_patch":
+        current["uv.lock"] = current["uv.lock"].replace("4.14.2", "4.15.0")
+    elif mutation == "unrelated_lock_record":
+        current["uv.lock"] += '[[package]]\nname = "other"\nversion = "1.0"\n'
+    elif mutation == "lock_only":
+        changed_paths.remove("pyproject.toml")
+        current["pyproject.toml"] = prior["pyproject.toml"]
+    elif mutation == "missing_project":
+        del current["pyproject.toml"]
+    elif mutation == "missing_lock":
+        del current["uv.lock"]
+    elif mutation == "pytest_config":
+        changed_paths.add("pytest.ini")
+        current["pytest.ini"] = "[pytest]\naddopts = --ignore=tests/security\n"
+    elif mutation == "pytest_plugin":
+        current["pyproject.toml"] += (
+            '[project.entry-points.pytest11]\nother = "other.plugin"\n'
+        )
+    elif mutation == "dev_dependency":
+        current["pyproject.toml"] = current["pyproject.toml"].replace(
+            '"pytest>=7,<10"', '"pytest>=8,<10"'
+        )
+    for path, value in current.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(value)
+    outputs = iter(
+        (("\0".join(sorted(changed_paths)) + "\0").encode(), b"", b"", b"")
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, path: prior.get(path))
+    if mutation == "none":
+        assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
+    else:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="changed pytest (dependency lock|collection configuration)",
+        ):
+            guard._changed_test_paths(tmp_path, "a" * 40)

@@ -5,6 +5,7 @@ description = "Ultimate AI Agent Core"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "anyio>=4.14.2,<5.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "fastapi>=0.100.0,<1.0.0",
     "uvicorn>=0.22.0,<1.0.0",

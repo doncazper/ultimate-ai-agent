@@ -113,6 +113,13 @@ in `pyproject.toml`, `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
 `tox.ini`, or `setup.cfg` also fail closed; pytest `pytest11` entry-point
 registration changes, development-dependency changes, and `uv.lock` changes are
 included, and every `tox.ini` change is rejected.
+The reviewed AnyIO 4.13.0 to 4.14.2 security transition admits only the complete,
+exact old/new bytes of `pyproject.toml` and `uv.lock`, retaining the historical
+HTTPX2 transition pins. The new dependency floor addresses CVE-2026-63374 and
+CVE-2026-64847. AnyIO exposes a pytest plugin, so this transition still requires
+installed-suite and corpus evidence; different bases, incomplete pairs, changed
+lock bytes, and additional plugin or collection changes remain rejected. This
+is not standing permission for dependency updates.
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute. The one bounded
 exception is the paired, exact `*_test.py` discovery alignment: the runner and
