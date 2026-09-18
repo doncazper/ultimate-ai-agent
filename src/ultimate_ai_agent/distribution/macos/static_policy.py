@@ -241,7 +241,7 @@ _EXPECTED_CALL_COUNTS = {
         "time.sleep": 3,
         "urllib.parse.quote": 1,
         "urllib.request.Request": 1,
-        "urllib.request.urlopen": 1,
+        _URLLIB_URLOPEN: 1,
         "webbrowser.open": 2,
     },
 }
@@ -405,7 +405,7 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "urllib.parse.quote",
         "urllib.request",
         "urllib.request.Request",
-        "urllib.request.urlopen",
+        _URLLIB_URLOPEN,
         "webbrowser.open",
     },
 }
