@@ -130,6 +130,16 @@ HTTPX2_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
         "051afe63218256bdf37ed584630f7e53d65e68d565d4feb04f17e9072511cb14",
     ),
 }
+ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
+    "pyproject.toml": (
+        "a15762be4ac750f0ff33ae35432bb6ac87a9e67e7ffbfd41926e391a1c1dbcdb",
+        "1a443b75bdfeae0310eed6441f3ec69372a1a9c83eecd9cd668ee58772861b72",
+    ),
+    "uv.lock": (
+        "051afe63218256bdf37ed584630f7e53d65e68d565d4feb04f17e9072511cb14",
+        "1ffdf1c76f48a977bbaa5860eab1d0de700f72e3441fff372a60f9c3f4f5ebbb",
+    ),
+}
 VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
     "apps/control-center/package.json": (
         "024f39703162f9ca5ab991fe91dd861eae75eb6b9b25ce73ec3532743a869884",
@@ -12376,6 +12386,32 @@ def _safe_httpx2_security_dependency_alignment_paths(
     return expected_paths
 
 
+def _safe_anyio_security_dependency_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Admit only the reviewed, complete AnyIO 4.13.0 to 4.14.2 pair.
+
+    AnyIO exposes a pytest plugin. This exact dependency transition does not
+    admit other lock bytes, plugin registration or collection changes.
+    """
+    expected_paths = set(ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return expected_paths
+
+
 def _safe_vitest_security_dependency_alignment_paths(
     *,
     current_by_path: dict[str, str],
@@ -12473,17 +12509,25 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     dependency_alignment_paths = all_changed & expected_dependency_paths
     safe_dependency_paths: set[str] = set()
     if dependency_alignment_paths == expected_dependency_paths:
+        current_dependency_by_path = {
+            path: _read_worktree_text(repo, path)
+            if (repo / path).is_file()
+            else ""
+            for path in dependency_alignment_paths
+        }
+        prior_dependency_by_path = {
+            path: _base_text(repo, base_sha, path) or ""
+            for path in dependency_alignment_paths
+        }
         safe_dependency_paths = _safe_httpx2_security_dependency_alignment_paths(
-            current_by_path={
-                path: _read_worktree_text(repo, path)
-                if (repo / path).is_file()
-                else ""
-                for path in dependency_alignment_paths
-            },
-            prior_by_path={
-                path: _base_text(repo, base_sha, path) or ""
-                for path in dependency_alignment_paths
-            },
+            current_by_path=current_dependency_by_path,
+            prior_by_path=prior_dependency_by_path,
+        )
+        safe_dependency_paths.update(
+            _safe_anyio_security_dependency_alignment_paths(
+                current_by_path=current_dependency_by_path,
+                prior_by_path=prior_dependency_by_path,
+            )
         )
     for path in all_changed:
         if not _is_python_test_path(path):
