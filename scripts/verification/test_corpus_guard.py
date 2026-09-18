@@ -16,7 +16,8 @@ import time
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from types import MappingProxyType
+from typing import Any, Callable, Mapping
 
 from scripts.verification.test_corpus_evidence import (
     ASSERTION_EVIDENCE_SCHEMA as ASSERTION_EVIDENCE_SCHEMA,
@@ -2321,6 +2322,44 @@ def _is_bound_unittest_skip_method(
     )
 
 
+def _python_new_getter_selection_is_unsafe(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    """Refuse unresolved getter selection only in new execution subjects."""
+
+    if isinstance(node, ast.Attribute) and node.attr == "skipTest":
+        return True
+    if not isinstance(node, ast.Call) or not _is_builtin_getattr_reference(
+        node.func, imported_modules, aliases
+    ):
+        return False
+    if (
+        len(node.args) not in {2, 3}
+        or node.keywords
+        or any(isinstance(argument, ast.Starred) for argument in node.args)
+    ):
+        return True
+    # Constant strings and addition are the complete selector grammar. Collect
+    # at most the target's length: long constant expressions remain known-safe
+    # without repeatedly materializing ever larger concatenated strings.
+    pending = [node.args[1]]
+    parts: list[str] = []
+    length = 0
+    while pending:
+        value = pending.pop()
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            length += len(value.value)
+            if length <= len("skipTest"):
+                parts.append(value.value)
+        elif isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
+            pending.extend((value.right, value.left))
+        else:
+            return True
+    return length == len("skipTest") and "".join(parts) == "skipTest"
+
+
 def _python_conservative_getattr_aliases(
     nodes: tuple[ast.AST, ...],
     imported_modules: dict[str, tuple[str, ...]],
@@ -3607,6 +3646,310 @@ def _python_module_dependency_identity(
     return identity
 
 
+@dataclass(frozen=True)
+class _PythonCollectionNodeFacts:
+    neutral: bool
+    dependencies: tuple[tuple[str, str], ...]
+
+
+def _python_collection_node_edges(
+    module: str,
+    source: str,
+    resolver: Callable[[str], str | None],
+) -> tuple[tuple[str, str], ...] | None:
+    """Resolve one node's exact edges; None means unsupported import grammar."""
+
+    source_path, source_text = (
+        source.split("\n", 1) if source.startswith("path=") else ("", source)
+    )
+    tree = _python_parsed_module(module, source_text, resolver)
+    relative_package = module
+    if not source_path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    imported_modules = _python_import_modules(tree, relative_package=relative_package)
+    dependencies: dict[str, str] = {}
+    parts = module.split(".")
+    for index in range(1, len(parts)):
+        package = ".".join(parts[:index])
+        package_source = resolver(package)
+        if package_source is not None and package_source.split("\n", 1)[0].endswith(
+            "/__init__.py"
+        ):
+            dependencies[package] = package_source
+    lazy = _python_lazy_export_modules(tree, relative_package=relative_package)
+    grouped = _python_grouped_lazy_export_modules(tree)
+    try:
+        dynamic = _dynamic_python_import_modules(
+            tree,
+            imported_modules,
+            relative_package=relative_package,
+            lazy_export_modules=(*lazy, *grouped),
+        )
+    except TestCorpusGuardError:
+        return None
+    candidates = list(imported_modules.values())
+    candidates.extend(
+        (candidate,)
+        for candidate in (
+            *_python_star_import_modules(tree, relative_package=relative_package),
+            *lazy,
+            *grouped,
+            *dynamic,
+        )
+    )
+    for alternatives in candidates:
+        for candidate in alternatives:
+            child_source = resolver(candidate)
+            if child_source is not None:
+                dependencies[candidate] = child_source
+                break
+    return tuple(dependencies.items())
+
+
+def _python_collection_node_facts(
+    module: str,
+    source: str,
+    resolver: Callable[[str], str | None],
+) -> _PythonCollectionNodeFacts:
+    """Materialize local facts once, without copying a transitive source map."""
+
+    source_path, source_text = (
+        source.split("\n", 1) if source.startswith("path=") else ("", source)
+    )
+    try:
+        tree = _python_parsed_module(module, source_text, resolver)
+    except SyntaxError:
+        return _PythonCollectionNodeFacts(False, ())
+    relative_package = module
+    if not source_path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    imported_modules = _python_import_modules(tree, relative_package=relative_package)
+    if _has_module_level_collection_abort(tree, imported_modules):
+        return _PythonCollectionNodeFacts(False, ())
+    edges = _python_collection_node_edges(module, source, resolver)
+    return _PythonCollectionNodeFacts(edges is not None, edges or ())
+
+
+def _python_collection_graph_neighbors(
+    edges: Mapping[str, tuple[str, ...]], module: str
+) -> tuple[str, ...]:
+    return edges.get(module, ())
+
+
+def _python_collection_reverse_reachable(
+    reverse_edges: Mapping[str, tuple[str, ...]], seeds: set[str]
+) -> set[str]:
+    reached = set(seeds)
+    pending = list(seeds)
+    while pending:
+        for parent in _python_collection_graph_neighbors(reverse_edges, pending.pop()):
+            if parent not in reached:
+                reached.add(parent)
+                pending.append(parent)
+    return reached
+
+
+@dataclass(frozen=True)
+class _PythonCollectionGraph:
+    sources: Mapping[str, str]
+    edges: Mapping[str, tuple[str, ...]]
+    reverse_edges: Mapping[str, tuple[str, ...]]
+    complete: frozenset[str]
+    neutral: frozenset[str]
+    component_sizes: Mapping[str, int]
+
+
+class _PythonCollectionGraphBuilder:
+    """An invocation-local construction cache; published snapshots are immutable."""
+
+    def __init__(self, resolver: Callable[[str], str | None]) -> None:
+        self.resolver = resolver
+        self.sources: dict[str, str] = {}
+        self.facts: dict[str, _PythonCollectionNodeFacts] = {}
+        self.edges: dict[str, tuple[str, ...]] = {}
+        self.complete: set[str] = set()
+        self.collection_neutral: set[str] = set()
+        self.component_parents: dict[str, str] = {}
+        self.component_counts: dict[str, int] = {}
+        self.snapshot: _PythonCollectionGraph | None = None
+        self.budget_verdicts: dict[tuple[str, int], bool] = {}
+
+    def bind(self, module: str, source: str) -> None:
+        if module in self.sources:
+            if self.sources[module] != source:
+                raise TestCorpusGuardError("test inventory changed during verification")
+        else:
+            self.sources[module] = source
+            self.component_parents[module] = module
+            self.component_counts[module] = 1
+            self.snapshot = None
+
+    def component_root(self, module: str) -> str:
+        root = module
+        while self.component_parents[root] != root:
+            root = self.component_parents[root]
+        while module != root:
+            parent = self.component_parents[module]
+            self.component_parents[module] = root
+            module = parent
+        return root
+
+    def connect(self, module: str, child: str) -> None:
+        left, right = self.component_root(module), self.component_root(child)
+        if left == right:
+            return
+        if self.component_counts[left] < self.component_counts[right]:
+            left, right = right, left
+        self.component_parents[right] = left
+        self.component_counts[left] += self.component_counts.pop(right)
+
+    def component_size(self, module: str) -> int:
+        return self.component_counts[self.component_root(module)]
+
+    def capture(self, module: str, source: str) -> None:
+        self.bind(module, source)
+        pending = [module]
+        visited: set[str] = set()
+        while pending:
+            current = pending.pop()
+            if current in self.complete or current in visited:
+                continue
+            visited.add(current)
+            # This is a lower bound only: skipped complete subgraphs still
+            # count in the separate, exact per-root budget proof below.
+            if len(visited) > MAX_PYTHON_DEPENDENCY_MODULES:
+                return
+            if current not in self.facts:
+                facts = _python_collection_node_facts(
+                    current, self.sources[current], self.resolver
+                )
+                self.facts[current] = facts
+                for child, child_source in facts.dependencies:
+                    self.bind(child, child_source)
+                    self.connect(current, child)
+                self.edges[current] = tuple(child for child, _ in facts.dependencies)
+                self.snapshot = None
+            pending.extend(_python_collection_graph_neighbors(self.edges, current))
+        if visited:
+            # Every outgoing edge reached this walk or an already closed
+            # subgraph. Cycles are complete only after the whole walk ends.
+            # Publish neutrality only for this newly closed region. Completed
+            # outgoing closures never change, so old regions need no rescan.
+            reverse: dict[str, list[str]] = {current: [] for current in visited}
+            rejected: set[str] = set()
+            for current in visited:
+                if not self.facts[current].neutral:
+                    rejected.add(current)
+                for child in _python_collection_graph_neighbors(self.edges, current):
+                    if child in visited:
+                        reverse[child].append(current)
+                    elif child not in self.collection_neutral:
+                        rejected.add(current)
+            rejected = _python_collection_reverse_reachable(
+                {current: tuple(parents) for current, parents in reverse.items()},
+                rejected,
+            )
+            self.collection_neutral.update(visited - rejected)
+            self.complete.update(visited)
+            self.snapshot = None
+
+    def freeze(self) -> _PythonCollectionGraph:
+        if self.snapshot is not None:
+            return self.snapshot
+        self.budget_verdicts.clear()
+        sources = dict(self.sources)
+        edges = {module: self.edges.get(module, ()) for module in sources}
+        reverse: dict[str, list[str]] = {module: [] for module in sources}
+        for module in sources:
+            for child in _python_collection_graph_neighbors(edges, module):
+                reverse[child].append(module)
+        reverse_edges = {module: tuple(parents) for module, parents in reverse.items()}
+        rejected = _python_collection_reverse_reachable(
+            reverse_edges,
+            {
+                module for module in sources
+                if module not in self.facts or not self.facts[module].neutral
+            },
+        )
+        component_sizes: dict[str, int] = {}
+        for module in sources:
+            if module in component_sizes:
+                continue
+            component = {module}
+            pending = [module]
+            while pending:
+                current = pending.pop()
+                for neighbor in (
+                    *_python_collection_graph_neighbors(edges, current),
+                    *_python_collection_graph_neighbors(reverse_edges, current),
+                ):
+                    if neighbor not in component:
+                        component.add(neighbor)
+                        pending.append(neighbor)
+            component_sizes.update(dict.fromkeys(component, len(component)))
+        self.snapshot = _PythonCollectionGraph(
+            sources=MappingProxyType(sources),
+            edges=MappingProxyType(edges),
+            reverse_edges=MappingProxyType(reverse_edges),
+            complete=frozenset(self.complete),
+            neutral=frozenset(sources.keys() - rejected),
+            component_sizes=MappingProxyType(component_sizes),
+        )
+        return self.snapshot
+
+
+def _python_collection_graph_builder(
+    resolver: Callable[[str], str | None],
+) -> _PythonCollectionGraphBuilder:
+    builder = getattr(resolver, "_uaa_collection_graph_builder", None)
+    if builder is None:
+        builder = _PythonCollectionGraphBuilder(resolver)
+        setattr(resolver, "_uaa_collection_graph_builder", builder)
+    return builder
+
+
+def _python_exact_closure_budget(
+    graph: _PythonCollectionGraph | _PythonCollectionGraphBuilder,
+    root: str,
+    limit: int,
+) -> bool:
+    """Bounded exact fallback; arbitrary overlapping roots can repeat this work."""
+
+    visited: set[str] = set()
+    pending = [root]
+    while pending:
+        module = pending.pop()
+        if module in visited:
+            continue
+        visited.add(module)
+        if len(visited) > limit:
+            return False
+        pending.extend(_python_collection_graph_neighbors(graph.edges, module))
+    return True
+
+
+def _python_closure_budget_within_limit(
+    graph: _PythonCollectionGraph,
+    root: str,
+    limit: int,
+    *,
+    verdicts: dict[tuple[str, int], bool],
+) -> bool:
+    if root not in graph.complete:
+        # Another bounded capture may later close this region. Incomplete
+        # evidence is not a stable negative budget verdict for that root.
+        return False
+    key = (root, limit)
+    if key in verdicts:
+        return verdicts[key]
+    if graph.component_sizes[root] <= limit:
+        result = True
+    else:
+        result = _python_exact_closure_budget(graph, root, limit)
+    verdicts[key] = result
+    return result
+
+
 def _python_import_closure_is_collection_neutral(
     module: str,
     source: str,
@@ -3614,153 +3957,38 @@ def _python_import_closure_is_collection_neutral(
     *,
     resolved_sources: dict[str, str] | None = None,
 ) -> bool:
-    """Prove that a local import closure cannot abort test collection."""
+    """Prove a complete, bounded local import closure cannot abort collection."""
 
-    cache = getattr(
-        import_source_resolver,
-        "_uaa_collection_neutral_cache",
-        None,
-    )
-    if cache is None:
-        cache = {}
-        setattr(
-            import_source_resolver,
-            "_uaa_collection_neutral_cache",
-            cache,
-        )
-    cache_key = (module, hashlib.sha256(source.encode("utf-8")).hexdigest())
-    if cache_key in cache and resolved_sources is None:
-        return bool(cache[cache_key])
-
-    dependency_cache = getattr(
-        import_source_resolver, "_uaa_collection_neutral_dependencies", None
-    )
-    if dependency_cache is None:
-        dependency_cache = {}
-        setattr(
-            import_source_resolver,
-            "_uaa_collection_neutral_dependencies",
-            dependency_cache,
-        )
-
-    pending = [(module, source)]
-    expanded_modules: set[str] = set()
-    visited_cache_keys: set[tuple[str, str]] = set()
-    captured_sources: dict[str, str] = {}
-    captured_dependencies: dict[tuple[str, str], tuple[tuple[str, str], ...]] = {}
-    while pending:
-        current_module, current_source = pending.pop()
-        if current_module in expanded_modules:
-            continue
-        current_cache_key = (
-            current_module,
-            hashlib.sha256(current_source.encode("utf-8")).hexdigest(),
-        )
-        cached_posture = cache.get(current_cache_key)
-        if cached_posture is False:
-            cache[cache_key] = False
-            return False
-        if cached_posture is True and resolved_sources is None:
-            continue
-        expanded_modules.add(current_module)
-        visited_cache_keys.add(current_cache_key)
-        captured_sources[current_module] = current_source
-        if len(expanded_modules) > MAX_PYTHON_DEPENDENCY_MODULES:
-            cache[cache_key] = False
-            return False
-        if cached_posture is True and current_cache_key in dependency_cache:
-            pending.extend(dependency_cache[current_cache_key])
-            continue
-        source_text = (
-            current_source.split("\n", 1)[1]
-            if current_source.startswith("path=")
-            else current_source
-        )
-        try:
-            tree = _python_parsed_module(
-                current_module,
-                source_text,
-                import_source_resolver,
-            )
-        except SyntaxError:
-            cache[current_cache_key] = False
-            cache[cache_key] = False
-            return False
-        source_path = current_source.split("\n", 1)[0].removeprefix("path=")
-        relative_package = current_module
-        if not source_path.endswith("/__init__.py") and "." in current_module:
-            relative_package = current_module.rsplit(".", 1)[0]
-        imported_modules = _python_import_modules(
-            tree,
-            relative_package=relative_package,
-        )
-        if _has_module_level_collection_abort(tree, imported_modules):
-            cache[current_cache_key] = False
-            cache[cache_key] = False
-            return False
-
-        resolved_dependencies: list[tuple[str, str]] = []
-        module_parts = current_module.split(".")
-        for index in range(1, len(module_parts)):
-            package_module = ".".join(module_parts[:index])
-            package_source = import_source_resolver(package_module)
-            if package_source is not None and package_source.split("\n", 1)[
-                0
-            ].endswith("/__init__.py"):
-                resolved_dependencies.append((package_module, package_source))
-
-        lazy_export_modules = _python_lazy_export_modules(
-            tree,
-            relative_package=relative_package,
-        )
-        grouped_lazy_export_modules = _python_grouped_lazy_export_modules(tree)
-        try:
-            dynamic_import_modules = _dynamic_python_import_modules(
-                tree,
-                imported_modules,
-                relative_package=relative_package,
-                lazy_export_modules=(
-                    *lazy_export_modules,
-                    *grouped_lazy_export_modules,
-                ),
-            )
-        except TestCorpusGuardError:
-            cache[current_cache_key] = False
-            cache[cache_key] = False
-            return False
-        dependency_candidates = list(imported_modules.values())
-        dependency_candidates.extend(
-            (candidate,)
-            for candidate in (
-                *_python_star_import_modules(
-                    tree,
-                    relative_package=relative_package,
-                ),
-                *lazy_export_modules,
-                *grouped_lazy_export_modules,
-                *dynamic_import_modules,
+    builder = _python_collection_graph_builder(import_source_resolver)
+    builder.capture(module, source)
+    if module not in builder.collection_neutral:
+        return False
+    # Late baseline-only roots must not freeze and recopy the entire graph for
+    # each compatibility lookup. A completed closure has immutable edges and
+    # neutral facts; its weak-component size is a cheap upper bound. Only
+    # oversized components need the existing bounded exact budget fallback.
+    key = (module, MAX_PYTHON_DEPENDENCY_MODULES)
+    if key not in builder.budget_verdicts:
+        builder.budget_verdicts[key] = (
+            builder.component_size(module) <= MAX_PYTHON_DEPENDENCY_MODULES
+            or _python_exact_closure_budget(
+                builder, module, MAX_PYTHON_DEPENDENCY_MODULES
             )
         )
-        for candidates in dependency_candidates:
-            resolved_import = next(
-                (
-                    (candidate, imported_source)
-                    for candidate in candidates
-                    if (imported_source := import_source_resolver(candidate))
-                    is not None
-                ),
-                None,
-            )
-            if resolved_import is not None:
-                resolved_dependencies.append(resolved_import)
-        captured_dependencies[current_cache_key] = tuple(resolved_dependencies)
-        pending.extend(resolved_dependencies)
-
-    dependency_cache.update(captured_dependencies)
-    for visited_cache_key in visited_cache_keys:
-        cache[visited_cache_key] = True
+    if not builder.budget_verdicts[key]:
+        return False
     if resolved_sources is not None:
-        resolved_sources.update(captured_sources)
+        # Compatibility for explicit collectors only. Admission uses one graph
+        # and never requests a separate transitive map for each root/member.
+        captured: dict[str, str] = {}
+        pending = [module]
+        while pending:
+            current = pending.pop()
+            if current in captured:
+                continue
+            captured[current] = builder.sources[current]
+            pending.extend(_python_collection_graph_neighbors(builder.edges, current))
+        resolved_sources.update(captured)
     return True
 
 
@@ -3824,7 +4052,9 @@ def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
         *nodes,
         *(ast.Name(id=name, ctx=ast.Load()) for name in imported_modules),
     ):
-        if _is_bound_unittest_skip_method(node, imported_modules, getter_aliases):
+        if _python_new_getter_selection_is_unsafe(
+            node, imported_modules, getter_aliases
+        ):
             return True
         if _pytest_collection_abort_callable_name(node, imported_modules, {}) in {
             "exit", "importorskip", "skip", "skip-exception", "xfail", "xfail-exception"
@@ -3841,15 +4071,14 @@ def _python_admitted_runtime_sources(
     current_proof_resolver: Callable[[str], str | None],
     read_base: Callable[[str], str | None],
 ) -> dict[str, str]:
-    """Freeze new application members reached through proven existing roots."""
+    """Atomically admit new members from independently proven existing roots."""
 
     observed_sources = getattr(worktree_resolver, "_uaa_source_cache", None)
     if not isinstance(observed_sources, dict):
         raise TestCorpusGuardError("test inventory snapshot is invalid")
-    admitted: dict[str, str] = {}
-    execution_subject_cache: dict[tuple[str, str], bool] = {}
-    # Complete all admission before the baseline runtime resolver can cache
-    # either a missing module or an identity derived from a partial graph.
+    roots: dict[str, str] = {}
+    baseline = _python_collection_graph_builder(base_resolver)
+    # Freeze eligibility before graph expansion observes any other old module.
     for module, source in sorted(tuple(observed_sources.items())):
         if source is None:
             continue
@@ -3862,53 +4091,71 @@ def _python_admitted_runtime_sources(
             continue
         if current_proof_resolver(module) != source:
             raise TestCorpusGuardError("test inventory changed during verification")
-        if not _python_import_closure_is_collection_neutral(
-            module, f"path={path}\n{base_source}", base_resolver
-        ):
+        roots[module] = source
+        baseline.capture(module, f"path={path}\n{base_source}")
+    base_graph = baseline.freeze()
+    base_roots = {
+        module for module in roots
+        if module in base_graph.neutral
+        and _python_closure_budget_within_limit(
+            base_graph,
+            module,
+            MAX_PYTHON_DEPENDENCY_MODULES,
+            verdicts=baseline.budget_verdicts,
+        )
+    }
+    current = _python_collection_graph_builder(current_proof_resolver)
+    for module in sorted(base_roots):
+        current.capture(module, roots[module])
+    graph = current.freeze()
+    new_members = {
+        module for module, source in graph.sources.items()
+        if (path := source.split("\n", 1)[0].removeprefix("path=")).startswith(
+            PYTHON_APPLICATION_SOURCE_PREFIXES
+        )
+        and read_base(path) is None
+    }
+    if not new_members:
+        return {}
+    # Screen each node once. Propagate bad execution posture to new members,
+    # then propagate those unsafe new members to roots. An old root's own
+    # preexisting runtime-abort branch is not itself a new-member rejection.
+    execution_bad = _python_collection_reverse_reachable(
+        graph.reverse_edges,
+        {
+            module for module, source in graph.sources.items()
+            if module not in graph.neutral
+            or _python_runtime_abort_reference_present(module, source)
+        },
+    )
+    rejected_roots = _python_collection_reverse_reachable(
+        graph.reverse_edges, new_members.intersection(execution_bad)
+    )
+    accepted_roots = {
+        module for module in base_roots
+        if module not in rejected_roots
+        and module in graph.neutral
+        and _python_closure_budget_within_limit(
+            graph,
+            module,
+            MAX_PYTHON_DEPENDENCY_MODULES,
+            verdicts=current.budget_verdicts,
+        )
+    }
+    admitted: dict[str, str] = {}
+    visited: set[str] = set()
+    pending = sorted(accepted_roots)
+    # Only successful original roots seed this single traversal. Shared nodes
+    # retain valid-root provenance; failed roots publish no partial candidates.
+    while pending:
+        module = pending.pop()
+        if module in visited:
             continue
-        current_closure: dict[str, str] = {}
-        if not _python_import_closure_is_collection_neutral(
-            module, source, current_proof_resolver, resolved_sources=current_closure
-        ):
-            continue
-        new_members = {
-            member: member_source
-            for member, member_source in current_closure.items()
-            if (
-                member_path := member_source.split("\n", 1)[0].removeprefix("path=")
-            ).startswith(PYTHON_APPLICATION_SOURCE_PREFIXES)
-            and read_base(member_path) is None
-        }
-        candidate_sources: dict[str, str] = {}
-        for member, member_source in new_members.items():
-            member_closure: dict[str, str] = {}
-            if not _python_import_closure_is_collection_neutral(
-                member,
-                member_source,
-                current_proof_resolver,
-                resolved_sources=member_closure,
-            ):
-                break
-            safe = True
-            for dependency, dependency_source in member_closure.items():
-                key = (dependency, dependency_source)
-                if key not in execution_subject_cache:
-                    execution_subject_cache[key] = not (
-                        _python_runtime_abort_reference_present(
-                            dependency, dependency_source
-                        )
-                    )
-                if not execution_subject_cache[key]:
-                    safe = False
-                    break
-            if not safe:
-                break
-            member_path, member_text = member_source.split("\n", 1)
-            candidate_sources[member_path.removeprefix("path=")] = member_text
-        else:
-            # No partially proven root is published, including on a failed
-            # child proof. Revalidation retains positive and negative lookups.
-            admitted.update(candidate_sources)
+        visited.add(module)
+        if module in new_members:
+            path, text = graph.sources[module].split("\n", 1)
+            admitted[path.removeprefix("path=")] = text
+        pending.extend(_python_collection_graph_neighbors(graph.edges, module))
     return admitted
 
 

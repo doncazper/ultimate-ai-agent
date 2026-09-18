@@ -60,12 +60,31 @@ collection-neutral. New application dependencies must belong to the successfully
 proven current closure of an existing substituted application module; an absent
 baseline file alone never permits reuse. Recognized execution-abort and dynamic
 import forms cannot be hidden, including object-bound skip methods and bounded
-literal getter aliases. Test-owned helpers and parameter/decorator
+builtin getter aliases. For new execution-dependency admission, a recognized
+getter's member name must resolve from a literal or bounded string
+concatenation. A `skipTest` selector, unresolved selector, or unsupported getter
+argument shape refuses admission, including in dormant function bodies. This
+stricter admission screen does not change the existing scope-sensitive test
+consumer's alias and rebinding rules. Test-owned helpers and parameter/decorator
 data retain their baseline bindings. Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,
 ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
 guard's recognized static syntax and import forms.
+
+Admission shares exact source and dependency-edge facts within each revision's
+proof graph instead of rebuilding cached dependency suffixes for every root.
+Later baseline-only runtime imports reuse completed neutrality facts and
+incremental component bounds without copying the accumulated graph for every
+compatibility check. Incomplete regions cannot publish a stable verdict.
+Only successful existing roots can publish new members; an unsuccessful root
+cannot publish a partial map, while a separate successful root may prove a
+shared member. The existing per-closure module limit and global baseline-index
+limit remain separate. Complete graph components within the module limit admit
+a cheap budget proof; larger components require bounded exact reachability
+checks for each queried root. Those fallback checks can repeat traversal, so
+this does not claim linear total work for arbitrary oversized graphs or relax
+any dependency limit.
 
 Dynamic parameter-module imports, including calls through assigned
 import-function aliases, and module-executed dynamic Python code through `exec`,
