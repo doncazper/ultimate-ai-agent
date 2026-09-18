@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1033,
+  "timed_file_count": 1036,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -3531,6 +3531,11 @@
       "source": "pytest-duration-summary"
     },
     {
+      "path": "tests/test_macos_runtime_termination.py",
+      "seconds": 0.01,
+      "source": "historical-pytest-duration-summary"
+    },
+    {
       "path": "tests/test_macos_setup_assistant.py",
       "seconds": 0.01,
       "source": "pytest-duration-summary"
@@ -5169,6 +5174,16 @@
       "path": "tests/test_news_handoff_agent_loop_summary.py",
       "seconds": 0.752,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_macos_bootstrap_startup_dependency.py",
+      "seconds": 0.4,
+      "source": "historical-pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_macos_finance_startup_static_boundary.py",
+      "seconds": 1.17,
+      "source": "historical-pytest-duration-summary"
     }
   ],
   "verification_evidence": false

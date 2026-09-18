@@ -17,6 +17,12 @@ is planning-only: Control Center has no background provider queue dispatch,
 scheduler control, autonomous provider-call control, billing authority toggle,
 broad provider router toggle, or new API runtime route for that capability.
 
+Finance's bounded synthetic in-app workflow merged in PR #481. Its
+[normal-startup continuation](../product/UAA_FINANCE_FIN003_NORMAL_STARTUP.md)
+addresses explicit configuration transport and stale-runtime reuse. Automatic
+helper provisioning, real-data promotion and full Finance adoption remain gaps;
+sample-book review does not complete Q26 or Q35.
+
 Q33's current bounded Chat adoption slice adds a readable clean-start
 conversation workspace backed by `GET /control-center/chat/workspace`,
 idempotent content-free draft checkpoints, and archive/recover lifecycle

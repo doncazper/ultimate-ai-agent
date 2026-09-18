@@ -501,7 +501,9 @@ def test_start_service_reuses_verified_uaa_port_occupant(monkeypatch: pytest.Mon
 
     result = launcher.start_service(ROOT, service)
 
-    assert "already UAA-ready" in result
+    # API health cannot prove the Finance configuration of an unowned process.
+    assert "backend: blocked" in result
+    assert "no verified owned Finance startup configuration" in result
 
 
 def test_start_service_switches_to_next_free_port_when_explicitly_enabled(
@@ -1121,6 +1123,169 @@ def test_launcher_env_passes_configured_local_control_center_bearers(
     assert "UNRELATED_TOKEN" not in backend_env
     assert "UNRELATED_TOKEN" not in frontend_env
     assert backend_env["UAA_BUILD_COMMIT"] == "2" * 40
+
+
+@pytest.mark.parametrize("disable_value", ["", "unknown", "false", "1"])
+def test_finance_startup_configuration_is_preserved_only_for_backend(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, disable_value: str
+) -> None:
+    launcher = load_launcher()
+    contract = launcher._load_finance_startup_module()
+    monkeypatch.setattr(launcher, "verified_source_commit", lambda _root: "3" * 40)
+    expected = {
+        contract.FINANCE_WORKSPACE_REPOSITORY_ENV: str(tmp_path / "sample-book"),
+        contract.FINANCE_WORKSPACE_HELPER_ENV: str(tmp_path / "sample-helper"),
+        contract.FINANCE_WORKSPACE_HELPER_DIGEST_ENV: "invalid-digest-remains-invalid",
+        contract.FINANCE_WORKSPACE_DISABLE_ENV: disable_value,
+    }
+    for name, value in expected.items():
+        monkeypatch.setenv(name, value)
+    for name in ["UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"]:
+        monkeypatch.setenv(name, "must-not-pass")
+
+    backend = launcher.safe_env(tmp_path, "backend")
+    assert contract.finance_startup_environment(backend) == expected
+    assert not any(name in backend for name in [
+        "UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"
+    ])
+    for service_name in ["frontend", "openwebui"]:
+        assert contract.finance_startup_environment(launcher.safe_env(tmp_path, service_name)) == {}
+    assert not (tmp_path / "sample-book").exists()
+
+
+def test_finance_startup_identity_distinguishes_every_key_and_absent_from_empty() -> None:
+    contract = load_launcher()._load_finance_startup_module()
+    absent = contract.finance_startup_configuration_ref({})
+    identities = {absent}
+    for name in contract.FINANCE_STARTUP_ENV_NAMES:
+        for value in ["", "first", "second"]:
+            identity = contract.finance_startup_configuration_ref({name: value})
+            assert identity not in identities
+            identities.add(identity)
+            assert contract.finance_startup_configuration_matches(identity, {name: value})
+    environment = {name: str(index) for index, name in enumerate(contract.FINANCE_STARTUP_ENV_NAMES)}
+    reference = contract.finance_startup_configuration_ref(environment)
+    assert reference == contract.finance_startup_configuration_ref(dict(reversed(list(environment.items()))))
+    assert reference == contract.finance_startup_configuration_ref({**environment, "UNRELATED_TOKEN": "ignored"})
+    for invalid in [None, False, [], {}, reference.upper(), reference + "extra"]:
+        assert not contract.finance_startup_configuration_matches(invalid, environment)
+
+
+def test_finance_startup_contract_works_without_installed_dependencies(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable, "-I", "-S", "-B", "-c",
+            "import importlib.util, sys; "
+            "spec = importlib.util.spec_from_file_location('uaa_launcher', sys.argv[1]); "
+            "module = importlib.util.module_from_spec(spec); "
+            "sys.modules[spec.name] = module; spec.loader.exec_module(module); "
+            "contract = module._load_finance_startup_module(); "
+            "assert contract.finance_startup_environment({'UAA_FINANCE_SAFE_DISABLE': ''}) "
+            "== {'UAA_FINANCE_SAFE_DISABLE': ''}; "
+            "assert 'pydantic' not in sys.modules; "
+            "assert 'cryptography' not in sys.modules; "
+            "print('stdlib-only startup contract passed')",
+            str(LAUNCHER_PATH),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout.strip() == "stdlib-only startup contract passed"
+
+
+@pytest.mark.parametrize("recorded", ["matching", "missing", "malformed", "changed"])
+def test_finance_startup_reuse_requires_matching_owned_metadata_and_retains_stop(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, recorded: str
+) -> None:
+    launcher = load_launcher()
+    contract = launcher._load_finance_startup_module()
+    for name in contract.FINANCE_STARTUP_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(contract.FINANCE_WORKSPACE_DISABLE_ENV, "")
+    service = launcher.service_config(tmp_path, "backend")
+    service.pid_file.parent.mkdir(parents=True)
+    service.pid_file.write_text("12345\n", encoding="utf-8")
+    metadata = {
+        "name": service.name, "pid": 12345, "command": service.command,
+        "cwd": str(service.cwd), "url": service.url,
+    }
+    if recorded != "missing":
+        metadata[contract.FINANCE_STARTUP_METADATA_KEY] = (
+            "malformed" if recorded == "malformed" else
+            contract.finance_startup_configuration_ref(
+                {} if recorded == "changed" else launcher.os.environ
+            )
+        )
+    service.metadata_file.write_text(json.dumps(metadata), encoding="utf-8")
+    original_metadata = service.metadata_file.read_bytes()
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(launcher.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("reuse must not spawn"))
+    monkeypatch.setattr(launcher.os, "killpg", lambda *_args: pytest.fail("reuse must not stop"))
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda *_args: pytest.fail("refusal must not open browser"))
+
+    result = launcher.start_service(tmp_path, service)
+
+    if recorded == "matching":
+        assert "already running" in result
+    else:
+        assert "backend: blocked" in result
+        assert "run uaa stop, then uaa start" in result
+        assert "already running" not in result
+        service_config = launcher.service_config
+
+        def backend_only(root, name):
+            assert name == "backend", "blocked backend must prevent frontend startup"
+            return service_config(root, name)
+
+        monkeypatch.setattr(launcher, "service_config", backend_only)
+        assert launcher.command_launch_ui(tmp_path) == 1
+    assert service.metadata_file.read_bytes() == original_metadata
+    assert service.pid_file.read_text(encoding="utf-8") == "12345\n"
+    assert launcher.metadata_matches_process(service, 12345)
+    stopped = []
+    monkeypatch.setattr(launcher, "is_pid_running", lambda _pid: False)
+    monkeypatch.setattr(launcher.os, "killpg", lambda pid, sig: stopped.append((pid, sig)))
+    assert "stopped launcher pid" in launcher.stop_service(service)
+    assert stopped == [(12345, launcher.signal.SIGTERM)]
+
+
+def test_finance_startup_metadata_binds_actual_spawn_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    launcher = load_launcher()
+    contract = launcher._load_finance_startup_module()
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.touch()
+    service = launcher.service_config(tmp_path, "backend")
+    monkeypatch.setattr(launcher, "verified_source_commit", lambda _root: "4" * 40)
+    for name in contract.FINANCE_STARTUP_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    private_book = tmp_path / "sample-private-book"
+    monkeypatch.setenv(contract.FINANCE_WORKSPACE_REPOSITORY_ENV, str(private_book))
+    monkeypatch.setenv(contract.FINANCE_WORKSPACE_DISABLE_ENV, "")
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "missing")
+    monkeypatch.setattr(launcher, "is_port_open", lambda *_args: False)
+    monkeypatch.setattr(launcher, "wait_for_url", lambda _url: True)
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+    captured = []
+
+    def spawn(*_args, **kwargs):
+        captured.append(dict(kwargs["env"]))
+        monkeypatch.setenv(contract.FINANCE_WORKSPACE_DISABLE_ENV, "false")
+        return type("Process", (), {"pid": 12345})()
+
+    monkeypatch.setattr(launcher.subprocess, "Popen", spawn)
+    assert "running at" in launcher.start_service(tmp_path, service)
+    metadata_text = service.metadata_file.read_text(encoding="utf-8")
+    metadata = json.loads(metadata_text)
+    assert metadata[contract.FINANCE_STARTUP_METADATA_KEY] == contract.finance_startup_configuration_ref(captured[0])
+    assert metadata[contract.FINANCE_STARTUP_METADATA_KEY] != contract.finance_startup_configuration_ref(launcher.os.environ)
+    assert str(private_book) not in metadata_text
+    assert not private_book.exists()
 
 
 def test_launcher_binds_backend_to_exact_clean_source_commit(

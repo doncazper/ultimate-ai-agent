@@ -1,8 +1,11 @@
 # FIN-003 Synthetic In-App Workflow
 
-Status: implementation in progress in the separately admitted synthetic in-app
-lane. This document is a development contract, not completed product evidence.
-FIN-003 and Q26 remain incomplete.
+Status: bounded synthetic in-app implementation merged in PR #481 at
+`f269cc8e9f9ba8a0e7c752e6bfcb6f08a172dda6`, with post-merge qualification and
+owned cleanup recorded by its completed queue child. FIN-003 and Q26 remain
+incomplete. The separately admitted
+[normal startup continuation](UAA_FINANCE_FIN003_NORMAL_STARTUP.md) preserves
+explicit configuration through the launchers and guards stale runtime reuse.
 
 ## Bounded operator journey
 

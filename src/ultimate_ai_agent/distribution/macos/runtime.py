@@ -21,10 +21,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from ultimate_ai_agent.core.finance_startup import (
+    FINANCE_STARTUP_METADATA_KEY,
+    finance_startup_configuration_matches,
+    finance_startup_configuration_ref,
+    finance_startup_environment,
+)
 
 from .contracts import (
     APP_BUNDLE_NAME,
@@ -113,6 +121,33 @@ def command_launch(
     skip_update: bool,
     no_browser: bool,
 ) -> int:
+    finance_environment = finance_startup_environment(os.environ)
+    state = _load_runtime_state(paths)
+    identity_matches = state is not None and _runtime_identity_matches(state)
+    if (
+        state is not None
+        and not identity_matches
+        and _runtime_process_state(state) != "dead"
+    ):
+        print(
+            "The recorded runtime could still be running, but its identity is "
+            "unverified. Restore its identity endpoint or verify that it has "
+            "exited before retrying. Ownership state was retained."
+        )
+        return 1
+    if (
+        state is not None
+        and identity_matches
+        and not finance_startup_configuration_matches(
+            state.get(FINANCE_STARTUP_METADATA_KEY), finance_environment
+        )
+    ):
+        print(
+            "Finance startup configuration changed or is unverified. "
+            "Run uaa stop, then uaa launch with the intended configuration. "
+            "The running app and its ownership state were retained."
+        )
+        return 1
     local_bearer = _ensure_local_bearer(paths)
     if not skip_update:
         update_result = command_update(
@@ -124,7 +159,8 @@ def command_launch(
             timeout_seconds=AUTO_UPDATE_TIMEOUT_SECONDS,
         )
         if update_result == 10:
-            command_stop(paths, quiet=True)
+            if command_stop(paths, quiet=True):
+                return 1
             executable = (
                 paths.install.current_link
                 / APP_BUNDLE_NAME
@@ -149,14 +185,33 @@ def command_launch(
         f"macos-version:{current_version_id(paths.install)}"
     )
     state = _load_runtime_state(paths)
-    if state is not None and _runtime_identity_matches(state):
+    identity_matches = state is not None and _runtime_identity_matches(state)
+    if state is not None and not identity_matches and _runtime_process_state(state) != "dead":
+        print(
+            "The recorded runtime could still be running, but its identity is "
+            "unverified. Restore its identity endpoint or verify that it has "
+            "exited before retrying. Ownership state was retained."
+        )
+        return 1
+    if state is not None and identity_matches:
+        if not finance_startup_configuration_matches(
+            state.get(FINANCE_STARTUP_METADATA_KEY), finance_environment
+        ):
+            print(
+                "Finance startup configuration changed or is unverified. "
+                "Run uaa stop, then uaa launch with the intended configuration. "
+                "The running app and its ownership state were retained."
+            )
+            return 1
         if state.get("version_ref") == installed_version_ref:
             url = _runtime_url(int(state["port"]))
             if not no_browser:
                 webbrowser.open(_session_url(url, local_bearer))
             print(f"Ultimate AI Agent is ready at {url}")
             return 0
-        _terminate_owned_process(state)
+        if not _terminate_owned_process(state):
+            print("The prior runtime could not be stopped; ownership state was retained.")
+            return 1
     if state is not None:
         paths.runtime_state.unlink(missing_ok=True)
     port = _next_available_port(DEFAULT_HOST, DEFAULT_PORT)
@@ -175,6 +230,7 @@ def command_launch(
     environment = _runtime_environment(
         local_bearer=local_bearer,
         source_commit=str(manifest.get("source_commit", "")),
+        finance_environment=finance_environment,
     )
     process = subprocess.Popen(
         command,
@@ -196,6 +252,7 @@ def command_launch(
         "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "raw_paths_included": False,
         "credentials_included": False,
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(environment),
     }
     _write_json(paths.runtime_state, state, mode=0o600)
     deadline = time.monotonic() + START_TIMEOUT_SECONDS
@@ -213,8 +270,10 @@ def command_launch(
             print(f"Ultimate AI Agent is ready at {url}")
             return 0
         time.sleep(0.2)
-    _terminate_owned_process(state)
-    paths.runtime_state.unlink(missing_ok=True)
+    if _terminate_owned_process(state) or process.poll() is not None:
+        paths.runtime_state.unlink(missing_ok=True)
+    else:
+        print("Runtime exit is unverified; ownership state was retained for recovery.")
     print("Ultimate AI Agent runtime did not become ready in time.")
     return 1
 
@@ -371,13 +430,18 @@ def command_status(paths: RuntimePaths, *, as_json: bool) -> int:
     manifest = current_manifest(paths.install)
     state = _load_runtime_state(paths)
     running = state is not None and _runtime_identity_matches(state)
+    runtime_status = (
+        "ready" if running else
+        "stopped" if state is None or _runtime_process_state(state) == "dead" else
+        "unverified"
+    )
     payload = {
         "schema_version": "uaa.macos.status.v1",
         "installed": manifest is not None,
         "tag_ref": f"git-tag:{manifest['tag']}" if manifest else None,
         "version": manifest.get("version") if manifest else None,
         "channel": _load_channel(paths),
-        "runtime_status": "ready" if running else "stopped",
+        "runtime_status": runtime_status,
         "runtime_url": _runtime_url(int(state["port"])) if running and state else None,
         "rollback_available": paths.install.previous_link.is_symlink(),
         "github_auth_available": discover_github_token() is not None,
@@ -502,11 +566,19 @@ def command_stop(paths: RuntimePaths, *, quiet: bool = False) -> int:
             print("Ultimate AI Agent runtime is already stopped.")
         return 0
     if not _runtime_identity_matches(state):
+        if _runtime_process_state(state) != "dead":
+            print(
+                "The recorded runtime could still be running, but its identity is "
+                "unverified. No process was stopped; ownership state was retained."
+            )
+            return 1
         paths.runtime_state.unlink(missing_ok=True)
         if not quiet:
             print("Removed stale runtime state; no unverified process was stopped.")
         return 0
-    _terminate_owned_process(state)
+    if not _terminate_owned_process(state):
+        print("Runtime exit is unverified; ownership state was retained for recovery.")
+        return 1
     paths.runtime_state.unlink(missing_ok=True)
     if not quiet:
         print("Ultimate AI Agent runtime stopped.")
@@ -514,7 +586,8 @@ def command_stop(paths: RuntimePaths, *, quiet: bool = False) -> int:
 
 
 def command_rollback(paths: RuntimePaths, *, relaunch: bool) -> int:
-    command_stop(paths, quiet=True)
+    if command_stop(paths, quiet=True):
+        return 1
     try:
         result = rollback(paths.install)
     except InstallError as exc:
@@ -548,7 +621,8 @@ def command_install_local(
 
 
 def command_uninstall(paths: RuntimePaths, *, purge_versions: bool) -> int:
-    command_stop(paths, quiet=True)
+    if command_stop(paths, quiet=True):
+        return 1
     try:
         receipt_ref = uninstall(paths.install, purge_versions=purge_versions)
     except InstallError as exc:
@@ -637,6 +711,21 @@ def command_serve(*, port: int, nonce: str) -> int:
     return 0
 
 
+def _runtime_process_state(state: dict[str, Any]) -> Literal["alive", "dead", "unverified"]:
+    """Only an absent process proves that recorded ownership can be discarded."""
+
+    pid = state.get("pid")
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return "unverified"
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return "dead"
+    except (OSError, OverflowError):
+        return "unverified"
+    return "alive"
+
+
 def _runtime_identity_matches(state: dict[str, Any]) -> bool:
     pid = state.get("pid")
     port = state.get("port")
@@ -650,9 +739,7 @@ def _runtime_identity_matches(state: dict[str, Any]) -> bool:
         or not isinstance(nonce, str)
     ):
         return False
-    try:
-        os.kill(pid, 0)
-    except (OSError, PermissionError):
+    if _runtime_process_state(state) != "alive":
         return False
     payload = _get_loopback_json(
         f"http://{DEFAULT_HOST}:{port}/uaa-runtime-identity",
@@ -666,23 +753,41 @@ def _runtime_identity_matches(state: dict[str, Any]) -> bool:
     )
 
 
-def _terminate_owned_process(state: dict[str, Any]) -> None:
+def _terminate_owned_process(state: dict[str, Any]) -> bool:
     if not _runtime_identity_matches(state):
-        return
+        return _runtime_process_state(state) == "dead"
     pid = int(state["pid"])
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
-        return
+        return True
+    except (OSError, OverflowError):
+        return False
     deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
-            return
+            return True
+        except (OSError, OverflowError):
+            return False
         time.sleep(0.1)
     if _runtime_identity_matches(state):
-        os.kill(pid, signal.SIGKILL)
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return True
+        except (OSError, OverflowError):
+            return False
+        # Signal delivery and reaping are asynchronous. Retain ownership until
+        # absence is proven, allowing the same bounded grace after escalation.
+        deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            process_state = _runtime_process_state(state)
+            if process_state != "alive":
+                return process_state == "dead"
+            time.sleep(0.1)
+    return _runtime_process_state(state) == "dead"
 
 
 def _next_available_port(host: str, preferred: int) -> int:
@@ -698,6 +803,7 @@ def _runtime_environment(
     *,
     local_bearer: str,
     source_commit: str,
+    finance_environment: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     if (
         len(source_commit) != 40
@@ -725,6 +831,11 @@ def _runtime_environment(
     allowed["PYTHONDONTWRITEBYTECODE"] = "1"
     allowed["UAA_API_LOCAL_BEARER"] = local_bearer
     allowed["UAA_BUILD_COMMIT"] = source_commit
+    allowed.update(
+        finance_startup_environment(
+            os.environ if finance_environment is None else finance_environment
+        )
+    )
     return allowed
 
 
@@ -804,9 +915,17 @@ def _get_loopback_json(url: str, *, timeout: float) -> object | None:
 
 
 def _load_runtime_state(paths: RuntimePaths) -> dict[str, Any] | None:
+    # Only lstat-proven absence permits a fresh launch. An unreadable or invalid
+    # existing record (including a dangling symlink) may still own a live child.
+    try:
+        paths.runtime_state.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return {"status": "unverified"}
     value = _load_json(paths.runtime_state)
     if not isinstance(value, dict) or value.get("schema_version") != RUNTIME_STATE_SCHEMA:
-        return None
+        return {"status": "unverified"}
     return value
 
 

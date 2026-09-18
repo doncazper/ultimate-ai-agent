@@ -92,79 +92,120 @@ def _expected_action(case, state: CatalogState, mode: ReplayMode):
 
 
 def _passing_inputs(corpus: DevelopmentCorpusManifest):
-    bindings = tuple(_binding(case.case_ref) for case in corpus.cases)
-    by_case = {item.case_ref: item for item in bindings}
-    observations = []
-    for case in corpus.cases:
-        binding = by_case[case.case_ref]
-        case_payload = reconstruct_development_case_payload(corpus, case.case_ref)
-        for state_ref in TAW07_CATALOG_STATES:
-            state = CatalogState(state_ref)
-            for mode_ref in TAW07_REPLAY_MODES:
-                mode = ReplayMode(mode_ref)
-                source_decision = build_taw07_source_decision(
-                    case_payload=case_payload,
-                    catalog_state=state,
-                    replay_mode=mode,
-                )
-                observations.append(
-                    bind_taw07_observation(
-                        case_ref=case.case_ref,
-                        category_ref=case.category_ref,
-                        candidate_revision_ref=CANDIDATE_REVISION,
-                        candidate_manifest_digest_ref=CANDIDATE_DIGEST,
-                        development_corpus_digest_ref=corpus.corpus_digest,
+    # Synthetic evidence setup must not depend on host scheduling. Keep the
+    # real deadline guards active outside this fixture's scoped clock binding.
+    from ultimate_ai_agent.core.capabilities import retrieval
+
+    ticks = count(0, 1_000_000)
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(
+            retrieval, "time", SimpleNamespace(perf_counter_ns=lambda: next(ticks))
+        )
+        bindings = tuple(_binding(case.case_ref) for case in corpus.cases)
+        by_case = {item.case_ref: item for item in bindings}
+        observations = []
+        for case in corpus.cases:
+            binding = by_case[case.case_ref]
+            case_payload = reconstruct_development_case_payload(corpus, case.case_ref)
+            for state_ref in TAW07_CATALOG_STATES:
+                state = CatalogState(state_ref)
+                for mode_ref in TAW07_REPLAY_MODES:
+                    mode = ReplayMode(mode_ref)
+                    source_decision = build_taw07_source_decision(
+                        case_payload=case_payload,
                         catalog_state=state,
                         replay_mode=mode,
-                        source_decision=source_decision,
-                        observed_action=_expected_action(case, state, mode),
-                        payload_fingerprint_ref=binding.payload_fingerprint_ref,
-                        response_fingerprint_ref=binding.response_fingerprint_ref,
-                        durable_evidence_fingerprint_ref=(
-                            binding.durable_evidence_fingerprint_ref
-                        ),
-                        routing_latency_milliseconds=5,
-                        hydration_latency_milliseconds=(
-                            10
-                            if source_decision.hydration_fingerprint_ref is not None
-                            and state == CatalogState.healthy
-                            and mode == ReplayMode.candidate_shadow
-                            else 0
-                        ),
-                        baseline_ttft_milliseconds=100,
-                        candidate_ttft_milliseconds=100,
-                        model_visible_context_tokens=0,
-                        safe_disable_engaged=(
-                            mode == ReplayMode.safe_disabled_replay
-                            or state != CatalogState.healthy
-                        ),
-                        evidence_ref=f"evidence-ref:taw07:{case.case_ref.rsplit(':', 1)[-1]}:{state.value}:{mode.value}",
                     )
-                )
-    quality = tuple(
-        bind_taw07_quality_observation(
-            case_ref=case.case_ref,
-            candidate_revision_ref=CANDIDATE_REVISION,
-            candidate_manifest_digest_ref=CANDIDATE_DIGEST,
-            development_corpus_digest_ref=corpus.corpus_digest,
-            baseline_response_fingerprint_ref=by_case[
-                case.case_ref
-            ].response_fingerprint_ref,
-            candidate_response_fingerprint_ref=by_case[
-                case.case_ref
-            ].response_fingerprint_ref,
-            dimension_deltas=TAW07QualityDelta(
-                helpfulness=0,
-                instruction_following=0,
-                tone=0,
-                response_relevance=0,
-            ),
-            evidence_ref=f"evidence-ref:taw07:founder-score:{case.case_ref.rsplit(':', 1)[-1]}",
+                    observations.append(
+                        bind_taw07_observation(
+                            case_ref=case.case_ref,
+                            category_ref=case.category_ref,
+                            candidate_revision_ref=CANDIDATE_REVISION,
+                            candidate_manifest_digest_ref=CANDIDATE_DIGEST,
+                            development_corpus_digest_ref=corpus.corpus_digest,
+                            catalog_state=state,
+                            replay_mode=mode,
+                            source_decision=source_decision,
+                            observed_action=_expected_action(case, state, mode),
+                            payload_fingerprint_ref=binding.payload_fingerprint_ref,
+                            response_fingerprint_ref=binding.response_fingerprint_ref,
+                            durable_evidence_fingerprint_ref=(
+                                binding.durable_evidence_fingerprint_ref
+                            ),
+                            routing_latency_milliseconds=5,
+                            hydration_latency_milliseconds=(
+                                10
+                                if source_decision.hydration_fingerprint_ref is not None
+                                and state == CatalogState.healthy
+                                and mode == ReplayMode.candidate_shadow
+                                else 0
+                            ),
+                            baseline_ttft_milliseconds=100,
+                            candidate_ttft_milliseconds=100,
+                            model_visible_context_tokens=0,
+                            safe_disable_engaged=(
+                                mode == ReplayMode.safe_disabled_replay
+                                or state != CatalogState.healthy
+                            ),
+                            evidence_ref=f"evidence-ref:taw07:{case.case_ref.rsplit(':', 1)[-1]}:{state.value}:{mode.value}",
+                        )
+                    )
+        quality = tuple(
+            bind_taw07_quality_observation(
+                case_ref=case.case_ref,
+                candidate_revision_ref=CANDIDATE_REVISION,
+                candidate_manifest_digest_ref=CANDIDATE_DIGEST,
+                development_corpus_digest_ref=corpus.corpus_digest,
+                baseline_response_fingerprint_ref=by_case[
+                    case.case_ref
+                ].response_fingerprint_ref,
+                candidate_response_fingerprint_ref=by_case[
+                    case.case_ref
+                ].response_fingerprint_ref,
+                dimension_deltas=TAW07QualityDelta(
+                    helpfulness=0,
+                    instruction_following=0,
+                    tone=0,
+                    response_relevance=0,
+                ),
+                evidence_ref=f"evidence-ref:taw07:founder-score:{case.case_ref.rsplit(':', 1)[-1]}",
+            )
+            for case in corpus.cases
+            if case.category_ref == "category-ref:taw07:ordinary-chat"
         )
-        for case in corpus.cases
-        if case.category_ref == "category-ref:taw07:ordinary-chat"
-    )
-    return bindings, tuple(observations), quality
+        return bindings, tuple(observations), quality
+
+
+def test_passing_inputs_isolates_and_restores_retrieval_clock() -> None:
+    from ultimate_ai_agent.core.capabilities import retrieval
+
+    corpus = _corpus()
+    original_clock = retrieval.time
+    expired_ticks = count(0, 301_000_000)
+    expired_clock = SimpleNamespace(perf_counter_ns=lambda: next(expired_ticks))
+    with pytest.MonkeyPatch.context() as clock_patch:
+        clock_patch.setattr(retrieval, "time", expired_clock)
+        bindings, observations, quality = _passing_inputs(corpus)
+        assert len(bindings) == 24
+        assert len(observations) == 240
+        assert len(quality) == 2
+        assert retrieval.time is expired_clock
+        case = next(
+            item
+            for item in corpus.cases
+            if "parameter-ref:taw07:reviewed-read-operation" in item.parameter_refs
+        )
+        with pytest.raises(
+            ValueError, match="compact cache build latency budget exceeded"
+        ):
+            build_taw07_source_decision(
+                case_payload=reconstruct_development_case_payload(
+                    corpus, case.case_ref
+                ),
+                catalog_state=CatalogState.healthy,
+                replay_mode=ReplayMode.candidate_shadow,
+            )
+    assert retrieval.time is original_clock
 
 
 def _evaluate(
