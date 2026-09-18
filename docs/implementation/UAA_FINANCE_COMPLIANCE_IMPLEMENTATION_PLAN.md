@@ -212,8 +212,13 @@ real-input, API/UI or external authority. See
 `docs/product/UAA_FINANCE_FIN003_SYNTHETIC_REVIEW_DECISION_PERSISTENCE.md` and
 `scripts/verify_fin003_review_decision_persistence.py`.
 
-The remaining full FIN-003 work below stays planned and separately gated; the
-synthetic Core/CLI dispositions do not complete the normal Finance workflow:
+The subsequent [synthetic in-app workflow](../product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md)
+merged in PR #481 and exposes setup/import/review/save/reopen/undo through the
+shared Core/CLI/API/Control Center contract. The separately admitted
+[normal startup continuation](../product/UAA_FINANCE_FIN003_NORMAL_STARTUP.md)
+addresses explicit backend configuration and stale-runtime reuse. Automatic
+provisioning and the remaining full FIN-003 work below stay planned and
+separately gated; these synthetic slices do not complete the normal Finance workflow:
 
 Deliver:
 

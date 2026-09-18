@@ -346,6 +346,7 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
         env[UAA_BUILD_COMMIT_ENV] = verified_source_commit(root)
+        env.update(_load_finance_startup_module().finance_startup_environment(os.environ))
         if os.environ.get(UAA_API_LOCAL_BEARER_ENV):
             env[UAA_API_LOCAL_BEARER_ENV] = os.environ[UAA_API_LOCAL_BEARER_ENV]
             sensitive_passthrough_keys.add(UAA_API_LOCAL_BEARER_ENV)
@@ -1016,6 +1017,17 @@ def start_service(
     if state == "running":
         pid = read_pid_file(service.pid_file)
         if pid is not None and metadata_matches_service(service, pid):
+            if service.name == "backend":
+                finance_startup = _load_finance_startup_module()
+                metadata = _read_service_metadata(service) or {}
+                if not finance_startup.finance_startup_configuration_matches(
+                    metadata.get(finance_startup.FINANCE_STARTUP_METADATA_KEY), os.environ
+                ):
+                    return (
+                        "backend: blocked; Finance startup configuration changed or is "
+                        "unverified; run uaa stop, then uaa start with the intended "
+                        "configuration; ownership metadata retained"
+                    )
             return f"{service.name}: already running (pid {pid})"
         if pid is not None and metadata_matches_process(service, pid) and service.name in {"frontend", "openwebui"}:
             metadata = _read_service_metadata(service)
@@ -1041,6 +1053,12 @@ def start_service(
     host, port = service_ports[service.name]
     if is_port_open(host, port):
         if service_identity_ready(service) and service.name != "frontend":
+            if service.name == "backend":
+                return (
+                    "backend: blocked; existing UAA endpoint has no verified owned "
+                    "Finance startup configuration; stop it with its owning launcher "
+                    "before starting with the intended configuration"
+                )
             return f"{service.name}: {service.url} is already UAA-ready; not starting a duplicate"
         if _env_flag_enabled(UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, default=False):
             alternative_port = _next_open_port(host, port)
@@ -1104,13 +1122,14 @@ def start_service(
             raise RuntimeError(f"{docker_message}; run uaa openwebui doctor")
         (root / STATE_DIR / "openwebui-data").mkdir(parents=True, exist_ok=True)
 
+    environment = safe_env(root, service.name)
     service.log_file.parent.mkdir(parents=True, exist_ok=True)
     log_handle = service.log_file.open("a", encoding="utf-8")
     try:
         process = subprocess.Popen(
             service.command,
             cwd=service.cwd,
-            env=safe_env(root, service.name),
+            env=environment,
             stdout=log_handle,
             stderr=subprocess.STDOUT,
             text=True,
@@ -1141,6 +1160,11 @@ def start_service(
     }
     if service.name == "frontend":
         metadata["backend_proxy_url"] = backend_url()
+    if service.name == "backend":
+        finance_startup = _load_finance_startup_module()
+        metadata[finance_startup.FINANCE_STARTUP_METADATA_KEY] = (
+            finance_startup.finance_startup_configuration_ref(environment)
+        )
     service.metadata_file.write_text(
         json.dumps(metadata, indent=2, sort_keys=True)
         + "\n",
@@ -1755,6 +1779,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"Unknown command: {command}")
     return 2
+
+
+def _load_finance_startup_module() -> Any:
+    # The launcher also runs under plain system Python. Load only this exact
+    # standard-library module, without importing the Finance package graph.
+    module_name = "uaa_finance_startup"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    module_path = (
+        Path(__file__).resolve().parents[2]
+        / "src" / "ultimate_ai_agent" / "core" / "finance_startup.py"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load local Finance startup contract")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _load_setup_module() -> Any:

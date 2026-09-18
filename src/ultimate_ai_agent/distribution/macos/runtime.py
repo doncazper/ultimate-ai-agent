@@ -21,10 +21,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from ultimate_ai_agent.core.finance_startup import (
+    FINANCE_STARTUP_METADATA_KEY,
+    finance_startup_configuration_matches,
+    finance_startup_configuration_ref,
+    finance_startup_environment,
+)
 
 from .contracts import (
     APP_BUNDLE_NAME,
@@ -113,6 +121,21 @@ def command_launch(
     skip_update: bool,
     no_browser: bool,
 ) -> int:
+    finance_environment = finance_startup_environment(os.environ)
+    state = _load_runtime_state(paths)
+    if (
+        state is not None
+        and _runtime_identity_matches(state)
+        and not finance_startup_configuration_matches(
+            state.get(FINANCE_STARTUP_METADATA_KEY), finance_environment
+        )
+    ):
+        print(
+            "Finance startup configuration changed or is unverified. "
+            "Run uaa stop, then uaa launch with the intended configuration. "
+            "The running app and its ownership state were retained."
+        )
+        return 1
     local_bearer = _ensure_local_bearer(paths)
     if not skip_update:
         update_result = command_update(
@@ -150,6 +173,15 @@ def command_launch(
     )
     state = _load_runtime_state(paths)
     if state is not None and _runtime_identity_matches(state):
+        if not finance_startup_configuration_matches(
+            state.get(FINANCE_STARTUP_METADATA_KEY), finance_environment
+        ):
+            print(
+                "Finance startup configuration changed or is unverified. "
+                "Run uaa stop, then uaa launch with the intended configuration. "
+                "The running app and its ownership state were retained."
+            )
+            return 1
         if state.get("version_ref") == installed_version_ref:
             url = _runtime_url(int(state["port"]))
             if not no_browser:
@@ -175,6 +207,7 @@ def command_launch(
     environment = _runtime_environment(
         local_bearer=local_bearer,
         source_commit=str(manifest.get("source_commit", "")),
+        finance_environment=finance_environment,
     )
     process = subprocess.Popen(
         command,
@@ -196,6 +229,7 @@ def command_launch(
         "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "raw_paths_included": False,
         "credentials_included": False,
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(environment),
     }
     _write_json(paths.runtime_state, state, mode=0o600)
     deadline = time.monotonic() + START_TIMEOUT_SECONDS
@@ -698,6 +732,7 @@ def _runtime_environment(
     *,
     local_bearer: str,
     source_commit: str,
+    finance_environment: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     if (
         len(source_commit) != 40
@@ -725,6 +760,11 @@ def _runtime_environment(
     allowed["PYTHONDONTWRITEBYTECODE"] = "1"
     allowed["UAA_API_LOCAL_BEARER"] = local_bearer
     allowed["UAA_BUILD_COMMIT"] = source_commit
+    allowed.update(
+        finance_startup_environment(
+            os.environ if finance_environment is None else finance_environment
+        )
+    )
     return allowed
 
 

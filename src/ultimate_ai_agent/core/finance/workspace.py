@@ -61,6 +61,12 @@ from ultimate_ai_agent.core.finance.service import (
 from ultimate_ai_agent.core.finance.workspace_recovery import (
     FinanceWorkspaceRecoveryStore,
 )
+from ultimate_ai_agent.core.finance_startup import (
+    FINANCE_WORKSPACE_DISABLE_ENV,
+    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
+    FINANCE_WORKSPACE_HELPER_ENV,
+    FINANCE_WORKSPACE_REPOSITORY_ENV,
+)
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.safe_contract_text import (
     IDEMPOTENCY_VALUE_PATTERN,
@@ -72,10 +78,6 @@ from ultimate_ai_agent.core.safe_contract_text import (
 FINANCE_WORKSPACE_CONTRACT_REF = "contract-ref:finance/FIN-003:synthetic-in-app:v1"
 FINANCE_SAMPLE_BOOK_REF = "fixture-ref:finance/FIN-001:balanced-local-book:v1"
 FINANCE_SAMPLE_IMPORT_REF = "fixture-ref:finance/FIN-002:synthetic-csv-clean:v1"
-FINANCE_WORKSPACE_REPOSITORY_ENV = "UAA_FINANCE_SYNTHETIC_REPOSITORY_DIR"
-FINANCE_WORKSPACE_HELPER_ENV = "UAA_FINANCE_NATIVE_HELPER_PATH"
-FINANCE_WORKSPACE_HELPER_DIGEST_ENV = "UAA_FINANCE_NATIVE_HELPER_SHA256"
-FINANCE_WORKSPACE_DISABLE_ENV = "UAA_FINANCE_SAFE_DISABLE"
 FINANCE_WORKSPACE_MAX_BODY_BYTES = 128 * 1024
 FINANCE_WORKSPACE_MAX_DEPTH = 32
 FinanceWorkspaceOperation = Literal[

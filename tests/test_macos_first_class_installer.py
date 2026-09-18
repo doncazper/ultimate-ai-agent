@@ -13,6 +13,18 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
+from ultimate_ai_agent.core.finance_startup import (
+    FINANCE_STARTUP_ENV_NAMES,
+    FINANCE_STARTUP_METADATA_KEY,
+    FINANCE_WORKSPACE_DISABLE_ENV,
+    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
+    FINANCE_WORKSPACE_HELPER_ENV,
+    FINANCE_WORKSPACE_REPOSITORY_ENV,
+    finance_startup_configuration_ref,
+    finance_startup_environment,
+)
+from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
+
 from scripts.macos.build_release_bundle import (
     _launcher_source,
     build_release_bundle,
@@ -107,6 +119,7 @@ def test_launch_replaces_live_runtime_from_superseded_install(
         "port": 8765,
         "nonce": "old-runtime-nonce",
         "version_ref": "macos-version:old-version",
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
     }
     terminated: list[dict[str, object]] = []
     written_states: list[dict[str, object]] = []
@@ -162,6 +175,115 @@ def test_launch_replaces_live_runtime_from_superseded_install(
     assert terminated == [old_state]
     assert written_states[-1]["status"] == "ready"
     assert written_states[-1]["version_ref"] == "macos-version:new-version"
+
+
+@pytest.mark.parametrize("disable_value", ["", "unknown", "false", "1"])
+def test_packaged_runtime_preserves_only_exact_finance_configuration(
+    monkeypatch, tmp_path: Path, disable_value: str
+) -> None:
+    expected = {
+        FINANCE_WORKSPACE_REPOSITORY_ENV: str(tmp_path / "sample-book"),
+        FINANCE_WORKSPACE_HELPER_ENV: str(tmp_path / "sample-helper"),
+        FINANCE_WORKSPACE_HELPER_DIGEST_ENV: "invalid-digest-remains-invalid",
+        FINANCE_WORKSPACE_DISABLE_ENV: disable_value,
+    }
+    for name, value in expected.items():
+        monkeypatch.setenv(name, value)
+    for name in ["UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"]:
+        monkeypatch.setenv(name, "must-not-pass")
+    environment = _runtime_environment(local_bearer="local-session-bearer", source_commit="a" * 40)
+    assert finance_startup_environment(environment) == expected
+    assert not any(name in environment for name in [
+        "UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"
+    ])
+    assert not (tmp_path / "sample-book").exists()
+
+
+@pytest.mark.parametrize("recorded", ["matching", "missing", "malformed", "changed"])
+def test_packaged_finance_reuse_preserves_binding_and_stop(
+    monkeypatch, tmp_path: Path, capsys, recorded: str
+) -> None:
+    for name in FINANCE_STARTUP_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "")
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
+        "pid": 111,
+        "port": 8765,
+        "nonce": "runtime-nonce",
+        "version_ref": "macos-version:same-version",
+    }
+    if recorded != "missing":
+        state[FINANCE_STARTUP_METADATA_KEY] = (
+            "malformed" if recorded == "malformed" else
+            finance_startup_configuration_ref({} if recorded == "changed" else os.environ)
+        )
+    paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
+    original_state = paths.runtime_state.read_bytes()
+    opened = []
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda _state: True)
+    monkeypatch.setattr(macos_runtime.webbrowser, "open", lambda url: opened.append(url))
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("reuse must not spawn"))
+    monkeypatch.setattr(macos_runtime, "_terminate_owned_process", lambda _state: pytest.fail("reuse must not stop"))
+    if recorded == "matching":
+        monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+        monkeypatch.setattr(macos_runtime, "command_update", lambda *_args, **_kwargs: 0)
+        monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40})
+        monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "same-version")
+    else:
+        monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: pytest.fail("refusal must not provision bearer"))
+        monkeypatch.setattr(macos_runtime, "command_update", lambda *_args, **_kwargs: pytest.fail("refusal must not update"))
+
+    result = command_launch(paths, skip_update=False, no_browser=False)
+    output = capsys.readouterr().out
+    assert paths.runtime_state.read_bytes() == original_state
+    if recorded == "matching":
+        assert result == 0
+        assert len(opened) == 1
+        assert "is ready" in output
+    else:
+        assert result == 1
+        assert opened == []
+        assert "Run uaa stop, then uaa launch" in output
+        assert "is ready" not in output
+    stopped = []
+    monkeypatch.setattr(macos_runtime, "_terminate_owned_process", lambda owned: stopped.append(owned))
+    assert macos_runtime.command_stop(paths, quiet=True) == 0
+    assert stopped == [state]
+    assert not paths.runtime_state.exists()
+
+
+def test_packaged_finance_startup_state_binds_actual_child_environment(
+    monkeypatch, tmp_path: Path
+) -> None:
+    for name in FINANCE_STARTUP_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    paths = RuntimePaths(_layout(tmp_path))
+    private_book = tmp_path / "sample-private-book"
+    monkeypatch.setenv(FINANCE_WORKSPACE_REPOSITORY_ENV, str(private_book))
+    monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "")
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40, "tag": "v0.104.0"})
+    monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "same-version")
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda _state: True)
+    monkeypatch.setattr(macos_runtime, "_next_available_port", lambda *_args: 8765)
+    captured = []
+
+    def spawn(*_args, **kwargs):
+        captured.append(dict(kwargs["env"]))
+        monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "false")
+        return SimpleNamespace(pid=222, poll=lambda: None)
+
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", spawn)
+    assert command_launch(paths, skip_update=True, no_browser=True) == 0
+    state_text = paths.runtime_state.read_text(encoding="utf-8")
+    state = json.loads(state_text)
+    assert state[FINANCE_STARTUP_METADATA_KEY] == finance_startup_configuration_ref(captured[0])
+    assert state[FINANCE_STARTUP_METADATA_KEY] != finance_startup_configuration_ref(os.environ)
+    assert str(private_book) not in state_text
+    assert not private_book.exists()
 
 
 def test_newest_channel_compares_stable_and_dev_by_tag_commit_time() -> None:
