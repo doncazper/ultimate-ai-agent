@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1033,
+  "timed_file_count": 1034,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -3529,6 +3529,11 @@
       "path": "tests/test_macos_portable_evidence_keychain_backend.py",
       "seconds": 1.08,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_macos_runtime_termination.py",
+      "seconds": 0.01,
+      "source": "historical-pytest-duration-summary"
     },
     {
       "path": "tests/test_macos_setup_assistant.py",
