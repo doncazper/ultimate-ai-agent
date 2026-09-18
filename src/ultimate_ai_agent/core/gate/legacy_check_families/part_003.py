@@ -1116,7 +1116,13 @@ class FoundationGateLegacyChecksPart003Mixin:
                         and route.route_classification == "local_sensitive"
                         and route.approval_posture
                         == "not_required_for_route_classification"
-                        and not route.idempotency_required
+                        and route.idempotency_required
+                        and route.idempotency_posture
+                        == "required_for_exact_request_binding"
+                        and route.idempotency_policy_ref
+                        == "idempotency:p1-084:mutating-routes:v1"
+                        and route.idempotency_enforcement == "route_owned_exact_binding"
+                        and route.durable_idempotency_owner_ref is None
                         and route.rate_limit_targeted
                         and route.rate_limit_group == "finance_workspace"
                     )

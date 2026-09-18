@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.gate import (
     FoundationGateEvaluator as PackageFoundationGateEvaluator,
@@ -633,6 +635,48 @@ def test_m12_accepts_exact_founder_loop_local_dev_summary_routes() -> None:
 
     assert report.overall_status == "passed"
     assert report.failed_count == 0
+
+
+@pytest.mark.parametrize("action", ["preview", "refresh"])
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("idempotency_required", False),
+        ("idempotency_posture", "not_required_for_route_classification"),
+        ("idempotency_policy_ref", None),
+        ("idempotency_enforcement", "none"),
+        ("durable_idempotency_owner_ref", "idempotency-owner:unreviewed:v1"),
+        ("route_classification", "mutating_requires_authority"),
+        ("approval_posture", "required_before_mutation_authority"),
+        ("protected_route", False),
+        ("blocked_from_production", False),
+        ("rate_limit_targeted", False),
+        ("rate_limit_group", None),
+    ],
+)
+def test_m12_finance_preparations_require_exact_nonmutating_binding(
+    monkeypatch: pytest.MonkeyPatch, action: str, field: str, value: object
+) -> None:
+    from ultimate_ai_agent.api import manifest
+
+    path = f"/control-center/finance/workspace/{action}"
+    routes = [
+        route.model_copy(update={field: value}) if route.path == path else route
+        for route in manifest.iter_api_route_items(app)
+    ]
+    monkeypatch.setattr(manifest, "iter_api_route_items", lambda _app: routes)
+    criterion = next(
+        item for item in default_foundation_gate_criteria()
+        if item.criterion_id == "m12_control_center_api_read_only"
+    )
+
+    report = FoundationGateEvaluator(ROOT).evaluate([criterion])
+
+    assert report.overall_status == "failed"
+    assert report.failed_count == 1
+    assert f"{path} is not read-only/preview-only/founder-loop-state" in (
+        report.results[0].failures
+    )
 
 
 def test_proof_lane_normalizations_do_not_create_legacy_gate_false_positives() -> None:
