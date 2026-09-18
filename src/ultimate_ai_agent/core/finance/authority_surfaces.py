@@ -34,3 +34,31 @@ def build_finance_synthetic_book_authority_mapping():
             "real values, routes, connectors, payments, filing, and advice are denied."
         ),
     )
+
+
+def build_finance_managed_setup_authority_mapping():
+    from ultimate_ai_agent.core.authority.contracts import (
+        AuthorityCapability,
+        AuthorityDomain,
+        TrustMode,
+        _mapping,
+    )
+
+    return _mapping(
+        "authority-lane-ref:finance/FIN-003/managed-setup",
+        "Managed synthetic Finance helper enrollment",
+        AuthorityDomain.workspace,
+        AuthorityCapability.write,
+        TrustMode.ask_before_changes,
+        "implemented_exact_session_lease_and_local_approval_required",
+        [],
+        [
+            "uaa finance-setup prepare",
+            "uaa finance-setup run --confirmed",
+            "scripts/dev/uaa_finance.py setup-prepare",
+            "scripts/dev/uaa_finance.py setup-run --confirmed",
+        ],
+        "Enroll one immutable verified helper profile or discard an owned incomplete "
+        "attempt under current policy, exact local approval and a current exact lease. "
+        "No Finance book/key creation, helper execution, real data, API or UI authority.",
+    )

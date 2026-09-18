@@ -1,7 +1,10 @@
 # FIN-003 Explicit Finance Configuration Through Normal Startup
 
-Status: implementation in progress for the separately admitted
-`dev-task:finance-fin003-normal-startup` child. FIN-003 and Q26 remain incomplete.
+Status: the separately admitted `dev-task:finance-fin003-normal-startup` child
+merged in PR #485 at `66bd2f48e1ac220589430423e7bf6c0622406999`, with scoped
+post-merge startup checks and owned cleanup recorded. FIN-003 and Q26 remain
+incomplete. The [managed setup continuation](UAA_FINANCE_FIN003_MANAGED_SETUP.md)
+adds separately confirmed profile enrollment and extends startup capture.
 
 ## Scope
 
@@ -19,7 +22,7 @@ response alone cannot establish that binding. This metadata is a reuse guard,
 not an authorization token or proof against a compromised local account.
 
 The self-contained installer bootstrap includes the exact standard-library
-startup helper and its Core package initializer. It does not include the Finance
+startup dependency closure and its package initializers. It does not include the Finance
 implementation or require third-party packages to import the installer runtime.
 The distribution policy pins these delegated source dependencies separately;
 they receive no distribution adapter scan exemptions.
@@ -75,7 +78,8 @@ Core configuration/safe-disable tests, static distribution guardrails,
 isolated copied-bootstrap execution, delegated dependency tamper rejection,
 documentation integrity, final broad qualification, independent exact-head
 review, security review, hosted checks, merge proof, and owned cleanup.
-Checks are planned until their results are recorded.
+The scoped merge and local post-merge checks are recorded above; the managed
+setup continuation has its own candidate and qualification gates.
 
 Related contract:
 [`FIN-003 synthetic in-app workflow`](UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md).

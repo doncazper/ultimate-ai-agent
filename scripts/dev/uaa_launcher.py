@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import importlib.machinery
 import json
 import os
 import signal
@@ -23,6 +24,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from dataclasses import dataclass
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable
 
@@ -337,7 +339,10 @@ def service_config(root: Path, name: str) -> Service:
     raise ValueError(f"Unknown service: {name}")
 
 
-def safe_env(root: Path, service_name: str) -> dict[str, str]:
+def safe_env(
+    root: Path, service_name: str,
+    *, finance_environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     allowed_keys = {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "USER", "SHELL", "TERM"}
     env = {key: value for key, value in os.environ.items() if key in allowed_keys}
     sensitive_passthrough_keys: set[str] = set()
@@ -346,7 +351,12 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
         env[UAA_BUILD_COMMIT_ENV] = verified_source_commit(root)
-        env.update(_load_finance_startup_module().finance_startup_environment(os.environ))
+        finance_startup = _load_finance_startup_module()
+        snapshot = (
+            finance_startup.capture_finance_startup_environment(os.environ)
+            if finance_environment is None else finance_environment
+        )
+        env.update(finance_startup.finance_startup_environment(snapshot))
         if os.environ.get(UAA_API_LOCAL_BEARER_ENV):
             env[UAA_API_LOCAL_BEARER_ENV] = os.environ[UAA_API_LOCAL_BEARER_ENV]
             sensitive_passthrough_keys.add(UAA_API_LOCAL_BEARER_ENV)
@@ -1003,6 +1013,11 @@ def start_service(
     *,
     auto_selected_endpoint: bool = False,
 ) -> str:
+    finance_environment = None
+    if service.name == "backend":
+        finance_environment = _load_finance_startup_module().capture_finance_startup_environment(
+            os.environ
+        )
     ensure_state_dirs(root)
     start_clock = time.perf_counter()
     record_launcher_event(
@@ -1021,7 +1036,7 @@ def start_service(
                 finance_startup = _load_finance_startup_module()
                 metadata = _read_service_metadata(service) or {}
                 if not finance_startup.finance_startup_configuration_matches(
-                    metadata.get(finance_startup.FINANCE_STARTUP_METADATA_KEY), os.environ
+                    metadata.get(finance_startup.FINANCE_STARTUP_METADATA_KEY), finance_environment
                 ):
                     return (
                         "backend: blocked; Finance startup configuration changed or is "
@@ -1122,7 +1137,7 @@ def start_service(
             raise RuntimeError(f"{docker_message}; run uaa openwebui doctor")
         (root / STATE_DIR / "openwebui-data").mkdir(parents=True, exist_ok=True)
 
-    environment = safe_env(root, service.name)
+    environment = safe_env(root, service.name, finance_environment=finance_environment)
     service.log_file.parent.mkdir(parents=True, exist_ok=True)
     log_handle = service.log_file.open("a", encoding="utf-8")
     try:
@@ -1782,22 +1797,53 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _load_finance_startup_module() -> Any:
-    # The launcher also runs under plain system Python. Load only this exact
-    # standard-library module, without importing the Finance package graph.
-    module_name = "uaa_finance_startup"
-    if module_name in sys.modules:
-        return sys.modules[module_name]
-    module_path = (
-        Path(__file__).resolve().parents[2]
-        / "src" / "ultimate_ai_agent" / "core" / "finance_startup.py"
+    # Check every preloaded package before importing any more of its graph.
+    # Plain Python imports only the fixed standard-library dependency closure.
+    source = Path(__file__).resolve().parents[2] / "src"
+    package = source / "ultimate_ai_agent"
+    core = package / "core"
+    modules = (
+        ("ultimate_ai_agent", package / "__init__.py", source, package),
+        ("ultimate_ai_agent.core", core / "__init__.py", package, core),
+        ("ultimate_ai_agent.core.private_path_security", core / "private_path_security.py", core, None),
+        ("ultimate_ai_agent.core.finance_managed_profile", core / "finance_managed_profile.py", core, None),
+        ("ultimate_ai_agent.core.finance_startup", core / "finance_startup.py", core, None),
     )
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load local Finance startup contract")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
+
+    def validate_loaded() -> None:
+        for name, expected, _, package_dir in modules:
+            loaded = sys.modules.get(name)
+            if loaded is None:
+                continue
+            spec = getattr(loaded, "__spec__", None)
+            origin = getattr(spec, "origin", None)
+            file = getattr(loaded, "__file__", None)
+            if (
+                not isinstance(origin, str) or not isinstance(file, str)
+                or Path(origin).resolve() != expected.resolve()
+                or Path(file).resolve() != expected.resolve()
+            ):
+                raise RuntimeError("Local Finance startup module origin is invalid")
+            if package_dir is not None:
+                paths = getattr(loaded, "__path__", ())
+                if tuple(Path(p).resolve() for p in paths) != (package_dir.resolve(),):
+                    raise RuntimeError("Local Finance startup package origin is invalid")
+
+    validate_loaded()
+    for name, expected, search, package_dir in modules:
+        spec = importlib.machinery.PathFinder.find_spec(name, [str(search)])
+        if spec is None or spec.origin is None or Path(spec.origin).resolve() != expected.resolve():
+            raise RuntimeError("Local Finance startup source is unavailable")
+        if package_dir is not None and tuple(spec.submodule_search_locations or ()) != (str(package_dir),):
+            raise RuntimeError("Local Finance startup source package is invalid")
+    previous_path = list(sys.path)
+    try:
+        sys.path.insert(0, str(source))
+        module = importlib.import_module("ultimate_ai_agent.core.finance_startup")
+        validate_loaded()
+        return module
+    finally:
+        sys.path[:] = previous_path
 
 
 def _load_setup_module() -> Any:

@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1036,
+  "timed_file_count": 1041,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -5184,6 +5184,31 @@
       "path": "tests/test_macos_finance_startup_static_boundary.py",
       "seconds": 1.17,
       "source": "historical-pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_helper_artifacts.py",
+      "seconds": 0.37,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_managed_profile.py",
+      "seconds": 0.52,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_managed_setup.py",
+      "seconds": 6.92,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_managed_setup_cli.py",
+      "seconds": 0.04,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_fin003_managed_startup.py",
+      "seconds": 0.3,
+      "source": "pytest-duration-summary"
     }
   ],
   "verification_evidence": false

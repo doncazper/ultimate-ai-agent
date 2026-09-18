@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 from pathlib import Path
 
 
@@ -22,69 +23,79 @@ MACOS_DISTRIBUTION_EXACT_ADAPTER_FILES = frozenset(
     }
 )
 _EXPECTED_SOURCE_SHA256 = {
-    "src/ultimate_ai_agent/distribution/macos/github_releases.py": (
-        "d61e6b1adab449d8849ecb97632ec680514531d2097be7d8bf870bd0bf86a606"
-    ),
-    "src/ultimate_ai_agent/distribution/macos/installer.py": (
-        "80b9327640c46e4d8b0622126cdca711596397d1a2f6d22da773526feadaf1ed"
-    ),
-    "src/ultimate_ai_agent/distribution/macos/runtime.py": (
-        "ece7bb938240652bf7ebf035d452abd9b44c888cc7d221d98f4c0dcc84d6a572"
-    ),
+    "src/ultimate_ai_agent/distribution/macos/github_releases.py": "d61e6b1adab449d8849ecb97632ec680514531d2097be7d8bf870bd0bf86a606",
+    "src/ultimate_ai_agent/distribution/macos/installer.py": "031038be4899c6afbec59321ae153a852f8a8ee54fc37f406e030e74a015353d",
+    "src/ultimate_ai_agent/distribution/macos/runtime.py": "f52c4bdd0f40bcc2040bf16cab319fb3dd161955f32039f697f68747924a5d44",
 }
 
-# Runtime imports execute this parent initializer and the delegated transport.
-# These dependencies receive no adapter fragment exemptions: both exact source
-# integrity and the closed, pure implementation below must remain reviewed.
+# Runtime imports use this exact stdlib-only dependency closure. These files
+# receive no adapter fragment exemptions. Raw bytes and executable AST shapes
+# are independently pinned; the transport filter also has a closed source shape.
 MACOS_DISTRIBUTION_EXACT_DEPENDENCY_FILES = frozenset(
     {
+        'src/ultimate_ai_agent/__init__.py',
+        'src/ultimate_ai_agent/core/finance_managed_profile.py',
+        'src/ultimate_ai_agent/core/private_path_security.py',
         "src/ultimate_ai_agent/core/__init__.py",
         "src/ultimate_ai_agent/core/finance_startup.py",
     }
 )
 _EXPECTED_DEPENDENCY_SHA256 = {
-    "src/ultimate_ai_agent/core/__init__.py": (
-        "471b6cc8feea1f27f0eb6b46f7251209d7801999c40bf87217d3701b2632380e"
-    ),
-    "src/ultimate_ai_agent/core/finance_startup.py": (
-        "4bfc002260b232081244bfdbd7767b0c842cf173eb9691c1529d922161a0e233"
-    ),
+    "src/ultimate_ai_agent/__init__.py": "7842fb134bd253ce7b9cbe80b73a76fcdf5732fc4a03f416f128927bb83cde4e",
+    "src/ultimate_ai_agent/core/__init__.py": "471b6cc8feea1f27f0eb6b46f7251209d7801999c40bf87217d3701b2632380e",
+    "src/ultimate_ai_agent/core/finance_managed_profile.py": "5f13d90dd74c740bc96d1f870d9e7f55c9152c8e1c55b9532727ecc51d093eca",
+    "src/ultimate_ai_agent/core/finance_startup.py": "76f7848c23960fef863881d60f53757ec2096d24aa15af4c4d6b95c11b3643b2",
+    "src/ultimate_ai_agent/core/private_path_security.py": "c955b455e2d6a38f20bc0fcdefe7c4c9b35170cf583938dc6fc7d37f12d3a868",
+}
+
+# Independently pin executable AST shapes as well as raw bytes. Updating only
+# a source digest cannot admit changed behavior in the larger stdlib closure.
+_EXPECTED_DEPENDENCY_AST_SHA256 = {
+    "src/ultimate_ai_agent/__init__.py": "4b669d3ae271d50bfd171cd1687d3c3bf257890909e7cbe64bf18118806610bc",
+    "src/ultimate_ai_agent/core/finance_managed_profile.py": "bd028127f34d61187f1d380e8ddee29360364b0ddeb4f4d1f25b0210cabfdb86",
+    "src/ultimate_ai_agent/core/private_path_security.py": "af0c04b882996374baedbc358fbf856aff43773f6599e095e233a58154f83031",
 }
 _REVIEWED_FINANCE_STARTUP_IMPLEMENTATION = r'''
 from __future__ import annotations
 from collections.abc import Mapping
+from dataclasses import replace
 import hashlib
 import json
-
-FINANCE_WORKSPACE_REPOSITORY_ENV = "UAA_FINANCE_SYNTHETIC_REPOSITORY_DIR"
-FINANCE_WORKSPACE_HELPER_ENV = "UAA_FINANCE_NATIVE_HELPER_PATH"
-FINANCE_WORKSPACE_HELPER_DIGEST_ENV = "UAA_FINANCE_NATIVE_HELPER_SHA256"
-FINANCE_WORKSPACE_DISABLE_ENV = "UAA_FINANCE_SAFE_DISABLE"
-FINANCE_STARTUP_ENV_NAMES = (
-    FINANCE_WORKSPACE_REPOSITORY_ENV,
-    FINANCE_WORKSPACE_HELPER_ENV,
-    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
-    FINANCE_WORKSPACE_DISABLE_ENV,
-)
-FINANCE_STARTUP_METADATA_KEY = "finance_startup_configuration_ref"
-_IDENTITY_DOMAIN = b"uaa:finance-startup-configuration:v1\x00"
+from ultimate_ai_agent.core.finance_managed_profile import FINANCE_CONFIGURATION_ENV_NAMES, FINANCE_EXPLICIT_ENV_NAMES, FINANCE_WORKSPACE_DISABLE_ENV as FINANCE_WORKSPACE_DISABLE_ENV, FINANCE_WORKSPACE_HELPER_DIGEST_ENV as FINANCE_WORKSPACE_HELPER_DIGEST_ENV, FINANCE_WORKSPACE_HELPER_ENV as FINANCE_WORKSPACE_HELPER_ENV, FINANCE_WORKSPACE_REPOSITORY_ENV as FINANCE_WORKSPACE_REPOSITORY_ENV, FinanceConfigurationResolution, FinanceManagedLayout, resolve_finance_configuration
+FINANCE_STARTUP_MODE_ENV = 'UAA_FINANCE_STARTUP_MODE'
+FINANCE_STARTUP_ENV_NAMES = (*FINANCE_CONFIGURATION_ENV_NAMES, FINANCE_STARTUP_MODE_ENV)
+FINANCE_STARTUP_METADATA_KEY = 'finance_startup_configuration_ref'
+_IDENTITY_DOMAIN = b'uaa:finance-startup-configuration:v2\x00'
 
 def finance_startup_environment(environ: Mapping[str, str]) -> dict[str, str]:
     return {name: environ[name] for name in FINANCE_STARTUP_ENV_NAMES if name in environ}
 
-def finance_startup_configuration_ref(environ: Mapping[str, str]) -> str:
-    encoded = json.dumps(
-        finance_startup_environment(environ),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("ascii")
-    digest = hashlib.sha256(_IDENTITY_DOMAIN + encoded).hexdigest()
-    return f"configuration-ref:finance-startup:sha256:{digest}"
+def capture_finance_startup_environment(environ: Mapping[str, str], layout: FinanceManagedLayout | None=None) -> dict[str, str]:
+    resolution = resolve_finance_configuration(environ, layout)
+    snapshot = dict(resolution.effective_environment)
+    snapshot[FINANCE_STARTUP_MODE_ENV] = resolution.mode
+    return snapshot
 
-def finance_startup_configuration_matches(
-    recorded_ref: object, environ: Mapping[str, str]
-) -> bool:
+def consume_finance_startup_environment(environ: Mapping[str, str], layout: FinanceManagedLayout | None=None) -> FinanceConfigurationResolution:
+    if FINANCE_STARTUP_MODE_ENV not in environ:
+        return resolve_finance_configuration(environ, layout)
+    mode = environ[FINANCE_STARTUP_MODE_ENV]
+    effective = tuple(((name, environ[name]) for name in FINANCE_CONFIGURATION_ENV_NAMES if name in environ))
+    if mode == 'absent' and (not any((name in environ for name in FINANCE_EXPLICIT_ENV_NAMES))):
+        return FinanceConfigurationResolution(mode='absent', effective_environment=effective, repository_dir=None, helper_path=None, helper_sha256=None, profile_ref=None, state_ref=None, error_code=None)
+    if mode in {'explicit', 'managed'} and all((name in environ for name in FINANCE_EXPLICIT_ENV_NAMES)):
+        resolution = resolve_finance_configuration(dict(effective), layout)
+        if resolution.mode == 'explicit':
+            return replace(resolution, mode=mode)
+        return resolution
+    return FinanceConfigurationResolution(mode='invalid', effective_environment=effective, repository_dir=None, helper_path=None, helper_sha256=None, profile_ref=None, state_ref=None, error_code='FIN003_MANAGED_STARTUP_MODE_INVALID')
+
+def finance_startup_configuration_ref(environ: Mapping[str, str]) -> str:
+    encoded = json.dumps(finance_startup_environment(environ), sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+    digest = hashlib.sha256(_IDENTITY_DOMAIN + encoded).hexdigest()
+    return f'configuration-ref:finance-startup:sha256:{digest}'
+
+def finance_startup_configuration_matches(recorded_ref: object, environ: Mapping[str, str]) -> bool:
     return isinstance(recorded_ref, str) and recorded_ref == finance_startup_configuration_ref(environ)
 '''
 
@@ -179,37 +190,58 @@ _EXPECTED_CALL_COUNTS = {
         "Path.home": 3,
         "fcntl.flock": 2,
         "os.access": 2,
+        "os.close": 4,
+        "os.fstat": 6,
+        "os.getuid": 2,
+        "os.listdir": 3,
+        "os.lseek": 1,
+        "os.open": 2,
+        "os.read": 2,
+        "os.readlink": 2,
         "os.replace": 7,
+        "os.stat": 6,
         "plistlib.load": 1,
+        "plistlib.loads": 1,
         "root.joinpath": 1,
         "root.resolve": 1,
         "root.rglob": 1,
         "shutil.copytree": 1,
         "shutil.rmtree": 8,
-        "stat.S_IMODE": 2,
-        _SUBPROCESS_RUN: 4,
+        "stat.S_IMODE": 4,
+        "stat.S_ISLNK": 1,
+        _SUBPROCESS_DOT + 'Popen': 1,
+        _SUBPROCESS_DOT + 'run': 4,
         "tarfile.open": 1,
         "tempfile.TemporaryDirectory": 1,
+        "time.monotonic": 3,
         "time.time": 1,
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
         "Path": 2,
+        "Path.cwd": 1,
         "getattr": 2,
+        "os.close": 1,
         "os.environ.get": 1,
         "os.environ.items": 1,
         "os.execv": 1,
+        "os.fstat": 3,
+        "os.getuid": 1,
         "os.kill": 4,
+        "os.open": 3,
+        "os.read": 1,
         "os.replace": 2,
+        "os.stat": 4,
         "platform.system": 1,
-        _SOCKET_SOCKET: 1,
-        _SUBPROCESS_POPEN: 1,
-        _SUBPROCESS_RUN: 1,
+        _SOCKET_DOT + 'socket': 1,
+        "stat.S_ISDIR": 1,
+        _SUBPROCESS_DOT + 'Popen': 1,
+        _SUBPROCESS_DOT + 'run': 1,
         "tempfile.TemporaryDirectory": 1,
         "time.monotonic": 6,
         "time.sleep": 3,
         "urllib.parse.quote": 1,
         "urllib.request.Request": 1,
-        _URLLIB_URLOPEN: 1,
+        "urllib.request.urlopen": 1,
         "webbrowser.open": 2,
     },
 }
@@ -231,14 +263,14 @@ _EXPECTED_FILESYSTEM_METHOD_COUNTS = {
         "iterdir": 1,
         "joinpath": 2,
         "mkdir": 14,
-        "open": 4,
+        "open": 6,
         "read_bytes": 1,
         "read_text": 6,
         "relative_to": 3,
         "replace": 8,
         "resolve": 4,
         "rglob": 1,
-        "stat": 6,
+        "stat": 12,
         "symlink_to": 1,
         "unlink": 7,
         "write_bytes": 1,
@@ -250,10 +282,12 @@ _EXPECTED_FILESYSTEM_METHOD_COUNTS = {
         "is_file": 5,
         "lstat": 1,
         "mkdir": 4,
-        "open": 2,
+        "open": 5,
         "read_bytes": 1,
         "read_text": 2,
         "replace": 3,
+        "resolve": 2,
+        "stat": 4,
         "unlink": 5,
         "write_text": 2,
     },
@@ -265,9 +299,9 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "os.access",
         "os.environ",
         "shutil.which",
-        _SUBPROCESS_DOT + "CompletedProcess",
-        _SUBPROCESS_DOT + "SubprocessError",
-        _SUBPROCESS_RUN,
+        _SUBPROCESS_DOT + 'CompletedProcess',
+        _SUBPROCESS_DOT + 'SubprocessError',
+        _SUBPROCESS_DOT + 'run',
         "urllib.error",
         "urllib.error.HTTPError",
         "urllib.error.URLError",
@@ -280,45 +314,88 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "urllib.request.build_opener",
     },
     "src/ultimate_ai_agent/distribution/macos/installer.py": {
+        "Path.home",
         "fcntl.LOCK_EX",
         "fcntl.LOCK_NB",
         "fcntl.LOCK_UN",
         "fcntl.flock",
+        "os.O_CLOEXEC",
+        "os.O_DIRECTORY",
+        "os.O_NOFOLLOW",
+        "os.O_NONBLOCK",
+        "os.O_RDONLY",
+        "os.SEEK_SET",
         "os.W_OK",
         "os.X_OK",
         "os.access",
+        "os.close",
         "os.environ",
+        "os.fstat",
+        "os.getuid",
+        "os.listdir",
+        "os.lseek",
+        "os.open",
+        "os.read",
+        "os.readlink",
         "os.replace",
-        "Path.home",
+        "os.stat",
+        "os.stat_result",
         "plistlib.InvalidFileException",
         "plistlib.load",
+        "plistlib.loads",
         "shutil.copytree",
         "shutil.rmtree",
         "stat.S_IMODE",
-        _SUBPROCESS_DOT + "DEVNULL",
-        _SUBPROCESS_RUN,
+        "stat.S_ISDIR",
+        "stat.S_ISLNK",
+        "stat.S_ISREG",
+        "stat.S_IXUSR",
+        _SUBPROCESS_DOT + 'DEVNULL',
+        _SUBPROCESS_DOT + 'PIPE',
+        _SUBPROCESS_DOT + 'Popen',
+        _SUBPROCESS_DOT + 'STDOUT',
+        _SUBPROCESS_DOT + 'SubprocessError',
+        _SUBPROCESS_DOT + 'run',
         "tarfile.TarError",
         "tarfile.open",
         "tempfile.TemporaryDirectory",
+        "time.monotonic",
         "time.time",
     },
     "src/ultimate_ai_agent/distribution/macos/runtime.py": {
+        "Path.cwd",
+        "os.O_CLOEXEC",
+        "os.O_DIRECTORY",
+        "os.O_NOFOLLOW",
+        "os.O_NONBLOCK",
+        "os.O_RDONLY",
+        "os.close",
         "os.environ",
         "os.environ.get",
         "os.environ.items",
         "os.execv",
+        "os.fstat",
+        "os.getuid",
         "os.kill",
+        "os.open",
+        "os.read",
         "os.replace",
+        "os.stat",
+        "os.stat_result",
+        "os.supports_dir_fd",
+        "os.supports_follow_symlinks",
         "platform.system",
         "signal.SIGKILL",
         "signal.SIGTERM",
+        _SOCKET_DOT + 'AF_INET',
+        _SOCKET_DOT + 'SOCK_STREAM',
+        _SOCKET_DOT + 'socket',
+        "stat.S_ISDIR",
+        "stat.S_ISVTX",
+        _SUBPROCESS_DOT + 'DEVNULL',
+        _SUBPROCESS_DOT + 'Popen',
+        _SUBPROCESS_DOT + 'run',
         "sys.executable",
-        _SOCKET_DOT + "AF_INET",
-        _SOCKET_DOT + "SOCK_STREAM",
-        _SOCKET_SOCKET,
-        _SUBPROCESS_DOT + "DEVNULL",
-        _SUBPROCESS_POPEN,
-        _SUBPROCESS_RUN,
         "tempfile.TemporaryDirectory",
         "time.monotonic",
         "time.sleep",
@@ -328,7 +405,7 @@ _ALLOWED_EXTERNAL_ATTRIBUTES = {
         "urllib.parse.quote",
         "urllib.request",
         "urllib.request.Request",
-        _URLLIB_URLOPEN,
+        "urllib.request.urlopen",
         "webbrowser.open",
     },
 }
@@ -358,6 +435,7 @@ _EXPECTED_HOST_IMPORTS = {
         "platform",
         "signal",
         "socket",
+        "stat",
         "subprocess",
         "sys",
         "tempfile",
@@ -685,6 +763,40 @@ def macos_distribution_policy_failures(root: Path) -> list[str]:
     return failures
 
 
+def _dependency_ast_shape(node: object) -> object:
+    """Version-neutral AST shape; only empty Python 3.12 type parameters elide.
+
+    Nonempty type parameters and all other executable fields remain bound.
+    Source-byte pins independently retain every byte, including docstrings.
+    """
+
+    if isinstance(node, ast.AST):
+        return [type(node).__name__, [
+            [name, _dependency_ast_shape(value)]
+            for name, value in ast.iter_fields(node)
+            if not (name == "type_params" and value == [])
+        ]]
+    if isinstance(node, list):
+        return [_dependency_ast_shape(value) for value in node]
+    if isinstance(node, bytes):
+        return ["bytes", node.hex()]
+    if isinstance(node, float):
+        return ["float", node.hex()]
+    if isinstance(node, complex):
+        return ["complex", node.real.hex(), node.imag.hex()]
+    if node is Ellipsis:
+        return ["ellipsis"]
+    return node
+
+
+def _dependency_ast_sha256(tree: ast.AST) -> str:
+    encoded = json.dumps(
+        _dependency_ast_shape(tree), ensure_ascii=True, separators=(",", ":"),
+        allow_nan=False,
+    ).encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _distribution_dependency_policy_failures(rel_path: str, source: str) -> list[str]:
     failures: list[str] = []
     source_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
@@ -709,10 +821,13 @@ def _distribution_dependency_policy_failures(rel_path: str, source: str) -> list
         if rel_path.endswith("/finance_startup.py")
         else ""
     )
-    if ast.dump(tree, include_attributes=False) != ast.dump(
-        ast.parse(reviewed_source), include_attributes=False
-    ):
-        failures.append(f"{rel_path}: reviewed pure dependency implementation changed")
+    shape = ast.dump(tree, include_attributes=False)
+    if rel_path in _EXPECTED_DEPENDENCY_AST_SHA256:
+        matches = _dependency_ast_sha256(tree) == _EXPECTED_DEPENDENCY_AST_SHA256[rel_path]
+    else:
+        matches = shape == ast.dump(ast.parse(reviewed_source), include_attributes=False)
+    if not matches:
+        failures.append(f"{rel_path}: reviewed dependency implementation changed")
     return failures
 
 
