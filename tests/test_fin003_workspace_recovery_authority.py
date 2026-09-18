@@ -68,7 +68,7 @@ def execute(service, request, now, **kwargs):
     )
 
 
-@pytest.fixture(params=["create", "import_commit"])
+@pytest.fixture
 def operation(request, tmp_path):
     crypto = InMemoryFinanceCryptoBackend()
     service = FinanceKernelService(
@@ -146,6 +146,7 @@ def interrupt(operation, monkeypatch, boundary="pending"):
 
 
 @pytest.mark.parametrize("boundary", ["pending", "ciphertext", "metadata", "committed"])
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_fresh_exact_recovery_authenticates_each_partial_generation(
     operation, monkeypatch, boundary
 ):
@@ -192,6 +193,7 @@ def test_fresh_exact_recovery_authenticates_each_partial_generation(
 
 
 @pytest.mark.parametrize("revoked", ["approval", "lease", "safe_disable", "expiry"])
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_current_authority_is_rechecked_after_authenticated_inspection(
     operation, monkeypatch, revoked
 ):
@@ -239,6 +241,7 @@ def test_current_authority_is_rechecked_after_authenticated_inspection(
         ("idempotency_ref", "idempotency-ref:finance:substituted"),
     ],
 )
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_current_authority_cannot_relabel_another_pending_request(
     operation, monkeypatch, field, value
 ):
@@ -253,6 +256,7 @@ def test_current_authority_cannot_relabel_another_pending_request(
     assert files(service.repository) == before
 
 
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_rehashed_header_and_prepared_receipt_cannot_substitute_encrypted_identity(
     operation, monkeypatch
 ):
@@ -303,6 +307,7 @@ def test_rehashed_header_and_prepared_receipt_cannot_substitute_encrypted_identi
     assert files(repo) == before
 
 
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_header_cannot_relabel_pending_action_as_legacy_restore(operation, monkeypatch):
     interrupt(operation, monkeypatch)
     service, _request, _now = operation
@@ -343,6 +348,7 @@ def historical_binding(service, request, now):
     }
 
 
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_historical_lookup_preserves_original_receipt_after_later_operation(operation):
     service, request, now = operation
     result = execute(service, request, now)
@@ -378,6 +384,7 @@ def test_historical_lookup_preserves_original_receipt_after_later_operation(oper
         ("operation", "review_decision"),
     ],
 )
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_historical_lookup_rejects_identity_collisions_without_writes(
     operation, field, value
 ):
@@ -393,6 +400,7 @@ def test_historical_lookup_rejects_identity_collisions_without_writes(
     assert files(service.repository) == before
 
 
+@pytest.mark.parametrize("operation", ["create", "import_commit"], indirect=True)
 def test_historical_lookup_does_not_promote_prepared_or_pending_state(
     operation, monkeypatch
 ):
