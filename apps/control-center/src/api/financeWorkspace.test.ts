@@ -107,4 +107,44 @@ describe("Finance response and transport boundaries", () => {
     await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true)).rejects.toThrow("FINANCE_RESPONSE_TOO_LARGE");
     await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true)).rejects.toThrow("FINANCE_REQUEST_REJECTED_409");
   });
+  const rateLimited = {
+    schema_version: "uaa-finance-workspace-commit-rate-limit.v1",
+    code: "API_TARGETED_RATE_LIMITED", policy_ref: "rate-limit:p1-085:targeted-local:v1",
+    rate_limit_group: "finance_workspace", retry_after_seconds: 60,
+    request_method: "POST", request_path: "/control-center/finance/workspace/commit",
+    rejection_phase: "before_commit_handler", commit_outcome: "not_attempted",
+  };
+  it("recognizes only an exact backend-bound pre-handler Finance rate limit", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(rateLimited), {
+      status: 429, headers: response({}).headers,
+    })));
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true))
+      .rejects.toBeInstanceOf(FinanceCommitNotAttemptedError);
+  });
+  it.each([
+    { schema_version: "generic-rate-limit.v1" }, { request_method: "GET" },
+    { request_path: "/control-center/finance/workspace/preview" },
+    { policy_ref: "policy-ref:other" }, { rate_limit_group: "other" },
+    { code: "OTHER_FAILURE" }, { rejection_phase: "after_handler" },
+    { commit_outcome: "unconfirmed" }, { retry_after_seconds: -1 },
+    { retry_after_seconds: 1.5 },
+  ])("does not infer no-write from a foreign or malformed 429 proof %j", async patch => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...rateLimited, ...patch }), {
+      status: 429, headers: response({}).headers,
+    })));
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true))
+      .rejects.toThrow("FINANCE_REQUEST_REJECTED_429");
+  });
+  it("rejects rate-limit phase evidence from an unbound backend", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(rateLimited), { status: 429 })));
+    await expect(postFinanceWorkspace("commit", {}, intent.idempotency_ref, financeBinding, true))
+      .rejects.toThrow("BACKEND_RESPONSE_PROVENANCE_MISMATCH");
+  });
+  it("does not apply commit phase proof to preview responses", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(rateLimited), {
+      status: 429, headers: response({}).headers,
+    })));
+    await expect(postFinanceWorkspace("preview", {}, intent.idempotency_ref, financeBinding))
+      .rejects.toThrow("FINANCE_REQUEST_REJECTED_429");
+  });
 });

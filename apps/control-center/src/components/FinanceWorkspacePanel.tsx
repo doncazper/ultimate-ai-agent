@@ -39,9 +39,9 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   const [workspace, setWorkspace] = useState<FinanceView | null>(null);
   const [readFailed, setReadFailed] = useState(false);
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const [reviewedAction, setPending] = useState<Pending | null>(null);
   const [receipt, setReceipt] = useState<FinanceCommit | null>(null);
-  const [uncertain, setUncertain] = useState(false);
+  const [saveUncertain, setUncertain] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -49,6 +49,18 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   const generation = useRef(0);
   const mounted = useRef(false);
   const previewHeading = useRef<HTMLHeadingElement>(null);
+  const recovery = workspace?.recovery ?? null;
+  const resolvedReviewedAction = reviewedAction !== null && recovery?.result != null
+    && recovery.preparation.configuration_ref === reviewedAction.preparation.configuration_ref
+    && recovery.preparation.bundle.request.repository_ref === reviewedAction.preparation.bundle.request.repository_ref
+    && recovery.result.receipt.operation === reviewedAction.intent.operation
+    && recovery.result.receipt.before_revision === reviewedAction.intent.expected_revision
+    && recovery.result.receipt.request_ref === reviewedAction.intent.request_ref
+    && recovery.result.receipt.idempotency_ref === reviewedAction.intent.idempotency_ref
+    && recovery.preparation.bundle.preview.payload_fingerprint_ref === reviewedAction.preparation.bundle.preview.payload_fingerprint_ref;
+  const pending = resolvedReviewedAction ? null : reviewedAction;
+  const uncertain = saveUncertain && !resolvedReviewedAction;
+  const retained = recovery?.result === null ? recovery : workspace?.pending_review ?? null;
 
   const reload = useCallback(async (itemOffset = 0, historyOffset = 0) => {
     const ticket = ++generation.current;
@@ -56,6 +68,7 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
       const value = await loadFinance(currentBinding.current, itemOffset, historyOffset);
       if (!mounted.current || ticket !== generation.current) return false;
       setWorkspace(value); setReadFailed(false);
+      if (value.recovery?.result) setReceipt(value.recovery.result);
       return true;
     } catch {
       if (mounted.current && ticket === generation.current) setReadFailed(true);
@@ -73,7 +86,11 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   const selected = workspace?.review_items.find(item => item.review_item_ref === selectedRef)
     ?? workspace?.review_items[0] ?? null;
   const blocked = busy || readFailed || workspace?.safe_disable_engaged === true;
-  const canReview = workspace?.status === "ready" && !blocked && !pending;
+  const newActionBlocked = blocked || retained !== null;
+  const canReview = workspace?.status === "ready" && !newActionBlocked && !pending;
+  const canRefresh = pending && (pending.intent.operation === "review_decision" || pending.intent.operation === "review_undo"
+    || (retained?.intent.request_ref === pending.intent.request_ref && retained.intent.idempotency_ref === pending.intent.idempotency_ref));
+  const saveBlocked = busy || workspace?.safe_disable_engaged === true || workspace?.status === "helper_unavailable";
 
   function begin(): boolean {
     if (busyRef.current) return false;
@@ -83,7 +100,7 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   function end() { busyRef.current = false; if (mounted.current) setBusy(false); }
 
   async function preview(operation: FinanceOperation, decision?: FinanceDecision) {
-    if (!workspace?.configuration_ref || workspace.revision === null || blocked || pending || !begin()) return;
+    if (!workspace?.configuration_ref || workspace.revision === null || newActionBlocked || pending || !begin()) return;
     const suffix = crypto.randomUUID();
     const intent: FinanceIntent = {
       operation, expected_revision: workspace.revision,
@@ -107,7 +124,7 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   }
 
   async function save() {
-    if (!pending || busy || workspace?.safe_disable_engaged === true) return;
+    if (!pending || saveBlocked) return;
     if (!uncertain && Date.parse(pending.preparation.bundle.preview.expires_at) <= Date.now()) {
       setError("This preview expired before a save was requested. Close it and prepare a new preview; nothing was sent for saving.");
       return;
@@ -136,15 +153,15 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
   }
 
   async function refresh() {
-    if (!pending || busy || !begin()) return;
+    if (!pending || !canRefresh || saveBlocked || !begin()) return;
     try {
       const preparation = await refreshFinance(pending.preparation, pending.intent, currentBinding.current);
       if (mounted.current) {
         setPending({ ...pending, preparation });
-        setNotice("The same review intent has a fresh preview. Review it again and explicitly confirm; nothing was saved by refreshing.");
+        setNotice("The same action has a fresh preview. Review it again and explicitly confirm; nothing was saved by refreshing.");
       }
     } catch {
-      if (mounted.current) setError("The same review could not be refreshed. Preserve its identity and inspect the saved history or the Finance command-line recovery path.");
+      if (mounted.current) setError("The same action could not be refreshed. Preserve its identity and inspect the saved history or the Finance command-line recovery path.");
     } finally { end(); }
   }
 
@@ -159,22 +176,22 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
       <button type="button" disabled={busy} onClick={() => void reload(workspace?.item_offset, workspace?.history_offset)}>Reload saved book</button>
     </header>
     <div className="finance-boundary"><strong>Synthetic-only preview program</strong><span>No real financial data, bank connection, categorization, payments or filing. Review decisions do not change accounting entries.</span></div>
-    {notice ? <p role="status" className="finance-notice">{notice}</p> : null}
-    {error ? <p role="alert" className="finance-error">{error}</p> : null}
+    {resolvedReviewedAction ? <p role="status" className="finance-notice">Python Core returned the saved receipt for this exact action. Opening the receipt did not submit another save.</p> : notice ? <p role="status" className="finance-notice">{notice}</p> : null}
+    {error && !resolvedReviewedAction ? <p role="alert" className="finance-error">{error}</p> : null}
     {readFailed ? <p role="alert" className="finance-error">The current book view is unavailable. Any previously shown records are stale; new changes are blocked until a successful reload.</p> : null}
     {!workspace && !readFailed ? <p role="status">Opening the protected sample book…</p> : null}
     {workspace ? <>
       {workspace.safe_disable_engaged ? <p role="alert" className="finance-error">Finance safe-disable is engaged. New saves are blocked; saved history remains inspectable.</p> : null}
       <section className="panel finance-setup" aria-labelledby="finance-book-heading">
         <div><h2 id="finance-book-heading">Sample book</h2><p>{setupMessages[workspace.status]}</p></div>
-        {workspace.status === "book_setup_required" ? <button type="button" disabled={blocked || !!pending} onClick={() => void preview("create")}>Preview sample book</button> : null}
-        {workspace.pending_review ? <button type="button" disabled={blocked || !!pending} onClick={() => {
-          const retained = workspace.pending_review;
+        {workspace.status === "book_setup_required" ? <button type="button" disabled={newActionBlocked || !!pending} onClick={() => void preview("create")}>Preview sample book</button> : null}
+        {retained ? <><p>An earlier save has no confirmed outcome. New actions are blocked until that exact action is resolved.</p><button type="button" disabled={blocked || !!pending} onClick={() => {
           if (!retained || blocked || pending) return;
-          setPending({ ...retained, label: retained.intent.decision ? `Retry ${decisionLabels[retained.intent.decision]} review` : "Retry review undo" });
+          setPending({ preparation: retained.preparation, intent: retained.intent,
+            label: retained.intent.decision ? `Retry ${decisionLabels[retained.intent.decision]} review` : `Retry ${actions[retained.intent.operation]}` });
           setUncertain(true); setError("");
-          setNotice("The exact interrupted review was read from the protected pending generation. Check it before confirming; nothing was recovered by opening this preview.");
-        }}>Review interrupted save</button> : null}
+          setNotice("Python Core retained this exact interrupted action and prepared it for review. Check it before separately confirming; opening this preview did not submit a save.");
+        }}>Review interrupted save</button></> : null}
         {workspace.status === "ready" ? <div className="finance-book-summary"><span>Saved revision <strong>{workspace.revision}</strong></span><span>{workspace.item_count} review items</span><span>{workspace.history_count} history entries</span>
           {workspace.import_available ? <button type="button" disabled={!canReview} onClick={() => void preview("import_commit")}>Preview sample import</button> : <span>{workspace.safe_disable_engaged ? "Sample import unavailable while safe-disable is engaged" : "Sample import recorded"}</span>}
         </div> : null}
@@ -198,16 +215,16 @@ function BoundFinanceWorkspacePanel({ binding }: { binding: BackendTruthReadBind
       <p>Based on revision {pending.intent.expected_revision}. Ask before changes: the Python Core validates exact approval, Workspace write scope, an active lease and safe-disable before saving.</p>
       <p>Preview expires {new Date(pending.preparation.bundle.preview.expires_at).toLocaleTimeString()}.</p>
       {uncertain ? <p>Keep this exact reviewed action while its outcome is unconfirmed. Retrying does not authorize a different change.</p> : null}
-      <div className="finance-actions"><button type="button" className="finance-primary" disabled={busy || workspace?.safe_disable_engaged === true} onClick={() => void save()}>{busy ? "Checking…" : uncertain ? "Retry same reviewed save" : "Confirm and save"}</button>
-        {pending.intent.operation === "review_decision" || pending.intent.operation === "review_undo" ? <button type="button" disabled={busy || workspace?.safe_disable_engaged === true} onClick={() => void refresh()}>Refresh same review</button> : null}
+      <div className="finance-actions"><button type="button" className="finance-primary" disabled={saveBlocked} onClick={() => void save()}>{busy ? "Checking…" : uncertain ? "Retry same reviewed save" : "Confirm and save"}</button>
+        {canRefresh ? <button type="button" disabled={saveBlocked} onClick={() => void refresh()}>Fresh preview of same action</button> : null}
         <button type="button" disabled={busy || uncertain} onClick={() => { setPending(null); setError(""); }}>Close preview without saving</button>
       </div><details><summary>Exact scope and preview references</summary><dl><dt>Scope</dt><dd>{pending.preparation.bundle.preview.exact_scope_ref}</dd><dt>Preview</dt><dd>{pending.preparation.bundle.preview.preview_ref}</dd><dt>Request</dt><dd>{pending.intent.request_ref}</dd></dl></details>
     </section> : null}
-    {receipt ? <section className="panel finance-receipt" aria-label="Confirmed save receipt"><h2>Saved receipt</h2><p>{actions[receipt.receipt.operation]} · revision {receipt.receipt.before_revision} → {receipt.receipt.after_revision}{receipt.receipt.replayed ? " · same-action replay" : ""}</p><details><summary>Receipt reference</summary><p>{receipt.receipt.receipt_ref}</p></details></section> : null}
+    {receipt ? <section className="panel finance-receipt" aria-label="Confirmed save receipt"><h2>Saved receipt</h2><p>{actions[receipt.receipt.operation]} · revision {receipt.receipt.before_revision} → {receipt.receipt.after_revision}{receipt.receipt.replayed ? " · same-action replay" : ""}</p><p>This historical receipt confirms that exact saved action. It does not establish that the current book was read successfully or that its revision is unchanged.</p><details><summary>Receipt reference</summary><p>{receipt.receipt.receipt_ref}</p></details></section> : null}
     {workspace?.status === "ready" ? <section className="panel finance-history" aria-labelledby="finance-history-heading"><h2 id="finance-history-heading">Saved review history</h2><p>Newest first. Undo adds an entry; it does not erase history.</p>
       {workspace.decision_history.length ? <ol>{workspace.decision_history.map(event => <li key={event.event_ref}><span>{event.operation === "review_undo" ? "Review decision undone" : `${decisionLabels[event.decision!]} review recorded`}</span><span>Revision {event.before_revision + 1}</span></li>)}</ol> : <p>No review decisions recorded yet.</p>}
       <div className="finance-pagination"><button type="button" disabled={busy || workspace.history_offset === 0} onClick={() => void reload(workspace.item_offset, Math.max(0, workspace.history_offset - 50))}>Newer history</button><button type="button" disabled={busy || workspace.history_offset + 50 >= workspace.history_count} onClick={() => void reload(workspace.item_offset, workspace.history_offset + 50)}>Older history</button></div>
     </section> : null}
-    <footer className="finance-footnote"><details><summary>Authority, recovery and command-line parity</summary><p>Python owns the protected book, exact approval, active lease, idempotent receipts and undo. This screen never substitutes for those checks. After reopening, a valid interrupted review can be inspected from its encrypted pending generation and separately confirmed. If it cannot be verified, new writes stay blocked; preserve the book and inspect the Finance command-line recovery path.</p><p>Inspection: scripts/dev/uaa_finance.py workspace, including pending_review. Preview: workspace-prepare. Confirm: workspace-run --confirmed. Review retry: workspace-refresh, then separately confirm. API: /control-center/finance/workspace; preview and refresh are local-sensitive; commit requires authority. All use local_dev_workspace_only side effects and remain blocked from production.</p></details></footer>
+    <footer className="finance-footnote"><details><summary>Authority, recovery and command-line parity</summary><p>Python owns the protected book, exact approval, active lease, idempotent receipts and undo. This screen never substitutes for those checks. After reopening, Core can present its retained create, import, review or undo attempt for inspection and separate confirmation. Older interrupted reviews can also be read from their encrypted pending generation. If an attempt cannot be verified, preserve the book and inspect the Finance command-line recovery path.</p><p>Inspection: scripts/dev/uaa_finance.py workspace, including recovery and pending_review. Preview: workspace-prepare. Confirm: workspace-run --confirmed. Same-action retry: workspace-refresh, then separately confirm. API: /control-center/finance/workspace; preview and refresh are local-sensitive; commit requires authority. All use local_dev_workspace_only side effects and remain blocked from production.</p></details></footer>
   </section></AppShell>;
 }

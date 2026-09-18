@@ -38,12 +38,14 @@ class ApiRouteApprovalPosture(str, Enum):
 class ApiRouteIdempotencyPosture(str, Enum):
     not_required_for_route_classification = "not_required_for_route_classification"
     required_before_mutation_authority = "required_before_mutation_authority"
+    required_for_exact_request_binding = "required_for_exact_request_binding"
 
 
 class ApiRouteIdempotencyEnforcement(str, Enum):
     not_required = "not_required"
     header_shape_gate_only = "header_shape_gate_only"
     route_owned_durable_replay = "route_owned_durable_replay"
+    route_owned_exact_binding = "route_owned_exact_binding"
 
 
 class ApiRouteRateLimitPosture(str, Enum):

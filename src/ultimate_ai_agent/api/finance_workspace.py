@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ultimate_ai_agent.api.contracts import ApiRouteClassification
@@ -15,6 +15,12 @@ from ultimate_ai_agent.api.idempotency import (
     IDEMPOTENCY_KEY_HEADER,
     IDEMPOTENCY_REF_HEADER,
     idempotency_header_failure,
+)
+from ultimate_ai_agent.api.rate_limits import API_TARGETED_RATE_LIMIT_POLICY_REF
+from ultimate_ai_agent.core.safe_contract_text import (
+    IDEMPOTENCY_VALUE_PATTERN,
+    MAX_IDEMPOTENCY_VALUE_LENGTH,
+    MIN_IDEMPOTENCY_VALUE_LENGTH,
 )
 from ultimate_ai_agent.core.finance.workspace import (
     FINANCE_WORKSPACE_CONTRACT_REF,
@@ -35,6 +41,54 @@ FINANCE_WORKSPACE_PATH = "/control-center/finance/workspace"
 FINANCE_WORKSPACE_POST_PATHS = frozenset(
     f"{FINANCE_WORKSPACE_PATH}/{action}" for action in ("preview", "refresh", "commit")
 )
+_IDEMPOTENCY_OPENAPI_EXTENSION = {
+    "x-uaa-idempotency": {
+        "required": True,
+        "header_names_case_insensitive": True,
+        "supplied_aliases_must_agree": True,
+        "must_equal_body_idempotency_ref": True,
+        "headers_schema": {
+            "type": "object",
+            "properties": {
+                name: {
+                    "type": "string",
+                    "minLength": MIN_IDEMPOTENCY_VALUE_LENGTH,
+                    "maxLength": MAX_IDEMPOTENCY_VALUE_LENGTH,
+                    "pattern": IDEMPOTENCY_VALUE_PATTERN,
+                }
+                for name in (IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_REF_HEADER)
+            },
+            "anyOf": [
+                {"required": [IDEMPOTENCY_KEY_HEADER]},
+                {"required": [IDEMPOTENCY_REF_HEADER]},
+            ],
+        },
+    }
+}
+
+
+class FinanceWorkspaceCommitRateLimitResponse(BaseModel):
+    """Proof emitted only by the limiter before the commit handler is entered."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["uaa-finance-workspace-commit-rate-limit.v1"] = (
+        "uaa-finance-workspace-commit-rate-limit.v1"
+    )
+    code: Literal["API_TARGETED_RATE_LIMITED"] = "API_TARGETED_RATE_LIMITED"
+    detail: Literal[
+        "The local targeted rate limit was reached for this route group."
+    ] = "The local targeted rate limit was reached for this route group."
+    policy_ref: Literal["rate-limit:p1-085:targeted-local:v1"] = (
+        API_TARGETED_RATE_LIMIT_POLICY_REF
+    )
+    rate_limit_group: Literal["finance_workspace"] = "finance_workspace"
+    retry_after_seconds: int = Field(ge=1)
+    request_method: Literal["POST"] = "POST"
+    request_path: Literal["/control-center/finance/workspace/commit"] = (
+        f"{FINANCE_WORKSPACE_PATH}/commit"
+    )
+    rejection_phase: Literal["before_commit_handler"] = "before_commit_handler"
+    commit_outcome: Literal["not_attempted"] = "not_attempted"
 
 
 class FinanceWorkspaceBodyLimitResponse(BaseModel):
@@ -124,12 +178,12 @@ def _workspace_request_headers(
     x_uaa_idempotency_key: str | None = Header(
         default=None,
         alias=IDEMPOTENCY_KEY_HEADER,
-        description="Either idempotency alias is required and must equal the exact request binding.",
+        description="Either alias is required by the operation's x-uaa-idempotency headers_schema; supplied aliases must equal the exact body binding.",
     ),
     x_uaa_idempotency_ref: str | None = Header(
         default=None,
         alias=IDEMPOTENCY_REF_HEADER,
-        description="Alias of the idempotency key; supplied aliases must agree.",
+        description="Either alias is required by the operation's x-uaa-idempotency headers_schema; supplied aliases must equal the exact body binding.",
     ),
 ) -> None:
     """Publish headers enforced by middleware and the exact-body binding gate."""
@@ -159,6 +213,7 @@ def get_workspace(
     dependencies=[Depends(_workspace_request_headers)],
     summary="Preview one exact synthetic Finance change",
     responses=_BODY_LIMIT_RESPONSES,
+    openapi_extra=_IDEMPOTENCY_OPENAPI_EXTENSION,
 )
 def preview_workspace(
     intent: FinanceWorkspaceIntent,
@@ -179,6 +234,7 @@ def preview_workspace(
     dependencies=[Depends(_workspace_request_headers)],
     summary="Re-present the same synthetic review intent without saving",
     responses=_BODY_LIMIT_RESPONSES,
+    openapi_extra=_IDEMPOTENCY_OPENAPI_EXTENSION,
 )
 def refresh_workspace(
     preparation: FinanceWorkspacePreparation,
@@ -198,7 +254,14 @@ def refresh_workspace(
     operation_id="commit_control_center_finance_workspace_mutation",
     dependencies=[Depends(_workspace_request_headers)],
     summary="Confirm and save one exact synthetic Finance change",
-    responses=_BODY_LIMIT_RESPONSES,
+    responses={
+        **_BODY_LIMIT_RESPONSES,
+        429: {
+            "model": FinanceWorkspaceCommitRateLimitResponse,
+            "description": "The shared Finance request budget rejected this request before the commit handler was entered; it says nothing about earlier attempts.",
+        },
+    },
+    openapi_extra=_IDEMPOTENCY_OPENAPI_EXTENSION,
 )
 def commit_workspace(
     preparation: FinanceWorkspacePreparation,

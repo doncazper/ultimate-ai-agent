@@ -11,7 +11,7 @@ export const financeView = {
   review_items: [{
     review_item_ref: "review-item-ref:finance:test", lineage_ref: "lineage-ref:finance:test", rank: 1, state: "needs_review" as const,
     effective_decision_ref: null, synthetic_only: true, raw_financial_values_included: false, decision_authority_granted: false, mutation_performed: false,
-  }], decision_history: [], pending_review: null,
+  }], decision_history: [], pending_review: null, recovery: null,
 };
 export const financeSetup = { ...financeView, status: "book_setup_required" as const, revision: 0, snapshot_ref: null, item_count: 0, review_items: [] };
 

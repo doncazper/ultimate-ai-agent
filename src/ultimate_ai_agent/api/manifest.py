@@ -1667,7 +1667,10 @@ def route_classification_for_path(
             ApiRouteClassification.local_sensitive,
             "Server-configured synthetic Finance inspection or exact preparation; pinned native storage remains private, previews create no book, key, approval or lease, and real input and external authority remain blocked.",
         )
-    if normalized_method == "POST" and path in CONTROL_CENTER_FINANCE_WORKSPACE_MUTATION_PATHS:
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_FINANCE_WORKSPACE_MUTATION_PATHS
+    ):
         return (
             ApiRouteClassification.mutating_requires_authority,
             "One explicitly confirmed synthetic Finance create, allowlisted import, review disposition or compensating undo through the existing Core policy, stored approval, active exact lease, revision binding, encrypted generation, durable receipts and safe-disable. No arbitrary input, real-data, provider, connector, payment, filing or production authority.",
@@ -1870,6 +1873,23 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 path=route.path,
                 route_classification=route_classification,
             )
+            if method == "POST" and route.path in {
+                "/control-center/finance/workspace/preview",
+                "/control-center/finance/workspace/refresh",
+            }:
+                idempotency_required = True
+                idempotency_posture = (
+                    ApiRouteIdempotencyPosture.required_for_exact_request_binding
+                )
+                idempotency_policy_ref = API_IDEMPOTENCY_AUDIT_POLICY_REF
+                idempotency_reason = (
+                    "Finance preparation requires at least one idempotency header "
+                    "alias; supplied aliases must agree and equal the exact body "
+                    "idempotency ref. Preparation grants no mutation authority."
+                )
+                idempotency_enforcement = (
+                    ApiRouteIdempotencyEnforcement.route_owned_exact_binding
+                )
             if (
                 method == "POST"
                 and route.path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS

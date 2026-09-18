@@ -7,9 +7,9 @@ export interface FinanceIntent {
   expected_revision: number;
   request_ref: string;
   idempotency_ref: string;
-  review_item_ref?: string;
-  decision?: FinanceDecision;
-  compensates_event_ref?: string;
+  review_item_ref?: string | null;
+  decision?: FinanceDecision | null;
+  compensates_event_ref?: string | null;
 }
 export interface FinanceItem {
   review_item_ref: string;
@@ -42,6 +42,7 @@ export interface FinanceView {
   review_items: FinanceItem[];
   decision_history: FinanceHistory[];
   pending_review: { intent: FinanceIntent; preparation: FinancePreparation } | null;
+  recovery: { intent: FinanceIntent; preparation: FinancePreparation; result: FinanceCommit | null } | null;
 }
 export interface FinancePreparation {
   schema_version: "uaa-finance-workspace-preparation.v1";
@@ -137,6 +138,26 @@ export function validateFinanceView(value: unknown, itemOffset = 0, historyOffse
     const preparation = validateFinancePreparation(value.pending_review.preparation, intent, value.configuration_ref);
     if (preparation.bundle.request.repository_ref !== value.repository_ref) fail();
   }
+  if (value.recovery !== null) {
+    if (!["book_setup_required", "ready", "outcome_uncertain", "unavailable", "helper_unavailable"].includes(String(value.status))
+      || !safeRef(value.configuration_ref) || !safeRef(value.repository_ref) || !record(value.recovery)
+      || !record(value.recovery.intent)) fail();
+    const retained = value.recovery.intent;
+    if (Object.keys(retained).some(key => !["operation", "expected_revision", "request_ref", "idempotency_ref", "review_item_ref", "decision", "compensates_event_ref"].includes(key))
+      || !["create", "import_commit", "review_decision", "review_undo"].includes(String(retained.operation))
+      || !count(retained.expected_revision) || !safeRef(retained.request_ref) || !safeRef(retained.idempotency_ref)) fail();
+    if (retained.operation === "create" || retained.operation === "import_commit") {
+      if ((retained.operation === "create") !== (retained.expected_revision === 0)
+        || retained.review_item_ref !== null || retained.decision !== null || retained.compensates_event_ref !== null) fail();
+    } else if (retained.expected_revision < 1 || !safeRef(retained.review_item_ref)
+      || (retained.operation === "review_decision"
+        ? !decisions.includes(String(retained.decision)) || retained.compensates_event_ref !== null
+        : retained.decision !== null || !safeRef(retained.compensates_event_ref))) fail();
+    const intent = retained as unknown as FinanceIntent;
+    const preparation = validateFinancePreparation(value.recovery.preparation, intent, value.configuration_ref);
+    if (preparation.bundle.request.repository_ref !== value.repository_ref) fail();
+    if (value.recovery.result !== null) validateFinanceCommit(value.recovery.result, preparation);
+  }
   return value as unknown as FinanceView;
 }
 
@@ -164,7 +185,7 @@ export function validateFinancePreparation(value: unknown, intent: FinanceIntent
     const review = request.review_preview;
     if (!record(review) || review.review_item_ref !== intent.review_item_ref || review.decision !== (intent.decision ?? null)
       || review.compensates_event_ref !== (intent.compensates_event_ref ?? null)) fail();
-  }
+  } else if (request.review_preview !== null) fail();
   return value as unknown as FinancePreparation;
 }
 
@@ -192,7 +213,10 @@ export async function prepareFinance(intent: FinanceIntent, configurationRef: st
   return validateFinancePreparation(await postFinanceWorkspace("preview", intent, intent.idempotency_ref, binding), intent, configurationRef);
 }
 export async function refreshFinance(prepared: FinancePreparation, intent: FinanceIntent, binding: BackendTruthReadBinding): Promise<FinancePreparation> {
-  return validateFinancePreparation(await postFinanceWorkspace("refresh", prepared, intent.idempotency_ref, binding), intent, prepared.configuration_ref);
+  const refreshed = validateFinancePreparation(await postFinanceWorkspace("refresh", prepared, intent.idempotency_ref, binding), intent, prepared.configuration_ref);
+  if (refreshed.bundle.request.repository_ref !== prepared.bundle.request.repository_ref
+    || refreshed.bundle.preview.payload_fingerprint_ref !== prepared.bundle.preview.payload_fingerprint_ref) fail();
+  return refreshed;
 }
 export async function commitFinance(prepared: FinancePreparation, binding: BackendTruthReadBinding): Promise<FinanceCommit> {
   return validateFinanceCommit(await postFinanceWorkspace("commit", prepared, prepared.bundle.request.idempotency_ref, binding, true), prepared);

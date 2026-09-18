@@ -25,6 +25,7 @@ from ultimate_ai_agent.api.communications import register_communications_routes
 from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.finance_workspace import (
     FINANCE_WORKSPACE_PATH,
+    FinanceWorkspaceCommitRateLimitResponse,
     register_finance_workspace_routes,
 )
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
@@ -744,15 +745,26 @@ async def api_targeted_rate_limit_middleware(request: Request, call_next: Any) -
         client_ref=request.client.host if request.client else None,
     )
     if failure is not None:
+        content = {
+            "detail": failure.safe_message,
+            "code": failure.code,
+            "policy_ref": API_TARGETED_RATE_LIMIT_POLICY_REF,
+            "rate_limit_group": failure.group,
+            "retry_after_seconds": failure.retry_after_seconds,
+        }
+        if (
+            request.method.upper() == "POST"
+            and request.url.path == f"{FINANCE_WORKSPACE_PATH}/commit"
+            and failure.status_code == 429
+            and failure.group == "finance_workspace"
+        ):
+            # This branch returns before call_next; no Finance handler ran.
+            content = FinanceWorkspaceCommitRateLimitResponse(
+                retry_after_seconds=failure.retry_after_seconds,
+            ).model_dump()
         response = JSONResponse(
             status_code=failure.status_code,
-            content={
-                "detail": failure.safe_message,
-                "code": failure.code,
-                "policy_ref": API_TARGETED_RATE_LIMIT_POLICY_REF,
-                "rate_limit_group": failure.group,
-                "retry_after_seconds": failure.retry_after_seconds,
-            },
+            content=content,
             headers={
                 "Retry-After": str(failure.retry_after_seconds),
                 "X-UAA-Rate-Limit-Policy": API_TARGETED_RATE_LIMIT_POLICY_REF,

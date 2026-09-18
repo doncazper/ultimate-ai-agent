@@ -58,6 +58,9 @@ from ultimate_ai_agent.core.finance.service import (
     finance_repository_ref,
     finance_target_ref,
 )
+from ultimate_ai_agent.core.finance.workspace_recovery import (
+    FinanceWorkspaceRecoveryStore,
+)
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.safe_contract_text import (
     IDEMPOTENCY_VALUE_PATTERN,
@@ -188,6 +191,63 @@ class FinanceWorkspacePendingReview(_WorkspaceModel):
     preparation: FinanceWorkspacePreparation
 
 
+class FinanceWorkspaceRecovery(_WorkspaceModel):
+    """Retained intent and optional historical Core result, never authority."""
+
+    intent: FinanceWorkspaceIntent
+    preparation: FinanceWorkspacePreparation
+    result: FinanceWorkspaceCommitResult | None = None
+
+    @model_validator(mode="after")
+    def validate_recovery_binding(self) -> "FinanceWorkspaceRecovery":
+        request = self.preparation.bundle.request
+        review = request.review_preview
+        expected_intent = FinanceWorkspaceIntent(
+            operation=request.operation,
+            expected_revision=request.expected_revision,
+            request_ref=request.request_ref,
+            idempotency_ref=request.idempotency_ref,
+            review_item_ref=review.review_item_ref if review else None,
+            decision=review.decision if review else None,
+            compensates_event_ref=review.compensates_event_ref if review else None,
+        )
+        if self.intent != expected_intent:
+            raise ValueError("FINANCE_WORKSPACE_RECOVERY_INTENT_INVALID")
+        if self.result is not None:
+            validate_task_ref(
+                self.result.lease_receipt_ref, "finance_recovery_lease_receipt_ref"
+            )
+            receipt = self.result.receipt
+            if (
+                receipt.phase not in {"committed", "recovered"}
+                or receipt.operation != request.operation
+                or receipt.repository_ref != request.repository_ref
+                or receipt.request_ref != request.request_ref
+                or receipt.idempotency_ref != request.idempotency_ref
+                or receipt.payload_fingerprint_ref
+                != self.preparation.bundle.preview.payload_fingerprint_ref
+                or receipt.before_revision != request.expected_revision
+                or receipt.after_revision != request.expected_revision + 1
+            ):
+                raise ValueError("FINANCE_WORKSPACE_RECOVERY_RESULT_INVALID")
+            proof = self.result.import_commit
+            if (request.operation == "import_commit") != (proof is not None):
+                raise ValueError("FINANCE_WORKSPACE_RECOVERY_IMPORT_PROOF_INVALID")
+            if proof is not None and (
+                proof.mutation_receipt_ref != receipt.receipt_ref
+                or proof.fixture_ref != request.fixture_ref
+                or proof.preview_ref != request.import_preview_ref
+                or proof.candidate_refs != request.import_candidate_refs
+                or proof.before_revision != receipt.before_revision
+                or proof.after_revision != receipt.after_revision
+                or proof.before_snapshot_ref != receipt.before_snapshot_ref
+                or proof.after_snapshot_ref != receipt.after_snapshot_ref
+                or proof.replayed != receipt.replayed
+            ):
+                raise ValueError("FINANCE_WORKSPACE_RECOVERY_IMPORT_PROOF_INVALID")
+        return self
+
+
 class FinanceWorkspaceView(_WorkspaceModel):
     schema_version: Literal["uaa-finance-workspace-view.v1"] = (
         "uaa-finance-workspace-view.v1"
@@ -223,6 +283,7 @@ class FinanceWorkspaceView(_WorkspaceModel):
         default=(), max_length=100
     )
     pending_review: FinanceWorkspacePendingReview | None = None
+    recovery: FinanceWorkspaceRecovery | None = None
     synthetic_only: Literal[True] = True
     real_financial_data_allowed: Literal[False] = False
     mutation_performed: Literal[False] = False
@@ -396,6 +457,7 @@ class FinanceWorkspace:
             repository_ref=finance_repository_ref(service.repository.root),
         )
         try:
+            common["recovery"] = self._read_recovery(fresh=True)
             readiness = service.repository.crypto.readiness()
             common["crypto"] = readiness
             if readiness.status != "ready":
@@ -477,6 +539,15 @@ class FinanceWorkspace:
 
     def prepare(self, intent: FinanceWorkspaceIntent) -> FinanceWorkspacePreparation:
         service = self._require_service()
+        retained = self._read_recovery()
+        if (
+            retained is not None
+            and retained.result is None
+            and retained.intent != intent
+        ):
+            raise ValueError(
+                "FINANCE_WORKSPACE_UNRESOLVED_ATTEMPT_REQUIRES_SAME_INTENT"
+            )
         if self.safe_disable_engaged():
             raise ValueError("FINANCE_SAFE_DISABLE_ENGAGED")
         if service.repository.crypto.readiness().status != "ready":
@@ -577,14 +648,19 @@ class FinanceWorkspace:
     def refresh_preparation(
         self, preparation: FinanceWorkspacePreparation
     ) -> FinanceWorkspacePreparation:
-        """Re-present only an exact old review intent; never recover or authorize."""
+        """Re-present an exact retained intent; never recover or authorize."""
 
         self._validate_preparation(preparation)
         if preparation.bundle.request.operation not in {
             "review_decision",
             "review_undo",
         }:
-            raise ValueError("FIN003_REVIEW_REFRESH_SCOPE_INVALID")
+            retained = self._read_recovery()
+            if (
+                retained is None
+                or not self._same_attempt(retained.preparation, preparation)
+            ) and not self._has_committed_attempt(preparation):
+                raise ValueError("FINANCE_WORKSPACE_RETAINED_ATTEMPT_REQUIRED")
         return FinanceWorkspacePreparation(
             configuration_ref=preparation.configuration_ref,
             bundle=prepare_finance_mutation(
@@ -605,23 +681,143 @@ class FinanceWorkspace:
             ):
                 raise ValueError("FINANCE_WORKSPACE_PREPARATION_NOT_CURRENT")
             service = self._require_service()
+            if confirmed is not True:
+                raise ValueError("FINANCE_OPERATOR_CONFIRMATION_REQUIRED")
+            if self.safe_disable_engaged():
+                raise ValueError("FINANCE_SAFE_DISABLE_ENGAGED")
         except (OSError, RuntimeError, ValueError) as exc:
             # Classify by the actual phase, never by an error-code allowlist:
             # later failures may use the same code after persistence begins.
             raise FinanceWorkspaceCommitNotAttempted(
                 finance_workspace_error_code(exc)
             ) from None
-        # Return the committed Core receipt independently of subsequent reads.
-        # A projection failure cannot erase a successful persistence result.
-        result = confirm_finance_mutation(
-            service,
-            preparation.bundle,
-            confirmed=confirmed,
-            actor_ref="actor-ref:finance:local-workspace-operator",
-            safe_disable_engaged=self.safe_disable_engaged,
+        confirmation_entered = False
+        try:
+            store = FinanceWorkspaceRecoveryStore(service.repository.root)
+            # One cross-process slot is durable before authority or book writes.
+            # A lost result must never permit replacement by a different request.
+            with store.confirmed_attempt():
+                retained = self._read_recovery()
+                conflicting = retained is not None and not self._same_attempt(
+                    retained.preparation, preparation
+                )
+                reused_identifier = retained is not None and (
+                    retained.intent.request_ref
+                    == preparation.bundle.request.request_ref
+                    or retained.intent.idempotency_ref
+                    == preparation.bundle.request.idempotency_ref
+                )
+                if conflicting and (retained.result is None or reused_identifier):
+                    raise FinanceWorkspaceCommitNotAttempted(
+                        "FINANCE_WORKSPACE_UNRESOLVED_ATTEMPT_REQUIRES_SAME_INTENT"
+                    )
+                attempt = self._recovery_for(preparation)
+                if conflicting and not self._has_committed_attempt(preparation):
+                    # A second tab may submit an old preview after another action
+                    # completed. Reject a now-stale new intent before replacing the
+                    # known receipt with an unresolved slot that can never succeed.
+                    try:
+                        self.prepare(attempt.intent)
+                    except (OSError, RuntimeError, ValueError) as exc:
+                        raise FinanceWorkspaceCommitNotAttempted(
+                            finance_workspace_error_code(exc)
+                        ) from None
+                store.write(attempt.model_dump_json().encode("utf-8"))
+                confirmation_entered = True
+                result = confirm_finance_mutation(
+                    service,
+                    preparation.bundle,
+                    confirmed=confirmed,
+                    actor_ref="actor-ref:finance:local-workspace-operator",
+                    safe_disable_engaged=self.safe_disable_engaged,
+                )
+                committed = FinanceWorkspaceCommitResult(
+                    receipt=result["receipt"],
+                    import_commit=result.get("import_commit"),
+                    lease_receipt_ref=result["lease_receipt_ref"],
+                )
+                completed = FinanceWorkspaceRecovery(
+                    intent=attempt.intent, preparation=preparation, result=committed
+                )
+                try:
+                    store.write(completed.model_dump_json().encode("utf-8"))
+                except (OSError, RuntimeError, ValueError):
+                    # The independently confirmed Core result remains true even if
+                    # this secondary write fails. The durable unresolved identity
+                    # supports exact replay after a restart; no success is invented.
+                    pass
+                return committed.model_dump(mode="json")
+        except (OSError, RuntimeError, ValueError) as exc:
+            if not confirmation_entered:
+                raise FinanceWorkspaceCommitNotAttempted(
+                    finance_workspace_error_code(exc)
+                ) from None
+            raise
+
+    @staticmethod
+    def _recovery_for(
+        preparation: FinanceWorkspacePreparation,
+    ) -> FinanceWorkspaceRecovery:
+        request = preparation.bundle.request
+        review = request.review_preview
+        return FinanceWorkspaceRecovery(
+            preparation=preparation,
+            intent=FinanceWorkspaceIntent(
+                operation=request.operation,
+                expected_revision=request.expected_revision,
+                request_ref=request.request_ref,
+                idempotency_ref=request.idempotency_ref,
+                review_item_ref=review.review_item_ref if review else None,
+                decision=review.decision if review else None,
+                compensates_event_ref=review.compensates_event_ref if review else None,
+            ),
         )
-        return FinanceWorkspaceCommitResult(
-            receipt=result["receipt"],
-            import_commit=result.get("import_commit"),
-            lease_receipt_ref=result["lease_receipt_ref"],
-        ).model_dump(mode="json")
+
+    def _has_committed_attempt(self, preparation: FinanceWorkspacePreparation) -> bool:
+        request = preparation.bundle.request
+        receipt = self._require_service().repository.inspect_committed_receipt_read_only(
+            operation=request.operation,
+            repository_ref=request.repository_ref,
+            request_ref=request.request_ref,
+            idempotency_ref=request.idempotency_ref,
+            payload_fingerprint_ref=preparation.bundle.preview.payload_fingerprint_ref,
+        )
+        return receipt is not None and (
+            receipt.before_revision == request.expected_revision
+            and receipt.after_revision == request.expected_revision + 1
+        )
+
+    @staticmethod
+    def _same_attempt(
+        first: FinanceWorkspacePreparation, second: FinanceWorkspacePreparation
+    ) -> bool:
+        return (
+            first.configuration_ref == second.configuration_ref
+            and FinanceWorkspace._recovery_for(first).intent
+            == FinanceWorkspace._recovery_for(second).intent
+            and first.bundle.preview.payload_fingerprint_ref
+            == second.bundle.preview.payload_fingerprint_ref
+        )
+
+    def _read_recovery(self, *, fresh: bool = False) -> FinanceWorkspaceRecovery | None:
+        store = FinanceWorkspaceRecoveryStore(self._require_service().repository.root)
+        raw = store.read()
+        if raw is None:
+            return None
+        if not finance_workspace_body_within_limits(raw):
+            raise ValueError("FINANCE_WORKSPACE_RECOVERY_FILE_INVALID")
+        recovery = FinanceWorkspaceRecovery.model_validate_json(raw)
+        self._validate_preparation(recovery.preparation)
+        if not fresh:
+            return recovery
+        # Fresh presentation is not lease issuance, result reconciliation or
+        # recovery. It cannot modify the original persisted attempt or book.
+        preparation = FinanceWorkspacePreparation(
+            configuration_ref=recovery.preparation.configuration_ref,
+            bundle=prepare_finance_mutation(
+                self._require_service(), recovery.preparation.bundle.request
+            ),
+        )
+        return FinanceWorkspaceRecovery(
+            intent=recovery.intent, preparation=preparation, result=recovery.result
+        )

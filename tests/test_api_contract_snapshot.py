@@ -91,6 +91,24 @@ def test_snapshot_builder_rejects_stale_manifest_summary_with_same_total() -> No
     ("route_key", "field", "value", "error"),
     [
         (
+            ("POST", "/control-center/finance/workspace/preview"),
+            "idempotency_required",
+            False,
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("POST", "/control-center/finance/workspace/refresh"),
+            "idempotency_posture",
+            "not_required_for_route_classification",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("POST", "/control-center/finance/workspace/preview"),
+            "approval_posture",
+            "required_before_mutation_authority",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
             ("GET", "/health"),
             "route_classification",
             "local_readonly",

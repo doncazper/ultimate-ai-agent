@@ -1,6 +1,6 @@
 {
   "control_center_route_count": 217,
-  "fingerprint": "api-contract-fingerprint:sha256:38f80485793f30b1681efde5f8df45e9600ed61d118e1a3ded713b3584db82b5",
+  "fingerprint": "api-contract-fingerprint:sha256:aac880e7bf15e73ff3b01dd98ba387e5f3488305c11a66ba40d892dc1e40ad6f",
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "mutating_route_count": 137,
   "openapi_path_count": 392,
@@ -45,8 +45,9 @@
   ],
   "route_count": 394,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 257,
-    "required_before_mutation_authority": 137
+    "not_required_for_route_classification": 255,
+    "required_before_mutation_authority": 137,
+    "required_for_exact_request_binding": 2
   },
   "route_operation_count": 394,
   "route_rate_limit_posture_summary": {
@@ -4457,9 +4458,9 @@
     {
       "approval_posture": "not_required_for_route_classification",
       "auth_posture": "protected_local_bearer_required",
-      "idempotency_policy_ref": null,
-      "idempotency_posture": "not_required_for_route_classification",
-      "idempotency_required": false,
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_for_exact_request_binding",
+      "idempotency_required": true,
       "method": "POST",
       "operation_id": "preview_control_center_finance_workspace_mutation",
       "path": "/control-center/finance/workspace/preview",
@@ -4477,9 +4478,9 @@
     {
       "approval_posture": "not_required_for_route_classification",
       "auth_posture": "protected_local_bearer_required",
-      "idempotency_policy_ref": null,
-      "idempotency_posture": "not_required_for_route_classification",
-      "idempotency_required": false,
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_for_exact_request_binding",
+      "idempotency_required": true,
       "method": "POST",
       "operation_id": "refresh_control_center_finance_workspace_preparation",
       "path": "/control-center/finance/workspace/refresh",

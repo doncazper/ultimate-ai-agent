@@ -70,10 +70,21 @@ PYTHONPATH=src .venv/bin/python scripts/dev/uaa_finance.py workspace-refresh --h
 
 Prepared bundles must be retained privately (owner-only regular files, mode
 `0600`) and inspected before `workspace-run --bundle PATH --confirmed`.
-`workspace-refresh --bundle PATH` only re-presents the same review/undo intent;
+`workspace-refresh --bundle PATH` only re-presents the same review/undo intent
+or a create/import attempt retained by the Core;
 it does not confirm, recover, or save. Fresh confirmation remains required.
 Legacy Finance commands and their exact authority contracts remain supported.
-After a browser restart, `workspace` exposes a `pending_review.preparation`
+After a browser restart, `workspace` exposes `recovery` for the last confirmed
+attempt, including create/import and failures before encrypted staging. It
+contains the exact retained intent, a fresh presentation of the same payload,
+and an optional historical Core-returned receipt. It never proves that the
+current book is readable or still at that receipt's revision. Missing result
+evidence remains uncertain; only a separately confirmed exact retry can settle
+it through normal Core replay. A different intent cannot replace an unresolved
+attempt. Opening the view or refreshing the same action never retries it.
+
+For interruptions predating this recovery index, `workspace` exposes a
+`pending_review.preparation`
 only when the existing encrypted pending review generation can be fully bound
 to the current book, original request and exact decision/undo. This preparation
 may be retained in a private bundle and separately confirmed using the same
@@ -85,7 +96,7 @@ may be retained in a private bundle and separately confirmed using the same
 |---|---|
 | `GET /control-center/finance/workspace` | Protected read; items/history independently paged at 1–100 records; cannot recover a pending write. |
 | `POST /control-center/finance/workspace/preview` | Non-mutating exact preparation from server configuration and the allowlisted synthetic intent. |
-| `POST /control-center/finance/workspace/refresh` | Non-mutating fresh presentation of the same retained review/undo preparation. |
+| `POST /control-center/finance/workspace/refresh` | Non-mutating fresh presentation of a review/undo or an exact Core-retained create/import preparation. |
 | `POST /control-center/finance/workspace/commit` | Exact-confirmed local mutation; durable replay owned by protected Finance receipts, not the global header middleware. |
 
 All POST routes require the current backend revision, instance and truth refs,
@@ -97,6 +108,15 @@ pre-decode UTF-8 input limits apply. OpenAPI publishes the structured `413`
 response. Classification is `local_sensitive` for reads/preparations and
 `mutating_requires_authority` for commit; side effects are
 `local_dev_workspace_only`, with production blocked.
+
+OpenAPI's operation-level `x-uaa-idempotency` extension publishes the
+at-least-one-header schema: either accepted alias is required; both, if supplied,
+must agree with each other and the body's identifier. The manifest marks preview
+and refresh as requiring exact request binding without granting mutation
+authority. An exact Finance commit rejected by the shared limiter carries a
+typed, backend-bound `429` response proving that this invocation stopped before
+the commit handler. A generic, malformed or foreign response is not such proof,
+and rejection of a retry never settles an earlier uncertain invocation.
 
 The browser preserves a confirmed receipt independently of a failed reload.
 An unconfirmed save retains its exact preparation for explicit same-action
@@ -115,16 +135,31 @@ only a bounded error response bound to the current backend before enabling
 close/reprepare. Error-code text alone is not proof of the phase. Failures after
 entering confirmation remain unconfirmed, and a rejected retry never settles
 an earlier uncertain attempt or permits its retained identity to be discarded.
-After the browser closes, a valid staged review or undo can be re-presented
+The Core retains one bounded, content-free confirmed-attempt record in its
+existing private, repository-bound authority directory. It is atomically written
+after exact confirmation/current preparation/safe-disable checks and before
+authority issuance or book writes. A process lock serializes attempts; an
+unresolved identity cannot be replaced by a different request. This record is a
+transport-recovery index, not a second ledger or an authority grant. Its private
+file checks and deterministic bindings are not cryptographic authentication.
+No raw financial values, input content, paths or keys are stored in it. A
+secondary result-recording failure cannot erase the Core's returned success;
+the retained unresolved identity remains available for exact receipt replay.
+
+After the browser closes, a valid staged review or undo can also be re-presented
 from its existing encrypted pending generation. The Core reconstructs and
 checks the predecessor snapshot, exact preview, appended record, receipt and
 payload fingerprint, including partially promoted generations. The UI requires
 `Review interrupted save` and a separate explicit confirmation under current
-authority. No browser storage, second journal or automatic recovery is added.
-Invalid, unrelated or non-review pending data remains outcome-uncertain with
-no retry presentation. An interrupted create/import is not represented as a
-review retry; preserve the original request and use the existing exact CLI
-recovery path where applicable.
+authority. No browser storage, second book journal or automatic recovery is added.
+Invalid or unrelated pending data remains outcome-uncertain. A retained
+create/import is presented as that same operation, never as a review decision.
+Its staged promotion must authenticate the encrypted state, bind the exact
+request/idempotency/payload and revision transition, and revalidate current
+authority immediately before promotion. Reads cannot complete it, and a fresh
+presentation does not revive a revoked or expired lease. Residual native keys
+after a failed create rollback remain an explicit blocked state; recovery never
+automatically deletes or replaces them.
 
 ### Qualification status
 

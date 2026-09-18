@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FinanceWorkspacePanel } from "./FinanceWorkspacePanel";
 import { FinanceCommitNotAttemptedError } from "../api/client";
+import type { FinanceOperation, FinanceView } from "../api/financeWorkspace";
 import { financeBinding, financeCommit, financePreparation, financeSetup, financeView } from "../test/financeWorkspaceFixture";
 
 const api = vi.hoisted(() => ({ loadFinance: vi.fn(), prepareFinance: vi.fn(), commitFinance: vi.fn(), refreshFinance: vi.fn() }));
@@ -126,8 +127,8 @@ describe("Finance workspace", () => {
     api.refreshFinance.mockImplementation(async (_prepared, intent) => financePreparation(intent));
     render(<FinanceWorkspacePanel />);
     fireEvent.click(await screen.findByRole("button", { name: "Reject review" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Refresh same review" }));
-    expect(await screen.findByText(/same review intent has a fresh preview/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Fresh preview of same action" }));
+    expect(await screen.findByText(/same action has a fresh preview/)).toBeInTheDocument();
     expect(api.commitFinance).not.toHaveBeenCalled();
   });
   it("does not discard an uncertain save merely because its preview later expires", async () => {
@@ -202,5 +203,120 @@ describe("Finance workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry same reviewed save" }));
     await waitFor(() => expect(api.commitFinance).toHaveBeenCalledWith(preparation, financeBinding));
     expect(api.prepareFinance).not.toHaveBeenCalled();
+  });
+
+  it.each(["create", "import_commit", "review_decision", "review_undo"] as FinanceOperation[])("reopens a lost %s response using Core recovery and requires a separate confirmation", async operation => {
+    mockFinanceApi();
+    const initial: FinanceView = operation === "create" ? financeSetup : operation === "import_commit" ? {
+      ...financeSetup, status: "ready", revision: 1, snapshot_ref: financeView.snapshot_ref, import_available: true,
+    } : operation === "review_undo" ? {
+      ...financeView, revision: 3, review_items: [{ ...financeView.review_items[0], state: "confirmed", effective_decision_ref: "event-ref:finance:prior" }],
+    } : financeView;
+    let currentView = initial;
+    api.loadFinance.mockImplementation(async () => currentView);
+    api.commitFinance.mockImplementationOnce(async preparation => {
+      const intent = { review_item_ref: null, decision: null, compensates_event_ref: null, ...api.prepareFinance.mock.calls[0][0] };
+      // The attempt is retained before any staged review or newer snapshot exists.
+      currentView = { ...initial, recovery: { intent, preparation, result: null } };
+      throw new Error("response lost");
+    }).mockImplementation(async preparation => {
+      const result = financeCommit(preparation);
+      currentView = { ...currentView, recovery: { ...currentView.recovery!, result } };
+      return result;
+    });
+    api.refreshFinance.mockImplementation(async (_preparation, intent) => financePreparation(intent));
+    const firstMount = render(<FinanceWorkspacePanel />);
+    const newActionLabel = operation === "create" ? "Preview sample book" : operation === "import_commit" ? "Preview sample import"
+      : operation === "review_undo" ? "Preview undo" : "Confirm review";
+    fireEvent.click(await screen.findByRole("button", { name: newActionLabel }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and save" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry same reviewed save" })).toBeEnabled());
+    const retainedPreparation = api.commitFinance.mock.calls[0][0];
+    firstMount.unmount();
+
+    render(<FinanceWorkspacePanel />);
+    const review = await screen.findByRole("button", { name: "Review interrupted save" });
+    expect(screen.getByRole("button", { name: newActionLabel })).toBeDisabled();
+    expect(api.prepareFinance).toHaveBeenCalledTimes(1);
+    expect(api.commitFinance).toHaveBeenCalledTimes(1);
+    expect(api.refreshFinance).not.toHaveBeenCalled();
+    fireEvent.click(review);
+    expect(await screen.findByRole("heading", { name: "Review before saving" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Close preview without saving" })).toBeDisabled();
+    expect(api.commitFinance).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Fresh preview of same action" }));
+    await screen.findByText(/same action has a fresh preview/);
+    expect(api.refreshFinance).toHaveBeenCalledWith(retainedPreparation, currentView.recovery!.intent, financeBinding);
+    expect(api.commitFinance).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Retry same reviewed save" }));
+    await screen.findByRole("heading", { name: "Saved receipt" });
+    expect(api.commitFinance).toHaveBeenCalledTimes(2);
+    expect(api.commitFinance.mock.calls[1][0].bundle.request.idempotency_ref)
+      .toBe(retainedPreparation.bundle.request.idempotency_ref);
+    expect(api.prepareFinance).toHaveBeenCalledTimes(1);
+  });
+
+  it("a rejected retry after reopening cannot erase the earlier uncertainty", async () => {
+    mockFinanceApi();
+    const intent = { operation: "create" as const, expected_revision: 0, request_ref: "request-ref:finance:retained",
+      idempotency_ref: "idempotency-ref:finance:retained", review_item_ref: null, decision: null, compensates_event_ref: null };
+    const preparation = financePreparation(intent);
+    api.loadFinance.mockResolvedValue({ ...financeSetup, recovery: { intent, preparation, result: null } });
+    api.commitFinance.mockRejectedValue(new FinanceCommitNotAttemptedError());
+    render(<FinanceWorkspacePanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Review interrupted save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry same reviewed save" }));
+    await screen.findByText(/save outcome is unconfirmed/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry same reviewed save" })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Close preview without saving" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preview sample book" })).toBeDisabled();
+    expect(screen.queryByText(/server rejected this save before any book write/)).not.toBeInTheDocument();
+    expect(api.prepareFinance).not.toHaveBeenCalled();
+  });
+
+  it("restores a historical Core receipt even when the current book cannot be read", async () => {
+    mockFinanceApi();
+    const intent = { operation: "create" as const, expected_revision: 0, request_ref: "request-ref:finance:saved",
+      idempotency_ref: "idempotency-ref:finance:saved", review_item_ref: null, decision: null, compensates_event_ref: null };
+    const preparation = financePreparation(intent);
+    api.loadFinance.mockResolvedValue({ ...financeSetup, status: "unavailable", revision: null,
+      recovery: { intent, preparation, result: financeCommit(preparation) } });
+    render(<FinanceWorkspacePanel />);
+    expect(await screen.findByRole("heading", { name: "Saved receipt" })).toBeInTheDocument();
+    expect(screen.getByText(/historical receipt confirms that exact saved action/)).toBeInTheDocument();
+    expect(screen.getByText(/saved book could not be read safely/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review interrupted save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm and save" })).not.toBeInTheDocument();
+    expect(api.prepareFinance).not.toHaveBeenCalled(); expect(api.commitFinance).not.toHaveBeenCalled();
+  });
+
+  it("settles a lost response when the following read returns the exact Core receipt", async () => {
+    mockFinanceApi();
+    api.loadFinance.mockResolvedValueOnce(financeView).mockImplementation(async () => {
+      const intent = { compensates_event_ref: null, ...api.prepareFinance.mock.calls[0][0] };
+      const preparation = financePreparation(intent);
+      return { ...financeView, recovery: { intent, preparation, result: financeCommit(preparation) } };
+    });
+    api.commitFinance.mockRejectedValue(new Error("response lost"));
+    render(<FinanceWorkspacePanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm review" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm and save" }));
+    await screen.findByRole("heading", { name: "Saved receipt" });
+    expect(screen.queryByRole("button", { name: "Retry same reviewed save" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/save outcome is unconfirmed/)).not.toBeInTheDocument();
+    expect(api.commitFinance).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows retained recovery with an unavailable helper but disables confirmation", async () => {
+    mockFinanceApi();
+    const intent = { operation: "create" as const, expected_revision: 0, request_ref: "request-ref:finance:retained",
+      idempotency_ref: "idempotency-ref:finance:retained", review_item_ref: null, decision: null, compensates_event_ref: null };
+    api.loadFinance.mockResolvedValue({ ...financeSetup, status: "helper_unavailable", revision: null,
+      recovery: { intent, preparation: financePreparation(intent), result: null } });
+    render(<FinanceWorkspacePanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "Review interrupted save" }));
+    expect(screen.getByRole("button", { name: "Retry same reviewed save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Fresh preview of same action" })).toBeDisabled();
+    expect(api.commitFinance).not.toHaveBeenCalled();
   });
 });

@@ -130,6 +130,16 @@ def test_mutating_routes_declare_idempotency_requirement_before_authority() -> N
     for key, route in route_index.items():
         if key in EXPECTED_MUTATING_ROUTES:
             continue
+        if key in {
+            ("POST", "/control-center/finance/workspace/preview"),
+            ("POST", "/control-center/finance/workspace/refresh"),
+        }:
+            assert route["route_classification"] == "local_sensitive"
+            assert route["idempotency_required"] is True
+            assert route["idempotency_posture"] == "required_for_exact_request_binding"
+            assert route["idempotency_policy_ref"] == API_IDEMPOTENCY_AUDIT_POLICY_REF
+            assert route["approval_posture"] == "not_required_for_route_classification"
+            continue
         assert route["idempotency_required"] is False
         assert route["idempotency_posture"] == "not_required_for_route_classification"
         if key == ("POST", "/control-center/web-evidence/attach"):

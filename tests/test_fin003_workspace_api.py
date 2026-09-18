@@ -4,12 +4,14 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 import pytest
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.finance_workspace import (
     FINANCE_WORKSPACE_MAX_BODY_BYTES,
     FINANCE_WORKSPACE_PATH,
+    FinanceWorkspaceCommitRateLimitResponse,
     get_finance_workspace,
 )
 from ultimate_ai_agent.api.manifest import build_api_manifest
@@ -229,9 +231,11 @@ def test_api_requires_literal_confirmation_of_exact_preparation(boundary, confir
     assert not boundary[1].configuration.repository_dir.exists()
 
 
-def test_idempotency_aliases_and_body_are_exactly_bound(boundary):
+@pytest.mark.parametrize("action", ["preview", "refresh", "commit"])
+def test_idempotency_aliases_and_body_are_exactly_bound(boundary, action):
     client, workspace, headers = boundary
     request = _intent()
+    prepared, _bound = _prepare(boundary, request)
     for extra, expected_status in (
         ({}, 428),
         ({"X-UAA-Idempotency-Key": "idempotency-ref:finance:other"}, 409),
@@ -244,12 +248,37 @@ def test_idempotency_aliases_and_body_are_exactly_bound(boundary):
         ),
     ):
         response = client.post(
-            f"{FINANCE_WORKSPACE_PATH}/preview",
-            json=request,
-            headers={**headers, **extra},
+            f"{FINANCE_WORKSPACE_PATH}/{action}",
+            json=request if action == "preview" else prepared,
+            headers={**headers, **extra, "X-UAA-Operator-Confirmed": "true"},
         )
         assert response.status_code == expected_status
     assert not workspace.configuration.repository_dir.exists()
+
+
+@pytest.mark.parametrize("action", ["preview", "refresh", "commit"])
+@pytest.mark.parametrize("aliases", [("key",), ("ref",), ("key", "ref")])
+def test_either_or_both_equal_idempotency_aliases_remain_callable(
+    boundary, monkeypatch, action, aliases
+):
+    client, workspace, headers = boundary
+    request = _intent()
+    prepared, _bound = _prepare(boundary, request)
+    # Refresh eligibility is a Core concern; this test isolates its alias gate.
+    monkeypatch.setattr(workspace, "refresh_preparation", lambda value: value)
+    response = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/{action}",
+        json=request if action == "preview" else prepared,
+        headers={
+            **headers,
+            **{
+                f"X-UAA-Idempotency-{alias.title()}": request["idempotency_ref"]
+                for alias in aliases
+            },
+            "X-UAA-Operator-Confirmed": "true",
+        },
+    )
+    assert response.status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -310,6 +339,80 @@ def test_unexpected_commit_failure_does_not_claim_no_change_or_leak_details(
     assert "sensitive implementation" not in response.text
 
 
+def test_recovery_lock_busy_is_not_attempted_before_confirmation(boundary, monkeypatch):
+    from ultimate_ai_agent.core.finance import workspace as workspace_module
+    from ultimate_ai_agent.core.finance.workspace_recovery import (
+        FinanceWorkspaceRecoveryStore,
+    )
+
+    client, workspace, _headers = boundary
+    prepared, headers = _prepare(boundary, _intent())
+    store = FinanceWorkspaceRecoveryStore(workspace.configuration.repository_dir)
+
+    def must_not_confirm(*args, **kwargs):
+        pytest.fail("Recovery lock contention entered the confirming mutation path")
+
+    monkeypatch.setattr(workspace_module, "confirm_finance_mutation", must_not_confirm)
+    with store.confirmed_attempt():
+        response = client.post(
+            f"{FINANCE_WORKSPACE_PATH}/commit",
+            json=prepared,
+            headers={**headers, "X-UAA-Operator-Confirmed": "true"},
+        )
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]["code"] == "FINANCE_WORKSPACE_RECOVERY_ATTEMPT_BUSY"
+    )
+    assert response.json()["detail"]["commit_outcome"] == "not_attempted"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert store.read() is None
+    assert not workspace.configuration.repository_dir.exists()
+    assert {path.name for path in store.directory.iterdir()} == {store.lock_path.name}
+
+
+def test_initial_recovery_write_failure_is_not_attempted_before_confirmation(
+    boundary, monkeypatch
+):
+    from ultimate_ai_agent.core.finance import workspace as workspace_module
+    from ultimate_ai_agent.core.finance.workspace_recovery import (
+        FinanceWorkspaceRecoveryStore,
+    )
+
+    client, workspace, _headers = boundary
+    prepared, headers = _prepare(boundary, _intent())
+    store = FinanceWorkspaceRecoveryStore(workspace.configuration.repository_dir)
+    attempted_writes = 0
+
+    def failed_write(self, payload):
+        nonlocal attempted_writes
+        attempted_writes += 1
+        raise OSError("synthetic storage diagnostic must stay private")
+
+    def must_not_confirm(*args, **kwargs):
+        pytest.fail(
+            "Initial recovery write failure entered the confirming mutation path"
+        )
+
+    monkeypatch.setattr(FinanceWorkspaceRecoveryStore, "write", failed_write)
+    monkeypatch.setattr(workspace_module, "confirm_finance_mutation", must_not_confirm)
+    response = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/commit",
+        json=prepared,
+        headers={**headers, "X-UAA-Operator-Confirmed": "true"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "FINANCE_WORKSPACE_REQUEST_FAILED"
+    assert response.json()["detail"]["commit_outcome"] == "not_attempted"
+    assert "synthetic storage diagnostic" not in response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert attempted_writes == 1
+    assert store.read() is None
+    assert not workspace.configuration.repository_dir.exists()
+    assert {path.name for path in store.directory.iterdir()} == {store.lock_path.name}
+
+
 @pytest.mark.parametrize(
     "operation", ["create", "import_commit", "review_decision", "review_undo"]
 )
@@ -345,6 +448,14 @@ def test_server_expiry_race_is_not_attempted_before_confirmation(
         )
     prepared, headers = _prepare(boundary, request)
     before = workspace.read_view()
+    from ultimate_ai_agent.core.finance.workspace_recovery import (
+        FinanceWorkspaceRecoveryStore,
+    )
+
+    recovery_store = FinanceWorkspaceRecoveryStore(
+        workspace.configuration.repository_dir
+    )
+    retained_before = recovery_store.read()
     expired = datetime.fromisoformat(
         prepared["bundle"]["preview"]["expires_at"]
     ) + timedelta(microseconds=1)
@@ -371,7 +482,12 @@ def test_server_expiry_race_is_not_attempted_before_confirmation(
     assert response.json()["detail"]["commit_outcome"] == "not_attempted"
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["access-control-allow-origin"] == ORIGIN
-    assert workspace.read_view() == before
+    # GET freshly re-presents the same retained payload; only presentation time
+    # changes. The exact stored attempt, historical result and book stay intact.
+    assert workspace.read_view().model_dump(
+        exclude={"recovery": {"preparation"}}
+    ) == before.model_dump(exclude={"recovery": {"preparation"}})
+    assert recovery_store.read() == retained_before
     if operation == "create":
         assert not workspace.configuration.repository_dir.exists()
         assert not (
@@ -425,6 +541,31 @@ def test_finance_openapi_and_manifest_publish_exact_contracts(boundary):
             assert parameters[header]["required"] is True
         assert "x-uaa-idempotency-key" in parameters
         assert "x-uaa-idempotency-ref" in parameters
+        idempotency = route["x-uaa-idempotency"]
+        assert idempotency["required"] is True
+        assert idempotency["header_names_case_insensitive"] is True
+        assert idempotency["supplied_aliases_must_agree"] is True
+        assert idempotency["must_equal_body_idempotency_ref"] is True
+        header_validator = Draft202012Validator(idempotency["headers_schema"])
+        assert not header_validator.is_valid({})
+        for aliases in (("key",), ("ref",), ("key", "ref")):
+            valid_headers = {
+                f"x-uaa-idempotency-{alias}": "idempotency-ref:finance:schema"
+                for alias in aliases
+            }
+            header_validator.validate(valid_headers)
+        for bad_value in (None, "", "short", "id:bad/path", "x" * 201):
+            for alias in ("key", "ref"):
+                assert not header_validator.is_valid(
+                    {f"x-uaa-idempotency-{alias}": bad_value}
+                )
+        if action == "commit":
+            rate_limit = route["responses"]["429"]["content"]["application/json"][
+                "schema"
+            ]
+            assert rate_limit["$ref"].endswith(
+                "FinanceWorkspaceCommitRateLimitResponse"
+            )
     manifest = build_api_manifest(app)
     routes = [
         route
@@ -439,8 +580,10 @@ def test_finance_openapi_and_manifest_publish_exact_contracts(boundary):
         if route.method == "POST":
             assert route.rate_limit_targeted is True
             assert route.rate_limit_group == "finance_workspace"
+            assert route.idempotency_required is True
         else:
             assert route.rate_limit_targeted is False
+            assert route.idempotency_required is False
         if route.path.endswith("/commit"):
             assert route.route_classification == "mutating_requires_authority"
             assert route.idempotency_enforcement == "route_owned_durable_replay"
@@ -450,6 +593,11 @@ def test_finance_openapi_and_manifest_publish_exact_contracts(boundary):
             )
         else:
             assert route.route_classification == "local_sensitive"
+            if route.method == "POST":
+                assert route.idempotency_posture == "required_for_exact_request_binding"
+                assert route.idempotency_enforcement == "route_owned_exact_binding"
+                assert route.durable_idempotency_owner_ref is None
+                assert route.approval_posture == "not_required_for_route_classification"
     assert len({route.operation_id for route in routes}) == 4
 
 
@@ -480,6 +628,11 @@ def test_finance_exact_post_routes_share_a_bounded_request_budget(
     monkeypatch.setenv(API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV, "2")
     client, workspace, headers = boundary
     prepared, bound = _prepare(boundary, _intent())
+
+    def must_not_commit(*args, **kwargs):
+        pytest.fail("Rate-limited request entered the Finance commit handler")
+
+    monkeypatch.setattr(workspace, "commit", must_not_commit)
     response = client.post(
         f"{FINANCE_WORKSPACE_PATH}/refresh", json=prepared, headers=bound
     )
@@ -492,7 +645,39 @@ def test_finance_exact_post_routes_share_a_bounded_request_budget(
     )
     assert denied.status_code == 429
     assert denied.json()["rate_limit_group"] == "finance_workspace"
+    proof = FinanceWorkspaceCommitRateLimitResponse.model_validate(denied.json())
+    assert proof.commit_outcome == "not_attempted"
+    assert proof.rejection_phase == "before_commit_handler"
+    assert proof.request_path == f"{FINANCE_WORKSPACE_PATH}/commit"
+    assert (
+        denied.headers["X-UAA-Backend-Revision-Ref"]
+        == bound["X-UAA-Expected-Backend-Revision-Ref"]
+    )
+    assert (
+        denied.headers["X-UAA-Backend-Instance-Ref"]
+        == bound["X-UAA-Expected-Backend-Instance-Ref"]
+    )
     assert denied.headers["access-control-allow-origin"] == ORIGIN
     assert denied.headers["cache-control"] == "no-store"
     assert not workspace.configuration.repository_dir.exists()
     assert client.get(FINANCE_WORKSPACE_PATH, headers=headers).status_code == 200
+
+
+@pytest.mark.parametrize("action", ["preview", "refresh"])
+def test_other_finance_rate_limits_never_claim_commit_phase(
+    boundary, monkeypatch, action
+):
+    from ultimate_ai_agent.api.rate_limits import (
+        API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV,
+    )
+
+    monkeypatch.setenv(API_TARGETED_RATE_LIMIT_MAX_REQUESTS_ENV, "1")
+    client, _workspace, _headers = boundary
+    prepared, bound = _prepare(boundary, _intent())
+    denied = client.post(
+        f"{FINANCE_WORKSPACE_PATH}/{action}", json=prepared, headers=bound
+    )
+    assert denied.status_code == 429
+    assert denied.json()["code"] == "API_TARGETED_RATE_LIMITED"
+    assert "commit_outcome" not in denied.json()
+    assert "rejection_phase" not in denied.json()

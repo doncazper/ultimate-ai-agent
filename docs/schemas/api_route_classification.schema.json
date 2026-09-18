@@ -183,7 +183,8 @@
       "additionalProperties": false,
       "required": [
         "not_required_for_route_classification",
-        "required_before_mutation_authority"
+        "required_before_mutation_authority",
+        "required_for_exact_request_binding"
       ],
       "properties": {
         "not_required_for_route_classification": {
@@ -191,6 +192,10 @@
           "minimum": 0
         },
         "required_before_mutation_authority": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_for_exact_request_binding": {
           "type": "integer",
           "minimum": 0
         }
@@ -331,7 +336,8 @@
           "idempotency_posture": {
             "enum": [
               "not_required_for_route_classification",
-              "required_before_mutation_authority"
+              "required_before_mutation_authority",
+              "required_for_exact_request_binding"
             ]
           },
           "idempotency_policy_ref": {

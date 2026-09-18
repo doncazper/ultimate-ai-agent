@@ -435,10 +435,10 @@ def test_pending_generation_recovers_without_double_import(
     repository = service.repository
     original_recover = repository._recover_pending_commit
 
-    def interrupt_after_pending_generation():
+    def interrupt_after_pending_generation(**kwargs):
         if repository.pending_commit_path.exists():
             raise OSError("injected pending generation interruption")
-        return original_recover()
+        return original_recover(**kwargs)
 
     monkeypatch.setattr(
         repository, "_recover_pending_commit", interrupt_after_pending_generation

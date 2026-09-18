@@ -62,13 +62,19 @@ def prepare_finance_mutation(
     return FinancePreparedMutation(request=bound, preview=preview)
 
 
-def finance_authority_state_dir(repository_dir: Path) -> Path:
-    """Use the existing private, repository-bound CLI authority location."""
-
+def finance_authority_state_path(repository_dir: Path) -> Path:
+    """Derive the repository-bound location without creating any state."""
     canonical = repository_dir.expanduser().resolve(strict=False)
     digest = hashlib.sha256(str(canonical).encode("utf-8")).hexdigest()
     parent = canonical.parent / ".uaa-finance-authority"
-    state_dir = parent / digest
+    return parent / digest
+
+
+def finance_authority_state_dir(repository_dir: Path) -> Path:
+    """Use the existing private, repository-bound CLI authority location."""
+
+    state_dir = finance_authority_state_path(repository_dir)
+    parent = state_dir.parent
     for directory in (parent, state_dir):
         try:
             directory.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -126,7 +132,12 @@ def confirm_finance_mutation(
         finance_authority_state_dir(service.repository.root)
     )
     lease_binding = {"payload_fingerprint_ref": preview.payload_fingerprint_ref}
-    if request.operation in {"review_decision", "review_undo"}:
+    if request.operation in {
+        "create",
+        "import_commit",
+        "review_decision",
+        "review_undo",
+    }:
         # A repeated bundle cannot revive a revoked lease. A freshly presented,
         # separately confirmed preview may authorize retry of the same intent.
         lease_binding["reviewed_authority_preview_ref"] = preview.preview_ref

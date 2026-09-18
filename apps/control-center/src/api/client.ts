@@ -1666,6 +1666,19 @@ async function readFinanceWorkspaceResponse(
     throw new Error("FINANCE_RESPONSE_INVALID");
   }
   if (!response.ok) {
+    if (response.status === 429 && typeof value === "object" && value !== null
+      && "schema_version" in value && value.schema_version === "uaa-finance-workspace-commit-rate-limit.v1"
+      && "code" in value && value.code === "API_TARGETED_RATE_LIMITED"
+      && "policy_ref" in value && value.policy_ref === "rate-limit:p1-085:targeted-local:v1"
+      && "rate_limit_group" in value && value.rate_limit_group === "finance_workspace"
+      && "request_method" in value && value.request_method === "POST"
+      && "request_path" in value && value.request_path === "/control-center/finance/workspace/commit"
+      && "rejection_phase" in value && value.rejection_phase === "before_commit_handler"
+      && "commit_outcome" in value && value.commit_outcome === "not_attempted"
+      && "retry_after_seconds" in value && Number.isSafeInteger(value.retry_after_seconds)
+      && Number(value.retry_after_seconds) >= 1) {
+      throw new FinanceCommitNotAttemptedError();
+    }
     const detail = typeof value === "object" && value !== null && "detail" in value ? value.detail : null;
     if ([403, 409, 503].includes(response.status) && typeof detail === "object" && detail !== null
       && "commit_outcome" in detail && detail.commit_outcome === "not_attempted"
