@@ -29,7 +29,7 @@ _EXPECTED_SOURCE_SHA256 = {
         "80b9327640c46e4d8b0622126cdca711596397d1a2f6d22da773526feadaf1ed"
     ),
     "src/ultimate_ai_agent/distribution/macos/runtime.py": (
-        "24a3a386d919ed669668ed1a3a9118a0501579daaf9fe546a6434a7e394ba702"
+        "966cc0a2976ca5142557063bb44e4114a7618dfe6ceb8d3d7eed730cc66735ae"
     ),
 }
 
@@ -73,6 +73,7 @@ _SENSITIVE_FILESYSTEM_METHODS = frozenset(
         "is_file",
         "iterdir",
         "joinpath",
+        "lstat",
         "mkdir",
         "open",
         "read_bytes",
@@ -192,6 +193,7 @@ _EXPECTED_FILESYSTEM_METHOD_COUNTS = {
         "chmod": 2,
         "is_dir": 1,
         "is_file": 5,
+        "lstat": 1,
         "mkdir": 4,
         "open": 2,
         "read_bytes": 1,

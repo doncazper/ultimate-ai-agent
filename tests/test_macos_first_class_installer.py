@@ -150,7 +150,7 @@ def test_launch_replaces_live_runtime_from_superseded_install(
     )
     monkeypatch.setattr(
         "ultimate_ai_agent.distribution.macos.runtime._terminate_owned_process",
-        lambda state: terminated.append(dict(state)),
+        lambda state: terminated.append(dict(state)) or True,
     )
     monkeypatch.setattr(
         "ultimate_ai_agent.distribution.macos.runtime._next_available_port",
@@ -249,7 +249,7 @@ def test_packaged_finance_reuse_preserves_binding_and_stop(
         assert "Run uaa stop, then uaa launch" in output
         assert "is ready" not in output
     stopped = []
-    monkeypatch.setattr(macos_runtime, "_terminate_owned_process", lambda owned: stopped.append(owned))
+    monkeypatch.setattr(macos_runtime, "_terminate_owned_process", lambda owned: stopped.append(owned) or True)
     assert macos_runtime.command_stop(paths, quiet=True) == 0
     assert stopped == [state]
     assert not paths.runtime_state.exists()
@@ -284,6 +284,287 @@ def test_packaged_finance_startup_state_binds_actual_child_environment(
     assert state[FINANCE_STARTUP_METADATA_KEY] != finance_startup_configuration_ref(os.environ)
     assert str(private_book) not in state_text
     assert not private_book.exists()
+
+
+@pytest.mark.parametrize("condition", [
+    "alive", "denied", "probe-error", "overflow", "invalid-pid", "bool-pid",
+    "invalid-port", "invalid-nonce",
+])
+@pytest.mark.parametrize("configuration_changed", [False, True])
+def test_packaged_unverified_runtime_cannot_lose_ownership_on_launch_or_stop(
+    monkeypatch, tmp_path: Path, capsys, condition: str, configuration_changed: bool
+) -> None:
+    for name in FINANCE_STARTUP_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
+        "pid": 111, "port": 8765, "nonce": "a" * 32,
+        "version_ref": "macos-version:same-version",
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref({}),
+    }
+    if condition == "invalid-pid":
+        state["pid"] = "111"
+    elif condition == "bool-pid":
+        state["pid"] = True
+    elif condition == "invalid-port":
+        state["port"] = "8765"
+    elif condition == "invalid-nonce":
+        state["nonce"] = None
+    paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
+    original_state = paths.runtime_state.read_bytes()
+    if configuration_changed:
+        monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "1")
+
+    def probe(_pid, signal):
+        assert signal == 0, "unverified ownership must never signal a process"
+        if condition == "denied":
+            raise PermissionError
+        if condition == "probe-error":
+            raise OSError
+        if condition == "overflow":
+            raise OverflowError
+
+    monkeypatch.setattr(macos_runtime.os, "kill", probe)
+    monkeypatch.setattr(macos_runtime, "_get_loopback_json", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: pytest.fail("unverified runtime must prevent bearer provisioning"))
+    monkeypatch.setattr(macos_runtime, "command_update", lambda *_args, **_kwargs: pytest.fail("unverified runtime must prevent update"))
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("unverified runtime must prevent duplicate spawn"))
+    monkeypatch.setattr(macos_runtime.webbrowser, "open", lambda *_args: pytest.fail("unverified runtime must prevent browser open"))
+
+    assert command_launch(paths, skip_update=False, no_browser=False) == 1
+    assert paths.runtime_state.read_bytes() == original_state
+    assert macos_runtime.command_stop(paths, quiet=True) == 1
+    assert paths.runtime_state.read_bytes() == original_state
+    output = capsys.readouterr().out
+    assert "ownership state was retained" in output.lower()
+    assert "is ready" not in output
+    assert "runtime stopped" not in output
+
+
+def test_packaged_proven_dead_runtime_allows_stale_cleanup_and_fresh_start(
+    monkeypatch, tmp_path: Path
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    stale = {
+        "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
+        "pid": 111, "port": 8765, "nonce": "a" * 32,
+        "version_ref": "macos-version:old-version",
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref({}),
+    }
+    paths.runtime_state.write_text(json.dumps(stale), encoding="utf-8")
+
+    def absent(_pid, signal):
+        assert signal == 0
+        raise ProcessLookupError
+
+    monkeypatch.setattr(macos_runtime.os, "kill", absent)
+    assert macos_runtime.command_stop(paths, quiet=True) == 0
+    assert not paths.runtime_state.exists()
+    paths.runtime_state.write_text(json.dumps(stale), encoding="utf-8")
+    monkeypatch.setenv(FINANCE_WORKSPACE_DISABLE_ENV, "1")
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda state: state["pid"] == 222)
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40, "tag": "v0.104.0"})
+    monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "same-version")
+    monkeypatch.setattr(macos_runtime, "_next_available_port", lambda *_args: 8766)
+    spawned = []
+
+    def spawn(*_args, **kwargs):
+        spawned.append(dict(kwargs["env"]))
+        return SimpleNamespace(pid=222, poll=lambda: None)
+
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", spawn)
+    assert command_launch(paths, skip_update=True, no_browser=True) == 0
+    current = json.loads(paths.runtime_state.read_text(encoding="utf-8"))
+    assert current["pid"] == 222
+    assert len(spawned) == 1
+    assert current[FINANCE_STARTUP_METADATA_KEY] == finance_startup_configuration_ref(spawned[0])
+
+
+def test_packaged_identity_loss_between_launch_probes_preserves_owner(
+    monkeypatch, tmp_path: Path
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
+        "pid": 111, "port": 8765, "nonce": "a" * 32,
+        "version_ref": "macos-version:same-version",
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
+    }
+    paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
+    original_state = paths.runtime_state.read_bytes()
+    identities = iter([True, False])
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda _state: next(identities))
+    monkeypatch.setattr(macos_runtime, "_runtime_process_state", lambda _state: "alive")
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40})
+    monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "same-version")
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("identity loss must prevent duplicate spawn"))
+    monkeypatch.setattr(macos_runtime.webbrowser, "open", lambda *_args: pytest.fail("identity loss must prevent browser open"))
+    assert command_launch(paths, skip_update=True, no_browser=False) == 1
+    assert paths.runtime_state.read_bytes() == original_state
+
+
+def test_packaged_stop_retains_owner_when_identity_is_lost_before_termination(
+    monkeypatch, tmp_path: Path
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    state = {"schema_version": macos_runtime.RUNTIME_STATE_SCHEMA, "pid": 111}
+    paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
+    original_state = paths.runtime_state.read_bytes()
+    identities = iter([True, False])
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda _state: next(identities))
+
+    def probe(_pid, signal):
+        assert signal == 0, "lost identity must prevent termination"
+
+    monkeypatch.setattr(macos_runtime.os, "kill", probe)
+    assert macos_runtime.command_stop(paths, quiet=True) == 1
+    assert paths.runtime_state.read_bytes() == original_state
+
+
+def test_packaged_launch_timeout_retains_unverified_live_child(
+    monkeypatch, tmp_path: Path
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40, "tag": "v0.104.0"})
+    monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "same-version")
+    monkeypatch.setattr(macos_runtime, "_next_available_port", lambda *_args: 8765)
+    monkeypatch.setattr(macos_runtime, "_get_loopback_json", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(macos_runtime, "START_TIMEOUT_SECONDS", 0)
+
+    def probe(_pid, signal):
+        assert signal == 0, "unverified child must never receive a termination signal"
+
+    monkeypatch.setattr(macos_runtime.os, "kill", probe)
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: SimpleNamespace(pid=222, poll=lambda: None))
+    assert command_launch(paths, skip_update=True, no_browser=True) == 1
+    retained = paths.runtime_state.read_bytes()
+    assert json.loads(retained)["pid"] == 222
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("retry must not spawn over live child"))
+    assert command_launch(paths, skip_update=True, no_browser=True) == 1
+    assert paths.runtime_state.read_bytes() == retained
+
+
+@pytest.mark.parametrize("operation", ["update-relaunch", "rollback", "uninstall"])
+def test_packaged_lifecycle_aborts_when_owned_stop_is_unverified(
+    monkeypatch, tmp_path: Path, operation: str
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    monkeypatch.setattr(macos_runtime, "command_stop", lambda *_args, **_kwargs: 1)
+    monkeypatch.setattr(macos_runtime.os, "execv", lambda *_args: pytest.fail("unverified stop must prevent exec"))
+    monkeypatch.setattr(macos_runtime, "rollback", lambda *_args: pytest.fail("unverified stop must prevent rollback"))
+    monkeypatch.setattr(macos_runtime, "uninstall", lambda *_args, **_kwargs: pytest.fail("unverified stop must prevent uninstall"))
+    if operation == "update-relaunch":
+        monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+        monkeypatch.setattr(macos_runtime, "command_update", lambda *_args, **_kwargs: 10)
+        assert command_launch(paths, skip_update=False, no_browser=False) == 1
+    elif operation == "rollback":
+        assert macos_runtime.command_rollback(paths, relaunch=True) == 1
+    else:
+        assert macos_runtime.command_uninstall(paths, purge_versions=True) == 1
+
+
+@pytest.mark.parametrize("condition", [
+    "invalid-json", "wrong-schema", "non-object", "unreadable", "lstat-denied",
+    "dangling-symlink",
+])
+def test_packaged_existing_unreadable_ownership_is_retained_and_reported_unverified(
+    monkeypatch, tmp_path: Path, capsys, condition: str
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    payload = {
+        "invalid-json": b"{invalid",
+        "wrong-schema": b'{"schema_version":"unknown","pid":111}',
+        "non-object": b"[]",
+    }.get(condition, b"{}")
+    if condition == "dangling-symlink":
+        paths.runtime_state.symlink_to(paths.state_dir / "missing-owner")
+    else:
+        paths.runtime_state.write_bytes(payload)
+    if condition == "unreadable":
+        original_read = Path.read_text
+
+        def read(path, *args, **kwargs):
+            if path == paths.runtime_state:
+                raise PermissionError
+            return original_read(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", read)
+    if condition == "lstat-denied":
+        original_lstat = Path.lstat
+
+        def lstat(path, *args, **kwargs):
+            if path == paths.runtime_state:
+                raise PermissionError
+            return original_lstat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "lstat", lstat)
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: pytest.fail("invalid ownership must prevent bearer provisioning"))
+    monkeypatch.setattr(macos_runtime, "command_update", lambda *_args, **_kwargs: pytest.fail("invalid ownership must prevent update"))
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("invalid ownership must prevent spawn"))
+    monkeypatch.setattr(macos_runtime.os, "kill", lambda *_args: pytest.fail("invalid ownership must not target a PID"))
+    assert command_launch(paths, skip_update=False, no_browser=True) == 1
+    assert macos_runtime.command_stop(paths, quiet=True) == 1
+    capsys.readouterr()
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: None)
+    monkeypatch.setattr(macos_runtime, "discover_github_token", lambda: None)
+    assert macos_runtime.command_status(paths, as_json=True) == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["runtime_status"] == "unverified"
+    assert status["runtime_url"] is None
+    if condition == "dangling-symlink":
+        assert paths.runtime_state.is_symlink()
+    else:
+        assert paths.runtime_state.read_bytes() == payload
+
+
+def test_packaged_genuinely_absent_ownership_is_reported_stopped(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    assert macos_runtime._load_runtime_state(paths) is None
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: None)
+    monkeypatch.setattr(macos_runtime, "discover_github_token", lambda: None)
+    assert macos_runtime.command_status(paths, as_json=True) == 0
+    assert json.loads(capsys.readouterr().out)["runtime_status"] == "stopped"
+
+
+def test_packaged_superseded_runtime_is_retained_if_exit_cannot_be_proven(
+    monkeypatch, tmp_path: Path
+) -> None:
+    paths = RuntimePaths(_layout(tmp_path))
+    paths.state_dir.mkdir(parents=True)
+    state = {
+        "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
+        "pid": 111, "port": 8765, "nonce": "a" * 32,
+        "version_ref": "macos-version:old-version",
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
+    }
+    paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
+    original_state = paths.runtime_state.read_bytes()
+    monkeypatch.setattr(macos_runtime, "_runtime_identity_matches", lambda _state: True)
+    monkeypatch.setattr(macos_runtime, "_ensure_local_bearer", lambda _paths: "local-session-bearer")
+    monkeypatch.setattr(macos_runtime, "current_manifest", lambda _layout: {"source_commit": "a" * 40})
+    monkeypatch.setattr(macos_runtime, "current_version_id", lambda _layout: "new-version")
+    monkeypatch.setattr(macos_runtime, "STOP_TIMEOUT_SECONDS", 0)
+    signals = []
+    monkeypatch.setattr(macos_runtime.os, "kill", lambda pid, signal: signals.append((pid, signal)))
+    monkeypatch.setattr(macos_runtime.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("prior exit must be proven before replacing runtime"))
+    assert command_launch(paths, skip_update=True, no_browser=True) == 1
+    assert paths.runtime_state.read_bytes() == original_state
+    assert signals == [
+        (111, macos_runtime.signal.SIGTERM),
+        (111, macos_runtime.signal.SIGKILL),
+        (111, 0),
+    ]
 
 
 def test_newest_channel_compares_stable_and_dev_by_tag_commit_time() -> None:

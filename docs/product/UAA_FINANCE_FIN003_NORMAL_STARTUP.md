@@ -37,7 +37,10 @@ stop it through its owning launcher and start it again with the intended values.
 For developer instances, preserve the original endpoint settings when stopping;
 use `scripts/dev/uaa stop` followed by `scripts/dev/uaa start`. For an installed
 app, use `uaa stop` followed by `uaa launch`. Refusal preserves the running
-process and its ownership metadata. A changed environment does not retroactively
+process and its ownership metadata. If the recorded process is still alive but
+its runtime identity cannot be verified, launch and stop preserve that ownership
+record and report the refusal; only a proven-dead process may be treated as stale.
+A changed environment does not retroactively
 disable or reconfigure an already running backend. Legacy instances without the
 configuration binding also require this one-time stop/restart.
 
