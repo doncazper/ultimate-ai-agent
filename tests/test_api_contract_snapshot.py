@@ -91,24 +91,6 @@ def test_snapshot_builder_rejects_stale_manifest_summary_with_same_total() -> No
     ("route_key", "field", "value", "error"),
     [
         (
-            ("POST", "/control-center/finance/workspace/preview"),
-            "idempotency_required",
-            False,
-            "NONMUTATING_GUARD_POLICY_DRIFT",
-        ),
-        (
-            ("POST", "/control-center/finance/workspace/refresh"),
-            "idempotency_posture",
-            "not_required_for_route_classification",
-            "NONMUTATING_GUARD_POLICY_DRIFT",
-        ),
-        (
-            ("POST", "/control-center/finance/workspace/preview"),
-            "approval_posture",
-            "required_before_mutation_authority",
-            "NONMUTATING_GUARD_POLICY_DRIFT",
-        ),
-        (
             ("GET", "/health"),
             "route_classification",
             "local_readonly",
@@ -147,6 +129,47 @@ def test_snapshot_builder_rejects_stale_manifest_summary_with_same_total() -> No
     ],
 )
 def test_snapshot_refresh_cannot_redefine_security_policy_floor(
+    route_key: tuple[str, str],
+    field: str,
+    value: object,
+    error: str,
+) -> None:
+    manifest, openapi = _sources_from_snapshot()
+    routes = [dict(route) for route in manifest["routes"]]
+    route = next(
+        route for route in routes if (route["method"], route["path"]) == route_key
+    )
+    route[field] = value
+    manifest["routes"] = routes
+
+    with pytest.raises(ValueError, match=error):
+        snapshot.build_snapshot_from_sources(manifest, openapi)
+
+
+@pytest.mark.parametrize(
+    ("route_key", "field", "value", "error"),
+    [
+        (
+            ("POST", "/control-center/finance/workspace/preview"),
+            "idempotency_required",
+            False,
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("POST", "/control-center/finance/workspace/refresh"),
+            "idempotency_posture",
+            "not_required_for_route_classification",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+        (
+            ("POST", "/control-center/finance/workspace/preview"),
+            "approval_posture",
+            "required_before_mutation_authority",
+            "NONMUTATING_GUARD_POLICY_DRIFT",
+        ),
+    ],
+)
+def test_finance_preparation_snapshot_security_policy_floor(
     route_key: tuple[str, str],
     field: str,
     value: object,
