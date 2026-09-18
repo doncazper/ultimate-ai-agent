@@ -876,3 +876,99 @@ def test_rebound_managed_directory_at_lock_never_reaches_lease_issuer(
         service.confirm(preparation, confirmed=True)
     assert list(replacement.iterdir()) == []
     assert not service.layout.state_file.exists()
+
+
+@pytest.mark.parametrize(
+    "request_ref,idempotency_ref",
+    [
+        ("request-ref:native-enroll", "native-enroll-developer"),
+        ("12345678:a", "12345678"),
+        ("request:", "bare-idem"),
+        ("r" * 198 + ":a", "i" * 200),
+    ],
+    ids=[
+        "bare-idempotency",
+        "digit-leading",
+        "empty-namespace-suffix",
+        "maximum-length",
+    ],
+)
+def test_transport_identifiers_use_exact_hashed_authority_resources(
+    tmp_path, request_ref, idempotency_ref
+):
+    import ultimate_ai_agent.core.finance.managed_setup_authority as authority
+    from ultimate_ai_agent.core.planning.validation import validate_task_ref
+
+    service = _service(tmp_path)
+    preparation = service.prepare("enroll", request_ref, idempotency_ref).preparation
+    parsed = authority.parse_managed_setup_preparation(
+        authority.serialize_managed_setup_preparation(preparation)
+    )
+    assert parsed.intent.request_ref == request_ref
+    assert parsed.intent.idempotency_ref == idempotency_ref
+    assert parsed.approval_request.run_id == request_ref
+    assert parsed.approval_request.trace_id == request_ref
+    assert request_ref not in parsed.resource_refs
+    assert idempotency_ref not in parsed.resource_refs
+    assert authority._ref("request", {"value": request_ref}) in parsed.resource_refs
+    assert (
+        authority._ref("idempotency", {"value": idempotency_ref})
+        in parsed.resource_refs
+    )
+    for resource_ref in parsed.resource_refs:
+        validate_task_ref(resource_ref)
+    assert authority.setup_lease_request_is_exact(
+        authority.build_setup_lease_request(parsed)
+    )
+    result = service.confirm(parsed, confirmed=True)
+    assert result.outcome == "committed"
+    state_bytes = service.layout.state_file.read_bytes()
+    service.source_provider = lambda: pytest.fail("historical replay consulted source")
+    replay = service.confirm(parsed, confirmed=True)
+    assert replay.receipt == result.receipt and replay.replayed
+    assert not replay.mutation_performed and not replay.authority_state_written
+    assert service.layout.state_file.read_bytes() == state_bytes
+    with pytest.raises(authority.ManagedFinanceSetupError, match="STATE_CONFLICT"):
+        service.prepare("enroll", request_ref, "changed-bare-idempotency")
+
+
+@pytest.mark.parametrize("recovery", ["commit", "discard"])
+def test_bare_transport_identities_survive_refresh_and_owned_recovery(
+    tmp_path, monkeypatch, recovery
+):
+    import ultimate_ai_agent.core.finance.managed_setup as module
+
+    service = _service(tmp_path)
+    preparation = service.prepare(
+        "enroll", "2345678:a", "native-recovery-enroll"
+    ).preparation
+    with monkeypatch.context() as fault:
+        fault.setattr(
+            service, "_promote", lambda *args: (_ for _ in ()).throw(OSError())
+        )
+        with pytest.raises(
+            module.ManagedFinanceSetupError, match="MUTATION_INTERRUPTED"
+        ):
+            service.confirm(preparation, confirmed=True)
+    refreshed = service.refresh(preparation).preparation
+    assert refreshed.intent == preparation.intent
+    assert refreshed.payload_fingerprint_ref == preparation.payload_fingerprint_ref
+    assert refreshed.preview_ref != preparation.preview_ref
+    if recovery == "commit":
+        result = service.confirm(refreshed, confirmed=True)
+        assert result.outcome == "committed"
+    else:
+        service.source_provider = lambda: pytest.fail("discard consulted source")
+        discard = service.prepare(
+            "discard_incomplete", "3456789:b", "native-recovery-discard"
+        ).preparation
+        result = service.confirm(discard, confirmed=True)
+        assert result.outcome == "abandoned"
+        assert result.receipt.original_enrollment_intent == preparation.intent
+        assert result.receipt.intent == discard.intent
+    service.source_provider = lambda: pytest.fail("historical replay consulted source")
+    state_bytes = service.layout.state_file.read_bytes()
+    replay = service.confirm(preparation, confirmed=True)
+    assert replay.receipt == result.receipt and replay.replayed
+    assert not replay.mutation_performed and not replay.authority_state_written
+    assert service.layout.state_file.read_bytes() == state_bytes

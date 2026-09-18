@@ -5197,7 +5197,7 @@
     },
     {
       "path": "tests/test_fin003_managed_setup.py",
-      "seconds": 6.92,
+      "seconds": 8.15,
       "source": "pytest-duration-summary"
     },
     {

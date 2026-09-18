@@ -255,7 +255,7 @@ def build_preparation(
         MANAGED_REPOSITORY_SLOT_REF,
         intent.intent_ref,
         intent.payload_fingerprint_ref,
-        intent.request_ref,
+        _ref("request", {"value": intent.request_ref}),
         _ref("idempotency", {"value": intent.idempotency_ref}),
         intent.expected_state_ref,
         observed_state_ref,
@@ -269,7 +269,11 @@ def build_preparation(
         if record is not None:
             # Finite nested records only; source/helper ownership is bound in their hash.
             for key, value in managed_wire_payload(record).items():
-                if key.endswith("_ref") and isinstance(value, str):
+                if (
+                    key.endswith("_ref")
+                    and key not in {"request_ref", "idempotency_ref"}
+                    and isinstance(value, str)
+                ):
                     resources.add(value)
     if desired_profile:
         resources.update(
