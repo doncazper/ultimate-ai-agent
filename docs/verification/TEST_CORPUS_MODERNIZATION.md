@@ -56,21 +56,37 @@ the exact referenced declaration and its recursively resolvable local
 dependencies. Application implementation code is an execution subject rather
 than test inventory. Baseline runtime analysis may reuse current application
 source only after proving the relevant revision-specific import closures are
-collection-neutral. New application dependencies must belong to the successfully
-proven current closure of an existing substituted application module; an absent
-baseline file alone never permits reuse. Recognized execution-abort and dynamic
+collection-neutral and preserving revision-owned evidence for consumers that
+can abort test execution. New application dependencies must belong to the
+successfully proven current closure of an existing substituted application
+module; an absent baseline file alone never permits reuse. Recognized
+execution-abort and dynamic
 import forms cannot be hidden, including object-bound skip methods and bounded
 builtin getter aliases. For new execution-dependency admission, a recognized
 getter's member name must resolve from a literal or bounded string
 concatenation. A `skipTest` selector, unresolved selector, or unsupported getter
-argument shape refuses admission, including in dormant function bodies. This
-stricter admission screen does not change the existing scope-sensitive test
-consumer's alias and rebinding rules. Test-owned helpers and parameter/decorator
+argument shape refuses admission, including in dormant function bodies. Getter
+references also require a closed use grammar: an inline assignment, wrapper,
+container or callback must not conceal an unproven getter invocation. Unsupported
+getter-value escapes refuse admission. This stricter admission screen does not
+change the existing scope-sensitive test consumer's alias and rebinding rules.
+Test-owned helpers and parameter/decorator
 data retain their baseline bindings. Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,
 ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
 guard's recognized static syntax and import forms.
+
+Collection neutrality does not prove that a returned value cannot activate a
+caller's existing skip branch. An abort-sensitive test, method, helper or fixture
+therefore binds its relevant dependency closure to the original revision, including
+separate value-producing arguments passed to an aborting helper. This strict
+consumer evidence includes passed abort capabilities and injected fixture
+dependencies, and survives the non-aborting-helper normalization retry. A harmless
+value change or dependency relocation may conservatively require review when the
+consumer can abort; the guard does not claim general value equivalence.
+The consumer proof uses the existing local and explicitly imported fixture graph.
+Conftest and plugin discovery retain their separate existing checks.
 
 Admission shares exact source and dependency-edge facts within each revision's
 proof graph instead of rebuilding cached dependency suffixes for every root.

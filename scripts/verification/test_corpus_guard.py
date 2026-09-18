@@ -589,6 +589,16 @@ class _PythonBindingModuleAnalysis:
     direct_module_aliases: frozenset[str]
     star_import_modules: tuple[str, ...]
     node_analyses: dict[tuple[int, int], _PythonBindingNodeAnalysis]
+    runtime_consumer: bool = False
+    fixture_bindings: dict[str, str] | None = None
+    imported_fixture_bindings: dict[str, tuple[str, ...]] | None = None
+
+
+@dataclass(frozen=True)
+class _PythonRuntimeConsumerRoot:
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    imports: dict[tuple[str, ...], set[str]]
+    local_dependencies: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -2391,6 +2401,162 @@ def _python_conservative_getattr_aliases(
     return {alias: "getattr" for alias in sorted(known)}
 
 
+def _python_new_getter_uses_are_unsafe(
+    tree: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    """Allow only proved selector calls and finite aliases in new subjects."""
+
+    nodes = tuple(ast.walk(tree))
+    parents = {
+        id(child): node for node in nodes for child in ast.iter_child_nodes(node)
+    }
+    namespaces = {"builtins"} | {
+        name for name, candidates in imported_modules.items() if candidates[:1] == ("builtins",)
+    }
+    namespace_edges: dict[str, set[str]] = {}
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            continue
+        value = node.value
+        while isinstance(value, ast.NamedExpr):
+            value = value.value
+        if isinstance(value, ast.Name):
+            for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                if isinstance(target, ast.Name):
+                    namespace_edges.setdefault(value.id, set()).add(target.id)
+    pending = list(namespaces)
+    while pending:
+        for alias in namespace_edges.get(pending.pop(), ()):
+            if alias not in namespaces:
+                namespaces.add(alias)
+                pending.append(alias)
+    imported_modules = dict(imported_modules)
+    for namespace in namespaces:
+        imported_modules[namespace] = tuple(dict.fromkeys(
+            (*imported_modules.get(namespace, ()), "builtins")
+        ))
+
+    def getter_reference(value: ast.AST, aliases: dict[str, str]) -> bool:
+        if _is_builtin_getattr_reference(value, imported_modules, aliases):
+            return True
+        if isinstance(value, ast.Attribute) and value.attr == "getattr":
+            namespace = value.value
+            while isinstance(namespace, ast.NamedExpr):
+                namespace = namespace.value
+            return isinstance(namespace, ast.Name) and namespace.id in namespaces
+        return False
+
+    alias_nodes = list(nodes)
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            continue
+        value = node.value
+        while isinstance(value, ast.NamedExpr):
+            value = value.value
+        if value is not None:
+            alias_nodes.append(
+                ast.Assign(
+                    targets=node.targets
+                    if isinstance(node, ast.Assign)
+                    else [node.target],
+                    value=(ast.Name(id="getattr", ctx=ast.Load())
+                           if getter_reference(value, {}) else value),
+                )
+            )
+    aliases = _python_conservative_getattr_aliases(tuple(alias_nodes), imported_modules)
+    for reference in nodes:
+        if isinstance(reference, (ast.Name, ast.Attribute)) and not isinstance(
+            reference.ctx, ast.Load
+        ):
+            continue
+        namespace_reference = isinstance(reference, ast.Name) and reference.id in namespaces
+        if not namespace_reference and not getter_reference(reference, aliases):
+            continue
+        value = reference
+        parent = parents.get(id(value))
+        while isinstance(parent, ast.NamedExpr) and parent.value is value:
+            value, parent = parent, parents.get(id(parent))
+        if namespace_reference:
+            if isinstance(parent, ast.Attribute) and parent.value is value and not parent.attr.startswith("_"):
+                continue
+            if isinstance(parent, (ast.Assign, ast.AnnAssign)) and parent.value is value:
+                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+                if all(isinstance(target, ast.Name) and target.id in namespaces for target in targets):
+                    continue
+            return True
+        if isinstance(parent, ast.Call) and parent.func is value:
+            selected = ast.Call(
+                func=ast.Name(id="getattr", ctx=ast.Load()), args=parent.args, keywords=parent.keywords
+            )
+            if _python_new_getter_selection_is_unsafe(
+                selected, imported_modules, aliases
+            ):
+                return True
+            continue
+        # An assignment can retain a getter only in the closed alias graph.
+        # Containers, callbacks, returned values and other callable wrappers
+        # are not proofs of how the getter will subsequently be used.
+        if isinstance(parent, (ast.Assign, ast.AnnAssign)) and parent.value is value:
+            targets = (
+                parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+            )
+            if all(
+                isinstance(target, ast.Name) and target.id in aliases
+                for target in targets
+            ):
+                continue
+        return True
+    return False
+
+
+def _python_known_runtime_abort_reference(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    """Recognize abort capabilities without treating a pytest import as one."""
+
+    nodes = tuple(ast.walk(node))
+    parents = {id(child): parent for parent in nodes for child in ast.iter_child_nodes(parent)}
+    framework_namespaces = {
+        name for name, candidates in imported_modules.items()
+        if candidates and candidates[0] in {"pytest", "_pytest", "unittest", "unittest.case"}
+    }
+    if any(
+        isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
+        and child.id in framework_namespaces
+        and not (
+            isinstance(parent := parents.get(id(child)), ast.Attribute)
+            and parent.value is child
+            and not parent.attr.startswith("_")
+        )
+        for child in nodes
+    ):
+        return True
+    namespaces = {
+        name
+        for name, candidates in imported_modules.items()
+        if {"unittest", "unittest.case"}.intersection(candidates)
+    }
+    getter_aliases = _python_conservative_getattr_aliases(nodes, imported_modules)
+    if _python_new_getter_uses_are_unsafe(node, imported_modules):
+        return True
+    return any(
+        _pytest_collection_abort_callable_name(child, imported_modules, {})
+        in {
+            "exit",
+            "importorskip",
+            "skip",
+            "skip-exception",
+            "xfail",
+            "xfail-exception",
+        }
+        or _unittest_skiptest_reference(child, imported_modules, set(), namespaces)
+        or _is_bound_unittest_skip_method(child, imported_modules, getter_aliases)
+        for child in nodes
+    )
+
+
 def _is_builtin_vars_reference(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
@@ -3577,6 +3743,11 @@ def _python_module_dependency_identity(
             for child in ast.walk(tree)
             if isinstance(child, ast.Call)
         )
+        if getattr(import_source_resolver, "_uaa_runtime_consumer", False):
+            runtime_abort_posture = (
+                runtime_abort_posture
+                or _python_known_runtime_abort_reference(tree, imported_modules)
+            )
         lazy_export_modules = _python_lazy_export_modules(
             tree,
             relative_package=relative_package,
@@ -4048,6 +4219,8 @@ def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
         if {"unittest", "unittest.case"}.intersection(candidates)
     }
     getter_aliases = _python_conservative_getattr_aliases(nodes, imported_modules)
+    if _python_new_getter_uses_are_unsafe(tree, imported_modules):
+        return True
     for node in (
         *nodes,
         *(ast.Name(id=name, ctx=ast.Load()) for name in imported_modules),
@@ -4420,6 +4593,22 @@ def _python_binding_module_analysis(
             if name not in rebound_import_names
         }
         direct_module_aliases.difference_update(rebound_import_names)
+    runtime_consumer = getattr(import_source_resolver, "_uaa_runtime_consumer", False)
+    fixture_bindings = _python_local_fixture_bindings(tree) if runtime_consumer else None
+    imported_fixture_bindings: dict[str, tuple[str, ...]] = {}
+    if fixture_bindings and import_source_resolver is not None:
+        for local_name, candidates in imported_modules.items():
+            for candidate in candidates:
+                imported_source = import_source_resolver(candidate)
+                if imported_source is None:
+                    continue
+                binding = _binding_name_for_resolved_import(candidates, candidate, local_name)
+                fixture_name = _python_fixture_binding_exports(imported_source).get(binding)
+                if fixture_name is not None:
+                    imported_fixture_bindings[fixture_name] = tuple(dict.fromkeys(
+                        (*imported_fixture_bindings.get(fixture_name, ()), local_name)
+                    ))
+                break
     analysis = _PythonBindingModuleAnalysis(
         tree=tree,
         relative_package=relative_package,
@@ -4431,6 +4620,9 @@ def _python_binding_module_analysis(
             relative_package=relative_package,
         ),
         node_analyses={},
+        runtime_consumer=runtime_consumer,
+        fixture_bindings=fixture_bindings,
+        imported_fixture_bindings=imported_fixture_bindings if runtime_consumer else None,
     )
     if analysis_cache is not None:
         analysis_cache[cache_key] = analysis
@@ -4447,12 +4639,7 @@ def _python_binding_node_analysis(
     cached = analysis.node_analyses.get(position)
     if cached is not None:
         return cached
-    imported_requirements = tuple(
-        (root, tuple(sorted(names)))
-        for root, names in sorted(
-            _python_import_requirements(node, analysis.imported_modules).items()
-        )
-    )
+    imported_requirements = _python_import_requirements(node, analysis.imported_modules)
     invoked_imported_requirements = tuple(
         (root, tuple(sorted(names)))
         for root, names in sorted(
@@ -4468,6 +4655,20 @@ def _python_binding_node_analysis(
         else ()
     )
     local_dependency_names: set[str] = set()
+    if (
+        analysis.fixture_bindings is not None
+        and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in analysis.fixture_bindings.values()
+    ):
+        for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
+            fixture_name = argument.arg
+            if fixture_name in analysis.fixture_bindings:
+                local_dependency_names.add(analysis.fixture_bindings[fixture_name])
+            elif fixture_name in analysis.imported_modules:
+                imported_requirements.setdefault(fixture_name, set()).add(fixture_name)
+            elif analysis.imported_fixture_bindings is not None:
+                for imported_name in analysis.imported_fixture_bindings.get(fixture_name, ()):
+                    imported_requirements.setdefault(imported_name, set()).add(imported_name)
     runtime_abort_posture = False
     for child in ast.walk(node):
         if (
@@ -4494,11 +4695,21 @@ def _python_binding_node_analysis(
             runtime_abort_posture = True
     result = _PythonBindingNodeAnalysis(
         serialized=ast.dump(node, annotate_fields=True, include_attributes=False),
-        imported_requirements=imported_requirements,
+        imported_requirements=tuple(
+            (root, tuple(sorted(names))) for root, names in sorted(imported_requirements.items())
+        ),
         invoked_imported_requirements=invoked_imported_requirements,
         star_import_requirements=star_import_requirements,
         local_dependency_names=tuple(sorted(local_dependency_names)),
-        runtime_abort_posture=runtime_abort_posture,
+        runtime_abort_posture=(
+            runtime_abort_posture
+            or (
+                analysis.runtime_consumer
+                and _python_known_runtime_abort_reference(
+                    node, analysis.imported_modules
+                )
+            )
+        ),
     )
     analysis.node_analyses[position] = result
     return result
@@ -4556,6 +4767,8 @@ def _python_imported_binding_source(
     _seen_bindings: frozenset[tuple[str, str]] = frozenset(),
     _parameter_value: bool = False,
     _materialized: bool = True,
+    _root_node: ast.AST | None = None,
+    _root_context: _PythonRuntimeConsumerRoot | None = None,
 ) -> str:
     binding_key = (module, binding_name)
     if binding_key in _seen_bindings:
@@ -4563,7 +4776,14 @@ def _python_imported_binding_source(
     cache_key = (
         module,
         binding_name,
-        hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        hashlib.sha256((source + (
+            "\nconsumer-root=" + ast.dump(_root_node, include_attributes=False)
+            if _root_node is not None else ""
+        ) + (
+            repr(sorted((candidates, sorted(names)) for candidates, names in _root_context.imports.items()))
+            + repr(_root_context.local_dependencies)
+            if _root_context is not None else ""
+        )).encode("utf-8")).hexdigest(),
     )
     binding_cache: dict[tuple[str, str, str], str] | None = None
     root_binding_cache: dict[tuple[str, str, str], str] | None = None
@@ -4612,6 +4832,25 @@ def _python_imported_binding_source(
     relative_package = analysis.relative_package
     module_bindings = analysis.module_bindings
     imported_modules = analysis.imported_modules
+    root_analysis = None
+    root_import_keys: set[str] = set()
+    if _root_context is not None:
+        imported_modules = dict(imported_modules)
+        scoped_requirements = []
+        for index, (candidates, names) in enumerate(sorted(_root_context.imports.items())):
+            root = f"runtime-import:{index}"
+            root_import_keys.add(root)
+            imported_modules[root] = candidates
+            scoped_requirements.append((root, tuple(sorted(names))))
+        original = _python_binding_node_analysis(analysis, _root_context.node)
+        root_analysis = _PythonBindingNodeAnalysis(
+            serialized=original.serialized,
+            imported_requirements=tuple(scoped_requirements),
+            invoked_imported_requirements=(),
+            star_import_requirements=original.star_import_requirements,
+            local_dependency_names=_root_context.local_dependencies,
+            runtime_abort_posture=original.runtime_abort_posture,
+        )
     direct_module_aliases = analysis.direct_module_aliases
     star_import_modules = analysis.star_import_modules
     parameter_callable_nodes = tuple(
@@ -4665,7 +4904,11 @@ def _python_imported_binding_source(
         if name in resolved:
             continue
         resolved.add(name)
-        bindings = module_bindings.get(name, ())
+        bindings = (
+            (_ModuleBinding(_root_node),)
+            if _root_node is not None and name == binding_name
+            else module_bindings.get(name, ())
+        )
         if not bindings:
             candidates = imported_modules.get(name)
             if candidates:
@@ -4680,11 +4923,27 @@ def _python_imported_binding_source(
                     None,
                 )
                 if resolved_import is None:
-                    return (
+                    identity = (
                         f"module={module}\nbinding={binding_name}\n"
                         f"external-import={','.join(candidates)};bindings={name}"
                     )
+                    if (
+                        analysis.runtime_consumer
+                        and _python_known_runtime_abort_reference(
+                            ast.Name(id=name, ctx=ast.Load()), imported_modules
+                        )
+                    ):
+                        identity += "\nruntime-abort-posture=true"
+                    return cache_forwarded_identity(identity)
                 imported_module, imported_source = resolved_import
+                if (
+                    analysis.runtime_consumer and candidates
+                    and imported_module == candidates[0]
+                    and imported_module.endswith("." + name)
+                ):
+                    return cache_forwarded_identity(_python_module_dependency_identity(
+                        imported_module, imported_source, import_source_resolver
+                    ))
                 return cache_forwarded_identity(
                     _python_imported_binding_source(
                         imported_module,
@@ -4700,6 +4959,14 @@ def _python_imported_binding_source(
                         _materialized=_materialized,
                     )
                 )
+            if analysis.runtime_consumer and import_source_resolver is not None:
+                child_module = f"{module}.{name}"
+                if any(child_module in candidates for candidates in imported_modules.values()):
+                    child_source = import_source_resolver(child_module)
+                    if child_source is not None:
+                        return cache_forwarded_identity(_python_module_dependency_identity(
+                            child_module, child_source, import_source_resolver
+                        ))
             lazy_modules = _python_lazy_export_binding_modules(
                 tree,
                 relative_package=relative_package,
@@ -4763,7 +5030,10 @@ def _python_imported_binding_source(
         for module_binding in bindings:
             node = module_binding.node
             binding_nodes[(node.lineno, node.col_offset)] = node
-            node_analysis = _python_binding_node_analysis(analysis, node)
+            node_analysis = (
+                root_analysis if node is _root_node and root_analysis is not None
+                else _python_binding_node_analysis(analysis, node)
+            )
             for root, names in node_analysis.imported_requirements:
                 imported_requirements.setdefault(root, set()).update(names)
             for root, names in node_analysis.invoked_imported_requirements:
@@ -4783,7 +5053,8 @@ def _python_imported_binding_source(
         _python_binding_node_analysis(analysis, node).serialized
         for _position, node in sorted(binding_nodes.items())
     ]
-    _reject_repository_reader_calls(tuple(binding_nodes.values()), imported_modules)
+    if not analysis.runtime_consumer:
+        _reject_repository_reader_calls(tuple(binding_nodes.values()), imported_modules)
     for root, names in sorted(imported_requirements.items()):
         candidates = imported_modules[root]
         if not candidates:
@@ -4806,9 +5077,13 @@ def _python_imported_binding_source(
             continue
         imported_module, imported_source = resolved_import
         for name in sorted(names):
-            if name == root and (
+            if (name == root and (
                 root in direct_module_aliases
                 or (len(candidates) > 1 and imported_module == candidates[0])
+            )) or (
+                root in root_import_keys and candidates
+                and imported_module == candidates[0]
+                and name == imported_module.rsplit(".", 1)[-1]
             ):
                 serialized_parts.append(
                     _python_module_dependency_identity(
@@ -5098,6 +5373,38 @@ def _python_local_fixture_dependency_identity(
     )
 
 
+def _python_runtime_consumer_resolver(
+    source_resolver: Callable[[str], str | None],
+) -> Callable[[str], str | None]:
+    """Keep strict execution identities separate from parameter/runtime caches."""
+
+    cached = getattr(source_resolver, "_uaa_runtime_consumer_resolver", None)
+    if cached is not None:
+        return cached
+
+    def resolve(module: str) -> str | None:
+        # The owning revision resolver retains every positive and missing
+        # lookup for the existing end-of-comparison source revalidation.
+        return source_resolver(module)
+
+    for cache_name in (
+        "_uaa_module_identity_cache",
+        "_uaa_parsed_module_cache",
+        "_uaa_binding_identity_cache",
+        "_uaa_parameter_binding_identity_cache",
+        "_uaa_binding_module_analysis_cache",
+        "_uaa_root_binding_identity_cache",
+        "_uaa_autouse_fixture_cache",
+    ):
+        setattr(resolve, cache_name, {})
+    setattr(resolve, "_uaa_runtime_consumer", True)
+    module_counts = getattr(source_resolver, "_uaa_local_python_module_counts", None)
+    if module_counts is not None:
+        setattr(resolve, "_uaa_local_python_module_counts", module_counts)
+    setattr(source_resolver, "_uaa_runtime_consumer_resolver", resolve)
+    return resolve
+
+
 def _python_fixture_binding_exports(source: str) -> dict[str, str]:
     source_text = source.split("\n", 1)[1] if source.startswith("path=") else source
     if "fixture" not in source_text or re.search(r"\bname\s*=", source_text) is None:
@@ -5364,6 +5671,10 @@ def _parameterized_ref(
     module_side_effect_identities: tuple[str, ...] = (),
     relative_package: str | None = None,
     normalize_non_aborting_runtime_helpers: bool = False,
+    runtime_consumer_identity: Callable[
+        [tuple[str, ...], tuple[_PythonRuntimeConsumerRoot, ...]], str
+    ]
+    | None = None,
 ) -> str:
     runtime_source_resolver = runtime_import_source_resolver or import_source_resolver
     candidate_decorators = (*container_decorators, *node.decorator_list)
@@ -6367,19 +6678,29 @@ def _parameterized_ref(
                 helper_scope,
                 helper_aliases,
             )
-            if resolved_helper is None:
-                continue
-            called_helpers_by_call_id[id(execution_node)] = resolved_helper
-            helper_key = (resolved_helper.lineno, resolved_helper.col_offset)
-            if helper_key in expanded_helpers:
-                continue
-            expanded_helpers[helper_key] = resolved_helper
-            lexical_parent_scopes[id(resolved_helper)] = (
-                helper_scope
-                if any(child is resolved_helper for child in helper_scope.body)
-                else None
-            )
-            pending_helper_scopes.append(resolved_helper)
+            if resolved_helper is not None:
+                called_helpers_by_call_id[id(execution_node)] = resolved_helper
+            possible_helpers = [resolved_helper] if resolved_helper is not None else []
+            if runtime_consumer_identity is not None:
+                # A passed callable can consume changed values and abort even
+                # though its name is never a direct call target in the caller.
+                # Recording its identity does not prove its installer effects
+                # ran: only the direct callee enters called_helpers_by_call_id.
+                for argument in (*execution_node.args, *(keyword.value for keyword in execution_node.keywords)):
+                    callback = helper_for_expression(argument, helper_scope, helper_aliases)
+                    if callback is not None:
+                        possible_helpers.append(callback)
+            for possible_helper in possible_helpers:
+                helper_key = (possible_helper.lineno, possible_helper.col_offset)
+                if helper_key in expanded_helpers:
+                    continue
+                expanded_helpers[helper_key] = possible_helper
+                lexical_parent_scopes[id(possible_helper)] = (
+                    helper_scope
+                    if any(child is possible_helper for child in helper_scope.body)
+                    else None
+                )
+                pending_helper_scopes.append(possible_helper)
         callable_containers_by_scope[id(helper_scope)] = callable_containers
         ambiguous_callable_containers_by_scope[id(helper_scope)] = (
             ambiguous_callable_containers
@@ -6622,9 +6943,49 @@ def _parameterized_ref(
 
     def runtime_scope_import_requirements(
         function_scope: ast.FunctionDef | ast.AsyncFunctionDef,
+        *,
+        runtime_order: bool = False,
     ) -> dict[tuple[str, ...], set[str]]:
         scope_id = id(function_scope)
         requirements: dict[tuple[str, ...], set[str]] = {}
+        if runtime_order:
+            active_imports = dict(module_runtime_imports)
+            pending = [(scope_node, False) for scope_node in reversed(function_scope.body)]
+            attribute_roots: set[int] = set()
+            while pending:
+                scope_node, after_children = pending.pop()
+                if after_children:
+                    called = called_helpers_by_call_id.get(id(scope_node))
+                    if called is not None:
+                        active_imports.update(helper_global_runtime_imports(called))
+                    continue
+                if isinstance(scope_node, ast.Call):
+                    pending.append((scope_node, True))
+                if isinstance(scope_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    children = _definition_time_nodes(scope_node)
+                else:
+                    children = tuple(ast.iter_child_nodes(scope_node))
+                pending.extend((child, False) for child in reversed(children))
+                if isinstance(scope_node, ast.Attribute):
+                    current: ast.AST = scope_node
+                    member = scope_node
+                    while isinstance(current, ast.Attribute):
+                        member = current
+                        current = current.value
+                    if not isinstance(current, ast.Name):
+                        continue
+                    attribute_roots.add(id(current))
+                    name, binding = current.id, member.attr
+                elif isinstance(scope_node, ast.Name) and id(scope_node) not in attribute_roots:
+                    name = binding = scope_node.id
+                else:
+                    continue
+                _owned, candidates = runtime_scope_import_candidates(
+                    function_scope, name, module_imports=active_imports
+                )
+                if candidates:
+                    requirements.setdefault(candidates, set()).add(binding)
+            return requirements
         attribute_root_node_ids: set[int] = set()
         for scope_node in scope_execution_nodes_by_scope[scope_id]:
             if not isinstance(scope_node, ast.Attribute):
@@ -7449,6 +7810,35 @@ def _parameterized_ref(
     has_runtime_abort = any(
         is_runtime_abort(execution_node) for execution_node in function_execution_nodes
     )
+    strict_roots = []
+    if runtime_consumer_identity is not None:
+        expanded_node_ids = {id(helper) for helper in expanded_helpers.values()}
+        for root in function_scopes:
+            local_dependencies = set()
+            for scope_node in scope_execution_nodes_by_scope[id(root)]:
+                if not isinstance(scope_node, ast.Name) or not isinstance(scope_node.ctx, ast.Load):
+                    continue
+                name = scope_node.id
+                if (
+                    name in local_runtime_bindings_by_scope[id(root)]
+                    and name not in scope_globals_by_scope[id(root)]
+                ) or name in scope_nonlocals_by_scope[id(root)]:
+                    continue
+                _owned, candidates = runtime_scope_import_candidates(root, name)
+                if candidates:
+                    continue
+                if any(id(binding.node) not in expanded_node_ids for binding in module_bindings.get(name, ())):
+                    local_dependencies.add(name)
+            strict_roots.append(_PythonRuntimeConsumerRoot(
+                root, runtime_scope_import_requirements(root, runtime_order=True), tuple(sorted(local_dependencies))
+            ))
+    strict_consumer_identity = (
+        runtime_consumer_identity(
+            requested_fixture_names, tuple(strict_roots)
+        )
+        if runtime_consumer_identity is not None
+        else ""
+    )
     if (
         not identity_decorators
         and not requested_fixture_names
@@ -7456,6 +7846,7 @@ def _parameterized_ref(
         and not has_runtime_abort
         and not expanded_helpers
         and not imported_runtime_abort_identities
+        and not strict_consumer_identity
     ):
         return raw_ref
     serialized_parts = [
@@ -7463,6 +7854,8 @@ def _parameterized_ref(
         for decorator in identity_decorators
     ]
     serialized_parts.extend(module_side_effect_identities)
+    if strict_consumer_identity:
+        serialized_parts.append("strict-runtime-consumer=" + strict_consumer_identity)
     if has_runtime_abort:
         serialized_parts.append(
             "runtime-abort="
@@ -9354,6 +9747,68 @@ def _python_inventory_entries(
         else None
     )
 
+    strict_consumer_resolver = (
+        _python_runtime_consumer_resolver(import_source_resolver)
+        if import_source_resolver is not None
+        else None
+    )
+    strict_autouse_declarations: tuple[str, ...] | None = None
+
+    def runtime_consumer_identity(
+        consumer: ast.FunctionDef | ast.AsyncFunctionDef,
+        requested_fixtures: tuple[str, ...],
+        runtime_roots: tuple[_PythonRuntimeConsumerRoot, ...],
+    ) -> str:
+        nonlocal strict_autouse_declarations
+        if strict_consumer_resolver is None:
+            return ""
+        if strict_autouse_declarations is None:
+            strict_autouse_declarations = _autouse_fixture_declarations(
+                text, path, strict_consumer_resolver
+            )
+        rooted_source = f"path={path}\n{text}"
+        parts = [
+            _python_imported_binding_source(
+                current_module,
+                rooted_source,
+                f"runtime-consumer:{root.node.name}",
+                strict_consumer_resolver,
+                _root_node=root.node,
+                _root_context=root,
+            )
+            for root in runtime_roots
+        ]
+        parts.extend(strict_autouse_declarations)
+        for fixture_name in requested_fixtures:
+            if (
+                fixture_name in local_fixture_bindings
+                or fixture_name in imported_modules
+            ):
+                parts.append(
+                    _python_imported_binding_source(
+                        current_module,
+                        rooted_source,
+                        local_fixture_bindings.get(fixture_name, fixture_name),
+                        strict_consumer_resolver,
+                    )
+                )
+            for (
+                fixture_module,
+                fixture_source,
+                fixture_binding,
+            ) in fixture_override_matches(fixture_name):
+                parts.append(
+                    _python_imported_binding_source(
+                        fixture_module,
+                        fixture_source,
+                        fixture_binding,
+                        strict_consumer_resolver,
+                    )
+                )
+        if not any("runtime-abort-posture=true" in part.splitlines() for part in parts):
+            return ""
+        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
     def bind_autouse_fixture_identity(ref: str) -> str:
         if autouse_fixture_identity is None:
             return ref
@@ -10088,6 +10543,11 @@ def _python_inventory_entries(
                     normalize_non_aborting_runtime_helpers=(
                         normalize_non_aborting_runtime_helpers
                     ),
+                    runtime_consumer_identity=(
+                        lambda requested, helpers: runtime_consumer_identity(
+                            node, requested, helpers
+                        )
+                    ),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
@@ -10213,6 +10673,11 @@ def _python_inventory_entries(
                 relative_package=relative_package,
                 normalize_non_aborting_runtime_helpers=(
                     normalize_non_aborting_runtime_helpers
+                ),
+                runtime_consumer_identity=(
+                    lambda requested, helpers: runtime_consumer_identity(
+                        method, requested, helpers
+                    )
                 ),
             )
             raw_ref = bind_autouse_fixture_identity(raw_ref)

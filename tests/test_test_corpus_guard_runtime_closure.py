@@ -123,10 +123,16 @@ def test_new_runtime_closure_preserves_unchanged_declarations(
 
     inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
 
-    assert (
-        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
-        == ()
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
     )
+    if test_source == SKIP_HELPER_TEST:
+        # An unchanged caller can skip when a changed application result differs.
+        # Preserve strict identity; collection-neutrality cannot prove values.
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
 
 
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
@@ -822,10 +828,14 @@ def test_new_runtime_closure_keeps_harmless_getter_and_alias_cycles(
     )
     inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
 
-    assert (
-        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
-        == ()
+    # Harmless new subjects remain admissible independently of this caller's
+    # existing skip branch, whose dependency identity must stay revision-bound.
+    _assert_harmless_runtime_subject_admitted(child_source, nested)
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
     )
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
 
 
 @pytest.mark.parametrize(
@@ -957,9 +967,14 @@ def test_strict_runtime_getter_selection_preserves_proven_harmless_members(
     )
     inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
 
-    assert guard.removed_declarations(
+    # Harmless new subjects remain admissible independently of this caller's
+    # existing skip branch, whose dependency identity must stay revision-bound.
+    _assert_harmless_runtime_subject_admitted(child_source, nested)
+    removed = guard.removed_declarations(
         tmp_path, BASE_SHA, worktree_snapshot=inventory
-    ) == ()
+    )
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
 
 
 def _graph_source(*dependencies: str) -> str:
@@ -1632,3 +1647,568 @@ def test_whole_comparison_bounds_baseline_only_graph_materialization(
     for previous, current in zip(observations, observations[1:]):
         assert current["snapshot_entries"] <= 2.3 * previous["snapshot_entries"] + 16
         assert current["neighbor_events"] <= 2.3 * previous["neighbor_events"] + 16
+
+
+_GETTER_CALL_WRAPPERS = (
+    ("namedexpr", "(lookup := getattr)"),
+    ("nested-namedexpr", "(outer := (inner := getattr))"),
+    ("conditional", "(getattr if case else getattr)"),
+    ("boolean", "(None or getattr)"),
+    ("tuple-member", "(getattr,)[0]"),
+    ("list-member", "[getattr][0]"),
+    ("mapping-member", "{'lookup': getattr}['lookup']"),
+    ("returned-getter", "(lambda: getattr)()"),
+    ("passed-getter", "(lambda lookup: lookup)(getattr)"),
+)
+
+
+def _wrapped_getter_source(wrapper: str, *, safe: bool = False) -> str:
+    if safe:
+        return f"def runtime_value(case): return {wrapper}(case, 'value', 1)\n"
+    return (
+        f"def runtime_value(case): {wrapper}(case, 'skip' + 'Test')('unavailable')\n"
+    )
+
+
+@pytest.mark.parametrize("_label,wrapper", _GETTER_CALL_WRAPPERS)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+def test_getter_callable_wrapper_is_refused_at_frozen_admission(
+    _label: str, wrapper: str, nested: bool
+) -> None:
+    base = {"ultimate_ai_agent.subject": "def runtime_value(case): return 1\n"}
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": _wrapped_getter_source(wrapper),
+    }
+    if nested:
+        current["ultimate_ai_agent.new_grandchild"] = current["ultimate_ai_agent.new_child"]
+        current["ultimate_ai_agent.new_child"] = (
+            "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        )
+
+    # Real resolvers and the frozen admission transaction isolate this screen
+    # from the separate strict identity of an abort-capable test consumer.
+    assert _admit_source_graph(base, current, ("ultimate_ai_agent.subject",)) == {}
+
+
+@pytest.mark.parametrize("_label,wrapper", _GETTER_CALL_WRAPPERS)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_getter_callable_wrapper_cannot_erase_retained_assertion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    _label: str, wrapper: str, nested: bool, snapshot: bool,
+) -> None:
+    _install_retained_unittest_method_subject(
+        tmp_path, monkeypatch, _wrapped_getter_source(wrapper), nested
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
+
+
+@pytest.mark.parametrize(
+    "child_source",
+    [
+        _wrapped_getter_source("(lookup := getattr)", safe=True),
+        _wrapped_getter_source("(outer := (inner := getattr))", safe=True),
+        "def runtime_value(case): return (lookup := lambda obj, name, default: default)(case, 'skipTest', 1)\n",
+        "def runtime_value(case): return (lambda: 1)()\n",
+    ],
+    ids=["safe-namedexpr", "safe-nested-namedexpr", "non-getter", "ordinary-lambda"],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_safe_callable_wrappers_preserve_abort_free_consumer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    child_source: str, nested: bool, snapshot: bool,
+) -> None:
+    test_source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value(object()) == 1\n"
+    )
+    additions = {CHILD_PATH: child_source}
+    if nested:
+        additions = {
+            CHILD_PATH: "from ultimate_ai_agent.new_grandchild import runtime_value\n",
+            GRANDCHILD_PATH: child_source,
+        }
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_subject="def runtime_value(case): return 1\n", additions=additions,
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    _assert_harmless_runtime_subject_admitted(child_source, nested)
+
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
+_CALLER_ABORT_FORMS = (
+    "direct", "helper", "helper-chain", "autouse", "requested-fixture",
+    "imported-helper", "module-object", "callback", "xfail", "exception",
+    "imported-receiver", "local-receiver", "callback-owned-abort", "requested-value",
+    "abort-capability", "imported-abort-capability",
+    "reexported-abort-capability", "class-helper",
+    "requested-fixture-chain", "autouse-fixture-chain",
+)
+
+
+def _caller_abort_subject(form: str) -> tuple[str, dict[str, str]]:
+    imports = "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+    check = "    if value is None: pytest.skip('unavailable')\n"
+    helper = "def require_value():\n    value = runtime_value()\n" + check + "    return value\n"
+    if form in {"requested-fixture-chain", "autouse-fixture-chain"}:
+        outer = (
+            "@pytest.fixture(autouse=True)\ndef outer(require_value): return 1\n"
+            if form == "autouse-fixture-chain" else
+            "@pytest.fixture\ndef outer(require_value): return 1\n"
+        )
+        test = (
+            "def test_case(): assert True\n"
+            if form == "autouse-fixture-chain" else
+            "def test_case(outer): assert outer == 1\n"
+        )
+        return imports + "@pytest.fixture\n" + helper + outer + test, {}
+    if form == "class-helper":
+        return imports + (
+            "class TestCase:\n"
+            "    def require_value(self):\n        value = runtime_value()\n"
+            "        if value is None: pytest.skip('unavailable')\n"
+            "        return value\n"
+            "    def test_case(self): assert self.require_value() == 1\n"
+        ), {}
+    if form == "reexported-abort-capability":
+        return imports + (
+            "from tests.helpers import abort\n"
+            "def test_case(): assert runtime_value(abort) == 1\n"
+        ), {"tests/__init__.py": "", "tests/helpers.py": "from pytest import skip as abort\n"}
+    if form == "abort-capability":
+        return imports + "def test_case(): assert runtime_value(pytest.skip) == 1\n", {}
+    if form == "imported-abort-capability":
+        return imports + (
+            "from tests.helpers import abort\n"
+            "def test_case(): assert runtime_value(abort) == 1\n"
+        ), {"tests/__init__.py": "", "tests/helpers.py": "import pytest\ndef abort(reason): pytest.skip(reason)\n"}
+    if form == "imported-receiver":
+        return (
+            "import ultimate_ai_agent.subject as subject\n"
+            "from tests.helpers import require_value\n"
+            "def test_case(): assert require_value(subject.runtime_value()) == 1\n",
+            {"tests/__init__.py": "", "tests/helpers.py": "import pytest\ndef require_value(value):\n" + check + "    return value\n"},
+        )
+    if form == "local-receiver":
+        return imports + "def require_value(value):\n" + check + (
+            "    return value\ndef test_case(): assert require_value(runtime_value()) == 1\n"
+        ), {}
+    if form == "callback-owned-abort":
+        return imports + (
+            "def runner(callback): return callback(runtime_value())\n"
+            "def test_case():\n    def check(value):\n"
+            "        if value is None: pytest.skip('unavailable')\n"
+            "        return value\n    assert runner(check) == 1\n"
+        ), {}
+    if form == "requested-value":
+        return imports + (
+            "@pytest.fixture\ndef value(): return runtime_value()\n"
+            "def test_case(value):\n" + check + "    assert value == 1\n"
+        ), {}
+    if form == "direct":
+        return imports + "def test_case():\n    value = runtime_value()\n" + check + "    assert value == 1\n", {}
+    if form == "helper":
+        return SKIP_HELPER_TEST, {}
+    if form == "helper-chain":
+        return imports + helper + "def outer(): return require_value()\ndef test_case(): assert outer() == 1\n", {}
+    if form in {"autouse", "requested-fixture"}:
+        decorator = "@pytest.fixture(autouse=True)\n" if form == "autouse" else "@pytest.fixture\n"
+        test = "def test_case(): assert True\n" if form == "autouse" else "def test_case(require_value): assert require_value == 1\n"
+        return imports + decorator + helper + test, {}
+    if form == "imported-helper":
+        return (
+            "from tests.helpers import require_value\ndef test_case(): assert require_value() == 1\n",
+            {"tests/__init__.py": "", "tests/helpers.py": imports + helper},
+        )
+    if form == "module-object":
+        return (
+            "import pytest\nimport ultimate_ai_agent.subject as subject\n"
+            "def test_case():\n    value = subject.runtime_value()\n" + check + "    assert value == 1\n"
+        ), {}
+    if form == "callback":
+        return imports + (
+            "def require_value(callback):\n    value = callback()\n" + check
+            + "    return value\ndef test_case(): assert require_value(runtime_value) == 1\n"
+        ), {}
+    if form == "xfail":
+        return imports + (
+            "def test_case():\n    value = runtime_value()\n"
+            "    if value is None: pytest.xfail('unavailable')\n    assert value == 1\n"
+        ), {}
+    assert form == "exception"
+    return imports + (
+        "def test_case():\n    try:\n        value = runtime_value()\n"
+        "    except ValueError:\n        pytest.skip('unavailable')\n    assert value == 1\n"
+    ), {}
+
+
+@pytest.mark.parametrize("form", _CALLER_ABORT_FORMS)
+@pytest.mark.parametrize("topology", ["existing-app", "child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_caller_owned_abort_retains_revision_specific_application_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    form: str, topology: str, snapshot: bool,
+) -> None:
+    test_source, support = _caller_abort_subject(form)
+    base_subject = (
+        "def runtime_value(callback): return 1\n"
+        if form.endswith("abort-capability") else "def runtime_value(): return 1\n"
+    )
+    changed = (
+        "def runtime_value(callback): callback('unavailable')\n"
+        if form.endswith("abort-capability") else
+        "def runtime_value(): raise ValueError('unavailable')\n"
+        if form == "exception" else "def runtime_value(): return None\n"
+    )
+    current_subject = "from ultimate_ai_agent.new_child import runtime_value\n"
+    additions = {CHILD_PATH: changed}
+    if topology == "existing-app":
+        current_subject, additions = changed, {}
+    elif topology == "grandchild":
+        additions = {
+            CHILD_PATH: "from ultimate_ai_agent.new_grandchild import runtime_value\n",
+            GRANDCHILD_PATH: changed,
+        }
+    _install_subject(
+        tmp_path, monkeypatch, test_source, current_subject=current_subject,
+        base_subject=base_subject, base_additions=support, additions=additions,
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+
+    assert len(removed) == 1
+    expected = "TestCase::test_case" if form == "class-helper" else "test_case"
+    assert removed[0].startswith(f"{TEST_PATH}::{expected}")
+
+
+@pytest.mark.parametrize("returned", ["None", "False", "2"])
+@pytest.mark.parametrize("topology", ["existing-app", "child"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_application_result_change_keeps_ordinary_assertion_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    returned: str, topology: str, snapshot: bool,
+) -> None:
+    changed = f"def runtime_value(): return {returned}\n"
+    options = (
+        {"current_subject": changed, "additions": {}}
+        if topology == "existing-app" else {"additions": {CHILD_PATH: changed}}
+    )
+    _install_subject(tmp_path, monkeypatch, DIRECT_TEST, **options)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
+@pytest.mark.parametrize("form", _CALLER_ABORT_FORMS)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_unchanged_abort_sensitive_application_identity_is_stable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, form: str, snapshot: bool,
+) -> None:
+    test_source, support = _caller_abort_subject(form)
+    unchanged = (
+        "def runtime_value(callback): return 1\n"
+        if form.endswith("abort-capability") else "def runtime_value(): return 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_subject=unchanged, current_subject=unchanged, additions={},
+        base_additions=support,
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
+@pytest.mark.parametrize("sensitive_first", [False, True])
+@pytest.mark.parametrize("topology", ["existing-app", "child"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_shared_application_normalization_is_consumer_local_and_order_independent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    sensitive_first: bool, topology: str, snapshot: bool,
+) -> None:
+    imports = "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+    sensitive = (
+        "def test_sensitive():\n    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    ordinary = "def test_ordinary(): assert runtime_value() == 1\n"
+    test_source = imports + (sensitive + ordinary if sensitive_first else ordinary + sensitive)
+    changed = "def runtime_value(): return None\n"
+    options = (
+        {"current_subject": changed, "additions": {}}
+        if topology == "existing-app" else {"additions": {CHILD_PATH: changed}}
+    )
+    _install_subject(tmp_path, monkeypatch, test_source, **options)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::test_sensitive")
+
+
+
+def _assert_harmless_runtime_subject_admitted(child_source: str, nested: bool) -> None:
+    base = {"ultimate_ai_agent.subject": "def runtime_value(case): return 1\n"}
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": child_source,
+    }
+    expected = {CHILD_PATH}
+    if nested:
+        current["ultimate_ai_agent.new_grandchild"] = child_source
+        current["ultimate_ai_agent.new_child"] = (
+            "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        )
+        expected.add(GRANDCHILD_PATH)
+    admitted = _admit_source_graph(base, current, ("ultimate_ai_agent.subject",))
+    assert set(admitted) == expected
+    assert admitted[GRANDCHILD_PATH if nested else CHILD_PATH] == child_source
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_sensitive_consumer_identity_ignores_unrelated_source_locations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch, SKIP_HELPER_TEST,
+        current_subject="def runtime_value(): return 1\n", additions={},
+    )
+    (tmp_path / TEST_PATH).write_text(
+        "\n\ndef test_unrelated(): assert True\n\n" + SKIP_HELPER_TEST,
+        encoding="utf-8",
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
+@pytest.mark.parametrize(
+    "source,unsafe",
+    [
+        (
+            "import builtins\ndef runtime_value(case): (namespace := builtins).getattr(case, 'skip' + 'Test')('unavailable')\n",
+            True,
+        ),
+        (
+            "import builtins\nnamespace = builtins\ndef runtime_value(case): namespace.getattr(case, 'skip' + 'Test')('unavailable')\n",
+            True,
+        ),
+        (
+            "import builtins\ndef runtime_value(case):\n    namespace = builtins\n    namespace.getattr(case, 'skip' + 'Test')('unavailable')\n",
+            True,
+        ),
+        ("import builtins\ndef runtime_value(case): return builtins.len((1,))\n", False),
+    ],
+    ids=["inline-namespace", "module-namespace", "local-namespace", "ordinary-builtin"],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+def test_builtin_namespace_getter_admission_is_not_hidden_by_consumer_identity(
+    source: str, unsafe: bool, nested: bool,
+) -> None:
+    if not unsafe:
+        _assert_harmless_runtime_subject_admitted(source, nested)
+        return
+    base = {"ultimate_ai_agent.subject": "def runtime_value(case): return 1\n"}
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": source,
+    }
+    if nested:
+        current["ultimate_ai_agent.new_grandchild"] = source
+        current["ultimate_ai_agent.new_child"] = (
+            "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        )
+    assert _admit_source_graph(base, current, ("ultimate_ai_agent.subject",)) == {}
+
+
+@pytest.mark.parametrize("alias_scope", ["module", "local"])
+@pytest.mark.parametrize("topology", ["existing-app", "child", "unchanged"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_pytest_namespace_alias_consumer_retains_application_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    alias_scope: str, topology: str, snapshot: bool,
+) -> None:
+    test_source = "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+    if alias_scope == "module":
+        test_source += "checks = pytest\n"
+    test_source += "def test_case():\n"
+    if alias_scope == "local":
+        test_source += "    checks = pytest\n"
+    test_source += (
+        "    value = runtime_value()\n"
+        "    if value is None: checks.skip('unavailable')\n    assert value == 1\n"
+    )
+    changed = "def runtime_value(): return None\n"
+    options = (
+        {"current_subject": changed, "additions": {}}
+        if topology == "existing-app" else
+        {"current_subject": "def runtime_value(): return 1\n", "additions": {}}
+        if topology == "unchanged" else {"additions": {CHILD_PATH: changed}}
+    )
+    _install_subject(tmp_path, monkeypatch, test_source, **options)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if topology == "unchanged":
+        assert removed == ()
+    else:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+
+
+@pytest.mark.parametrize("form", ["escaped-getter", "produced-selector"])
+@pytest.mark.parametrize("topology", ["existing-app", "child", "unchanged"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_consumer_getter_capability_keeps_application_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    form: str, topology: str, snapshot: bool,
+) -> None:
+    test_source = (
+        "import unittest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+        "class TestCase(unittest.TestCase):\n"
+        "    def harmless_method(self, reason): return 1\n"
+    )
+    if form == "escaped-getter":
+        test_source += (
+            "    def test_case(self): assert runtime_value(getattr, self) == 1\n"
+        )
+        base_subject = "def runtime_value(lookup, case): return 1\n"
+        changed = (
+            "def runtime_value(lookup, case): lookup(case, 'skipTest')('unavailable')\n"
+        )
+    else:
+        test_source += (
+            "    def test_case(self): assert getattr(self, runtime_value())('unavailable') == 1\n"
+        )
+        base_subject = "def runtime_value(): return 'harmless_method'\n"
+        changed = "def runtime_value(): return 'skipTest'\n"
+    current_subject = (
+        "from ultimate_ai_agent.new_child import runtime_value\n"
+        if topology == "child" else
+        base_subject if topology == "unchanged" else changed
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source, base_subject=base_subject,
+        current_subject=current_subject,
+        additions={CHILD_PATH: changed} if topology == "child" else {},
+    )
+    if topology == "child":
+        # The application has no independently recognized getter capability.
+        # Its admission must not erase the consumer's strict source identity.
+        _assert_harmless_runtime_subject_admitted(changed, False)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if topology == "unchanged":
+        assert removed == ()
+    else:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_case")
+
+
+@pytest.mark.parametrize("autouse", [False, True], ids=["requested", "autouse"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_imported_fixture_export_name_keeps_injected_abort_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    autouse: bool, changed: bool, snapshot: bool,
+) -> None:
+    support = {
+        "tests/__init__.py": "",
+        "tests/helpers.py": (
+            "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+            "@pytest.fixture(name='value')\n"
+            "def internal_value():\n    value = runtime_value()\n"
+            "    if value is None: pytest.skip('unavailable')\n    return value\n"
+        ),
+    }
+    test_source = (
+        "import pytest\nfrom tests.helpers import internal_value\n"
+        + ("@pytest.fixture(autouse=True)\n" if autouse else "@pytest.fixture\n")
+        + "def outer(value): return 1\n"
+        + ("def test_case(): assert True\n" if autouse else
+           "def test_case(outer): assert outer == 1\n")
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source, base_additions=support,
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("argument", ["callback", "callback=callback"], ids=["positional", "keyword"])
+@pytest.mark.parametrize("scope", ["nested", "module"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_passed_callback_body_preserves_abort_sensitive_producer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    argument: str, scope: str, changed: bool, snapshot: bool,
+) -> None:
+    test_source = (
+        "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+        "def runner(callback): return callback()\n"
+    )
+    callback = (
+        "def callback():\n    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+    )
+    if scope == "nested":
+        test_source += "def test_case():\n"
+        test_source += "".join("    " + line + "\n" for line in callback.splitlines())
+    else:
+        test_source += callback + "def test_case():\n"
+    test_source += f"    assert runner({argument}) == 1\n"
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
