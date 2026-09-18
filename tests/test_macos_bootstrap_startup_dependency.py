@@ -52,6 +52,7 @@ def copied_bootstrap(tmp_path, monkeypatch):
 def test_copied_bootstrap_runs_without_checkout_or_dependencies(
     copied_bootstrap, tmp_path, arguments, expected_status, expected_text
 ):
+    import json
     import subprocess
     import sys
 
@@ -59,6 +60,11 @@ def test_copied_bootstrap_runs_without_checkout_or_dependencies(
     unrelated_cwd = tmp_path / "unrelated"
     unrelated_cwd.mkdir()
     install_root = tmp_path / "never-created-installation"
+    owned_bin = tmp_path / ".local" / "bin"
+    owned_bin.mkdir(parents=True)
+    owned_gh = owned_bin / "gh"
+    owned_gh.write_text("#!/bin/sh\nexit 97\n", encoding="utf-8")
+    owned_gh.chmod(0o700)
     # -I ignores user site/PYTHONPATH/cwd; -S excludes site-packages. Only this
     # extracted bootstrap package is added to the interpreter's stdlib paths.
     runner = """
@@ -79,13 +85,25 @@ def deny_side_effects(event, args):
 
 sys.addaudithook(deny_side_effects)
 sys.path.insert(0, sys.argv[1])
+from ultimate_ai_agent.distribution.macos import github_releases
+
+assert str(github_releases._find_gh(dict(os.environ))) == os.path.join(
+    os.environ['HOME'], '.local', 'bin', 'gh'
+)
+# Optional host authentication is outside this copied-import dependency check.
+# Keep subprocess denial active even though an owned gh executable is available.
+github_releases._find_gh = lambda _environ: None
 sys.argv = ['uaa', *sys.argv[2:]]
 runpy.run_module('ultimate_ai_agent.distribution.macos.runtime', run_name='__main__')
 """
     completed = subprocess.run(
         [sys.executable, "-I", "-S", "-B", "-c", runner, str(purelib), *arguments],
         cwd=unrelated_cwd,
-        env={"HOME": str(tmp_path), "UAA_INSTALL_ROOT": str(install_root)},
+        env={
+            "HOME": str(tmp_path),
+            "PATH": str(owned_bin),
+            "UAA_INSTALL_ROOT": str(install_root),
+        },
         text=True,
         capture_output=True,
         timeout=15.0,
@@ -95,6 +113,8 @@ runpy.run_module('ultimate_ai_agent.distribution.macos.runtime', run_name='__mai
     assert completed.stderr == "", completed.stderr
     assert completed.returncode == expected_status
     assert expected_text in completed.stdout
+    if arguments == ["status", "--json"]:
+        assert json.loads(completed.stdout)["github_auth_available"] is False
     assert not install_root.exists()
     assert not tuple(purelib.rglob("__pycache__"))
 
