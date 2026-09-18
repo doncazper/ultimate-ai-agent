@@ -59,7 +59,8 @@ source only after proving the relevant revision-specific import closures are
 collection-neutral. New application dependencies must belong to the successfully
 proven current closure of an existing substituted application module; an absent
 baseline file alone never permits reuse. Recognized execution-abort and dynamic
-import forms cannot be hidden, and test-owned helpers and parameter/decorator
+import forms cannot be hidden, including object-bound skip methods and bounded
+literal getter aliases. Test-owned helpers and parameter/decorator
 data retain their baseline bindings. Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,

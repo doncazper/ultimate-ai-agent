@@ -609,3 +609,220 @@ def test_preloaded_current_test_and_test_dependency_are_revalidated(
     with pytest.raises(guard.TestCorpusGuardError):
         guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
     assert changed
+
+
+RETAINED_UNITTEST_SKIP_HELPER = (
+    "import unittest\n"
+    "import pytest\n"
+    "from ultimate_ai_agent.subject import runtime_value\n"
+    "def require_value(case):\n"
+    "    value = runtime_value(case)\n"
+    "    if value is None: pytest.skip('unavailable')\n"
+    "    return value\n"
+    "class TestCase(unittest.TestCase):\n"
+    "    def test_retained(self):\n"
+    "        assert require_value(self) == 1\n"
+)
+
+
+def _install_retained_unittest_method_subject(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    child_source: str,
+    nested: bool,
+) -> None:
+    additions = {CHILD_PATH: child_source}
+    if nested:
+        additions = {
+            CHILD_PATH: (
+                "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+            ),
+            GRANDCHILD_PATH: child_source,
+        }
+    _install_subject(
+        tmp_path,
+        monkeypatch,
+        RETAINED_UNITTEST_SKIP_HELPER,
+        base_subject="def runtime_value(case): return 1\n",
+        additions=additions,
+    )
+
+
+@pytest.mark.parametrize(
+    "child_source",
+    [
+        "def runtime_value(case): case.skipTest('unavailable')\n",
+        (
+            "def runtime_value(case):\n"
+            "    abort = case.skipTest\n"
+            "    abort('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    getattr(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    abort = getattr(case, 'skipTest', None)\n"
+            "    abort('unavailable')\n"
+        ),
+        (
+            "import builtins as builtin\n"
+            "def runtime_value(case):\n"
+            "    builtin.getattr(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "from builtins import getattr as lookup\n"
+            "def runtime_value(case):\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    lookup = getattr\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "import builtins as builtin\n"
+            "def runtime_value(case):\n"
+            "    lookup = builtin.getattr\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "from builtins import getattr as imported_lookup\n"
+            "def runtime_value(case):\n"
+            "    lookup = imported_lookup\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def bind_last():\n"
+            "    global last\n"
+            "    last = middle\n"
+            "def bind_middle():\n"
+            "    global middle\n"
+            "    middle = first\n"
+            "def bind_first():\n"
+            "    global first\n"
+            "    first = getattr\n"
+            "def runtime_value(case):\n"
+            "    bind_first()\n"
+            "    bind_middle()\n"
+            "    bind_last()\n"
+            "    last(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    first = getattr\n"
+            "    second = first\n"
+            "    first = second\n"
+            "    second(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    abort = lambda: case.skipTest('unavailable')\n"
+            "    abort()\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    methods = [case.skipTest]\n"
+            "    methods[0]('unavailable')\n"
+        ),
+        (
+            "def dormant():\n"
+            "    lookup = object\n"
+            "    return lookup\n"
+            "def runtime_value(case):\n"
+            "    lookup = getattr\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    lookup = getattr\n"
+            "    lookup(case, 'skipTest')('unavailable')\n"
+            "def dormant():\n"
+            "    lookup = object\n"
+            "    return lookup\n"
+        ),
+    ],
+    ids=[
+        "direct-method",
+        "captured-method",
+        "literal-getattr",
+        "captured-getattr-method",
+        "builtins-getattr",
+        "imported-getter",
+        "assigned-getter",
+        "assigned-builtins-getter",
+        "assigned-imported-getter",
+        "reversed-getter-chain",
+        "seeded-getter-cycle",
+        "lambda-method",
+        "container-method",
+        "conflicting-dormant-before",
+        "conflicting-dormant-after",
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_new_runtime_closure_cannot_hide_unittest_skip_method(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    child_source: str,
+    nested: bool,
+    snapshot: bool,
+) -> None:
+    # The unchanged helper already has a recognized skip branch, so its runtime
+    # identity remains evidence. A direct test alone normalizes this helper away
+    # in both old and new guards and would not prove this admission regression.
+    _install_retained_unittest_method_subject(
+        tmp_path, monkeypatch, child_source, nested
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
+
+
+@pytest.mark.parametrize(
+    "child_source",
+    [
+        "def runtime_value(case): return 1\n",
+        "def runtime_value(case): return getattr(case, 'value', 1)\n",
+        (
+            "def runtime_value(case):\n"
+            "    first = case\n"
+            "    second = first\n"
+            "    first = second\n"
+            "    return 1\n"
+        ),
+        (
+            "def runtime_value(case):\n"
+            "    first = getattr\n"
+            "    second = first\n"
+            "    first = second\n"
+            "    return second(case, 'value', 1)\n"
+        ),
+    ],
+    ids=["plain", "harmless-getter", "non-getter-cycle", "harmless-getter-cycle"],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_new_runtime_closure_keeps_harmless_getter_and_alias_cycles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    child_source: str,
+    nested: bool,
+    snapshot: bool,
+) -> None:
+    _install_retained_unittest_method_subject(
+        tmp_path, monkeypatch, child_source, nested
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+
+    assert (
+        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        == ()
+    )

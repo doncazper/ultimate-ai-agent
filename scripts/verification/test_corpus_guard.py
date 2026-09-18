@@ -2290,6 +2290,58 @@ def _is_builtin_getattr_reference(
     )
 
 
+def _is_bound_unittest_skip_method(
+    value: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> bool:
+    if isinstance(value, ast.Attribute) and value.attr == "skipTest":
+        return True
+    return (
+        isinstance(value, ast.Call)
+        and _is_builtin_getattr_reference(
+            value.func,
+            imported_modules,
+            aliases,
+        )
+        and len(value.args) in {2, 3}
+        and not value.keywords
+        and isinstance(value.args[1], ast.Constant)
+        and value.args[1].value == "skipTest"
+    )
+
+
+def _python_conservative_getattr_aliases(
+    nodes: tuple[ast.AST, ...],
+    imported_modules: dict[str, tuple[str, ...]],
+) -> dict[str, str]:
+    """Collect possible builtin getter aliases without merging scope state."""
+
+    known: set[str] = set()
+    dependents: dict[str, set[str]] = {}
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            continue
+        if node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        for target in targets:
+            for alias, value in _paired_binding_values(target, node.value):
+                if _is_builtin_getattr_reference(value, imported_modules, {}):
+                    known.add(alias)
+                if isinstance(value, ast.Name):
+                    dependents.setdefault(value.id, set()).add(alias)
+    # Each target enters the queue at most once. Conflicting dormant scopes
+    # cannot remove a possible getter or make a multi-kind fixpoint oscillate.
+    pending = list(known)
+    while pending:
+        for alias in dependents.get(pending.pop(), ()):
+            if alias not in known:
+                known.add(alias)
+                pending.append(alias)
+    return {alias: "getattr" for alias in sorted(known)}
+
+
 def _is_builtin_vars_reference(
     node: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
@@ -3757,10 +3809,13 @@ def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
         for name, candidates in imported_modules.items()
         if {"unittest", "unittest.case"}.intersection(candidates)
     }
+    getter_aliases = _python_conservative_getattr_aliases(nodes, imported_modules)
     for node in (
         *nodes,
         *(ast.Name(id=name, ctx=ast.Load()) for name in imported_modules),
     ):
+        if _is_bound_unittest_skip_method(node, imported_modules, getter_aliases):
+            return True
         if _pytest_collection_abort_callable_name(node, imported_modules, {}) in {
             "exit", "importorskip", "skip", "skip-exception", "xfail", "xfail-exception"
         } or _unittest_skiptest_reference(
@@ -6995,22 +7050,6 @@ def _parameterized_ref(
                         runtime_unittest_skip_aliases.add(alias)
     runtime_unittest_method_skip_call_ids: set[int] = set()
 
-    def is_bound_unittest_skip_method(value: ast.AST) -> bool:
-        if isinstance(value, ast.Attribute) and value.attr == "skipTest":
-            return True
-        return (
-            isinstance(value, ast.Call)
-            and _is_builtin_getattr_reference(
-                value.func,
-                runtime_imports,
-                runtime_abort_aliases,
-            )
-            and len(value.args) in {2, 3}
-            and not value.keywords
-            and isinstance(value.args[1], ast.Constant)
-            and value.args[1].value == "skipTest"
-        )
-
     for function_scope in function_scopes:
         method_skip_aliases: set[str] = set()
         conditional_node_ids = conditional_execution_node_ids_by_scope[
@@ -7031,7 +7070,11 @@ def _parameterized_ref(
                         target,
                         execution_node.value,
                     ):
-                        if is_bound_unittest_skip_method(bound_value) or (
+                        if _is_bound_unittest_skip_method(
+                            bound_value,
+                            runtime_imports,
+                            runtime_abort_aliases,
+                        ) or (
                             isinstance(bound_value, ast.Name)
                             and bound_value.id in method_skip_aliases
                         ):
