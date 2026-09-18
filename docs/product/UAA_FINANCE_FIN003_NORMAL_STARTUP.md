@@ -37,9 +37,10 @@ stop it through its owning launcher and start it again with the intended values.
 For developer instances, preserve the original endpoint settings when stopping;
 use `scripts/dev/uaa stop` followed by `scripts/dev/uaa start`. For an installed
 app, use `uaa stop` followed by `uaa launch`. Refusal preserves the running
-process and its ownership metadata. If the recorded process is still alive but
-its runtime identity cannot be verified, launch and stop preserve that ownership
-record and report the refusal; only a proven-dead process may be treated as stale.
+process and its ownership metadata. For installed apps, if the recorded process
+is still alive but its runtime identity cannot be verified, launch and stop
+preserve that ownership record and report the refusal; only a proven-dead process
+may be treated as stale. The developer launcher's general stop behavior is unchanged.
 A changed environment does not retroactively
 disable or reconfigure an already running backend. Legacy instances without the
 configuration binding also require this one-time stop/restart.
@@ -54,7 +55,7 @@ initialize a book or replay an interrupted save.
 |---|---|
 | Authority and provenance | Applicable: exact four-name backend allowlist, values captured from trusted process configuration, unchanged Core policy/approval/native digest checks; launcher and workspace tests. No wildcard or backend-selector forwarding. |
 | Atomicity and recovery | Applicable: configuration identity records the actual environment supplied to the spawned child; refusal does not overwrite ownership metadata or perform recovery. Existing owned stop remains available. |
-| Concurrency and generations | Applicable: capture one environment per spawn and bind its metadata to that same capture; running instances with missing or different identity cannot be reused as newly configured instances. Existing lifecycle locks and ownership checks remain unchanged. |
+| Concurrency and generations | Applicable: capture one environment per spawn and bind its metadata to that same capture; running instances with missing or different identity cannot be reused as newly configured instances. Existing ownership checks remain in place; this child does not add serialization of concurrent launches. |
 | Tampering and substitution | Applicable: canonical domain-separated digest distinguishes absence from empty values and every configuration key; malformed/missing identity refuses reuse. No runtime identity is inferred from port liveness. |
 | Capacity and retention | Applicable: fixed four-key input, fixed-length content-free digest, existing bounded metadata lifecycle. No new journal, raw values, paths, or environment dump. |
 | Failure truth | Applicable: readable restart-required refusal, no automatic browser open, restart, stop, or mutation on mismatch; preserve invalid/empty values for Core fail-closed classification. |
