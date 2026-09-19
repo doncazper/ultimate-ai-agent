@@ -4519,6 +4519,7 @@ def _python_record_runtime_import_provenance(
     import_node: ast.Import | ast.ImportFrom,
     *,
     allow_namespace_rebind: bool = True,
+    relative_package: str | None = None,
 ) -> None:
     for imported in import_node.names:
         name = imported.asname or (
@@ -4530,6 +4531,20 @@ def _python_record_runtime_import_provenance(
             if isinstance(import_node, ast.Import)
             else ("from", str(import_node.level), import_node.module or "", imported.name)
         )
+        if isinstance(import_node, ast.ImportFrom):
+            canonical_candidates = _python_import_modules(
+                ast.Module(
+                    body=[ast.ImportFrom(
+                        module=import_node.module,
+                        names=[imported],
+                        level=import_node.level,
+                    )],
+                    type_ignores=[],
+                ),
+                relative_package=relative_package,
+            ).get(name, ())
+            if canonical_candidates:
+                source_spec = ("from", *canonical_candidates)
         previous = namespaces.get(name)
         namespace = (
             (imported.name,)
@@ -4591,7 +4606,9 @@ def _python_binding_module_analysis(
     )
     runtime_import_provenance: dict[str, _PythonRuntimeImportProvenance] = {}
     for import_node in import_nodes:
-        _python_record_runtime_import_provenance(runtime_import_provenance, import_node)
+        _python_record_runtime_import_provenance(
+            runtime_import_provenance, import_node, relative_package=relative_package
+        )
     import_positions: dict[str, tuple[int, int]] = {}
     binding_positions: dict[str, tuple[int, int]] = {}
     direct_module_aliases: set[str] = set()
@@ -4729,7 +4746,8 @@ def _python_binding_node_analysis(
         local_provenance: dict[str, _PythonRuntimeImportProvenance] = {}
         for import_node in scope_import_nodes:
             _python_record_runtime_import_provenance(
-                local_provenance, import_node, allow_namespace_rebind=False
+                local_provenance, import_node, allow_namespace_rebind=False,
+                relative_package=analysis.relative_package,
             )
         provenance = {**provenance, **local_provenance}
         referenced_names = {
@@ -6911,7 +6929,9 @@ def _parameterized_ref(
     for module_node in tree.body:
         if not isinstance(module_node, (ast.Import, ast.ImportFrom)):
             continue
-        _python_record_runtime_import_provenance(module_namespace_imports, module_node)
+        _python_record_runtime_import_provenance(
+            module_namespace_imports, module_node, relative_package=relative_package
+        )
         for name, candidates in _python_import_modules(
             ast.Module(body=[module_node], type_ignores=[]),
             relative_package=relative_package,
@@ -6988,7 +7008,8 @@ def _parameterized_ref(
                 binding_nodes.setdefault(name, []).append(scope_node)
             if isinstance(scope_node, (ast.Import, ast.ImportFrom)):
                 _python_record_runtime_import_provenance(
-                    namespaces, scope_node, allow_namespace_rebind=False
+                    namespaces, scope_node, allow_namespace_rebind=False,
+                    relative_package=relative_package,
                 )
                 local_imports = _python_import_modules(
                     ast.Module(body=[scope_node], type_ignores=[]),
@@ -7060,7 +7081,9 @@ def _parameterized_ref(
                         candidates = imported_modules.get(name, ())
                     active_imports[name] = candidates
                     node_namespaces: dict[str, _PythonRuntimeImportProvenance] = {}
-                    _python_record_runtime_import_provenance(node_namespaces, scope_node)
+                    _python_record_runtime_import_provenance(
+                        node_namespaces, scope_node, relative_package=relative_package
+                    )
                     active_namespaces[name] = node_namespaces[name]
             if isinstance(scope_node, ast.Call):
                 called_helper = called_helpers_by_call_id.get(id(scope_node))

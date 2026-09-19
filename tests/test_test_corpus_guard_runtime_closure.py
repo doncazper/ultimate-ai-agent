@@ -2735,3 +2735,67 @@ def test_reached_import_installer_write_retains_selected_producer_identity(
         assert removed[0].startswith(f"{TEST_PATH}::test_case")
     else:
         assert removed == ()
+
+
+@pytest.mark.parametrize("owner", ["test-local", "imported-module"])
+@pytest.mark.parametrize("different_source", [False, True], ids=["equivalent", "different-source"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_relative_absolute_imports_use_the_resolved_owner_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    owner: str, different_source: bool, changed: bool, snapshot: bool,
+) -> None:
+    absolute_source = "tests.decoy" if different_source else "tests.producer"
+    imports = (
+        "if __package__ in {None, ''}:\n"
+        f"    from {absolute_source} import runtime_value\n"
+        "else:\n    from .producer import runtime_value\n"
+    )
+    check = (
+        "    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+    )
+    support = {
+        "tests/__init__.py": "",
+        "tests/producer.py": "from ultimate_ai_agent.subject import runtime_value\n",
+        "tests/decoy.py": "def runtime_value(): return 1\n",
+    }
+    if owner == "test-local":
+        test_source = "import pytest\ndef test_case():\n"
+        test_source += "".join("    " + line + "\n" for line in imports.splitlines())
+        test_source += check + "    assert value == 1\n"
+    else:
+        support["tests/helpers.py"] = (
+            "import pytest\n" + imports + "def require_value():\n"
+            + check + "    return value\n"
+        )
+        test_source = (
+            "from tests.helpers import require_value\n"
+            "def test_case(): assert require_value() == 1\n"
+        )
+    _install_subject(
+        tmp_path, monkeypatch, test_source, base_additions=support,
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    if different_source:
+        reason = (
+            "imported runtime helper dependency is ambiguous"
+            if owner == "test-local" else
+            "ambiguous strict runtime import binding cannot be inventoried safely"
+        )
+        with pytest.raises(guard.TestCorpusGuardError, match=f"^{reason}$"):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        return
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()

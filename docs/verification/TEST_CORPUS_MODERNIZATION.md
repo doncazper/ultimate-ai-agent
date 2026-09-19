@@ -91,6 +91,8 @@ Module values, static members and explicit package namespaces retain their lexic
 import bindings. Competing import bindings that cannot be selected exactly refuse
 the comparison, including when source text is unchanged; one from-import's
 module/member alternatives remain a single supported import specification.
+Relative and absolute from-imports of the same canonical member share that
+specification; different resolved members remain distinct.
 Reached helpers retain declared global and nonlocal import writes as producer
 dependencies even when the helper does not read the imported name itself.
 An unreferenced installer does not replace the consumer's selected binding.
